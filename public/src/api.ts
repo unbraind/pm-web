@@ -17,3 +17,13 @@ export async function api(method: string, path: string, body?: unknown): Promise
   }
   return data;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getGuide(projectId: string): Promise<any> {
+  return api('GET', `/projects/${projectId}/pm/guide`);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getGuideTopic(projectId: string, topicId: string): Promise<any> {
+  return api('GET', `/projects/${projectId}/pm/guide/${encodeURIComponent(topicId)}`);
+}

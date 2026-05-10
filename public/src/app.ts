@@ -25,6 +25,7 @@ import { renderSharedView } from './views/shared.js';
 import { renderTemplatesView, createFromTemplate } from './views/templates.js';
 import { renderCommentsAuditView } from './views/comments-audit.js';
 import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject } from './views/config.js';
+import { renderGuideView } from './views/guide.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -104,6 +105,7 @@ let deferredPrompt: any = null;
   renderTemplatesView,
   renderCommentsAuditView,
   renderConfigView,
+  renderGuideView,
 
   // Config
   configAddArrayItem,

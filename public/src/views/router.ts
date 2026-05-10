@@ -24,6 +24,7 @@ import { renderSharedView } from './shared.js';
 import { renderTemplatesView } from './templates.js';
 import { renderCommentsAuditView } from './comments-audit.js';
 import { renderConfigView } from './config.js';
+import { renderGuideView } from './guide.js';
 
 export function showView(view: string): void {
   state.currentView = view;
@@ -61,6 +62,7 @@ export function showView(view: string): void {
     case 'templates': renderTemplatesView(); break;
     case 'comments-audit': renderCommentsAuditView(); break;
     case 'config': renderConfigView(); break;
+    case 'guide': renderGuideView(); break;
   }
   updateMobileNav(view);
 }

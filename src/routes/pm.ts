@@ -746,6 +746,35 @@ router.get("/files/:itemId", async (req: AuthRequest, res) => {
   res.json(result.ok ? (result.parsed || {}) : { files: [] });
 });
 
+// GET /api/projects/:projectId/pm/guide — list guide topics
+router.get("/guide", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const result = runPm({
+    args: ["guide"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// GET /api/projects/:projectId/pm/guide/:topicId — get single guide topic
+router.get("/guide/:topicId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const result = runPm({
+    args: ["guide", req.params["topicId"]!],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) { res.status(404).json({ error: result.stderr || "Topic not found" }); return; }
+  res.json(result.parsed || {});
+});
+
 // ─────────────────────────────────────────────────────────
 // New routes: export, import, update-many, docs, test-all,
 // test-runs, gc, templates, config, list-status-shortcuts,
