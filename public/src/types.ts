@@ -46,9 +46,11 @@ export interface Item {
   goal?: string;
   environment?: string;
   blockedBy?: string;
+  blockedReason?: string;
   reproSteps?: string;
   expectedResult?: string;
   'blocked-by'?: string;
+  'blocked-reason'?: string;
   'repro-steps'?: string;
   'expected-result'?: string;
 }

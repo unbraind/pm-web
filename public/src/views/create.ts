@@ -8,6 +8,7 @@ import { toast } from '../components/toast.js';
 import { TYPES, TYPE_ICONS, PRIORITY_LABELS } from '../constants.js';
 import { showView } from './router.js';
 import { loadItemsBadge } from './projects.js';
+import { openItemDetail } from './items.js';
 
 export function renderCreateView(): void {
   const el = document.getElementById('content-create');
@@ -142,11 +143,16 @@ export function renderCreateView(): void {
                   <textarea class="form-textarea" id="ci-expected-result" placeholder="What should happen" rows="2"></textarea>
                 </div>
               </div>
+              <div class="form-group">
+                <label class="form-label">Blocked Reason</label>
+                <textarea class="form-textarea" id="ci-blocked-reason" placeholder="Why is this item blocked? (optional)" rows="2"></textarea>
+              </div>
             </div>
           </details>
           <div class="form-error" id="ci-error" style="display:none"></div>
-          <div style="display:flex;gap:8px;margin-top:8px">
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button type="submit" class="btn btn-primary" id="ci-submit"><span>Create Item</span></button>
+            <button type="button" class="btn btn-secondary" id="ci-submit-open" onclick="window.__app.submitCreateItemAndOpen(event)"><span>Create &amp; Open</span></button>
             <button type="button" class="btn btn-ghost" onclick="window.__app.showView('items')">Cancel</button>
           </div>
         </form>
@@ -154,7 +160,12 @@ export function renderCreateView(): void {
     </div>`;
 }
 
-export async function submitCreateItem(e: Event): Promise<void> {
+export async function submitCreateItemAndOpen(e: Event): Promise<void> {
+  e.preventDefault();
+  await submitCreateItem(e, true);
+}
+
+export async function submitCreateItem(e: Event, openAfter = false): Promise<void> {
   e.preventDefault();
   const val = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value?.trim() || '';
   const title = val('ci-title');
@@ -179,13 +190,16 @@ export async function submitCreateItem(e: Event): Promise<void> {
   const blockedBy = val('ci-blocked-by');
   const reproSteps = val('ci-repro-steps');
   const expectedResult = val('ci-expected-result');
+  const blockedReason = val('ci-blocked-reason');
   const errEl = document.getElementById('ci-error') as HTMLElement | null;
   const btn = document.getElementById('ci-submit') as HTMLButtonElement | null;
   if (errEl) errEl.style.display = 'none';
 
   if (!title) { if (errEl) { errEl.textContent = 'Title is required'; errEl.style.display='block'; } return; }
 
+  const btnOpen = document.getElementById('ci-submit-open') as HTMLButtonElement | null;
   if (btn) { btn.disabled = true; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Creating…'; }
+  if (btnOpen) btnOpen.disabled = true;
   try {
     const bodyData: Record<string, string> = {title,type,priority};
     if (description) bodyData.description = description;
@@ -207,8 +221,10 @@ export async function submitCreateItem(e: Event): Promise<void> {
     if (blockedBy) bodyData['blocked-by'] = blockedBy;
     if (reproSteps) bodyData['repro-steps'] = reproSteps;
     if (expectedResult) bodyData['expected-result'] = expectedResult;
+    if (blockedReason) bodyData['blocked-reason'] = blockedReason;
     const data = await api('POST',`/projects/${state.currentProject!.id}/pm/create`,bodyData);
-    toast(`Created ${(data as any).item?.id||(data as any).id||'item'}!`,'success');
+    const newId: string = (data as any).item?.id || (data as any).id || '';
+    toast(`Created ${newId || 'item'}!`,'success');
     const form = document.getElementById('create-item-form') as HTMLFormElement | null;
     if (form) form.reset();
     const typeEl = document.getElementById('ci-type') as HTMLSelectElement | null;
@@ -216,9 +232,15 @@ export async function submitCreateItem(e: Event): Promise<void> {
     const priEl = document.getElementById('ci-priority') as HTMLSelectElement | null;
     if (priEl) priEl.value = '3';
     loadItemsBadge();
-    showView('items');
+    if (openAfter && newId) {
+      showView('items');
+      openItemDetail(newId);
+    } else {
+      showView('items');
+    }
   } catch(err: unknown) {
     if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = 'block'; }
     if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Create Item'; }
+    if (btnOpen) btnOpen.disabled = false;
   }
 }

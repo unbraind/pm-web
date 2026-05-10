@@ -6,7 +6,7 @@ import { api } from './api.js';
 import { showView } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject } from './views/projects.js';
 import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters } from './views/items.js';
-import { submitCreateItem } from './views/create.js';
+import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
 import { renderActivityView } from './views/activity.js';
 import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSearch } from './views/search.js';
 import { renderStatsView } from './views/stats.js';
@@ -133,6 +133,7 @@ let deferredPrompt: any = null;
 
   // Create
   submitCreateItem,
+  submitCreateItemAndOpen,
 
   // Search
   setSearchMode,
@@ -190,7 +191,89 @@ let deferredPrompt: any = null;
 
   // Toast (used by search.ts)
   toast,
+
+  // SSE
+  connectSSE,
+  disconnectSSE,
 };
+
+// ═══════════════════════════════════════════════════════════════
+// SSE REAL-TIME SYNC
+// ═══════════════════════════════════════════════════════════════
+let sseSource: EventSource | null = null;
+let sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let sseCurrentProjectId: string | null = null;
+
+function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): void {
+  const el = document.getElementById('sse-indicator');
+  if (!el) return;
+  el.classList.remove('connected', 'reconnecting');
+  if (status === 'connected') {
+    el.classList.add('connected');
+    el.title = 'Real-time sync connected';
+  } else if (status === 'reconnecting') {
+    el.classList.add('reconnecting');
+    el.title = 'Real-time sync reconnecting…';
+  } else {
+    el.title = 'Real-time sync disconnected';
+  }
+}
+
+function disconnectSSE(): void {
+  if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null; }
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  sseCurrentProjectId = null;
+  setSseStatus('disconnected');
+}
+
+function connectSSE(projectId: string, attempt = 0): void {
+  if (sseCurrentProjectId === projectId && sseSource && sseSource.readyState !== EventSource.CLOSED) return;
+  disconnectSSE();
+  sseCurrentProjectId = projectId;
+  setSseStatus(attempt > 0 ? 'reconnecting' : 'disconnected');
+
+  const url = `/api/projects/${encodeURIComponent(projectId)}/pm/events`;
+  try {
+    const source = new EventSource(url);
+    sseSource = source;
+
+    source.addEventListener('connected', () => {
+      setSseStatus('connected');
+    });
+
+    // Handle item updates — refresh the current view
+    const refreshView = () => {
+      const view = state.currentView;
+      if (view === 'items') {
+        fetchAndRenderItems();
+      } else if (view === 'activity') {
+        renderActivityView();
+      } else if (view === 'stats') {
+        renderStatsView();
+      }
+      loadItemsBadge();
+    };
+
+    source.addEventListener('item_created', refreshView);
+    source.addEventListener('item_updated', refreshView);
+    source.addEventListener('item_closed', refreshView);
+    source.addEventListener('item_deleted', refreshView);
+    source.addEventListener('update', refreshView);
+
+    source.onerror = () => {
+      setSseStatus('reconnecting');
+      source.close();
+      sseSource = null;
+      const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+      sseReconnectTimer = setTimeout(() => connectSSE(projectId, attempt + 1), delay);
+    };
+  } catch {
+    // EventSource not supported or URL invalid
+    setSseStatus('disconnected');
+  }
+}
+
+export { connectSSE, disconnectSSE };
 
 // ═══════════════════════════════════════════════════════════════
 // BOOT

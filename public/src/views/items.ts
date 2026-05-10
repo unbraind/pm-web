@@ -235,6 +235,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           ${item.sprint ? `<div class="meta-chip">Sprint <strong>${escHtml(item.sprint)}</strong></div>` : ''}
           ${item.release ? `<div class="meta-chip">Release <strong>${escHtml(item.release)}</strong></div>` : ''}
           ${item.estimated_minutes ? `<div class="meta-chip">~${item.estimated_minutes}m</div>` : ''}
+          ${item.blockedBy||item['blocked-by'] ? `<div class="meta-chip" style="border-color:rgba(248,113,113,0.4);color:#f87171">Blocked by <strong class="mono">${escHtml(item.blockedBy||item['blocked-by']||'')}</strong></div>` : ''}
           ${tags ? `<div class="item-tags">${tags}</div>` : ''}
         </div>
         <div class="claim-btn-wrap">
@@ -249,6 +250,18 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="item-detail-section">
           <div class="item-detail-section-title">Description</div>
           <div class="item-detail-desc">${escHtml(item.description)}</div>
+        </div>` : ''}
+
+      ${(item.blockedReason||item['blocked-reason']) ? `
+        <div class="item-detail-section" style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px">
+          <div class="item-detail-section-title" style="color:#f87171">Blocked Reason</div>
+          <div class="item-detail-desc">${escHtml(item.blockedReason||item['blocked-reason']||'')}</div>
+        </div>` : ''}
+
+      ${item.acceptance_criteria||item.acceptanceCriteria ? `
+        <div class="item-detail-section">
+          <div class="item-detail-section-title">Acceptance Criteria</div>
+          <div class="item-detail-desc">${escHtml(item.acceptance_criteria||item.acceptanceCriteria||'')}</div>
         </div>` : ''}
 
       <div class="tabs">
@@ -331,6 +344,10 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="form-group">
           <label class="form-label">Acceptance Criteria</label>
           <textarea class="form-textarea" id="edit-acceptance-criteria" rows="2">${escHtml(item.acceptance_criteria||item.acceptanceCriteria||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Blocked Reason</label>
+          <textarea class="form-textarea" id="edit-blocked-reason" rows="2" placeholder="Why is this item blocked?">${escHtml(item.blockedReason||item['blocked-reason']||'')}</textarea>
         </div>
         <button class="btn btn-primary" onclick="window.__app.updateItem('${escHtml(itemId)}')">Save Changes</button>
       </div>
@@ -528,6 +545,7 @@ export async function updateItem(itemId: string): Promise<void> {
   const estimateEl = document.getElementById('edit-estimate') as HTMLInputElement | null;
   const bodyEl = document.getElementById('edit-body') as HTMLTextAreaElement | null;
   const acEl = document.getElementById('edit-acceptance-criteria') as HTMLTextAreaElement | null;
+  const blockedReasonEl = document.getElementById('edit-blocked-reason') as HTMLTextAreaElement | null;
 
   const title = titleEl?.value.trim() || '';
   const status = statusEl?.value || '';
@@ -541,6 +559,7 @@ export async function updateItem(itemId: string): Promise<void> {
   const estimate = estimateEl?.value.trim() || '';
   const body = bodyEl?.value.trim() || '';
   const acceptanceCriteria = acEl?.value.trim() || '';
+  const blockedReason = blockedReasonEl?.value.trim() || '';
 
   if (!title) { toast('Title required','error'); return; }
   try {
@@ -552,6 +571,7 @@ export async function updateItem(itemId: string): Promise<void> {
     if (estimate) payload.estimate = estimate;
     if (body) payload.body = body;
     if (acceptanceCriteria) payload.acceptanceCriteria = acceptanceCriteria;
+    if (blockedReason) payload.blockedReason = blockedReason;
     await api('PATCH',`/projects/${state.currentProject!.id}/pm/update/${itemId}`,payload);
     toast('Item updated','success');
     openItemDetail(itemId);

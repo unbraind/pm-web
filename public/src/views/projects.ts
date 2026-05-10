@@ -25,6 +25,7 @@ export function renderProjectSelector(): void {
 export async function onProjectSelect(id: string): Promise<void> {
   if (!id) {
     state.currentProject = null;
+    (window as any).__app?.disconnectSSE?.();
     const pmSection = document.getElementById('sidebar-pm-section');
     if (pmSection) pmSection.style.display = 'none';
     showView('projects');
@@ -37,6 +38,7 @@ export async function onProjectSelect(id: string): Promise<void> {
   if (pmSection) pmSection.style.display = '';
   const projName = document.getElementById('sidebar-project-name');
   if (projName) projName.textContent = proj.name;
+  (window as any).__app?.connectSSE?.(proj.id);
   showView('items');
   loadItemsBadge();
 }

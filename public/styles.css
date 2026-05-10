@@ -571,6 +571,32 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
 .file-row:last-child { border-bottom: none; }
 .file-path { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); flex: 1; }
 
+/* ── SSE Real-time Indicator ── */
+.sse-indicator {
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; cursor: default; flex-shrink: 0;
+}
+.sse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-muted); transition: background 0.4s ease;
+}
+.sse-indicator.connected .sse-dot {
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74,222,128,0.6);
+  animation: ssePulse 2s ease-in-out infinite;
+}
+.sse-indicator.reconnecting .sse-dot {
+  background: #facc15;
+  animation: sseBlink 1s ease-in-out infinite;
+}
+@keyframes ssePulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(74,222,128,0.4); }
+  50% { box-shadow: 0 0 10px rgba(74,222,128,0.8); }
+}
+@keyframes sseBlink {
+  0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+}
+
 /* ── Drag Handle ── */
 .drag-hint { font-size: 11px; color: var(--text-muted); padding: 8px 0; display: flex; align-items: center; gap: 6px; }
 
