@@ -1,6 +1,7 @@
 const CACHE_NAME = 'pm-web-v3';
 const STATIC_ASSETS = [
   '/',
+  '/styles.css',
   '/manifest.json',
 ];
 

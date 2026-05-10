@@ -9,6 +9,7 @@ import { pmRouter } from "./routes/pm.js";
 import { groupsRouter } from "./routes/groups.js";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.js";
 import { githubRouter } from "./routes/github.js";
+import { cleanupStaleClients } from "./services/sse.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "4000", 10);
@@ -55,6 +56,8 @@ initSchema()
     app.listen(PORT, () => {
       console.log(`pm-web running on :${PORT}`);
     });
+    // Periodic cleanup of stale SSE clients
+    setInterval(cleanupStaleClients, 5 * 60 * 1000);
   })
   .catch((err) => {
     console.error("Failed to initialize database schema:", err);

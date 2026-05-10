@@ -7,7 +7,9 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:frontend": "cd public && npx tsc",
+    "build:all": "npm run build && npm run build:frontend"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

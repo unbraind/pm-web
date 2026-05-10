@@ -2,6 +2,8 @@ import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { runPm, projectExists } from "../services/pm-runner.js";
 import { verifyProjectAccess } from "./projects.js";
+import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, type SSEEvent } from "../services/sse.js";
+import { v4 as uuidv4 } from "uuid";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
@@ -100,6 +102,11 @@ router.post("/create", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to create item" });
     return;
   }
+  // Broadcast SSE create event
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-created",
+    data: { result: result.parsed, userId: req.user!.userId },
+  });
   res.status(201).json(result.parsed || {});
 });
 
@@ -123,27 +130,44 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { title, description, status, priority, tags, parent, deadline, assignee, sprint, release, estimate, body, acceptanceCriteria } = req.body as Record<string, string>;
+  const body = req.body as Record<string, string>;
   const args = ["update", req.params["itemId"]!];
-  if (title) args.push("--title", title);
-  if (description !== undefined) args.push("--description", description);
-  if (status) args.push("--status", status);
-  if (priority) args.push("--priority", priority);
-  if (tags) args.push("--tags", tags);
-  if (parent) args.push("--parent", parent);
-  if (deadline) args.push("--deadline", deadline);
-  if (assignee) args.push("--assignee", assignee);
-  if (sprint) args.push("--sprint", sprint);
-  if (release) args.push("--release", release);
-  if (estimate) args.push("--estimate", estimate);
-  if (body) args.push("--body", body);
-  if (acceptanceCriteria) args.push("--acceptance-criteria", acceptanceCriteria);
+  // String options
+  const stringFlags: Record<string, string> = {
+    title: "--title", description: "--description", status: "--status", priority: "--priority",
+    tags: "--tags", parent: "--parent", deadline: "--deadline", assignee: "--assignee",
+    sprint: "--sprint", release: "--release", estimate: "--estimate", body: "--body",
+    acceptanceCriteria: "--acceptance-criteria", reviewer: "--reviewer", risk: "--risk",
+    confidence: "--confidence", blockedBy: "--blocked-by", blockedReason: "--blocked-reason",
+    reporter: "--reporter", severity: "--severity", environment: "--environment",
+    reproSteps: "--repro-steps", expectedResult: "--expected-result", actualResult: "--actual-result",
+    component: "--component", goal: "--goal", objective: "--objective", value: "--value",
+    impact: "--impact", outcome: "--outcome", whyNow: "--why-now",
+    definitionOfReady: "--definition-of-ready", author: "--author", message: "--message",
+    order: "--order", rank: "--rank", closeReason: "--close-reason",
+    resolution: "--resolution", affectedVersion: "--affected-version", fixedVersion: "--fixed-version",
+    regression: "--regression", customerImpact: "--customer-impact",
+    unblockNote: "--unblock-note",
+  };
+  for (const [key, flag] of Object.entries(stringFlags)) {
+    const val = body[key];
+    if (val !== undefined && val !== null && val !== "") {
+      args.push(flag, String(val));
+    }
+  }
+  // Type can be set but must use --type
+  if (body.type) args.push("--type", body.type);
 
   const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to update item" });
     return;
   }
+  // Broadcast SSE update event
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-updated",
+    data: { itemId: req.params["itemId"], userId: req.user!.userId },
+  });
   res.json(result.parsed || {});
 });
 
@@ -165,6 +189,10 @@ router.post("/close/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to close item" });
     return;
   }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-closed",
+    data: { itemId: req.params["itemId"], userId: req.user!.userId },
+  });
   res.json(result.parsed || {});
 });
 
@@ -182,6 +210,10 @@ router.delete("/delete/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to delete item" });
     return;
   }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-deleted",
+    data: { itemId: req.params["itemId"], userId: req.user!.userId },
+  });
   res.json({ ok: true });
 });
 
@@ -712,6 +744,356 @@ router.get("/files/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   res.json(result.ok ? (result.parsed || {}) : { files: [] });
+});
+
+// ─────────────────────────────────────────────────────────
+// New routes: export, import, update-many, docs, test-all,
+// test-runs, gc, templates, config, list-status-shortcuts,
+// SSE endpoint
+// ─────────────────────────────────────────────────────────
+
+// GET /api/projects/:projectId/pm/export?format=json|csv
+router.get("/export", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const format = (req.query["format"] as string) || "json";
+  const result = runPm({
+    args: ["list-all", "--limit", "10000"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+
+  if (!result.ok) {
+    res.status(500).json({ error: result.stderr || "Export failed" });
+    return;
+  }
+
+  const data = result.parsed as { items?: unknown[] } | undefined;
+
+  if (format === "csv") {
+    const items = data?.items ?? [];
+    const rows = items as Record<string, unknown>[];
+    if (rows.length === 0) {
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="${project.slug}-export.csv"`);
+      res.send("");
+      return;
+    }
+    const headers = ["id", "title", "description", "type", "status", "priority", "tags", "assignee", "sprint", "release", "deadline", "created_at", "updated_at"];
+    const csvLines: string[] = [headers.join(",")];
+    for (const item of rows) {
+      const row = headers.map((h) => {
+        const val = item[h];
+        if (val === null || val === undefined) return "";
+        const str = String(Array.isArray(val) ? val.join(";") : val);
+        // Escape CSV: wrap in quotes if contains comma, quote, or newline
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      });
+      csvLines.push(row.join(","));
+    }
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="${project.slug}-export.csv"`);
+    res.send(csvLines.join("\n"));
+  } else {
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="${project.slug}-export.json"`);
+    res.json(data || { items: [] });
+  }
+});
+
+// POST /api/projects/:projectId/pm/import — import JSON items
+router.post("/import", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { items } = req.body as { items?: Array<Record<string, string>> };
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: "items array is required" });
+    return;
+  }
+  if (items.length > 500) {
+    res.status(400).json({ error: "Cannot import more than 500 items at once" });
+    return;
+  }
+
+  const created: string[] = [];
+  const errors: string[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]!;
+    if (!item.title?.trim()) {
+      errors.push(`item[${i}]: title is required`);
+      continue;
+    }
+    const args = ["create", "--title", item.title.trim()];
+    if (item.type) args.push("--type", item.type);
+    if (item.description) args.push("--description", item.description);
+    else args.push("--description", item.title.trim());
+    if (item.priority) args.push("--priority", item.priority);
+    if (item.status) args.push("--status", item.status);
+    if (item.tags) args.push("--tags", item.tags);
+    if (item.assignee) args.push("--assignee", item.assignee);
+    if (item.sprint) args.push("--sprint", item.sprint);
+    if (item.release) args.push("--release", item.release);
+    if (item.deadline) args.push("--deadline", item.deadline);
+    if (item.body) args.push("--body", item.body);
+    if (item.parent) args.push("--parent", item.parent);
+
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (result.ok && result.parsed) {
+      const parsed = result.parsed as { item?: { id: string } };
+      created.push(parsed.item?.id || `item[${i}]`);
+    } else {
+      errors.push(`item[${i}]: ${result.stderr || "create failed"}`);
+    }
+  }
+
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "items-imported",
+    data: { count: created.length, userId: req.user!.userId },
+  });
+  res.json({ created, errors, total: items.length });
+});
+
+// POST /api/projects/:projectId/pm/update-many
+router.post("/update-many", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const body = req.body as Record<string, string>;
+  const args = ["update-many"];
+
+  // Filter options
+  const filterFlags: Record<string, string> = {
+    filterStatus: "--filter-status", filterType: "--filter-type",
+    filterTag: "--filter-tag", filterPriority: "--filter-priority",
+    filterDeadlineBefore: "--filter-deadline-before", filterDeadlineAfter: "--filter-deadline-after",
+    filterAssignee: "--filter-assignee", filterParent: "--filter-parent",
+    filterSprint: "--filter-sprint", filterRelease: "--filter-release",
+    limit: "--limit", offset: "--offset",
+  };
+  for (const [key, flag] of Object.entries(filterFlags)) {
+    if (body[key]) args.push(flag, body[key]!);
+  }
+  if (body.dryRun === "true") args.push("--dry-run");
+  if (body.rollback) args.push("--rollback", body.rollback);
+
+  // Update options (same as update)
+  const updateFlags: Record<string, string> = {
+    title: "--title", description: "--description", body: "--body", status: "--status",
+    priority: "--priority", type: "--type", tags: "--tags", deadline: "--deadline",
+    estimate: "--estimate", acceptanceCriteria: "--acceptance-criteria",
+    definitionOfReady: "--definition-of-ready", sprint: "--sprint", release: "--release",
+    assignee: "--assignee", reviewer: "--reviewer", risk: "--risk", confidence: "--confidence",
+    goal: "--goal", objective: "--objective", value: "--value", impact: "--impact",
+    outcome: "--outcome", whyNow: "--why-now",
+  };
+  for (const [key, flag] of Object.entries(updateFlags)) {
+    if (body[key]) args.push(flag, body[key]!);
+  }
+
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "update-many failed" });
+    return;
+  }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "items-bulk-updated",
+    data: { userId: req.user!.userId },
+  });
+  res.json(result.parsed || {});
+});
+
+// GET /api/projects/:projectId/pm/docs/:itemId
+router.get("/docs/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({
+    args: ["docs", req.params["itemId"]!],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { docs: [] });
+});
+
+// POST /api/projects/:projectId/pm/docs/:itemId
+router.post("/docs/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const { path: docPath, scope, note, remove, validatePaths } = req.body as Record<string, string>;
+  const args = ["docs", req.params["itemId"]!];
+  if (remove) {
+    args.push("--remove", remove);
+  } else if (validatePaths === "true") {
+    args.push("--validate-paths");
+  } else if (docPath) {
+    let addVal = `path=${docPath}`;
+    if (scope) addVal += `,scope=${scope}`;
+    if (note) addVal += `,note=${note}`;
+    args.push("--add", addVal);
+  } else {
+    res.status(400).json({ error: "path, remove, or validatePaths is required" });
+    return;
+  }
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to update docs" });
+    return;
+  }
+  res.json(result.parsed || { ok: true });
+});
+
+// POST /api/projects/:projectId/pm/test-all
+router.post("/test-all", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const body = req.body as Record<string, string>;
+  const args = ["test-all"];
+  if (body.status) args.push("--status", body.status);
+  if (body.limit) args.push("--limit", body.limit);
+  if (body.timeout) args.push("--timeout", body.timeout);
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "test-all failed" });
+    return;
+  }
+  res.json(result.parsed || {});
+});
+
+// GET /api/projects/:projectId/pm/test-runs
+router.get("/test-runs", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const { status, limit } = req.query as Record<string, string>;
+  const args = ["test-runs", "list"];
+  if (status) args.push("--status", status);
+  if (limit) args.push("--limit", limit);
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  res.json(result.ok ? (result.parsed || {}) : { runs: [] });
+});
+
+// POST /api/projects/:projectId/pm/gc
+router.post("/gc", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({ args: ["gc"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// GET /api/projects/:projectId/pm/templates
+router.get("/templates", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({ args: ["templates", "list"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  res.json(result.ok ? (result.parsed || {}) : { templates: [] });
+});
+
+// GET /api/projects/:projectId/pm/templates/:name
+router.get("/templates/:name", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({ args: ["templates", "show", req.params["name"]!], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// GET /api/projects/:projectId/pm/config
+router.get("/config", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({ args: ["config", "project", "list"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// GET /api/projects/:projectId/pm/config/:key
+router.get("/config/:key", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const key = req.params["key"]!;
+  const result = runPm({ args: ["config", "project", "get", key], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// PATCH /api/projects/:projectId/pm/config/:key
+router.patch("/config/:key", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const key = req.params["key"]!;
+  const body = req.body as Record<string, string>;
+  const args = ["config", "project", "set", key];
+  if (body.value) args.push(body.value);
+  if (body.policy) args.push("--policy", body.policy);
+  if (body.format) args.push("--format", body.format);
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// ─── List status shortcut routes ───
+// These wrap pm list-draft, list-open, etc.
+function buildListShortcutRoute(pmCommand: string) {
+  return async (req: AuthRequest, res: Response) => {
+    const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+    if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+    const { type, limit, offset, tag, priority, assignee, sprint, release } = req.query as Record<string, string>;
+    const args = [pmCommand];
+    if (type) args.push("--type", type);
+    if (limit) args.push("--limit", limit);
+    if (offset) args.push("--offset", offset);
+    if (tag) args.push("--tag", tag);
+    if (priority) args.push("--priority", priority);
+    if (assignee) args.push("--assignee", assignee);
+    if (sprint) args.push("--sprint", sprint);
+    if (release) args.push("--release", release);
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    res.json(result.ok ? (result.parsed || {}) : { items: [] });
+  };
+}
+
+import type { Response } from "express";
+
+router.get("/list-draft", buildListShortcutRoute("list-draft"));
+router.get("/list-open", buildListShortcutRoute("list-open"));
+router.get("/list-in-progress", buildListShortcutRoute("list-in-progress"));
+router.get("/list-blocked", buildListShortcutRoute("list-blocked"));
+router.get("/list-closed", buildListShortcutRoute("list-closed"));
+router.get("/list-canceled", buildListShortcutRoute("list-canceled"));
+
+// ─── SSE endpoint ───
+// GET /api/projects/:projectId/pm/events
+router.get("/events", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  setupSSEHeaders(res);
+
+  const clientId = uuidv4();
+  const unsubscribe = addSSEClient({
+    id: clientId,
+    projectId: req.params["projectId"]!,
+    userId: req.user!.userId,
+    res,
+    connectedAt: new Date(),
+  });
+
+  // Heartbeat every 30s to keep connection alive
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {
+      clearInterval(heartbeat);
+      unsubscribe();
+    }
+  }, 30_000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
 });
 
 export { router as pmRouter };
