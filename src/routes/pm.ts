@@ -54,7 +54,11 @@ router.post("/create", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { title, type, priority, description, tags, parent, deadline, assignee, sprint, release, estimate, body, acceptanceCriteria } = req.body as Record<string, string>;
+  const { title, type, priority, description, tags, parent, deadline, assignee, sprint, release, estimate, body, acceptanceCriteria,
+    reporter, component, severity, risk, goal, objective, environment, "blocked-by": blockedBy, "blocked-reason": blockedReason,
+    "repro-steps": reproSteps, "expected-result": expectedResult, "actual-result": actualResult,
+    reviewer, confidence, "why-now": whyNow, value, impact, outcome, "definition-of-ready": definitionOfReady,
+  } = req.body as Record<string, string>;
   if (!title?.trim()) { res.status(400).json({ error: "Title is required" }); return; }
 
   const args = ["create", "--title", title.trim()];
@@ -70,6 +74,25 @@ router.post("/create", async (req: AuthRequest, res) => {
   if (estimate) args.push("--estimate", estimate);
   if (body) args.push("--body", body);
   if (acceptanceCriteria) args.push("--acceptance-criteria", acceptanceCriteria);
+  if (reporter) args.push("--reporter", reporter);
+  if (component) args.push("--component", component);
+  if (severity) args.push("--severity", severity);
+  if (risk) args.push("--risk", risk);
+  if (goal) args.push("--goal", goal);
+  if (objective) args.push("--objective", objective);
+  if (environment) args.push("--environment", environment);
+  if (blockedBy) args.push("--blocked-by", blockedBy);
+  if (blockedReason) args.push("--blocked-reason", blockedReason);
+  if (reproSteps) args.push("--repro-steps", reproSteps);
+  if (expectedResult) args.push("--expected-result", expectedResult);
+  if (actualResult) args.push("--actual-result", actualResult);
+  if (reviewer) args.push("--reviewer", reviewer);
+  if (confidence) args.push("--confidence", confidence);
+  if (whyNow) args.push("--why-now", whyNow);
+  if (value) args.push("--value", value);
+  if (impact) args.push("--impact", impact);
+  if (outcome) args.push("--outcome", outcome);
+  if (definitionOfReady) args.push("--definition-of-ready", definitionOfReady);
 
   const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
@@ -559,4 +582,37 @@ router.get("/dedupe-audit", async (req: AuthRequest, res) => {
   res.json(result.ok ? (result.parsed || {}) : { duplicates: [] });
 });
 
+// GET /api/projects/:projectId/pm/validate
+router.get("/validate", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({
+    args: ["validate"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// POST /api/projects/:projectId/pm/restore/:itemId
+router.post("/restore/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const { target } = req.body as { target?: string };
+  if (!target?.trim()) { res.status(400).json({ error: "Restore target (timestamp or version) is required" }); return; }
+  const result = runPm({
+    args: ["restore", req.params["itemId"]!, target.trim()],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to restore item" });
+    return;
+  }
+  res.json(result.parsed || { ok: true });
+});
+
 export { router as pmRouter };
+

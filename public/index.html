@@ -580,6 +580,12 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
           <div class="sidebar-item" onclick="showView('health')" data-view="health">
             <span class="sidebar-item-icon">♥</span> Health
           </div>
+          <div class="sidebar-item" onclick="showView('dedupe')" data-view="dedupe">
+            <span class="sidebar-item-icon">⧖</span> Dedupe Audit
+          </div>
+          <div class="sidebar-item" onclick="showView('validate')" data-view="validate">
+            <span class="sidebar-item-icon">✓</span> Validate
+          </div>
         </div>
         <div class="sidebar-section">
           <div class="sidebar-section-label">Team</div>
@@ -600,6 +606,8 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
         <div class="content-area" id="content-sharing" style="display:none"><!-- sharing --></div>
         <div class="content-area" id="content-groups" style="display:none"><!-- groups --></div>
         <div class="content-area" id="content-health" style="display:none"><!-- health --></div>
+        <div class="content-area" id="content-dedupe" style="display:none"><!-- dedupe --></div>
+        <div class="content-area" id="content-validate" style="display:none"><!-- validate --></div>
       </main>
     </div>
   </div>
@@ -978,7 +986,7 @@ async function submitCreateProject2() {
 // ═══════════════════════════════════════════════════════════════
 function showView(view) {
   state.currentView = view;
-  const views = ['projects','items','create','activity','search','stats','calendar','context','sharing','groups','health'];
+  const views = ['projects','items','create','activity','search','stats','calendar','context','sharing','groups','health','dedupe','validate'];
   views.forEach(v => {
     const el = document.getElementById(`content-${v}`);
     if (el) el.style.display = v === view ? '' : 'none';
@@ -1004,6 +1012,8 @@ function showView(view) {
     case 'sharing': renderSharingView(); break;
     case 'groups': renderGroupsView(); break;
     case 'health': renderHealthView(); break;
+    case 'dedupe': renderDedupeAuditView(); break;
+    case 'validate': renderValidateView(); break;
   }
 }
 
@@ -1024,6 +1034,9 @@ async function renderItemsView() {
         <button class="btn btn-secondary btn-sm" onclick="renderItemsView()" title="Refresh">↺ Refresh</button>
         <button class="btn btn-primary" onclick="showView('create')">+ New Item</button>
       </div>
+    </div>
+    <div class="status-tabs" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+      ${['','open','in_progress','blocked','draft','closed','canceled'].map(s=>`<button class="btn btn-sm ${state.itemFilters.status===s?'btn-primary':'btn-ghost'}" onclick="setStatusFilter('${s}')">${s===''?'All':s.replace('_',' ')}</button>`).join('')}
     </div>
     <div class="filter-bar">
       <select class="filter-select" id="filter-status" onchange="applyItemFilters()">
@@ -1126,6 +1139,11 @@ function clearFilters() {
   if (frl) frl.value = '';
   if (fas) fas.value = '';
   fetchAndRenderItems();
+}
+
+function setStatusFilter(status) {
+  state.itemFilters.status = status;
+  renderItemsView();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1952,6 +1970,70 @@ function renderCreateView() {
             <label class="form-label">Acceptance Criteria</label>
             <textarea class="form-textarea" id="ci-acceptance-criteria" placeholder="What conditions must be met?" rows="2"></textarea>
           </div>
+          <details style="margin-top:8px;margin-bottom:4px">
+            <summary style="cursor:pointer;color:var(--text-secondary);font-size:13px;padding:4px 0;user-select:none">▸ Advanced fields</summary>
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:0">
+              <div class="form-group">
+                <label class="form-label">Body (Markdown)</label>
+                <textarea class="form-textarea" id="ci-body" placeholder="Full body / notes in markdown" rows="3"></textarea>
+              </div>
+              <div class="two-col">
+                <div class="form-group">
+                  <label class="form-label">Reporter</label>
+                  <input class="form-input" id="ci-reporter" type="text" placeholder="who reported this">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Component</label>
+                  <input class="form-input" id="ci-component" type="text" placeholder="e.g. auth, api, ui">
+                </div>
+              </div>
+              <div class="two-col">
+                <div class="form-group">
+                  <label class="form-label">Severity</label>
+                  <select class="form-select" id="ci-severity">
+                    <option value="">— none —</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Risk</label>
+                  <select class="form-select" id="ci-risk">
+                    <option value="">— none —</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Goal / Objective</label>
+                <input class="form-input" id="ci-goal" type="text" placeholder="What business goal does this serve?">
+              </div>
+              <div class="two-col">
+                <div class="form-group">
+                  <label class="form-label">Environment</label>
+                  <input class="form-input" id="ci-environment" type="text" placeholder="e.g. production, staging">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Blocked By</label>
+                  <input class="form-input" id="ci-blocked-by" type="text" placeholder="item ID blocking this">
+                </div>
+              </div>
+              <div class="two-col">
+                <div class="form-group">
+                  <label class="form-label">Repro Steps</label>
+                  <textarea class="form-textarea" id="ci-repro-steps" placeholder="Steps to reproduce" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Expected Result</label>
+                  <textarea class="form-textarea" id="ci-expected-result" placeholder="What should happen" rows="2"></textarea>
+                </div>
+              </div>
+            </div>
+          </details>
           <div class="form-error" id="ci-error" style="display:none"></div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button type="submit" class="btn btn-primary" id="ci-submit"><span>Create Item</span></button>
@@ -1976,6 +2058,16 @@ async function submitCreateItem(e) {
   const release = document.getElementById('ci-release')?.value.trim() || '';
   const estimate = document.getElementById('ci-estimate')?.value.trim() || '';
   const acceptanceCriteria = document.getElementById('ci-acceptance-criteria')?.value.trim() || '';
+  const body = document.getElementById('ci-body')?.value.trim() || '';
+  const reporter = document.getElementById('ci-reporter')?.value.trim() || '';
+  const component = document.getElementById('ci-component')?.value.trim() || '';
+  const severity = document.getElementById('ci-severity')?.value.trim() || '';
+  const risk = document.getElementById('ci-risk')?.value.trim() || '';
+  const goal = document.getElementById('ci-goal')?.value.trim() || '';
+  const environment = document.getElementById('ci-environment')?.value.trim() || '';
+  const blockedBy = document.getElementById('ci-blocked-by')?.value.trim() || '';
+  const reproSteps = document.getElementById('ci-repro-steps')?.value.trim() || '';
+  const expectedResult = document.getElementById('ci-expected-result')?.value.trim() || '';
   const errEl = document.getElementById('ci-error');
   const btn = document.getElementById('ci-submit');
   errEl.style.display = 'none';
@@ -1995,6 +2087,16 @@ async function submitCreateItem(e) {
     if (release) bodyData.release = release;
     if (estimate) bodyData.estimate = estimate;
     if (acceptanceCriteria) bodyData.acceptanceCriteria = acceptanceCriteria;
+    if (body) bodyData.body = body;
+    if (reporter) bodyData.reporter = reporter;
+    if (component) bodyData.component = component;
+    if (severity) bodyData.severity = severity;
+    if (risk) bodyData.risk = risk;
+    if (goal) bodyData.goal = goal;
+    if (environment) bodyData.environment = environment;
+    if (blockedBy) bodyData['blocked-by'] = blockedBy;
+    if (reproSteps) bodyData['repro-steps'] = reproSteps;
+    if (expectedResult) bodyData['expected-result'] = expectedResult;
     const data = await api('POST',`/projects/${state.currentProject.id}/pm/create`,bodyData);
     toast(`Created ${data.item?.id||data.id||'item'}!`,'success');
     document.getElementById('create-item-form').reset();
@@ -2366,6 +2468,85 @@ async function renderHealthView() {
         </div>` : ''}`;
   } catch(err) {
     document.getElementById('health-content').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEDUPE AUDIT VIEW
+// ═══════════════════════════════════════════════════════════════
+async function renderDedupeAuditView() {
+  const el = document.getElementById('content-dedupe');
+  if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">Dedupe Audit</div><div class="page-subtitle">Find potential duplicate items in ${escHtml(state.currentProject.name)}</div></div>
+      <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="renderDedupeAuditView()">↺ Refresh</button></div>
+    </div>
+    <div id="dedupe-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
+  try {
+    const data = await api('GET', `/projects/${state.currentProject.id}/pm/dedupe-audit`);
+    const groups = data.groups || data.duplicates || [];
+    const el2 = document.getElementById('dedupe-content');
+    if (groups.length === 0) {
+      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--status-closed);font-size:13px">✓ No potential duplicates found — project looks clean!</div></div></div>`;
+    } else {
+      el2.innerHTML = groups.map((g,i) => `
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
+          <div class="card-body">
+            ${(g.items||[]).map(item=>`
+              <div class="item-row" onclick="openItemDetail('${escHtml(item.id||item)}')" style="cursor:pointer">
+                ${typeIcon(item.type)} <span class="item-id">${escHtml(item.id||item)}</span>
+                <span class="item-title">${escHtml(item.title||'')}</span>
+                <div class="item-meta">${statusBadge(item.status)}</div>
+              </div>`).join('')}
+          </div>
+        </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
+    }
+  } catch(err) {
+    document.getElementById('dedupe-content').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDATE VIEW
+// ═══════════════════════════════════════════════════════════════
+async function renderValidateView() {
+  const el = document.getElementById('content-validate');
+  if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">Validate</div><div class="page-subtitle">Run metadata & lifecycle validation on ${escHtml(state.currentProject.name)}</div></div>
+      <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="renderValidateView()">↺ Refresh</button></div>
+    </div>
+    <div id="validate-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
+  try {
+    const data = await api('GET', `/projects/${state.currentProject.id}/pm/validate`);
+    const issues = data.issues || data.errors || data.violations || [];
+    const warnings = data.warnings || [];
+    const el2 = document.getElementById('validate-content');
+    const allIssues = [...issues.map(i=>({...i,level:'error'})), ...warnings.map(w=>({...w,level:'warning'}))];
+    el2.innerHTML = `
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-header"><div class="card-title">Validation Results</div></div>
+        <div class="card-body">
+          ${allIssues.length === 0
+            ? '<div style="color:var(--status-closed);font-size:13px">✓ All checks passed — no issues found!</div>'
+            : allIssues.map(i=>`
+              <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
+                <span style="color:${i.level==='error'?'var(--status-blocked)':'var(--priority-3)'};flex-shrink:0">${i.level==='error'?'✗':'⚠'}</span>
+                <div>
+                  <div style="font-size:13px">${escHtml(i.message||i.description||JSON.stringify(i))}</div>
+                  ${i.id?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px"><a href="#" onclick="openItemDetail('${escHtml(i.id)}');return false" style="color:var(--accent)">${escHtml(i.id)}</a></div>`:''}
+                </div>
+              </div>`).join('')
+          }
+        </div>
+      </div>
+      ${data.summary ? `<div class="card"><div class="card-header"><div class="card-title">Summary</div></div><div class="card-body"><div class="item-detail-desc">${escHtml(data.summary)}</div></div></div>` : ''}
+      ${data.ok !== undefined ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Status: <span style="color:${data.ok?'var(--status-closed)':'var(--status-blocked)'}">${data.ok?'PASS':'FAIL'}</span></div>` : ''}`;
+  } catch(err) {
+    document.getElementById('validate-content').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
   }
 }
 
