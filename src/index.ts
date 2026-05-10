@@ -1,10 +1,32 @@
 // pm-cli-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 
-import { defineExtension } from "@unbrained/pm-cli/sdk";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+// Inline defineExtension helper (avoids runtime dependency on @unbrained/pm-cli/sdk)
+function defineExtension<T>(m: T): T { return m; }
+
+// Minimal type stubs so TypeScript is satisfied without the SDK package
+interface ExtensionApi {
+  registerCommand(def: {
+    name: string;
+    description: string;
+    intent?: string;
+    examples?: string[];
+    flags?: Array<{ long: string; value_name?: string; description: string }>;
+    run(ctx: CommandHandlerContext): Promise<unknown>;
+  }): void;
+}
+
+interface CommandHandlerContext {
+  command: string;
+  args: string[];
+  options: Record<string, unknown>;
+  global: Record<string, unknown>;
+  pm_root: string;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,7 +36,7 @@ export default defineExtension({
   name: "pm-web",
   version: "1.0.0",
 
-  activate(api) {
+  activate(api: ExtensionApi) {
     // -----------------------------------------------------------------------
     // Command: pm web [--port <port>]
     // -----------------------------------------------------------------------
@@ -31,7 +53,7 @@ export default defineExtension({
         { long: "--port", value_name: "port", description: "Port to listen on (default: 4000 or PORT env var)" },
         { long: "--detach", description: "Run the server in the background" },
       ],
-      async run(ctx) {
+      async run(ctx: CommandHandlerContext) {
         const port = (ctx.options["port"] as string | undefined) ?? process.env["PORT"] ?? "4000";
         const detach = Boolean(ctx.options["detach"]);
 
