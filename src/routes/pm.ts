@@ -21,12 +21,15 @@ router.get("/list", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { status, type, limit, priority } = req.query as Record<string, string>;
+  const { status, type, limit, priority, sprint, release, assignee } = req.query as Record<string, string>;
   const args = ["list"];
   if (status) args.push("--status", status);
   if (type) args.push("--type", type);
   if (limit) args.push("--limit", limit);
   if (priority) args.push("--priority", priority);
+  if (sprint) args.push("--sprint", sprint);
+  if (release) args.push("--release", release);
+  if (assignee) args.push("--assignee", assignee);
 
   const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
@@ -51,7 +54,7 @@ router.post("/create", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { title, type, priority, description, tags, parent } = req.body as Record<string, string>;
+  const { title, type, priority, description, tags, parent, deadline, assignee, sprint, release, estimate, body, acceptanceCriteria } = req.body as Record<string, string>;
   if (!title?.trim()) { res.status(400).json({ error: "Title is required" }); return; }
 
   const args = ["create", "--title", title.trim()];
@@ -60,6 +63,13 @@ router.post("/create", async (req: AuthRequest, res) => {
   if (description) args.push("--description", description);
   if (tags) args.push("--tags", tags);
   if (parent) args.push("--parent", parent);
+  if (deadline) args.push("--deadline", deadline);
+  if (assignee) args.push("--assignee", assignee);
+  if (sprint) args.push("--sprint", sprint);
+  if (release) args.push("--release", release);
+  if (estimate) args.push("--estimate", estimate);
+  if (body) args.push("--body", body);
+  if (acceptanceCriteria) args.push("--acceptance-criteria", acceptanceCriteria);
 
   const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
@@ -89,7 +99,7 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { title, description, status, priority, tags, parent } = req.body as Record<string, string>;
+  const { title, description, status, priority, tags, parent, deadline, assignee, sprint, release, estimate, body, acceptanceCriteria } = req.body as Record<string, string>;
   const args = ["update", req.params["itemId"]!];
   if (title) args.push("--title", title);
   if (description !== undefined) args.push("--description", description);
@@ -97,6 +107,13 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   if (priority) args.push("--priority", priority);
   if (tags) args.push("--tags", tags);
   if (parent) args.push("--parent", parent);
+  if (deadline) args.push("--deadline", deadline);
+  if (assignee) args.push("--assignee", assignee);
+  if (sprint) args.push("--sprint", sprint);
+  if (release) args.push("--release", release);
+  if (estimate) args.push("--estimate", estimate);
+  if (body) args.push("--body", body);
+  if (acceptanceCriteria) args.push("--acceptance-criteria", acceptanceCriteria);
 
   const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
@@ -177,6 +194,19 @@ router.get("/comments/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   res.json(result.ok ? (result.parsed || {}) : { comments: [] });
+});
+
+// GET /api/projects/:projectId/pm/notes/:itemId
+router.get("/notes/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({
+    args: ["notes", req.params["itemId"]!],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { notes: [] });
 });
 
 // POST /api/projects/:projectId/pm/notes/:itemId
@@ -514,6 +544,19 @@ router.post("/tests/:itemId", async (req: AuthRequest, res) => {
     return;
   }
   res.status(201).json(result.parsed || { ok: true });
+});
+
+// GET /api/projects/:projectId/pm/dedupe-audit
+router.get("/dedupe-audit", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({
+    args: ["dedupe-audit"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { duplicates: [] });
 });
 
 export { router as pmRouter };
