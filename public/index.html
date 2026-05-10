@@ -525,6 +525,77 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
   #top-nav { padding-top: env(safe-area-inset-top, 0px); }
   .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
+
+/* ── Skeleton Loading ── */
+.skeleton { background: var(--bg-card); border-radius: var(--radius); position: relative; overflow: hidden; }
+.skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%); animation: shimmer 1.5s ease-in-out infinite; }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.skeleton-row { height: 42px; margin-bottom: 4px; }
+.skeleton-card { height: 120px; margin-bottom: 12px; }
+.skeleton-text { height: 14px; margin-bottom: 8px; width: 80%; }
+.skeleton-text-sm { height: 10px; margin-bottom: 6px; width: 50%; }
+
+/* ── Confirm Dialog ── */
+.confirm-dialog {
+  text-align: center; padding: 8px 0;
+}
+.confirm-dialog-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.7; }
+.confirm-dialog-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.confirm-dialog-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.6; }
+.confirm-dialog-actions { display: flex; gap: 8px; justify-content: center; }
+
+/* ── Pull to Refresh ── */
+.pull-indicator {
+  position: absolute; top: -40px; left: 50%; transform: translateX(-50%);
+  height: 36px; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--accent); transition: top 0.2s ease;
+}
+.pull-indicator.pulling { top: 8px; }
+.pull-indicator.refreshing { animation: spin 0.7s linear infinite; }
+
+/* ── Calendar Grid ── */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 16px; }
+.cal-header { font-size: 10px; font-weight: 600; color: var(--text-muted); text-align: center; padding: 8px 2px; text-transform: uppercase; }
+.cal-day {
+  min-height: 64px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: 4px;
+  padding: 3px; font-size: 11px; position: relative; cursor: pointer; transition: var(--transition);
+}
+.cal-day:hover { border-color: var(--border-light); }
+.cal-day.other-month { opacity: 0.35; }
+.cal-day.today { border-color: var(--accent); background: var(--accent-glow); }
+.cal-day-num { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-bottom: 2px; }
+.cal-day.today .cal-day-num { color: var(--accent); }
+.cal-event-dot {
+  display: block; font-size: 9px; padding: 1px 3px; border-radius: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 1px; cursor: pointer;
+}
+.cal-event-dot.status-open { background: rgba(96,165,250,0.2); color: var(--status-open); }
+.cal-event-dot.status-in_progress { background: rgba(45,212,191,0.2); color: var(--status-in_progress); }
+.cal-event-dot.status-blocked { background: rgba(248,113,113,0.2); color: var(--status-blocked); }
+.cal-event-dot.status-closed { background: rgba(74,222,128,0.2); color: var(--status-closed); }
+.cal-event-dot.more { background: var(--bg-input); color: var(--text-muted); text-align: center; }
+
+/* ── Export / Import ── */
+.export-card { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.export-card-icon { font-size: 24px; flex-shrink: 0; }
+.export-card-info { flex: 1; }
+.export-card-title { font-size: 14px; font-weight: 600; }
+.export-card-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Files ── */
+.file-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.file-row:last-child { border-bottom: none; }
+.file-path { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); flex: 1; }
+
+/* ── Drag Handle ── */
+.drag-hint { font-size: 11px; color: var(--text-muted); padding: 8px 0; display: flex; align-items: center; gap: 6px; }
+
+/* ── Optimistic overlay ── */
+.optimistic-overlay {
+  position: absolute; inset: 0; background: rgba(10,15,30,0.6); display: flex;
+  align-items: center; justify-content: center; border-radius: var(--radius); z-index: 5;
+}
 </style>
 </head>
 <body>
@@ -643,11 +714,20 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
           <div class="sidebar-item" onclick="showView('github')" data-view="github">
             <span class="sidebar-item-icon">⊙</span> GitHub
           </div>
+          <div class="sidebar-item" onclick="showView('export')" data-view="export">
+            <span class="sidebar-item-icon">↕</span> Export / Import
+          </div>
+          <div class="sidebar-item" onclick="showView('normalize')" data-view="normalize">
+            <span class="sidebar-item-icon">⊞</span> Normalize
+          </div>
         </div>
         <div class="sidebar-section">
           <div class="sidebar-section-label">Team</div>
           <div class="sidebar-item" onclick="showView('groups')" data-view="groups">
             <span class="sidebar-item-icon">◉</span> Groups
+          </div>
+          <div class="sidebar-item" onclick="showView('shared')" data-view="shared">
+            <span class="sidebar-item-icon">⇄</span> Shared with Me
           </div>
         </div>
       </nav>
@@ -667,6 +747,9 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
         <div class="content-area" id="content-validate" style="display:none"><!-- validate --></div>
         <div class="content-area" id="content-settings" style="display:none"><!-- settings --></div>
         <div class="content-area" id="content-github" style="display:none"><!-- github --></div>
+        <div class="content-area" id="content-export" style="display:none"><!-- export/import --></div>
+        <div class="content-area" id="content-normalize" style="display:none"><!-- normalize --></div>
+        <div class="content-area" id="content-shared" style="display:none"><!-- shared with me --></div>
       </main>
     </div>
   </div>
@@ -704,6 +787,10 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
       <div class="mobile-bottom-nav-item-icon">◈</div>
       <div class="mobile-bottom-nav-item-label">Stats</div>
     </div>
+    <div class="mobile-bottom-nav-item" onclick="showView('shared')" data-mobview="shared">
+      <div class="mobile-bottom-nav-item-icon">⇄</div>
+      <div class="mobile-bottom-nav-item-label">Shared</div>
+    </div>
     <div class="mobile-bottom-nav-item" onclick="showView('settings')" data-mobview="settings">
       <div class="mobile-bottom-nav-item-icon">⚙</div>
       <div class="mobile-bottom-nav-item-label">More</div>
@@ -726,15 +813,16 @@ const state = {
   searchQuery: '',
   searchResults: [],
   searchMode: 'hybrid',
+  calOffset: 0,
 };
 
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
-const TYPES = ['Task','Feature','Issue','Bug','Epic','Milestone','Decision','Chore','Event','Meeting','Reminder'];
+const TYPES = ['Task','Feature','Issue','Epic','Milestone','Decision','Chore','Event','Meeting','Reminder'];
 const STATUSES = ['draft','open','in_progress','blocked','closed','canceled'];
 const TYPE_ICONS = {
-  Task:'✓', Feature:'★', Issue:'⚠', Bug:'✗', Epic:'◈',
+  Task:'✓', Feature:'★', Issue:'⚠', Epic:'◈',
   Milestone:'⚑', Decision:'⚖', Chore:'⚙', Event:'◷', Meeting:'◉', Reminder:'◉'
 };
 const PRIORITY_LABELS = {1:'Critical',2:'High',3:'Medium',4:'Low',5:'Minimal'};
@@ -1005,19 +1093,20 @@ function selectProject(id) {
 }
 
 async function deleteProject(id, name) {
-  if (!confirm(`Delete project "${name}"? This cannot be undone.`)) return;
-  try {
-    await api('DELETE',`/projects/${id}`);
-    toast('Project deleted','success');
-    if (state.currentProject?.id === id) {
-      state.currentProject = null;
-      document.getElementById('sidebar-pm-section').style.display = 'none';
+  confirmDialog('Delete Project?', `Delete project "${name}"? This cannot be undone.`, async () => {
+    try {
+      await api('DELETE',`/projects/${id}`);
+      toast('Project deleted','success');
+      if (state.currentProject?.id === id) {
+        state.currentProject = null;
+        document.getElementById('sidebar-pm-section').style.display = 'none';
+      }
+      await loadProjects();
+      if (state.currentView === 'projects') renderProjectsView();
+    } catch(err) {
+      toast(err.message,'error');
     }
-    await loadProjects();
-    if (state.currentView === 'projects') renderProjectsView();
-  } catch(err) {
-    toast(err.message,'error');
-  }
+  }, true);
 }
 
 function buildCreateProjectModal() {
@@ -1081,7 +1170,7 @@ async function submitCreateProject2() {
 // ═══════════════════════════════════════════════════════════════
 function showView(view) {
   state.currentView = view;
-  const views = ['projects','items','create','activity','search','stats','calendar','context','sharing','groups','health','dedupe','validate','settings','github'];
+  const views = ['projects','items','create','activity','search','stats','calendar','context','sharing','groups','health','dedupe','validate','settings','github','export','normalize','shared'];
   views.forEach(v => {
     const el = document.getElementById(`content-${v}`);
     if (el) el.style.display = v === view ? '' : 'none';
@@ -1111,6 +1200,9 @@ function showView(view) {
     case 'validate': renderValidateView(); break;
     case 'settings': renderSettingsView(); break;
     case 'github': renderGitHubView(); break;
+    case 'export': renderExportView(); break;
+    case 'normalize': renderNormalizeView(); break;
+    case 'shared': renderSharedView(); break;
   }
   updateMobileNav(view);
 }
@@ -1255,7 +1347,7 @@ async function openItemDetail(itemId) {
   showModal('item-detail-modal');
 
   try {
-    const [itemData, commentsData, historyData, depsData, learningsData, notesData, testsData] = await Promise.all([
+    const [itemData, commentsData, historyData, depsData, learningsData, notesData, testsData, filesData] = await Promise.all([
       api('GET',`/projects/${pid}/pm/get/${itemId}`),
       api('GET',`/projects/${pid}/pm/comments/${itemId}`).catch(()=>({comments:[]})),
       api('GET',`/projects/${pid}/pm/history/${itemId}`).catch(()=>({history:[]})),
@@ -1263,6 +1355,7 @@ async function openItemDetail(itemId) {
       api('GET',`/projects/${pid}/pm/learnings/${itemId}`).catch(()=>({learnings:[]})),
       api('GET',`/projects/${pid}/pm/notes/${itemId}`).catch(()=>({notes:[]})),
       api('GET',`/projects/${pid}/pm/tests/${itemId}`).catch(()=>({tests:[]})),
+      api('GET',`/projects/${pid}/pm/files/${itemId}`).catch(()=>({files:[]})),
     ]);
 
     const item = itemData.item || itemData;
@@ -1272,6 +1365,7 @@ async function openItemDetail(itemId) {
     const learnings = learningsData.learnings || [];
     const notes = notesData.notes || [];
     const tests = testsData.tests || [];
+    const files = filesData.files || [];
 
     const modal = document.getElementById('item-detail-modal');
     modal.querySelector('.modal-title').textContent = item.id;
@@ -1354,6 +1448,7 @@ async function openItemDetail(itemId) {
         <div class="tab" onclick="switchDetailTab(this,'tab-deps')">Deps (${deps.length})</div>
         <div class="tab" onclick="switchDetailTab(this,'tab-learnings')">Learnings (${learnings.length})</div>
         <div class="tab" onclick="switchDetailTab(this,'tab-tests')">Tests (${tests.length})</div>
+        <div class="tab" onclick="switchDetailTab(this,'tab-files')">Files (${files.length})</div>
         <div class="tab" onclick="switchDetailTab(this,'tab-history')">History</div>
         ${item.status!=='closed'&&item.status!=='canceled'?`<div class="tab" onclick="switchDetailTab(this,'tab-close')">Close</div>`:''}
       </div>
@@ -1514,6 +1609,26 @@ async function openItemDetail(itemId) {
         ${historyHtml}
       </div>
 
+      <div id="tab-files" style="display:none">
+        <div style="margin-bottom:16px">
+          ${files.length === 0
+            ? '<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No files linked</div>'
+            : files.map(f => `
+                <div class="file-row">
+                  <span style="color:var(--text-muted)">📄</span>
+                  <span class="file-path">${escHtml(f.path || f.name || JSON.stringify(f))}</span>
+                  ${f.scope ? `<span style="font-size:10px;color:var(--text-muted);background:var(--bg-input);padding:2px 6px;border-radius:4px">${escHtml(f.scope)}</span>` : ''}
+                </div>`).join('')
+          }
+        </div>
+        <hr class="section-divider">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Link File</div>
+        <div class="row" style="margin-bottom:8px">
+          <input class="form-input flex-1" id="file-path-input" type="text" placeholder="src/components/App.tsx">
+          <button class="btn btn-primary btn-sm" onclick="addFileLink('${escHtml(itemId)}')">Add</button>
+        </div>
+      </div>
+
       ${item.status!=='closed'&&item.status!=='canceled'?`
       <div id="tab-close" style="display:none">
         <div class="form-group">
@@ -1537,7 +1652,7 @@ function switchDetailTab(tabEl, targetId) {
   const allTabs = tabEl.parentElement.querySelectorAll('.tab');
   allTabs.forEach(t => t.classList.remove('active'));
   tabEl.classList.add('active');
-  const ids = ['tab-comments','tab-update','tab-notes','tab-deps','tab-learnings','tab-tests','tab-history','tab-close'];
+  const ids = ['tab-comments','tab-update','tab-notes','tab-deps','tab-learnings','tab-tests','tab-files','tab-history','tab-close'];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id===targetId?'':'none'; });
 }
 
@@ -1621,26 +1736,30 @@ async function closeItem(itemId, targetStatus) {
 }
 
 async function confirmDeleteItem(itemId) {
-  if (!confirm('Delete this item? This cannot be undone.')) return;
-  try {
-    await api('DELETE',`/projects/${state.currentProject.id}/pm/delete/${itemId}`);
-    toast('Item deleted','success');
-    hideModal('item-detail-modal');
-    if (state.currentView==='items') fetchAndRenderItems();
-    loadItemsBadge();
-  } catch(err) { toast(err.message,'error'); }
+  confirmDialog('Delete Item?', 'This action cannot be undone. The item and all its data will be permanently removed.', async () => {
+    try {
+      await api('DELETE',`/projects/${state.currentProject.id}/pm/delete/${itemId}`);
+      toast('Item deleted','success');
+      hideModal('item-detail-modal');
+      if (state.currentView==='items') fetchAndRenderItems();
+      loadItemsBadge();
+    } catch(err) { toast(err.message,'error'); }
+  }, true);
 }
 
 // ═══════════════════════════════════════════════════════════════
 // CLAIM / RELEASE / START / PAUSE
 // ═══════════════════════════════════════════════════════════════
 async function claimItem(itemId) {
+  // Optimistic update
+  const row = document.querySelector(`.item-row[onclick*="${itemId}"]`);
+  if (row) row.style.opacity = '0.6';
   try {
     await api('POST',`/projects/${state.currentProject.id}/pm/claim/${itemId}`,{});
     toast('Item claimed','success');
     openItemDetail(itemId);
     if (state.currentView==='items') fetchAndRenderItems();
-  } catch(err) { toast(err.message,'error'); }
+  } catch(err) { toast(err.message,'error'); if (row) row.style.opacity = ''; }
 }
 
 async function releaseItem(itemId) {
@@ -1709,6 +1828,19 @@ async function addTest(itemId) {
   try {
     await api('POST',`/projects/${state.currentProject.id}/pm/tests/${itemId}`,{command,description});
     toast('Test added','success');
+    openItemDetail(itemId);
+  } catch(err) { toast(err.message,'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILES
+// ═══════════════════════════════════════════════════════════════
+async function addFileLink(itemId) {
+  const filePath = document.getElementById('file-path-input')?.value?.trim();
+  if (!filePath) { toast('File path is required','error'); return; }
+  try {
+    await api('POST',`/projects/${state.currentProject.id}/pm/files/${itemId}`,{path:filePath});
+    toast('File linked','success');
     openItemDetail(itemId);
   } catch(err) { toast(err.message,'error'); }
 }
@@ -1828,12 +1960,13 @@ async function submitShare() {
 }
 
 async function removeShare(shareId) {
-  if (!confirm('Remove this share? The user will lose access.')) return;
-  try {
-    await api('DELETE',`/projects/${state.currentProject.id}/shares/${shareId}`);
-    toast('Share removed','success');
-    await loadShares();
-  } catch(err) { toast(err.message,'error'); }
+  confirmDialog('Remove Access?', 'The user will lose access to this project.', async () => {
+    try {
+      await api('DELETE',`/projects/${state.currentProject.id}/shares/${shareId}`);
+      toast('Share removed','success');
+      await loadShares();
+    } catch(err) { toast(err.message,'error'); }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1923,12 +2056,13 @@ async function submitCreateGroup() {
 }
 
 async function deleteGroup(groupId, name) {
-  if (!confirm(`Delete group "${name}"? This cannot be undone.`)) return;
-  try {
-    await api('DELETE',`/groups/${groupId}`);
-    toast('Group deleted','success');
-    await loadGroups();
-  } catch(err) { toast(err.message,'error'); }
+  confirmDialog('Delete Group?', `Delete group "${name}"? This cannot be undone.`, async () => {
+    try {
+      await api('DELETE',`/groups/${groupId}`);
+      toast('Group deleted','success');
+      await loadGroups();
+    } catch(err) { toast(err.message,'error'); }
+  }, true);
 }
 
 async function openGroupDetail(groupId, groupName) {
@@ -1987,12 +2121,13 @@ async function inviteMember(groupId) {
 }
 
 async function removeMember(groupId, userId) {
-  if (!confirm('Remove this member from the group?')) return;
-  try {
-    await api('DELETE',`/groups/${groupId}/members/${userId}`);
-    toast('Member removed','success');
-    openGroupDetail(groupId, '');
-  } catch(err) { toast(err.message,'error'); }
+  confirmDialog('Remove Member?', 'Remove this member from the group?', async () => {
+    try {
+      await api('DELETE',`/groups/${groupId}/members/${userId}`);
+      toast('Member removed','success');
+      openGroupDetail(groupId, '');
+    } catch(err) { toast(err.message,'error'); }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2425,34 +2560,122 @@ async function renderCalendarView() {
   el.innerHTML = `
     <div class="page-header">
       <div><div class="page-title">Calendar</div><div class="page-subtitle">Upcoming events &amp; deadlines</div></div>
-      <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="renderCalendarView()">↺ Refresh</button></div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="calNav(-1)">← Prev</button>
+        <span id="cal-month-label" style="font-size:13px;font-weight:600;min-width:120px;text-align:center"></span>
+        <button class="btn btn-ghost btn-sm" onclick="calNav(1)">Next →</button>
+        <button class="btn btn-secondary btn-sm" onclick="renderCalendarView()">↺ Today</button>
+      </div>
     </div>
-    <div id="calendar-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
+    <div id="calendar-content">${skeletonRows(6)}</div>`;
 
   try {
-    const data = await api('GET',`/projects/${state.currentProject.id}/pm/calendar`);
-    const events = data.events || data.items || [];
-    if (events.length === 0) {
-      document.getElementById('calendar-content').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">◷</div>
-          <div class="empty-state-text">No upcoming events</div>
-          <div class="empty-state-sub">Create Event, Meeting, Milestone, or Reminder items to see them here</div>
-        </div>`;
-      return;
+    // Fetch all items with deadlines
+    const [itemsData, calData] = await Promise.all([
+      api('GET',`/projects/${state.currentProject.id}/pm/list-all?limit=9999`),
+      api('GET',`/projects/${state.currentProject.id}/pm/calendar`).catch(()=>({events:[]})),
+    ]);
+    const allItems = (itemsData.items || []).filter(i => i.deadline || i.type === 'Event' || i.type === 'Meeting' || i.type === 'Reminder');
+    const calEvents = calData.events || calData.items || [];
+
+    // Build calendar grid
+    state.calOffset = state.calOffset || 0;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + state.calOffset;
+    const calDate = new Date(year, month, 1);
+    const monthLabel = calDate.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+    document.getElementById('cal-month-label').textContent = monthLabel;
+
+    const firstDay = calDate.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrev = new Date(year, month, 0).getDate();
+    const today = new Date();
+
+    // Map items to dates
+    const dateMap = {};
+    allItems.forEach(item => {
+      if (item.deadline) {
+        const d = new Date(item.deadline).toISOString().slice(0, 10);
+        if (!dateMap[d]) dateMap[d] = [];
+        dateMap[d].push(item);
+      }
+    });
+
+    let gridHtml = '<div class="cal-grid">';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+      gridHtml += `<div class="cal-header">${d}</div>`;
+    });
+
+    // Previous month days
+    for (let i = firstDay - 1; i >= 0; i--) {
+      gridHtml += `<div class="cal-day other-month"><div class="cal-day-num">${daysInPrev - i}</div></div>`;
     }
-    document.getElementById('calendar-content').innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${events.map(ev=>`
-          <div class="calendar-event" onclick="openItemDetail('${escHtml(ev.id||ev.itemId||'')}')">
-            <div class="calendar-event-id">${typeIcon(ev.type)} ${escHtml(ev.id||'')}</div>
-            <div class="calendar-event-title">${escHtml(ev.title||ev.name||'')}</div>
-            <div class="calendar-event-date">${escHtml(ev.date||ev.dueDate||ev.timestamp||'')}</div>
-          </div>`).join('')}
-      </div>`;
+
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${calDate.getFullYear()}-${String(calDate.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+      const dayItems = dateMap[dateStr] || [];
+      gridHtml += `<div class="cal-day${isToday?' today':''}" onclick="showDayItems('${dateStr}')">`;
+      gridHtml += `<div class="cal-day-num">${d}</div>`;
+      dayItems.slice(0, 3).forEach(item => {
+        gridHtml += `<div class="cal-event-dot status-${item.status}" title="${escHtml(item.title)}" onclick="event.stopPropagation();openItemDetail('${escHtml(item.id)}')">${escHtml(item.title.slice(0,12))}</div>`;
+      });
+      if (dayItems.length > 3) {
+        gridHtml += `<div class="cal-event-dot more">+${dayItems.length - 3} more</div>`;
+      }
+      gridHtml += '</div>';
+    }
+
+    // Fill remaining cells
+    const totalCells = firstDay + daysInMonth;
+    const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let i = 1; i <= remaining; i++) {
+      gridHtml += `<div class="cal-day other-month"><div class="cal-day-num">${i}</div></div>`;
+    }
+    gridHtml += '</div>';
+
+    // Upcoming events list
+    let upcomingHtml = '';
+    if (calEvents.length > 0) {
+      upcomingHtml = '<div class="card" style="margin-top:16px"><div class="card-header"><div class="card-title">Upcoming Events</div></div><div class="card-body">';
+      calEvents.slice(0, 10).forEach(ev => {
+        upcomingHtml += `<div class="calendar-event" onclick="openItemDetail('${escHtml(ev.id||ev.itemId||'')}')">
+          <div class="calendar-event-id">${typeIcon(ev.type)} ${escHtml(ev.id||'')}</div>
+          <div class="calendar-event-title">${escHtml(ev.title||ev.name||'')}</div>
+          <div class="calendar-event-date">${escHtml(ev.date||ev.dueDate||ev.timestamp||'')}</div>
+        </div>`;
+      });
+      upcomingHtml += '</div></div>';
+    }
+
+    document.getElementById('calendar-content').innerHTML = gridHtml + upcomingHtml;
   } catch(err) {
     document.getElementById('calendar-content').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
   }
+}
+
+function calNav(dir) {
+  state.calOffset = (state.calOffset || 0) + dir;
+  renderCalendarView();
+}
+
+function showDayItems(dateStr) {
+  if (!state.currentProject) return;
+  createModal('day-items-modal', `Items due ${dateStr}`, '<div class="loading-state"><div class="loading-spinner"></div></div>', '', true);
+  showModal('day-items-modal');
+  api('GET', `/projects/${state.currentProject.id}/pm/list-all?limit=9999`).then(data => {
+    const items = (data.items || []).filter(i => {
+      if (!i.deadline) return false;
+      return new Date(i.deadline).toISOString().slice(0,10) === dateStr;
+    });
+    document.getElementById('day-items-modal').querySelector('.modal-body').innerHTML = items.length === 0
+      ? '<div style="color:var(--text-muted);font-size:13px">No items due on this date</div>'
+      : `<div class="item-list">${items.map(item => renderItemRow(item)).join('')}</div>`;
+  }).catch(err => {
+    document.getElementById('day-items-modal').querySelector('.modal-body').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2841,15 +3064,16 @@ async function saveGitHubToken() {
 }
 
 async function clearGitHubToken() {
-  if (!confirm('Remove your GitHub token? GitHub integration will stop working.')) return;
-  try {
-    const data = await api('PATCH','/auth/github-token',{token:''});
-    state.user.has_github_token = false;
-    toast('GitHub token cleared','success');
-    renderSettingsView();
-  } catch(err) {
-    toast(err.message,'error');
-  }
+  confirmDialog('Clear GitHub Token?', 'Your GitHub integration will stop working.', async () => {
+    try {
+      const data = await api('PATCH','/auth/github-token',{token:''});
+      state.user.has_github_token = false;
+      toast('GitHub token cleared','success');
+      renderSettingsView();
+    } catch(err) {
+      toast(err.message,'error');
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2973,14 +3197,15 @@ async function linkGitHubRepo() {
 }
 
 async function unlinkGitHubRepo() {
-  if (!confirm('Unlink this repository? GitHub integration will be disabled for this project.')) return;
-  try {
-    await api('PATCH',`/projects/${state.currentProject.id}/github`,{owner:'',repo:''});
-    toast('Repository unlinked','success');
-    renderGitHubView();
-  } catch(err) {
-    toast(err.message,'error');
-  }
+  confirmDialog('Unlink Repository?', 'GitHub integration will be disabled for this project.', async () => {
+    try {
+      await api('PATCH',`/projects/${state.currentProject.id}/github`,{owner:'',repo:''});
+      toast('Repository unlinked','success');
+      renderGitHubView();
+    } catch(err) {
+      toast(err.message,'error');
+    }
+  });
 }
 
 async function loadGitHubIssues() {
@@ -3102,6 +3327,242 @@ async function doGlobalSearch() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// CUSTOM CONFIRM DIALOG (replaces window.confirm)
+// ═══════════════════════════════════════════════════════════════
+function confirmDialog(title, desc, onConfirm, danger = false) {
+  const id = 'confirm-dialog-' + Date.now();
+  createModal(id, '', `
+    <div class="confirm-dialog">
+      <div class="confirm-dialog-icon">${danger ? '⚠' : '?'}</div>
+      <div class="confirm-dialog-title">${escHtml(title)}</div>
+      <div class="confirm-dialog-desc">${escHtml(desc)}</div>
+      <div class="confirm-dialog-actions">
+        <button class="btn btn-ghost" onclick="hideModal('${id}')">Cancel</button>
+        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="${id}-ok">${danger ? 'Delete' : 'Confirm'}</button>
+      </div>
+    </div>`
+  );
+  showModal(id);
+  document.getElementById(`${id}-ok`).addEventListener('click', () => {
+    hideModal(id);
+    onConfirm();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SKELETON LOADING HELPERS
+// ═══════════════════════════════════════════════════════════════
+function skeletonRows(n = 5) {
+  return Array.from({length: n}, () => '<div class="skeleton skeleton-row"></div>').join('');
+}
+function skeletonCards(n = 3) {
+  return Array.from({length: n}, () => '<div class="skeleton skeleton-card"></div>').join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT / IMPORT VIEW
+// ═══════════════════════════════════════════════════════════════
+async function renderExportView() {
+  const el = document.getElementById('content-export');
+  if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">Export &amp; Import</div><div class="page-subtitle">${escHtml(state.currentProject.name)}</div></div>
+    </div>
+    <div style="max-width:600px;display:flex;flex-direction:column;gap:16px">
+      <div class="export-card">
+        <div class="export-card-icon">📥</div>
+        <div class="export-card-info">
+          <div class="export-card-title">Export as JSON</div>
+          <div class="export-card-desc">Download all items with full metadata, comments, and history</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="exportData('json')"><span>Export JSON</span></button>
+      </div>
+      <div class="export-card">
+        <div class="export-card-icon">📊</div>
+        <div class="export-card-info">
+          <div class="export-card-title">Export as CSV</div>
+          <div class="export-card-desc">Download items as a spreadsheet-compatible CSV file</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="exportData('csv')"><span>Export CSV</span></button>
+      </div>
+      <hr class="section-divider">
+      <div class="export-card">
+        <div class="export-card-icon">📤</div>
+        <div class="export-card-info">
+          <div class="export-card-title">Import from JSON</div>
+          <div class="export-card-desc">Upload a previously exported JSON file to restore items</div>
+        </div>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+          <span>Choose File</span>
+          <input type="file" accept=".json" style="display:none" onchange="importData(this.files[0])">
+        </label>
+      </div>
+      <div id="export-status" style="display:none"></div>
+    </div>`;
+}
+
+async function exportData(format) {
+  const statusEl = document.getElementById('export-status');
+  if (!state.currentProject || !statusEl) return;
+  statusEl.style.display = '';
+  statusEl.innerHTML = '<div class="loading-state" style="padding:16px"><div class="loading-spinner"></div></div>';
+  try {
+    const data = await api('GET', `/projects/${state.currentProject.id}/pm/list-all?limit=9999`);
+    const items = data.items || [];
+    if (items.length === 0) { statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px">No items to export</div>'; return; }
+    let content, filename, mime;
+    if (format === 'csv') {
+      const headers = ['id','title','type','status','priority','tags','assignee','deadline','sprint','release','created_at','updated_at'];
+      const rows = items.map(i => headers.map(h => {
+        const val = h === 'tags' ? (i.tags||[]).join(';') : String(i[h]||'');
+        return `"${val.replace(/"/g,'""')}"`;
+      }).join(','));
+      content = headers.join(',') + '\n' + rows.join('\n');
+      filename = `${state.currentProject.slug}-items.csv`;
+      mime = 'text/csv';
+    } else {
+      content = JSON.stringify({exportedAt: new Date().toISOString(), project: state.currentProject.name, version: '1.0', items}, null, 2);
+      filename = `${state.currentProject.slug}-items.json`;
+      mime = 'application/json';
+    }
+    const blob = new Blob([content], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    statusEl.innerHTML = `<div style="color:var(--status-closed);font-size:13px;padding:12px">✓ Exported ${items.length} items as ${format.toUpperCase()}</div>`;
+    toast(`Exported ${items.length} items`, 'success');
+  } catch(err) {
+    statusEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px;padding:12px">Error: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function importData(file) {
+  if (!file || !state.currentProject) return;
+  const statusEl = document.getElementById('export-status');
+  if (!statusEl) return;
+  statusEl.style.display = '';
+  statusEl.innerHTML = '<div class="loading-state" style="padding:16px"><div class="loading-spinner"></div></div>';
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const items = data.items || data;
+    if (!Array.isArray(items) || items.length === 0) { throw new Error('No items found in file'); }
+    let created = 0, failed = 0;
+    for (const item of items.slice(0, 100)) {
+      try {
+        const body = { title: item.title || 'Imported item', type: item.type || 'Task', priority: item.priority || 3, description: item.description || '' };
+        if (item.tags) body.tags = Array.isArray(item.tags) ? item.tags.join(',') : item.tags;
+        if (item.deadline) body.deadline = item.deadline;
+        if (item.assignee) body.assignee = item.assignee;
+        if (item.sprint) body.sprint = item.sprint;
+        if (item.release) body.release = item.release;
+        await api('POST', `/projects/${state.currentProject.id}/pm/create`, body);
+        created++;
+      } catch(_) { failed++; }
+    }
+    statusEl.innerHTML = `<div style="padding:12px;font-size:13px"><span style="color:var(--status-closed)">✓ Created ${created} items</span>${failed ? `<span style="color:var(--status-blocked);margin-left:12px">✗ ${failed} failed</span>` : ''}</div>`;
+    toast(`Imported ${created} items`, 'success');
+    loadItemsBadge();
+  } catch(err) {
+    statusEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px;padding:12px">Error: ${escHtml(err.message)}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NORMALIZE VIEW
+// ═══════════════════════════════════════════════════════════════
+async function renderNormalizeView() {
+  const el = document.getElementById('content-normalize');
+  if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">Normalize</div><div class="page-subtitle">Lifecycle metadata normalization for ${escHtml(state.currentProject.name)}</div></div>
+      <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="renderNormalizeView()">↺ Refresh</button></div>
+    </div>
+    <div id="normalize-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
+  try {
+    const data = await api('GET', `/projects/${state.currentProject.id}/pm/normalize`);
+    const plan = data.plan || data.normalization || data;
+    const items = plan.items || plan.changes || [];
+    const el2 = document.getElementById('normalize-content');
+    if (Array.isArray(items) && items.length === 0) {
+      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--status-closed);font-size:13px">✓ All items are normalized — no changes needed!</div></div></div>`;
+    } else if (Array.isArray(items) && items.length > 0) {
+      el2.innerHTML = `
+        <div class="card">
+          <div class="card-header"><div class="card-title">Suggested Changes (${items.length})</div></div>
+          <div class="card-body">
+            ${items.map(i => `
+              <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
+                <span style="color:var(--priority-3);flex-shrink:0">⚡</span>
+                <div style="flex:1">
+                  <div style="font-size:13px">${escHtml(i.message || i.description || JSON.stringify(i))}</div>
+                  ${i.id ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px"><a href="#" onclick="openItemDetail('${escHtml(i.id)}');return false" style="color:var(--accent)">${escHtml(i.id)}</a></div>` : ''}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="applyNormalize()"><span>Apply Normalizations</span></button>
+          <span style="font-size:11px;color:var(--text-muted);align-self:center">Dry-run preview — no changes made yet</span>
+        </div>`;
+    } else {
+      el2.innerHTML = `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(plan, null, 2))}</pre></div></div>`;
+    }
+  } catch(err) {
+    document.getElementById('normalize-content').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
+  }
+}
+
+async function applyNormalize() {
+  if (!state.currentProject) return;
+  toast('Normalization applied (dry-run — use CLI with --apply to make changes)', 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SHARED WITH ME VIEW
+// ═══════════════════════════════════════════════════════════════
+async function renderSharedView() {
+  const el = document.getElementById('content-shared');
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">Shared with Me</div><div class="page-subtitle">Projects others have shared with you</div></div>
+      <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="renderSharedView()">↺ Refresh</button></div>
+    </div>
+    <div id="shared-content">${skeletonCards(3)}</div>`;
+  try {
+    const data = await api('GET', '/shared');
+    const projects = data.projects || [];
+    const el2 = document.getElementById('shared-content');
+    if (projects.length === 0) {
+      el2.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⇄</div>
+          <div class="empty-state-text">No shared projects yet</div>
+          <div class="empty-state-sub">When someone shares a project with you, it will appear here</div>
+        </div>`;
+      return;
+    }
+    el2.innerHTML = `
+      <div class="projects-grid">
+        ${projects.map(p => `
+          <div class="project-card" onclick="selectProject('${p.id}')">
+            <div class="project-card-name">${escHtml(p.name)}</div>
+            <div class="project-card-slug mono">${escHtml(p.slug)}</div>
+            <div class="project-card-desc">${escHtml(p.description || 'No description')}</div>
+            <div class="project-card-meta">
+              <span class="share-perm">${escHtml(p.permission || 'view')}</span>
+              <span class="project-card-date">by ${escHtml(p.owner_display_name || p.owner_email || 'Unknown')}</span>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  } catch(err) {
+    document.getElementById('shared-content').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
@@ -3169,6 +3630,43 @@ function updateMobileNav(view) {
     nav.classList.toggle('visible', !!state.currentProject && view !== 'projects');
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// PULL TO REFRESH (mobile)
+// ═══════════════════════════════════════════════════════════════
+(function() {
+  let startY = 0, pulling = false;
+  const threshold = 80;
+  const mainContent = () => document.getElementById('main-content');
+
+  document.addEventListener('touchstart', e => {
+    const mc = mainContent();
+    if (!mc || mc.scrollTop > 0) return;
+    startY = e.touches[0].pageY;
+    pulling = true;
+  }, {passive: true});
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const diff = e.touches[0].pageY - startY;
+    if (diff > threshold && diff < 250) {
+      document.body.style.overflow = 'hidden';
+    }
+  }, {passive: true});
+
+  document.addEventListener('touchend', e => {
+    if (!pulling) return;
+    const diff = (e.changedTouches[0]?.pageY || 0) - startY;
+    pulling = false;
+    document.body.style.overflow = '';
+    if (diff > threshold && state.currentProject) {
+      // Refresh current view
+      const view = state.currentView;
+      if (showView) showView(view);
+      toast('Refreshed', 'info');
+    }
+  }, {passive: true});
+})();
 
 // ═══════════════════════════════════════════════════════════════
 // INIT

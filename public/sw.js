@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pm-web-v2';
+const CACHE_NAME = 'pm-web-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -30,7 +30,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/healthz')) {
     event.respondWith(
       fetch(event.request)
-        .catch(() => new Response(JSON.stringify({ error: 'Offline' }), {
+        .catch(() => new Response(JSON.stringify({ error: 'Offline — check your connection' }), {
           status: 503,
           headers: { 'Content-Type': 'application/json' },
         }))
@@ -55,7 +55,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets (CSS, JS, images, manifest): cache-first
+  // Static assets (CSS, JS, images, manifest): stale-while-revalidate
   if (
     url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.js') ||
@@ -64,20 +64,19 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.ico') ||
     url.pathname.endsWith('.woff2') ||
-    url.pathname.includes('fonts.googleapis.com') ||
-    url.pathname.includes('fonts.gstatic.com')
+    url.hostname.includes('fonts.googleapis.com') ||
+    url.hostname.includes('fonts.gstatic.com')
   ) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((res) => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
-          }
-          return res;
-        });
-      })
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(event.request).then((cached) => {
+          const fetched = fetch(event.request).then((res) => {
+            if (res.ok) cache.put(event.request, res.clone());
+            return res;
+          }).catch(() => cached);
+          return cached || fetched;
+        })
+      )
     );
     return;
   }
@@ -89,9 +88,20 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Handle offline-ready message from the page
+// Handle messages from the page
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  if (event.data && event.data.type === 'CACHE_URLS') {
+    const urls = event.data.urls || [];
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(urls).catch(() => {}));
+  }
+});
+
+// Background sync for queued API calls (when back online)
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'pm-sync') {
+    // Future: replay queued mutations
   }
 });
