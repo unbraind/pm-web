@@ -313,11 +313,14 @@ router.post("/search", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { query } = req.body as { query?: string };
+  const { query, mode } = req.body as { query?: string; mode?: string };
   if (!query?.trim()) { res.status(400).json({ error: "Search query is required" }); return; }
 
+  const validModes = ["keyword", "semantic", "hybrid"];
+  const safeMode = validModes.includes(mode || "") ? mode! : "hybrid";
+
   const result = runPm({
-    args: ["search", ...query.trim().split(/\s+/)],
+    args: ["search", "--mode", safeMode, ...query.trim().split(/\s+/)],
     userId: project.ownerUserId,
     slug: project.slug,
     jsonOutput: true,
@@ -612,6 +615,102 @@ router.post("/restore/:itemId", async (req: AuthRequest, res) => {
     return;
   }
   res.json(result.parsed || { ok: true });
+});
+
+// POST /api/projects/:projectId/pm/close-task/:itemId
+router.post("/close-task/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { reason } = req.body as { reason?: string };
+  if (!reason?.trim()) { res.status(400).json({ error: "Close reason is required" }); return; }
+
+  const result = runPm({
+    args: ["close-task", req.params["itemId"]!, reason.trim()],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to close task" });
+    return;
+  }
+  res.json(result.parsed || { ok: true });
+});
+
+// POST /api/projects/:projectId/pm/reindex
+router.post("/reindex", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const { mode = "keyword" } = req.body as { mode?: string };
+  const validModes = ["keyword", "semantic", "hybrid"];
+  const safeMode = validModes.includes(mode) ? mode : "keyword";
+  const result = runPm({
+    args: ["reindex", "--mode", safeMode],
+    userId: project.ownerUserId,
+    slug: project.slug,
+  });
+  res.json(result.ok ? { ok: true, mode: safeMode } : { error: result.stderr || "Reindex failed" });
+});
+
+// GET /api/projects/:projectId/pm/normalize
+router.get("/normalize", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({
+    args: ["normalize"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// GET /api/projects/:projectId/pm/comments-audit
+router.get("/comments-audit", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({
+    args: ["comments-audit"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+});
+
+// POST /api/projects/:projectId/pm/files/:itemId
+router.post("/files/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const { path: filePath, scope } = req.body as { path?: string; scope?: string };
+  if (!filePath?.trim()) { res.status(400).json({ error: "File path is required" }); return; }
+  const args = ["files", req.params["itemId"]!, "--add", `path=${filePath.trim()}`];
+  if (scope) args.push(",scope=" + scope);
+  const result = runPm({
+    args,
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to link file" });
+    return;
+  }
+  res.status(201).json(result.parsed || { ok: true });
+});
+
+// GET /api/projects/:projectId/pm/files/:itemId
+router.get("/files/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const result = runPm({
+    args: ["files", req.params["itemId"]!],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || {}) : { files: [] });
 });
 
 export { router as pmRouter };

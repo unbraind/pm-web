@@ -8,6 +8,7 @@ import { projectsRouter } from "./routes/projects.js";
 import { pmRouter } from "./routes/pm.js";
 import { groupsRouter } from "./routes/groups.js";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.js";
+import { githubRouter } from "./routes/github.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "4000", 10);
@@ -41,6 +42,7 @@ app.use("/api/projects/:projectId/pm", pmRouter);
 app.use("/api/groups", groupsRouter);
 app.use("/api/projects/:id/shares", sharesRouter);
 app.use("/api/shared", sharedWithMeRouter);
+app.use("/api/projects/:id/github", githubRouter);
 
 // SPA fallback — serve index.html for all non-API routes
 app.get("*", (_req, res) => {

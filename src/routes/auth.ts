@@ -108,7 +108,7 @@ router.post("/logout", (_req, res) => {
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, email, display_name, created_at FROM pm_users WHERE id = $1`,
+      `SELECT id, email, display_name, created_at, github_token IS NOT NULL AS has_github_token FROM pm_users WHERE id = $1`,
       [req.user!.userId]
     );
     if (result.rows.length === 0) {
@@ -119,6 +119,59 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   } catch (err) {
     console.error("Me error:", err);
     res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+// PATCH /api/auth/profile — update display name
+router.patch("/profile", requireAuth, async (req: AuthRequest, res) => {
+  const { displayName } = req.body as { displayName?: string };
+  try {
+    const result = await pool.query(
+      `UPDATE pm_users SET display_name = $1 WHERE id = $2
+       RETURNING id, email, display_name, created_at, github_token IS NOT NULL AS has_github_token`,
+      [displayName?.trim() || null, req.user!.userId]
+    );
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// POST /api/auth/change-password
+router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Current and new passwords are required" });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "New password must be at least 8 characters" });
+    return;
+  }
+  try {
+    const result = await pool.query(`SELECT password_hash FROM pm_users WHERE id = $1`, [req.user!.userId]);
+    if (result.rows.length === 0) { res.status(404).json({ error: "User not found" }); return; }
+    const valid = await bcrypt.compare(currentPassword, result.rows[0].password_hash as string);
+    if (!valid) { res.status(401).json({ error: "Current password is incorrect" }); return; }
+    const hash = await bcrypt.hash(newPassword, 12);
+    await pool.query(`UPDATE pm_users SET password_hash = $1 WHERE id = $2`, [hash, req.user!.userId]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ error: "Failed to change password" });
+  }
+});
+
+// PATCH /api/auth/github-token — save or clear GitHub PAT
+router.patch("/github-token", requireAuth, async (req: AuthRequest, res) => {
+  const { token } = req.body as { token?: string };
+  try {
+    await pool.query(`UPDATE pm_users SET github_token = $1 WHERE id = $2`, [token?.trim() || null, req.user!.userId]);
+    res.json({ ok: true, hasToken: !!(token?.trim()) });
+  } catch (err) {
+    console.error("GitHub token error:", err);
+    res.status(500).json({ error: "Failed to save GitHub token" });
   }
 });
 

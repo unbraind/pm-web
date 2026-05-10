@@ -71,4 +71,12 @@ export async function initSchema(): Promise<void> {
       UNIQUE(project_id, shared_with_group_id)
     );
   `);
+
+  // Migrations for new columns (idempotent)
+  await pool.query(`
+    ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS github_token TEXT;
+    ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_owner TEXT;
+    ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_repo TEXT;
+    ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_sync_enabled BOOLEAN DEFAULT FALSE;
+  `);
 }

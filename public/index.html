@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="description" content="pm-web — browser UI for pm-cli project management">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="pm-web">
 <title>pm-web — Project Management</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -475,6 +483,48 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
 .member-row:last-child { border-bottom: none; }
 .member-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
 .claim-btn-wrap { display: flex; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* ── PWA Install Banner ── */
+.install-banner {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 900;
+  background: var(--bg-sidebar); border-top: 1px solid var(--border-light);
+  padding: 14px 20px; gap: 12px; align-items: center; justify-content: space-between;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+}
+.install-banner.visible { display: flex; }
+.install-banner-text { font-size: 13px; color: var(--text-secondary); }
+.install-banner-text strong { color: var(--text-primary); }
+
+/* ── Mobile Bottom Nav (PWA) ── */
+.mobile-bottom-nav {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 800;
+  background: var(--bg-sidebar); border-top: 1px solid var(--border);
+  height: 56px; padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mobile-bottom-nav-inner {
+  display: flex; align-items: center; justify-content: space-around; height: 56px;
+}
+.mobile-bottom-nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  color: var(--text-muted); font-size: 10px; text-decoration: none;
+  padding: 6px 8px; cursor: pointer; transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-bottom-nav-item:active, .mobile-bottom-nav-item.active { color: var(--accent); }
+.mobile-bottom-nav-item-icon { font-size: 18px; line-height: 1; }
+.mobile-bottom-nav-item-label { font-weight: 500; }
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav.visible { display: block; }
+  #main-content { padding-bottom: 72px; }
+  #app-body { padding-bottom: 56px; }
+}
+
+/* ── Safe area support for notched devices ── */
+@supports (padding: env(safe-area-inset-top)) {
+  #top-nav { padding-top: env(safe-area-inset-top, 0px); }
+  .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
 </style>
 </head>
 <body>
@@ -536,6 +586,7 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
       <div class="user-menu">
         <div class="user-avatar" id="user-avatar">?</div>
         <span class="user-name" id="user-name-display"></span>
+        <button class="btn btn-ghost btn-sm" onclick="showView('settings')" style="margin-right:4px">Settings</button>
         <button class="btn btn-ghost btn-sm" onclick="logout()">Sign out</button>
       </div>
     </nav>
@@ -548,6 +599,9 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
           </div>
           <div class="sidebar-item" onclick="showModal('create-project-modal')" style="color:var(--accent)">
             <span class="sidebar-item-icon">+</span> New Project
+          </div>
+          <div class="sidebar-item" onclick="showView('settings')" data-view="settings">
+            <span class="sidebar-item-icon">⚙</span> Settings
           </div>
         </div>
         <div class="sidebar-section" id="sidebar-pm-section" style="display:none">
@@ -586,6 +640,9 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
           <div class="sidebar-item" onclick="showView('validate')" data-view="validate">
             <span class="sidebar-item-icon">✓</span> Validate
           </div>
+          <div class="sidebar-item" onclick="showView('github')" data-view="github">
+            <span class="sidebar-item-icon">⊙</span> GitHub
+          </div>
         </div>
         <div class="sidebar-section">
           <div class="sidebar-section-label">Team</div>
@@ -608,6 +665,8 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
         <div class="content-area" id="content-health" style="display:none"><!-- health --></div>
         <div class="content-area" id="content-dedupe" style="display:none"><!-- dedupe --></div>
         <div class="content-area" id="content-validate" style="display:none"><!-- validate --></div>
+        <div class="content-area" id="content-settings" style="display:none"><!-- settings --></div>
+        <div class="content-area" id="content-github" style="display:none"><!-- github --></div>
       </main>
     </div>
   </div>
@@ -616,6 +675,41 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
 <!-- Modals -->
 <div id="modal-container"></div>
 <div id="toast-container"></div>
+
+<!-- PWA Install Banner -->
+<div class="install-banner" id="install-banner">
+  <div class="install-banner-text">Install <strong>pm-web</strong> for a native app experience</div>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-ghost btn-sm" onclick="dismissInstallBanner()">Not now</button>
+    <button class="btn btn-primary btn-sm" id="install-btn" onclick="installPwa()"><span>Install</span></button>
+  </div>
+</div>
+
+<!-- Mobile Bottom Nav (PWA) -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <div class="mobile-bottom-nav-inner">
+    <div class="mobile-bottom-nav-item" onclick="showView('items')" data-mobview="items">
+      <div class="mobile-bottom-nav-item-icon">≡</div>
+      <div class="mobile-bottom-nav-item-label">Items</div>
+    </div>
+    <div class="mobile-bottom-nav-item" onclick="showView('create')" data-mobview="create">
+      <div class="mobile-bottom-nav-item-icon">+</div>
+      <div class="mobile-bottom-nav-item-label">Create</div>
+    </div>
+    <div class="mobile-bottom-nav-item" onclick="openSearchModal()" data-mobview="search">
+      <div class="mobile-bottom-nav-item-icon">⌕</div>
+      <div class="mobile-bottom-nav-item-label">Search</div>
+    </div>
+    <div class="mobile-bottom-nav-item" onclick="showView('stats')" data-mobview="stats">
+      <div class="mobile-bottom-nav-item-icon">◈</div>
+      <div class="mobile-bottom-nav-item-label">Stats</div>
+    </div>
+    <div class="mobile-bottom-nav-item" onclick="showView('settings')" data-mobview="settings">
+      <div class="mobile-bottom-nav-item-icon">⚙</div>
+      <div class="mobile-bottom-nav-item-label">More</div>
+    </div>
+  </div>
+</nav>
 
 <script>
 // ═══════════════════════════════════════════════════════════════
@@ -631,6 +725,7 @@ const state = {
   itemFilters: { status: '', type: '', priority: '', sprint: '', release: '', assignee: '' },
   searchQuery: '',
   searchResults: [],
+  searchMode: 'hybrid',
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -811,9 +906,9 @@ async function bootApp() {
   document.getElementById('main-app').style.display = 'flex';
 
   const u = state.user;
-  const initials = (u.displayName||u.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const initials = (u.display_name||u.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = initials;
-  document.getElementById('user-name-display').textContent = u.displayName||u.email;
+  document.getElementById('user-name-display').textContent = u.display_name||u.email;
 
   // Build static modals
   buildCreateProjectModal();
@@ -986,7 +1081,7 @@ async function submitCreateProject2() {
 // ═══════════════════════════════════════════════════════════════
 function showView(view) {
   state.currentView = view;
-  const views = ['projects','items','create','activity','search','stats','calendar','context','sharing','groups','health','dedupe','validate'];
+  const views = ['projects','items','create','activity','search','stats','calendar','context','sharing','groups','health','dedupe','validate','settings','github'];
   views.forEach(v => {
     const el = document.getElementById(`content-${v}`);
     if (el) el.style.display = v === view ? '' : 'none';
@@ -1014,7 +1109,10 @@ function showView(view) {
     case 'health': renderHealthView(); break;
     case 'dedupe': renderDedupeAuditView(); break;
     case 'validate': renderValidateView(); break;
+    case 'settings': renderSettingsView(); break;
+    case 'github': renderGitHubView(); break;
   }
+  updateMobileNav(view);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2151,9 +2249,21 @@ async function renderActivityView() {
 function renderSearchView() {
   const el = document.getElementById('content-search');
   if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
+  const modeOpts = [
+    { val: 'hybrid', label: 'Hybrid', tip: 'Keyword + semantic (best)' },
+    { val: 'semantic', label: 'Semantic', tip: 'Ollama qwen3 embeddings' },
+    { val: 'keyword', label: 'Keyword', tip: 'Fast exact match' },
+  ];
   el.innerHTML = `
     <div class="page-header">
       <div><div class="page-title">Search</div><div class="page-subtitle">Search items in ${escHtml(state.currentProject.name)}</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="display:flex;gap:4px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:3px">
+        ${modeOpts.map(m=>`<button class="btn btn-sm" style="padding:4px 10px;border-radius:5px;font-size:12px;transition:var(--transition);${state.searchMode===m.val?'background:var(--bg-card);color:var(--text-primary)':'background:transparent;color:var(--text-muted)'}" onclick="setSearchMode('${m.val}')" title="${m.tip}">${m.label}</button>`).join('')}
+      </div>
+      <button class="btn btn-secondary btn-sm" id="reindex-btn" onclick="reindexProject()">⟳ Reindex</button>
+      <span style="font-size:11px;color:var(--text-muted)">Semantic powered by Ollama qwen3</span>
     </div>
     <div class="search-box-wrap">
       <span class="search-icon">⌕</span>
@@ -2163,6 +2273,31 @@ function renderSearchView() {
       ${state.searchResults.length > 0 ? renderSearchResults() : '<div class="empty-state"><div class="empty-state-icon">⌕</div><div class="empty-state-text">Enter a query to search</div></div>'}
     </div>`;
   setTimeout(()=>document.getElementById('search-query')?.focus(),50);
+}
+
+function setSearchMode(mode) {
+  state.searchMode = mode;
+  state.searchResults = [];
+  renderSearchView();
+  if (state.searchQuery) doSearch();
+}
+
+async function reindexProject() {
+  if (!state.currentProject) return;
+  const btn = document.getElementById('reindex-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⟳ Reindexing…';
+  const mode = state.searchMode === 'keyword' ? 'keyword' : 'hybrid';
+  try {
+    await api('POST',`/projects/${state.currentProject.id}/pm/reindex`,{mode});
+    toast(`Reindex complete (${mode})`, 'success');
+  } catch(err) {
+    toast(`Reindex failed: ${err.message}`,'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⟳ Reindex';
+  }
 }
 
 let searchTimer;
@@ -2176,15 +2311,16 @@ async function doSearch() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   if (!query || !state.currentProject) return;
   state.searchQuery = query;
-  document.getElementById('search-results').innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
+  const resultsEl = document.getElementById('search-results');
+  if (resultsEl) resultsEl.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   try {
-    const data = await api('POST',`/projects/${state.currentProject.id}/pm/search`,{query});
+    const data = await api('POST',`/projects/${state.currentProject.id}/pm/search`,{query,mode:state.searchMode});
     state.searchResults = data.results || data.items || [];
-    document.getElementById('search-results').innerHTML = state.searchResults.length === 0
+    if (resultsEl) resultsEl.innerHTML = state.searchResults.length === 0
       ? `<div class="empty-state"><div class="empty-state-text">No results for "${escHtml(query)}"</div></div>`
       : renderSearchResults();
   } catch(err) {
-    document.getElementById('search-results').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
+    if (resultsEl) resultsEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
   }
 }
 
@@ -2551,6 +2687,374 @@ async function renderValidateView() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SETTINGS VIEW
+// ═══════════════════════════════════════════════════════════════
+function renderSettingsView() {
+  const el = document.getElementById('content-settings');
+  const u = state.user || {};
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">Settings</div><div class="page-subtitle">Manage your profile and account</div></div>
+    </div>
+
+    <div style="max-width:560px;display:flex;flex-direction:column;gap:20px">
+
+      <!-- Profile -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">Profile</div></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Display Name</label>
+            <input class="form-input" id="settings-display-name" type="text" value="${escHtml(u.display_name||u.email||'')}" placeholder="Your display name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="text" value="${escHtml(u.email||'')}" disabled style="opacity:0.6;cursor:not-allowed">
+          </div>
+          <div class="form-error" id="settings-profile-error" style="display:none"></div>
+          <button class="btn btn-primary btn-sm" id="settings-profile-btn" onclick="saveProfile()"><span>Save Profile</span></button>
+        </div>
+      </div>
+
+      <!-- Change Password -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">Change Password</div></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input class="form-input" id="settings-current-pw" type="password" placeholder="Current password" autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input class="form-input" id="settings-new-pw" type="password" placeholder="New password" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input class="form-input" id="settings-confirm-pw" type="password" placeholder="Confirm new password" autocomplete="new-password">
+          </div>
+          <div class="form-error" id="settings-pw-error" style="display:none"></div>
+          <button class="btn btn-primary btn-sm" id="settings-pw-btn" onclick="changePassword()"><span>Change Password</span></button>
+        </div>
+      </div>
+
+      <!-- GitHub Token -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">GitHub Token</div>
+          ${u.has_github_token ? `<span style="font-size:12px;color:var(--status-closed)">✓ Token configured</span>` : `<span style="font-size:12px;color:var(--text-muted)">No token set</span>`}
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Personal Access Token (PAT)</label>
+            <input class="form-input" id="settings-github-token" type="password" placeholder="${u.has_github_token ? '••••••••••••••••••••' : 'ghp_…'}" autocomplete="off">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Used for GitHub integration. Needs <code style="font-family:monospace;background:var(--bg-input);padding:0 3px;border-radius:3px">repo</code> scope.</div>
+          </div>
+          <div class="form-error" id="settings-github-error" style="display:none"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" id="settings-github-btn" onclick="saveGitHubToken()"><span>Save Token</span></button>
+            ${u.has_github_token ? `<button class="btn btn-danger btn-sm" onclick="clearGitHubToken()">Clear Token</button>` : ''}
+          </div>
+        </div>
+      </div>
+
+    </div>`;
+}
+
+async function saveProfile() {
+  const displayName = document.getElementById('settings-display-name')?.value?.trim();
+  const errEl = document.getElementById('settings-profile-error');
+  const btn = document.getElementById('settings-profile-btn');
+  if (!displayName) { errEl.textContent = 'Display name cannot be empty'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'Saving…';
+  try {
+    const data = await api('PATCH','/auth/profile',{displayName});
+    if (data.user) {
+      state.user = { ...state.user, ...data.user };
+    } else {
+      state.user.display_name = displayName;
+    }
+    // Update navbar display
+    const u = state.user;
+    const initials = (u.display_name||u.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-name-display').textContent = u.display_name||u.email;
+    toast('Profile saved','success');
+    renderSettingsView();
+  } catch(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    if (btn.querySelector('span')) btn.querySelector('span').textContent = 'Save Profile';
+  }
+}
+
+async function changePassword() {
+  const currentPassword = document.getElementById('settings-current-pw')?.value;
+  const newPassword = document.getElementById('settings-new-pw')?.value;
+  const confirmPassword = document.getElementById('settings-confirm-pw')?.value;
+  const errEl = document.getElementById('settings-pw-error');
+  const btn = document.getElementById('settings-pw-btn');
+  errEl.style.display = 'none';
+  if (!currentPassword || !newPassword || !confirmPassword) { errEl.textContent = 'All fields are required'; errEl.style.display = 'block'; return; }
+  if (newPassword !== confirmPassword) { errEl.textContent = 'New passwords do not match'; errEl.style.display = 'block'; return; }
+  if (newPassword.length < 6) { errEl.textContent = 'New password must be at least 6 characters'; errEl.style.display = 'block'; return; }
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'Changing…';
+  try {
+    await api('POST','/auth/change-password',{currentPassword,newPassword});
+    toast('Password changed successfully','success');
+    document.getElementById('settings-current-pw').value = '';
+    document.getElementById('settings-new-pw').value = '';
+    document.getElementById('settings-confirm-pw').value = '';
+  } catch(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    if (btn.querySelector('span')) btn.querySelector('span').textContent = 'Change Password';
+  }
+}
+
+async function saveGitHubToken() {
+  const token = document.getElementById('settings-github-token')?.value?.trim();
+  const errEl = document.getElementById('settings-github-error');
+  const btn = document.getElementById('settings-github-btn');
+  if (!token) { errEl.textContent = 'Please enter a token'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'Saving…';
+  try {
+    const data = await api('PATCH','/auth/github-token',{token});
+    state.user.has_github_token = data.hasToken !== undefined ? data.hasToken : true;
+    toast('GitHub token saved','success');
+    renderSettingsView();
+  } catch(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    if (btn.querySelector('span')) btn.querySelector('span').textContent = 'Save Token';
+  }
+}
+
+async function clearGitHubToken() {
+  if (!confirm('Remove your GitHub token? GitHub integration will stop working.')) return;
+  try {
+    const data = await api('PATCH','/auth/github-token',{token:''});
+    state.user.has_github_token = false;
+    toast('GitHub token cleared','success');
+    renderSettingsView();
+  } catch(err) {
+    toast(err.message,'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GITHUB VIEW
+// ═══════════════════════════════════════════════════════════════
+async function renderGitHubView() {
+  const el = document.getElementById('content-github');
+  if (!state.currentProject) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">GitHub Integration</div><div class="page-subtitle">${escHtml(state.currentProject.name)}</div></div>
+      <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="renderGitHubView()">↺ Refresh</button></div>
+    </div>
+    <div id="github-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
+
+  if (!state.user?.has_github_token) {
+    document.getElementById('github-content').innerHTML = `
+      <div class="card">
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);border-radius:var(--radius);margin-bottom:16px">
+            <span style="font-size:16px">⚠</span>
+            <div>
+              <div style="font-size:13px;font-weight:500;color:#fb923c">GitHub token required</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">Add a GitHub token in <a href="#" onclick="showView('settings');return false" style="color:var(--accent)">Settings</a> first to use GitHub integration.</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  try {
+    const data = await api('GET',`/projects/${state.currentProject.id}/github`);
+    renderGitHubContent(data);
+  } catch(err) {
+    document.getElementById('github-content').innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err.message)}</div></div>`;
+  }
+}
+
+function renderGitHubContent(data) {
+  const linked = data.linked;
+  const owner = data.owner || '';
+  const repo = data.repo || '';
+
+  const tokenBanner = !state.user?.has_github_token ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);border-radius:var(--radius);margin-bottom:16px">
+      <span style="font-size:16px">⚠</span>
+      <div style="font-size:13px;color:var(--text-secondary)">Add a GitHub token in <a href="#" onclick="showView('settings');return false" style="color:var(--accent)">Settings</a> first</div>
+    </div>` : '';
+
+  const linkPanel = `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><div class="card-title">${linked ? 'Linked Repository' : 'Link GitHub Repository'}</div></div>
+      <div class="card-body">
+        ${tokenBanner}
+        ${linked ? `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <span style="font-size:20px">⊙</span>
+            <div>
+              <div style="font-size:14px;font-weight:600">${escHtml(owner)}/${escHtml(repo)}</div>
+              <div style="font-size:12px;color:var(--text-muted)">Linked GitHub repository</div>
+            </div>
+            <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="unlinkGitHubRepo()">Unlink</button>
+          </div>
+          <hr class="section-divider">` : ''}
+        <div class="two-col" style="margin-bottom:12px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Owner / Organization</label>
+            <input class="form-input" id="gh-owner" type="text" placeholder="octocat" value="${escHtml(owner)}">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Repository Name</label>
+            <input class="form-input" id="gh-repo" type="text" placeholder="hello-world" value="${escHtml(repo)}">
+          </div>
+        </div>
+        <div class="form-error" id="gh-link-error" style="display:none"></div>
+        <button class="btn btn-primary btn-sm" id="gh-link-btn" onclick="linkGitHubRepo()"><span>${linked ? 'Update Link' : 'Link Repository'}</span></button>
+      </div>
+    </div>`;
+
+  const importPanel = linked ? `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Import Issues</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadGitHubIssues()">↺ Load Issues</button>
+      </div>
+      <div class="card-body">
+        <div id="github-issues-list">
+          <div style="color:var(--text-muted);font-size:13px">Click "Load Issues" to fetch open GitHub issues.</div>
+        </div>
+        <div id="github-import-result" style="margin-top:12px;display:none"></div>
+      </div>
+    </div>` : '';
+
+  document.getElementById('github-content').innerHTML = linkPanel + importPanel;
+}
+
+async function linkGitHubRepo() {
+  const owner = document.getElementById('gh-owner')?.value?.trim();
+  const repo = document.getElementById('gh-repo')?.value?.trim();
+  const errEl = document.getElementById('gh-link-error');
+  const btn = document.getElementById('gh-link-btn');
+  errEl.style.display = 'none';
+  if (!owner || !repo) { errEl.textContent = 'Owner and repository name are required'; errEl.style.display = 'block'; return; }
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'Linking…';
+  try {
+    await api('PATCH',`/projects/${state.currentProject.id}/github`,{owner,repo});
+    toast('Repository linked','success');
+    renderGitHubView();
+  } catch(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.querySelector('span').textContent = 'Link Repository';
+  }
+}
+
+async function unlinkGitHubRepo() {
+  if (!confirm('Unlink this repository? GitHub integration will be disabled for this project.')) return;
+  try {
+    await api('PATCH',`/projects/${state.currentProject.id}/github`,{owner:'',repo:''});
+    toast('Repository unlinked','success');
+    renderGitHubView();
+  } catch(err) {
+    toast(err.message,'error');
+  }
+}
+
+async function loadGitHubIssues() {
+  const el = document.getElementById('github-issues-list');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
+  try {
+    const data = await api('GET',`/projects/${state.currentProject.id}/github/issues`);
+    const issues = data.issues || [];
+    if (issues.length === 0) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px">No open issues found in this repository.</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:12px;color:var(--text-muted)">${issues.length} open issue${issues.length!==1?'s':''} — select to import</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="selectAllIssues(true)">Select All</button>
+          <button class="btn btn-ghost btn-sm" onclick="selectAllIssues(false)">None</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;margin-bottom:12px">
+        ${issues.map(i=>`
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:var(--transition)" onmouseover="this.style.borderColor='var(--border-light)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" class="gh-issue-cb" data-number="${escHtml(String(i.number))}" style="margin-top:2px;accent-color:var(--accent)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500">${escHtml(i.title||'')}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">#${escHtml(String(i.number))}${i.labels?.length?` · ${i.labels.map(l=>escHtml(l.name||l)).join(', ')}`:''}</div>
+            </div>
+          </label>`).join('')}
+      </div>
+      <button class="btn btn-primary btn-sm" id="gh-import-btn" onclick="importGitHubIssues()"><span>Import Selected</span></button>`;
+  } catch(err) {
+    el.innerHTML = `<div style="color:var(--status-blocked);font-size:13px">Error: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function selectAllIssues(checked) {
+  document.querySelectorAll('.gh-issue-cb').forEach(cb => { cb.checked = checked; });
+}
+
+async function importGitHubIssues() {
+  const checked = Array.from(document.querySelectorAll('.gh-issue-cb:checked'));
+  if (checked.length === 0) { toast('Select at least one issue to import','info'); return; }
+  const issueNumbers = checked.map(cb => parseInt(cb.dataset.number, 10));
+  const btn = document.getElementById('gh-import-btn');
+  btn.disabled = true;
+  btn.querySelector('span').textContent = `Importing ${issueNumbers.length}…`;
+  const resultEl = document.getElementById('github-import-result');
+  if (resultEl) resultEl.style.display = 'none';
+  try {
+    const data = await api('POST',`/projects/${state.currentProject.id}/github/import`,{issueNumbers});
+    const created = data.created || [];
+    const errors = data.errors || [];
+    toast(`Imported ${created.length} issue${created.length!==1?'s':''}${errors.length?' ('+errors.length+' error'+( errors.length!==1?'s':'')+')':''}`, errors.length ? 'info' : 'success');
+    if (resultEl) {
+      resultEl.style.display = '';
+      resultEl.innerHTML = `
+        <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Import Results</div>
+          ${created.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Created ${created.length} item${created.length!==1?'s':''}: ${created.map(id=>`<span class="mono" style="font-size:11px">${escHtml(String(id))}</span>`).join(', ')}</div>` : ''}
+          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} error${errors.length!==1?'s':''}: ${errors.map(e=>escHtml(String(e.message||e))).join('; ')}</div>` : ''}
+        </div>`;
+    }
+    loadItemsBadge();
+  } catch(err) {
+    toast(`Import failed: ${err.message}`,'error');
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('span').textContent = 'Import Selected';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // GLOBAL SEARCH MODAL (Ctrl+K)
 // ═══════════════════════════════════════════════════════════════
 function buildSearchModal() {
@@ -2614,9 +3118,71 @@ document.addEventListener('keydown', e => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// PWA INSTALL PROMPT
+// ═══════════════════════════════════════════════════════════════
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const banner = document.getElementById('install-banner');
+  if (banner && !localStorage.getItem('pm-web-install-dismissed')) {
+    banner.classList.add('visible');
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.classList.remove('visible');
+  toast('pm-web installed!', 'success');
+});
+
+function installPwa() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then((result) => {
+    if (result.outcome === 'accepted') {
+      toast('Installing pm-web...', 'success');
+    }
+    deferredPrompt = null;
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.classList.remove('visible');
+  });
+}
+
+function dismissInstallBanner() {
+  localStorage.setItem('pm-web-install-dismissed', '1');
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.classList.remove('visible');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MOBILE BOTTOM NAV
+// ═══════════════════════════════════════════════════════════════
+function updateMobileNav(view) {
+  document.querySelectorAll('.mobile-bottom-nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.mobview === view);
+  });
+  const nav = document.getElementById('mobile-bottom-nav');
+  if (nav) {
+    nav.classList.toggle('visible', !!state.currentProject && view !== 'projects');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
 init();
+
+// ═══════════════════════════════════════════════════════════════
+// SERVICE WORKER (PWA)
+// ═══════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {/* silent */});
+  });
+}
 </script>
 </body>
 </html>

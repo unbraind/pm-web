@@ -1,0 +1,50 @@
+{
+  "name": "pm-web — Project Management",
+  "short_name": "pm-web",
+  "description": "Full-featured web UI for pm-cli — manage projects, tasks, epics, bugs, and more from any device",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1e",
+  "theme_color": "#2dd4bf",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Item",
+      "url": "/?action=new-item",
+      "description": "Create a new pm item",
+      "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Search",
+      "url": "/?action=search",
+      "description": "Search across all items",
+      "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "New Project",
+      "url": "/?action=new-project",
+      "description": "Create a new pm project",
+      "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
