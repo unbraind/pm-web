@@ -24,6 +24,7 @@ import { renderNormalizeView, applyNormalize } from './views/normalize.js';
 import { renderSharedView } from './views/shared.js';
 import { renderTemplatesView, createFromTemplate } from './views/templates.js';
 import { renderCommentsAuditView } from './views/comments-audit.js';
+import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject } from './views/config.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -102,6 +103,14 @@ let deferredPrompt: any = null;
   renderSharedView,
   renderTemplatesView,
   renderCommentsAuditView,
+  renderConfigView,
+
+  // Config
+  configAddArrayItem,
+  configRemoveArrayItem,
+  configSaveArray,
+  configSaveSimple,
+  configSaveObject,
 
   // Auth
   switchAuthTab,
@@ -328,6 +337,8 @@ document.addEventListener('keydown', e => {
   }
   if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA' || (e.target as HTMLElement).tagName === 'SELECT') return;
   if (e.key === 'n' || e.key === 'N') { if (state.currentProject) showView('create'); }
+  if (e.key === 'c' || e.key === 'C') { if (state.currentProject) showView('create'); }
+  if (e.key === 'a' || e.key === 'A') { if (state.currentProject) showView('activity'); }
   if (e.key === '/') { e.preventDefault(); if (state.currentProject) { showView('search'); setTimeout(()=>document.getElementById('search-query')?.focus(), 100); } }
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-backdrop').forEach(m => { (m as HTMLElement).style.display='none'; });

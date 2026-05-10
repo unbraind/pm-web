@@ -171,4 +171,5 @@ export type ViewName =
   | 'projects' | 'items' | 'create' | 'activity' | 'search'
   | 'stats' | 'calendar' | 'context' | 'sharing' | 'groups'
   | 'health' | 'dedupe' | 'validate' | 'settings' | 'github'
-  | 'export' | 'normalize' | 'shared' | 'templates' | 'comments-audit';
+  | 'export' | 'normalize' | 'shared' | 'templates' | 'comments-audit'
+  | 'config';

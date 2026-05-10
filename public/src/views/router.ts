@@ -23,6 +23,7 @@ import { renderNormalizeView } from './normalize.js';
 import { renderSharedView } from './shared.js';
 import { renderTemplatesView } from './templates.js';
 import { renderCommentsAuditView } from './comments-audit.js';
+import { renderConfigView } from './config.js';
 
 export function showView(view: string): void {
   state.currentView = view;
@@ -59,6 +60,7 @@ export function showView(view: string): void {
     case 'shared': renderSharedView(); break;
     case 'templates': renderTemplatesView(); break;
     case 'comments-audit': renderCommentsAuditView(); break;
+    case 'config': renderConfigView(); break;
   }
   updateMobileNav(view);
 }
