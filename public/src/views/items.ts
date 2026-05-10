@@ -11,6 +11,174 @@ import { showView } from './router.js';
 import { loadItemsBadge } from './projects.js';
 import type { Item } from '../types.js';
 
+// ═══════════════════════════════════════════════════════════════
+// BULK UPDATE
+// ═══════════════════════════════════════════════════════════════
+export function showBulkUpdateModal(): void {
+  if (!state.currentProject) { toast('Select a project first', 'info'); return; }
+  createModal('bulk-update-modal', 'Bulk Update Items', `
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items</div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="bu-filter-status">
+            <option value="">Any status</option>
+            ${STATUSES.map(s=>`<option value="${s}">${s.replace('_',' ')}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="bu-filter-type">
+            <option value="">Any type</option>
+            ${TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">Sprint</label>
+          <input class="form-input" id="bu-filter-sprint" type="text" placeholder="Filter by sprint…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assignee</label>
+          <input class="form-input" id="bu-filter-assignee" type="text" placeholder="Filter by assignee…">
+        </div>
+      </div>
+    </div>
+    <hr class="section-divider">
+    <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Fields to Update</div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">Set Priority</label>
+        <select class="form-select" id="bu-set-priority">
+          <option value="">— don't change —</option>
+          ${[1,2,3,4,5].map(p=>`<option value="${p}">P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Set Status</label>
+        <select class="form-select" id="bu-set-status">
+          <option value="">— don't change —</option>
+          ${STATUSES.map(s=>`<option value="${s}">${s.replace('_',' ')}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">Set Sprint</label>
+        <input class="form-input" id="bu-set-sprint" type="text" placeholder="New sprint value…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Set Release</label>
+        <input class="form-input" id="bu-set-release" type="text" placeholder="New release value…">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Set Assignee</label>
+      <input class="form-input" id="bu-set-assignee" type="text" placeholder="New assignee…">
+    </div>
+    <div id="bu-preview" style="margin-top:12px"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-secondary" onclick="window.__app.previewBulkUpdate()">Preview</button>
+      <button class="btn btn-primary" id="bu-apply-btn" onclick="window.__app.applyBulkUpdate()" disabled>Apply Update</button>
+    </div>`, '');
+  showModal('bulk-update-modal');
+}
+
+export async function previewBulkUpdate(): Promise<void> {
+  const pid = state.currentProject?.id;
+  if (!pid) return;
+  const previewEl = document.getElementById('bu-preview');
+  if (previewEl) previewEl.innerHTML = '<div class="loading-state" style="padding:12px 0"><div class="loading-spinner"></div></div>';
+
+  const fStatus = (document.getElementById('bu-filter-status') as HTMLSelectElement | null)?.value || '';
+  const fType = (document.getElementById('bu-filter-type') as HTMLSelectElement | null)?.value || '';
+  const fSprint = (document.getElementById('bu-filter-sprint') as HTMLInputElement | null)?.value.trim() || '';
+  const fAssignee = (document.getElementById('bu-filter-assignee') as HTMLInputElement | null)?.value.trim() || '';
+
+  const uPriority = (document.getElementById('bu-set-priority') as HTMLSelectElement | null)?.value || '';
+  const uStatus = (document.getElementById('bu-set-status') as HTMLSelectElement | null)?.value || '';
+  const uSprint = (document.getElementById('bu-set-sprint') as HTMLInputElement | null)?.value.trim() || '';
+  const uRelease = (document.getElementById('bu-set-release') as HTMLInputElement | null)?.value.trim() || '';
+  const uAssignee = (document.getElementById('bu-set-assignee') as HTMLInputElement | null)?.value.trim() || '';
+
+  const hasUpdate = uPriority || uStatus || uSprint || uRelease || uAssignee;
+  if (!hasUpdate) {
+    if (previewEl) previewEl.innerHTML = '<div style="color:var(--status-open);font-size:13px">Select at least one field to update.</div>';
+    return;
+  }
+
+  // Build payload matching the backend's flat field format
+  const payload: Record<string, string> = {};
+  if (fStatus) payload.filterStatus = fStatus;
+  if (fType) payload.filterType = fType;
+  if (fSprint) payload.filterSprint = fSprint;
+  if (fAssignee) payload.filterAssignee = fAssignee;
+  if (uPriority) payload.priority = uPriority;
+  if (uStatus) payload.status = uStatus;
+  if (uSprint) payload.sprint = uSprint;
+  if (uRelease) payload.release = uRelease;
+  if (uAssignee) payload.assignee = uAssignee;
+  payload.dryRun = 'true';
+
+  try {
+    const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
+    const matched: any[] = (data as any).items || (data as any).matched || [];
+    const count = (data as any).count ?? (data as any).total ?? matched.length;
+    const applyBtn = document.getElementById('bu-apply-btn') as HTMLButtonElement | null;
+    if (previewEl) {
+      const updateParts: string[] = [];
+      if (uPriority) updateParts.push(`priority → P${uPriority}`);
+      if (uStatus) updateParts.push(`status → ${uStatus}`);
+      if (uSprint) updateParts.push(`sprint → ${uSprint}`);
+      if (uRelease) updateParts.push(`release → ${uRelease}`);
+      if (uAssignee) updateParts.push(`assignee → ${uAssignee}`);
+      const updateDesc = updateParts.map(p=>`<strong>${escHtml(p)}</strong>`).join(', ');
+
+      if (count === 0 && matched.length === 0) {
+        previewEl.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:10px 0">No items match the filter criteria.</div>`;
+        if (applyBtn) applyBtn.disabled = true;
+      } else {
+        const displayCount = count || matched.length;
+        previewEl.innerHTML = `
+          <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
+            <div style="margin-bottom:8px">Will update <strong>${displayCount}</strong> item${displayCount!==1?'s':''}: ${updateDesc}</div>
+            ${matched.slice(0,8).map((it: any)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id||'')} ${escHtml(it.title||'')}</div>`).join('')}
+            ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
+          </div>`;
+        if (applyBtn) applyBtn.disabled = false;
+        // Store payload for apply (without dryRun)
+        const applyPayload = { ...payload };
+        delete applyPayload.dryRun;
+        (applyBtn as any)._bulkPayload = applyPayload;
+      }
+    }
+  } catch(err: unknown) {
+    if (previewEl) previewEl.innerHTML = `<div style="color:var(--status-open);font-size:13px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+  }
+}
+
+export async function applyBulkUpdate(): Promise<void> {
+  const pid = state.currentProject?.id;
+  if (!pid) return;
+  const applyBtn = document.getElementById('bu-apply-btn') as HTMLButtonElement | null;
+  const payload = (applyBtn as any)?._bulkPayload;
+  if (!payload) { toast('Run Preview first', 'info'); return; }
+  if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying…'; }
+  try {
+    const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
+    const updated = (data as any).updated ?? (data as any).count ?? (data as any).total ?? 'some';
+    toast(`Updated ${updated} item${updated!==1?'s':''}`, 'success');
+    hideModal('bulk-update-modal');
+    if (state.currentView === 'items') fetchAndRenderItems();
+    loadItemsBadge();
+  } catch(err: unknown) {
+    toast(err instanceof Error ? err.message : String(err), 'error');
+    if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply Update'; }
+  }
+}
+
 export async function renderItemsView(): Promise<void> {
   const el = document.getElementById('content-items');
   if (!el) return;
@@ -27,6 +195,7 @@ export async function renderItemsView(): Promise<void> {
       </div>
       <div class="page-actions">
         <button class="btn btn-secondary btn-sm" onclick="window.__app.renderItemsView()" title="Refresh">↺ Refresh</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkUpdateModal()">⊞ Bulk Update</button>
         <button class="btn btn-primary" onclick="window.__app.showView('create')">+ New Item</button>
       </div>
     </div>

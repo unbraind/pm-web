@@ -21,6 +21,8 @@ import { renderGitHubView } from './github.js';
 import { renderExportView } from './export.js';
 import { renderNormalizeView } from './normalize.js';
 import { renderSharedView } from './shared.js';
+import { renderTemplatesView } from './templates.js';
+import { renderCommentsAuditView } from './comments-audit.js';
 
 export function showView(view: string): void {
   state.currentView = view;
@@ -55,6 +57,8 @@ export function showView(view: string): void {
     case 'export': renderExportView(); break;
     case 'normalize': renderNormalizeView(); break;
     case 'shared': renderSharedView(); break;
+    case 'templates': renderTemplatesView(); break;
+    case 'comments-audit': renderCommentsAuditView(); break;
   }
   updateMobileNav(view);
 }

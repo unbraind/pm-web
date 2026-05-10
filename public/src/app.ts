@@ -5,7 +5,7 @@ import { state } from './state.js';
 import { api } from './api.js';
 import { showView } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject } from './views/projects.js';
-import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters } from './views/items.js';
+import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate } from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
 import { renderActivityView } from './views/activity.js';
 import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSearch } from './views/search.js';
@@ -22,6 +22,8 @@ import { renderGitHubView, linkGitHubRepo, unlinkGitHubRepo, loadGitHubIssues, s
 import { renderExportView, exportData, importData } from './views/export.js';
 import { renderNormalizeView, applyNormalize } from './views/normalize.js';
 import { renderSharedView } from './views/shared.js';
+import { renderTemplatesView, createFromTemplate } from './views/templates.js';
+import { renderCommentsAuditView } from './views/comments-audit.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -98,6 +100,8 @@ let deferredPrompt: any = null;
   renderExportView,
   renderNormalizeView,
   renderSharedView,
+  renderTemplatesView,
+  renderCommentsAuditView,
 
   // Auth
   switchAuthTab,
@@ -130,6 +134,9 @@ let deferredPrompt: any = null;
   setStatusFilter,
   applyItemFilters,
   clearFilters,
+  showBulkUpdateModal,
+  previewBulkUpdate,
+  applyBulkUpdate,
 
   // Create
   submitCreateItem,
@@ -177,6 +184,9 @@ let deferredPrompt: any = null;
 
   // Normalize
   applyNormalize,
+
+  // Templates
+  createFromTemplate,
 
   // Modals
   showModal,
