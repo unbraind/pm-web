@@ -1,0 +1,11 @@
+{
+  "name": "pm-web",
+  "version": "1.0.0",
+  "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+  "author": "@unbraind",
+  "entry": "./dist/index.js",
+  "priority": 50,
+  "capabilities": [
+    "commands"
+  ]
+}
