@@ -4,7 +4,7 @@
 import { state } from './state.js';
 import { api } from './api.js';
 import { showView } from './views/router.js';
-import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject } from './views/projects.js';
+import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
 import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate } from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
 import { renderActivityView } from './views/activity.js';
@@ -124,6 +124,7 @@ let deferredPrompt: any = null;
   selectProject,
   deleteProject,
   submitCreateProject,
+  submitCreateProject2,
 
   // Items
   openItemDetail,
@@ -316,6 +317,35 @@ export async function bootApp(): Promise<void> {
   buildSearchModal();
 
   await loadProjects();
+  await handleLaunchAction();
+}
+
+async function handleLaunchAction(): Promise<void> {
+  const action = new URLSearchParams(window.location.search).get('action');
+
+  if (action === 'new-project') {
+    showView('projects');
+    showModal('create-project-modal');
+    setTimeout(() => document.getElementById('cp-name')?.focus(), 50);
+    return;
+  }
+
+  if (action === 'new-item' || action === 'search') {
+    if (!state.currentProject && state.projects[0]) {
+      await onProjectSelect(state.projects[0].id);
+    }
+    if (!state.currentProject) {
+      showView('projects');
+      toast('Create a project first', 'info');
+      return;
+    }
+    showView(action === 'new-item' ? 'create' : 'search');
+    if (action === 'search') {
+      setTimeout(() => document.getElementById('search-query')?.focus(), 100);
+    }
+    return;
+  }
+
   showView('projects');
 }
 
@@ -420,7 +450,7 @@ window.addEventListener('appinstalled', () => {
 // ═══════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {/* silent */});
+    navigator.serviceWorker.register('/sw.js?v=4', { updateViaCache: 'none' }).catch(() => {/* silent */});
   });
 }
 

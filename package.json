@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "description": "Web UI for pm-cli",
   "type": "module",
+  "files": [
+    "dist/",
+    "public/",
+    "sql/",
+    "manifest.json",
+    "README.md"
+  ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",

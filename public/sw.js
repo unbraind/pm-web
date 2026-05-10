@@ -1,14 +1,50 @@
-const CACHE_NAME = 'pm-web-v3';
+const CACHE_NAME = 'pm-web-v4';
 const STATIC_ASSETS = [
   '/',
   '/styles.css',
   '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/src/api.js',
+  '/src/app.js',
+  '/src/components/modals.js',
+  '/src/components/toast.js',
+  '/src/constants.js',
+  '/src/state.js',
+  '/src/types.js',
+  '/src/utils.js',
+  '/src/views/activity.js',
+  '/src/views/auth.js',
+  '/src/views/calendar.js',
+  '/src/views/comments-audit.js',
+  '/src/views/config.js',
+  '/src/views/context.js',
+  '/src/views/create.js',
+  '/src/views/dedupe.js',
+  '/src/views/export.js',
+  '/src/views/github.js',
+  '/src/views/groups.js',
+  '/src/views/guide.js',
+  '/src/views/health.js',
+  '/src/views/items.js',
+  '/src/views/normalize.js',
+  '/src/views/projects.js',
+  '/src/views/router.js',
+  '/src/views/search.js',
+  '/src/views/settings.js',
+  '/src/views/shared.js',
+  '/src/views/sharing.js',
+  '/src/views/stats.js',
+  '/src/views/templates.js',
+  '/src/views/validate.js',
 ];
 
 // Install: cache shell assets and activate immediately
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(STATIC_ASSETS.map((asset) => cache.add(asset).catch(() => null)))
+    )
   );
   self.skipWaiting();
 });

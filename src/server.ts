@@ -19,6 +19,14 @@ const app = express();
 
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
+
+app.get("/sw.js", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.sendFile(path.join(PUBLIC_DIR, "sw.js"));
+});
+
 app.use(
   express.static(PUBLIC_DIR, {
     maxAge: process.env.NODE_ENV === "production" ? "1h" : 0,

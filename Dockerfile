@@ -1,8 +1,9 @@
 FROM node:22-slim AS builder
 WORKDIR /app
+ARG PM_CLI_CACHE_BUST=latest
 
 # Install pm-cli globally + fix shebang path
-RUN npm install -g @unbrained/pm-cli@latest && \
+RUN echo "pm-cli cache bust: ${PM_CLI_CACHE_BUST}" && npm install -g @unbrained/pm-cli@latest && \
     (test -f /usr/bin/node || ln -s $(which node) /usr/bin/node)
 
 COPY package.json package-lock.json* ./
@@ -18,9 +19,10 @@ RUN npm run build && cd public && npx tsc
 
 FROM node:22-slim AS runtime
 WORKDIR /app
+ARG PM_CLI_CACHE_BUST=latest
 
 # Install pm-cli globally in runtime stage
-RUN npm install -g @unbrained/pm-cli@latest && \
+RUN echo "pm-cli cache bust: ${PM_CLI_CACHE_BUST}" && npm install -g @unbrained/pm-cli@latest && \
     (test -f /usr/bin/node || ln -s $(which node) /usr/bin/node)
 
 COPY package.json package-lock.json* ./
