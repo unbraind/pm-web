@@ -64,7 +64,8 @@ router.post("/create", async (req: AuthRequest, res) => {
   const args = ["create", "--title", title.trim()];
   if (type) args.push("--type", type);
   if (priority) args.push("--priority", priority);
-  if (description) args.push("--description", description);
+  // pm CLI requires --description; provide a sensible default when omitted
+  args.push("--description", (description || title.trim()).slice(0, 500));
   if (tags) args.push("--tags", tags);
   if (parent) args.push("--parent", parent);
   if (deadline) args.push("--deadline", deadline);
