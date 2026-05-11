@@ -30,6 +30,7 @@ RUN npm install --omit=dev --ignore-scripts
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
+COPY extensions ./extensions
 
 RUN mkdir -p /app/projects
 

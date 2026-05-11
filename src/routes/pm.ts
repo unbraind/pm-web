@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { runPm, projectExists } from "../services/pm-runner.js";
+import { ensureGraphExtension, runPm, projectExists } from "../services/pm-runner.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, type SSEEvent } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
@@ -276,7 +276,8 @@ async function syncGraphToNeo4j(
 }
 
 async function syncProjectGraph(project: ProjectRef): Promise<{ syncedNodes: number; syncedRelationships: number }> {
-  const graph = fallbackGraphForProject(project.ownerUserId, project.slug);
+  const extensionGraph = pmGraphExtensionGraphForProject(project);
+  const graph = extensionGraph.graph ?? fallbackGraphForProject(project.ownerUserId, project.slug);
   return syncGraphToNeo4j(graph, graphProjectKey(project));
 }
 
@@ -330,6 +331,38 @@ function fallbackGraphForProject(ownerUserId: string, slug: string): ProjectGrap
     }
   }
   return graphFromItems(items, depsByItem);
+}
+
+function pmGraphExtensionGraphForProject(project: ProjectRef): { graph?: ProjectGraph; error?: string } {
+  const provision = ensureGraphExtension(project.ownerUserId, project.slug);
+  if (!provision.ok) {
+    return { error: provision.error };
+  }
+
+  const extensionResult = runPm({
+    args: ["pm-graph", "export", "--json"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: false,
+  });
+  let extensionData: { graph?: ProjectGraph } | undefined;
+  if (extensionResult.ok && extensionResult.stdout) {
+    try {
+      extensionData = JSON.parse(extensionResult.stdout) as { graph?: ProjectGraph };
+    } catch {
+      return { error: "pm-graph export returned invalid JSON." };
+    }
+  }
+  if (extensionResult.ok && extensionData?.graph) {
+    return {
+      graph: {
+        ...extensionData.graph,
+        source: "pm-graph",
+      },
+    };
+  }
+
+  return { error: extensionResult.stderr || extensionResult.stdout || "pm-graph export did not return a graph." };
 }
 
 // Verify project access (owner or shared) and return slug + ownerUserId for pm-runner
@@ -802,20 +835,11 @@ router.get("/graph", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const extensionResult = runPm({
-    args: ["pm-graph", "export"],
-    userId: project.ownerUserId,
-    slug: project.slug,
-    jsonOutput: true,
-  });
-  const extensionData = extensionResult.parsed as { graph?: ProjectGraph } | undefined;
-  if (extensionResult.ok && extensionData?.graph) {
+  const extensionGraph = pmGraphExtensionGraphForProject(project);
+  if (extensionGraph.graph) {
     res.json({
       ok: true,
-      graph: {
-        ...extensionData.graph,
-        source: "pm-graph",
-      },
+      graph: extensionGraph.graph,
       extensionAvailable: true,
     });
     return;
@@ -826,7 +850,7 @@ router.get("/graph", async (req: AuthRequest, res) => {
       ok: true,
       graph: fallbackGraphForProject(project.ownerUserId, project.slug),
       extensionAvailable: false,
-      extensionError: extensionResult.stderr || undefined,
+      extensionError: extensionGraph.error,
     });
   } catch (err: unknown) {
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
