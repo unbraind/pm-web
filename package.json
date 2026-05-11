@@ -12,11 +12,14 @@
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "npm run build:server && npm run build:frontend",
+    "build:server": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run typecheck:server && npm run typecheck:frontend",
+    "typecheck:server": "tsc --noEmit",
+    "typecheck:frontend": "cd public && npx tsc --noEmit",
     "build:frontend": "cd public && npx tsc",
-    "build:all": "npm run build && npm run build:frontend"
+    "build:all": "npm run build"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

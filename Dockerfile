@@ -15,7 +15,7 @@ COPY src/ ./src/
 # Copy entire public directory for frontend build
 COPY public/ ./public/
 # Build both server and frontend
-RUN npm run build && cd public && npx tsc
+RUN npm run build
 
 FROM node:22-slim AS runtime
 WORKDIR /app
