@@ -1448,8 +1448,14 @@ router.get("/list-canceled", buildListShortcutRoute("list-canceled"));
 // ─── SSE endpoint ───
 // GET /api/projects/:projectId/pm/events
 router.get("/events", async (req: AuthRequest, res) => {
-  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
-  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  try {
+    const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+    if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  } catch (err) {
+    console.error("SSE project verification failed:", err);
+    res.status(500).json({ error: "Failed to verify project for real-time sync" });
+    return;
+  }
 
   setupSSEHeaders(res);
 

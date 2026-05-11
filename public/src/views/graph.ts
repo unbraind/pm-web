@@ -21,11 +21,13 @@ type GraphFilter = {
   query: string;
   kind: 'all' | 'items' | 'facets' | 'external' | 'unlinked';
   rel: string;
+  layout: 'topology' | 'status' | 'type' | 'activity';
+  scope: 'all' | 'focus';
 };
 
 let currentGraph: GraphResponse | null = null;
 let selectedNodeId = '';
-let filter: GraphFilter = { query: '', kind: 'all', rel: 'all' };
+let filter: GraphFilter = { query: '', kind: 'all', rel: 'all', layout: 'topology', scope: 'all' };
 
 function nodeTitle(node: GraphNode): string {
   return String(node.properties?.title || node.id);
@@ -60,6 +62,42 @@ function relationshipCounts(relationships: GraphRelationship[]): Record<string, 
   }, {});
 }
 
+function lastUpdatedBucket(node: GraphNode): string {
+  const raw = node.properties?.updated_at || node.properties?.created_at;
+  if (typeof raw !== 'string') return 'No date';
+  const time = new Date(raw).getTime();
+  if (Number.isNaN(time)) return 'No date';
+  const ageDays = (Date.now() - time) / 86_400_000;
+  if (ageDays <= 7) return 'Last 7 days';
+  if (ageDays <= 30) return 'Last 30 days';
+  if (ageDays <= 90) return 'Last 90 days';
+  return 'Older';
+}
+
+function graphBucket(node: GraphNode): string {
+  if (filter.layout === 'status') {
+    if (!isItemNode(node)) return nodeLane(node) === 'facet' ? 'Metadata' : 'External';
+    return nodeStatus(node);
+  }
+  if (filter.layout === 'type') {
+    return nodeType(node);
+  }
+  if (filter.layout === 'activity') {
+    if (!isItemNode(node)) return nodeLane(node) === 'facet' ? 'Metadata' : 'External';
+    return lastUpdatedBucket(node);
+  }
+  return nodeLane(node) === 'facet' ? 'Metadata' : nodeLane(node) === 'external' ? 'External' : 'Items';
+}
+
+function directNeighborIds(nodeId: string, relationships: GraphRelationship[]): Set<string> {
+  const ids = new Set<string>([nodeId]);
+  for (const rel of relationships) {
+    if (rel.from === nodeId) ids.add(rel.to);
+    if (rel.to === nodeId) ids.add(rel.from);
+  }
+  return ids;
+}
+
 function compactError(raw: string | undefined): string {
   if (!raw) return '';
   try {
@@ -83,9 +121,13 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; relationships:
   const nodes = graph.nodes || [];
   const relationships = graph.relationships || [];
   const connected = new Set(relationships.flatMap((rel) => [rel.from, rel.to]));
+  const focusIds = selectedNodeId && filter.scope === 'focus'
+    ? directNeighborIds(selectedNodeId, relationships)
+    : null;
   const q = filter.query.trim().toLowerCase();
 
   const nodeMatches = (node: GraphNode): boolean => {
+    if (focusIds && !focusIds.has(node.id)) return false;
     if (filter.kind === 'items' && !isItemNode(node)) return false;
     if (filter.kind === 'facets' && !isFacetNode(node)) return false;
     if (filter.kind === 'external' && !node.labels?.includes('ExternalPmItem')) return false;
@@ -118,23 +160,31 @@ function positionNodes(nodes: GraphNode[], relationships: GraphRelationship[]): 
     .sort((a, b) => (degrees.get(b.id) || 0) - (degrees.get(a.id) || 0) || nodeTitle(a).localeCompare(nodeTitle(b)))
     .slice(0, 64);
 
-  const lanes: Record<PositionedNode['lane'], GraphNode[]> = {
-    item: ranked.filter((node) => nodeLane(node) === 'item'),
-    facet: ranked.filter((node) => nodeLane(node) === 'facet'),
-    external: ranked.filter((node) => nodeLane(node) === 'external'),
-  };
-  const yByLane: Record<PositionedNode['lane'], number> = { item: 48, facet: 20, external: 76 };
+  const groups = new Map<string, GraphNode[]>();
+  for (const node of ranked) {
+    const key = graphBucket(node);
+    groups.set(key, [...(groups.get(key) || []), node]);
+  }
+  const entries = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  const groupCount = Math.max(entries.length, 1);
 
-  return (Object.entries(lanes) as Array<[PositionedNode['lane'], GraphNode[]]>).flatMap(([lane, laneNodes]) => {
-    const count = Math.max(laneNodes.length, 1);
-    return laneNodes.map((node, index) => {
-      const wave = Math.sin(index * 1.7) * 8;
+  return entries.flatMap(([_, groupNodes], groupIndex) => {
+    const count = Math.max(groupNodes.length, 1);
+    const groupCenterX = groupCount === 1 ? 50 : 24 + (groupIndex / (groupCount - 1)) * 52;
+    const maxRows = 6;
+    const columns = Math.max(1, Math.ceil(count / maxRows));
+    const rows = Math.ceil(count / columns);
+    const columnGap = Math.min(22, Math.max(18, 48 / Math.max(columns, 1)));
+    return groupNodes.map((node, index) => {
+      const column = Math.floor(index / rows);
+      const row = index % rows;
+      const jitter = Math.sin((index + 1) * 2.1 + groupIndex) * 1.6;
       return {
         ...node,
-        x: 8 + ((index + 1) / (count + 1)) * 84,
-        y: Math.max(10, Math.min(90, yByLane[lane] + wave)),
+        x: Math.max(7, Math.min(93, groupCenterX + (column - (columns - 1) / 2) * columnGap + jitter)),
+        y: 12 + ((row + 1) / (rows + 1)) * 76,
         degree: degrees.get(node.id) || 0,
-        lane,
+        lane: nodeLane(node),
       };
     });
   });
@@ -159,8 +209,17 @@ function renderGraphMap(nodes: GraphNode[], relationships: GraphRelationship[]):
     return '<div class="empty-state"><div class="empty-state-text">No graph nodes match the current filters.</div></div>';
   }
 
+  const buckets = Array.from(new Set(positioned.map(graphBucket))).slice(0, 8);
+
   return `
     <div class="graph-map" aria-label="Knowledge graph map">
+      <div class="graph-map-bands" aria-hidden="true">
+        ${buckets.map((bucket, index) => `
+          <div class="graph-map-band" style="left:${((index + 0.5) / buckets.length * 100).toFixed(2)}%">
+            <span>${escHtml(bucket)}</span>
+          </div>
+        `).join('')}
+      </div>
       <svg class="graph-edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         ${visibleRelationships.map((rel) => {
           const from = byId.get(rel.from)!;
@@ -184,6 +243,12 @@ function renderGraphMap(nodes: GraphNode[], relationships: GraphRelationship[]):
           </button>`;
       }).join('')}
     </div>
+    <div class="graph-legend">
+      <span><i class="legend-dot legend-item"></i>Items</span>
+      <span><i class="legend-dot legend-facet"></i>Metadata</span>
+      <span><i class="legend-dot legend-external"></i>External refs</span>
+      <span><i class="legend-line"></i>Relationship</span>
+    </div>
     ${nodes.length > positioned.length ? `<div class="graph-limit-note">Showing the ${positioned.length} most connected nodes out of ${nodes.length} matching nodes.</div>` : ''}`;
 }
 
@@ -191,7 +256,7 @@ function renderRelationship(rel: GraphRelationship, nodesById: Map<string, Graph
   const from = nodesById.get(rel.from);
   const to = nodesById.get(rel.to);
   return `
-    <div class="graph-rel-row" data-graph-rel-type="${escHtml(rel.type)}">
+    <button class="graph-rel-row" data-graph-rel-type="${escHtml(rel.type)}" data-graph-from-id="${escHtml(rel.from)}" data-graph-to-id="${escHtml(rel.to)}">
       <div>
         <div class="graph-rel-title">${escHtml(nodeTitle(from || { id: rel.from }))}</div>
         <div class="graph-rel-id">${escHtml(rel.from)}</div>
@@ -201,7 +266,7 @@ function renderRelationship(rel: GraphRelationship, nodesById: Map<string, Graph
         <div class="graph-rel-title">${escHtml(nodeTitle(to || { id: rel.to }))}</div>
         <div class="graph-rel-id">${escHtml(rel.to)}</div>
       </div>
-    </div>`;
+    </button>`;
 }
 
 function renderSelectedNode(node: GraphNode | undefined, relationships: GraphRelationship[], nodesById: Map<string, GraphNode>): string {
@@ -209,14 +274,21 @@ function renderSelectedNode(node: GraphNode | undefined, relationships: GraphRel
     return '<div class="graph-node-empty">Select a node to inspect direct relationships.</div>';
   }
 
-  const direct = relationships.filter((rel) => rel.from === node.id || rel.to === node.id);
+  const outgoing = relationships.filter((rel) => rel.from === node.id);
+  const incoming = relationships.filter((rel) => rel.to === node.id);
+  const direct = [...outgoing, ...incoming];
   return `
     <div class="graph-selected">
       <div class="graph-selected-title">${escHtml(nodeTitle(node))}</div>
       <div class="graph-selected-meta">${escHtml(node.id)} · ${escHtml(nodeType(node))} · ${escHtml(nodeStatus(node))}</div>
       <div class="graph-selected-actions">
         ${isItemNode(node) ? `<button class="btn btn-secondary btn-sm" id="graph-open-selected">Open Item</button>` : ''}
+        <button class="btn btn-secondary btn-sm" id="graph-focus-selected">${filter.scope === 'focus' ? 'Show All' : 'Focus Neighbors'}</button>
         <button class="btn btn-ghost btn-sm" id="graph-clear-selected">Clear</button>
+      </div>
+      <div class="graph-selected-counts">
+        <span>${outgoing.length} outgoing</span>
+        <span>${incoming.length} incoming</span>
       </div>
       <div class="graph-panel-title graph-panel-title-spaced">Direct Relationships</div>
       ${direct.length === 0
@@ -224,7 +296,8 @@ function renderSelectedNode(node: GraphNode | undefined, relationships: GraphRel
         : direct.slice(0, 12).map((rel) => {
           const otherId = rel.from === node.id ? rel.to : rel.from;
           const other = nodesById.get(otherId);
-          return `<div class="graph-neighbor"><span>${escHtml(rel.type)}</span><strong>${escHtml(nodeTitle(other || { id: otherId }))}</strong></div>`;
+          const direction = rel.from === node.id ? 'to' : 'from';
+          return `<button class="graph-neighbor" data-graph-node-id="${escHtml(otherId)}"><span>${escHtml(rel.type)} ${direction}</span><strong>${escHtml(nodeTitle(other || { id: otherId }))}</strong></button>`;
         }).join('')}
     </div>`;
 }
@@ -300,6 +373,14 @@ function renderGraph(data: GraphResponse): string {
         <option value="all">All relationships</option>
         ${relOptions.map((rel) => `<option value="${escHtml(rel)}" ${filter.rel === rel ? 'selected' : ''}>${escHtml(rel)}</option>`).join('')}
       </select>
+      <select class="form-select graph-filter-select" id="graph-filter-layout">
+        ${[
+          ['topology', 'Layout: topology'],
+          ['status', 'Layout: status'],
+          ['type', 'Layout: type'],
+          ['activity', 'Layout: activity'],
+        ].map(([value, label]) => `<option value="${value}" ${filter.layout === value ? 'selected' : ''}>${label}</option>`).join('')}
+      </select>
     </div>
 
     <div class="graph-layout">
@@ -341,6 +422,11 @@ function bindGraphControls(): void {
   });
   document.getElementById('graph-clear-selected')?.addEventListener('click', () => {
     selectedNodeId = '';
+    filter.scope = 'all';
+    rerenderCurrentGraph();
+  });
+  document.getElementById('graph-focus-selected')?.addEventListener('click', () => {
+    filter.scope = filter.scope === 'focus' ? 'all' : 'focus';
     rerenderCurrentGraph();
   });
 
@@ -365,6 +451,17 @@ function bindGraphControls(): void {
     filter.rel = (event.target as HTMLSelectElement).value;
     selectedNodeId = '';
     rerenderAndFocus('graph-filter-rel');
+  });
+  document.getElementById('graph-filter-layout')?.addEventListener('change', (event) => {
+    filter.layout = (event.target as HTMLSelectElement).value as GraphFilter['layout'];
+    rerenderAndFocus('graph-filter-layout');
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-graph-from-id][data-graph-to-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedNodeId = button.dataset.graphToId || button.dataset.graphFromId || '';
+      filter.scope = 'focus';
+      rerenderCurrentGraph();
+    });
   });
 }
 
