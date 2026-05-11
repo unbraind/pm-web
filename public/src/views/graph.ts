@@ -20,14 +20,25 @@ type GraphFilter = {
   query: string;
   kind: 'all' | 'items' | 'facets' | 'external' | 'unlinked';
   rel: string;
+  direction: 'all' | 'incoming' | 'outgoing' | 'connected';
   layout: 'topology' | 'status' | 'type' | 'activity';
   scope: 'all' | 'focus';
   depth: '1' | '2';
+  density: 'comfortable' | 'compact';
 };
 
 let currentGraph: GraphResponse | null = null;
 let selectedNodeId = '';
-let filter: GraphFilter = { query: '', kind: 'all', rel: 'all', layout: 'topology', scope: 'all', depth: '1' };
+let filter: GraphFilter = {
+  query: '',
+  kind: 'all',
+  rel: 'all',
+  direction: 'all',
+  layout: 'topology',
+  scope: 'all',
+  depth: '1',
+  density: 'comfortable',
+};
 
 function nodeTitle(node: GraphNode): string {
   return String(node.properties?.title || node.id);
@@ -161,11 +172,14 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; relationships:
 
   const visibleNodes = nodes.filter(nodeMatches);
   const visibleIds = new Set(visibleNodes.map((node) => node.id));
-  const visibleRels = relationships.filter((rel) =>
-    visibleIds.has(rel.from) &&
-    visibleIds.has(rel.to) &&
-    (filter.rel === 'all' || rel.type === filter.rel)
-  );
+  const visibleRels = relationships.filter((rel) => {
+    if (!visibleIds.has(rel.from) || !visibleIds.has(rel.to)) return false;
+    if (filter.rel !== 'all' && rel.type !== filter.rel) return false;
+    if (!selectedNodeId || filter.direction === 'all') return true;
+    if (filter.direction === 'incoming') return rel.to === selectedNodeId;
+    if (filter.direction === 'outgoing') return rel.from === selectedNodeId;
+    return rel.from === selectedNodeId || rel.to === selectedNodeId;
+  });
 
   return { nodes: visibleNodes, relationships: visibleRels, connected };
 }
@@ -228,7 +242,7 @@ function renderGraphMap(nodes: GraphNode[], relationships: GraphRelationship[]):
   const buckets = Array.from(new Set(positioned.map(graphBucket))).slice(0, 8);
 
   return `
-    <div class="graph-map" aria-label="Knowledge graph map">
+    <div class="graph-map graph-map-${filter.density}" aria-label="Knowledge graph map">
       <div class="graph-map-bands" aria-hidden="true">
         ${buckets.map((bucket, index) => `
           <div class="graph-map-band" style="left:${((index + 0.5) / buckets.length * 100).toFixed(2)}%">
@@ -312,6 +326,41 @@ function renderHubList(nodes: GraphNode[], relationships: GraphRelationship[]): 
   `).join('');
 }
 
+function renderCoverageSummary(
+  itemNodes: GraphNode[],
+  relationships: GraphRelationship[],
+  connected: Set<string>,
+  relCounts: Record<string, number>,
+): string {
+  const linkedItems = itemNodes.filter((node) => connected.has(node.id)).length;
+  const linkedPct = itemNodes.length > 0 ? Math.round((linkedItems / itemNodes.length) * 100) : 0;
+  const externalRefs = new Set(
+    relationships
+      .flatMap((rel) => [rel.from, rel.to])
+      .filter((id) => id.includes(':external') || id.startsWith('external:'))
+  ).size;
+  const dominantRel = Object.entries(relCounts).sort((a, b) => b[1] - a[1])[0];
+
+  return `
+    <div class="graph-coverage-grid">
+      <div class="graph-coverage-card">
+        <span>Linked items</span>
+        <strong>${linkedPct}%</strong>
+        <em>${linkedItems} of ${itemNodes.length}</em>
+      </div>
+      <div class="graph-coverage-card">
+        <span>External refs</span>
+        <strong>${externalRefs}</strong>
+        <em>Referenced outside this project</em>
+      </div>
+      <div class="graph-coverage-card">
+        <span>Top relationship</span>
+        <strong>${escHtml(dominantRel?.[0] || 'None')}</strong>
+        <em>${dominantRel?.[1] ?? 0} edges</em>
+      </div>
+    </div>`;
+}
+
 function renderPathHints(node: GraphNode | undefined, relationships: GraphRelationship[], nodesById: Map<string, GraphNode>): string {
   if (!node) return '<div class="graph-node-empty">Select a node to see one-hop and two-hop paths.</div>';
   const oneHop = directNeighborIds(node.id, relationships);
@@ -336,6 +385,35 @@ function renderPathHints(node: GraphNode | undefined, relationships: GraphRelati
     </div>`;
 }
 
+function renderNodeProperties(node: GraphNode): string {
+  const entries = [
+    ['Status', nodeStatus(node)],
+    ['Type', nodeType(node)],
+    ['Priority', node.properties?.priority ?? ''],
+    ['Assignee', node.properties?.assignee ?? ''],
+    ['Sprint', node.properties?.sprint ?? ''],
+    ['Release', node.properties?.release ?? ''],
+    ['Deadline', node.properties?.deadline ?? ''],
+    ['Updated', node.properties?.updated_at ?? ''],
+  ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '');
+  const tags = Array.isArray(node.properties?.tags) ? node.properties.tags.map(String).filter(Boolean) : [];
+
+  return `
+    <div class="graph-property-grid">
+      ${entries.map(([label, value]) => `
+        <div class="graph-property-row">
+          <span>${escHtml(String(label))}</span>
+          <strong>${escHtml(String(value))}</strong>
+        </div>
+      `).join('')}
+    </div>
+    ${tags.length > 0 ? `
+      <div class="graph-tag-list">
+        ${tags.map((tag) => `<button class="graph-tag-chip" data-graph-query="${escHtml(tag)}">${escHtml(tag)}</button>`).join('')}
+      </div>
+    ` : ''}`;
+}
+
 function renderSelectedNode(node: GraphNode | undefined, relationships: GraphRelationship[], nodesById: Map<string, GraphNode>): string {
   if (!node) {
     return '<div class="graph-node-empty">Select a node to inspect direct relationships.</div>';
@@ -357,6 +435,7 @@ function renderSelectedNode(node: GraphNode | undefined, relationships: GraphRel
         <span>${outgoing.length} outgoing</span>
         <span>${incoming.length} incoming</span>
       </div>
+      ${renderNodeProperties(node)}
       <div class="graph-panel-title graph-panel-title-spaced">Direct Relationships</div>
       ${direct.length === 0
         ? '<div class="graph-node-empty">No direct relationships for this node.</div>'
@@ -439,6 +518,14 @@ function renderGraph(data: GraphResponse): string {
         <option value="all">All relationships</option>
         ${relOptions.map((rel) => `<option value="${escHtml(rel)}" ${filter.rel === rel ? 'selected' : ''}>${escHtml(rel)}</option>`).join('')}
       </select>
+      <select class="form-select graph-filter-select" id="graph-filter-direction" ${selectedNodeId ? '' : 'disabled'}>
+        ${[
+          ['all', 'Any direction'],
+          ['connected', 'Selected: all'],
+          ['outgoing', 'Selected: outgoing'],
+          ['incoming', 'Selected: incoming'],
+        ].map(([value, label]) => `<option value="${value}" ${filter.direction === value ? 'selected' : ''}>${label}</option>`).join('')}
+      </select>
       <select class="form-select graph-filter-select" id="graph-filter-layout">
         ${[
           ['topology', 'Layout: topology'],
@@ -451,6 +538,7 @@ function renderGraph(data: GraphResponse): string {
         <option value="1" ${filter.depth === '1' ? 'selected' : ''}>Focus: 1 hop</option>
         <option value="2" ${filter.depth === '2' ? 'selected' : ''}>Focus: 2 hops</option>
       </select>
+      <button class="btn btn-secondary graph-density-toggle" id="graph-density-toggle">${filter.density === 'compact' ? 'Comfortable' : 'Compact'}</button>
     </div>
 
     <div class="graph-layout">
@@ -459,6 +547,8 @@ function renderGraph(data: GraphResponse): string {
         ${renderGraphMap(visible.nodes, visible.relationships)}
       </section>
       <section class="graph-panel">
+        <div class="graph-panel-title">Graph Coverage</div>
+        ${renderCoverageSummary(itemNodes, relationships, connected, relCounts)}
         <div class="graph-panel-title">Selected Node</div>
         ${renderSelectedNode(selectedNode, relationships, nodesById)}
         <div class="graph-panel-title graph-panel-title-spaced">Neighborhood</div>
@@ -498,6 +588,7 @@ function bindGraphControls(): void {
   document.getElementById('graph-clear-selected')?.addEventListener('click', () => {
     selectedNodeId = '';
     filter.scope = 'all';
+    filter.direction = 'all';
     rerenderCurrentGraph();
   });
   document.getElementById('graph-focus-selected')?.addEventListener('click', () => {
@@ -508,6 +599,15 @@ function bindGraphControls(): void {
   document.querySelectorAll<HTMLButtonElement>('[data-graph-node-id]').forEach((button) => {
     button.addEventListener('click', () => {
       selectedNodeId = button.dataset.graphNodeId || '';
+      rerenderCurrentGraph();
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-graph-query]').forEach((button) => {
+    button.addEventListener('click', () => {
+      filter.query = button.dataset.graphQuery || '';
+      selectedNodeId = '';
+      filter.scope = 'all';
+      filter.direction = 'all';
       rerenderCurrentGraph();
     });
   });
@@ -527,6 +627,10 @@ function bindGraphControls(): void {
     selectedNodeId = '';
     rerenderAndFocus('graph-filter-rel');
   });
+  document.getElementById('graph-filter-direction')?.addEventListener('change', (event) => {
+    filter.direction = (event.target as HTMLSelectElement).value as GraphFilter['direction'];
+    rerenderAndFocus('graph-filter-direction');
+  });
   document.getElementById('graph-filter-layout')?.addEventListener('change', (event) => {
     filter.layout = (event.target as HTMLSelectElement).value as GraphFilter['layout'];
     rerenderAndFocus('graph-filter-layout');
@@ -536,10 +640,15 @@ function bindGraphControls(): void {
     filter.scope = 'focus';
     rerenderAndFocus('graph-filter-depth');
   });
+  document.getElementById('graph-density-toggle')?.addEventListener('click', () => {
+    filter.density = filter.density === 'compact' ? 'comfortable' : 'compact';
+    rerenderCurrentGraph();
+  });
   document.querySelectorAll<HTMLButtonElement>('[data-graph-from-id][data-graph-to-id]').forEach((button) => {
     button.addEventListener('click', () => {
       selectedNodeId = button.dataset.graphToId || button.dataset.graphFromId || '';
       filter.scope = 'focus';
+      filter.direction = 'connected';
       rerenderCurrentGraph();
     });
   });

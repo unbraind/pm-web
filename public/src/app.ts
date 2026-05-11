@@ -377,14 +377,22 @@ function connectSSE(projectId: string, attempt = 0): void {
         renderActivityView();
       } else if (view === 'stats') {
         renderStatsView();
+      } else if (view === 'graph') {
+        import('./views/graph.js').then((module) => module.renderGraphView());
       }
       loadItemsBadge();
     };
 
+    source.addEventListener('item-created', refreshView);
+    source.addEventListener('item-updated', refreshView);
+    source.addEventListener('item-closed', refreshView);
+    source.addEventListener('item-deleted', refreshView);
+    source.addEventListener('graph-synced', refreshView);
     source.addEventListener('item_created', refreshView);
     source.addEventListener('item_updated', refreshView);
     source.addEventListener('item_closed', refreshView);
     source.addEventListener('item_deleted', refreshView);
+    source.addEventListener('graph_synced', refreshView);
     source.addEventListener('update', refreshView);
 
     source.onerror = () => {
