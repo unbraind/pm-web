@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pm-web-v7';
+const CACHE_NAME = 'pm-web-v8';
 const STATIC_ASSETS = [
   '/',
   '/styles.css',

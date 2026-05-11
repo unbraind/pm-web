@@ -2,7 +2,6 @@ import { api } from '../api.js';
 import { state } from '../state.js';
 import type { GraphNode, GraphRelationship, ProjectGraph } from '../types.js';
 import { escHtml } from '../utils.js';
-import { toast } from '../components/toast.js';
 
 type GraphResponse = {
   graph?: ProjectGraph;
@@ -331,7 +330,6 @@ function renderGraph(data: GraphResponse): string {
       </div>
       <div class="page-actions">
         <button class="btn btn-secondary" id="graph-refresh">Refresh</button>
-        <button class="btn btn-primary" id="graph-sync">Sync Neo4j</button>
       </div>
     </div>
 
@@ -340,8 +338,8 @@ function renderGraph(data: GraphResponse): string {
         <div class="graph-status-title">${data.extensionAvailable ? 'pm-graph extension active' : 'pm-graph extension not active'}</div>
         <div class="graph-status-text">
           ${data.extensionAvailable
-            ? 'Graph export came from pm-graph. Neo4j sync delegates to pm-graph sync when available.'
-            : 'Using the built-in graph from pm list-all, pm deps, parent links, tags, status, type, assignee, sprint, and release metadata.'}
+            ? 'Graph export came from pm-graph. Neo4j is synced automatically after project changes.'
+            : 'Using the built-in graph from pm list-all, pm deps, parent links, tags, status, type, assignee, sprint, and release metadata. Neo4j is synced automatically after project changes.'}
           ${extensionError ? `<br><span class="graph-status-warning">${escHtml(extensionError)}</span>` : ''}
         </div>
       </div>
@@ -416,7 +414,6 @@ function renderGraph(data: GraphResponse): string {
 
 function bindGraphControls(): void {
   document.getElementById('graph-refresh')?.addEventListener('click', () => renderGraphView());
-  document.getElementById('graph-sync')?.addEventListener('click', () => syncGraphToNeo4j());
   document.getElementById('graph-open-selected')?.addEventListener('click', () => {
     if (selectedNodeId) (window as any).__app.openItemDetail(selectedNodeId);
   });
@@ -497,18 +494,5 @@ export async function renderGraphView(): Promise<void> {
     bindGraphControls();
   } catch (err: unknown) {
     el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Graph failed: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
-  }
-}
-
-export async function syncGraphToNeo4j(): Promise<void> {
-  if (!state.currentProject) return;
-  try {
-    const result = await api('POST', `/projects/${state.currentProject.id}/pm/graph/sync`, {});
-    const syncedNodes = result.syncedNodes ?? 0;
-    const syncedRelationships = result.syncedRelationships ?? 0;
-    toast(`Synced ${syncedNodes} nodes and ${syncedRelationships} relationships`, 'success');
-    await renderGraphView();
-  } catch (err: unknown) {
-    toast(err instanceof Error ? err.message : String(err), 'error');
   }
 }

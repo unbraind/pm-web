@@ -12,7 +12,7 @@ import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSea
 import { renderStatsView } from './views/stats.js';
 import { renderCalendarView, calNav, showDayItems } from './views/calendar.js';
 import { renderContextView } from './views/context.js';
-import { renderGraphView, syncGraphToNeo4j } from './views/graph.js';
+import { renderGraphView } from './views/graph.js';
 import { renderSharingView, openShareModal, submitShare, removeShare } from './views/sharing.js';
 import { renderGroupsView, openCreateGroupModal, submitCreateGroup, deleteGroup, openGroupDetail, inviteMember, removeMember } from './views/groups.js';
 import { renderHealthView } from './views/health.js';
@@ -258,9 +258,6 @@ let deferredPrompt: any = null;
   reindexProject,
   debouncedSearch,
   doSearch,
-
-  // Graph
-  syncGraphToNeo4j,
 
   // Calendar
   calNav,

@@ -47,6 +47,14 @@ type ProjectGraph = {
   relationships: GraphRelationship[];
 };
 
+type ProjectRef = {
+  slug: string;
+  prefix: string;
+  ownerUserId: string;
+};
+
+const pendingGraphSyncs = new Map<string, NodeJS.Timeout>();
+
 router.use(async (req: AuthRequest, res, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
     next();
@@ -219,7 +227,14 @@ function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<st
   };
 }
 
-async function syncGraphToNeo4j(graph: ProjectGraph): Promise<{ syncedNodes: number; syncedRelationships: number }> {
+function graphProjectKey(project: ProjectRef): string {
+  return `${project.ownerUserId}:${project.slug}`;
+}
+
+async function syncGraphToNeo4j(
+  graph: ProjectGraph,
+  projectKey: string
+): Promise<{ syncedNodes: number; syncedRelationships: number }> {
   const uri = process.env.NEO4J_URI;
   const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME;
   const password = process.env.NEO4J_PASSWORD;
@@ -230,11 +245,15 @@ async function syncGraphToNeo4j(graph: ProjectGraph): Promise<{ syncedNodes: num
   const driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
   const session = driver.session({ database: process.env.NEO4J_DATABASE });
   try {
+    await session.executeWrite((tx) =>
+      tx.run("MATCH (n:PmGraphNode {projectKey: $projectKey}) DETACH DELETE n", { projectKey })
+    );
+
     for (const node of graph.nodes) {
       await session.executeWrite((tx) =>
         tx.run(
-          "MERGE (n:PmGraphNode {id: $id}) SET n += $properties, n.labels = $labels RETURN n.id",
-          { id: node.id, properties: node.properties, labels: node.labels }
+          "MERGE (n:PmGraphNode {projectKey: $projectKey, id: $id}) SET n += $properties, n.labels = $labels RETURN n.id",
+          { projectKey, id: node.id, properties: { ...node.properties, projectKey }, labels: node.labels }
         )
       );
     }
@@ -243,8 +262,8 @@ async function syncGraphToNeo4j(graph: ProjectGraph): Promise<{ syncedNodes: num
       const relType = graphRelationshipType(relationship.type);
       await session.executeWrite((tx) =>
         tx.run(
-          `MATCH (from:PmGraphNode {id: $from}), (to:PmGraphNode {id: $to}) MERGE (from)-[r:${relType}]->(to) SET r += $properties RETURN type(r)`,
-          { from: relationship.from, to: relationship.to, properties: relationship.properties }
+          `MATCH (from:PmGraphNode {projectKey: $projectKey, id: $from}), (to:PmGraphNode {projectKey: $projectKey, id: $to}) MERGE (from)-[r:${relType}]->(to) SET r += $properties RETURN type(r)`,
+          { projectKey, from: relationship.from, to: relationship.to, properties: { ...relationship.properties, projectKey } }
         )
       );
     }
@@ -254,6 +273,34 @@ async function syncGraphToNeo4j(graph: ProjectGraph): Promise<{ syncedNodes: num
   }
 
   return { syncedNodes: graph.nodes.length, syncedRelationships: graph.relationships.length };
+}
+
+async function syncProjectGraph(project: ProjectRef): Promise<{ syncedNodes: number; syncedRelationships: number }> {
+  const graph = fallbackGraphForProject(project.ownerUserId, project.slug);
+  return syncGraphToNeo4j(graph, graphProjectKey(project));
+}
+
+function scheduleGraphSync(projectId: string, project: ProjectRef, reason: string): void {
+  const existing = pendingGraphSyncs.get(projectId);
+  if (existing) clearTimeout(existing);
+
+  pendingGraphSyncs.set(projectId, setTimeout(() => {
+    pendingGraphSyncs.delete(projectId);
+    syncProjectGraph(project)
+      .then((result) => {
+        broadcastProjectEvent(projectId, {
+          type: "graph-synced",
+          data: { reason, ...result },
+        });
+      })
+      .catch((err: unknown) => {
+        console.error(`Neo4j graph auto-sync failed for ${projectId} after ${reason}:`, err);
+        broadcastProjectEvent(projectId, {
+          type: "graph-sync-failed",
+          data: { reason, error: err instanceof Error ? err.message : String(err) },
+        });
+      });
+  }, 750));
 }
 
 function itemsFromListAll(parsed: unknown): PmItem[] {
@@ -289,7 +336,7 @@ function fallbackGraphForProject(ownerUserId: string, slug: string): ProjectGrap
 async function verifyProject(
   userId: string,
   projectId: string
-): Promise<{ slug: string; prefix: string; ownerUserId: string } | null> {
+): Promise<ProjectRef | null> {
   const access = await verifyProjectAccess(userId, projectId);
   if (!access) return null;
   return { slug: access.slug, prefix: access.prefix, ownerUserId: access.ownerUserId };
@@ -384,6 +431,7 @@ router.post("/create", async (req: AuthRequest, res) => {
     type: "item-created",
     data: { result: result.parsed, userId: req.user!.userId },
   });
+  scheduleGraphSync(req.params["projectId"]!, project, "item-created");
   res.status(201).json(result.parsed || {});
 });
 
@@ -445,6 +493,7 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
     type: "item-updated",
     data: { itemId: req.params["itemId"], userId: req.user!.userId },
   });
+  scheduleGraphSync(req.params["projectId"]!, project, "item-updated");
   res.json(result.parsed || {});
 });
 
@@ -470,6 +519,7 @@ router.post("/close/:itemId", async (req: AuthRequest, res) => {
     type: "item-closed",
     data: { itemId: req.params["itemId"], userId: req.user!.userId },
   });
+  scheduleGraphSync(req.params["projectId"]!, project, "item-closed");
   res.json(result.parsed || {});
 });
 
@@ -491,6 +541,7 @@ router.delete("/delete/:itemId", async (req: AuthRequest, res) => {
     type: "item-deleted",
     data: { itemId: req.params["itemId"], userId: req.user!.userId },
   });
+  scheduleGraphSync(req.params["projectId"]!, project, "item-deleted");
   res.json({ ok: true });
 });
 
@@ -691,6 +742,7 @@ router.post("/append/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to append" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "item-appended");
   res.json(result.parsed || { ok: true });
 });
 
@@ -741,6 +793,7 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to add dependency" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "dependency-updated");
   res.status(201).json(result.parsed || { ok: true });
 });
 
@@ -785,26 +838,12 @@ router.post("/graph/sync", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
-    args: ["pm-graph", "sync"],
-    userId: project.ownerUserId,
-    slug: project.slug,
-    jsonOutput: true,
-  });
-  if (!result.ok) {
-    try {
-      const graph = fallbackGraphForProject(project.ownerUserId, project.slug);
-      const syncResult = await syncGraphToNeo4j(graph);
-      res.json({ ok: true, source: "pm-web", ...syncResult });
-      return;
-    } catch (err: unknown) {
-      res.status(400).json({
-        error: err instanceof Error ? err.message : (result.stderr || "Graph sync failed."),
-      });
-      return;
-    }
+  try {
+    const syncResult = await syncProjectGraph(project);
+    res.json({ ok: true, source: "pm-web", projectKey: graphProjectKey(project), ...syncResult });
+  } catch (err: unknown) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Graph sync failed." });
   }
-  res.json(result.parsed || { ok: true });
 });
 
 // GET /api/projects/:projectId/pm/learnings/:itemId
@@ -857,6 +896,7 @@ router.post("/claim/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to claim item" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "item-claimed");
   res.json(result.parsed || { ok: true });
 });
 
@@ -875,6 +915,7 @@ router.post("/release/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to release item" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "item-released");
   res.json(result.parsed || { ok: true });
 });
 
@@ -893,6 +934,7 @@ router.post("/start-task/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to start task" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "task-started");
   res.json(result.parsed || { ok: true });
 });
 
@@ -911,6 +953,7 @@ router.post("/pause-task/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to pause task" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "task-paused");
   res.json(result.parsed || { ok: true });
 });
 
@@ -994,6 +1037,7 @@ router.post("/restore/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to restore item" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "item-restored");
   res.json(result.parsed || { ok: true });
 });
 
@@ -1015,6 +1059,7 @@ router.post("/close-task/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to close task" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "task-closed");
   res.json(result.parsed || { ok: true });
 });
 
@@ -1083,6 +1128,7 @@ router.post("/files/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to link file" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "file-linked");
   res.status(201).json(result.parsed || { ok: true });
 });
 
@@ -1239,6 +1285,7 @@ router.post("/import", async (req: AuthRequest, res) => {
     type: "items-imported",
     data: { count: created.length, userId: req.user!.userId },
   });
+  if (created.length > 0) scheduleGraphSync(req.params["projectId"]!, project, "items-imported");
   res.json({ created, errors, total: items.length });
 });
 
@@ -1288,6 +1335,7 @@ router.post("/update-many", async (req: AuthRequest, res) => {
     type: "items-bulk-updated",
     data: { userId: req.user!.userId },
   });
+  scheduleGraphSync(req.params["projectId"]!, project, "items-bulk-updated");
   res.json(result.parsed || {});
 });
 
@@ -1328,6 +1376,7 @@ router.post("/docs/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to update docs" });
     return;
   }
+  scheduleGraphSync(req.params["projectId"]!, project, "docs-updated");
   res.json(result.parsed || { ok: true });
 });
 
