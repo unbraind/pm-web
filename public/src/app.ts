@@ -12,6 +12,7 @@ import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSea
 import { renderStatsView } from './views/stats.js';
 import { renderCalendarView, calNav, showDayItems } from './views/calendar.js';
 import { renderContextView } from './views/context.js';
+import { renderGraphView, syncGraphToNeo4j } from './views/graph.js';
 import { renderSharingView, openShareModal, submitShare, removeShare } from './views/sharing.js';
 import { renderGroupsView, openCreateGroupModal, submitCreateGroup, deleteGroup, openGroupDetail, inviteMember, removeMember } from './views/groups.js';
 import { renderHealthView } from './views/health.js';
@@ -68,6 +69,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     commands: [
       { view: 'search', title: 'Search', desc: 'Keyword, semantic, and hybrid search.', icon: '⌕', requiresProject: true },
       { view: 'stats', title: 'Stats', desc: 'Counts, distributions, and project summary.', icon: '◈', requiresProject: true },
+      { view: 'graph', title: 'Graph', desc: 'Knowledge and dependency graph.', icon: '◎', requiresProject: true },
       { view: 'health', title: 'Health', desc: 'Find stale, blocked, or weakly specified work.', icon: '♥', requiresProject: true },
       { view: 'activity', title: 'Activity', desc: 'Audit recent project changes.', icon: '◎', requiresProject: true },
       { view: 'dedupe', title: 'Dedupe Audit', desc: 'Find possible duplicate items.', icon: '⧖', requiresProject: true },
@@ -188,6 +190,7 @@ let deferredPrompt: any = null;
   renderStatsView,
   renderCalendarView,
   renderContextView,
+  renderGraphView,
   renderSharingView,
   renderGroupsView,
   renderHealthView,
@@ -255,6 +258,9 @@ let deferredPrompt: any = null;
   reindexProject,
   debouncedSearch,
   doSearch,
+
+  // Graph
+  syncGraphToNeo4j,
 
   // Calendar
   calNav,

@@ -11,6 +11,7 @@ import { renderSearchView } from './search.js';
 import { renderStatsView } from './stats.js';
 import { renderCalendarView } from './calendar.js';
 import { renderContextView } from './context.js';
+import { renderGraphView } from './graph.js';
 import { renderSharingView } from './sharing.js';
 import { renderGroupsView } from './groups.js';
 import { renderHealthView } from './health.js';
@@ -49,6 +50,7 @@ export function showView(view: string): void {
     case 'stats': renderStatsView(); break;
     case 'calendar': renderCalendarView(); break;
     case 'context': renderContextView(); break;
+    case 'graph': renderGraphView(); break;
     case 'sharing': renderSharingView(); break;
     case 'groups': renderGroupsView(); break;
     case 'health': renderHealthView(); break;

@@ -79,6 +79,32 @@ export interface Dependency {
   title?: string;
 }
 
+export interface GraphNode {
+  id: string;
+  labels?: string[];
+  properties?: {
+    title?: string;
+    type?: string;
+    status?: string;
+    priority?: number | null;
+    [key: string]: unknown;
+  };
+}
+
+export interface GraphRelationship {
+  from: string;
+  to: string;
+  type: string;
+  properties?: Record<string, unknown>;
+}
+
+export interface ProjectGraph {
+  generatedAt?: string;
+  source?: string;
+  nodes?: GraphNode[];
+  relationships?: GraphRelationship[];
+}
+
 export interface Learning {
   text?: string;
   content?: string;
@@ -169,7 +195,7 @@ export type ToastType = 'info' | 'success' | 'error';
 
 export type ViewName =
   | 'projects' | 'items' | 'create' | 'activity' | 'search'
-  | 'stats' | 'calendar' | 'context' | 'sharing' | 'groups'
+  | 'stats' | 'calendar' | 'context' | 'graph' | 'sharing' | 'groups'
   | 'health' | 'dedupe' | 'validate' | 'settings' | 'github'
   | 'export' | 'normalize' | 'shared' | 'templates' | 'comments-audit'
-  | 'config';
+  | 'config' | 'guide';

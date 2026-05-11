@@ -122,6 +122,9 @@
           <div class="sidebar-item" onclick="window.__app.showView('context')" data-view="context">
             <span class="sidebar-item-icon">⚙</span> Context
           </div>
+          <div class="sidebar-item" onclick="window.__app.showView('graph')" data-view="graph">
+            <span class="sidebar-item-icon">◎</span> Graph
+          </div>
           <div class="sidebar-item" onclick="window.__app.showView('config')" data-view="config">
             <span class="sidebar-item-icon">⚒</span> Config
           </div>
@@ -178,6 +181,7 @@
         <div class="content-area" id="content-stats" style="display:none"><!-- stats --></div>
         <div class="content-area" id="content-calendar" style="display:none"><!-- calendar --></div>
         <div class="content-area" id="content-context" style="display:none"><!-- context --></div>
+        <div class="content-area" id="content-graph" style="display:none"><!-- graph --></div>
         <div class="content-area" id="content-sharing" style="display:none"><!-- sharing --></div>
         <div class="content-area" id="content-groups" style="display:none"><!-- groups --></div>
         <div class="content-area" id="content-health" style="display:none"><!-- health --></div>
@@ -240,6 +244,6 @@
   </div>
 </nav>
 
-<script type="module" src="/src/app.js?v=5"></script>
+<script type="module" src="/src/app.js?v=6"></script>
 </body>
 </html>

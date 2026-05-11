@@ -8,6 +8,131 @@ import { v4 as uuidv4 } from "uuid";
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
 
+type PmItem = {
+  id: string;
+  title?: string;
+  type?: string;
+  status?: string;
+  priority?: number;
+  tags?: string[];
+  parent?: string;
+  assignee?: string;
+  sprint?: string;
+  release?: string;
+  deadline?: string;
+  created_at?: string;
+  updated_at?: string;
+  deps?: Array<Record<string, unknown>>;
+  dependencies?: Array<Record<string, unknown>>;
+};
+
+type GraphNode = {
+  id: string;
+  labels: string[];
+  properties: Record<string, unknown>;
+};
+
+type GraphRelationship = {
+  from: string;
+  to: string;
+  type: string;
+  properties: Record<string, unknown>;
+};
+
+type ProjectGraph = {
+  generatedAt: string;
+  source: "pm-graph" | "pm-web";
+  nodes: GraphNode[];
+  relationships: GraphRelationship[];
+};
+
+function graphRelationshipType(rawType: unknown): string {
+  const text = typeof rawType === "string" && rawType.trim().length > 0 ? rawType : "relates-to";
+  return text.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+}
+
+function dependencyTarget(dep: Record<string, unknown>): string | null {
+  for (const key of ["id", "target", "target_id", "targetId", "item", "item_id", "itemId"]) {
+    const value = dep[key];
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+  return null;
+}
+
+function dependencyRows(raw: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(raw)) return raw.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object");
+  if (!raw || typeof raw !== "object") return [];
+  const data = raw as Record<string, unknown>;
+  for (const key of ["deps", "dependencies", "items", "relationships"]) {
+    const value = data[key];
+    if (Array.isArray(value)) {
+      return value.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object");
+    }
+  }
+  return [];
+}
+
+function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<string, unknown>>>): ProjectGraph {
+  const nodes: GraphNode[] = items.map((item) => ({
+    id: item.id,
+    labels: ["PmItem", item.type ?? "Item"],
+    properties: {
+      id: item.id,
+      title: item.title ?? "",
+      type: item.type ?? "Item",
+      status: item.status ?? "unknown",
+      priority: item.priority ?? null,
+      tags: item.tags ?? [],
+      assignee: item.assignee ?? null,
+      sprint: item.sprint ?? null,
+      release: item.release ?? null,
+      deadline: item.deadline ?? null,
+      created_at: item.created_at ?? null,
+      updated_at: item.updated_at ?? null,
+    },
+  }));
+
+  const relationships: GraphRelationship[] = [];
+  for (const item of items) {
+    if (item.parent) {
+      relationships.push({
+        from: item.id,
+        to: item.parent,
+        type: "CHILD_OF",
+        properties: { source: "parent" },
+      });
+    }
+
+    const deps = [
+      ...(item.deps ?? []),
+      ...(item.dependencies ?? []),
+      ...(depsByItem.get(item.id) ?? []),
+    ];
+    const seenDeps = new Set<string>();
+    for (const dep of deps) {
+      const target = dependencyTarget(dep);
+      if (!target) continue;
+      const type = graphRelationshipType(dep.type ?? dep.kind ?? dep.relation ?? dep.rel ?? dep.relationship);
+      const key = `${item.id}->${target}:${type}`;
+      if (seenDeps.has(key)) continue;
+      seenDeps.add(key);
+      relationships.push({
+        from: item.id,
+        to: target,
+        type,
+        properties: { ...dep },
+      });
+    }
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    source: "pm-web",
+    nodes,
+    relationships,
+  };
+}
+
 // Verify project access (owner or shared) and return slug + ownerUserId for pm-runner
 async function verifyProject(
   userId: string,
@@ -458,6 +583,83 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
     return;
   }
   res.status(201).json(result.parsed || { ok: true });
+});
+
+// GET /api/projects/:projectId/pm/graph
+router.get("/graph", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const extensionResult = runPm({
+    args: ["pm-graph", "export"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  const extensionData = extensionResult.parsed as { graph?: ProjectGraph } | undefined;
+  if (extensionResult.ok && extensionData?.graph) {
+    res.json({
+      ok: true,
+      graph: {
+        ...extensionData.graph,
+        source: "pm-graph",
+      },
+      extensionAvailable: true,
+    });
+    return;
+  }
+
+  const itemsResult = runPm({
+    args: ["list-all"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!itemsResult.ok) {
+    res.status(400).json({ error: itemsResult.stderr || "Failed to load items for graph" });
+    return;
+  }
+
+  const items = (((itemsResult.parsed as { items?: PmItem[] } | undefined)?.items) ?? []) as PmItem[];
+  const depsByItem = new Map<string, Array<Record<string, unknown>>>();
+  for (const item of items) {
+    const depsResult = runPm({
+      args: ["deps", item.id],
+      userId: project.ownerUserId,
+      slug: project.slug,
+      jsonOutput: true,
+    });
+    if (depsResult.ok) {
+      depsByItem.set(item.id, dependencyRows(depsResult.parsed));
+    }
+  }
+
+  res.json({
+    ok: true,
+    graph: graphFromItems(items, depsByItem),
+    extensionAvailable: false,
+    extensionError: extensionResult.stderr || undefined,
+  });
+});
+
+// POST /api/projects/:projectId/pm/graph/sync
+router.post("/graph/sync", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const result = runPm({
+    args: ["pm-graph", "sync"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({
+      error: result.stderr || "pm-graph sync failed. Install pm-graph and set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD.",
+    });
+    return;
+  }
+  res.json(result.parsed || { ok: true });
 });
 
 // GET /api/projects/:projectId/pm/learnings/:itemId
@@ -1126,4 +1328,3 @@ router.get("/events", async (req: AuthRequest, res) => {
 });
 
 export { router as pmRouter };
-

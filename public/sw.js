@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pm-web-v4';
+const CACHE_NAME = 'pm-web-v5';
 const STATIC_ASSETS = [
   '/',
   '/styles.css',
@@ -23,6 +23,7 @@ const STATIC_ASSETS = [
   '/src/views/dedupe.js',
   '/src/views/export.js',
   '/src/views/github.js',
+  '/src/views/graph.js',
   '/src/views/groups.js',
   '/src/views/guide.js',
   '/src/views/health.js',
