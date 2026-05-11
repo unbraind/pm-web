@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/styles.css?v=9">
 </head>
 <body>
 <div id="app">
@@ -96,6 +96,9 @@
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('settings')" data-view="settings">
             <span class="sidebar-item-icon">⚙</span> Settings
+          </div>
+          <div class="sidebar-item admin-only" onclick="window.__app.showView('admin')" data-view="admin" style="display:none">
+            <span class="sidebar-item-icon">◇</span> Admin
           </div>
         </div>
         <div class="sidebar-section" id="sidebar-pm-section" style="display:none">
@@ -196,6 +199,7 @@
         <div class="content-area" id="content-comments-audit" style="display:none"><!-- comments audit --></div>
         <div class="content-area" id="content-config" style="display:none"><!-- project config --></div>
         <div class="content-area" id="content-guide" style="display:none"><!-- guide --></div>
+        <div class="content-area" id="content-admin" style="display:none"><!-- admin --></div>
       </main>
     </div>
   </div>
@@ -244,6 +248,6 @@
   </div>
 </nav>
 
-<script type="module" src="/src/app.js?v=6"></script>
+<script type="module" src="/src/app.js?v=7"></script>
 </body>
 </html>

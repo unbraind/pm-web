@@ -9,6 +9,7 @@ import { pmRouter } from "./routes/pm.js";
 import { groupsRouter } from "./routes/groups.js";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.js";
 import { githubRouter } from "./routes/github.js";
+import { adminRouter } from "./routes/admin.js";
 import { cleanupStaleClients } from "./services/sse.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,7 @@ app.use("/api/groups", groupsRouter);
 app.use("/api/projects/:id/shares", sharesRouter);
 app.use("/api/shared", sharedWithMeRouter);
 app.use("/api/projects/:id/github", githubRouter);
+app.use("/api/admin", adminRouter);
 
 // SPA fallback — serve index.html for all non-API routes
 app.get("*", (_req, res) => {

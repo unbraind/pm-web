@@ -22,11 +22,12 @@ type GraphFilter = {
   rel: string;
   layout: 'topology' | 'status' | 'type' | 'activity';
   scope: 'all' | 'focus';
+  depth: '1' | '2';
 };
 
 let currentGraph: GraphResponse | null = null;
 let selectedNodeId = '';
-let filter: GraphFilter = { query: '', kind: 'all', rel: 'all', layout: 'topology', scope: 'all' };
+let filter: GraphFilter = { query: '', kind: 'all', rel: 'all', layout: 'topology', scope: 'all', depth: '1' };
 
 function nodeTitle(node: GraphNode): string {
   return String(node.properties?.title || node.id);
@@ -97,6 +98,22 @@ function directNeighborIds(nodeId: string, relationships: GraphRelationship[]): 
   return ids;
 }
 
+function expandedNeighborIds(nodeId: string, relationships: GraphRelationship[], depth: number): Set<string> {
+  const ids = new Set<string>([nodeId]);
+  let frontier = new Set<string>([nodeId]);
+  for (let level = 0; level < depth; level += 1) {
+    const next = new Set<string>();
+    for (const rel of relationships) {
+      if (frontier.has(rel.from) && !ids.has(rel.to)) next.add(rel.to);
+      if (frontier.has(rel.to) && !ids.has(rel.from)) next.add(rel.from);
+    }
+    for (const id of next) ids.add(id);
+    frontier = next;
+    if (frontier.size === 0) break;
+  }
+  return ids;
+}
+
 function compactError(raw: string | undefined): string {
   if (!raw) return '';
   try {
@@ -121,7 +138,7 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; relationships:
   const relationships = graph.relationships || [];
   const connected = new Set(relationships.flatMap((rel) => [rel.from, rel.to]));
   const focusIds = selectedNodeId && filter.scope === 'focus'
-    ? directNeighborIds(selectedNodeId, relationships)
+    ? expandedNeighborIds(selectedNodeId, relationships, Number(filter.depth))
     : null;
   const q = filter.query.trim().toLowerCase();
 
@@ -268,6 +285,57 @@ function renderRelationship(rel: GraphRelationship, nodesById: Map<string, Graph
     </button>`;
 }
 
+function renderHubList(nodes: GraphNode[], relationships: GraphRelationship[]): string {
+  const degrees = degreeMap(relationships);
+  const hubs = nodes
+    .filter(isItemNode)
+    .map((node) => ({
+      node,
+      degree: degrees.get(node.id) || 0,
+      incoming: relationships.filter((rel) => rel.to === node.id).length,
+      outgoing: relationships.filter((rel) => rel.from === node.id).length,
+    }))
+    .filter((entry) => entry.degree > 0)
+    .sort((a, b) => b.degree - a.degree || nodeTitle(a.node).localeCompare(nodeTitle(b.node)))
+    .slice(0, 8);
+
+  if (hubs.length === 0) return '<div class="graph-node-empty">No connected item hubs yet.</div>';
+  return hubs.map((entry) => `
+    <button class="graph-insight-row" data-graph-node-id="${escHtml(entry.node.id)}">
+      <span>
+        <strong>${escHtml(nodeTitle(entry.node))}</strong>
+        <em>${escHtml(entry.node.id)}</em>
+      </span>
+      <b>${entry.degree}</b>
+      <small>${entry.outgoing} out · ${entry.incoming} in</small>
+    </button>
+  `).join('');
+}
+
+function renderPathHints(node: GraphNode | undefined, relationships: GraphRelationship[], nodesById: Map<string, GraphNode>): string {
+  if (!node) return '<div class="graph-node-empty">Select a node to see one-hop and two-hop paths.</div>';
+  const oneHop = directNeighborIds(node.id, relationships);
+  oneHop.delete(node.id);
+  const twoHop = expandedNeighborIds(node.id, relationships, 2);
+  for (const id of oneHop) twoHop.delete(id);
+  twoHop.delete(node.id);
+
+  const renderIds = (ids: Set<string>) => Array.from(ids).slice(0, 8).map((id) => {
+    const target = nodesById.get(id);
+    return `<button class="graph-path-chip" data-graph-node-id="${escHtml(id)}">${escHtml(nodeTitle(target || { id }))}</button>`;
+  }).join('');
+
+  return `
+    <div class="graph-path-section">
+      <div class="graph-path-label">One hop</div>
+      <div class="graph-path-chips">${renderIds(oneHop) || '<span>No direct neighbors.</span>'}</div>
+    </div>
+    <div class="graph-path-section">
+      <div class="graph-path-label">Two hops</div>
+      <div class="graph-path-chips">${renderIds(twoHop) || '<span>No second-degree neighbors.</span>'}</div>
+    </div>`;
+}
+
 function renderSelectedNode(node: GraphNode | undefined, relationships: GraphRelationship[], nodesById: Map<string, GraphNode>): string {
   if (!node) {
     return '<div class="graph-node-empty">Select a node to inspect direct relationships.</div>';
@@ -379,6 +447,10 @@ function renderGraph(data: GraphResponse): string {
           ['activity', 'Layout: activity'],
         ].map(([value, label]) => `<option value="${value}" ${filter.layout === value ? 'selected' : ''}>${label}</option>`).join('')}
       </select>
+      <select class="form-select graph-filter-select" id="graph-filter-depth" ${selectedNodeId ? '' : 'disabled'}>
+        <option value="1" ${filter.depth === '1' ? 'selected' : ''}>Focus: 1 hop</option>
+        <option value="2" ${filter.depth === '2' ? 'selected' : ''}>Focus: 2 hops</option>
+      </select>
     </div>
 
     <div class="graph-layout">
@@ -389,6 +461,12 @@ function renderGraph(data: GraphResponse): string {
       <section class="graph-panel">
         <div class="graph-panel-title">Selected Node</div>
         ${renderSelectedNode(selectedNode, relationships, nodesById)}
+        <div class="graph-panel-title graph-panel-title-spaced">Neighborhood</div>
+        ${renderPathHints(selectedNode, relationships, nodesById)}
+        <div class="graph-panel-title graph-panel-title-spaced">Item Hubs</div>
+        <div class="graph-insight-list">
+          ${renderHubList(nodes, relationships)}
+        </div>
         <div class="graph-panel-title graph-panel-title-spaced">Nodes by Kind</div>
         <div class="graph-type-list">
           ${Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => `
@@ -452,6 +530,11 @@ function bindGraphControls(): void {
   document.getElementById('graph-filter-layout')?.addEventListener('change', (event) => {
     filter.layout = (event.target as HTMLSelectElement).value as GraphFilter['layout'];
     rerenderAndFocus('graph-filter-layout');
+  });
+  document.getElementById('graph-filter-depth')?.addEventListener('change', (event) => {
+    filter.depth = (event.target as HTMLSelectElement).value as GraphFilter['depth'];
+    filter.scope = 'focus';
+    rerenderAndFocus('graph-filter-depth');
   });
   document.querySelectorAll<HTMLButtonElement>('[data-graph-from-id][data-graph-to-id]').forEach((button) => {
     button.addEventListener('click', () => {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pm-web-v8';
+const CACHE_NAME = 'pm-web-v9';
 const STATIC_ASSETS = [
   '/',
   '/styles.css',
@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
   '/src/types.js',
   '/src/utils.js',
   '/src/views/activity.js',
+  '/src/views/admin.js',
   '/src/views/auth.js',
   '/src/views/calendar.js',
   '/src/views/comments-audit.js',
