@@ -2,7 +2,7 @@
 
 Full web UI for [pm-cli](https://github.com/unbraind/pm-cli) — browse, create, update, search, dedupe-audit, validate and manage pm projects in the browser.
 
-Features user auth, multi-project support, sharing & groups. Hosted at **pm-web.unbrained.dev** or self-host via Docker.
+Features user auth, multi-project support, sharing, groups, GitHub import/sync, admin-only management, local Ollama semantic search configuration, and pm-graph/Neo4j relationship graphs. Hosted at **pm-web.unbrained.dev** or self-host via Docker.
 
 ---
 
@@ -26,6 +26,12 @@ npm run build
 # Set environment variables
 export PORT=4000
 export DATABASE_URL=postgres://user:pass@localhost:5432/pmweb
+export JWT_SECRET=change-me
+export OLLAMA_BASE_URL=http://localhost:11434
+export PM_OLLAMA_MODEL=qwen3-embedding:0.6b
+export NEO4J_URI=bolt://localhost:7687
+export NEO4J_USER=neo4j
+export NEO4J_PASSWORD=change-me
 
 npm start
 ```
@@ -52,9 +58,17 @@ pm extension install github.com/unbraind/pm-cli-web --global
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `PORT` | No | Server port (default: 4000) |
 | `JWT_SECRET` | Yes | Secret for signing JWT tokens |
+| `PORT` | No | Server port (default: 4000) |
 | `NODE_ENV` | No | `production` enables caching |
+| `OLLAMA_BASE_URL` / `OLLAMA_HOST` | No | Local Ollama endpoint for semantic pm search |
+| `PM_OLLAMA_MODEL` | No | Embedding model for new projects, default `qwen3-embedding:0.6b` |
+| `NEO4J_URI` | No | Neo4j Bolt URI for graph sync |
+| `NEO4J_USER` / `NEO4J_USERNAME` | No | Neo4j username |
+| `NEO4J_PASSWORD` | No | Neo4j password |
+| `PM_GRAPH_EXTENSION_PATH` | No | Bundled pm-graph extension path, default `extensions/pm-graph` |
+
+New pm-web projects configure local Ollama search automatically and install the bundled `pm-graph` extension into the project workspace. Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
 
 ---
 
