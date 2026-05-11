@@ -104,6 +104,20 @@ function dependencyRows(raw: unknown): Array<Record<string, unknown>> {
   return [];
 }
 
+function normalizeDependencyKind(input: string | undefined): string {
+  const raw = (input ?? "blocked_by").trim().toLowerCase().replace(/-/g, "_");
+  const aliases: Record<string, string> = {
+    depends_on: "blocked_by",
+    dependson: "blocked_by",
+    dependency: "blocked_by",
+    relates_to: "related",
+    related_to: "related",
+  };
+  const normalized = aliases[raw] ?? raw;
+  const allowed = new Set(["parent", "child", "blocks", "blocked_by", "related"]);
+  return allowed.has(normalized) ? normalized : "blocked_by";
+}
+
 function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<string, unknown>>>): ProjectGraph {
   const nodesById = new Map<string, GraphNode>();
   const relationships: GraphRelationship[] = [];
@@ -716,9 +730,9 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
   const { targetId, rel } = req.body as { targetId?: string; rel?: string };
   if (!targetId?.trim()) { res.status(400).json({ error: "targetId is required" }); return; }
 
-  const depRel = rel?.trim() || "depends-on";
+  const depRel = normalizeDependencyKind(rel);
   const result = runPm({
-    args: ["deps", req.params["itemId"]!, "--add", targetId.trim(), "--rel", depRel],
+    args: ["update", req.params["itemId"]!, "--dep", `id=${targetId.trim()},kind=${depRel}`],
     userId: project.ownerUserId,
     slug: project.slug,
     jsonOutput: true,
