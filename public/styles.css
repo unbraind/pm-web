@@ -374,9 +374,10 @@ html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--b
 .graph-status-warning { color: var(--status-blocked); }
 .graph-status code { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 12px; white-space: nowrap; }
 .graph-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.graph-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 150px 170px 170px 140px; gap: 10px; margin-bottom: 16px; align-items: start; }
+.graph-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 150px 170px 170px 170px 140px auto; gap: 10px; margin-bottom: 16px; align-items: start; }
 .graph-search { margin-bottom: 0; }
 .graph-filter-select { min-height: 40px; }
+.graph-density-toggle { min-height: 40px; white-space: nowrap; }
 .graph-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr); gap: 16px; margin-bottom: 16px; }
 .graph-panel {
   background: var(--bg-card2);
@@ -501,6 +502,13 @@ html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--b
   padding-top: 6px;
   padding-bottom: 6px;
 }
+.graph-map-compact .graph-map-node {
+  width: 92px;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+.graph-map-compact .graph-map-node span { font-size: 11px; }
+.graph-map-compact .graph-map-node em { display: none; }
 .graph-map-node-item::before,
 .graph-map-node-facet::before,
 .graph-map-node-external::before {
@@ -624,6 +632,43 @@ html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--b
   flex-shrink: 0;
 }
 .graph-node-empty { color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+.graph-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.graph-coverage-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  padding: 10px;
+}
+.graph-coverage-card span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.graph-coverage-card strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graph-coverage-card em {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.3;
+}
 .graph-selected-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 .graph-selected-meta { margin-top: 4px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 11px; overflow-wrap: anywhere; }
 .graph-selected-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
@@ -641,6 +686,46 @@ html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--b
   font-size: 10px;
   padding: 4px 8px;
 }
+.graph-property-grid {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.graph-property-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding: 5px 0;
+  font-size: 12px;
+}
+.graph-property-row span { color: var(--text-muted); }
+.graph-property-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.graph-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.graph-tag-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgba(45,212,191,0.24);
+  border-radius: 999px;
+  background: rgba(45,212,191,0.08);
+  color: var(--accent);
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.graph-tag-chip:hover { border-color: var(--accent); }
 .graph-neighbor {
   display: flex;
   justify-content: space-between;
@@ -1294,6 +1379,10 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
   .graph-toolbar {
     grid-template-columns: 1fr;
   }
+  .graph-density-toggle {
+    width: 100%;
+    justify-content: center;
+  }
   .graph-layout {
     grid-template-columns: 1fr;
   }
@@ -1326,6 +1415,9 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
   }
   .graph-rel-type {
     width: max-content;
+  }
+  .graph-coverage-grid {
+    grid-template-columns: 1fr;
   }
   .tab {
     flex: 0 0 auto;
