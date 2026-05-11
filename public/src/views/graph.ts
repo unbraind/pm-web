@@ -336,23 +336,23 @@ function renderGraphShell(data: GraphResponse): string {
     <div class="view-header">
       <div>
         <h1>Knowledge Graph</h1>
-        <p class="view-subtitle">Force-directed graph of dependencies, hierarchy, and metadata relationships${data.extensionAvailable ? ' via pm-graph (Neo4j)' : ' — built-in fallback'}.</p>
+        <p class="view-subtitle">Interactive force-directed graph of dependencies, hierarchy, and metadata${data.extensionAvailable ? ' — powered by pm-graph + Neo4j' : ' — built-in fallback mode'}.</p>
       </div>
       <div class="page-actions">
-        <button class="btn btn-ghost btn-sm" id="graph-refresh">Refresh</button>
-        <button class="btn btn-ghost btn-sm" id="graph-fit-btn">Fit View</button>
+        <button class="btn btn-ghost btn-sm" id="graph-refresh" title="Reload graph data">↻ Refresh</button>
+        <button class="btn btn-ghost btn-sm" id="graph-fit-btn" title="Fit all nodes in view">⊡ Fit</button>
         <button class="btn btn-secondary btn-sm" id="graph-physics-btn">${physicsLabel}</button>
       </div>
     </div>
 
     <div class="graph-status ${data.extensionAvailable ? 'graph-status-ok' : ''}">
       <div>
-        <div class="graph-status-title">${data.extensionAvailable ? 'pm-graph active (Neo4j)' : 'Built-in graph fallback'}</div>
+        <div class="graph-status-title">${data.extensionAvailable ? '✓ pm-graph (Neo4j)' : 'Built-in graph fallback'}</div>
         <div class="graph-status-text">
           ${data.extensionAvailable
-            ? 'Data exported by pm-graph, synced to Neo4j. Refreshes automatically after project changes.'
-            : 'Graph built from pm list-all, pm deps, parent links, tags, status, type, assignee, sprint, and release metadata.'}
-          ${errText ? `<br><span class="graph-status-warning">${escHtml(errText)}</span>` : ''}
+            ? 'Data synced via pm-graph extension. Relationships auto-refresh on project changes.'
+            : 'Graph derived from pm list-all — dependencies, parent links, tags, sprint, release, and assignee metadata.'}
+          ${errText ? `<br><span class="graph-status-warning">⚠ ${escHtml(errText)}</span>` : ''}
         </div>
       </div>
       <code>${escHtml(graph.source || 'pm-web')}</code>
@@ -371,43 +371,43 @@ function renderGraphShell(data: GraphResponse): string {
         <input class="search-input" id="graph-filter-query" type="text" placeholder="Search nodes…" value="${escHtml(filter.query)}">
       </div>
       <select class="form-select graph-filter-select" id="graph-filter-kind">
-        ${[['all','All nodes'],['items','Items'],['facets','Metadata'],['external','External'],['unlinked','Unlinked']]
+        ${[['all','All nodes'],['items','Items only'],['facets','Metadata only'],['external','External'],['unlinked','Unlinked']]
           .map(([v,l]) => `<option value="${v}"${filter.kind===v?' selected':''}>${l}</option>`).join('')}
       </select>
       <select class="form-select graph-filter-select" id="graph-filter-rel">
-        <option value="all">All relationships</option>
+        <option value="all">All rel. types</option>
         ${relOptions.map((r) => `<option value="${escHtml(r)}"${filter.rel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
       </select>
       <select class="form-select graph-filter-select" id="graph-filter-direction" ${selectedNodeId ? '' : 'disabled'}>
-        ${[['all','Any direction'],['connected','Selected: all'],['outgoing','Selected: →'],['incoming','Selected: ←']]
+        ${[['all','Any direction'],['connected','All connected'],['outgoing','Outgoing →'],['incoming','← Incoming']]
           .map(([v,l]) => `<option value="${v}"${filter.direction===v?' selected':''}>${l}</option>`).join('')}
       </select>
       <select class="form-select graph-filter-select" id="graph-filter-depth" ${selectedNodeId && filter.scope==='focus' ? '' : 'disabled'}>
-        <option value="1"${filter.depth==='1'?' selected':''}>Focus: 1 hop</option>
-        <option value="2"${filter.depth==='2'?' selected':''}>Focus: 2 hops</option>
+        <option value="1"${filter.depth==='1'?' selected':''}>1 hop</option>
+        <option value="2"${filter.depth==='2'?' selected':''}>2 hops</option>
       </select>
       <button class="btn btn-ghost btn-sm graph-focus-btn" id="graph-scope-btn">
-        ${filter.scope === 'focus' ? 'Show All' : 'Focus Neighbors'}
+        ${filter.scope === 'focus' ? '⊙ Show All' : '⊕ Focus'}
       </button>
     </div>
 
     <div class="graph-layout">
       <section class="graph-panel graph-panel-canvas">
         <div class="graph-canvas-header">
-          <div class="graph-panel-title" style="margin-bottom:0">Interactive Graph</div>
-          <div class="graph-canvas-hint">Scroll to zoom · Drag to pan · Click node to select · Double-click to open</div>
+          <div class="graph-panel-title" style="margin-bottom:0">Knowledge Graph</div>
+          <div class="graph-canvas-hint">Click canvas to focus keyboard · Tab: next · ↑↓→: neighbors · F: fit · Dbl-click: open</div>
         </div>
         <div class="graph-canvas-host" id="graph-canvas-host"></div>
         <div class="graph-legend">
-          <span><i class="legend-dot legend-item"></i>Items</span>
+          <span><i class="legend-dot legend-item"></i>Item</span>
           <span><i class="legend-dot legend-facet"></i>Metadata</span>
           <span><i class="legend-dot legend-external"></i>External</span>
-          <span><i class="legend-line"></i>Relationship</span>
           <span class="legend-sep">·</span>
-          <span class="legend-status"><i class="legend-dot" style="background:#2dd4bf"></i>open</span>
-          <span class="legend-status"><i class="legend-dot" style="background:#fb923c"></i>in-progress</span>
-          <span class="legend-status"><i class="legend-dot" style="background:#f87171"></i>blocked</span>
-          <span class="legend-status"><i class="legend-dot" style="background:#64748b"></i>closed</span>
+          <span><i class="legend-dot" style="background:#2dd4bf;box-shadow:0 0 4px #2dd4bf66"></i>open</span>
+          <span><i class="legend-dot" style="background:#fb923c;box-shadow:0 0 4px #fb923c66"></i>in-progress</span>
+          <span><i class="legend-dot" style="background:#f87171;box-shadow:0 0 4px #f8717166"></i>blocked</span>
+          <span><i class="legend-dot" style="background:#64748b"></i>closed</span>
+          <span><i class="legend-dot" style="background:#94a3b8"></i>draft</span>
         </div>
       </section>
       <section class="graph-panel" id="graph-info-panel">
