@@ -3,6 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 const PROJECTS_ROOT = process.env.PROJECTS_ROOT || "/app/projects";
+const OLLAMA_BASE_URL =
+  process.env.OLLAMA_BASE_URL ||
+  process.env.OLLAMA_HOST ||
+  "http://localhost:11434";
+const OLLAMA_EMBEDDING_MODEL =
+  process.env.PM_OLLAMA_MODEL ||
+  "qwen3-embedding:0.6b";
 
 export function getProjectDir(userId: string, slug: string): string {
   return path.join(PROJECTS_ROOT, userId, slug);
@@ -19,6 +26,40 @@ export function initProject(userId: string, slug: string, prefix: string): void 
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(result.stderr || "pm init failed");
+  configureLocalOllamaSearch(dir);
+}
+
+function configureLocalOllamaSearch(projectDir: string): void {
+  const settingsPath = path.join(projectDir, ".agents", "pm", "settings.json");
+  if (!fs.existsSync(settingsPath)) return;
+
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+    search?: Record<string, unknown>;
+    providers?: { ollama?: Record<string, unknown> };
+    vector_store?: { lancedb?: Record<string, unknown> };
+  };
+
+  settings.search = {
+    ...(settings.search ?? {}),
+    embedding_model: OLLAMA_EMBEDDING_MODEL,
+  };
+  settings.providers = {
+    ...(settings.providers ?? {}),
+    ollama: {
+      ...(settings.providers?.ollama ?? {}),
+      base_url: OLLAMA_BASE_URL,
+      model: OLLAMA_EMBEDDING_MODEL,
+    },
+  };
+  settings.vector_store = {
+    ...(settings.vector_store ?? {}),
+    lancedb: {
+      ...(settings.vector_store?.lancedb ?? {}),
+      path: ".agents/pm/search/lancedb/",
+    },
+  };
+
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
 export function projectExists(userId: string, slug: string): boolean {
