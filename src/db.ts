@@ -20,6 +20,7 @@ export async function initSchema(): Promise<void> {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       display_name TEXT,
+      is_admin BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -75,8 +76,14 @@ export async function initSchema(): Promise<void> {
   // Migrations for new columns (idempotent)
   await pool.query(`
     ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS github_token TEXT;
+    ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_owner TEXT;
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_repo TEXT;
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_sync_enabled BOOLEAN DEFAULT FALSE;
   `);
+
+  await pool.query(
+    `UPDATE pm_users SET is_admin = TRUE, updated_at = NOW() WHERE lower(email) = lower($1)`,
+    ["stefan@preu.at"]
+  );
 }

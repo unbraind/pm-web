@@ -6,6 +6,7 @@ export interface User {
   id: string;
   email: string;
   display_name?: string;
+  is_admin?: boolean;
   has_github_token?: boolean;
 }
 
@@ -189,6 +190,40 @@ export interface AppState {
   searchResults: Item[];
   searchMode: string;
   calOffset: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  display_name?: string;
+  is_admin: boolean;
+  has_github_token: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AdminProject {
+  id: string;
+  name: string;
+  slug: string;
+  prefix: string;
+  description?: string;
+  owner_email: string;
+  owner_display_name?: string;
+  github_owner?: string;
+  github_repo?: string;
+  github_sync_enabled?: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AdminGroup {
+  id: string;
+  name: string;
+  description?: string;
+  owner_email: string;
+  member_count: number;
+  created_at: string;
 }
 
 export type ToastType = 'info' | 'success' | 'error';

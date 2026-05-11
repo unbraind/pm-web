@@ -27,6 +27,7 @@ import { renderTemplatesView, createFromTemplate } from './views/templates.js';
 import { renderCommentsAuditView } from './views/comments-audit.js';
 import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject } from './views/config.js';
 import { renderGuideView } from './views/guide.js';
+import { renderAdminView, setAdminRole } from './views/admin.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -96,6 +97,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
       { view: 'export', title: 'Export / Import', desc: 'Download or upload project data.', icon: '↕', requiresProject: true },
       { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '📖', requiresProject: true },
       { view: 'settings', title: 'Account Settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
+      { view: 'admin', title: 'Admin', desc: 'Manage users, projects, groups, and roles.', icon: '◇' },
     ],
   },
 ];
@@ -115,7 +117,7 @@ function buildMobileCommandSheet(): void {
       <div class="mobile-command-group">
         <div class="mobile-command-group-title">${escHtml(group.title)}</div>
         <div class="mobile-command-grid">
-          ${group.commands.map(command => {
+          ${group.commands.filter(command => command.view !== 'admin' || state.user?.is_admin).map(command => {
             const disabled = command.requiresProject && !hasProject;
             return `
               <button class="mobile-command" ${disabled ? 'disabled' : ''} onclick="window.__app.runMobileCommand('${command.view}')">
@@ -205,6 +207,7 @@ let deferredPrompt: any = null;
   renderCommentsAuditView,
   renderConfigView,
   renderGuideView,
+  renderAdminView,
 
   // Config
   configAddArrayItem,
@@ -212,6 +215,7 @@ let deferredPrompt: any = null;
   configSaveArray,
   configSaveSimple,
   configSaveObject,
+  setAdminRole,
 
   // Auth
   switchAuthTab,
@@ -413,6 +417,9 @@ export async function bootApp(): Promise<void> {
   if (avatarEl) avatarEl.textContent = initials;
   const nameEl = document.getElementById('user-name-display');
   if (nameEl) nameEl.textContent = u.display_name||u.email;
+  document.querySelectorAll<HTMLElement>('.admin-only').forEach((el) => {
+    el.style.display = u.is_admin ? '' : 'none';
+  });
 
   buildCreateProjectModal();
   buildSearchModal();

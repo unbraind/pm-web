@@ -28,10 +28,11 @@ router.post("/register", async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(password, 12);
+    const normalizedEmail = email.toLowerCase().trim();
     const result = await pool.query(
-      `INSERT INTO pm_users (email, password_hash, display_name)
-       VALUES ($1, $2, $3) RETURNING id, email, display_name, created_at`,
-      [email.toLowerCase().trim(), hash, displayName?.trim() || null]
+      `INSERT INTO pm_users (email, password_hash, display_name, is_admin)
+       VALUES ($1, $2, $3, lower($1) = lower($4)) RETURNING id, email, display_name, is_admin, created_at`,
+      [normalizedEmail, hash, displayName?.trim() || null, "stefan@preu.at"]
     );
     const user = result.rows[0] as { id: string; email: string };
     const token = signToken({ userId: user.id, email: user.email });
@@ -65,7 +66,7 @@ router.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT id, email, password_hash, display_name, created_at FROM pm_users WHERE email = $1`,
+      `SELECT id, email, password_hash, display_name, is_admin, created_at FROM pm_users WHERE email = $1`,
       [email.toLowerCase().trim()]
     );
 
@@ -74,7 +75,7 @@ router.post("/login", async (req, res) => {
       return;
     }
 
-    const user = result.rows[0] as { id: string; email: string; password_hash: string; display_name: string; created_at: string };
+    const user = result.rows[0] as { id: string; email: string; password_hash: string; display_name: string; is_admin: boolean; created_at: string };
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       res.status(401).json({ error: "Invalid email or password" });
@@ -92,7 +93,7 @@ router.post("/login", async (req, res) => {
 
     res.json({
       token,
-      user: { id: user.id, email: user.email, display_name: user.display_name, created_at: user.created_at },
+      user: { id: user.id, email: user.email, display_name: user.display_name, is_admin: user.is_admin, created_at: user.created_at },
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -108,7 +109,7 @@ router.post("/logout", (_req, res) => {
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, email, display_name, created_at, github_token IS NOT NULL AS has_github_token FROM pm_users WHERE id = $1`,
+      `SELECT id, email, display_name, is_admin, created_at, github_token IS NOT NULL AS has_github_token FROM pm_users WHERE id = $1`,
       [req.user!.userId]
     );
     if (result.rows.length === 0) {
@@ -128,7 +129,7 @@ router.patch("/profile", requireAuth, async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
       `UPDATE pm_users SET display_name = $1 WHERE id = $2
-       RETURNING id, email, display_name, created_at, github_token IS NOT NULL AS has_github_token`,
+       RETURNING id, email, display_name, is_admin, created_at, github_token IS NOT NULL AS has_github_token`,
       [displayName?.trim() || null, req.user!.userId]
     );
     res.json({ user: result.rows[0] });
