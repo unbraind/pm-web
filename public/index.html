@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0f1e">
 <meta name="description" content="pm-web — browser UI for pm-cli project management">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="pm-web">
@@ -232,13 +233,13 @@
       <div class="mobile-bottom-nav-item-icon">⇄</div>
       <div class="mobile-bottom-nav-item-label">Shared</div>
     </div>
-    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('settings')" data-mobview="settings">
+    <div class="mobile-bottom-nav-item" onclick="window.__app.openMobileCommandSheet()" data-mobview="more">
       <div class="mobile-bottom-nav-item-icon">⚙</div>
       <div class="mobile-bottom-nav-item-label">More</div>
     </div>
   </div>
 </nav>
 
-<script type="module" src="/src/app.js?v=4"></script>
+<script type="module" src="/src/app.js?v=5"></script>
 </body>
 </html>

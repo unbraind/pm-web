@@ -29,6 +29,7 @@ import { renderGuideView } from './views/guide.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
+import { escHtml } from './utils.js';
 
 // Global search modal
 let globalSearchTimer: ReturnType<typeof setTimeout>;
@@ -42,6 +43,101 @@ function buildSearchModal(): void {
     <div id="global-search-results">
       <div class="empty-state" style="padding:24px"><div class="empty-state-text">Type to search</div></div>
     </div>`,'');
+}
+
+type MobileCommand = {
+  view: string;
+  title: string;
+  desc: string;
+  icon: string;
+  requiresProject?: boolean;
+};
+
+const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> = [
+  {
+    title: 'Plan and Execute',
+    commands: [
+      { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
+      { view: 'create', title: 'Create Item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+      { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },
+      { view: 'templates', title: 'Templates', desc: 'Create from saved pm templates.', icon: '⎘', requiresProject: true },
+    ],
+  },
+  {
+    title: 'Inspect and Maintain',
+    commands: [
+      { view: 'search', title: 'Search', desc: 'Keyword, semantic, and hybrid search.', icon: '⌕', requiresProject: true },
+      { view: 'stats', title: 'Stats', desc: 'Counts, distributions, and project summary.', icon: '◈', requiresProject: true },
+      { view: 'health', title: 'Health', desc: 'Find stale, blocked, or weakly specified work.', icon: '♥', requiresProject: true },
+      { view: 'activity', title: 'Activity', desc: 'Audit recent project changes.', icon: '◎', requiresProject: true },
+      { view: 'dedupe', title: 'Dedupe Audit', desc: 'Find possible duplicate items.', icon: '⧖', requiresProject: true },
+      { view: 'validate', title: 'Validate', desc: 'Run pm validation checks.', icon: '✓', requiresProject: true },
+      { view: 'normalize', title: 'Normalize', desc: 'Preview and apply lifecycle cleanup.', icon: '⊞', requiresProject: true },
+      { view: 'comments-audit', title: 'Comments Audit', desc: 'Review latest comments across items.', icon: '💬', requiresProject: true },
+    ],
+  },
+  {
+    title: 'Collaborate and Connect',
+    commands: [
+      { view: 'sharing', title: 'Sharing', desc: 'Manage project access.', icon: '⇄', requiresProject: true },
+      { view: 'groups', title: 'Groups', desc: 'Create groups and manage members.', icon: '◉' },
+      { view: 'shared', title: 'Shared with Me', desc: 'Open projects shared by other users.', icon: '⇄' },
+      { view: 'github', title: 'GitHub', desc: 'Link repositories and import issues.', icon: '⊙', requiresProject: true },
+    ],
+  },
+  {
+    title: 'Project Tools',
+    commands: [
+      { view: 'projects', title: 'All Projects', desc: 'Switch or create a workspace.', icon: '⊞' },
+      { view: 'context', title: 'Context', desc: 'Generate agent-ready project context.', icon: '⚙', requiresProject: true },
+      { view: 'config', title: 'Config', desc: 'Edit project settings.', icon: '⚒', requiresProject: true },
+      { view: 'export', title: 'Export / Import', desc: 'Download or upload project data.', icon: '↕', requiresProject: true },
+      { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '📖', requiresProject: true },
+      { view: 'settings', title: 'Account Settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
+    ],
+  },
+];
+
+function buildMobileCommandSheet(): void {
+  const hasProject = !!state.currentProject;
+  const projectName = state.currentProject?.name || 'No project selected';
+  const body = `
+    <div class="mobile-command-intro">
+      <div class="mobile-command-project">
+        <div class="mobile-command-project-label">Current workspace</div>
+        <div class="mobile-command-project-name">${escHtml(projectName)}</div>
+      </div>
+      <div class="mobile-command-sync"><span class="sse-dot"></span>${hasProject ? 'Live sync' : 'Select project'}</div>
+    </div>
+    ${mobileCommandGroups.map(group => `
+      <div class="mobile-command-group">
+        <div class="mobile-command-group-title">${escHtml(group.title)}</div>
+        <div class="mobile-command-grid">
+          ${group.commands.map(command => {
+            const disabled = command.requiresProject && !hasProject;
+            return `
+              <button class="mobile-command" ${disabled ? 'disabled' : ''} onclick="window.__app.runMobileCommand('${command.view}')">
+                <span class="mobile-command-top">
+                  <span class="mobile-command-icon">${escHtml(command.icon)}</span>
+                  <span class="mobile-command-title">${escHtml(command.title)}</span>
+                </span>
+                <span class="mobile-command-desc">${escHtml(command.desc)}</span>
+              </button>`;
+          }).join('')}
+        </div>
+      </div>`).join('')}`;
+
+  createModal('mobile-command-sheet', 'More', body, '', true);
+}
+
+function openMobileCommandSheet(): void {
+  buildMobileCommandSheet();
+  showModal('mobile-command-sheet');
+}
+
+function runMobileCommand(view: string): void {
+  hideModal('mobile-command-sheet');
+  showView(view);
 }
 
 function openSearchModal(): void {
@@ -207,6 +303,8 @@ let deferredPrompt: any = null;
   // Global search
   openSearchModal,
   globalSearchDebounced,
+  openMobileCommandSheet,
+  runMobileCommand,
 
   // Badge
   loadItemsBadge,
@@ -315,6 +413,7 @@ export async function bootApp(): Promise<void> {
 
   buildCreateProjectModal();
   buildSearchModal();
+  buildMobileCommandSheet();
 
   await loadProjects();
   await handleLaunchAction();
