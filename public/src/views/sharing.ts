@@ -7,6 +7,17 @@ import { escHtml } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
 
+function shareDisplay(share: any): { name: string; detail: string; avatar: string; isGroup: boolean } {
+  const isGroup = Boolean(share.group_id || share.groupId);
+  const name = isGroup
+    ? (share.group_name || share.groupName || 'Unknown group')
+    : (share.user_display_name || share.userDisplayName || share.user_email || share.email || share.user_id || share.userId || 'Unknown user');
+  const detail = isGroup
+    ? 'Group'
+    : (share.user_email || share.email || '');
+  return { name, detail, avatar: name.slice(0, 2).toUpperCase(), isGroup };
+}
+
 export async function renderSharingView(): Promise<void> {
   const el = document.getElementById('content-sharing');
   if (!el) return;
@@ -50,15 +61,19 @@ async function loadShares(): Promise<void> {
         <div class="card-header"><div class="card-title">Shared with</div></div>
         <div class="card-body">
           ${shares.map((s: any)=>`
+            ${(() => {
+              const display = shareDisplay(s);
+              return `
             <div class="share-row">
-              <div class="member-avatar">${(s.email||s.groupName||'?').slice(0,2).toUpperCase()}</div>
+              <div class="member-avatar">${escHtml(display.avatar)}</div>
               <div style="flex:1">
-                <div style="font-size:13px;font-weight:500">${escHtml(s.email||s.groupName||s.userId||'Unknown')}</div>
-                ${s.groupId ? `<div class="group-desc">Group</div>` : `<div class="group-desc">${escHtml(s.email||'')}</div>`}
+                <div style="font-size:13px;font-weight:500">${escHtml(display.name)}</div>
+                <div class="group-desc">${escHtml(display.detail)}</div>
               </div>
               <span class="share-perm">${escHtml(s.permission||'view')}</span>
               <button class="btn btn-danger btn-sm" onclick="window.__app.removeShare('${escHtml(s.id||s.shareId||'')}')">Remove</button>
-            </div>`).join('')}
+            </div>`;
+            })()}`).join('')}
         </div>
       </div>`;
   } catch(err: unknown) {

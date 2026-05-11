@@ -105,24 +105,27 @@ export async function openGroupDetail(groupId: string, _groupName: string): Prom
   showModal('group-detail-modal');
 
   try {
-    const data = await api('GET','/groups');
-    const groups = (data as any).groups || [];
-    const group = groups.find((g: any)=>g.id===groupId) || {id:groupId,name:_groupName,members:[]};
+    const data = await api('GET',`/groups/${groupId}`);
+    const group = (data as any).group || {id:groupId,name:_groupName,members:[]};
     const members = group.members || [];
+    const groupName = group.name || _groupName || 'Group';
 
     const membersHtml = members.length === 0
       ? `<div style="color:var(--text-muted);font-size:13px">No members yet</div>`
       : members.map((m: any)=>`
           <div class="member-row">
-            <div class="member-avatar">${escHtml((m.displayName||m.email||'?').slice(0,2).toUpperCase())}</div>
+            <div class="member-avatar">${escHtml((m.display_name||m.displayName||m.email||'?').slice(0,2).toUpperCase())}</div>
             <div style="flex:1">
-              <div style="font-size:13px;font-weight:500">${escHtml(m.displayName||m.email||m.userId||'Unknown')}</div>
-              ${m.email&&m.displayName?`<div class="group-desc">${escHtml(m.email)}</div>`:''}
+              <div style="font-size:13px;font-weight:500">${escHtml(m.display_name||m.displayName||m.email||m.user_id||m.userId||'Unknown')}</div>
+              ${m.email&&(m.display_name||m.displayName)?`<div class="group-desc">${escHtml(m.email)}</div>`:''}
             </div>
-            <button class="btn btn-danger btn-sm" onclick="window.__app.removeMember('${escHtml(groupId)}','${escHtml(m.userId||m.id||'')}')">Remove</button>
+            <span class="share-perm">${escHtml(m.role||'member')}</span>
+            <button class="btn btn-danger btn-sm" onclick="window.__app.removeMember('${escHtml(groupId)}','${escHtml(m.user_id||m.userId||'')}')">Remove</button>
           </div>`).join('');
 
     const bodyEl = document.getElementById('group-detail-modal')?.querySelector('.modal-body');
+    const titleEl = document.getElementById('group-detail-modal')?.querySelector('.modal-title');
+    if (titleEl) titleEl.textContent = groupName;
     if (bodyEl) {
       bodyEl.innerHTML = `
         <div style="margin-bottom:20px">
@@ -154,7 +157,7 @@ export async function inviteMember(groupId: string): Promise<void> {
     await api('POST',`/groups/${groupId}/members`,{email});
     toast('Member invited','success');
     if (emailEl) emailEl.value = '';
-    openGroupDetail(groupId, '');
+    await openGroupDetail(groupId, '');
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
@@ -163,7 +166,7 @@ export function removeMember(groupId: string, userId: string): void {
     try {
       await api('DELETE',`/groups/${groupId}/members/${userId}`);
       toast('Member removed','success');
-      openGroupDetail(groupId, '');
+      await openGroupDetail(groupId, '');
     } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
   });
 }

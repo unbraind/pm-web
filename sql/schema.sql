@@ -22,6 +22,44 @@ CREATE TABLE IF NOT EXISTS pm_projects (
 
 CREATE INDEX IF NOT EXISTS pm_projects_user_id ON pm_projects(user_id);
 
+CREATE TABLE IF NOT EXISTS pm_groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pm_group_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES pm_groups(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member',
+  invited_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS pm_project_shares (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+  shared_with_user_id UUID REFERENCES pm_users(id) ON DELETE CASCADE,
+  shared_with_group_id UUID REFERENCES pm_groups(id) ON DELETE CASCADE,
+  permission TEXT NOT NULL DEFAULT 'view',
+  shared_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT share_target CHECK (
+    (shared_with_user_id IS NOT NULL AND shared_with_group_id IS NULL) OR
+    (shared_with_user_id IS NULL AND shared_with_group_id IS NOT NULL)
+  ),
+  UNIQUE(project_id, shared_with_user_id),
+  UNIQUE(project_id, shared_with_group_id)
+);
+
+ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS github_token TEXT;
+ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_owner TEXT;
+ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_repo TEXT;
+ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_sync_enabled BOOLEAN DEFAULT FALSE;
+
 -- Update trigger
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$

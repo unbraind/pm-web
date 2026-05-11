@@ -4,6 +4,7 @@ import { runPm, projectExists } from "../services/pm-runner.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, type SSEEvent } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
+import neo4j from "neo4j-driver";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
@@ -46,6 +47,37 @@ type ProjectGraph = {
   relationships: GraphRelationship[];
 };
 
+router.use(async (req: AuthRequest, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    next();
+    return;
+  }
+  const projectId = req.params["projectId"];
+  if (!projectId) {
+    next();
+    return;
+  }
+  try {
+    const access = await verifyProjectAccess(req.user!.userId, projectId);
+    if (!access) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (access.permission !== "edit") {
+      res.status(403).json({ error: "This project is shared as view-only." });
+      return;
+    }
+    next();
+  } catch (err) {
+    console.error("Project permission check failed:", err);
+    res.status(500).json({ error: "Failed to verify project permission" });
+  }
+});
+
+function graphNodeId(kind: string, value: string): string {
+  return `${kind}:${value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-")}`;
+}
+
 function graphRelationshipType(rawType: unknown): string {
   const text = typeof rawType === "string" && rawType.trim().length > 0 ? rawType : "relates-to";
   return text.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
@@ -73,34 +105,46 @@ function dependencyRows(raw: unknown): Array<Record<string, unknown>> {
 }
 
 function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<string, unknown>>>): ProjectGraph {
-  const nodes: GraphNode[] = items.map((item) => ({
-    id: item.id,
-    labels: ["PmItem", item.type ?? "Item"],
-    properties: {
-      id: item.id,
-      title: item.title ?? "",
-      type: item.type ?? "Item",
-      status: item.status ?? "unknown",
-      priority: item.priority ?? null,
-      tags: item.tags ?? [],
-      assignee: item.assignee ?? null,
-      sprint: item.sprint ?? null,
-      release: item.release ?? null,
-      deadline: item.deadline ?? null,
-      created_at: item.created_at ?? null,
-      updated_at: item.updated_at ?? null,
-    },
-  }));
-
+  const nodesById = new Map<string, GraphNode>();
   const relationships: GraphRelationship[] = [];
-  for (const item of items) {
-    if (item.parent) {
-      relationships.push({
-        from: item.id,
-        to: item.parent,
-        type: "CHILD_OF",
-        properties: { source: "parent" },
+
+  const addNode = (node: GraphNode) => {
+    if (!nodesById.has(node.id)) nodesById.set(node.id, node);
+  };
+
+  const addRelationship = (from: string, to: string, type: string, properties: Record<string, unknown>) => {
+    if (!nodesById.has(to) && !items.some((item) => item.id === to)) {
+      addNode({
+        id: to,
+        labels: ["ExternalPmItem"],
+        properties: { id: to, title: to, type: "ExternalPmItem" },
       });
+    }
+    relationships.push({ from, to, type, properties });
+  };
+
+  for (const item of items) {
+    addNode({
+      id: item.id,
+      labels: ["PmItem", item.type ?? "Item"],
+      properties: {
+        id: item.id,
+        title: item.title ?? "",
+        type: item.type ?? "Item",
+        status: item.status ?? "unknown",
+        priority: item.priority ?? null,
+        tags: item.tags ?? [],
+        assignee: item.assignee ?? null,
+        sprint: item.sprint ?? null,
+        release: item.release ?? null,
+        deadline: item.deadline ?? null,
+        created_at: item.created_at ?? null,
+        updated_at: item.updated_at ?? null,
+      },
+    });
+
+    if (item.parent) {
+      addRelationship(item.id, item.parent, "CHILD_OF", { source: "parent" });
     }
 
     const deps = [
@@ -116,21 +160,115 @@ function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<st
       const key = `${item.id}->${target}:${type}`;
       if (seenDeps.has(key)) continue;
       seenDeps.add(key);
-      relationships.push({
-        from: item.id,
-        to: target,
-        type,
-        properties: { ...dep },
+      addRelationship(item.id, target, type, { ...dep });
+    }
+
+    const facetLinks: Array<{ kind: string; value?: unknown; label: string; rel: string }> = [
+      { kind: "type", value: item.type, label: "ItemType", rel: "HAS_TYPE" },
+      { kind: "status", value: item.status, label: "Status", rel: "HAS_STATUS" },
+      { kind: "assignee", value: item.assignee, label: "Person", rel: "ASSIGNED_TO" },
+      { kind: "sprint", value: item.sprint, label: "Sprint", rel: "IN_SPRINT" },
+      { kind: "release", value: item.release, label: "Release", rel: "IN_RELEASE" },
+    ];
+    for (const link of facetLinks) {
+      if (typeof link.value !== "string" || link.value.trim().length === 0) continue;
+      const id = graphNodeId(link.kind, link.value);
+      addNode({
+        id,
+        labels: ["PmFacet", link.label],
+        properties: { id, title: link.value, kind: link.kind, value: link.value },
       });
+      addRelationship(item.id, id, link.rel, { source: link.kind });
+    }
+
+    for (const tag of item.tags ?? []) {
+      if (!tag.trim()) continue;
+      const id = graphNodeId("tag", tag);
+      addNode({
+        id,
+        labels: ["PmFacet", "Tag"],
+        properties: { id, title: tag, kind: "tag", value: tag },
+      });
+      addRelationship(item.id, id, "TAGGED_WITH", { source: "tags" });
     }
   }
 
   return {
     generatedAt: new Date().toISOString(),
     source: "pm-web",
-    nodes,
-    relationships,
+    nodes: Array.from(nodesById.values()),
+    relationships: relationships.filter((rel, index, all) =>
+      all.findIndex((candidate) =>
+        candidate.from === rel.from && candidate.to === rel.to && candidate.type === rel.type
+      ) === index
+    ),
   };
+}
+
+async function syncGraphToNeo4j(graph: ProjectGraph): Promise<{ syncedNodes: number; syncedRelationships: number }> {
+  const uri = process.env.NEO4J_URI;
+  const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME;
+  const password = process.env.NEO4J_PASSWORD;
+  if (!uri || !user || !password) {
+    throw new Error("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before syncing the graph.");
+  }
+
+  const driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+  const session = driver.session({ database: process.env.NEO4J_DATABASE });
+  try {
+    for (const node of graph.nodes) {
+      await session.executeWrite((tx) =>
+        tx.run(
+          "MERGE (n:PmGraphNode {id: $id}) SET n += $properties, n.labels = $labels RETURN n.id",
+          { id: node.id, properties: node.properties, labels: node.labels }
+        )
+      );
+    }
+
+    for (const relationship of graph.relationships) {
+      const relType = graphRelationshipType(relationship.type);
+      await session.executeWrite((tx) =>
+        tx.run(
+          `MATCH (from:PmGraphNode {id: $from}), (to:PmGraphNode {id: $to}) MERGE (from)-[r:${relType}]->(to) SET r += $properties RETURN type(r)`,
+          { from: relationship.from, to: relationship.to, properties: relationship.properties }
+        )
+      );
+    }
+  } finally {
+    await session.close();
+    await driver.close();
+  }
+
+  return { syncedNodes: graph.nodes.length, syncedRelationships: graph.relationships.length };
+}
+
+function itemsFromListAll(parsed: unknown): PmItem[] {
+  return ((((parsed as { items?: PmItem[] } | undefined)?.items) ?? []) as PmItem[]);
+}
+
+function fallbackGraphForProject(ownerUserId: string, slug: string): ProjectGraph {
+  const itemsResult = runPm({
+    args: ["list-all"],
+    userId: ownerUserId,
+    slug,
+    jsonOutput: true,
+  });
+  if (!itemsResult.ok) throw new Error(itemsResult.stderr || "Failed to load items for graph");
+
+  const items = itemsFromListAll(itemsResult.parsed);
+  const depsByItem = new Map<string, Array<Record<string, unknown>>>();
+  for (const item of items) {
+    const depsResult = runPm({
+      args: ["deps", item.id],
+      userId: ownerUserId,
+      slug,
+      jsonOutput: true,
+    });
+    if (depsResult.ok) {
+      depsByItem.set(item.id, dependencyRows(depsResult.parsed));
+    }
+  }
+  return graphFromItems(items, depsByItem);
 }
 
 // Verify project access (owner or shared) and return slug + ownerUserId for pm-runner
@@ -483,7 +621,14 @@ router.post("/search", async (req: AuthRequest, res) => {
     slug: project.slug,
     jsonOutput: true,
   });
-  res.json(result.ok ? (result.parsed || {}) : { results: [] });
+  if (!result.ok) {
+    res.status(400).json({
+      error: result.stderr || "Search failed. Check that Ollama is reachable and the configured embedding model is available.",
+      results: [],
+    });
+    return;
+  }
+  res.json(result.parsed || {});
 });
 
 // GET /api/projects/:projectId/pm/calendar
@@ -609,37 +754,16 @@ router.get("/graph", async (req: AuthRequest, res) => {
     return;
   }
 
-  const itemsResult = runPm({
-    args: ["list-all"],
-    userId: project.ownerUserId,
-    slug: project.slug,
-    jsonOutput: true,
-  });
-  if (!itemsResult.ok) {
-    res.status(400).json({ error: itemsResult.stderr || "Failed to load items for graph" });
-    return;
-  }
-
-  const items = (((itemsResult.parsed as { items?: PmItem[] } | undefined)?.items) ?? []) as PmItem[];
-  const depsByItem = new Map<string, Array<Record<string, unknown>>>();
-  for (const item of items) {
-    const depsResult = runPm({
-      args: ["deps", item.id],
-      userId: project.ownerUserId,
-      slug: project.slug,
-      jsonOutput: true,
+  try {
+    res.json({
+      ok: true,
+      graph: fallbackGraphForProject(project.ownerUserId, project.slug),
+      extensionAvailable: false,
+      extensionError: extensionResult.stderr || undefined,
     });
-    if (depsResult.ok) {
-      depsByItem.set(item.id, dependencyRows(depsResult.parsed));
-    }
+  } catch (err: unknown) {
+    res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
   }
-
-  res.json({
-    ok: true,
-    graph: graphFromItems(items, depsByItem),
-    extensionAvailable: false,
-    extensionError: extensionResult.stderr || undefined,
-  });
 });
 
 // POST /api/projects/:projectId/pm/graph/sync
@@ -654,10 +778,17 @@ router.post("/graph/sync", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({
-      error: result.stderr || "pm-graph sync failed. Install pm-graph and set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD.",
-    });
-    return;
+    try {
+      const graph = fallbackGraphForProject(project.ownerUserId, project.slug);
+      const syncResult = await syncGraphToNeo4j(graph);
+      res.json({ ok: true, source: "pm-web", ...syncResult });
+      return;
+    } catch (err: unknown) {
+      res.status(400).json({
+        error: err instanceof Error ? err.message : (result.stderr || "Graph sync failed."),
+      });
+      return;
+    }
   }
   res.json(result.parsed || { ok: true });
 });
@@ -885,7 +1016,13 @@ router.post("/reindex", async (req: AuthRequest, res) => {
     userId: project.ownerUserId,
     slug: project.slug,
   });
-  res.json(result.ok ? { ok: true, mode: safeMode } : { error: result.stderr || "Reindex failed" });
+  if (!result.ok) {
+    res.status(400).json({
+      error: result.stderr || "Reindex failed. Check that Ollama is reachable and the configured embedding model is available.",
+    });
+    return;
+  }
+  res.json({ ok: true, mode: safeMode });
 });
 
 // GET /api/projects/:projectId/pm/normalize

@@ -15,7 +15,7 @@ function nodeTitle(node: GraphNode): string {
 }
 
 function nodeType(node: GraphNode): string {
-  return String(node.properties?.type || node.labels?.find((label) => label !== 'PmItem') || 'Item');
+  return String(node.properties?.kind || node.properties?.type || node.labels?.find((label) => label !== 'PmItem' && label !== 'PmFacet') || 'Item');
 }
 
 function nodeStatus(node: GraphNode): string {
@@ -45,10 +45,16 @@ function renderGraph(data: GraphResponse): string {
   const relationships = graph.relationships || [];
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
   const connected = new Set(relationships.flatMap((rel) => [rel.from, rel.to]));
-  const isolatedCount = nodes.filter((node) => !connected.has(node.id)).length;
+  const itemNodes = nodes.filter((node) => node.labels?.includes('PmItem') || !node.id.includes(':'));
+  const facetNodes = nodes.filter((node) => node.labels?.includes('PmFacet'));
+  const isolatedCount = itemNodes.filter((node) => !connected.has(node.id)).length;
   const typeCounts = nodes.reduce<Record<string, number>>((acc, node) => {
     const type = nodeType(node);
     acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {});
+  const relCounts = relationships.reduce<Record<string, number>>((acc, rel) => {
+    acc[rel.type] = (acc[rel.type] || 0) + 1;
     return acc;
   }, {});
 
@@ -67,16 +73,16 @@ function renderGraph(data: GraphResponse): string {
         <div class="graph-status-text">
           ${data.extensionAvailable
             ? 'Graph data came from pm pm-graph export. Neo4j sync uses pm pm-graph sync and NEO4J_* environment variables.'
-            : 'Install github.com/unbraind/pm-graph in this project to enable extension-backed export, Cypher generation, and Neo4j sync.'}
+            : 'Using pm-web fallback graph from live pm items, dependencies, tags, status, type, assignee, sprint, and release metadata. Neo4j sync is still available with NEO4J_* environment variables.'}
         </div>
       </div>
       <code>${escHtml(graph.source || 'pm-web')}</code>
     </div>
 
     <div class="graph-stats">
-      <div class="stat-card"><div class="stat-value">${nodes.length}</div><div class="stat-label">Items</div></div>
+      <div class="stat-card"><div class="stat-value">${itemNodes.length}</div><div class="stat-label">Items</div></div>
       <div class="stat-card"><div class="stat-value">${relationships.length}</div><div class="stat-label">Relationships</div></div>
-      <div class="stat-card"><div class="stat-value">${Object.keys(typeCounts).length}</div><div class="stat-label">Item types</div></div>
+      <div class="stat-card"><div class="stat-value">${facetNodes.length}</div><div class="stat-label">Metadata nodes</div></div>
       <div class="stat-card"><div class="stat-value">${isolatedCount}</div><div class="stat-label">Unlinked</div></div>
     </div>
 
@@ -88,15 +94,21 @@ function renderGraph(data: GraphResponse): string {
           : relationships.slice(0, 80).map((rel) => renderRelationship(rel, nodesById)).join('')}
       </section>
       <section class="graph-panel">
-        <div class="graph-panel-title">Nodes by Type</div>
+        <div class="graph-panel-title">Nodes by Kind</div>
         <div class="graph-type-list">
           ${Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => `
             <div class="graph-type-row"><span>${escHtml(type)}</span><strong>${count}</strong></div>
           `).join('') || '<div class="empty-state"><div class="empty-state-text">No items available.</div></div>'}
         </div>
+        <div class="graph-panel-title graph-panel-title-spaced">Relationships by Type</div>
+        <div class="graph-type-list">
+          ${Object.entries(relCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => `
+            <div class="graph-type-row"><span>${escHtml(type)}</span><strong>${count}</strong></div>
+          `).join('') || '<div class="empty-state"><div class="empty-state-text">No relationships available.</div></div>'}
+        </div>
         <div class="graph-panel-title graph-panel-title-spaced">Recent Nodes</div>
         <div class="graph-node-list">
-          ${nodes.slice(0, 24).map((node) => `
+          ${itemNodes.slice(0, 24).map((node) => `
             <button class="graph-node" onclick="window.__app.openItemDetail('${escHtml(node.id)}')">
               <span>
                 <strong>${escHtml(nodeTitle(node))}</strong>
