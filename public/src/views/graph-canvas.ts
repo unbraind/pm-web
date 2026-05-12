@@ -12,6 +12,7 @@ export interface CanvasNode {
   status: string;
   lane: 'item' | 'facet' | 'external';
   degree: number;
+  tags?: string[];
 }
 
 export interface CanvasEdge {
@@ -31,6 +32,8 @@ export interface CanvasFilter {
   selectedId: string | null;
   query: string;
   highlightRelTypes: Set<string>;
+  colorMode: 'status' | 'type' | 'tag';
+  colorTag: string;
 }
 
 // ── Palette ───────────────────────────────────────────────────
@@ -41,6 +44,31 @@ const STATUS_COLORS: Record<string, string> = {
   closed:        '#64748b',
   blocked:       '#f87171',
   draft:         '#94a3b8',
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  task:       '#2dd4bf',
+  feature:    '#60a5fa',
+  epic:       '#a78bfa',
+  bug:        '#f87171',
+  milestone:  '#fbbf24',
+  story:      '#34d399',
+  chore:      '#94a3b8',
+  release:    '#38bdf8',
+};
+const TYPE_COLOR_DEFAULT = '#64748b';
+
+const TAG_PALETTE = ['#2dd4bf','#60a5fa','#a78bfa','#f87171','#fbbf24','#34d399','#fb923c','#e879f9'];
+
+const TYPE_ABBR: Record<string, string> = {
+  task:      'T',
+  feature:   'F',
+  epic:      'E',
+  bug:       'B',
+  milestone: 'M',
+  story:     'S',
+  chore:     'C',
+  release:   'R',
 };
 
 const LANE_COLOR: Record<CanvasNode['lane'], string> = {
@@ -90,7 +118,7 @@ function nodeRadius(degree: number): number {
   return Math.max(8, Math.min(28, 8 + Math.sqrt(Math.max(0, degree)) * 4.2));
 }
 
-function getNodeColor(node: CanvasNode): string {
+function statusColor(node: CanvasNode): string {
   if (node.lane === 'facet')    return LANE_COLOR.facet;
   if (node.lane === 'external') return LANE_COLOR.external;
   return STATUS_COLORS[node.status] ?? LANE_COLOR.item;
@@ -205,10 +233,12 @@ export class GraphCanvas {
 
   // Filter
   private filter: CanvasFilter = {
-    visibleNodeIds: null,
-    selectedId:     null,
-    query:          '',
+    visibleNodeIds:    null,
+    selectedId:        null,
+    query:             '',
     highlightRelTypes: new Set(),
+    colorMode:         'status',
+    colorTag:          '',
   };
 
   // RAF + cleanup
@@ -219,6 +249,9 @@ export class GraphCanvas {
 
   // Bidirectional edge pairs (precomputed in setData)
   private biDirPairs = new Set<string>();
+
+  // Tag→color map for tag colorMode (recomputed in recolorNodes)
+  private tagColorMap = new Map<string, string>();
 
   // Callbacks
   private onSelectNode:   (id: string | null) => void;
@@ -265,7 +298,7 @@ export class GraphCanvas {
         fx: null,
         fy: null,
         r:  nodeRadius(node.degree),
-        color: getNodeColor(node),
+        color: statusColor(node),
       };
     });
 
@@ -290,10 +323,13 @@ export class GraphCanvas {
       }
     }
 
+    this.recolorNodes();
     setTimeout(() => this.fitView(), 1400);
   }
 
   setFilter(filter: Partial<CanvasFilter>): void {
+    const prevMode = this.filter.colorMode;
+    const prevTag  = this.filter.colorTag;
     this.filter = { ...this.filter, ...filter };
     this.navOrder = this.nodes
       .filter((n) => !this.filter.visibleNodeIds || this.filter.visibleNodeIds.has(n.id))
@@ -302,7 +338,11 @@ export class GraphCanvas {
       this.particles = [];
       this.lastParticleSpawn = 0;
     }
+    if (filter.colorMode !== undefined && filter.colorMode !== prevMode) this.recolorNodes();
+    else if (filter.colorTag !== undefined && filter.colorTag !== prevTag) this.recolorNodes();
   }
+
+  getTagColorMap(): Map<string, string> { return this.tagColorMap; }
 
   setSelected(id: string | null): void {
     this.filter = { ...this.filter, selectedId: id };
@@ -362,6 +402,39 @@ export class GraphCanvas {
     this.canvas.remove();
     const tt = document.getElementById('gc-tooltip');
     if (tt) tt.remove();
+  }
+
+  // ── Color computation ──────────────────────────────────────
+
+  private computeNodeColor(node: SimNode): string {
+    if (node.lane === 'facet')    return LANE_COLOR.facet;
+    if (node.lane === 'external') return LANE_COLOR.external;
+    const mode = this.filter.colorMode;
+    if (mode === 'type') {
+      return TYPE_COLORS[node.type.toLowerCase()] ?? TYPE_COLOR_DEFAULT;
+    }
+    if (mode === 'tag') {
+      for (const t of node.tags ?? []) {
+        const c = this.tagColorMap.get(t);
+        if (c) return c;
+      }
+      return 'rgba(100,116,139,0.45)';
+    }
+    return STATUS_COLORS[node.status] ?? LANE_COLOR.item;
+  }
+
+  private recolorNodes(): void {
+    if (this.filter.colorMode === 'tag') {
+      const freq = new Map<string, number>();
+      for (const n of this.nodes) {
+        for (const t of n.tags ?? []) freq.set(t, (freq.get(t) ?? 0) + 1);
+      }
+      const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, TAG_PALETTE.length).map(([t]) => t);
+      this.tagColorMap = new Map(top.map((t, i) => [t, TAG_PALETTE[i]]));
+    } else {
+      this.tagColorMap = new Map();
+    }
+    for (const node of this.nodes) node.color = this.computeNodeColor(node);
   }
 
   // ── Fly-to ─────────────────────────────────────────────────
@@ -878,8 +951,23 @@ export class GraphCanvas {
     ctx.shadowBlur  = 0;
     ctx.stroke();
 
-    // Inner dot (item nodes)
-    if (r >= 11 && node.lane === 'item') {
+    // Type icon or inner dot
+    const abbr = node.lane === 'item' ? (TYPE_ABBR[node.type.toLowerCase()] ?? '') : '';
+    const showIcon = this.scale > 0.20 || prominent;
+    if (r >= 9 && showIcon && abbr) {
+      const iSize = Math.max(7, Math.min(12, r * 0.62));
+      ctx.font = `700 ${iSize}px 'JetBrains Mono', monospace`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowBlur   = 0;
+      ctx.fillStyle    = selected
+        ? 'rgba(255,255,255,0.92)'
+        : hovered
+          ? 'rgba(226,232,240,0.88)'
+          : hexAlpha(color, 0.78);
+      ctx.fillText(abbr, x, y);
+    } else if (r >= 11 && node.lane === 'item') {
+      // Fallback dot when no abbr or low zoom
       ctx.beginPath();
       ctx.arc(x, y, r * 0.25, 0, Math.PI * 2);
       ctx.fillStyle = selected ? 'rgba(255,255,255,0.75)' : hexAlpha(color, 0.55);
@@ -887,9 +975,9 @@ export class GraphCanvas {
     }
 
     // Label
-    const showLabel = this.scale > 0.28 || prominent;
+    const showLabel = this.scale > 0.32 || prominent;
     if (showLabel) {
-      const maxLen = this.scale > 0.7 ? 26 : 15;
+      const maxLen = this.scale > 0.72 ? 28 : this.scale > 0.45 ? 18 : 13;
       const label  = truncate(node.label || node.id, maxLen);
       const fSize  = Math.max(9, Math.min(13, r * 0.95));
 
