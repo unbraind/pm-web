@@ -216,6 +216,9 @@ export class GraphCanvas {
   private abortCtrl = new AbortController();
   private ro: ResizeObserver;
 
+  // Bidirectional edge pairs (precomputed in setData)
+  private biDirPairs = new Set<string>();
+
   // Callbacks
   private onSelectNode: (id: string | null) => void;
   private onOpenNode:   (id: string) => void;
@@ -274,6 +277,16 @@ export class GraphCanvas {
     this.alpha     = 1;
     this.particles = [];
     this.navOrder  = nodes.map((n) => n.id);
+
+    // Precompute bidirectional edge pairs
+    const edgeKeySet = new Set(this.edges.map((e) => `${e.source.id}→${e.target.id}`));
+    this.biDirPairs = new Set<string>();
+    for (const e of this.edges) {
+      if (edgeKeySet.has(`${e.target.id}→${e.source.id}`)) {
+        this.biDirPairs.add([e.source.id, e.target.id].sort().join('|'));
+      }
+    }
+
     setTimeout(() => this.fitView(), 1400);
   }
 
@@ -719,9 +732,24 @@ export class GraphCanvas {
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < 1) return;
 
+    // Perpendicular unit vector
+    const px = -dy / len;
+    const py =  dx / len;
+
+    // Determine curvature direction for bidirectional edges
+    const key      = [s.id, t.id].sort().join('|');
+    const isBiDir  = this.biDirPairs.has(key);
+    const curveDir = isBiDir ? (s.id < t.id ? 1 : -1) : 0;
+    const curvature = isBiDir ? 0.22 : 0.0;
+    const cpFactor  = len * curvature * curveDir;
+
+    // Control point (on the perpendicular bisector)
+    const cpX = (s.x + t.x) / 2 + px * cpFactor;
+    const cpY = (s.y + t.y) / 2 + py * cpFactor;
+
+    // Start/end points offset from node radii
     const nx = dx / len;
     const ny = dy / len;
-
     const x1 = s.x + nx * s.r;
     const y1 = s.y + ny * s.r;
     const x2 = t.x - nx * (t.r + 7);
@@ -739,14 +767,26 @@ export class GraphCanvas {
       ctx.shadowBlur  = 5;
     }
 
+    // Draw straight line or quadratic bezier
     ctx.beginPath();
     ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
+    if (isBiDir) {
+      ctx.quadraticCurveTo(cpX, cpY, x2, y2);
+    } else {
+      ctx.lineTo(x2, y2);
+    }
     ctx.stroke();
 
-    // Arrowhead
+    // Arrowhead: tangent direction at the endpoint
     if (len > 28) {
-      const angle = Math.atan2(dy, dx);
+      let angle: number;
+      if (isBiDir) {
+        // Tangent at end of quadratic bezier: direction from CP to endpoint
+        angle = Math.atan2(y2 - cpY, x2 - cpX);
+      } else {
+        angle = Math.atan2(dy, dx);
+      }
+
       const aw = 7;
       const aa = 0.42;
       const ax = t.x - nx * t.r;
@@ -763,10 +803,10 @@ export class GraphCanvas {
       ctx.fill();
     }
 
-    // Edge label (highlighted + zoomed in enough, or highlighted at any zoom)
+    // Edge label — midpoint of the bezier curve
     if (highlighted && this.scale > 0.55) {
-      const mx = (x1 + x2) / 2;
-      const my = (y1 + y2) / 2;
+      const mx = isBiDir ? (x1 + 2 * cpX + x2) / 4 : (x1 + x2) / 2;
+      const my = isBiDir ? (y1 + 2 * cpY + y2) / 4 : (y1 + y2) / 2;
       ctx.globalAlpha = opacity * 0.82;
       ctx.shadowBlur  = 0;
       ctx.font        = '9px JetBrains Mono, monospace';

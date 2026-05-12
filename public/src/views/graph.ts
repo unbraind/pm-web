@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// GRAPH VIEW — Knowledge & dependency graph with force canvas
+// GRAPH VIEW — Obsidian-quality immersive knowledge & dependency graph
 // ═══════════════════════════════════════════════════════════════
 import { api } from '../api.js';
 import { state } from '../state.js';
@@ -25,9 +25,11 @@ type GraphFilter = {
 // ── Module state ──────────────────────────────────────────────
 let currentGraph: GraphResponse | null = null;
 let selectedNodeId = '';
-// Object wrapper prevents TypeScript from narrowing via assignment tracking
 const canvasRef: { current: GraphCanvas | null } = { current: null };
 let physicsLabel = 'Pause Physics';
+let infoDrawerOpen = false;
+let relDrawerOpen  = false;
+let filterOpen     = false;
 
 let filter: GraphFilter = {
   query:     '',
@@ -189,8 +191,8 @@ function renderCoverage(
   return `
     <div class="graph-coverage-grid">
       <div class="graph-coverage-card"><span>Linked</span><strong>${linkedPct}%</strong><em>${linked} of ${itemNodes.length} items</em></div>
-      <div class="graph-coverage-card"><span>External refs</span><strong>${external}</strong><em>Cross-project</em></div>
-      <div class="graph-coverage-card"><span>Top relation</span><strong>${escHtml(top?.[0] || 'None')}</strong><em>${top?.[1] ?? 0} edges</em></div>
+      <div class="graph-coverage-card"><span>External</span><strong>${external}</strong><em>Cross-project refs</em></div>
+      <div class="graph-coverage-card"><span>Top rel</span><strong>${escHtml(top?.[0] || 'None')}</strong><em>${top?.[1] ?? 0} edges</em></div>
     </div>`;
 }
 
@@ -235,12 +237,12 @@ function renderSelectedNode(
       <div class="graph-panel-title graph-panel-title-spaced">Direct Relationships</div>
       ${direct.length === 0
         ? '<div class="graph-node-empty">No relationships.</div>'
-        : direct.slice(0, 14).map((r) => {
+        : direct.slice(0, 16).map((r) => {
             const otherId = r.from === node.id ? r.to : r.from;
             const other   = byId.get(otherId);
             const dir     = r.from === node.id ? '→' : '←';
             return `<button class="graph-neighbor" data-graph-node-id="${escHtml(otherId)}"><span class="graph-rel-badge">${escHtml(r.type)}</span> ${dir} <strong>${escHtml(nodeTitle(other || { id: otherId }))}</strong></button>`;
-          }).join('') + (direct.length > 14 ? `<div class="graph-limit-note">+${direct.length - 14} more — use Neighborhood for full view</div>` : '')}
+          }).join('') + (direct.length > 16 ? `<div class="graph-limit-note">+${direct.length - 16} more — use Focus scope to narrow</div>` : '')}
     </div>`;
 }
 
@@ -316,108 +318,7 @@ function renderInfoPanel(data: GraphResponse): string {
     </div>`;
 }
 
-// ── Full graph HTML (static shell + canvas host) ──────────────
-
-function renderGraphShell(data: GraphResponse): string {
-  const graph     = data.graph || {};
-  const nodes     = graph.nodes || [];
-  const rels      = graph.relationships || [];
-  const itemNodes = nodes.filter(isItemNode);
-  const facetNodes = nodes.filter(isFacetNode);
-  const connected = new Set(rels.flatMap((r) => [r.from, r.to]));
-  const isolated  = itemNodes.filter((n) => !connected.has(n.id)).length;
-  const relCounts = rels.reduce<Record<string, number>>((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {});
-  const relOptions = Object.keys(relCounts).sort();
-  const errText = compactError(data.extensionError);
-
-  return `
-    <div class="view-header">
-      <div>
-        <h1>Knowledge Graph</h1>
-        <p class="view-subtitle">Interactive force-directed graph of dependencies, hierarchy, and metadata${data.extensionAvailable ? ' — powered by pm-graph + Neo4j' : ' — built-in fallback mode'}.</p>
-      </div>
-      <div class="page-actions">
-        <button class="btn btn-ghost btn-sm" id="graph-refresh" title="Reload graph data">↻ Refresh</button>
-        <button class="btn btn-ghost btn-sm" id="graph-fit-btn" title="Fit all nodes in view">⊡ Fit</button>
-        <button class="btn btn-secondary btn-sm" id="graph-physics-btn">${physicsLabel}</button>
-      </div>
-    </div>
-
-    <div class="graph-status ${data.extensionAvailable ? 'graph-status-ok' : ''}">
-      <div>
-        <div class="graph-status-title">${data.extensionAvailable ? '✓ pm-graph (Neo4j)' : 'Built-in graph fallback'}</div>
-        <div class="graph-status-text">
-          ${data.extensionAvailable
-            ? 'Data synced via pm-graph extension. Relationships auto-refresh on project changes.'
-            : 'Graph derived from pm list-all — dependencies, parent links, tags, sprint, release, and assignee metadata.'}
-          ${errText ? `<br><span class="graph-status-warning">⚠ ${escHtml(errText)}</span>` : ''}
-        </div>
-      </div>
-      <code>${escHtml(graph.source || 'pm-web')}</code>
-    </div>
-
-    <div class="graph-stats">
-      <div class="stat-card"><div class="stat-value">${itemNodes.length}</div><div class="stat-label">Items</div></div>
-      <div class="stat-card"><div class="stat-value">${rels.length}</div><div class="stat-label">Relationships</div></div>
-      <div class="stat-card"><div class="stat-value">${facetNodes.length}</div><div class="stat-label">Metadata nodes</div></div>
-      <div class="stat-card"><div class="stat-value">${isolated}</div><div class="stat-label">Unlinked</div></div>
-    </div>
-
-    <div class="graph-toolbar" id="graph-toolbar">
-      <div class="search-box-wrap graph-search">
-        <span class="search-icon">⌕</span>
-        <input class="search-input" id="graph-filter-query" type="text" placeholder="Search nodes…" value="${escHtml(filter.query)}">
-      </div>
-      <select class="form-select graph-filter-select" id="graph-filter-kind">
-        ${[['all','All nodes'],['items','Items only'],['facets','Metadata only'],['external','External'],['unlinked','Unlinked']]
-          .map(([v,l]) => `<option value="${v}"${filter.kind===v?' selected':''}>${l}</option>`).join('')}
-      </select>
-      <select class="form-select graph-filter-select" id="graph-filter-rel">
-        <option value="all">All rel. types</option>
-        ${relOptions.map((r) => `<option value="${escHtml(r)}"${filter.rel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
-      </select>
-      <select class="form-select graph-filter-select" id="graph-filter-direction" ${selectedNodeId ? '' : 'disabled'}>
-        ${[['all','Any direction'],['connected','All connected'],['outgoing','Outgoing →'],['incoming','← Incoming']]
-          .map(([v,l]) => `<option value="${v}"${filter.direction===v?' selected':''}>${l}</option>`).join('')}
-      </select>
-      <select class="form-select graph-filter-select" id="graph-filter-depth" ${selectedNodeId && filter.scope==='focus' ? '' : 'disabled'}>
-        <option value="1"${filter.depth==='1'?' selected':''}>1 hop</option>
-        <option value="2"${filter.depth==='2'?' selected':''}>2 hops</option>
-      </select>
-      <button class="btn btn-ghost btn-sm graph-focus-btn" id="graph-scope-btn">
-        ${filter.scope === 'focus' ? '⊙ Show All' : '⊕ Focus'}
-      </button>
-    </div>
-
-    <div class="graph-layout">
-      <section class="graph-panel graph-panel-canvas">
-        <div class="graph-canvas-header">
-          <div class="graph-panel-title" style="margin-bottom:0">Knowledge Graph</div>
-          <div class="graph-canvas-hint">Click canvas to focus keyboard · Tab: next · ↑↓→: neighbors · F: fit · Dbl-click: open</div>
-        </div>
-        <div class="graph-canvas-host" id="graph-canvas-host"></div>
-        <div class="graph-legend">
-          <span><i class="legend-dot legend-item"></i>Item</span>
-          <span><i class="legend-dot legend-facet"></i>Metadata</span>
-          <span><i class="legend-dot legend-external"></i>External</span>
-          <span class="legend-sep">·</span>
-          <span><i class="legend-dot" style="background:#2dd4bf;box-shadow:0 0 4px #2dd4bf66"></i>open</span>
-          <span><i class="legend-dot" style="background:#fb923c;box-shadow:0 0 4px #fb923c66"></i>in-progress</span>
-          <span><i class="legend-dot" style="background:#f87171;box-shadow:0 0 4px #f8717166"></i>blocked</span>
-          <span><i class="legend-dot" style="background:#64748b"></i>closed</span>
-          <span><i class="legend-dot" style="background:#94a3b8"></i>draft</span>
-        </div>
-      </section>
-      <section class="graph-panel" id="graph-info-panel">
-        ${renderInfoPanel(data)}
-      </section>
-    </div>
-
-    <section class="graph-panel graph-relationship-panel">
-      <div class="graph-panel-title">All Visible Relationships</div>
-      <div id="graph-rel-list">${renderRelList(data)}</div>
-    </section>`;
-}
+// ── Rel list (inside bottom drawer) ──────────────────────────
 
 function renderRelList(data: GraphResponse): string {
   const graph = data.graph || {};
@@ -425,8 +326,8 @@ function renderRelList(data: GraphResponse): string {
   const byId  = new Map(nodes.map((n) => [n.id, n]));
   const { rels: visRels } = visibleGraph(graph);
 
-  if (!visRels.length) return '<div class="empty-state"><div class="empty-state-text">No relationships match current filters.</div></div>';
-  const rows = visRels.slice(0, 80).map((r) => {
+  if (!visRels.length) return '<div class="graph-node-empty" style="padding:14px 0">No relationships match current filters.</div>';
+  const rows = visRels.slice(0, 100).map((r) => {
     const from = byId.get(r.from);
     const to   = byId.get(r.to);
     return `
@@ -436,10 +337,143 @@ function renderRelList(data: GraphResponse): string {
         <div><div class="graph-rel-title">${escHtml(nodeTitle(to || { id: r.to }))}</div><div class="graph-rel-id">${escHtml(r.to)}</div></div>
       </button>`;
   }).join('');
-  const limitNote = visRels.length > 80
-    ? `<div class="graph-limit-note">Showing 80 of ${visRels.length} relationships — use filters to narrow results.</div>`
+  const limitNote = visRels.length > 100
+    ? `<div class="graph-limit-note" style="padding:10px 0">Showing 100 of ${visRels.length} — use filters to narrow.</div>`
     : '';
   return rows + limitNote;
+}
+
+// ── Immersive shell ───────────────────────────────────────────
+
+function renderGraphShell(data: GraphResponse): string {
+  const graph      = data.graph || {};
+  const nodes      = graph.nodes || [];
+  const rels       = graph.relationships || [];
+  const itemNodes  = nodes.filter(isItemNode);
+  const facetNodes = nodes.filter(isFacetNode);
+  const connected  = new Set(rels.flatMap((r) => [r.from, r.to]));
+  const isolated   = itemNodes.filter((n) => !connected.has(n.id)).length;
+  const relCounts  = rels.reduce<Record<string, number>>((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {});
+  const relOptions = Object.keys(relCounts).sort();
+  const errText    = compactError(data.extensionError);
+  const { rels: visRels } = visibleGraph(graph);
+
+  return `
+    <div class="graph-immersive-wrap">
+
+      <!-- Canvas (fills entire wrap) -->
+      <div class="graph-canvas-host" id="graph-canvas-host"></div>
+
+      <!-- Top HUD bar -->
+      <div class="graph-hud-top">
+        <div class="graph-hud-left">
+          <div class="graph-hud-title">
+            ◎ Knowledge Graph
+            <span class="graph-mode-chip${data.extensionAvailable ? ' neo4j' : ''}">
+              ${data.extensionAvailable ? 'neo4j' : 'built-in'}
+            </span>
+          </div>
+          <div class="graph-hud-stats">
+            <span><b>${itemNodes.length}</b> items</span>
+            <span><b>${rels.length}</b> edges</span>
+            <span><b>${facetNodes.length}</b> facets</span>
+            ${isolated > 0 ? `<span class="graph-hud-warn"><b>${isolated}</b> unlinked</span>` : ''}
+          </div>
+        </div>
+        <div class="graph-hud-center">
+          <div class="graph-search-hud">
+            <span class="graph-search-hud-icon">⌕</span>
+            <input class="graph-search-hud-input" id="graph-filter-query" type="text" placeholder="Search nodes…" value="${escHtml(filter.query)}" autocomplete="off">
+          </div>
+        </div>
+        <div class="graph-hud-right">
+          <button class="graph-hud-btn" id="graph-refresh" title="Reload graph">↻</button>
+          <button class="graph-hud-btn" id="graph-fit-btn" title="Fit all nodes in view">⊡ Fit</button>
+          <button class="graph-hud-btn" id="graph-physics-btn">${physicsLabel}</button>
+          <button class="graph-hud-btn${filterOpen ? ' active' : ''}" id="graph-filter-toggle" title="Toggle filters">⚙ Filters</button>
+          <button class="graph-hud-btn${infoDrawerOpen ? ' active' : ''}" id="graph-info-toggle" title="Toggle info panel">⊞ Info</button>
+          <button class="graph-hud-btn${relDrawerOpen ? ' active' : ''}" id="graph-rel-toggle" title="Show all relationships">⇄ Rels</button>
+        </div>
+      </div>
+
+      <!-- Filter overlay (bottom-left) -->
+      <div class="graph-filter-overlay${filterOpen ? ' open' : ''}" id="graph-filter-overlay">
+        <div class="graph-filter-overlay-header">
+          <span>Filters</span>
+          <button class="graph-filter-close-btn" id="graph-filter-close">✕</button>
+        </div>
+        <div class="graph-filter-overlay-body">
+          <div class="graph-filter-row">
+            <label>Show</label>
+            <select id="graph-filter-kind">
+              ${[['all','All nodes'],['items','Items only'],['facets','Metadata only'],['external','External'],['unlinked','Unlinked']]
+                .map(([v,l]) => `<option value="${v}"${filter.kind===v?' selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="graph-filter-row">
+            <label>Relation</label>
+            <select id="graph-filter-rel">
+              <option value="all">All types</option>
+              ${relOptions.map((r) => `<option value="${escHtml(r)}"${filter.rel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="graph-filter-row">
+            <label>Direction</label>
+            <select id="graph-filter-direction" ${selectedNodeId ? '' : 'disabled'}>
+              ${[['all','Any direction'],['connected','All connected'],['outgoing','Outgoing →'],['incoming','← Incoming']]
+                .map(([v,l]) => `<option value="${v}"${filter.direction===v?' selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="graph-filter-row">
+            <label>Depth</label>
+            <select id="graph-filter-depth" ${selectedNodeId && filter.scope==='focus' ? '' : 'disabled'}>
+              <option value="1"${filter.depth==='1'?' selected':''}>1 hop</option>
+              <option value="2"${filter.depth==='2'?' selected':''}>2 hops</option>
+            </select>
+          </div>
+          <button class="graph-scope-btn" id="graph-scope-btn">
+            ${filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected'}
+          </button>
+          ${errText ? `<div style="margin-top:8px;font-size:11px;color:#fb923c;line-height:1.4">⚠ ${escHtml(errText)}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Legend HUD (bottom-center) -->
+      <div class="graph-legend-hud">
+        <span><i class="legend-dot legend-item"></i>Item</span>
+        <span><i class="legend-dot legend-facet"></i>Metadata</span>
+        <span><i class="legend-dot legend-external"></i>External</span>
+        <span class="legend-sep">·</span>
+        <span><i class="legend-dot" style="background:#2dd4bf;box-shadow:0 0 4px #2dd4bf66"></i>open</span>
+        <span><i class="legend-dot" style="background:#fb923c;box-shadow:0 0 4px #fb923c66"></i>in-progress</span>
+        <span><i class="legend-dot" style="background:#f87171;box-shadow:0 0 4px #f8717166"></i>blocked</span>
+        <span><i class="legend-dot" style="background:#64748b"></i>closed</span>
+        <span><i class="legend-dot" style="background:#94a3b8"></i>draft</span>
+      </div>
+
+      <!-- Info drawer (right side) -->
+      <div class="graph-info-drawer${infoDrawerOpen ? ' open' : ''}" id="graph-info-drawer">
+        <div class="graph-info-drawer-header">
+          <span class="graph-info-drawer-title">Graph Analysis</span>
+          <button class="graph-hud-btn" id="graph-info-close" style="height:26px;padding:3px 8px;font-size:12px">✕</button>
+        </div>
+        <div class="graph-info-drawer-body" id="graph-info-panel">
+          ${renderInfoPanel(data)}
+        </div>
+      </div>
+
+      <!-- Relationship drawer (bottom) -->
+      <div class="graph-rel-drawer${relDrawerOpen ? ' open' : ''}" id="graph-rel-drawer">
+        <div class="graph-rel-drawer-header">
+          <span>Relationships (${visRels.length})</span>
+          <button class="graph-filter-close-btn" id="graph-rel-close">✕</button>
+        </div>
+        <div class="graph-rel-drawer-body">
+          <div id="graph-rel-list">${renderRelList(data)}</div>
+        </div>
+      </div>
+
+    </div>`;
 }
 
 // ── Canvas init / update ──────────────────────────────────────
@@ -458,7 +492,6 @@ function syncCanvas(): void {
     highlightRelTypes: filter.rel !== 'all' ? new Set([filter.rel]) : new Set(),
   });
 
-  // Fly to first search match
   if (filter.query && !selectedNodeId) {
     const q     = filter.query.toLowerCase();
     const match = visNodes.find(
@@ -485,6 +518,13 @@ function initCanvas(): void {
       filter = { ...filter, direction: 'all' };
       updateInfoPanel();
       syncCanvas();
+      updateFilterToolbarState();
+      // Auto-open info drawer when node selected
+      if (id && !infoDrawerOpen) {
+        infoDrawerOpen = true;
+        document.getElementById('graph-info-drawer')?.classList.add('open');
+        document.getElementById('graph-info-toggle')?.classList.add('active');
+      }
     },
     onOpenNode(id) {
       (window as unknown as { __app: { openItemDetail(id: string): void } }).__app.openItemDetail(id);
@@ -495,7 +535,7 @@ function initCanvas(): void {
   syncCanvas();
 }
 
-// ── Panel update (no canvas teardown) ────────────────────────
+// ── Panel / drawer updates ────────────────────────────────────
 
 function updateInfoPanel(): void {
   if (!currentGraph) return;
@@ -504,16 +544,15 @@ function updateInfoPanel(): void {
   const relList = document.getElementById('graph-rel-list');
   if (relList) relList.innerHTML = renderRelList(currentGraph);
   bindInfoPanelEvents();
-  updateToolbarState();
 }
 
-function updateToolbarState(): void {
-  const dirSel  = document.getElementById('graph-filter-direction') as HTMLSelectElement | null;
+function updateFilterToolbarState(): void {
+  const dirSel   = document.getElementById('graph-filter-direction') as HTMLSelectElement | null;
   const depthSel = document.getElementById('graph-filter-depth') as HTMLSelectElement | null;
   const scopeBtn = document.getElementById('graph-scope-btn');
   if (dirSel)   dirSel.disabled   = !selectedNodeId;
   if (depthSel) depthSel.disabled = !(selectedNodeId && filter.scope === 'focus');
-  if (scopeBtn) scopeBtn.textContent = filter.scope === 'focus' ? 'Show All' : 'Focus Neighbors';
+  if (scopeBtn) scopeBtn.textContent = filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected';
 }
 
 // ── Event bindings ────────────────────────────────────────────
@@ -528,6 +567,7 @@ function bindInfoPanelEvents(): void {
     canvasRef.current?.setSelected(null);
     updateInfoPanel();
     syncCanvas();
+    updateFilterToolbarState();
   });
 
   document.querySelectorAll<HTMLButtonElement>('[data-graph-node-id]').forEach((btn) => {
@@ -536,6 +576,7 @@ function bindInfoPanelEvents(): void {
       canvasRef.current?.setSelected(selectedNodeId || null);
       updateInfoPanel();
       syncCanvas();
+      updateFilterToolbarState();
     });
   });
 
@@ -556,31 +597,74 @@ function bindInfoPanelEvents(): void {
       canvasRef.current?.setSelected(toId);
       updateInfoPanel();
       syncCanvas();
+      updateFilterToolbarState();
     });
   });
 }
 
-function bindToolbarEvents(): void {
+function bindHudEvents(): void {
+  // Refresh
   document.getElementById('graph-refresh')?.addEventListener('click', () => {
     canvasRef.current?.destroy();
     canvasRef.current = null;
     void renderGraphView();
   });
 
+  // Fit view
   document.getElementById('graph-fit-btn')?.addEventListener('click', () => canvasRef.current?.fitView());
 
+  // Physics toggle
   document.getElementById('graph-physics-btn')?.addEventListener('click', (e) => {
     const paused = canvasRef.current?.togglePhysics() ?? false;
     physicsLabel = paused ? 'Resume Physics' : 'Pause Physics';
     (e.target as HTMLButtonElement).textContent = physicsLabel;
   });
 
+  // Filter toggle
+  document.getElementById('graph-filter-toggle')?.addEventListener('click', () => {
+    filterOpen = !filterOpen;
+    document.getElementById('graph-filter-overlay')?.classList.toggle('open', filterOpen);
+    document.getElementById('graph-filter-toggle')?.classList.toggle('active', filterOpen);
+  });
+  document.getElementById('graph-filter-close')?.addEventListener('click', () => {
+    filterOpen = false;
+    document.getElementById('graph-filter-overlay')?.classList.remove('open');
+    document.getElementById('graph-filter-toggle')?.classList.remove('active');
+  });
+
+  // Info drawer toggle
+  document.getElementById('graph-info-toggle')?.addEventListener('click', () => {
+    infoDrawerOpen = !infoDrawerOpen;
+    document.getElementById('graph-info-drawer')?.classList.toggle('open', infoDrawerOpen);
+    document.getElementById('graph-info-toggle')?.classList.toggle('active', infoDrawerOpen);
+  });
+  document.getElementById('graph-info-close')?.addEventListener('click', () => {
+    infoDrawerOpen = false;
+    document.getElementById('graph-info-drawer')?.classList.remove('open');
+    document.getElementById('graph-info-toggle')?.classList.remove('active');
+  });
+
+  // Rel drawer toggle
+  document.getElementById('graph-rel-toggle')?.addEventListener('click', () => {
+    relDrawerOpen = !relDrawerOpen;
+    document.getElementById('graph-rel-drawer')?.classList.toggle('open', relDrawerOpen);
+    document.getElementById('graph-rel-toggle')?.classList.toggle('active', relDrawerOpen);
+  });
+  document.getElementById('graph-rel-close')?.addEventListener('click', () => {
+    relDrawerOpen = false;
+    document.getElementById('graph-rel-drawer')?.classList.remove('open');
+    document.getElementById('graph-rel-toggle')?.classList.remove('active');
+  });
+
+  // Scope (focus) button
   document.getElementById('graph-scope-btn')?.addEventListener('click', () => {
     filter = { ...filter, scope: filter.scope === 'focus' ? 'all' : 'focus' };
     updateInfoPanel();
     syncCanvas();
+    updateFilterToolbarState();
   });
 
+  // Filter selects
   const onFilterChange = (id: string, key: keyof GraphFilter, getValue: (el: HTMLElement) => string) => {
     document.getElementById(id)?.addEventListener('change', (e) => {
       const val = getValue(e.target as HTMLElement) as GraphFilter[typeof key];
@@ -590,6 +674,7 @@ function bindToolbarEvents(): void {
       }
       updateInfoPanel();
       syncCanvas();
+      updateFilterToolbarState();
     });
   };
 
@@ -598,6 +683,7 @@ function bindToolbarEvents(): void {
   onFilterChange('graph-filter-direction', 'direction', (el) => (el as HTMLSelectElement).value);
   onFilterChange('graph-filter-depth',     'depth',     (el) => (el as HTMLSelectElement).value);
 
+  // Search input
   const queryInput = document.getElementById('graph-filter-query') as HTMLInputElement | null;
   queryInput?.addEventListener('input', (e) => {
     filter = { ...filter, query: (e.target as HTMLInputElement).value };
@@ -615,15 +701,14 @@ export async function renderGraphView(): Promise<void> {
   if (!state.currentProject) {
     canvasRef.current?.destroy();
     canvasRef.current = null;
-    el.innerHTML = '<div class="empty-state"><div class="empty-state-text">Select a project to view its knowledge graph.</div></div>';
+    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:14px">Select a project to view its knowledge graph.</div>';
     return;
   }
 
-  // Destroy existing canvas before wiping innerHTML
   canvasRef.current?.destroy();
   canvasRef.current = null;
 
-  el.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div><div style="margin-top:12px;color:var(--text-muted);font-size:13px">Loading graph data…</div></div>';
+  el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text-muted);font-size:13px"><div class="loading-spinner"></div>Loading graph…</div>';
 
   try {
     currentGraph = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
@@ -631,21 +716,19 @@ export async function renderGraphView(): Promise<void> {
     filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1' };
 
     el.innerHTML = renderGraphShell(currentGraph);
-    bindToolbarEvents();
+    bindHudEvents();
     bindInfoPanelEvents();
     initCanvas();
   } catch (err: unknown) {
-    const c = canvasRef.current as GraphCanvas | null;
-    c?.destroy();
+    (canvasRef.current as GraphCanvas | null)?.destroy();
     canvasRef.current = null;
-    el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Graph failed to load: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">Graph failed to load: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
   }
 }
 
 /**
- * Lightweight refresh used by SSE item events — re-fetches graph data and
- * updates the canvas in-place without destroying zoom/pan state.
- * Falls back to a full renderGraphView if the canvas isn't initialized yet.
+ * Lightweight refresh from SSE events — updates graph data in-place
+ * without destroying zoom/pan state.
  */
 export async function refreshGraphData(): Promise<void> {
   if (!state.currentProject || !canvasRef.current) {
@@ -661,6 +744,6 @@ export async function refreshGraphData(): Promise<void> {
     updateInfoPanel();
     syncCanvas();
   } catch {
-    // Silently ignore — the user can hit Refresh manually
+    // Silently ignore — user can hit Refresh manually
   }
 }
