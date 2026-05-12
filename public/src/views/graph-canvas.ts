@@ -2,7 +2,8 @@
 // GRAPH CANVAS — Obsidian-quality force-directed knowledge graph
 // Canvas 2D + physics simulation, no external dependencies
 // Features: minimap, animated edge particles, dot grid, tooltip,
-//           keyboard nav, fly-to, gradient nodes, zoom HUD
+//           keyboard nav, fly-to, gradient nodes, zoom HUD,
+//           spatial partitioning, edge bundling, hierarchical layout
 // ═══════════════════════════════════════════════════════════════
 
 export interface CanvasNode {
@@ -21,10 +22,15 @@ export interface CanvasEdge {
   type: string;
 }
 
+export type LayoutMode = 'force' | 'hierarchical';
+
 export interface GraphCanvasOptions {
   onSelectNode(id: string | null): void;
   onOpenNode(id: string): void;
   onContextMenu(id: string, x: number, y: number): void;
+  layout?: LayoutMode;
+  edgeBundling?: boolean;
+  onExportPng?(canvas: HTMLCanvasElement): void;
 }
 
 export interface CanvasFilter {
@@ -163,6 +169,7 @@ function easeOutQuart(t: number): number {
   return 1 - Math.pow(1 - t, 4);
 }
 
+// escHtml is imported from utils.ts in graph.ts — canvas uses its own for DOM tooltip only
 function escHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -255,15 +262,35 @@ export class GraphCanvas {
   // Tag→color map for tag colorMode (recomputed in recolorNodes)
   private tagColorMap = new Map<string, string>();
 
+  // Layout mode
+  private layout: LayoutMode = 'force';
+
+  // Edge bundling
+  private edgeBundling = false;
+
+  // Spatial grid for culling
+  private gridCells = new Map<number, SimNode[]>();
+  private gridCellSize = 200;
+  private gridOriginX = 0;
+  private gridOriginY = 0;
+
+  // Initial load zoom-to-fit
+  private initialFitDone = false;
+  private initialFitTimer: ReturnType<typeof setTimeout> | null = null;
+
   // Callbacks
   private onSelectNode:   (id: string | null) => void;
   private onOpenNode:     (id: string) => void;
   private onContextMenu:  (id: string, x: number, y: number) => void;
+  private onExportPng:    ((canvas: HTMLCanvasElement) => void) | undefined;
 
   constructor(container: HTMLElement, options: GraphCanvasOptions) {
     this.onSelectNode  = options.onSelectNode;
     this.onOpenNode    = options.onOpenNode;
     this.onContextMenu = options.onContextMenu;
+    this.onExportPng   = options.onExportPng;
+    this.layout        = options.layout ?? 'force';
+    this.edgeBundling  = options.edgeBundling ?? false;
 
     this.canvas = document.createElement('canvas');
     this.canvas.style.cssText =
@@ -326,7 +353,19 @@ export class GraphCanvas {
     }
 
     this.recolorNodes();
-    setTimeout(() => this.fitView(), 1400);
+
+    // Initial zoom-to-fit animation
+    this.initialFitDone = false;
+    if (this.initialFitTimer) clearTimeout(this.initialFitTimer);
+    this.initialFitTimer = setTimeout(() => {
+      this.fitView();
+      this.initialFitDone = true;
+    }, 1400);
+
+    // Apply hierarchical layout if selected
+    if (this.layout === 'hierarchical') {
+      this.applyHierarchicalLayout();
+    }
   }
 
   setFilter(filter: Partial<CanvasFilter>): void {
@@ -396,9 +435,158 @@ export class GraphCanvas {
     this.paused = false;
   }
 
+  setLayout(layout: LayoutMode): void {
+    if (this.layout === layout) return;
+    this.layout = layout;
+    if (layout === 'hierarchical') {
+      this.applyHierarchicalLayout();
+    } else {
+      // Scatter nodes slightly and reheat force simulation
+      for (const n of this.nodes) {
+        n.x += (Math.random() - 0.5) * 40;
+        n.y += (Math.random() - 0.5) * 40;
+      }
+      this.reheat();
+    }
+  }
+
+  setEdgeBundling(enabled: boolean): void {
+    this.edgeBundling = enabled;
+  }
+
+  exportPng(): void {
+    if (this.onExportPng) {
+      this.onExportPng(this.canvas);
+      return;
+    }
+    // Default: trigger download
+    try {
+      const link = document.createElement('a');
+      link.download = 'graph-export.png';
+      link.href = this.canvas.toDataURL('image/png');
+      link.click();
+    } catch { /* Canvas tainted — cannot export */ }
+  }
+
+  private applyHierarchicalLayout(): void {
+    // Topological-sort-based hierarchical layout
+    // Build adjacency for layering
+    const inDeg = new Map<string, number>();
+    const adjOut = new Map<string, string[]>();
+    for (const n of this.nodes) {
+      inDeg.set(n.id, 0);
+      adjOut.set(n.id, []);
+    }
+    for (const e of this.edges) {
+      inDeg.set(e.target.id, (inDeg.get(e.target.id) ?? 0) + 1);
+      adjOut.get(e.source.id)?.push(e.target.id);
+    }
+
+    // BFS layering from roots (nodes with in-degree 0)
+    const layers: string[][] = [];
+    const assigned = new Set<string>();
+    let frontier = [...inDeg.entries()].filter(([, d]) => d === 0).map(([id]) => id);
+    if (!frontier.length && this.nodes.length > 0) {
+      frontier = [this.nodes[0].id];
+    }
+
+    while (frontier.length) {
+      layers.push(frontier);
+      for (const id of frontier) assigned.add(id);
+      const next = new Set<string>();
+      for (const id of frontier) {
+        for (const child of adjOut.get(id) ?? []) {
+          if (!assigned.has(child)) {
+            next.add(child);
+          }
+        }
+      }
+      frontier = [...next];
+    }
+
+    // Assign unassigned nodes to last layer
+    for (const n of this.nodes) {
+      if (!assigned.has(n.id)) {
+        layers[layers.length - 1]?.push(n.id) ?? layers.push([n.id]);
+      }
+    }
+
+    // Position nodes in layers
+    const layerSpacing = 180;
+    const nodeSpacing = 100;
+    const startY = -((layers.length - 1) * layerSpacing) / 2;
+
+    for (let li = 0; li < layers.length; li++) {
+      const layer = layers[li];
+      const startX = -((layer.length - 1) * nodeSpacing) / 2;
+      for (let ni = 0; ni < layer.length; ni++) {
+        const node = this.nodeMap.get(layer[ni]);
+        if (node) {
+          node.x = startX + ni * nodeSpacing;
+          node.y = startY + li * layerSpacing;
+          node.vx = 0;
+          node.vy = 0;
+        }
+      }
+    }
+
+    // Freeze positions for hierarchical mode
+    this.alpha = 0.005;
+  }
+
+  /** Rebuild the spatial grid for culling */
+  private rebuildGrid(): void {
+    this.gridCells.clear();
+    if (!this.nodes.length) return;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of this.nodes) {
+      minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x); maxY = Math.max(maxY, n.y);
+    }
+
+    this.gridOriginX = minX - this.gridCellSize;
+    this.gridOriginY = minY - this.gridCellSize;
+    const cs = this.gridCellSize;
+
+    for (const n of this.nodes) {
+      const cx = Math.floor((n.x - this.gridOriginX) / cs);
+      const cy = Math.floor((n.y - this.gridOriginY) / cs);
+      const key = cx * 10000 + cy;
+      let cell = this.gridCells.get(key);
+      if (!cell) { cell = []; this.gridCells.set(key, cell); }
+      cell.push(n);
+    }
+  }
+
+  /** Get all nodes within a world-space rectangle */
+  private getNodesInRect(wx1: number, wy1: number, wx2: number, wy2: number): SimNode[] {
+    const cs = this.gridCellSize;
+    const cx1 = Math.floor((wx1 - this.gridOriginX) / cs);
+    const cy1 = Math.floor((wy1 - this.gridOriginY) / cs);
+    const cx2 = Math.floor((wx2 - this.gridOriginX) / cs);
+    const cy2 = Math.floor((wy2 - this.gridOriginY) / cs);
+
+    const result: SimNode[] = [];
+    for (let cx = cx1; cx <= cx2; cx++) {
+      for (let cy = cy1; cy <= cy2; cy++) {
+        const cell = this.gridCells.get(cx * 10000 + cy);
+        if (cell) {
+          for (const n of cell) {
+            if (n.x >= wx1 && n.x <= wx2 && n.y >= wy1 && n.y <= wy2) {
+              result.push(n);
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
   destroy(): void {
     this.destroyed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    if (this.initialFitTimer) clearTimeout(this.initialFitTimer);
     this.abortCtrl.abort();
     this.ro.disconnect();
     this.canvas.remove();
@@ -625,17 +813,38 @@ export class GraphCanvas {
       return connected ? 0.85 : 0.15;
     };
 
-    // Edges (back)
-    for (const e of this.edges) {
-      const op = Math.min(nodeOpacity(e.source), nodeOpacity(e.target));
-      this.drawEdge(e, op, isHighlightedEdge(e));
+    // Rebuild spatial grid for culling
+    this.rebuildGrid();
+
+    // Compute viewport in world-space for culling
+    const vpLeft   = -this.tx / this.scale;
+    const vpTop    = -this.ty / this.scale;
+    const vpRight  = vpLeft + this.w / this.scale;
+    const vpBottom = vpTop  + this.h / this.scale;
+    const cullPad  = 100;
+    const visibleNodesSet = new Set<string>();
+    const vpNodes = this.getNodesInRect(
+      vpLeft - cullPad, vpTop - cullPad,
+      vpRight + cullPad, vpBottom + cullPad,
+    );
+    for (const n of vpNodes) visibleNodesSet.add(n.id);
+
+    // Edges (back) — cull edges whose endpoints are both off-screen
+    if (this.edgeBundling && !sel) {
+      this.drawBundledEdges(nodeOpacity, isHighlightedEdge, visibleNodesSet);
+    } else {
+      for (const e of this.edges) {
+        if (!visibleNodesSet.has(e.source.id) && !visibleNodesSet.has(e.target.id)) continue;
+        const op = Math.min(nodeOpacity(e.source), nodeOpacity(e.target));
+        this.drawEdge(e, op, isHighlightedEdge(e));
+      }
     }
 
     // Particles
     this.drawParticles();
 
-    // Nodes
-    for (const nd of this.nodes) {
+    // Nodes — only draw those in viewport
+    for (const nd of vpNodes) {
       this.drawNode(nd, nodeOpacity(nd), nd.id === sel, nd.id === this.hoveredId);
     }
 
@@ -799,6 +1008,67 @@ export class GraphCanvas {
     }
   }
 
+  // ── Bundled edges ────────────────────────────────────────
+
+  private drawBundledEdges(
+    nodeOpacity: (nd: SimNode) => number,
+    isHighlightedEdge: (e: SimEdge) => boolean,
+    visibleNodesSet: Set<string>,
+  ): void {
+    const { ctx } = this;
+    // Group edges by type and draw as bundled curves through centroid
+    const byType = new Map<string, SimEdge[]>();
+    for (const e of this.edges) {
+      if (!visibleNodesSet.has(e.source.id) && !visibleNodesSet.has(e.target.id)) continue;
+      let arr = byType.get(e.type);
+      if (!arr) { arr = []; byType.set(e.type, arr); }
+      arr.push(e);
+    }
+
+    for (const [type, edges] of byType) {
+      if (edges.length < 4) {
+        // Too few edges to bundle — draw normally
+        for (const e of edges) {
+          const op = Math.min(nodeOpacity(e.source), nodeOpacity(e.target));
+          this.drawEdge(e, op, isHighlightedEdge(e));
+        }
+        continue;
+      }
+
+      const color = getEdgeColor(type);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.5;
+      ctx.globalAlpha = 0.25;
+
+      // Compute centroid of all edge endpoints
+      let cx = 0, cy = 0, count = 0;
+      for (const e of edges) {
+        cx += e.source.x + e.target.x;
+        cy += e.source.y + e.target.y;
+        count += 2;
+      }
+      cx /= count; cy /= count;
+
+      for (const e of edges) {
+        const op = Math.min(nodeOpacity(e.source), nodeOpacity(e.target));
+        if (op < 0.1) continue;
+        ctx.globalAlpha = op * 0.3;
+        ctx.beginPath();
+        ctx.moveTo(e.source.x, e.source.y);
+        // Bezier through a point biased toward centroid
+        const mx = (e.source.x + e.target.x) / 2;
+        const my = (e.source.y + e.target.y) / 2;
+        const bpx = mx + (cx - mx) * 0.3;
+        const bpy = my + (cy - my) * 0.3;
+        ctx.quadraticCurveTo(bpx, bpy, e.target.x, e.target.y);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+  }
+
   // ── Edge ───────────────────────────────────────────────────
 
   private drawEdge(edge: SimEdge, opacity: number, highlighted: boolean): void {
@@ -867,10 +1137,11 @@ export class GraphCanvas {
         angle = Math.atan2(dy, dx);
       }
 
-      const aw = 7;
-      const aa = 0.42;
-      const ax = t.x - nx * t.r;
-      const ay = t.y - ny * t.r;
+      const aw = isBiDir ? 8 : 7;
+      const aa = isBiDir ? 0.38 : 0.42;
+      // Position arrowhead at the actual edge endpoint (where bezier meets target offset)
+      const ax = x2;
+      const ay = y2;
 
       ctx.fillStyle   = isActive ? color : 'rgba(148,163,184,0.4)';
       ctx.globalAlpha = opacity * (isActive ? 0.92 : 0.42);
@@ -878,6 +1149,9 @@ export class GraphCanvas {
       ctx.beginPath();
       ctx.moveTo(ax, ay);
       ctx.lineTo(ax - aw * Math.cos(angle - aa), ay - aw * Math.sin(angle - aa));
+      // Small notch for better definition on curved edges
+      const notchLen = aw * 0.35;
+      ctx.lineTo(ax - notchLen * Math.cos(angle), ay - notchLen * Math.sin(angle));
       ctx.lineTo(ax - aw * Math.cos(angle + aa), ay - aw * Math.sin(angle + aa));
       ctx.closePath();
       ctx.fill();
@@ -1173,14 +1447,31 @@ export class GraphCanvas {
 
   private hitTest(wx: number, wy: number): SimNode | null {
     const vis = this.filter.visibleNodeIds;
-    for (let i = this.nodes.length - 1; i >= 0; i--) {
-      const nd = this.nodes[i];
-      if (vis && !vis.has(nd.id)) continue;
-      const dx = wx - nd.x;
-      const dy = wy - nd.y;
-      if (dx * dx + dy * dy <= (nd.r + 6) * (nd.r + 6)) return nd;
+    // Use spatial grid for O(1) cell lookup
+    const cs = this.gridCellSize;
+    const cx = Math.floor((wx - this.gridOriginX) / cs);
+    const cy = Math.floor((wy - this.gridOriginY) / cs);
+    // Check this cell and immediate neighbors
+    let best: SimNode | null = null;
+    let bestDist = Infinity;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const cell = this.gridCells.get((cx + dx) * 10000 + (cy + dy));
+        if (!cell) continue;
+        for (const nd of cell) {
+          if (vis && !vis.has(nd.id)) continue;
+          const ddx = wx - nd.x;
+          const ddy = wy - nd.y;
+          const hitR = (nd.r + 6);
+          const d2 = ddx * ddx + ddy * ddy;
+          if (d2 <= hitR * hitR && d2 < bestDist) {
+            best = nd;
+            bestDist = d2;
+          }
+        }
+      }
     }
-    return null;
+    return best;
   }
 
   // ── Events ─────────────────────────────────────────────────

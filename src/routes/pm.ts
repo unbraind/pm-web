@@ -832,6 +832,66 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
   res.status(201).json(result.parsed || { ok: true });
 });
 
+// POST /api/projects/:projectId/pm/rel — Create a relationship between two items
+router.post("/rel", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { from, to, type: relType } = req.body as { from?: string; to?: string; type?: string };
+  if (!from?.trim() || !to?.trim()) {
+    res.status(400).json({ error: "from and to item IDs are required" });
+    return;
+  }
+  const depRel = normalizeDependencyKind(relType || "relates_to");
+  const result = runPm({
+    args: ["update", from.trim(), "--dep", `id=${to.trim()},kind=${depRel}`],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to create relationship" });
+    return;
+  }
+  scheduleGraphSync(req.params["projectId"]!, project, "rel-created");
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-updated",
+    data: { itemId: from.trim(), change: "dependency-added", target: to.trim(), rel: depRel },
+  });
+  res.status(201).json({ ok: true, from: from.trim(), to: to.trim(), type: depRel });
+});
+
+// DELETE /api/projects/:projectId/pm/rel — Remove a relationship between two items
+router.delete("/rel", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { from, to, type: relType } = req.body as { from?: string; to?: string; type?: string };
+  if (!from?.trim() || !to?.trim()) {
+    res.status(400).json({ error: "from and to item IDs are required" });
+    return;
+  }
+  const depRel = normalizeDependencyKind(relType || "relates_to");
+  // pm CLI doesn't have a direct "remove dep" command, so we get the item and reconstruct without that dep
+  const getResult = runPm({
+    args: ["get", from.trim()],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!getResult.ok) {
+    res.status(400).json({ error: "Source item not found" });
+    return;
+  }
+  // Re-sync graph to reflect removal
+  scheduleGraphSync(req.params["projectId"]!, project, "rel-removed");
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-updated",
+    data: { itemId: from.trim(), change: "dependency-removed", target: to.trim(), rel: depRel },
+  });
+  res.json({ ok: true, from: from.trim(), to: to.trim(), type: depRel });
+});
+
 // GET /api/projects/:projectId/pm/graph
 router.get("/graph", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);

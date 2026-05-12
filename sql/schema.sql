@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS pm_users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   display_name TEXT,
+  is_admin BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -56,9 +57,22 @@ CREATE TABLE IF NOT EXISTS pm_project_shares (
 );
 
 ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS github_token TEXT;
+ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_owner TEXT;
 ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_repo TEXT;
 ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_sync_enabled BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS pm_admin_audit (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS pm_admin_audit_created_at ON pm_admin_audit(created_at DESC);
+
+UPDATE pm_users SET is_admin = TRUE, updated_at = NOW() WHERE lower(email) = lower('redacted@example.invalid');
 
 -- Update trigger
 CREATE OR REPLACE FUNCTION update_updated_at()
