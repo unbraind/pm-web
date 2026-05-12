@@ -377,22 +377,36 @@ function connectSSE(projectId: string, attempt = 0): void {
         renderActivityView();
       } else if (view === 'stats') {
         renderStatsView();
-      } else if (view === 'graph') {
-        import('./views/graph.js').then((module) => module.renderGraphView());
       }
       loadItemsBadge();
     };
 
-    source.addEventListener('item-created', refreshView);
-    source.addEventListener('item-updated', refreshView);
-    source.addEventListener('item-closed', refreshView);
-    source.addEventListener('item-deleted', refreshView);
-    source.addEventListener('graph-synced', refreshView);
-    source.addEventListener('item_created', refreshView);
-    source.addEventListener('item_updated', refreshView);
-    source.addEventListener('item_closed', refreshView);
-    source.addEventListener('item_deleted', refreshView);
-    source.addEventListener('graph_synced', refreshView);
+    // Graph-synced events (Neo4j sync complete) do a full graph reload
+    const refreshGraph = () => {
+      if (state.currentView === 'graph') {
+        import('./views/graph.js').then((module) => module.renderGraphView());
+      }
+    };
+
+    // Item events on graph view use lightweight data-only refresh
+    const refreshGraphData = () => {
+      if (state.currentView === 'graph') {
+        import('./views/graph.js').then((module) => module.refreshGraphData());
+      } else {
+        refreshView();
+      }
+    };
+
+    source.addEventListener('item-created', refreshGraphData);
+    source.addEventListener('item-updated', refreshGraphData);
+    source.addEventListener('item-closed', refreshGraphData);
+    source.addEventListener('item-deleted', refreshGraphData);
+    source.addEventListener('graph-synced', refreshGraph);
+    source.addEventListener('item_created', refreshGraphData);
+    source.addEventListener('item_updated', refreshGraphData);
+    source.addEventListener('item_closed', refreshGraphData);
+    source.addEventListener('item_deleted', refreshGraphData);
+    source.addEventListener('graph_synced', refreshGraph);
     source.addEventListener('update', refreshView);
 
     source.onerror = () => {

@@ -17,7 +17,7 @@ export async function renderNormalizeView(): Promise<void> {
     </div>
     <div id="normalize-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
   try {
-    const data = await api('GET', `/projects/${state.currentProject.id}/pm/normalize`);
+    const data = await api('POST', `/projects/${state.currentProject.id}/pm/normalize`);
     const plan = (data as any).plan || (data as any).normalization || data;
     const items = plan.items || plan.changes || [];
     const el2 = document.getElementById('normalize-content');

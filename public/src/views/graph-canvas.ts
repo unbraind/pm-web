@@ -298,6 +298,11 @@ export class GraphCanvas {
     }
   }
 
+  jumpToNode(id: string): void {
+    const node = this.nodeMap.get(id);
+    if (node) this.flyTo(node);
+  }
+
   fitView(): void {
     if (!this.nodes.length) return;
     const vis = this.filter.visibleNodeIds;
@@ -758,8 +763,8 @@ export class GraphCanvas {
       ctx.fill();
     }
 
-    // Edge label (highlighted + zoomed in enough)
-    if (highlighted && this.scale > 1.0) {
+    // Edge label (highlighted + zoomed in enough, or highlighted at any zoom)
+    if (highlighted && this.scale > 0.55) {
       const mx = (x1 + x2) / 2;
       const my = (y1 + y2) / 2;
       ctx.globalAlpha = opacity * 0.82;
@@ -1018,8 +1023,10 @@ export class GraphCanvas {
   }
 
   private hitTest(wx: number, wy: number): SimNode | null {
+    const vis = this.filter.visibleNodeIds;
     for (let i = this.nodes.length - 1; i >= 0; i--) {
       const nd = this.nodes[i];
+      if (vis && !vis.has(nd.id)) continue;
       const dx = wx - nd.x;
       const dy = wy - nd.y;
       if (dx * dx + dy * dy <= (nd.r + 6) * (nd.r + 6)) return nd;
