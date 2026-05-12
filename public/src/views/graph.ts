@@ -51,7 +51,7 @@ let filter: GraphFilter = {
 let selectedItemCache: Record<string, unknown> | null = null;
 let criticalPath: Set<string> = new Set();
 
-const DEP_REL_TYPES = new Set(['DEPENDS_ON', 'BLOCKED_BY', 'BLOCKS']);
+const DEP_REL_TYPES = new Set(['DEPENDS_ON', 'BLOCKED_BY', 'BLOCKS', 'PARENT', 'CHILD', 'RELATED']);
 
 // ── Context menu ──────────────────────────────────────────────
 let ctxMenuEl: HTMLDivElement | null = null;
@@ -217,6 +217,18 @@ function blockingPair(rel: GraphRelationship): { blocked: string; blocker: strin
   if (rel.type === 'BLOCKS') return { blocked: rel.to, blocker: rel.from };
   if (rel.type === 'DEPENDS_ON' || rel.type === 'BLOCKED_BY') return { blocked: rel.from, blocker: rel.to };
   return null;
+}
+
+function dependencyLabel(rel: GraphRelationship): string {
+  const labels: Record<string, string> = {
+    DEPENDS_ON: 'Depends on',
+    BLOCKED_BY: 'Blocked by',
+    BLOCKS: 'Blocks',
+    PARENT: 'Parent',
+    CHILD: 'Child',
+    RELATED: 'Related',
+  };
+  return labels[rel.type] ?? rel.type.replace(/_/g, ' ').toLowerCase();
 }
 
 function computeCriticalPath(rels: GraphRelationship[]): Set<string> {
@@ -1219,17 +1231,16 @@ function showRemoveDependencyModal(): void {
   const graph = currentGraph.graph || {};
   const rels = graph.relationships || [];
   const depRels = rels.filter(isDependencyRel);
-  const allRels = rels.length > depRels.length ? rels : depRels;
 
-  const options = allRels.map((r, i) => {
+  const options = depRels.map((r, i) => {
     const nodes = graph.nodes || [];
     const from = nodes.find((n) => n.id === r.from);
     const to = nodes.find((n) => n.id === r.to);
-    return `<option value="${i}">${escHtml(r.type)}: ${escHtml(nodeTitle(from || { id: r.from }))} → ${escHtml(nodeTitle(to || { id: r.to }))}</option>`;
+    return `<option value="${i}">${escHtml(dependencyLabel(r))}: ${escHtml(nodeTitle(from || { id: r.from }))} → ${escHtml(nodeTitle(to || { id: r.to }))}</option>`;
   }).join('');
 
-  if (!allRels.length) {
-    (window as unknown as { __app: { toast(msg: string, type: string): void } }).__app.toast('No relationships to remove', 'info');
+  if (!depRels.length) {
+    (window as unknown as { __app: { toast(msg: string, type: string): void } }).__app.toast('No dependencies to remove', 'info');
     return;
   }
 
@@ -1237,12 +1248,12 @@ function showRemoveDependencyModal(): void {
     <div class="modal-backdrop" id="graph-remove-dep-modal" style="display:flex">
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
-          <div class="modal-title">Remove Relationship</div>
+          <div class="modal-title">Remove Dependency</div>
           <button class="modal-close" onclick="document.getElementById('graph-remove-dep-modal')?.remove()">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label class="form-label">Select relationship to remove</label>
+            <label class="form-label">Select dependency to remove</label>
             <select class="form-select" id="graph-remove-dep-select" size="8" style="min-height:140px">${options}</select>
           </div>
           <div id="graph-remove-dep-error" class="form-error" style="display:none"></div>
@@ -1259,10 +1270,10 @@ function showRemoveDependencyModal(): void {
   document.getElementById('graph-remove-dep-submit')?.addEventListener('click', async () => {
     const selIdx = parseInt((document.getElementById('graph-remove-dep-select') as HTMLSelectElement)?.value ?? '-1', 10);
     const errEl = document.getElementById('graph-remove-dep-error');
-    const rel = allRels[selIdx];
+    const rel = depRels[selIdx];
 
     if (!rel) {
-      if (errEl) { errEl.textContent = 'Select a relationship.'; errEl.style.display = ''; }
+      if (errEl) { errEl.textContent = 'Select a dependency.'; errEl.style.display = ''; }
       return;
     }
 
