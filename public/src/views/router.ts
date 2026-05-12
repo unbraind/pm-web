@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// ROUTER — View switching
+// ROUTER — View switching with URL routing
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { VIEW_NAMES } from '../constants.js';
@@ -28,8 +28,69 @@ import { renderConfigView } from './config.js';
 import { renderGuideView } from './guide.js';
 import { renderAdminView } from './admin.js';
 
-export function showView(view: string): void {
+// View name → URL path mapping
+const VIEW_TO_PATH: Record<string, string> = {
+  'projects': '/',
+  'items': '/items',
+  'create': '/create',
+  'activity': '/activity',
+  'search': '/search',
+  'stats': '/stats',
+  'calendar': '/calendar',
+  'context': '/context',
+  'graph': '/graph',
+  'sharing': '/sharing',
+  'groups': '/groups',
+  'health': '/health',
+  'dedupe': '/dedupe',
+  'validate': '/validate',
+  'settings': '/settings',
+  'github': '/github',
+  'export': '/export',
+  'normalize': '/normalize',
+  'shared': '/shared',
+  'templates': '/templates',
+  'comments-audit': '/comments-audit',
+  'config': '/config',
+  'guide': '/guide',
+  'admin': '/admin',
+};
+
+// Reverse: URL path → view name
+const PATH_TO_VIEW: Record<string, string> = {};
+for (const [view, path] of Object.entries(VIEW_TO_PATH)) {
+  PATH_TO_VIEW[path] = view;
+}
+
+// Whether pushState was just called (to ignore the resulting popstate)
+let navigatingInternally = false;
+
+export function getPathForView(view: string): string {
+  return VIEW_TO_PATH[view] || '/';
+}
+
+export function getViewForPath(path: string): string {
+  // Normalize: remove trailing slash except for root
+  const normalized = path.replace(/\/$/, '') || '/';
+  // Direct match
+  if (PATH_TO_VIEW[normalized]) return PATH_TO_VIEW[normalized];
+  // Try matching first segment for deeper paths (e.g. /items/DETAIL-1 → items)
+  const firstSegment = '/' + normalized.slice(1).split('/')[0];
+  return PATH_TO_VIEW[firstSegment] || 'projects';
+}
+
+export function showView(view: string, pushState = true): void {
   state.currentView = view;
+
+  // Update URL via pushState
+  if (pushState) {
+    const path = getPathForView(view);
+    if (window.location.pathname !== path) {
+      navigatingInternally = true;
+      history.pushState({ view }, '', path);
+    }
+  }
+
   // Full-screen graph mode: hide sidebar
   document.body.classList.toggle('graph-mode', view === 'graph');
   VIEW_NAMES.forEach(v => {
@@ -71,6 +132,17 @@ export function showView(view: string): void {
     case 'admin': renderAdminView(); break;
   }
   updateMobileNav(view);
+
+  // Scroll main content to top on view change
+  const mainContent = document.getElementById('main-content');
+  if (mainContent) mainContent.scrollTop = 0;
+
+  // Move focus to main content for accessibility
+  const activeArea = document.getElementById(`content-${view}`);
+  if (activeArea) {
+    activeArea.setAttribute('tabindex', '-1');
+    activeArea.focus({ preventScroll: true });
+  }
 }
 
 function updateMobileNav(view: string): void {
@@ -81,4 +153,20 @@ function updateMobileNav(view: string): void {
   if (nav) {
     nav.classList.toggle('visible', !!state.currentProject && view !== 'projects');
   }
+}
+
+// Handle browser back/forward
+function onPopState(e: PopStateEvent): void {
+  // Ignore if we just pushed state (some browsers fire popstate after pushState)
+  if (navigatingInternally) {
+    navigatingInternally = false;
+    return;
+  }
+  const view = e.state?.view || getViewForPath(window.location.pathname);
+  showView(view, false);
+}
+
+// Initialize popstate listener
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', onPopState);
 }

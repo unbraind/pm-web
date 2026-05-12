@@ -27,7 +27,7 @@ import { renderTemplatesView, createFromTemplate } from './views/templates.js';
 import { renderCommentsAuditView } from './views/comments-audit.js';
 import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject } from './views/config.js';
 import { renderGuideView } from './views/guide.js';
-import { renderAdminView, setAdminRole } from './views/admin.js';
+import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage } from './views/admin.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -322,6 +322,16 @@ let deferredPrompt: any = null;
   // SSE
   connectSSE,
   disconnectSSE,
+
+  // Admin
+  adminSwitchTab,
+  adminDeleteUser,
+  adminDeleteProject,
+  adminDeleteGroup,
+  adminFilterUsers,
+  adminFilterProjects,
+  adminFilterAudit,
+  adminSetPage,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -477,8 +487,86 @@ async function handleLaunchAction(): Promise<void> {
     return;
   }
 
-  showView('projects');
+  // Restore view from URL path (supports refresh/bookmark)
+  const { getViewForPath } = await import('./views/router.js');
+  const view = getViewForPath(window.location.pathname);
+
+  // If view requires a project and none is selected, try to select first one
+  const projectRequired = view !== 'projects' && view !== 'settings' && view !== 'admin' && view !== 'shared' && view !== 'groups' && view !== 'guide';
+  if (projectRequired && !state.currentProject && state.projects[0]) {
+    await onProjectSelect(state.projects[0].id);
+  }
+  if (projectRequired && !state.currentProject) {
+    showView('projects');
+    toast('Select a project first', 'info');
+    return;
+  }
+
+  // Replace current history state so back/forward works properly
+  history.replaceState({ view }, '', window.location.pathname);
+  showView(view, false);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL ERROR BOUNDARY
+// ═══════════════════════════════════════════════════════════════
+function showGlobalError(errorMsg: string, error?: unknown): void {
+  const appEl = document.getElementById('app');
+  if (!appEl) return;
+
+  // Hide other screens
+  const authScreen = document.getElementById('auth-screen');
+  const mainApp = document.getElementById('main-app');
+  if (authScreen) authScreen.style.display = 'none';
+  if (mainApp) mainApp.style.display = 'none';
+
+  // Create or update error screen
+  let errorScreen = document.getElementById('global-error-screen');
+  if (!errorScreen) {
+    errorScreen = document.createElement('div');
+    errorScreen.id = 'global-error-screen';
+    errorScreen.setAttribute('role', 'alert');
+    errorScreen.setAttribute('aria-live', 'assertive');
+    appEl.appendChild(errorScreen);
+  }
+
+  const stackTrace = error instanceof Error && error.stack
+    ? `<details style="margin-top:12px;text-align:left"><summary style="cursor:pointer;color:var(--text-muted);font-size:12px">Stack trace</summary><pre style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);white-space:pre-wrap;word-break:break-all">${escHtml(error.stack)}</pre></details>`
+    : '';
+
+  errorScreen.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center">
+      <div style="font-size:48px;margin-bottom:20px;opacity:0.5">⚠</div>
+      <h1 style="font-size:22px;font-weight:600;margin-bottom:8px">Something went wrong</h1>
+      <p style="color:var(--text-secondary);max-width:480px;line-height:1.7;margin-bottom:8px">${escHtml(errorMsg)}</p>
+      ${stackTrace}
+      <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-primary" onclick="location.reload()" aria-label="Reload the page">Reload Page</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('global-error-screen').remove();document.getElementById('auth-screen').style.display='flex'" aria-label="Go to login screen">Go to Login</button>
+        <button class="btn btn-ghost" onclick="navigator.clipboard.writeText(this.closest('[role=alert]').innerText);window.__app.toast('Error details copied','success')" aria-label="Copy error details">Copy Details</button>
+      </div>
+    </div>`;
+}
+
+// Global error handlers
+window.addEventListener('error', (event: ErrorEvent) => {
+  console.error('Global error:', event.error);
+  // Don't show for script load failures that are likely network issues
+  if (event.message && !event.message.includes('Load failed') && !event.message.includes('error loading dynamically imported module')) {
+    showGlobalError(event.message || 'An unexpected error occurred', event.error);
+  }
+  event.preventDefault();
+});
+
+window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  const msg = event.reason instanceof Error ? event.reason.message : String(event.reason);
+  // Don't show for network/import errors during normal operation
+  if (!msg.includes('Load failed') && !msg.includes('error loading dynamically imported module') && !msg.includes('Failed to fetch')) {
+    showGlobalError(msg, event.reason instanceof Error ? event.reason : undefined);
+  }
+  event.preventDefault();
+});
 
 async function init(): Promise<void> {
   try {

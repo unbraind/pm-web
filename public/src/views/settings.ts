@@ -11,6 +11,9 @@ export function renderSettingsView(): void {
   const el = document.getElementById('content-settings');
   if (!el) return;
   const u = state.user || ({} as any);
+  const createdInfo = u.created_at
+    ? `<span style="display:block;margin-top:4px;font-size:12px;color:var(--text-muted)">Account created ${new Date(u.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>`
+    : '';
   el.innerHTML = `
     <div class="page-header">
       <div><div class="page-title">Settings</div><div class="page-subtitle">Manage your profile and account</div></div>
@@ -20,34 +23,35 @@ export function renderSettingsView(): void {
         <div class="card-header"><div class="card-title">Profile</div></div>
         <div class="card-body">
           <div class="form-group">
-            <label class="form-label">Display Name</label>
-            <input class="form-input" id="settings-display-name" type="text" value="${escHtml(u.display_name||u.email||'')}" placeholder="Your display name">
+            <label class="form-label" for="settings-display-name">Display Name</label>
+            <input class="form-input" id="settings-display-name" type="text" value="${escHtml(u.display_name||u.email||'')}" placeholder="Your display name" aria-label="Display name">
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input class="form-input" type="text" value="${escHtml(u.email||'')}" disabled style="opacity:0.6;cursor:not-allowed">
+            <input class="form-input" type="text" value="${escHtml(u.email||'')}" disabled style="opacity:0.6;cursor:not-allowed" aria-label="Email address (read only)">
+            ${createdInfo}
           </div>
-          <div class="form-error" id="settings-profile-error" style="display:none"></div>
-          <button class="btn btn-primary btn-sm" id="settings-profile-btn" onclick="window.__app.saveProfile()"><span>Save Profile</span></button>
+          <div class="form-error" id="settings-profile-error" style="display:none" role="alert"></div>
+          <button class="btn btn-primary btn-sm" id="settings-profile-btn" onclick="window.__app.saveProfile()" aria-label="Save profile changes"><span>Save Profile</span></button>
         </div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Change Password</div></div>
         <div class="card-body">
           <div class="form-group">
-            <label class="form-label">Current Password</label>
-            <input class="form-input" id="settings-current-pw" type="password" placeholder="Current password" autocomplete="current-password">
+            <label class="form-label" for="settings-current-pw">Current Password</label>
+            <input class="form-input" id="settings-current-pw" type="password" placeholder="Current password" autocomplete="current-password" aria-label="Current password">
           </div>
           <div class="form-group">
-            <label class="form-label">New Password</label>
-            <input class="form-input" id="settings-new-pw" type="password" placeholder="New password" autocomplete="new-password">
+            <label class="form-label" for="settings-new-pw">New Password</label>
+            <input class="form-input" id="settings-new-pw" type="password" placeholder="New password" autocomplete="new-password" aria-label="New password">
           </div>
           <div class="form-group">
-            <label class="form-label">Confirm New Password</label>
-            <input class="form-input" id="settings-confirm-pw" type="password" placeholder="Confirm new password" autocomplete="new-password">
+            <label class="form-label" for="settings-confirm-pw">Confirm New Password</label>
+            <input class="form-input" id="settings-confirm-pw" type="password" placeholder="Confirm new password" autocomplete="new-password" aria-label="Confirm new password">
           </div>
-          <div class="form-error" id="settings-pw-error" style="display:none"></div>
-          <button class="btn btn-primary btn-sm" id="settings-pw-btn" onclick="window.__app.changePassword()"><span>Change Password</span></button>
+          <div class="form-error" id="settings-pw-error" style="display:none" role="alert"></div>
+          <button class="btn btn-primary btn-sm" id="settings-pw-btn" onclick="window.__app.changePassword()" aria-label="Change password"><span>Change Password</span></button>
         </div>
       </div>
       <div class="card">
@@ -56,15 +60,23 @@ export function renderSettingsView(): void {
           ${u.has_github_token ? `<span style="font-size:12px;color:var(--status-closed)">✓ Token configured</span>` : `<span style="font-size:12px;color:var(--text-muted)">No token set</span>`}
         </div>
         <div class="card-body">
+          <div style="margin-bottom:12px;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-secondary)">
+            <strong style="color:var(--text-primary)">How to get a token:</strong>
+            <ol style="margin-top:6px;padding-left:18px;line-height:1.8">
+              <li>Go to GitHub → Settings → Developer settings → Personal access tokens</li>
+              <li>Generate a new token with <code style="font-family:monospace;background:var(--bg-base);padding:0 3px;border-radius:3px">repo</code> scope</li>
+              <li>Paste the token below and click Save</li>
+            </ol>
+          </div>
           <div class="form-group">
-            <label class="form-label">Personal Access Token (PAT)</label>
-            <input class="form-input" id="settings-github-token" type="password" placeholder="${u.has_github_token ? '••••••••••••••••••••' : 'ghp_…'}" autocomplete="off">
+            <label class="form-label" for="settings-github-token">Personal Access Token (PAT)</label>
+            <input class="form-input" id="settings-github-token" type="password" placeholder="${u.has_github_token ? 'Leave blank to keep current token' : 'ghp_…'}" autocomplete="off" aria-label="GitHub personal access token">
             <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Used for GitHub integration. Needs <code style="font-family:monospace;background:var(--bg-input);padding:0 3px;border-radius:3px">repo</code> scope.</div>
           </div>
-          <div class="form-error" id="settings-github-error" style="display:none"></div>
+          <div class="form-error" id="settings-github-error" style="display:none" role="alert"></div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" id="settings-github-btn" onclick="window.__app.saveGitHubToken()"><span>Save Token</span></button>
-            ${u.has_github_token ? `<button class="btn btn-danger btn-sm" onclick="window.__app.clearGitHubToken()">Clear Token</button>` : ''}
+            <button class="btn btn-primary btn-sm" id="settings-github-btn" onclick="window.__app.saveGitHubToken()" aria-label="Save GitHub token"><span>Save Token</span></button>
+            ${u.has_github_token ? `<button class="btn btn-danger btn-sm" onclick="window.__app.clearGitHubToken()" aria-label="Clear GitHub token">Clear Token</button>` : ''}
           </div>
         </div>
       </div>

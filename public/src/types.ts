@@ -8,6 +8,7 @@ export interface User {
   display_name?: string;
   is_admin?: boolean;
   has_github_token?: boolean;
+  created_at?: string;
 }
 
 export interface Project {

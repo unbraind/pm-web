@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import { state } from '../state.js';
 import type { GraphNode, GraphRelationship, ProjectGraph } from '../types.js';
 import { escHtml } from '../utils.js';
-import { GraphCanvas, type CanvasNode, type CanvasEdge } from './graph-canvas.js';
+import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode } from './graph-canvas.js';
 
 type GraphResponse = {
   graph?: ProjectGraph;
@@ -22,6 +22,8 @@ type GraphFilter = {
   depth:     '1' | '2';
   colorMode: 'status' | 'type' | 'tag';
   depMode:   boolean;
+  layout:    LayoutMode;
+  edgeBundling: boolean;
 };
 
 // ── Module state ──────────────────────────────────────────────
@@ -42,6 +44,8 @@ let filter: GraphFilter = {
   depth:     '1',
   colorMode: 'status',
   depMode:   false,
+  layout:    'force',
+  edgeBundling: false,
 };
 
 let selectedItemCache: Record<string, unknown> | null = null;
@@ -349,6 +353,7 @@ function renderCoverage(
 ): string {
   const linked    = itemNodes.filter((n) => connected.has(n.id)).length;
   const linkedPct = itemNodes.length > 0 ? Math.round((linked / itemNodes.length) * 100) : 0;
+  const unlinked  = itemNodes.length - linked;
   const external  = new Set(
     rels.flatMap((r) => [r.from, r.to]).filter((id) => id.includes(':external') || id.startsWith('external:'))
   ).size;
@@ -358,9 +363,22 @@ function renderCoverage(
     : 'None';
   return `
     <div class="graph-coverage-grid">
-      <div class="graph-coverage-card"><span>Linked</span><strong>${linkedPct}%</strong><em>${linked} of ${itemNodes.length} items</em></div>
-      <div class="graph-coverage-card"><span>External</span><strong>${external}</strong><em>Cross-project refs</em></div>
-      <div class="graph-coverage-card" title="${escHtml(top?.[0] || 'None')} (${top?.[1] ?? 0} edges)"><span>Top rel</span><strong>${escHtml(topRelLabel)}</strong><em>${top?.[1] ?? 0} edges</em></div>
+      <div class="graph-coverage-card">
+        <span>Linked</span>
+        <strong>${linkedPct}%</strong>
+        <div class="graph-coverage-bar"><div class="graph-coverage-fill" style="width:${linkedPct}%"></div></div>
+        <em>${linked} of ${itemNodes.length} items</em>
+      </div>
+      <div class="graph-coverage-card">
+        <span>External</span>
+        <strong>${external}</strong>
+        <em>Cross-project refs</em>
+      </div>
+      <div class="graph-coverage-card" title="${escHtml(top?.[0] || 'None')} (${top?.[1] ?? 0} edges)">
+        <span>Top rel</span>
+        <strong>${escHtml(topRelLabel)}</strong>
+        <em>${top?.[1] ?? 0} edges</em>
+      </div>
     </div>`;
 }
 
@@ -532,6 +550,14 @@ function renderRelList(data: GraphResponse): string {
   const { rels: visRels } = visibleGraph(graph);
 
   if (!visRels.length) return '<div class="graph-node-empty" style="padding:14px 0">No relationships match current filters.</div>';
+
+  // Add/Remove dependency buttons
+  const editBtns = `
+    <div class="graph-rel-edit-bar">
+      <button class="btn btn-secondary btn-sm" id="graph-add-dep-btn">+ Add Dependency</button>
+      <button class="btn btn-ghost btn-sm" id="graph-remove-dep-btn">− Remove Dependency</button>
+    </div>`;
+
   const rows = visRels.slice(0, 100).map((r) => {
     const from = byId.get(r.from);
     const to   = byId.get(r.to);
@@ -545,7 +571,7 @@ function renderRelList(data: GraphResponse): string {
   const limitNote = visRels.length > 100
     ? `<div class="graph-limit-note" style="padding:10px 0">Showing 100 of ${visRels.length} — use filters to narrow.</div>`
     : '';
-  return rows + limitNote;
+  return editBtns + rows + limitNote;
 }
 
 // ── Immersive shell ───────────────────────────────────────────
@@ -599,6 +625,14 @@ function renderGraphShell(data: GraphResponse): string {
           <button class="graph-hud-btn" id="graph-refresh" title="Reload graph">↻</button>
           <button class="graph-hud-btn" id="graph-fit-btn" title="Fit all nodes in view">⊡ Fit</button>
           <button class="graph-hud-btn" id="graph-physics-btn">${physicsLabel}</button>
+          <button class="graph-hud-btn" id="graph-export-png" title="Export graph as PNG image">⊡ PNG</button>
+          <div class="graph-hud-select-wrap">
+            <select class="graph-hud-select" id="graph-layout-select" title="Layout mode">
+              <option value="force"${filter.layout === 'force' ? ' selected' : ''}>Force</option>
+              <option value="hierarchical"${filter.layout === 'hierarchical' ? ' selected' : ''}>Hierarchy</option>
+            </select>
+          </div>
+          <button class="graph-hud-btn${filter.edgeBundling ? ' active' : ''}" id="graph-bundle-btn" title="Toggle edge bundling">⌁ Bundle</button>
           <button class="graph-hud-btn${filterOpen ? ' active' : ''}" id="graph-filter-toggle" title="Toggle filters">⚙ Filters</button>
           <button class="graph-hud-btn${infoDrawerOpen ? ' active' : ''}" id="graph-info-toggle" title="Toggle info panel">⊞ Info</button>
           <button class="graph-hud-btn${relDrawerOpen ? ' active' : ''}" id="graph-rel-toggle" title="Show all relationships">⇄ Rels</button>
@@ -762,6 +796,8 @@ function initCanvas(): void {
   criticalPath = computeCriticalPath(rels);
 
   canvasRef.current = new GraphCanvas(host, {
+    layout: filter.layout,
+    edgeBundling: filter.edgeBundling,
     onSelectNode(id) {
       selectedNodeId = id || '';
       filter = { ...filter, direction: 'all' };
@@ -883,6 +919,17 @@ function bindInfoPanelEvents(): void {
     updateInfoPanel();
     syncCanvas();
     updateFilterToolbarState();
+    pushGraphState();
+  });
+
+  // Add Dependency button
+  document.getElementById('graph-add-dep-btn')?.addEventListener('click', () => {
+    showAddDependencyModal();
+  });
+
+  // Remove Dependency button
+  document.getElementById('graph-remove-dep-btn')?.addEventListener('click', () => {
+    showRemoveDependencyModal();
   });
 
   document.querySelectorAll<HTMLButtonElement>('[data-graph-node-id]').forEach((btn) => {
@@ -939,6 +986,26 @@ function bindHudEvents(): void {
     const paused = canvasRef.current?.togglePhysics() ?? false;
     physicsLabel = paused ? 'Resume Physics' : 'Pause Physics';
     (e.target as HTMLButtonElement).textContent = physicsLabel;
+  });
+
+  // Export PNG
+  document.getElementById('graph-export-png')?.addEventListener('click', () => {
+    canvasRef.current?.exportPng();
+  });
+
+  // Layout selector
+  document.getElementById('graph-layout-select')?.addEventListener('change', (e) => {
+    const layout = (e.target as HTMLSelectElement).value as LayoutMode;
+    filter = { ...filter, layout };
+    canvasRef.current?.setLayout(layout);
+    pushGraphState();
+  });
+
+  // Edge bundling toggle
+  document.getElementById('graph-bundle-btn')?.addEventListener('click', () => {
+    filter = { ...filter, edgeBundling: !filter.edgeBundling };
+    canvasRef.current?.setEdgeBundling(filter.edgeBundling);
+    document.getElementById('graph-bundle-btn')?.classList.toggle('active', filter.edgeBundling);
   });
 
   // Filter toggle
@@ -1004,6 +1071,12 @@ function bindHudEvents(): void {
   onFilterChange('graph-filter-direction', 'direction', (el) => (el as HTMLSelectElement).value);
   onFilterChange('graph-filter-depth',     'depth',     (el) => (el as HTMLSelectElement).value);
 
+  // All filter changes push URL state
+  const origFilterChange = onFilterChange;
+  document.querySelectorAll('#graph-filter-overlay select').forEach((sel) => {
+    sel.addEventListener('change', () => pushGraphState());
+  });
+
   document.getElementById('graph-dep-mode-btn')?.addEventListener('click', () => {
     filter = {
       ...filter,
@@ -1035,6 +1108,176 @@ function bindHudEvents(): void {
   });
 }
 
+// ── URL routing (pushState) ─────────────────────────────────
+
+function pushGraphState(): void {
+  if (!state.currentProject) return;
+  const params = new URLSearchParams();
+  params.set('project', state.currentProject.id);
+  params.set('graph', '1');
+  if (selectedNodeId) params.set('node', selectedNodeId);
+  if (filter.scope === 'focus') params.set('scope', 'focus');
+  if (filter.kind !== 'all') params.set('kind', filter.kind);
+  if (filter.colorMode !== 'status') params.set('color', filter.colorMode);
+  if (filter.depMode) params.set('dep', '1');
+  if (filter.layout !== 'force') params.set('layout', filter.layout);
+  const qs = params.toString();
+  const url = qs ? `?${qs}` : window.location.pathname;
+  history.replaceState(null, '', url);
+}
+
+let urlStateRestored = false;
+
+function restoreGraphState(): void {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('graph')) return;
+  urlStateRestored = true;
+  if (params.has('node')) selectedNodeId = params.get('node') || '';
+  if (params.has('scope')) filter = { ...filter, scope: params.get('scope') as 'focus' | 'all' };
+  if (params.has('kind')) filter = { ...filter, kind: (params.get('kind') || 'all') as GraphFilter['kind'] };
+  if (params.has('color')) filter = { ...filter, colorMode: (params.get('color') || 'status') as GraphFilter['colorMode'] };
+  if (params.has('dep')) filter = { ...filter, depMode: params.get('dep') === '1' };
+  if (params.has('layout')) filter = { ...filter, layout: (params.get('layout') || 'force') as LayoutMode };
+}
+
+// ── Dependency editing modals ────────────────────────────────
+
+function showAddDependencyModal(): void {
+  if (!state.currentProject || !currentGraph) return;
+  const graph = currentGraph.graph || {};
+  const nodes = (graph.nodes || []).filter(isItemNode);
+  const options = nodes.map((n) => `<option value="${escHtml(n.id)}">${escHtml(nodeTitle(n))} (${escHtml(n.id)})</option>`).join('');
+
+  const html = `
+    <div class="modal-backdrop" id="graph-add-dep-modal" style="display:flex">
+      <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+          <div class="modal-title">Add Dependency</div>
+          <button class="modal-close" onclick="document.getElementById('graph-add-dep-modal')?.remove()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Source item</label>
+            <select class="form-select" id="graph-dep-from">${options}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Depends on (target)</label>
+            <select class="form-select" id="graph-dep-to">${options}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Relationship type</label>
+            <select class="form-select" id="graph-dep-type">
+              <option value="DEPENDS_ON">DEPENDS_ON</option>
+              <option value="BLOCKS">BLOCKS</option>
+              <option value="PARENT_OF">PARENT_OF</option>
+              <option value="RELATED_TO">RELATED_TO</option>
+            </select>
+          </div>
+          <div id="graph-dep-error" class="form-error" style="display:none"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="document.getElementById('graph-add-dep-modal')?.remove()">Cancel</button>
+          <button class="btn btn-primary" id="graph-dep-submit">Add</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  if (selectedNodeId) {
+    const fromSel = document.getElementById('graph-dep-from') as HTMLSelectElement | null;
+    if (fromSel) fromSel.value = selectedNodeId;
+  }
+
+  document.getElementById('graph-dep-submit')?.addEventListener('click', async () => {
+    const fromId = (document.getElementById('graph-dep-from') as HTMLSelectElement)?.value;
+    const toId = (document.getElementById('graph-dep-to') as HTMLSelectElement)?.value;
+    const relType = (document.getElementById('graph-dep-type') as HTMLSelectElement)?.value;
+    const errEl = document.getElementById('graph-dep-error');
+
+    if (!fromId || !toId || fromId === toId) {
+      if (errEl) { errEl.textContent = 'Select two different items.'; errEl.style.display = ''; }
+      return;
+    }
+
+    try {
+      await api('POST', `/projects/${state.currentProject!.id}/pm/rel`, { from: fromId, to: toId, type: relType });
+      document.getElementById('graph-add-dep-modal')?.remove();
+      // Refresh graph
+      canvasRef.current?.destroy();
+      canvasRef.current = null;
+      void renderGraphView();
+    } catch (err: unknown) {
+      if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = ''; }
+    }
+  });
+}
+
+function showRemoveDependencyModal(): void {
+  if (!state.currentProject || !currentGraph) return;
+  const graph = currentGraph.graph || {};
+  const rels = graph.relationships || [];
+  const depRels = rels.filter(isDependencyRel);
+  const allRels = rels.length > depRels.length ? rels : depRels;
+
+  const options = allRels.map((r, i) => {
+    const nodes = graph.nodes || [];
+    const from = nodes.find((n) => n.id === r.from);
+    const to = nodes.find((n) => n.id === r.to);
+    return `<option value="${i}">${escHtml(r.type)}: ${escHtml(nodeTitle(from || { id: r.from }))} → ${escHtml(nodeTitle(to || { id: r.to }))}</option>`;
+  }).join('');
+
+  if (!allRels.length) {
+    (window as unknown as { __app: { toast(msg: string, type: string): void } }).__app.toast('No relationships to remove', 'info');
+    return;
+  }
+
+  const html = `
+    <div class="modal-backdrop" id="graph-remove-dep-modal" style="display:flex">
+      <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+          <div class="modal-title">Remove Relationship</div>
+          <button class="modal-close" onclick="document.getElementById('graph-remove-dep-modal')?.remove()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Select relationship to remove</label>
+            <select class="form-select" id="graph-remove-dep-select" size="8" style="min-height:140px">${options}</select>
+          </div>
+          <div id="graph-remove-dep-error" class="form-error" style="display:none"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="document.getElementById('graph-remove-dep-modal')?.remove()">Cancel</button>
+          <button class="btn btn-danger" id="graph-remove-dep-submit">Remove</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  document.getElementById('graph-remove-dep-submit')?.addEventListener('click', async () => {
+    const selIdx = parseInt((document.getElementById('graph-remove-dep-select') as HTMLSelectElement)?.value ?? '-1', 10);
+    const errEl = document.getElementById('graph-remove-dep-error');
+    const rel = allRels[selIdx];
+
+    if (!rel) {
+      if (errEl) { errEl.textContent = 'Select a relationship.'; errEl.style.display = ''; }
+      return;
+    }
+
+    try {
+      await api('DELETE', `/projects/${state.currentProject!.id}/pm/rel`, { from: rel.from, to: rel.to, type: rel.type });
+      document.getElementById('graph-remove-dep-modal')?.remove();
+      // Refresh graph
+      canvasRef.current?.destroy();
+      canvasRef.current = null;
+      void renderGraphView();
+    } catch (err: unknown) {
+      if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = ''; }
+    }
+  });
+}
+
 // ── Main entry point ──────────────────────────────────────────
 
 export async function renderGraphView(): Promise<void> {
@@ -1053,17 +1296,37 @@ export async function renderGraphView(): Promise<void> {
 
   el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text-muted);font-size:13px"><div class="loading-spinner"></div>Loading graph…</div>';
 
+  // Restore state from URL on first load
+  restoreGraphState();
+
   try {
     currentGraph = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
-    selectedNodeId = '';
     selectedItemCache = null;
-    filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false };
+    if (!urlStateRestored) {
+      selectedNodeId = '';
+      filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false, layout: 'force', edgeBundling: false };
+    }
     criticalPath = computeCriticalPath(currentGraph.graph?.relationships ?? []);
 
     el.innerHTML = renderGraphShell(currentGraph);
     bindHudEvents();
     bindInfoPanelEvents();
     initCanvas();
+
+    // Restore selected node after canvas init
+    if (selectedNodeId) {
+      (canvasRef.current as any)?.setSelected(selectedNodeId);
+      updateInfoPanel();
+      syncCanvas();
+      // Auto-open info drawer when node is restored from URL
+      if (!infoDrawerOpen) {
+        infoDrawerOpen = true;
+        document.getElementById('graph-info-drawer')?.classList.add('open');
+        document.getElementById('graph-info-toggle')?.classList.add('active');
+      }
+    }
+
+    pushGraphState();
   } catch (err: unknown) {
     (canvasRef.current as GraphCanvas | null)?.destroy();
     canvasRef.current = null;

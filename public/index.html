@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="/styles.css?v=13">
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
 <div id="app">
   <!-- Auth Screen -->
   <div id="auth-screen" style="display:none">
@@ -64,118 +65,119 @@
 
   <!-- Main App -->
   <div id="main-app" style="display:none">
-    <nav id="top-nav">
+    <nav id="top-nav" role="navigation" aria-label="Main navigation">
       <div class="nav-logo">pm<span>-web</span></div>
       <div class="nav-divider"></div>
       <div class="project-selector-wrap">
-        <select class="project-selector" id="project-selector" onchange="window.__app.onProjectSelect(this.value)">
+        <label for="project-selector" class="sr-only">Select project</label>
+        <select class="project-selector" id="project-selector" onchange="window.__app.onProjectSelect(this.value)" aria-label="Select project">
           <option value="">— Select project —</option>
         </select>
       </div>
       <div class="nav-spacer"></div>
-      <div class="nav-search-hint" onclick="window.__app.openSearchModal()" title="Ctrl+K">⌘K Search</div>
+      <div class="nav-search-hint" onclick="window.__app.openSearchModal()" title="Ctrl+K" role="button" tabindex="0" aria-label="Open search (Ctrl+K)" onkeydown="if(event.key==='Enter')window.__app.openSearchModal()">⌘K Search</div>
       <div class="sse-indicator" id="sse-indicator" title="Real-time sync disconnected">
         <div class="sse-dot"></div>
       </div>
       <div class="user-menu">
-        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-avatar" id="user-avatar" aria-hidden="true">?</div>
         <span class="user-name" id="user-name-display"></span>
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.showView('settings')" style="margin-right:4px">Settings</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.logout()">Sign out</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.showView('settings')" style="margin-right:4px" aria-label="Open settings">Settings</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.logout()" aria-label="Sign out">Sign out</button>
       </div>
     </nav>
     <div id="app-body">
-      <nav id="sidebar">
+      <nav id="sidebar" role="navigation" aria-label="Sidebar navigation">
         <div class="sidebar-section" id="sidebar-projects-section">
           <div class="sidebar-section-label">Projects</div>
-          <div class="sidebar-item active" onclick="window.__app.showView('projects')" data-view="projects">
-            <span class="sidebar-item-icon">⊞</span> All Projects
+          <div class="sidebar-item active" onclick="window.__app.showView('projects')" data-view="projects" role="button" tabindex="0" aria-label="All Projects" onkeydown="if(event.key==='Enter')window.__app.showView('projects')">
+            <span class="sidebar-item-icon" aria-hidden="true">⊞</span> All Projects
           </div>
-          <div class="sidebar-item" onclick="window.__app.showModal('create-project-modal')" style="color:var(--accent)">
-            <span class="sidebar-item-icon">+</span> New Project
+          <div class="sidebar-item" onclick="window.__app.showModal('create-project-modal')" style="color:var(--accent)" role="button" tabindex="0" aria-label="Create new project" onkeydown="if(event.key==='Enter')window.__app.showModal('create-project-modal')">
+            <span class="sidebar-item-icon" aria-hidden="true">+</span> New Project
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('settings')" data-view="settings">
-            <span class="sidebar-item-icon">⚙</span> Settings
+          <div class="sidebar-item" onclick="window.__app.showView('settings')" data-view="settings" role="button" tabindex="0" aria-label="Settings" onkeydown="if(event.key==='Enter')window.__app.showView('settings')">
+            <span class="sidebar-item-icon" aria-hidden="true">⚙</span> Settings
           </div>
-          <div class="sidebar-item admin-only" onclick="window.__app.showView('admin')" data-view="admin" style="display:none">
-            <span class="sidebar-item-icon">◇</span> Admin
+          <div class="sidebar-item admin-only" onclick="window.__app.showView('admin')" data-view="admin" style="display:none" role="button" tabindex="0" aria-label="Admin panel" onkeydown="if(event.key==='Enter')window.__app.showView('admin')">
+            <span class="sidebar-item-icon" aria-hidden="true">◇</span> Admin
           </div>
         </div>
         <div class="sidebar-section" id="sidebar-pm-section" style="display:none">
           <div class="sidebar-section-label" id="sidebar-project-name">Project</div>
-          <div class="sidebar-item" onclick="window.__app.showView('items')" data-view="items">
-            <span class="sidebar-item-icon">≡</span> Items
+          <div class="sidebar-item" onclick="window.__app.showView('items')" data-view="items" role="button" tabindex="0" aria-label="Items" onkeydown="if(event.key==='Enter')window.__app.showView('items')">
+            <span class="sidebar-item-icon" aria-hidden="true">≡</span> Items
             <span class="sidebar-badge" id="badge-items"></span>
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('create')" data-view="create">
-            <span class="sidebar-item-icon">+</span> Create Item
+          <div class="sidebar-item" onclick="window.__app.showView('create')" data-view="create" role="button" tabindex="0" aria-label="Create item" onkeydown="if(event.key==='Enter')window.__app.showView('create')">
+            <span class="sidebar-item-icon" aria-hidden="true">+</span> Create Item
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('activity')" data-view="activity">
-            <span class="sidebar-item-icon">◎</span> Activity
+          <div class="sidebar-item" onclick="window.__app.showView('activity')" data-view="activity" role="button" tabindex="0" aria-label="Activity" onkeydown="if(event.key==='Enter')window.__app.showView('activity')">
+            <span class="sidebar-item-icon" aria-hidden="true">◎</span> Activity
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('search')" data-view="search">
-            <span class="sidebar-item-icon">⌕</span> Search
+          <div class="sidebar-item" onclick="window.__app.showView('search')" data-view="search" role="button" tabindex="0" aria-label="Search" onkeydown="if(event.key==='Enter')window.__app.showView('search')">
+            <span class="sidebar-item-icon" aria-hidden="true">⌕</span> Search
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('stats')" data-view="stats">
-            <span class="sidebar-item-icon">◈</span> Stats
+          <div class="sidebar-item" onclick="window.__app.showView('stats')" data-view="stats" role="button" tabindex="0" aria-label="Stats" onkeydown="if(event.key==='Enter')window.__app.showView('stats')">
+            <span class="sidebar-item-icon" aria-hidden="true">◈</span> Stats
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('calendar')" data-view="calendar">
-            <span class="sidebar-item-icon">◷</span> Calendar
+          <div class="sidebar-item" onclick="window.__app.showView('calendar')" data-view="calendar" role="button" tabindex="0" aria-label="Calendar" onkeydown="if(event.key==='Enter')window.__app.showView('calendar')">
+            <span class="sidebar-item-icon" aria-hidden="true">◷</span> Calendar
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('context')" data-view="context">
-            <span class="sidebar-item-icon">⚙</span> Context
+          <div class="sidebar-item" onclick="window.__app.showView('context')" data-view="context" role="button" tabindex="0" aria-label="Context" onkeydown="if(event.key==='Enter')window.__app.showView('context')">
+            <span class="sidebar-item-icon" aria-hidden="true">⚙</span> Context
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('graph')" data-view="graph">
-            <span class="sidebar-item-icon">◎</span> Graph
+          <div class="sidebar-item" onclick="window.__app.showView('graph')" data-view="graph" role="button" tabindex="0" aria-label="Graph" onkeydown="if(event.key==='Enter')window.__app.showView('graph')">
+            <span class="sidebar-item-icon" aria-hidden="true">◎</span> Graph
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('config')" data-view="config">
-            <span class="sidebar-item-icon">⚒</span> Config
+          <div class="sidebar-item" onclick="window.__app.showView('config')" data-view="config" role="button" tabindex="0" aria-label="Config" onkeydown="if(event.key==='Enter')window.__app.showView('config')">
+            <span class="sidebar-item-icon" aria-hidden="true">⚒</span> Config
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('sharing')" data-view="sharing">
-            <span class="sidebar-item-icon">⇄</span> Sharing
+          <div class="sidebar-item" onclick="window.__app.showView('sharing')" data-view="sharing" role="button" tabindex="0" aria-label="Sharing" onkeydown="if(event.key==='Enter')window.__app.showView('sharing')">
+            <span class="sidebar-item-icon" aria-hidden="true">⇄</span> Sharing
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('health')" data-view="health">
-            <span class="sidebar-item-icon">♥</span> Health
+          <div class="sidebar-item" onclick="window.__app.showView('health')" data-view="health" role="button" tabindex="0" aria-label="Health" onkeydown="if(event.key==='Enter')window.__app.showView('health')">
+            <span class="sidebar-item-icon" aria-hidden="true">♥</span> Health
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('dedupe')" data-view="dedupe">
-            <span class="sidebar-item-icon">⧖</span> Dedupe Audit
+          <div class="sidebar-item" onclick="window.__app.showView('dedupe')" data-view="dedupe" role="button" tabindex="0" aria-label="Dedupe audit" onkeydown="if(event.key==='Enter')window.__app.showView('dedupe')">
+            <span class="sidebar-item-icon" aria-hidden="true">⧖</span> Dedupe Audit
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('validate')" data-view="validate">
-            <span class="sidebar-item-icon">✓</span> Validate
+          <div class="sidebar-item" onclick="window.__app.showView('validate')" data-view="validate" role="button" tabindex="0" aria-label="Validate" onkeydown="if(event.key==='Enter')window.__app.showView('validate')">
+            <span class="sidebar-item-icon" aria-hidden="true">✓</span> Validate
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('github')" data-view="github">
-            <span class="sidebar-item-icon">⊙</span> GitHub
+          <div class="sidebar-item" onclick="window.__app.showView('github')" data-view="github" role="button" tabindex="0" aria-label="GitHub" onkeydown="if(event.key==='Enter')window.__app.showView('github')">
+            <span class="sidebar-item-icon" aria-hidden="true">⊙</span> GitHub
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('export')" data-view="export">
-            <span class="sidebar-item-icon">↕</span> Export / Import
+          <div class="sidebar-item" onclick="window.__app.showView('export')" data-view="export" role="button" tabindex="0" aria-label="Export or import" onkeydown="if(event.key==='Enter')window.__app.showView('export')">
+            <span class="sidebar-item-icon" aria-hidden="true">↕</span> Export / Import
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('normalize')" data-view="normalize">
-            <span class="sidebar-item-icon">⊞</span> Normalize
+          <div class="sidebar-item" onclick="window.__app.showView('normalize')" data-view="normalize" role="button" tabindex="0" aria-label="Normalize" onkeydown="if(event.key==='Enter')window.__app.showView('normalize')">
+            <span class="sidebar-item-icon" aria-hidden="true">⊞</span> Normalize
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('templates')" data-view="templates">
-            <span class="sidebar-item-icon">⎘</span> Templates
+          <div class="sidebar-item" onclick="window.__app.showView('templates')" data-view="templates" role="button" tabindex="0" aria-label="Templates" onkeydown="if(event.key==='Enter')window.__app.showView('templates')">
+            <span class="sidebar-item-icon" aria-hidden="true">⎘</span> Templates
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('guide')" data-view="guide">
-            <span class="sidebar-item-icon">📖</span> Guide
+          <div class="sidebar-item" onclick="window.__app.showView('guide')" data-view="guide" role="button" tabindex="0" aria-label="Guide" onkeydown="if(event.key==='Enter')window.__app.showView('guide')">
+            <span class="sidebar-item-icon" aria-hidden="true">📖</span> Guide
           </div>
         </div>
         <div class="sidebar-section" id="sidebar-logs-section">
           <div class="sidebar-section-label">Logs</div>
-          <div class="sidebar-item" onclick="window.__app.showView('comments-audit')" data-view="comments-audit">
-            <span class="sidebar-item-icon">💬</span> Comments Audit
+          <div class="sidebar-item" onclick="window.__app.showView('comments-audit')" data-view="comments-audit" role="button" tabindex="0" aria-label="Comments audit" onkeydown="if(event.key==='Enter')window.__app.showView('comments-audit')">
+            <span class="sidebar-item-icon" aria-hidden="true">💬</span> Comments Audit
           </div>
         </div>
         <div class="sidebar-section">
           <div class="sidebar-section-label">Team</div>
-          <div class="sidebar-item" onclick="window.__app.showView('groups')" data-view="groups">
-            <span class="sidebar-item-icon">◉</span> Groups
+          <div class="sidebar-item" onclick="window.__app.showView('groups')" data-view="groups" role="button" tabindex="0" aria-label="Groups" onkeydown="if(event.key==='Enter')window.__app.showView('groups')">
+            <span class="sidebar-item-icon" aria-hidden="true">◉</span> Groups
           </div>
-          <div class="sidebar-item" onclick="window.__app.showView('shared')" data-view="shared">
-            <span class="sidebar-item-icon">⇄</span> Shared with Me
+          <div class="sidebar-item" onclick="window.__app.showView('shared')" data-view="shared" role="button" tabindex="0" aria-label="Shared with me" onkeydown="if(event.key==='Enter')window.__app.showView('shared')">
+            <span class="sidebar-item-icon" aria-hidden="true">⇄</span> Shared with Me
           </div>
         </div>
       </nav>
-      <main id="main-content">
+      <main id="main-content" role="main">
         <div class="content-area" id="content-projects"><!-- projects view --></div>
         <div class="content-area" id="content-items" style="display:none"><!-- items --></div>
         <div class="content-area" id="content-create" style="display:none"><!-- create --></div>
@@ -221,28 +223,28 @@
 <!-- Mobile Bottom Nav (PWA) -->
 <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
   <div class="mobile-bottom-nav-inner">
-    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('items')" data-mobview="items">
-      <div class="mobile-bottom-nav-item-icon">≡</div>
+    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('items')" data-mobview="items" role="button" tabindex="0" aria-label="Items" onkeydown="if(event.key==='Enter')window.__app.showView('items')">
+      <div class="mobile-bottom-nav-item-icon" aria-hidden="true">≡</div>
       <div class="mobile-bottom-nav-item-label">Items</div>
     </div>
-    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('create')" data-mobview="create">
-      <div class="mobile-bottom-nav-item-icon">+</div>
+    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('create')" data-mobview="create" role="button" tabindex="0" aria-label="Create item" onkeydown="if(event.key==='Enter')window.__app.showView('create')">
+      <div class="mobile-bottom-nav-item-icon" aria-hidden="true">+</div>
       <div class="mobile-bottom-nav-item-label">Create</div>
     </div>
-    <div class="mobile-bottom-nav-item" onclick="window.__app.openSearchModal()" data-mobview="search">
-      <div class="mobile-bottom-nav-item-icon">⌕</div>
+    <div class="mobile-bottom-nav-item" onclick="window.__app.openSearchModal()" data-mobview="search" role="button" tabindex="0" aria-label="Search" onkeydown="if(event.key==='Enter')window.__app.openSearchModal()">
+      <div class="mobile-bottom-nav-item-icon" aria-hidden="true">⌕</div>
       <div class="mobile-bottom-nav-item-label">Search</div>
     </div>
-    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('stats')" data-mobview="stats">
-      <div class="mobile-bottom-nav-item-icon">◈</div>
+    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('stats')" data-mobview="stats" role="button" tabindex="0" aria-label="Stats" onkeydown="if(event.key==='Enter')window.__app.showView('stats')">
+      <div class="mobile-bottom-nav-item-icon" aria-hidden="true">◈</div>
       <div class="mobile-bottom-nav-item-label">Stats</div>
     </div>
-    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('shared')" data-mobview="shared">
-      <div class="mobile-bottom-nav-item-icon">⇄</div>
+    <div class="mobile-bottom-nav-item" onclick="window.__app.showView('shared')" data-mobview="shared" role="button" tabindex="0" aria-label="Shared" onkeydown="if(event.key==='Enter')window.__app.showView('shared')">
+      <div class="mobile-bottom-nav-item-icon" aria-hidden="true">⇄</div>
       <div class="mobile-bottom-nav-item-label">Shared</div>
     </div>
-    <div class="mobile-bottom-nav-item" onclick="window.__app.openMobileCommandSheet()" data-mobview="more">
-      <div class="mobile-bottom-nav-item-icon">⚙</div>
+    <div class="mobile-bottom-nav-item" onclick="window.__app.openMobileCommandSheet()" data-mobview="more" role="button" tabindex="0" aria-label="More options" onkeydown="if(event.key==='Enter')window.__app.openMobileCommandSheet()">
+      <div class="mobile-bottom-nav-item-icon" aria-hidden="true">⚙</div>
       <div class="mobile-bottom-nav-item-label">More</div>
     </div>
   </div>

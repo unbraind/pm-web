@@ -3,11 +3,15 @@ import pg from "pg";
 const { Pool } = pg;
 
 export const pool = new Pool({
-  host: process.env.POSTGRES_HOST || "pm-telemetry-postgres",
-  port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
-  user: process.env.POSTGRES_USER,
-  password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB,
+  ...(process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.POSTGRES_HOST || "pm-telemetry-postgres",
+        port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
+        user: process.env.POSTGRES_USER,
+        password: process.env.POSTGRES_PASSWORD,
+        database: process.env.POSTGRES_DB,
+      }),
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
@@ -81,6 +85,20 @@ export async function initSchema(): Promise<void> {
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_repo TEXT;
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_sync_enabled BOOLEAN DEFAULT FALSE;
   `);
+
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS pm_admin_audit (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      actor_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+      action TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`
+  );
+
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS pm_admin_audit_created_at ON pm_admin_audit(created_at DESC)`
+  );
 
   await pool.query(
     `UPDATE pm_users SET is_admin = TRUE, updated_at = NOW() WHERE lower(email) = lower($1)`,
