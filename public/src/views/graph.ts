@@ -518,6 +518,79 @@ function renderBlockingInsights(nodes: GraphNode[], rels: GraphRelationship[]): 
     </button>`).join('');
 }
 
+function renderDependencyChains(nodes: GraphNode[], rels: GraphRelationship[]): string {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const depRels = rels.filter(isDependencyRel);
+  if (!depRels.length) {
+    return '<div class="graph-node-empty">No dependency chains in this view.</div>';
+  }
+
+  const blockersByItem = new Map<string, string[]>();
+  const blockedByItem = new Map<string, string[]>();
+  for (const rel of depRels) {
+    const pair = blockingPair(rel);
+    if (!pair) continue;
+    blockersByItem.set(pair.blocked, [...(blockersByItem.get(pair.blocked) ?? []), pair.blocker]);
+    blockedByItem.set(pair.blocker, [...(blockedByItem.get(pair.blocker) ?? []), pair.blocked]);
+  }
+
+  const cycleStarts = new Set<string>();
+  const leafBlockers = [...blockedByItem.entries()]
+    .filter(([id, blocked]) => blocked.length > 0 && !(blockersByItem.get(id)?.length))
+    .map(([id, blocked]) => ({ id, blocked: blocked.length }))
+    .sort((a, b) => b.blocked - a.blocked || nodeTitle(byId.get(a.id) || { id: a.id }).localeCompare(nodeTitle(byId.get(b.id) || { id: b.id })))
+    .slice(0, 4);
+
+  function traceFrom(id: string, seen = new Set<string>()): string[] {
+    if (seen.has(id)) {
+      cycleStarts.add(id);
+      return [id];
+    }
+    const nextSeen = new Set(seen);
+    nextSeen.add(id);
+    const blockers = blockersByItem.get(id) ?? [];
+    if (!blockers.length) return [id];
+    const best = blockers
+      .map((blocker) => traceFrom(blocker, nextSeen))
+      .sort((a, b) => b.length - a.length)[0] ?? [];
+    return [id, ...best];
+  }
+
+  const chains = [...new Set([...blockersByItem.keys(), ...blockedByItem.keys()])]
+    .map((id) => traceFrom(id))
+    .filter((chain) => chain.length > 1)
+    .sort((a, b) => b.length - a.length || nodeTitle(byId.get(a[0]) || { id: a[0] }).localeCompare(nodeTitle(byId.get(b[0]) || { id: b[0] })))
+    .slice(0, 3);
+
+  const chainRows = chains.map((chain) => {
+    const isCritical = chain.some((id) => criticalPath.has(id));
+    return `
+      <button class="graph-chain-row${isCritical ? ' critical' : ''}" data-graph-node-id="${escHtml(chain[0])}">
+        <span>${chain.map((id) => escHtml(nodeTitle(byId.get(id) || { id }))).join('<i>←</i>')}</span>
+        <small>${chain.length} items · ${isCritical ? 'critical dependency chain' : 'dependency chain'}</small>
+      </button>`;
+  }).join('');
+
+  const cycleRows = [...cycleStarts].slice(0, 3).map((id) => `
+    <button class="graph-chain-row warning" data-graph-node-id="${escHtml(id)}">
+      <span>${escHtml(nodeTitle(byId.get(id) || { id }))}</span>
+      <small>Potential dependency cycle detected from this item.</small>
+    </button>`).join('');
+
+  const leafRows = leafBlockers.map(({ id, blocked }) => `
+    <button class="graph-chain-row root" data-graph-node-id="${escHtml(id)}">
+      <span>${escHtml(nodeTitle(byId.get(id) || { id }))}</span>
+      <small>Root blocker for ${blocked} item${blocked === 1 ? '' : 's'}.</small>
+    </button>`).join('');
+
+  return `
+    <div class="graph-chain-list">
+      ${chainRows || '<div class="graph-node-empty">No multi-step dependency chains.</div>'}
+      ${cycleRows}
+      ${leafRows}
+    </div>`;
+}
+
 function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>): string {
   const graph     = data.graph || {};
   const nodes     = graph.nodes || [];
@@ -543,6 +616,8 @@ function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>
     <div class="graph-insight-list">${renderHubs(nodes, rels)}</div>
     <div class="graph-panel-title graph-panel-title-spaced">Dependency Blockers</div>
     <div class="graph-insight-list">${renderBlockingInsights(nodes, rels)}</div>
+    <div class="graph-panel-title graph-panel-title-spaced">Dependency Chains</div>
+    ${renderDependencyChains(nodes, rels)}
     <div class="graph-panel-title graph-panel-title-spaced">Nodes by Type</div>
     <div class="graph-type-list">
       ${Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([t, c]) => `<div class="graph-type-row"><span>${escHtml(t)}</span><strong>${c}</strong></div>`).join('') || '<div class="graph-node-empty">No items.</div>'}
