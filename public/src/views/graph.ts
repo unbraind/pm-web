@@ -18,7 +18,6 @@ type GraphFilter = {
   kind:      'all' | 'items' | 'facets' | 'external' | 'unlinked';
   rel:       string;
   direction: 'all' | 'incoming' | 'outgoing' | 'connected';
-  layout:    'force' | 'status' | 'type';
   scope:     'all' | 'focus';
   depth:     '1' | '2';
 };
@@ -35,7 +34,6 @@ let filter: GraphFilter = {
   kind:      'all',
   rel:       'all',
   direction: 'all',
-  layout:    'force',
   scope:     'all',
   depth:     '1',
 };
@@ -242,7 +240,7 @@ function renderSelectedNode(
             const other   = byId.get(otherId);
             const dir     = r.from === node.id ? '→' : '←';
             return `<button class="graph-neighbor" data-graph-node-id="${escHtml(otherId)}"><span class="graph-rel-badge">${escHtml(r.type)}</span> ${dir} <strong>${escHtml(nodeTitle(other || { id: otherId }))}</strong></button>`;
-          }).join('')}
+          }).join('') + (direct.length > 14 ? `<div class="graph-limit-note">+${direct.length - 14} more — use Neighborhood for full view</div>` : '')}
     </div>`;
 }
 
@@ -417,19 +415,18 @@ function renderGraphShell(data: GraphResponse): string {
 
     <section class="graph-panel graph-relationship-panel">
       <div class="graph-panel-title">All Visible Relationships</div>
-      ${renderRelList(data)}
+      <div id="graph-rel-list">${renderRelList(data)}</div>
     </section>`;
 }
 
 function renderRelList(data: GraphResponse): string {
   const graph = data.graph || {};
   const nodes = graph.nodes || [];
-  const rels  = graph.relationships || [];
   const byId  = new Map(nodes.map((n) => [n.id, n]));
   const { rels: visRels } = visibleGraph(graph);
 
   if (!visRels.length) return '<div class="empty-state"><div class="empty-state-text">No relationships match current filters.</div></div>';
-  return visRels.slice(0, 80).map((r) => {
+  const rows = visRels.slice(0, 80).map((r) => {
     const from = byId.get(r.from);
     const to   = byId.get(r.to);
     return `
@@ -439,6 +436,10 @@ function renderRelList(data: GraphResponse): string {
         <div><div class="graph-rel-title">${escHtml(nodeTitle(to || { id: r.to }))}</div><div class="graph-rel-id">${escHtml(r.to)}</div></div>
       </button>`;
   }).join('');
+  const limitNote = visRels.length > 80
+    ? `<div class="graph-limit-note">Showing 80 of ${visRels.length} relationships — use filters to narrow results.</div>`
+    : '';
+  return rows + limitNote;
 }
 
 // ── Canvas init / update ──────────────────────────────────────
@@ -446,19 +447,25 @@ function renderRelList(data: GraphResponse): string {
 function syncCanvas(): void {
   if (!canvasRef.current || !currentGraph) return;
   const graph   = currentGraph.graph || {};
-  const nodes   = graph.nodes || [];
-  const rels    = graph.relationships || [];
-  const { nodes: visNodes, rels: visRels } = visibleGraph(graph);
+  const { nodes: visNodes } = visibleGraph(graph);
   const visIds  = new Set(visNodes.map((n) => n.id));
+  const useAll  = filter.kind === 'all' && !filter.query && filter.scope === 'all';
 
   canvasRef.current.setFilter({
-    visibleNodeIds:   filter.kind === 'all' && !filter.query && filter.scope === 'all' ? null : visIds,
-    selectedId:       selectedNodeId || null,
-    query:            filter.query,
+    visibleNodeIds:    useAll ? null : visIds,
+    selectedId:        selectedNodeId || null,
+    query:             filter.query,
     highlightRelTypes: filter.rel !== 'all' ? new Set([filter.rel]) : new Set(),
   });
 
-  void nodes; void rels; void visRels;
+  // Fly to first search match
+  if (filter.query && !selectedNodeId) {
+    const q     = filter.query.toLowerCase();
+    const match = visNodes.find(
+      (n) => nodeTitle(n).toLowerCase().includes(q) || n.id.toLowerCase().includes(q),
+    );
+    if (match) canvasRef.current.jumpToNode(match.id);
+  }
 }
 
 function initCanvas(): void {
@@ -494,8 +501,8 @@ function updateInfoPanel(): void {
   if (!currentGraph) return;
   const panel = document.getElementById('graph-info-panel');
   if (panel) panel.innerHTML = renderInfoPanel(currentGraph);
-  const relPanel = document.querySelector('.graph-relationship-panel .graph-panel-title + *');
-  if (relPanel) relPanel.innerHTML = renderRelList(currentGraph);
+  const relList = document.getElementById('graph-rel-list');
+  if (relList) relList.innerHTML = renderRelList(currentGraph);
   bindInfoPanelEvents();
   updateToolbarState();
 }
@@ -621,7 +628,7 @@ export async function renderGraphView(): Promise<void> {
   try {
     currentGraph = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
     selectedNodeId = '';
-    filter = { query: '', kind: 'all', rel: 'all', direction: 'all', layout: 'force', scope: 'all', depth: '1' };
+    filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1' };
 
     el.innerHTML = renderGraphShell(currentGraph);
     bindToolbarEvents();
@@ -632,5 +639,28 @@ export async function renderGraphView(): Promise<void> {
     c?.destroy();
     canvasRef.current = null;
     el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Graph failed to load: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+  }
+}
+
+/**
+ * Lightweight refresh used by SSE item events — re-fetches graph data and
+ * updates the canvas in-place without destroying zoom/pan state.
+ * Falls back to a full renderGraphView if the canvas isn't initialized yet.
+ */
+export async function refreshGraphData(): Promise<void> {
+  if (!state.currentProject || !canvasRef.current) {
+    return renderGraphView();
+  }
+  try {
+    const data = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
+    currentGraph = data;
+    const graph = data.graph || {};
+    const nodes = graph.nodes || [];
+    const rels  = graph.relationships || [];
+    canvasRef.current.setData(toCanvasNodes(nodes, rels), toCanvasEdges(rels));
+    updateInfoPanel();
+    syncCanvas();
+  } catch {
+    // Silently ignore — the user can hit Refresh manually
   }
 }

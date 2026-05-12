@@ -318,19 +318,9 @@ function fallbackGraphForProject(ownerUserId: string, slug: string): ProjectGrap
   if (!itemsResult.ok) throw new Error(itemsResult.stderr || "Failed to load items for graph");
 
   const items = itemsFromListAll(itemsResult.parsed);
-  const depsByItem = new Map<string, Array<Record<string, unknown>>>();
-  for (const item of items) {
-    const depsResult = runPm({
-      args: ["deps", item.id],
-      userId: ownerUserId,
-      slug,
-      jsonOutput: true,
-    });
-    if (depsResult.ok) {
-      depsByItem.set(item.id, dependencyRows(depsResult.parsed));
-    }
-  }
-  return graphFromItems(items, depsByItem);
+  // Deps are already embedded in list-all output (item.deps / item.dependencies).
+  // Avoid N+1 subprocess calls by using only the embedded data.
+  return graphFromItems(items, new Map());
 }
 
 function pmGraphExtensionGraphForProject(project: ProjectRef): { graph?: ProjectGraph; error?: string } {
@@ -1108,8 +1098,8 @@ router.post("/reindex", async (req: AuthRequest, res) => {
   res.json({ ok: true, mode: safeMode });
 });
 
-// GET /api/projects/:projectId/pm/normalize
-router.get("/normalize", async (req: AuthRequest, res) => {
+// POST /api/projects/:projectId/pm/normalize
+router.post("/normalize", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   const result = runPm({
@@ -1140,8 +1130,9 @@ router.post("/files/:itemId", async (req: AuthRequest, res) => {
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   const { path: filePath, scope } = req.body as { path?: string; scope?: string };
   if (!filePath?.trim()) { res.status(400).json({ error: "File path is required" }); return; }
-  const args = ["files", req.params["itemId"]!, "--add", `path=${filePath.trim()}`];
-  if (scope) args.push(",scope=" + scope);
+  let addVal = `path=${filePath.trim()}`;
+  if (scope) addVal += `,scope=${scope}`;
+  const args = ["files", req.params["itemId"]!, "--add", addVal];
   const result = runPm({
     args,
     userId: project.ownerUserId,
