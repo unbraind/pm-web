@@ -1167,10 +1167,11 @@ function showAddDependencyModal(): void {
           <div class="form-group">
             <label class="form-label">Relationship type</label>
             <select class="form-select" id="graph-dep-type">
-              <option value="DEPENDS_ON">DEPENDS_ON</option>
-              <option value="BLOCKS">BLOCKS</option>
-              <option value="PARENT_OF">PARENT_OF</option>
-              <option value="RELATED_TO">RELATED_TO</option>
+              <option value="blocked_by">Blocked by / depends on</option>
+              <option value="blocks">Blocks</option>
+              <option value="parent">Parent</option>
+              <option value="child">Child</option>
+              <option value="related">Related</option>
             </select>
           </div>
           <div id="graph-dep-error" class="form-error" style="display:none"></div>

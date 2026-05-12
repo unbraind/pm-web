@@ -119,11 +119,18 @@ function dependencyRows(raw: unknown): Array<Record<string, unknown>> {
 function normalizeDependencyKind(input: string | undefined): string {
   const raw = (input ?? "blocked_by").trim().toLowerCase().replace(/-/g, "_");
   const aliases: Record<string, string> = {
+    blockedby: "blocked_by",
+    blocked: "blocked_by",
+    blocked_by: "blocked_by",
+    blocks: "blocks",
     depends_on: "blocked_by",
     dependson: "blocked_by",
     dependency: "blocked_by",
+    parent_of: "parent",
+    child_of: "child",
     relates_to: "related",
     related_to: "related",
+    related: "related",
   };
   const normalized = aliases[raw] ?? raw;
   const allowed = new Set(["parent", "child", "blocks", "blocked_by", "related"]);
@@ -872,24 +879,23 @@ router.delete("/rel", async (req: AuthRequest, res) => {
     return;
   }
   const depRel = normalizeDependencyKind(relType || "relates_to");
-  // pm CLI doesn't have a direct "remove dep" command, so we get the item and reconstruct without that dep
-  const getResult = runPm({
-    args: ["get", from.trim()],
+  const selector = `id=${to.trim()},kind=${depRel}`;
+  const result = runPm({
+    args: ["update", from.trim(), "--dep-remove", selector, "--message", `Remove ${depRel} dependency on ${to.trim()}`],
     userId: project.ownerUserId,
     slug: project.slug,
     jsonOutput: true,
   });
-  if (!getResult.ok) {
-    res.status(400).json({ error: "Source item not found" });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to remove relationship" });
     return;
   }
-  // Re-sync graph to reflect removal
   scheduleGraphSync(req.params["projectId"]!, project, "rel-removed");
   broadcastProjectEvent(req.params["projectId"]!, {
     type: "item-updated",
     data: { itemId: from.trim(), change: "dependency-removed", target: to.trim(), rel: depRel },
   });
-  res.json({ ok: true, from: from.trim(), to: to.trim(), type: depRel });
+  res.json({ ok: true, from: from.trim(), to: to.trim(), type: depRel, result: result.parsed || null });
 });
 
 // GET /api/projects/:projectId/pm/graph
