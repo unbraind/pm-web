@@ -266,11 +266,14 @@ function renderCoverage(
     rels.flatMap((r) => [r.from, r.to]).filter((id) => id.includes(':external') || id.startsWith('external:'))
   ).size;
   const top = Object.entries(relCounts).sort((a, b) => b[1] - a[1])[0];
+  const topRelLabel = top?.[0]
+    ? top[0].replace(/^HAS_/, '').replace(/_/g, ' ').slice(0, 8)
+    : 'None';
   return `
     <div class="graph-coverage-grid">
       <div class="graph-coverage-card"><span>Linked</span><strong>${linkedPct}%</strong><em>${linked} of ${itemNodes.length} items</em></div>
       <div class="graph-coverage-card"><span>External</span><strong>${external}</strong><em>Cross-project refs</em></div>
-      <div class="graph-coverage-card"><span>Top rel</span><strong>${escHtml(top?.[0] || 'None')}</strong><em>${top?.[1] ?? 0} edges</em></div>
+      <div class="graph-coverage-card" title="${escHtml(top?.[0] || 'None')} (${top?.[1] ?? 0} edges)"><span>Top rel</span><strong>${escHtml(topRelLabel)}</strong><em>${top?.[1] ?? 0} edges</em></div>
     </div>`;
 }
 
