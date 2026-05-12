@@ -20,6 +20,7 @@ type GraphFilter = {
   direction: 'all' | 'incoming' | 'outgoing' | 'connected';
   scope:     'all' | 'focus';
   depth:     '1' | '2';
+  colorMode: 'status' | 'type' | 'tag';
 };
 
 // ── Module state ──────────────────────────────────────────────
@@ -38,6 +39,7 @@ let filter: GraphFilter = {
   direction: 'all',
   scope:     'all',
   depth:     '1',
+  colorMode: 'status',
 };
 
 let selectedItemCache: Record<string, unknown> | null = null;
@@ -245,6 +247,9 @@ function toCanvasNodes(nodes: GraphNode[], rels: GraphRelationship[]): CanvasNod
     status: nodeStatus(n),
     lane:   nodeLane(n),
     degree: deg.get(n.id) || 0,
+    tags:   Array.isArray(n.properties?.tags)
+      ? (n.properties.tags as unknown[]).map(String)
+      : [],
   }));
 }
 
@@ -493,6 +498,14 @@ function renderGraphShell(data: GraphResponse): string {
         </div>
         <div class="graph-filter-overlay-body">
           <div class="graph-filter-row">
+            <label>Color by</label>
+            <select id="graph-color-mode">
+              <option value="status"${filter.colorMode==='status'?' selected':''}>Status</option>
+              <option value="type"${filter.colorMode==='type'?' selected':''}>Node type</option>
+              <option value="tag"${filter.colorMode==='tag'?' selected':''}>Tags (auto)</option>
+            </select>
+          </div>
+          <div class="graph-filter-row">
             <label>Show</label>
             <select id="graph-filter-kind">
               ${[['all','All nodes'],['items','Items only'],['facets','Metadata only'],['external','External'],['unlinked','Unlinked']]
@@ -528,7 +541,7 @@ function renderGraphShell(data: GraphResponse): string {
       </div>
 
       <!-- Legend HUD (bottom-center) -->
-      <div class="graph-legend-hud">
+      <div class="graph-legend-hud" id="graph-legend-hud">
         <span><i class="legend-dot legend-item"></i>Item</span>
         <span><i class="legend-dot legend-facet"></i>Metadata</span>
         <span><i class="legend-dot legend-external"></i>External</span>
@@ -602,6 +615,8 @@ function syncCanvas(): void {
     selectedId:        selectedNodeId || null,
     query:             filter.query,
     highlightRelTypes: filter.rel !== 'all' ? new Set([filter.rel]) : new Set(),
+    colorMode:         filter.colorMode,
+    colorTag:          '',
   });
 
   if (filter.query && !selectedNodeId) {
@@ -668,6 +683,69 @@ function updateFilterToolbarState(): void {
   if (dirSel)   dirSel.disabled   = !selectedNodeId;
   if (depthSel) depthSel.disabled = !(selectedNodeId && filter.scope === 'focus');
   if (scopeBtn) scopeBtn.textContent = filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected';
+}
+
+// ── Legend update ─────────────────────────────────────────────
+
+const TYPE_COLORS_MAP: Record<string, string> = {
+  task:'#2dd4bf', feature:'#60a5fa', epic:'#a78bfa', bug:'#f87171',
+  milestone:'#fbbf24', story:'#34d399', chore:'#94a3b8', release:'#38bdf8',
+};
+const TAG_PALETTE_JS = ['#2dd4bf','#60a5fa','#a78bfa','#f87171','#fbbf24','#34d399','#fb923c','#e879f9'];
+
+function computeTagColorMap(nodes: GraphNode[]): Map<string, string> {
+  const freq = new Map<string, number>();
+  for (const n of nodes) {
+    const tags = Array.isArray(n.properties?.tags) ? (n.properties.tags as unknown[]).map(String) : [];
+    for (const t of tags) freq.set(t, (freq.get(t) ?? 0) + 1);
+  }
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, TAG_PALETTE_JS.length).map(([t]) => t);
+  return new Map(top.map((t, i) => [t, TAG_PALETTE_JS[i]]));
+}
+
+function updateLegend(): void {
+  const legend = document.getElementById('graph-legend-hud');
+  if (!legend) return;
+  const nodes = currentGraph?.graph?.nodes ?? [];
+
+  if (filter.colorMode === 'type') {
+    const typeCounts = nodes.filter(isItemNode).reduce<Record<string, number>>((acc, n) => {
+      const t = nodeType(n); acc[t] = (acc[t] || 0) + 1; return acc;
+    }, {});
+    const shown = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    legend.innerHTML = `
+      <span><i class="legend-dot legend-facet"></i>Metadata</span>
+      <span><i class="legend-dot legend-external"></i>External</span>
+      <span class="legend-sep">·</span>
+      ${shown.map(([t]) => {
+        const c = TYPE_COLORS_MAP[t.toLowerCase()] ?? '#64748b';
+        return `<span><i class="legend-dot" style="background:${c};box-shadow:0 0 4px ${c}66"></i>${escHtml(t)}</span>`;
+      }).join('')}
+    `;
+  } else if (filter.colorMode === 'tag') {
+    const tagMap = computeTagColorMap(nodes);
+    legend.innerHTML = `
+      <span><i class="legend-dot legend-facet"></i>Metadata</span>
+      <span><i class="legend-dot legend-external"></i>External</span>
+      <span class="legend-sep">·</span>
+      ${[...tagMap.entries()].slice(0, 6).map(([t, c]) =>
+        `<span><i class="legend-dot" style="background:${c};box-shadow:0 0 4px ${c}66"></i>#${escHtml(t)}</span>`
+      ).join('')}
+      ${tagMap.size === 0 ? '<span style="color:var(--text-muted);font-size:11px">No tags</span>' : ''}
+    `;
+  } else {
+    legend.innerHTML = `
+      <span><i class="legend-dot legend-item"></i>Item</span>
+      <span><i class="legend-dot legend-facet"></i>Metadata</span>
+      <span><i class="legend-dot legend-external"></i>External</span>
+      <span class="legend-sep">·</span>
+      <span><i class="legend-dot" style="background:#2dd4bf;box-shadow:0 0 4px #2dd4bf66"></i>open</span>
+      <span><i class="legend-dot" style="background:#fb923c;box-shadow:0 0 4px #fb923c66"></i>in-progress</span>
+      <span><i class="legend-dot" style="background:#f87171;box-shadow:0 0 4px #f8717166"></i>blocked</span>
+      <span><i class="legend-dot" style="background:#64748b"></i>closed</span>
+      <span><i class="legend-dot" style="background:#94a3b8"></i>draft</span>
+    `;
+  }
 }
 
 // ── Event bindings ────────────────────────────────────────────
@@ -804,6 +882,12 @@ function bindHudEvents(): void {
   onFilterChange('graph-filter-direction', 'direction', (el) => (el as HTMLSelectElement).value);
   onFilterChange('graph-filter-depth',     'depth',     (el) => (el as HTMLSelectElement).value);
 
+  document.getElementById('graph-color-mode')?.addEventListener('change', (e) => {
+    filter = { ...filter, colorMode: (e.target as HTMLSelectElement).value as GraphFilter['colorMode'] };
+    syncCanvas();
+    updateLegend();
+  });
+
   // Search input
   const queryInput = document.getElementById('graph-filter-query') as HTMLInputElement | null;
   queryInput?.addEventListener('input', (e) => {
@@ -835,7 +919,7 @@ export async function renderGraphView(): Promise<void> {
     currentGraph = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
     selectedNodeId = '';
     selectedItemCache = null;
-    filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1' };
+    filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status' };
 
     el.innerHTML = renderGraphShell(currentGraph);
     bindHudEvents();
