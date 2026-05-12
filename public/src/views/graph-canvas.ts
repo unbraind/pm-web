@@ -23,6 +23,7 @@ export interface CanvasEdge {
 export interface GraphCanvasOptions {
   onSelectNode(id: string | null): void;
   onOpenNode(id: string): void;
+  onContextMenu(id: string, x: number, y: number): void;
 }
 
 export interface CanvasFilter {
@@ -220,12 +221,14 @@ export class GraphCanvas {
   private biDirPairs = new Set<string>();
 
   // Callbacks
-  private onSelectNode: (id: string | null) => void;
-  private onOpenNode:   (id: string) => void;
+  private onSelectNode:   (id: string | null) => void;
+  private onOpenNode:     (id: string) => void;
+  private onContextMenu:  (id: string, x: number, y: number) => void;
 
   constructor(container: HTMLElement, options: GraphCanvasOptions) {
-    this.onSelectNode = options.onSelectNode;
-    this.onOpenNode   = options.onOpenNode;
+    this.onSelectNode  = options.onSelectNode;
+    this.onOpenNode    = options.onOpenNode;
+    this.onContextMenu = options.onContextMenu;
 
     this.canvas = document.createElement('canvas');
     this.canvas.style.cssText =
@@ -1084,17 +1087,28 @@ export class GraphCanvas {
   private bindEvents(): void {
     const sig = { signal: this.abortCtrl.signal };
 
-    this.canvas.addEventListener('mousedown',  (e) => this.onMouseDown(e),  sig);
-    window.addEventListener('mousemove',        (e) => this.onMouseMove(e),  sig);
-    window.addEventListener('mouseup',          (e) => this.onMouseUp(e),    sig);
-    this.canvas.addEventListener('wheel',       (e) => this.onWheel(e),      { ...sig, passive: false });
-    this.canvas.addEventListener('dblclick',    (e) => this.onDblClick(e),   sig);
-    this.canvas.addEventListener('keydown',     (e) => this.onKeyDown(e),    sig);
-    this.canvas.addEventListener('mouseleave',  () => { this.hideTooltip(); this.hoveredId = null; }, sig);
+    this.canvas.addEventListener('mousedown',   (e) => this.onMouseDown(e),  sig);
+    window.addEventListener('mousemove',         (e) => this.onMouseMove(e),  sig);
+    window.addEventListener('mouseup',           (e) => this.onMouseUp(e),    sig);
+    this.canvas.addEventListener('wheel',        (e) => this.onWheel(e),      { ...sig, passive: false });
+    this.canvas.addEventListener('dblclick',     (e) => this.onDblClick(e),   sig);
+    this.canvas.addEventListener('keydown',      (e) => this.onKeyDown(e),    sig);
+    this.canvas.addEventListener('mouseleave',   () => { this.hideTooltip(); this.hoveredId = null; }, sig);
+    this.canvas.addEventListener('contextmenu',  (e) => this.onCtxMenu(e),    sig);
 
     this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { ...sig, passive: false });
     this.canvas.addEventListener('touchmove',  (e) => this.onTouchMove(e),  { ...sig, passive: false });
     this.canvas.addEventListener('touchend',   (e) => this.onTouchEnd(e),   { ...sig, passive: false });
+  }
+
+  private onCtxMenu(e: MouseEvent): void {
+    e.preventDefault();
+    const { x, y } = this.getPos(e);
+    const [wx, wy] = this.toWorld(x, y);
+    const hit = this.hitTest(wx, wy);
+    if (!hit) return;
+    this.canvas.focus();
+    this.onContextMenu(hit.id, e.clientX, e.clientY);
   }
 
   private onKeyDown(e: KeyboardEvent): void {

@@ -40,6 +40,84 @@ let filter: GraphFilter = {
   depth:     '1',
 };
 
+let selectedItemCache: Record<string, unknown> | null = null;
+
+// ── Context menu ──────────────────────────────────────────────
+let ctxMenuEl: HTMLDivElement | null = null;
+
+function removeCtxMenu(): void {
+  if (ctxMenuEl) { ctxMenuEl.remove(); ctxMenuEl = null; }
+}
+
+function showCtxMenu(nodeId: string, x: number, y: number): void {
+  removeCtxMenu();
+  const graph = currentGraph?.graph || {};
+  const nodes = graph.nodes || [];
+  const byId  = new Map(nodes.map((n) => [n.id, n]));
+  const node  = byId.get(nodeId);
+  const isItem = node ? isItemNode(node) : false;
+
+  const menu = document.createElement('div');
+  menu.className = 'graph-ctx-menu';
+  menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
+  menu.style.top  = `${Math.min(y, window.innerHeight - 160)}px`;
+
+  const btn = (icon: string, label: string, action: () => void, danger = false): HTMLButtonElement => {
+    const b = document.createElement('button');
+    b.className = 'graph-ctx-item' + (danger ? ' danger' : '');
+    b.innerHTML = `<span style="opacity:0.6;font-size:11px">${icon}</span>${escHtml(label)}`;
+    b.addEventListener('click', () => { removeCtxMenu(); action(); });
+    return b;
+  };
+
+  if (isItem) {
+    menu.appendChild(btn('⊡', 'Open Item', () => (window as unknown as { __app: { openItemDetail(id: string): void } }).__app.openItemDetail(nodeId)));
+    const sep1 = document.createElement('div'); sep1.className = 'graph-ctx-sep'; menu.appendChild(sep1);
+  }
+  menu.appendChild(btn('⊙', 'Select & Focus', () => {
+    selectedNodeId = nodeId;
+    filter = { ...filter, scope: 'focus' };
+    canvasRef.current?.setSelected(nodeId);
+    updateInfoPanel();
+    syncCanvas();
+    updateFilterToolbarState();
+    if (!infoDrawerOpen) {
+      infoDrawerOpen = true;
+      document.getElementById('graph-info-drawer')?.classList.add('open');
+      document.getElementById('graph-info-toggle')?.classList.add('active');
+    }
+  }));
+  menu.appendChild(btn('⊕', 'Show Neighborhood', () => {
+    selectedNodeId = nodeId;
+    filter = { ...filter, scope: 'focus', depth: '1' };
+    canvasRef.current?.setSelected(nodeId);
+    updateInfoPanel();
+    syncCanvas();
+    updateFilterToolbarState();
+  }));
+  menu.appendChild(btn('⊛', 'Expand 2 Hops', () => {
+    selectedNodeId = nodeId;
+    filter = { ...filter, scope: 'focus', depth: '2' };
+    canvasRef.current?.setSelected(nodeId);
+    updateInfoPanel();
+    syncCanvas();
+    updateFilterToolbarState();
+  }));
+  const sep2 = document.createElement('div'); sep2.className = 'graph-ctx-sep'; menu.appendChild(sep2);
+  menu.appendChild(btn('⊞', 'Copy ID', () => { void navigator.clipboard?.writeText(nodeId); }));
+
+  document.body.appendChild(menu);
+  ctxMenuEl = menu;
+
+  const dismiss = (ev: MouseEvent) => {
+    if (!menu.contains(ev.target as Node)) {
+      removeCtxMenu();
+      document.removeEventListener('mousedown', dismiss);
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+}
+
 // ── Node helpers ──────────────────────────────────────────────
 function nodeTitle(node: GraphNode): string {
   return String(node.properties?.title || node.id);
@@ -200,6 +278,7 @@ function renderSelectedNode(
   node: GraphNode | undefined,
   rels: GraphRelationship[],
   byId: Map<string, GraphNode>,
+  fullItem?: Record<string, unknown>,
 ): string {
   if (!node) return '<div class="graph-node-empty">Click any node in the graph to inspect it.</div>';
 
@@ -234,6 +313,10 @@ function renderSelectedNode(
         ${props.map(([l, v]) => `<div class="graph-property-row"><span>${escHtml(String(l))}</span><strong>${escHtml(String(v))}</strong></div>`).join('')}
       </div>
       ${tags.length > 0 ? `<div class="graph-tag-list">${tags.map((t) => `<button class="graph-tag-chip" data-graph-query="${escHtml(t)}">${escHtml(t)}</button>`).join('')}</div>` : ''}
+      ${fullItem?.body ? `
+  <div class="graph-panel-title graph-panel-title-spaced">Description</div>
+  <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow-y:auto;padding:8px;background:rgba(15,23,42,0.5);border-radius:6px;border:1px solid rgba(148,163,184,0.1)">${escHtml(String(fullItem.body).slice(0,500))}${String(fullItem.body).length > 500 ? '…' : ''}</div>
+` : ''}
       <div class="graph-panel-title graph-panel-title-spaced">Direct Relationships</div>
       ${direct.length === 0
         ? '<div class="graph-node-empty">No relationships.</div>'
@@ -285,7 +368,7 @@ function renderHubs(nodes: GraphNode[], rels: GraphRelationship[]): string {
     </button>`).join('');
 }
 
-function renderInfoPanel(data: GraphResponse): string {
+function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>): string {
   const graph     = data.graph || {};
   const nodes     = graph.nodes || [];
   const rels      = graph.relationships || [];
@@ -303,7 +386,7 @@ function renderInfoPanel(data: GraphResponse): string {
     <div class="graph-panel-title">Graph Coverage</div>
     ${renderCoverage(itemNodes, rels, connected, relCounts)}
     <div class="graph-panel-title graph-panel-title-spaced">Selected Node</div>
-    ${renderSelectedNode(selectedNode, rels, byId)}
+    ${renderSelectedNode(selectedNode, rels, byId, fullItem)}
     <div class="graph-panel-title graph-panel-title-spaced">Neighborhood</div>
     ${renderPaths(selectedNode, rels, byId)}
     <div class="graph-panel-title graph-panel-title-spaced">Item Hubs</div>
@@ -367,11 +450,14 @@ function renderGraphShell(data: GraphResponse): string {
       <!-- Top HUD bar -->
       <div class="graph-hud-top">
         <div class="graph-hud-left">
-          <div class="graph-hud-title">
-            ◎ Knowledge Graph
-            <span class="graph-mode-chip${data.extensionAvailable ? ' neo4j' : ''}">
-              ${data.extensionAvailable ? 'neo4j' : 'built-in'}
-            </span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="graph-hud-btn graph-back-btn" id="graph-back-btn" title="Exit graph view" style="padding:4px 9px;font-size:11px">← Back</button>
+            <div class="graph-hud-title">
+              ◎ Knowledge Graph
+              <span class="graph-mode-chip${data.extensionAvailable ? ' neo4j' : ''}">
+                ${data.extensionAvailable ? 'neo4j' : 'built-in'}
+              </span>
+            </div>
           </div>
           <div class="graph-hud-stats">
             <span><b>${itemNodes.length}</b> items</span>
@@ -478,6 +564,29 @@ function renderGraphShell(data: GraphResponse): string {
 
 // ── Canvas init / update ──────────────────────────────────────
 
+async function fetchAndUpdateSelectedItem(nodeId: string): Promise<void> {
+  if (!state.currentProject || !nodeId) return;
+  // Only fetch for item-lane nodes (not facets)
+  const graph = currentGraph?.graph || {};
+  const node = (graph.nodes || []).find((n) => n.id === nodeId);
+  if (!node || !isItemNode(node)) {
+    selectedItemCache = null;
+    return;
+  }
+  try {
+    const result = await api('GET', `/projects/${state.currentProject.id}/pm/get/${encodeURIComponent(nodeId)}`) as Record<string, unknown>;
+    selectedItemCache = result.item as Record<string, unknown> ?? result ?? null;
+    // Re-render panel with the full item
+    if (currentGraph) {
+      const panel = document.getElementById('graph-info-panel');
+      if (panel) panel.innerHTML = renderInfoPanel(currentGraph, selectedItemCache ?? undefined);
+      bindInfoPanelEvents();
+    }
+  } catch {
+    selectedItemCache = null;
+  }
+}
+
 function syncCanvas(): void {
   if (!canvasRef.current || !currentGraph) return;
   const graph   = currentGraph.graph || {};
@@ -525,10 +634,13 @@ function initCanvas(): void {
         document.getElementById('graph-info-drawer')?.classList.add('open');
         document.getElementById('graph-info-toggle')?.classList.add('active');
       }
+      if (id) void fetchAndUpdateSelectedItem(id);
+      else selectedItemCache = null;
     },
     onOpenNode(id) {
       (window as unknown as { __app: { openItemDetail(id: string): void } }).__app.openItemDetail(id);
     },
+    onContextMenu(id, x, y) { showCtxMenu(id, x, y); },
   });
 
   canvasRef.current.setData(toCanvasNodes(nodes, rels), toCanvasEdges(rels));
@@ -540,7 +652,7 @@ function initCanvas(): void {
 function updateInfoPanel(): void {
   if (!currentGraph) return;
   const panel = document.getElementById('graph-info-panel');
-  if (panel) panel.innerHTML = renderInfoPanel(currentGraph);
+  if (panel) panel.innerHTML = renderInfoPanel(currentGraph, selectedItemCache ?? undefined);
   const relList = document.getElementById('graph-rel-list');
   if (relList) relList.innerHTML = renderRelList(currentGraph);
   bindInfoPanelEvents();
@@ -603,6 +715,12 @@ function bindInfoPanelEvents(): void {
 }
 
 function bindHudEvents(): void {
+  // Back button
+  document.getElementById('graph-back-btn')?.addEventListener('click', () => {
+    removeCtxMenu();
+    (window as unknown as { __app: { showView(v: string): void } }).__app.showView('items');
+  });
+
   // Refresh
   document.getElementById('graph-refresh')?.addEventListener('click', () => {
     canvasRef.current?.destroy();
@@ -713,6 +831,7 @@ export async function renderGraphView(): Promise<void> {
   try {
     currentGraph = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
     selectedNodeId = '';
+    selectedItemCache = null;
     filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1' };
 
     el.innerHTML = renderGraphShell(currentGraph);

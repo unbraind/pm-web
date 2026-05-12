@@ -30,6 +30,8 @@ import { renderAdminView } from './admin.js';
 
 export function showView(view: string): void {
   state.currentView = view;
+  // Full-screen graph mode: hide sidebar
+  document.body.classList.toggle('graph-mode', view === 'graph');
   VIEW_NAMES.forEach(v => {
     const el = document.getElementById(`content-${v}`);
     if (el) el.style.display = v === view ? '' : 'none';
