@@ -1159,6 +1159,58 @@ body.graph-mode #app-body {
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+.graph-chain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.graph-chain-row {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(15,23,42,0.74);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.graph-chain-row:hover { border-color: var(--accent-dim); }
+.graph-chain-row.critical {
+  border-color: rgba(251,191,36,0.30);
+  background: rgba(251,191,36,0.07);
+}
+.graph-chain-row.warning {
+  border-color: rgba(248,113,113,0.34);
+  background: rgba(248,113,113,0.08);
+}
+.graph-chain-row.root {
+  border-color: rgba(45,212,191,0.24);
+  background: rgba(45,212,191,0.06);
+}
+.graph-chain-row span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.graph-chain-row i {
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-style: normal;
+  font-weight: 500;
+}
+.graph-chain-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
 .graph-path-section { margin-bottom: 10px; }
 .graph-path-label {
   margin-bottom: 6px;
