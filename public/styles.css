@@ -587,6 +587,39 @@ body.graph-mode #app-body {
   font-family: 'Inter', sans-serif;
 }
 .graph-scope-btn:hover { background: rgba(45,212,191,0.18); }
+.graph-dep-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 2px;
+  background: rgba(251,146,60,0.08);
+  border: 1px solid rgba(251,146,60,0.22);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 7px 9px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.graph-dep-mode-btn:hover,
+.graph-dep-mode-btn.active {
+  background: rgba(251,146,60,0.14);
+  border-color: rgba(251,146,60,0.48);
+  color: #fed7aa;
+}
+.graph-dep-mode-btn strong {
+  color: #fb923c;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.graph-filter-note {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
 
 /* Legend HUD (bottom-center) */
 .graph-legend-hud {
@@ -852,6 +885,59 @@ body.graph-mode #app-body {
   font-size: 10px;
   padding: 4px 8px;
 }
+.graph-blocker-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.graph-blocker-strip span {
+  border: 1px solid rgba(251,146,60,0.24);
+  border-radius: 999px;
+  background: rgba(251,146,60,0.08);
+  color: #fed7aa;
+  font-size: 10px;
+  padding: 4px 8px;
+}
+.graph-blocker-strip strong { color: #fb923c; }
+.graph-blocker-strip .critical {
+  border-color: rgba(251,191,36,0.45);
+  background: rgba(251,191,36,0.12);
+  color: #fde68a;
+}
+.graph-blocker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.graph-blocker-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  background: rgba(15,23,42,0.74);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.graph-blocker-row:hover { border-color: rgba(251,146,60,0.42); }
+.graph-blocker-row span {
+  color: #fb923c;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.graph-blocker-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
 .graph-property-grid {
   display: grid;
   gap: 0;
@@ -940,6 +1026,11 @@ body.graph-mode #app-body {
   cursor: pointer;
 }
 .graph-insight-row:hover { border-color: var(--accent-dim); }
+.graph-insight-row.critical {
+  border-color: rgba(251,191,36,0.28);
+  background: rgba(251,191,36,0.06);
+}
+.graph-insight-row.critical b { color: #fbbf24; }
 .graph-insight-row span { min-width: 0; }
 .graph-insight-row strong {
   display: block;

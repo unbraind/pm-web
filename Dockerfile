@@ -12,6 +12,8 @@ RUN npm install --ignore-scripts
 # Copy server source and build
 COPY tsconfig.json ./
 COPY src/ ./src/
+COPY extensions/ ./extensions/
+RUN cd extensions/pm-graph && npm install --ignore-scripts
 # Copy entire public directory for frontend build
 COPY public/ ./public/
 # Build both server and frontend
@@ -30,7 +32,7 @@ RUN npm install --omit=dev --ignore-scripts
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
-COPY extensions ./extensions
+COPY --from=builder /app/extensions ./extensions
 
 RUN mkdir -p /app/projects
 

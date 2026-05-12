@@ -34,6 +34,7 @@ export interface CanvasFilter {
   highlightRelTypes: Set<string>;
   colorMode: 'status' | 'type' | 'tag';
   colorTag: string;
+  criticalPathIds: Set<string>;
 }
 
 // ── Palette ───────────────────────────────────────────────────
@@ -239,6 +240,7 @@ export class GraphCanvas {
     highlightRelTypes: new Set(),
     colorMode:         'status',
     colorTag:          '',
+    criticalPathIds:   new Set(),
   };
 
   // RAF + cleanup
@@ -802,6 +804,7 @@ export class GraphCanvas {
   private drawEdge(edge: SimEdge, opacity: number, highlighted: boolean): void {
     const { ctx } = this;
     const { source: s, target: t } = edge;
+    const onCritPath = this.filter.criticalPathIds.has(s.id) && this.filter.criticalPathIds.has(t.id);
 
     const dx  = t.x - s.x;
     const dy  = t.y - s.y;
@@ -831,16 +834,17 @@ export class GraphCanvas {
     const x2 = t.x - nx * (t.r + 7);
     const y2 = t.y - ny * (t.r + 7);
 
-    const color = getEdgeColor(edge.type);
+    const color = onCritPath ? '#fbbf24' : getEdgeColor(edge.type);
+    const isActive = highlighted || onCritPath;
 
     ctx.save();
-    ctx.globalAlpha = opacity * (highlighted ? 0.95 : 0.32);
-    ctx.strokeStyle = highlighted ? color : EDGE_DEFAULT;
-    ctx.lineWidth   = highlighted ? 1.8 : 0.9;
+    ctx.globalAlpha = opacity * (isActive ? 0.95 : 0.32);
+    ctx.strokeStyle = isActive ? color : EDGE_DEFAULT;
+    ctx.lineWidth   = isActive ? (onCritPath && !highlighted ? 2.0 : 1.8) : 0.9;
 
-    if (highlighted) {
+    if (isActive) {
       ctx.shadowColor = color;
-      ctx.shadowBlur  = 5;
+      ctx.shadowBlur  = onCritPath ? 8 : 5;
     }
 
     // Draw straight line or quadratic bezier
@@ -868,8 +872,8 @@ export class GraphCanvas {
       const ax = t.x - nx * t.r;
       const ay = t.y - ny * t.r;
 
-      ctx.fillStyle   = highlighted ? color : 'rgba(148,163,184,0.4)';
-      ctx.globalAlpha = opacity * (highlighted ? 0.92 : 0.42);
+      ctx.fillStyle   = isActive ? color : 'rgba(148,163,184,0.4)';
+      ctx.globalAlpha = opacity * (isActive ? 0.92 : 0.42);
       ctx.shadowBlur  = 0;
       ctx.beginPath();
       ctx.moveTo(ax, ay);
@@ -880,7 +884,7 @@ export class GraphCanvas {
     }
 
     // Edge label — midpoint of the bezier curve
-    if (highlighted && this.scale > 0.55) {
+    if (isActive && this.scale > 0.55) {
       const mx = isBiDir ? (x1 + 2 * cpX + x2) / 4 : (x1 + x2) / 2;
       const my = isBiDir ? (y1 + 2 * cpY + y2) / 4 : (y1 + y2) / 2;
       ctx.globalAlpha = opacity * 0.82;
@@ -903,11 +907,25 @@ export class GraphCanvas {
   private drawNode(node: SimNode, opacity: number, selected: boolean, hovered: boolean): void {
     const { ctx } = this;
     const { x, y, r, color } = node;
-    const prominent = selected || hovered;
-    const pulse     = selected ? (Math.sin(this.pulseT) * 0.5 + 0.5) : 0;
+    const prominent   = selected || hovered;
+    const pulse       = selected ? (Math.sin(this.pulseT) * 0.5 + 0.5) : 0;
+    const onCritPath  = this.filter.criticalPathIds.has(node.id);
 
     ctx.save();
     ctx.globalAlpha = opacity;
+
+    // Critical path outer ring (gold/amber)
+    if (onCritPath && !selected) {
+      const cp = Math.sin(this.pulseT * 0.7) * 0.5 + 0.5;
+      ctx.strokeStyle = hexAlpha('#fbbf24', 0.55 + cp * 0.30);
+      ctx.lineWidth   = 2.2;
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur  = 10 + cp * 8;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
 
     // Outer pulse ring (selected)
     if (selected) {

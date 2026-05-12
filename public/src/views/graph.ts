@@ -21,6 +21,7 @@ type GraphFilter = {
   scope:     'all' | 'focus';
   depth:     '1' | '2';
   colorMode: 'status' | 'type' | 'tag';
+  depMode:   boolean;
 };
 
 // ── Module state ──────────────────────────────────────────────
@@ -40,9 +41,13 @@ let filter: GraphFilter = {
   scope:     'all',
   depth:     '1',
   colorMode: 'status',
+  depMode:   false,
 };
 
 let selectedItemCache: Record<string, unknown> | null = null;
+let criticalPath: Set<string> = new Set();
+
+const DEP_REL_TYPES = new Set(['DEPENDS_ON', 'BLOCKED_BY', 'BLOCKS']);
 
 // ── Context menu ──────────────────────────────────────────────
 let ctxMenuEl: HTMLDivElement | null = null;
@@ -156,9 +161,11 @@ function compactError(raw: string | undefined): string {
   if (!raw) return '';
   try {
     const parsed = JSON.parse(raw) as { title?: string; detail?: string; code?: string };
-    return parsed.detail || parsed.title || parsed.code || '';
+    const message = parsed.detail || parsed.title || parsed.code || '';
+    return message.includes('does not expose command path "pm-graph"') ? '' : message;
   } catch {
-    return raw.replace(/\s+/g, ' ').trim();
+    const message = raw.replace(/\s+/g, ' ').trim();
+    return message.includes('does not expose command path "pm-graph"') ? '' : message;
   }
 }
 
@@ -198,10 +205,80 @@ function degreeMap(rels: GraphRelationship[]): Map<string, number> {
   return m;
 }
 
+function isDependencyRel(rel: GraphRelationship): boolean {
+  return DEP_REL_TYPES.has(rel.type);
+}
+
+function blockingPair(rel: GraphRelationship): { blocked: string; blocker: string } | null {
+  if (rel.type === 'BLOCKS') return { blocked: rel.to, blocker: rel.from };
+  if (rel.type === 'DEPENDS_ON' || rel.type === 'BLOCKED_BY') return { blocked: rel.from, blocker: rel.to };
+  return null;
+}
+
+function computeCriticalPath(rels: GraphRelationship[]): Set<string> {
+  const depRels = rels.filter(isDependencyRel);
+  if (!depRels.length) return new Set();
+
+  const blockedBy = new Map<string, Set<string>>();
+  const allIds = new Set<string>();
+  for (const r of depRels) {
+    const pair = blockingPair(r);
+    if (!pair) continue;
+    if (!blockedBy.has(pair.blocked)) blockedBy.set(pair.blocked, new Set());
+    blockedBy.get(pair.blocked)!.add(pair.blocker);
+    allIds.add(pair.blocked);
+    allIds.add(pair.blocker);
+  }
+
+  const memo = new Map<string, string[]>();
+  function longestPathFrom(id: string, seen = new Set<string>()): string[] {
+    if (memo.has(id)) return memo.get(id)!;
+    if (seen.has(id)) return [id];
+    const nextSeen = new Set(seen);
+    nextSeen.add(id);
+    const prereqs = [...(blockedBy.get(id) ?? new Set<string>())];
+    if (!prereqs.length) {
+      memo.set(id, [id]);
+      return [id];
+    }
+    const bestPrereq = prereqs
+      .map((prereq) => longestPathFrom(prereq, nextSeen))
+      .sort((a, b) => b.length - a.length)[0] ?? [];
+    const path = [id, ...bestPrereq];
+    memo.set(id, path);
+    return path;
+  }
+
+  const longest = [...allIds]
+    .map((id) => longestPathFrom(id))
+    .sort((a, b) => b.length - a.length)[0] ?? [];
+  return longest.length < 2 ? new Set() : new Set(longest);
+}
+
+function blockerStats(rels: GraphRelationship[]): Map<string, { blockers: Set<string>; blocked: Set<string> }> {
+  const stats = new Map<string, { blockers: Set<string>; blocked: Set<string> }>();
+  const entry = (id: string) => {
+    if (!stats.has(id)) stats.set(id, { blockers: new Set(), blocked: new Set() });
+    return stats.get(id)!;
+  };
+  for (const rel of rels) {
+    const pair = blockingPair(rel);
+    if (!pair) continue;
+    entry(pair.blocked).blockers.add(pair.blocker);
+    entry(pair.blocker).blocked.add(pair.blocked);
+  }
+  return stats;
+}
+
 function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRelationship[]; connected: Set<string> } {
   const nodes = graph.nodes || [];
-  const rels   = graph.relationships || [];
+  let rels     = graph.relationships || [];
   const connected = new Set(rels.flatMap((r) => [r.from, r.to]));
+
+  // Dep mode: restrict to dependency/block edges
+  if (filter.depMode) {
+    rels = rels.filter(isDependencyRel);
+  }
 
   const focusIds = selectedNodeId && filter.scope === 'focus'
     ? expandedNeighborIds(selectedNodeId, rels, Number(filter.depth))
@@ -209,7 +286,12 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRel
 
   const q = filter.query.trim().toLowerCase();
 
+  const depConnected = filter.depMode
+    ? new Set(rels.flatMap((r) => [r.from, r.to]))
+    : null;
+
   const nodeVisible = (n: GraphNode): boolean => {
+    if (depConnected && !depConnected.has(n.id)) return false;
     if (focusIds && !focusIds.has(n.id)) return false;
     if (filter.kind === 'items'    && !isItemNode(n))                          return false;
     if (filter.kind === 'facets'   && !isFacetNode(n))                        return false;
@@ -293,6 +375,7 @@ function renderSelectedNode(
   const outgoing = rels.filter((r) => r.from === node.id);
   const incoming = rels.filter((r) => r.to   === node.id);
   const direct   = [...outgoing, ...incoming];
+  const blocks = blockerStats(rels).get(node.id) ?? { blockers: new Set<string>(), blocked: new Set<string>() };
 
   const props = [
     ['Status',   nodeStatus(node)],
@@ -317,6 +400,12 @@ function renderSelectedNode(
         <button class="btn btn-ghost btn-sm" id="graph-clear-selected">Clear</button>
       </div>
       <div class="graph-selected-counts"><span>${outgoing.length} outgoing</span><span>${incoming.length} incoming</span></div>
+      ${blocks.blockers.size || blocks.blocked.size ? `
+      <div class="graph-blocker-strip">
+        <span><strong>${blocks.blockers.size}</strong> blockers</span>
+        <span><strong>${blocks.blocked.size}</strong> blocked by this</span>
+        ${criticalPath.has(node.id) ? '<span class="critical">critical path</span>' : ''}
+      </div>` : ''}
       <div class="graph-property-grid">
         ${props.map(([l, v]) => `<div class="graph-property-row"><span>${escHtml(String(l))}</span><strong>${escHtml(String(v))}</strong></div>`).join('')}
       </div>
@@ -325,6 +414,12 @@ function renderSelectedNode(
   <div class="graph-panel-title graph-panel-title-spaced">Description</div>
   <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow-y:auto;padding:8px;background:rgba(15,23,42,0.5);border-radius:6px;border:1px solid rgba(148,163,184,0.1)">${escHtml(String(fullItem.body).slice(0,500))}${String(fullItem.body).length > 500 ? '…' : ''}</div>
 ` : ''}
+      ${blocks.blockers.size || blocks.blocked.size ? `
+      <div class="graph-panel-title graph-panel-title-spaced">Blockers</div>
+      <div class="graph-blocker-list">
+        ${[...blocks.blockers].slice(0, 8).map((id) => `<button class="graph-blocker-row blocker" data-graph-node-id="${escHtml(id)}"><span>Blocked by</span><strong>${escHtml(nodeTitle(byId.get(id) || { id }))}</strong></button>`).join('')}
+        ${[...blocks.blocked].slice(0, 8).map((id) => `<button class="graph-blocker-row blocked" data-graph-node-id="${escHtml(id)}"><span>Blocks</span><strong>${escHtml(nodeTitle(byId.get(id) || { id }))}</strong></button>`).join('')}
+      </div>` : ''}
       <div class="graph-panel-title graph-panel-title-spaced">Direct Relationships</div>
       ${direct.length === 0
         ? '<div class="graph-node-empty">No relationships.</div>'
@@ -376,6 +471,23 @@ function renderHubs(nodes: GraphNode[], rels: GraphRelationship[]): string {
     </button>`).join('');
 }
 
+function renderBlockingInsights(nodes: GraphNode[], rels: GraphRelationship[]): string {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const stats = blockerStats(rels);
+  const rows = [...stats.entries()]
+    .map(([id, value]) => ({ id, ...value, node: byId.get(id) }))
+    .filter((row) => row.node && isItemNode(row.node) && (row.blockers.size || row.blocked.size))
+    .sort((a, b) => b.blocked.size - a.blocked.size || b.blockers.size - a.blockers.size || nodeTitle(a.node!).localeCompare(nodeTitle(b.node!)))
+    .slice(0, 8);
+  if (!rows.length) return '<div class="graph-node-empty">No dependency blockers in this view.</div>';
+  return rows.map((row) => `
+    <button class="graph-insight-row${criticalPath.has(row.id) ? ' critical' : ''}" data-graph-node-id="${escHtml(row.id)}">
+      <span><strong>${escHtml(nodeTitle(row.node!))}</strong><em>${escHtml(row.id)}</em></span>
+      <b>${row.blocked.size}</b>
+      <small>${row.blockers.size} blockers · ${row.blocked.size} items blocked${criticalPath.has(row.id) ? ' · critical path' : ''}</small>
+    </button>`).join('');
+}
+
 function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>): string {
   const graph     = data.graph || {};
   const nodes     = graph.nodes || [];
@@ -399,6 +511,8 @@ function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>
     ${renderPaths(selectedNode, rels, byId)}
     <div class="graph-panel-title graph-panel-title-spaced">Item Hubs</div>
     <div class="graph-insight-list">${renderHubs(nodes, rels)}</div>
+    <div class="graph-panel-title graph-panel-title-spaced">Dependency Blockers</div>
+    <div class="graph-insight-list">${renderBlockingInsights(nodes, rels)}</div>
     <div class="graph-panel-title graph-panel-title-spaced">Nodes by Type</div>
     <div class="graph-type-list">
       ${Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([t, c]) => `<div class="graph-type-row"><span>${escHtml(t)}</span><strong>${c}</strong></div>`).join('') || '<div class="graph-node-empty">No items.</div>'}
@@ -448,6 +562,7 @@ function renderGraphShell(data: GraphResponse): string {
   const relOptions = Object.keys(relCounts).sort();
   const errText    = compactError(data.extensionError);
   const { rels: visRels } = visibleGraph(graph);
+  const depRels    = rels.filter(isDependencyRel);
 
   return `
     <div class="graph-immersive-wrap">
@@ -505,6 +620,11 @@ function renderGraphShell(data: GraphResponse): string {
               <option value="tag"${filter.colorMode==='tag'?' selected':''}>Tags (auto)</option>
             </select>
           </div>
+          <button class="graph-dep-mode-btn${filter.depMode ? ' active' : ''}" id="graph-dep-mode-btn">
+            <span>Dependency Graph</span>
+            <strong>${filter.depMode ? 'On' : 'Off'}</strong>
+          </button>
+          <div class="graph-filter-note">${depRels.length} dependency/blocking edges · ${criticalPath.size} critical-path nodes</div>
           <div class="graph-filter-row">
             <label>Show</label>
             <select id="graph-filter-kind">
@@ -617,6 +737,7 @@ function syncCanvas(): void {
     highlightRelTypes: filter.rel !== 'all' ? new Set([filter.rel]) : new Set(),
     colorMode:         filter.colorMode,
     colorTag:          '',
+    criticalPathIds:   filter.depMode ? criticalPath : new Set(),
   });
 
   if (filter.query && !selectedNodeId) {
@@ -638,6 +759,7 @@ function initCanvas(): void {
   const graph = currentGraph.graph || {};
   const nodes = graph.nodes || [];
   const rels  = graph.relationships || [];
+  criticalPath = computeCriticalPath(rels);
 
   canvasRef.current = new GraphCanvas(host, {
     onSelectNode(id) {
@@ -882,6 +1004,22 @@ function bindHudEvents(): void {
   onFilterChange('graph-filter-direction', 'direction', (el) => (el as HTMLSelectElement).value);
   onFilterChange('graph-filter-depth',     'depth',     (el) => (el as HTMLSelectElement).value);
 
+  document.getElementById('graph-dep-mode-btn')?.addEventListener('click', () => {
+    filter = {
+      ...filter,
+      depMode: !filter.depMode,
+      rel: filter.depMode ? filter.rel : 'all',
+      kind: filter.depMode ? filter.kind : 'items',
+    };
+    updateInfoPanel();
+    syncCanvas();
+    updateFilterToolbarState();
+    const btn = document.getElementById('graph-dep-mode-btn');
+    btn?.classList.toggle('active', filter.depMode);
+    const strong = btn?.querySelector('strong');
+    if (strong) strong.textContent = filter.depMode ? 'On' : 'Off';
+  });
+
   document.getElementById('graph-color-mode')?.addEventListener('change', (e) => {
     filter = { ...filter, colorMode: (e.target as HTMLSelectElement).value as GraphFilter['colorMode'] };
     syncCanvas();
@@ -919,7 +1057,8 @@ export async function renderGraphView(): Promise<void> {
     currentGraph = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
     selectedNodeId = '';
     selectedItemCache = null;
-    filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status' };
+    filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false };
+    criticalPath = computeCriticalPath(currentGraph.graph?.relationships ?? []);
 
     el.innerHTML = renderGraphShell(currentGraph);
     bindHudEvents();

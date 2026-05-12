@@ -25,6 +25,10 @@ type PmItem = {
   updated_at?: string;
   deps?: Array<Record<string, unknown>>;
   dependencies?: Array<Record<string, unknown>>;
+  blocked_by?: string;
+  blockedBy?: string;
+  blocked_reason?: string;
+  blockedReason?: string;
 };
 
 type GraphNode = {
@@ -167,6 +171,14 @@ function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<st
 
     if (item.parent) {
       addRelationship(item.id, item.parent, "CHILD_OF", { source: "parent" });
+    }
+
+    const blockedBy = item.blocked_by ?? item.blockedBy;
+    if (typeof blockedBy === "string" && blockedBy.trim().length > 0) {
+      addRelationship(item.id, blockedBy.trim(), "BLOCKED_BY", {
+        source: "blocked_by",
+        reason: item.blocked_reason ?? item.blockedReason ?? null,
+      });
     }
 
     const deps = [
