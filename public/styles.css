@@ -495,8 +495,11 @@ body.graph-mode #app-body {
 .graph-hud-warn b { color: #fb923c; }
 .graph-hud-center {
   flex: 1;
-  max-width: 380px;
+  max-width: 520px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 .graph-search-hud {
   display: flex;
@@ -522,6 +525,57 @@ body.graph-mode #app-body {
   font-family: 'Inter', sans-serif;
 }
 .graph-search-hud-input::placeholder { color: var(--text-muted); }
+.graph-preset-rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  pointer-events: auto;
+}
+.graph-preset-btn {
+  min-width: 0;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(148,163,184,0.16);
+  border-radius: 7px;
+  background: rgba(10,15,30,0.74);
+  color: var(--text-secondary);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.graph-preset-btn:hover {
+  border-color: rgba(148,163,184,0.34);
+  background: rgba(10,15,30,0.92);
+  color: var(--text-primary);
+}
+.graph-preset-btn.active {
+  border-color: rgba(45,212,191,0.42);
+  background: rgba(45,212,191,0.10);
+  color: var(--accent);
+}
+.graph-preset-btn span,
+.graph-preset-btn strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graph-preset-btn span {
+  font-size: 11px;
+  font-weight: 650;
+}
+.graph-preset-btn strong {
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.graph-preset-btn.active strong { color: var(--accent); }
 .graph-hud-right {
   display: flex;
   align-items: center;
@@ -1833,7 +1887,36 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
     -webkit-overflow-scrolling: touch;
   }
   .graph-hud-top { flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+  .graph-hud-left { width: 100%; }
+  .graph-hud-left > div:first-child {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
+  }
+  .graph-hud-left .graph-back-btn { width: auto; }
+  .graph-hud-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .graph-hud-center { order: 3; max-width: 100%; width: 100%; }
+  .graph-hud-right {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    flex-shrink: 1;
+    justify-content: stretch;
+  }
+  .graph-hud-btn,
+  .graph-hud-select {
+    width: 100%;
+    height: 32px;
+    justify-content: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .graph-preset-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .graph-preset-btn { height: 32px; padding-inline: 7px; }
   .graph-info-drawer { width: 100%; top: auto; height: 60vh; transform: translateY(100%); }
   .graph-info-drawer.open { transform: translateY(0); }
   .graph-rel-row { grid-template-columns: 1fr; gap: 6px; }
@@ -1855,6 +1938,8 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
 }
 
 @media (max-width: 540px) {
+  .graph-preset-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .graph-preset-btn:nth-child(5) { grid-column: 1 / -1; }
   .content-area {
     padding: 14px 12px;
   }

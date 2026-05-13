@@ -51,7 +51,17 @@ let filter: GraphFilter = {
 let selectedItemCache: Record<string, unknown> | null = null;
 let criticalPath: Set<string> = new Set();
 
-const DEP_REL_TYPES = new Set(['DEPENDS_ON', 'BLOCKED_BY', 'BLOCKS', 'PARENT', 'CHILD', 'RELATED']);
+const DEP_REL_TYPES = new Set([
+  'DEPENDS_ON',
+  'BLOCKED_BY',
+  'BLOCKS',
+  'PARENT',
+  'PARENT_OF',
+  'CHILD',
+  'CHILD_OF',
+  'RELATED',
+  'RELATES_TO',
+]);
 
 // ── Context menu ──────────────────────────────────────────────
 let ctxMenuEl: HTMLDivElement | null = null;
@@ -225,8 +235,11 @@ function dependencyLabel(rel: GraphRelationship): string {
     BLOCKED_BY: 'Blocked by',
     BLOCKS: 'Blocks',
     PARENT: 'Parent',
+    PARENT_OF: 'Parent of',
     CHILD: 'Child',
+    CHILD_OF: 'Child of',
     RELATED: 'Related',
+    RELATES_TO: 'Related to',
   };
   return labels[rel.type] ?? rel.type.replace(/_/g, ' ').toLowerCase();
 }
@@ -636,14 +649,15 @@ function renderRelList(data: GraphResponse): string {
   const byId  = new Map(nodes.map((n) => [n.id, n]));
   const { rels: visRels } = visibleGraph(graph);
 
-  if (!visRels.length) return '<div class="graph-node-empty" style="padding:14px 0">No relationships match current filters.</div>';
-
-  // Add/Remove dependency buttons
   const editBtns = `
     <div class="graph-rel-edit-bar">
       <button class="btn btn-secondary btn-sm" id="graph-add-dep-btn">+ Add Dependency</button>
       <button class="btn btn-ghost btn-sm" id="graph-remove-dep-btn">− Remove Dependency</button>
     </div>`;
+
+  if (!visRels.length) {
+    return editBtns + '<div class="graph-node-empty" style="padding:14px 0">No relationships match current filters.</div>';
+  }
 
   const rows = visRels.slice(0, 100).map((r) => {
     const from = byId.get(r.from);
@@ -662,6 +676,35 @@ function renderRelList(data: GraphResponse): string {
 }
 
 // ── Immersive shell ───────────────────────────────────────────
+
+function graphPresetActive(id: string): boolean {
+  if (id === 'knowledge') {
+    return !filter.depMode && filter.kind === 'all' && filter.rel === 'all' && filter.scope === 'all';
+  }
+  if (id === 'dependency') return filter.depMode;
+  if (id === 'unlinked') return filter.kind === 'unlinked';
+  if (id === 'metadata') return filter.kind === 'facets';
+  if (id === 'critical') return filter.depMode && filter.scope === 'focus' && Boolean(selectedNodeId);
+  return false;
+}
+
+function renderGraphPresets(depRels: GraphRelationship[], isolatedCount: number): string {
+  const presets = [
+    { id: 'knowledge', label: 'Knowledge', value: String((currentGraph?.graph?.nodes ?? []).length) },
+    { id: 'dependency', label: 'Dependencies', value: String(depRels.length) },
+    { id: 'unlinked', label: 'Unlinked', value: String(isolatedCount) },
+    { id: 'metadata', label: 'Metadata', value: 'facets' },
+    { id: 'critical', label: 'Critical', value: criticalPath.size ? String(criticalPath.size) : 'pick node' },
+  ];
+  return `
+    <div class="graph-preset-rail" role="toolbar" aria-label="Graph views">
+      ${presets.map((preset) => `
+        <button class="graph-preset-btn${graphPresetActive(preset.id) ? ' active' : ''}" data-graph-preset="${preset.id}">
+          <span>${escHtml(preset.label)}</span>
+          <strong>${escHtml(preset.value)}</strong>
+        </button>`).join('')}
+    </div>`;
+}
 
 function renderGraphShell(data: GraphResponse): string {
   const graph      = data.graph || {};
@@ -707,6 +750,7 @@ function renderGraphShell(data: GraphResponse): string {
             <span class="graph-search-hud-icon">⌕</span>
             <input class="graph-search-hud-input" id="graph-filter-query" type="text" placeholder="Search nodes…" value="${escHtml(filter.query)}" autocomplete="off">
           </div>
+          ${renderGraphPresets(depRels, isolated)}
         </div>
         <div class="graph-hud-right">
           <button class="graph-hud-btn" id="graph-refresh" title="Reload graph">↻</button>
@@ -928,6 +972,9 @@ function updateFilterToolbarState(): void {
   if (dirSel)   dirSel.disabled   = !selectedNodeId;
   if (depthSel) depthSel.disabled = !(selectedNodeId && filter.scope === 'focus');
   if (scopeBtn) scopeBtn.textContent = filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected';
+  document.querySelectorAll<HTMLButtonElement>('[data-graph-preset]').forEach((presetBtn) => {
+    presetBtn.classList.toggle('active', graphPresetActive(presetBtn.dataset.graphPreset || ''));
+  });
 }
 
 // ── Legend update ─────────────────────────────────────────────
@@ -1068,6 +1115,36 @@ function bindHudEvents(): void {
   // Fit view
   document.getElementById('graph-fit-btn')?.addEventListener('click', () => canvasRef.current?.fitView());
 
+  document.querySelectorAll<HTMLButtonElement>('[data-graph-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.graphPreset || 'knowledge';
+      if (preset === 'knowledge') {
+        filter = { ...filter, depMode: false, kind: 'all', rel: 'all', scope: 'all', direction: 'all' };
+      } else if (preset === 'dependency') {
+        filter = { ...filter, depMode: true, kind: 'items', rel: 'all', scope: 'all', direction: 'all', layout: 'hierarchical' };
+        canvasRef.current?.setLayout('hierarchical');
+      } else if (preset === 'unlinked') {
+        filter = { ...filter, depMode: false, kind: 'unlinked', rel: 'all', scope: 'all', direction: 'all' };
+      } else if (preset === 'metadata') {
+        filter = { ...filter, depMode: false, kind: 'facets', rel: 'all', scope: 'all', direction: 'all', colorMode: 'type' };
+      } else if (preset === 'critical') {
+        const nextSelected = selectedNodeId || [...criticalPath][0] || '';
+        selectedNodeId = nextSelected;
+        filter = { ...filter, depMode: true, kind: 'items', rel: 'all', scope: nextSelected ? 'focus' : 'all', depth: '2', direction: 'connected', layout: 'hierarchical' };
+        canvasRef.current?.setLayout('hierarchical');
+        canvasRef.current?.setSelected(nextSelected || null);
+      }
+      updateInfoPanel();
+      syncCanvas();
+      updateFilterToolbarState();
+      updateLegend();
+      document.querySelectorAll<HTMLButtonElement>('[data-graph-preset]').forEach((presetBtn) => {
+        presetBtn.classList.toggle('active', graphPresetActive(presetBtn.dataset.graphPreset || ''));
+      });
+      pushGraphState();
+    });
+  });
+
   // Physics toggle
   document.getElementById('graph-physics-btn')?.addEventListener('click', (e) => {
     const paused = canvasRef.current?.togglePhysics() ?? false;
@@ -1159,7 +1236,6 @@ function bindHudEvents(): void {
   onFilterChange('graph-filter-depth',     'depth',     (el) => (el as HTMLSelectElement).value);
 
   // All filter changes push URL state
-  const origFilterChange = onFilterChange;
   document.querySelectorAll('#graph-filter-overlay select').forEach((sel) => {
     sel.addEventListener('change', () => pushGraphState());
   });
