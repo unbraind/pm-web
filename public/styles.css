@@ -527,7 +527,7 @@ body.graph-mode #app-body {
 .graph-search-hud-input::placeholder { color: var(--text-muted); }
 .graph-preset-rail {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 5px;
   pointer-events: auto;
 }
@@ -2045,7 +2045,7 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
     text-overflow: ellipsis;
   }
   .graph-preset-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .graph-preset-btn { height: 32px; padding-inline: 7px; }
+  .graph-preset-btn { height: 30px; padding-inline: 6px; font-size: 11px; }
   .graph-info-drawer { width: 100%; top: auto; height: 60vh; transform: translateY(100%); }
   .graph-info-drawer.open { transform: translateY(0); }
   .graph-rel-row { grid-template-columns: 1fr; gap: 6px; }
@@ -2067,8 +2067,7 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
 }
 
 @media (max-width: 540px) {
-  .graph-preset-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .graph-preset-btn:nth-child(5) { grid-column: 1 / -1; }
+  .graph-preset-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .content-area {
     padding: 14px 12px;
   }
