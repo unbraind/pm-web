@@ -86,22 +86,36 @@ function renderGitHubContent(data: any): void {
       </div>
     </div>`;
 
-  const importPanel = linked ? `
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Import Issues</div>
-        <button class="btn btn-secondary btn-sm" onclick="window.__app.loadGitHubIssues()">↺ Load Issues</button>
-      </div>
-      <div class="card-body">
-        <div id="github-issues-list">
-          <div style="color:var(--text-muted);font-size:13px">Click "Load Issues" to fetch open GitHub issues.</div>
+  const syncPanels = linked ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px" class="github-sync-grid">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">↓ Import from GitHub</div>
+          <button class="btn btn-secondary btn-sm" onclick="window.__app.loadGitHubIssues()">↺ Load Issues</button>
         </div>
-        <div id="github-import-result" style="margin-top:12px;display:none"></div>
+        <div class="card-body">
+          <div id="github-issues-list">
+            <div style="color:var(--text-muted);font-size:13px">Click "Load Issues" to fetch open GitHub issues.</div>
+          </div>
+          <div id="github-import-result" style="margin-top:12px;display:none"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">↑ Export to GitHub</div>
+          <button class="btn btn-secondary btn-sm" onclick="window.__app.loadItemsForPush()">↺ Load Items</button>
+        </div>
+        <div class="card-body">
+          <div id="github-push-list">
+            <div style="color:var(--text-muted);font-size:13px">Click "Load Items" to select pm items to push as GitHub issues.</div>
+          </div>
+          <div id="github-push-result" style="margin-top:12px;display:none"></div>
+        </div>
       </div>
     </div>` : '';
 
   const contentEl = document.getElementById('github-content');
-  if (contentEl) contentEl.innerHTML = linkPanel + importPanel;
+  if (contentEl) contentEl.innerHTML = linkPanel + syncPanels;
 }
 
 export async function linkGitHubRepo(): Promise<void> {
@@ -169,6 +183,97 @@ export async function loadGitHubIssues(): Promise<void> {
 
 export function selectAllIssues(checked: boolean): void {
   document.querySelectorAll('.gh-issue-cb').forEach(cb => { (cb as HTMLInputElement).checked = checked; });
+}
+
+export async function loadItemsForPush(): Promise<void> {
+  const el = document.getElementById('github-push-list');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
+  try {
+    const [itemsData, linksData] = await Promise.all([
+      api('GET', `/projects/${state.currentProject!.id}/pm/list-all?limit=200`) as Promise<{ items?: any[] }>,
+      api('GET', `/projects/${state.currentProject!.id}/github/links`) as Promise<{ links?: Array<{ pm_item_id: string; issue_number: number; issue_url: string }> }>,
+    ]);
+    const items = itemsData.items || [];
+    const links = linksData.links || [];
+    const linkMap = new Map(links.map(l => [l.pm_item_id, l]));
+
+    if (items.length === 0) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px">No open items in this project.</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:12px;color:var(--text-muted)">${items.length} item${items.length!==1?'s':''} — select to push as issues</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="window.__app.selectAllPushItems(true)">All</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.__app.selectAllPushItems(false)">None</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;margin-bottom:12px">
+        ${items.map((i: any) => {
+          const link = linkMap.get(i.id);
+          const linkedBadge = link ? `<a href="${escHtml(link.issue_url)}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);margin-top:2px;display:block">#${link.issue_number} ↗</a>` : '';
+          const updateBtn = link ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="window.__app.updateGitHubIssue('${escHtml(i.id)}')">Update</button>` : '';
+          return `
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--bg-card2);border:1px solid ${link ? 'var(--accent-muted,#334)' : 'var(--border)'};border-radius:var(--radius);cursor:pointer;transition:var(--transition)">
+            <input type="checkbox" class="gh-push-cb" data-item-id="${escHtml(i.id)}" style="margin-top:2px;accent-color:var(--accent)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(i.title||i.id)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${escHtml(i.id)} · ${escHtml(i.type||'Task')} · ${escHtml(i.status||'open')}${linkedBadge}</div>
+            </div>
+            ${updateBtn}
+          </label>`;
+        }).join('')}
+      </div>
+      <button class="btn btn-primary btn-sm" id="gh-push-btn" onclick="window.__app.pushItemsToGitHub()"><span>Push to GitHub</span></button>`;
+  } catch(err: unknown) {
+    el.innerHTML = `<div style="color:var(--status-blocked);font-size:13px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+  }
+}
+
+export function selectAllPushItems(checked: boolean): void {
+  document.querySelectorAll('.gh-push-cb').forEach(cb => { (cb as HTMLInputElement).checked = checked; });
+}
+
+export async function pushItemsToGitHub(): Promise<void> {
+  const checked = Array.from(document.querySelectorAll('.gh-push-cb:checked'));
+  if (checked.length === 0) { toast('Select at least one item to push', 'info'); return; }
+  const itemIds = checked.map(cb => (cb as HTMLInputElement).dataset['itemId'] || '').filter(Boolean);
+  const btn = document.getElementById('gh-push-btn') as HTMLButtonElement | null;
+  if (btn) { btn.disabled = true; const sp = btn.querySelector('span'); if (sp) sp.textContent = `Pushing ${itemIds.length}…`; }
+  const resultEl = document.getElementById('github-push-result');
+  if (resultEl) resultEl.style.display = 'none';
+  try {
+    const data = await api('POST', `/projects/${state.currentProject!.id}/github/push`, { itemIds }) as { pushed?: any[]; errors?: any[]; total?: number };
+    const pushed = data.pushed || [];
+    const errors = data.errors || [];
+    toast(`Pushed ${pushed.length} item${pushed.length!==1?'s':''}${errors.length?' ('+errors.length+' error'+( errors.length!==1?'s':'')+')':''}`, errors.length ? 'info' : 'success');
+    if (resultEl) {
+      resultEl.style.display = '';
+      resultEl.innerHTML = `
+        <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Push Results</div>
+          ${pushed.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Pushed ${pushed.length}: ${pushed.map((p: any)=>`<a href="${escHtml(p.issueUrl)}" target="_blank" style="color:var(--accent)">#${p.issueNumber}</a>`).join(', ')}</div>` : ''}
+          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} failed: ${errors.map((e: any)=>escHtml(String(e))).join('; ')}</div>` : ''}
+        </div>`;
+    }
+    loadItemsForPush();
+  } catch(err: unknown) {
+    toast(`Push failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Push to GitHub'; }
+  }
+}
+
+export async function updateGitHubIssue(itemId: string): Promise<void> {
+  try {
+    const data = await api('PATCH', `/projects/${state.currentProject!.id}/github/push/${encodeURIComponent(itemId)}`) as { ok?: boolean; issueNumber?: number; issueUrl?: string };
+    toast(`Updated GitHub issue #${data.issueNumber}`, 'success');
+    loadItemsForPush();
+  } catch(err: unknown) {
+    toast(`Update failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
+  }
 }
 
 export async function importGitHubIssues(): Promise<void> {

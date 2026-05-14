@@ -179,6 +179,172 @@ router.post("/import", async (req: AuthRequest, res) => {
   res.json({ created, errors, total: issueNumbers.length });
 });
 
+// GET /api/projects/:id/github/links — fetch pm-item ↔ GitHub-issue links
+router.get("/links", async (req: AuthRequest, res) => {
+  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  if (!access) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const result = await pool.query(
+    `SELECT pm_item_id, issue_number, issue_url, synced_at FROM pm_github_item_links WHERE project_id = $1 ORDER BY synced_at DESC`,
+    [req.params["id"]]
+  );
+  res.json({ links: result.rows as { pm_item_id: string; issue_number: number; issue_url: string; synced_at: string }[] });
+});
+
+// POST /api/projects/:id/github/push — push pm items as new GitHub issues
+router.post("/push", async (req: AuthRequest, res) => {
+  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  if (!access || access.permission !== "edit") { res.status(403).json({ error: "Not authorized" }); return; }
+
+  const repoResult = await pool.query(
+    `SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`,
+    [req.params["id"]]
+  );
+  const { github_owner: owner, github_repo: repo } = repoResult.rows[0] as { github_owner: string | null; github_repo: string | null };
+  if (!owner || !repo) { res.status(400).json({ error: "No GitHub repo linked to this project" }); return; }
+
+  const token = await getGitHubToken(access.ownerUserId);
+  if (!token) { res.status(400).json({ error: "No GitHub token configured" }); return; }
+
+  const { itemIds } = req.body as { itemIds?: string[] };
+  if (!itemIds || itemIds.length === 0) { res.status(400).json({ error: "itemIds array is required" }); return; }
+  if (itemIds.length > 50) { res.status(400).json({ error: "Cannot push more than 50 items at once" }); return; }
+
+  const pushed: Array<{ pmItemId: string; issueNumber: number; issueUrl: string }> = [];
+  const errors: string[] = [];
+
+  for (const itemId of itemIds) {
+    try {
+      const getResult = runPm({ args: ["get", itemId, "--json"], userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
+      if (!getResult.ok || !getResult.parsed) { errors.push(`${itemId}: item not found`); continue; }
+      const item = (getResult.parsed as { item?: Record<string, unknown> }).item;
+      if (!item) { errors.push(`${itemId}: item not found`); continue; }
+
+      const title = String(item["title"] || itemId);
+      const status = String(item["status"] || "open");
+      const description = String(item["description"] || "");
+      const tags = Array.isArray(item["tags"]) ? (item["tags"] as string[]) : [];
+      const assignee = item["assignee"] ? String(item["assignee"]) : null;
+
+      const bodyLines = [
+        `**pm item:** \`${itemId}\``,
+        `**type:** ${String(item["type"] || "Task")}`,
+        `**status:** ${status}`,
+        `**priority:** ${String(item["priority"] || "3")}`,
+        "",
+        description || "_No description_",
+      ];
+
+      const issueBody = bodyLines.join("\n");
+      const labels = tags.filter(Boolean);
+      const ghState = status === "closed" || status === "canceled" ? "closed" : "open";
+
+      const issuePayload: Record<string, unknown> = { title, body: issueBody };
+      if (labels.length > 0) issuePayload["labels"] = labels;
+      if (assignee) issuePayload["assignees"] = [assignee];
+
+      const resp = await ghFetch(
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`,
+        token,
+        { method: "POST", body: JSON.stringify(issuePayload), headers: { "Content-Type": "application/json" } }
+      );
+
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({})) as { message?: string };
+        errors.push(`${itemId}: ${errBody.message || `GitHub API error ${resp.status}`}`);
+        continue;
+      }
+
+      const issue = (await resp.json()) as { number: number; html_url: string; state: string };
+
+      if (ghState === "closed") {
+        await ghFetch(
+          `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issue.number}`,
+          token,
+          { method: "PATCH", body: JSON.stringify({ state: "closed" }), headers: { "Content-Type": "application/json" } }
+        ).catch(() => undefined);
+      }
+
+      await pool.query(
+        `INSERT INTO pm_github_item_links (project_id, pm_item_id, issue_number, issue_url, synced_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (project_id, pm_item_id) DO UPDATE SET issue_number = EXCLUDED.issue_number, issue_url = EXCLUDED.issue_url, synced_at = NOW()`,
+        [req.params["id"], itemId, issue.number, issue.html_url]
+      );
+
+      pushed.push({ pmItemId: itemId, issueNumber: issue.number, issueUrl: issue.html_url });
+    } catch (err) {
+      errors.push(`${itemId}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  res.json({ pushed, errors, total: itemIds.length });
+});
+
+// PATCH /api/projects/:id/github/push/:itemId — update an existing linked GitHub issue from pm item
+router.patch("/push/:itemId", async (req: AuthRequest, res) => {
+  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  if (!access || access.permission !== "edit") { res.status(403).json({ error: "Not authorized" }); return; }
+
+  const itemId = req.params["itemId"]!;
+  const linkResult = await pool.query(
+    `SELECT issue_number FROM pm_github_item_links WHERE project_id = $1 AND pm_item_id = $2`,
+    [req.params["id"], itemId]
+  );
+  if (linkResult.rows.length === 0) { res.status(404).json({ error: "No linked GitHub issue for this item" }); return; }
+  const issueNumber = linkResult.rows[0].issue_number as number;
+
+  const repoResult = await pool.query(`SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`, [req.params["id"]]);
+  const { github_owner: owner, github_repo: repo } = repoResult.rows[0] as { github_owner: string | null; github_repo: string | null };
+  if (!owner || !repo) { res.status(400).json({ error: "No GitHub repo linked" }); return; }
+
+  const token = await getGitHubToken(access.ownerUserId);
+  if (!token) { res.status(400).json({ error: "No GitHub token configured" }); return; }
+
+  const getResult = runPm({ args: ["get", itemId, "--json"], userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
+  if (!getResult.ok || !getResult.parsed) { res.status(404).json({ error: "Item not found" }); return; }
+  const item = (getResult.parsed as { item?: Record<string, unknown> }).item;
+  if (!item) { res.status(404).json({ error: "Item not found" }); return; }
+
+  const title = String(item["title"] || itemId);
+  const status = String(item["status"] || "open");
+  const description = String(item["description"] || "");
+  const tags = Array.isArray(item["tags"]) ? (item["tags"] as string[]) : [];
+  const ghState = status === "closed" || status === "canceled" ? "closed" : "open";
+
+  const bodyLines = [
+    `**pm item:** \`${itemId}\``,
+    `**type:** ${String(item["type"] || "Task")}`,
+    `**status:** ${status}`,
+    `**priority:** ${String(item["priority"] || "3")}`,
+    "",
+    description || "_No description_",
+  ];
+
+  const updatePayload: Record<string, unknown> = { title, body: bodyLines.join("\n"), state: ghState };
+  if (tags.length > 0) updatePayload["labels"] = tags.filter(Boolean);
+
+  const resp = await ghFetch(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`,
+    token,
+    { method: "PATCH", body: JSON.stringify(updatePayload), headers: { "Content-Type": "application/json" } }
+  );
+
+  if (!resp.ok) {
+    const errBody = await resp.json().catch(() => ({})) as { message?: string };
+    res.status(resp.status).json({ error: errBody.message || `GitHub API error ${resp.status}` });
+    return;
+  }
+
+  const issue = (await resp.json()) as { number: number; html_url: string };
+  await pool.query(
+    `UPDATE pm_github_item_links SET synced_at = NOW() WHERE project_id = $1 AND pm_item_id = $2`,
+    [req.params["id"], itemId]
+  );
+
+  res.json({ ok: true, issueNumber: issue.number, issueUrl: issue.html_url });
+});
+
 // GET /api/projects/:id/github/repo-info — validate and get repo metadata
 router.get("/repo-info", async (req: AuthRequest, res) => {
   const { owner, repo } = req.query as { owner?: string; repo?: string };

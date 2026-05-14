@@ -12,6 +12,74 @@ import { loadItemsBadge } from './projects.js';
 import { renderLocalGraph, destroyLocalGraph } from './graph.js';
 import type { Item } from '../types.js';
 
+type RawDependency = {
+  targetId?: string;
+  id?: string;
+  rel?: string;
+  relationship?: string;
+  kind?: string;
+  type?: string;
+  target?: string;
+  targetTitle?: string;
+  title?: string;
+  [key: string]: unknown;
+};
+
+const DEP_REL_OPTIONS = [
+  { value: 'blocked_by', label: 'Blocked by / depends on' },
+  { value: 'blocks', label: 'Blocks' },
+  { value: 'parent', label: 'Parent' },
+  { value: 'child', label: 'Child' },
+  { value: 'related', label: 'Related' },
+] as const;
+
+function normalizeDepRelation(raw?: string): string {
+  const aliases: Record<string, string> = {
+    blockedby: 'blocked_by',
+    blocked_by: 'blocked_by',
+    blockedbyid: 'blocked_by',
+    depends_on: 'blocked_by',
+    dependson: 'blocked_by',
+    dependency: 'blocked_by',
+    depends: 'blocked_by',
+    blocked: 'blocked_by',
+    parent_of: 'parent',
+    child_of: 'child',
+    relates_to: 'related',
+    related_to: 'related',
+    related: 'related',
+    blocks: 'blocks',
+  };
+  const normalized = (raw || '').trim().toLowerCase().replace(/-/g, '_');
+  return aliases[normalized] ?? normalized;
+}
+
+function renderDependencyOptions(selected?: string): string {
+  const current = normalizeDepRelation(selected);
+  return DEP_REL_OPTIONS
+    .map((option) => `<option value="${option.value}"${option.value === current ? ' selected' : ''}>${option.label}</option>`)
+    .join('');
+}
+
+function depLabel(rel: string): string {
+  const labels: Record<string, string> = {
+    blocked_by: 'Blocked by',
+    blocks: 'Blocks',
+    parent: 'Parent',
+    child: 'Child',
+    related: 'Related',
+  };
+  return labels[normalizeDepRelation(rel)] || rel;
+}
+
+function depTargetId(dep: RawDependency): string {
+  return String(dep.targetId || dep.id || dep.target || '').trim();
+}
+
+function depRelation(dep: RawDependency): string {
+  return normalizeDepRelation(String(dep.rel || dep.relationship || dep.type || dep.kind || 'blocked_by'));
+}
+
 // ═══════════════════════════════════════════════════════════════
 // BULK UPDATE
 // ═══════════════════════════════════════════════════════════════
@@ -543,24 +611,27 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div style="margin-bottom:16px">
           ${deps.length === 0
             ? `<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No dependencies</div>`
-            : deps.map((d: any)=>`<div class="dep-row">
-                <span class="dep-rel">${escHtml(d.rel||d.relationship||'deps')}</span>
-                <span class="dep-id" onclick="window.__app.hideModal('item-detail-modal');window.__app.openItemDetail('${escHtml(d.targetId||d.id||'')}')">
-                  ${escHtml(d.targetId||d.id||'')}
+            : deps.map((dep: RawDependency)=> {
+              const target = depTargetId(dep);
+              const rel = depRelation(dep);
+              const title = dep.targetTitle || dep.title || '';
+            return `<div class="dep-row">
+                <span class="dep-rel">${escHtml(depLabel(rel))}</span>
+                <span class="dep-id" onclick="window.__app.hideModal('item-detail-modal');window.__app.openItemDetail('${escHtml(target)}')">
+                  ${escHtml(target)}
                 </span>
-                <span style="flex:1;color:var(--text-secondary);font-size:12px">${escHtml(d.targetTitle||d.title||'')}</span>
-              </div>`).join('')
+                <span style="flex:1;color:var(--text-secondary);font-size:12px">${escHtml(String(title))}</span>
+                <button class="btn btn-danger btn-sm" onclick="window.__app.removeDep('${escHtml(itemId)}','${escHtml(target)}','${escHtml(rel)}')">Remove</button>
+              </div>`;
+            }).join('')
           }
         </div>
         <hr class="section-divider">
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add Dependency</div>
         <div class="row" style="margin-bottom:8px">
           <input class="form-input flex-1" id="dep-target-id" type="text" placeholder="Item ID (e.g. ${escHtml(state.currentProject?.prefix||'proj')}-5)">
-          <select class="form-select" id="dep-rel" style="width:140px">
-            <option value="depends_on">depends on</option>
-            <option value="blocks">blocks</option>
-            <option value="related_to">related to</option>
-            <option value="duplicates">duplicates</option>
+          <select class="form-select" id="dep-rel" style="width:200px">
+            ${renderDependencyOptions()}
           </select>
         </div>
         <button class="btn btn-primary btn-sm" onclick="window.__app.addDep('${escHtml(itemId)}')">Add Dependency</button>
@@ -859,13 +930,34 @@ export async function addDep(itemId: string): Promise<void> {
   const targetIdEl = document.getElementById('dep-target-id') as HTMLInputElement | null;
   const relEl = document.getElementById('dep-rel') as HTMLSelectElement | null;
   const targetId = targetIdEl?.value?.trim() || '';
-  const rel = relEl?.value || 'depends_on';
+  const rel = normalizeDepRelation(relEl?.value || 'blocked_by');
   if (!targetId) { toast('Target item ID is required','error'); return; }
+  if (targetId === itemId) {
+    toast('A dependency cannot target the same item','error');
+    return;
+  }
   try {
     await api('POST',`/projects/${state.currentProject!.id}/pm/deps/${itemId}`,{targetId,rel});
     toast('Dependency added','success');
     openItemDetail(itemId);
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+}
+
+export async function removeDep(itemId: string, targetId: string, relation: string): Promise<void> {
+  const rel = normalizeDepRelation(relation);
+  if (!targetId) { toast('Target item ID is required','error'); return; }
+  confirmDialog(
+    `Remove dependency ${rel}?`,
+    `This will remove the ${rel} dependency between ${itemId} and ${targetId}.`,
+    async () => {
+      try {
+        await api('DELETE', `/projects/${state.currentProject!.id}/pm/deps/${itemId}`, { targetId, rel });
+        toast('Dependency removed','success');
+        openItemDetail(itemId);
+      } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+    },
+    true
+  );
 }
 
 export async function addLearning(itemId: string): Promise<void> {

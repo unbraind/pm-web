@@ -80,6 +80,10 @@ export function getViewForPath(path: string): string {
 }
 
 export function showView(view: string, pushState = true): void {
+  if (view === 'admin' && !state.user?.is_admin) {
+    history.replaceState({ view: 'projects' }, '', '/');
+    view = 'projects';
+  }
   state.currentView = view;
 
   // Update URL via pushState

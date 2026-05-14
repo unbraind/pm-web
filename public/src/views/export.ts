@@ -91,22 +91,32 @@ export async function importData(file: File): Promise<void> {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    const items = data.items || data;
-    if (!Array.isArray(items) || items.length === 0) { throw new Error('No items found in file'); }
-    let created = 0, failed = 0;
-    for (const item of items.slice(0, 100)) {
-      try {
-        const body: Record<string, string> = { title: item.title || 'Imported item', type: item.type || 'Task', priority: String(item.priority || 3), description: item.description || '' };
-        if (item.tags) body.tags = Array.isArray(item.tags) ? item.tags.join(',') : item.tags;
-        if (item.deadline) body.deadline = item.deadline;
-        if (item.assignee) body.assignee = item.assignee;
-        if (item.sprint) body.sprint = item.sprint;
-        if (item.release) body.release = item.release;
-        await api('POST', `/projects/${state.currentProject.id}/pm/create`, body);
-        created++;
-      } catch(_) { failed++; }
-    }
-    statusEl.innerHTML = `<div style="padding:12px;font-size:13px"><span style="color:var(--status-closed)">✓ Created ${created} items</span>${failed ? `<span style="color:var(--status-blocked);margin-left:12px">✗ ${failed} failed</span>` : ''}</div>`;
+    const rawItems: unknown[] = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
+    if (rawItems.length === 0) { throw new Error('No items found in file'); }
+    if (rawItems.length > 500) { throw new Error(`File contains ${rawItems.length} items — maximum is 500 per import`); }
+
+    const items = rawItems.map((item: unknown) => {
+      const i = item as Record<string, unknown>;
+      const mapped: Record<string, string> = {
+        title: String(i['title'] || 'Imported item'),
+        type: String(i['type'] || 'Task'),
+        priority: String(i['priority'] || 3),
+      };
+      if (i['description']) mapped['description'] = String(i['description']);
+      if (i['status']) mapped['status'] = String(i['status']);
+      if (i['tags']) mapped['tags'] = Array.isArray(i['tags']) ? (i['tags'] as string[]).join(',') : String(i['tags']);
+      if (i['deadline']) mapped['deadline'] = String(i['deadline']);
+      if (i['assignee']) mapped['assignee'] = String(i['assignee']);
+      if (i['sprint']) mapped['sprint'] = String(i['sprint']);
+      if (i['release']) mapped['release'] = String(i['release']);
+      if (i['body']) mapped['body'] = String(i['body']);
+      return mapped;
+    });
+
+    const result = await api('POST', `/projects/${state.currentProject.id}/pm/import`, { items }) as { created?: string[]; errors?: string[]; total?: number };
+    const created = result.created?.length ?? 0;
+    const failed = result.errors?.length ?? 0;
+    statusEl.innerHTML = `<div style="padding:12px;font-size:13px"><span style="color:var(--status-closed)">✓ Imported ${created} items</span>${failed ? `<span style="color:var(--status-blocked);margin-left:12px">✗ ${failed} failed</span>` : ''}</div>`;
     toast(`Imported ${created} items`, 'success');
     if ((window as any).__app?.loadItemsBadge) (window as any).__app.loadItemsBadge();
   } catch(err: unknown) {

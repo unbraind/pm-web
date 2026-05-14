@@ -134,7 +134,7 @@ function normalizeDependencyKind(input: string | undefined): string {
   };
   const normalized = aliases[raw] ?? raw;
   const allowed = new Set(["parent", "child", "blocks", "blocked_by", "related"]);
-  return allowed.has(normalized) ? normalized : "blocked_by";
+  return allowed.has(normalized) ? normalized : normalized;
 }
 
 function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<string, unknown>>>): ProjectGraph {
@@ -319,8 +319,40 @@ function scheduleGraphSync(projectId: string, project: ProjectRef, reason: strin
           type: "graph-sync-failed",
           data: { reason, error: err instanceof Error ? err.message : String(err) },
         });
+        broadcastProjectEvent(projectId, {
+          type: "graph_sync_failed",
+          data: { reason, error: err instanceof Error ? err.message : String(err) },
+        });
       });
   }, 750));
+}
+
+type DependencyEventKind = "dependency-added" | "dependency-removed";
+
+function broadcastDependencyEvent(
+  projectId: string,
+  kind: DependencyEventKind,
+  data: {
+    from: string;
+    to: string;
+    rel: string;
+    userId: string;
+  }
+): void {
+  broadcastProjectEvent(projectId, {
+    type: kind,
+    data,
+  });
+  broadcastProjectEvent(projectId, {
+    type: "item-updated",
+    data: {
+      itemId: data.from,
+      change: kind,
+      target: data.to,
+      rel: data.rel,
+      userId: data.userId,
+    },
+  });
 }
 
 function itemsFromListAll(parsed: unknown): PmItem[] {
@@ -835,8 +867,44 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: result.stderr || "Failed to add dependency" });
     return;
   }
-  scheduleGraphSync(req.params["projectId"]!, project, "dependency-updated");
+  scheduleGraphSync(req.params["projectId"]!, project, "dependency-added");
+  broadcastDependencyEvent(req.params["projectId"]!, "dependency-added", {
+    from: req.params["itemId"]!,
+    to: targetId.trim(),
+    rel: depRel,
+    userId: req.user!.userId,
+  });
   res.status(201).json(result.parsed || { ok: true });
+});
+
+// DELETE /api/projects/:projectId/pm/deps/:itemId
+router.delete("/deps/:itemId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { targetId, rel } = req.body as { targetId?: string; rel?: string };
+  if (!targetId?.trim()) { res.status(400).json({ error: "targetId is required" }); return; }
+
+  const depRel = normalizeDependencyKind(rel || "relates_to");
+  const selector = `id=${targetId.trim()},kind=${depRel}`;
+  const result = runPm({
+    args: ["update", req.params["itemId"]!, "--dep-remove", selector],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to remove dependency" });
+    return;
+  }
+  scheduleGraphSync(req.params["projectId"]!, project, "dependency-removed");
+  broadcastDependencyEvent(req.params["projectId"]!, "dependency-removed", {
+    from: req.params["itemId"]!,
+    to: targetId.trim(),
+    rel: depRel,
+    userId: req.user!.userId,
+  });
+  res.status(200).json({ ok: true, from: req.params["itemId"]!, to: targetId.trim(), type: depRel, result: result.parsed || null });
 });
 
 // POST /api/projects/:projectId/pm/rel — Create a relationship between two items
@@ -861,9 +929,11 @@ router.post("/rel", async (req: AuthRequest, res) => {
     return;
   }
   scheduleGraphSync(req.params["projectId"]!, project, "rel-created");
-  broadcastProjectEvent(req.params["projectId"]!, {
-    type: "item-updated",
-    data: { itemId: from.trim(), change: "dependency-added", target: to.trim(), rel: depRel },
+  broadcastDependencyEvent(req.params["projectId"]!, "dependency-added", {
+    from: from.trim(),
+    to: to.trim(),
+    rel: depRel,
+    userId: req.user!.userId,
   });
   res.status(201).json({ ok: true, from: from.trim(), to: to.trim(), type: depRel });
 });
@@ -891,9 +961,11 @@ router.delete("/rel", async (req: AuthRequest, res) => {
     return;
   }
   scheduleGraphSync(req.params["projectId"]!, project, "rel-removed");
-  broadcastProjectEvent(req.params["projectId"]!, {
-    type: "item-updated",
-    data: { itemId: from.trim(), change: "dependency-removed", target: to.trim(), rel: depRel },
+  broadcastDependencyEvent(req.params["projectId"]!, "dependency-removed", {
+    from: from.trim(),
+    to: to.trim(),
+    rel: depRel,
+    userId: req.user!.userId,
   });
   res.json({ ok: true, from: from.trim(), to: to.trim(), type: depRel, result: result.parsed || null });
 });
@@ -932,8 +1004,27 @@ router.post("/graph/sync", async (req: AuthRequest, res) => {
 
   try {
     const syncResult = await syncProjectGraph(project);
-    res.json({ ok: true, source: "pm-web", projectKey: graphProjectKey(project), ...syncResult });
+    const payload = { reason: "manual-sync", ...syncResult, projectKey: graphProjectKey(project), source: "pm-web" };
+    broadcastProjectEvent(req.params["projectId"]!, {
+      type: "graph-synced",
+      data: payload,
+    });
+    res.json({ ok: true, ...payload });
   } catch (err: unknown) {
+    broadcastProjectEvent(req.params["projectId"]!, {
+      type: "graph-sync-failed",
+      data: {
+        reason: "manual-sync",
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
+    broadcastProjectEvent(req.params["projectId"]!, {
+      type: "graph_sync_failed",
+      data: {
+        reason: "manual-sync",
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
     res.status(400).json({ error: err instanceof Error ? err.message : "Graph sync failed." });
   }
 });

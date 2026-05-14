@@ -72,6 +72,18 @@ CREATE TABLE IF NOT EXISTS pm_admin_audit (
 
 CREATE INDEX IF NOT EXISTS pm_admin_audit_created_at ON pm_admin_audit(created_at DESC);
 
+-- GitHub item links: tracks pm items pushed to GitHub issues for two-way sync
+CREATE TABLE IF NOT EXISTS pm_github_item_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+  pm_item_id TEXT NOT NULL,
+  issue_number INTEGER NOT NULL,
+  issue_url TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (project_id, pm_item_id)
+);
+CREATE INDEX IF NOT EXISTS pm_github_item_links_project ON pm_github_item_links(project_id);
+
 UPDATE pm_users SET is_admin = TRUE, updated_at = NOW() WHERE lower(email) = lower('redacted@example.invalid');
 
 -- Update trigger

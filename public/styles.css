@@ -1645,6 +1645,10 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
 
+/* ── GitHub sync two-panel layout ── */
+.github-sync-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .github-sync-grid { grid-template-columns: 1fr; } }
+
 .row { display: flex; gap: 12px; align-items: center; }
 .flex-1 { flex: 1; }
 
