@@ -774,6 +774,22 @@ body.graph-mode #app-body {
   display: inline-block;
   background: rgba(148,163,184,0.5);
 }
+.legend-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: background 0.12s, border-color 0.12s;
+}
+.legend-tag-btn:hover { background: rgba(255,255,255,0.06); }
+.legend-tag-btn.active { background: rgba(45,212,191,0.10); border-color: rgba(45,212,191,0.35); }
 
 /* Info drawer (right side) */
 .graph-info-drawer {
