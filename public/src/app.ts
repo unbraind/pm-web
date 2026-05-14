@@ -13,6 +13,18 @@ import { renderStatsView } from './views/stats.js';
 import { renderCalendarView, calNav, showDayItems } from './views/calendar.js';
 import { renderContextView } from './views/context.js';
 import { renderGraphView } from './views/graph.js';
+
+// Open graph view focused on a specific node
+async function openGraphAt(nodeId: string): Promise<void> {
+  showView('graph');
+  // Give the graph view time to mount, then set selected node
+  setTimeout(async () => {
+    await renderGraphView();
+    // Select the node via the graph canvas
+    const appw = window as unknown as { __graphSelectNode?: (id: string) => void };
+    appw.__graphSelectNode?.(nodeId);
+  }, 50);
+}
 import { renderSharingView, openShareModal, submitShare, removeShare } from './views/sharing.js';
 import { renderGroupsView, openCreateGroupModal, submitCreateGroup, deleteGroup, openGroupDetail, inviteMember, removeMember } from './views/groups.js';
 import { renderHealthView } from './views/health.js';
@@ -332,6 +344,9 @@ let deferredPrompt: any = null;
   adminFilterProjects,
   adminFilterAudit,
   adminSetPage,
+
+  // Graph navigation
+  openGraphAt,
 };
 
 // ═══════════════════════════════════════════════════════════════

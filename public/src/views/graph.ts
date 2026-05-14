@@ -19,7 +19,7 @@ type GraphFilter = {
   rel:       string;
   direction: 'all' | 'incoming' | 'outgoing' | 'connected';
   scope:     'all' | 'focus';
-  depth:     '1' | '2';
+  depth:     string;  // '1' through '5'
   colorMode: 'status' | 'type' | 'tag';
   depMode:   boolean;
   layout:    LayoutMode;
@@ -31,9 +31,10 @@ let currentGraph: GraphResponse | null = null;
 let selectedNodeId = '';
 const canvasRef: { current: GraphCanvas | null } = { current: null };
 let physicsLabel = 'Pause Physics';
-let infoDrawerOpen = false;
-let relDrawerOpen  = false;
-let filterOpen     = false;
+let infoDrawerOpen   = false;
+let relDrawerOpen    = false;
+let filterOpen       = false;
+let physicsOpen      = false;
 
 let filter: GraphFilter = {
   query:     '',
@@ -748,32 +749,64 @@ function renderGraphShell(data: GraphResponse): string {
         <div class="graph-hud-center">
           <div class="graph-search-hud">
             <span class="graph-search-hud-icon">⌕</span>
-            <input class="graph-search-hud-input" id="graph-filter-query" type="text" placeholder="Search nodes…" value="${escHtml(filter.query)}" autocomplete="off">
+            <input class="graph-search-hud-input" id="graph-filter-query" type="text" placeholder="Search nodes… (Ctrl+F)" value="${escHtml(filter.query)}" autocomplete="off">
           </div>
           ${renderGraphPresets(depRels, isolated)}
         </div>
         <div class="graph-hud-right">
-          <button class="graph-hud-btn" id="graph-refresh" title="Reload graph">↻</button>
-          <button class="graph-hud-btn" id="graph-fit-btn" title="Fit all nodes in view">⊡ Fit</button>
-          <button class="graph-hud-btn" id="graph-physics-btn">${physicsLabel}</button>
-          <button class="graph-hud-btn" id="graph-export-png" title="Export graph as PNG image">⊡ PNG</button>
+          <button class="graph-hud-btn" id="graph-refresh" title="Reload graph data (R)">↻</button>
+          <button class="graph-hud-btn" id="graph-fit-btn" title="Fit all in view (F)">⊡ Fit</button>
+          <button class="graph-hud-btn" id="graph-physics-btn" title="Pause/Resume physics (Space)">${physicsLabel}</button>
+          <button class="graph-hud-btn" id="graph-export-png" title="Export as PNG">PNG</button>
           <div class="graph-hud-select-wrap">
             <select class="graph-hud-select" id="graph-layout-select" title="Layout mode">
               <option value="force"${filter.layout === 'force' ? ' selected' : ''}>Force</option>
               <option value="hierarchical"${filter.layout === 'hierarchical' ? ' selected' : ''}>Hierarchy</option>
             </select>
           </div>
-          <button class="graph-hud-btn${filter.edgeBundling ? ' active' : ''}" id="graph-bundle-btn" title="Toggle edge bundling">⌁ Bundle</button>
-          <button class="graph-hud-btn${filterOpen ? ' active' : ''}" id="graph-filter-toggle" title="Toggle filters">⚙ Filters</button>
-          <button class="graph-hud-btn${infoDrawerOpen ? ' active' : ''}" id="graph-info-toggle" title="Toggle info panel">⊞ Info</button>
+          <button class="graph-hud-btn${filter.edgeBundling ? ' active' : ''}" id="graph-bundle-btn" title="Toggle edge bundling">Bundle</button>
+          <button class="graph-hud-btn${physicsOpen ? ' active' : ''}" id="graph-physics-panel-toggle" title="Physics controls">⚡ Physics</button>
+          <button class="graph-hud-btn${filterOpen ? ' active' : ''}" id="graph-filter-toggle" title="Toggle filters (G)">⚙ Filters</button>
+          <button class="graph-hud-btn${infoDrawerOpen ? ' active' : ''}" id="graph-info-toggle" title="Toggle analysis panel (I)">⊞ Info</button>
           <button class="graph-hud-btn${relDrawerOpen ? ' active' : ''}" id="graph-rel-toggle" title="Show all relationships">⇄ Rels</button>
+        </div>
+      </div>
+
+      <!-- Physics controls panel (bottom-left, above filter overlay) -->
+      <div class="graph-physics-panel${physicsOpen ? ' open' : ''}" id="graph-physics-panel">
+        <div class="graph-filter-overlay-header">
+          <span>⚡ Physics Controls</span>
+          <button class="graph-filter-close-btn" id="graph-physics-close">✕</button>
+        </div>
+        <div class="graph-physics-body">
+          <div class="graph-physics-row">
+            <label>Repulsion</label>
+            <input type="range" id="graph-physics-repulsion" class="graph-physics-slider" min="200" max="8000" step="100" value="2000">
+            <span class="graph-physics-val" id="graph-physics-repulsion-val">2000</span>
+          </div>
+          <div class="graph-physics-row">
+            <label>Link distance</label>
+            <input type="range" id="graph-physics-linkdist" class="graph-physics-slider" min="30" max="400" step="10" value="140">
+            <span class="graph-physics-val" id="graph-physics-linkdist-val">140</span>
+          </div>
+          <div class="graph-physics-row">
+            <label>Link strength</label>
+            <input type="range" id="graph-physics-linkstr" class="graph-physics-slider" min="1" max="30" step="1" value="7">
+            <span class="graph-physics-val" id="graph-physics-linkstr-val">0.065</span>
+          </div>
+          <div class="graph-physics-row">
+            <label>Gravity</label>
+            <input type="range" id="graph-physics-gravity" class="graph-physics-slider" min="0" max="50" step="1" value="10">
+            <span class="graph-physics-val" id="graph-physics-gravity-val">0.010</span>
+          </div>
+          <button class="graph-scope-btn" id="graph-physics-reset" style="margin-top:4px">↺ Reset defaults</button>
         </div>
       </div>
 
       <!-- Filter overlay (bottom-left) -->
       <div class="graph-filter-overlay${filterOpen ? ' open' : ''}" id="graph-filter-overlay">
         <div class="graph-filter-overlay-header">
-          <span>Filters</span>
+          <span>⚙ Filters</span>
           <button class="graph-filter-close-btn" id="graph-filter-close">✕</button>
         </div>
         <div class="graph-filter-overlay-body">
@@ -789,7 +822,7 @@ function renderGraphShell(data: GraphResponse): string {
             <span>Dependency Graph</span>
             <strong>${filter.depMode ? 'On' : 'Off'}</strong>
           </button>
-          <div class="graph-filter-note">${depRels.length} dependency/blocking edges · ${criticalPath.size} critical-path nodes</div>
+          <div class="graph-filter-note">${depRels.length} dep/block edges · ${criticalPath.size} critical-path nodes</div>
           <div class="graph-filter-row">
             <label>Show</label>
             <select id="graph-filter-kind">
@@ -811,12 +844,11 @@ function renderGraphShell(data: GraphResponse): string {
                 .map(([v,l]) => `<option value="${v}"${filter.direction===v?' selected':''}>${l}</option>`).join('')}
             </select>
           </div>
-          <div class="graph-filter-row">
-            <label>Depth</label>
-            <select id="graph-filter-depth" ${selectedNodeId && filter.scope==='focus' ? '' : 'disabled'}>
-              <option value="1"${filter.depth==='1'?' selected':''}>1 hop</option>
-              <option value="2"${filter.depth==='2'?' selected':''}>2 hops</option>
-            </select>
+          <div class="graph-filter-row graph-filter-row-depth">
+            <label>Depth <span id="graph-depth-label" class="graph-depth-val">${filter.depth}</span></label>
+            <input type="range" id="graph-filter-depth" class="graph-depth-slider"
+              min="1" max="5" step="1" value="${filter.depth}"
+              ${selectedNodeId && filter.scope==='focus' ? '' : 'disabled'}>
           </div>
           <button class="graph-scope-btn" id="graph-scope-btn">
             ${filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected'}
@@ -836,6 +868,8 @@ function renderGraphShell(data: GraphResponse): string {
         <span><i class="legend-dot" style="background:#f87171;box-shadow:0 0 4px #f8717166"></i>blocked</span>
         <span><i class="legend-dot" style="background:#64748b"></i>closed</span>
         <span><i class="legend-dot" style="background:#94a3b8"></i>draft</span>
+        <span class="legend-sep">·</span>
+        <span style="color:rgba(148,163,184,0.5);font-size:10px">Tab/↑↓ navigate · F fit · Space pause · Esc deselect</span>
       </div>
 
       <!-- Info drawer (right side) -->
@@ -966,12 +1000,14 @@ function updateInfoPanel(): void {
 }
 
 function updateFilterToolbarState(): void {
-  const dirSel   = document.getElementById('graph-filter-direction') as HTMLSelectElement | null;
-  const depthSel = document.getElementById('graph-filter-depth') as HTMLSelectElement | null;
-  const scopeBtn = document.getElementById('graph-scope-btn');
-  if (dirSel)   dirSel.disabled   = !selectedNodeId;
-  if (depthSel) depthSel.disabled = !(selectedNodeId && filter.scope === 'focus');
-  if (scopeBtn) scopeBtn.textContent = filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected';
+  const dirSel    = document.getElementById('graph-filter-direction') as HTMLSelectElement | null;
+  const depthSldr = document.getElementById('graph-filter-depth') as HTMLInputElement | null;
+  const depthLbl  = document.getElementById('graph-depth-label');
+  const scopeBtn  = document.getElementById('graph-scope-btn');
+  if (dirSel)    dirSel.disabled    = !selectedNodeId;
+  if (depthSldr) { depthSldr.disabled = !(selectedNodeId && filter.scope === 'focus'); depthSldr.value = filter.depth; }
+  if (depthLbl)  depthLbl.textContent = filter.depth;
+  if (scopeBtn)  scopeBtn.textContent = filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected';
   document.querySelectorAll<HTMLButtonElement>('[data-graph-preset]').forEach((presetBtn) => {
     presetBtn.classList.toggle('active', graphPresetActive(presetBtn.dataset.graphPreset || ''));
   });
@@ -1102,6 +1138,9 @@ function bindHudEvents(): void {
   // Back button
   document.getElementById('graph-back-btn')?.addEventListener('click', () => {
     removeCtxMenu();
+    // Remove graph keyboard handler
+    const kh = (window as unknown as { __graphKeyHandler?: (e: KeyboardEvent) => void }).__graphKeyHandler;
+    if (kh) { document.removeEventListener('keydown', kh); delete (window as unknown as { __graphKeyHandler?: unknown }).__graphKeyHandler; }
     (window as unknown as { __app: { showView(v: string): void } }).__app.showView('items');
   });
 
@@ -1233,11 +1272,79 @@ function bindHudEvents(): void {
   onFilterChange('graph-filter-kind',      'kind',      (el) => (el as HTMLSelectElement).value);
   onFilterChange('graph-filter-rel',       'rel',       (el) => (el as HTMLSelectElement).value);
   onFilterChange('graph-filter-direction', 'direction', (el) => (el as HTMLSelectElement).value);
-  onFilterChange('graph-filter-depth',     'depth',     (el) => (el as HTMLSelectElement).value);
+
+  // Depth slider (range input, not select)
+  const depthSlider = document.getElementById('graph-filter-depth') as HTMLInputElement | null;
+  const depthLabel  = document.getElementById('graph-depth-label');
+  depthSlider?.addEventListener('input', () => {
+    filter = { ...filter, depth: depthSlider.value };
+    if (depthLabel) depthLabel.textContent = depthSlider.value;
+    updateInfoPanel();
+    syncCanvas();
+    updateFilterToolbarState();
+    pushGraphState();
+  });
 
   // All filter changes push URL state
   document.querySelectorAll('#graph-filter-overlay select').forEach((sel) => {
     sel.addEventListener('change', () => pushGraphState());
+  });
+
+  // Physics panel toggle
+  document.getElementById('graph-physics-panel-toggle')?.addEventListener('click', () => {
+    physicsOpen = !physicsOpen;
+    document.getElementById('graph-physics-panel')?.classList.toggle('open', physicsOpen);
+    document.getElementById('graph-physics-panel-toggle')?.classList.toggle('active', physicsOpen);
+    if (physicsOpen && canvasRef.current) {
+      const params = canvasRef.current.getPhysicsParams();
+      const repEl  = document.getElementById('graph-physics-repulsion') as HTMLInputElement | null;
+      const ldEl   = document.getElementById('graph-physics-linkdist') as HTMLInputElement | null;
+      const lsEl   = document.getElementById('graph-physics-linkstr') as HTMLInputElement | null;
+      const gEl    = document.getElementById('graph-physics-gravity') as HTMLInputElement | null;
+      if (repEl) { repEl.value = String(params.repulsion); }
+      if (ldEl)  { ldEl.value  = String(params.linkDistance); }
+      if (lsEl)  { lsEl.value  = String(Math.round(params.linkStrength * 100)); }
+      if (gEl)   { gEl.value   = String(Math.round(params.centerForce * 1000)); }
+    }
+  });
+  document.getElementById('graph-physics-close')?.addEventListener('click', () => {
+    physicsOpen = false;
+    document.getElementById('graph-physics-panel')?.classList.remove('open');
+    document.getElementById('graph-physics-panel-toggle')?.classList.remove('active');
+  });
+
+  const bindPhysicsSlider = (id: string, valId: string, key: 'repulsion' | 'linkDistance' | 'centerForce' | 'linkStrength', scale: number, decimals: number) => {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    const valEl = document.getElementById(valId);
+    el?.addEventListener('input', () => {
+      const raw = parseFloat(el.value) / scale;
+      if (valEl) valEl.textContent = decimals > 0 ? raw.toFixed(decimals) : String(Math.round(raw * scale));
+      canvasRef.current?.setPhysicsParams({ [key]: raw });
+    });
+  };
+  bindPhysicsSlider('graph-physics-repulsion', 'graph-physics-repulsion-val', 'repulsion',   1,    0);
+  bindPhysicsSlider('graph-physics-linkdist',  'graph-physics-linkdist-val',  'linkDistance',1,    0);
+  bindPhysicsSlider('graph-physics-linkstr',   'graph-physics-linkstr-val',   'linkStrength', 100, 3);
+  bindPhysicsSlider('graph-physics-gravity',   'graph-physics-gravity-val',   'centerForce',  1000, 3);
+
+  document.getElementById('graph-physics-reset')?.addEventListener('click', () => {
+    canvasRef.current?.setPhysicsParams({ repulsion: 2000, linkDistance: 140, linkStrength: 0.065, centerForce: 0.010 });
+    const repEl  = document.getElementById('graph-physics-repulsion') as HTMLInputElement | null;
+    const ldEl   = document.getElementById('graph-physics-linkdist')  as HTMLInputElement | null;
+    const lsEl   = document.getElementById('graph-physics-linkstr')   as HTMLInputElement | null;
+    const gEl    = document.getElementById('graph-physics-gravity')   as HTMLInputElement | null;
+    if (repEl) repEl.value = '2000';
+    if (ldEl)  ldEl.value  = '140';
+    if (lsEl)  lsEl.value  = '7';
+    if (gEl)   gEl.value   = '10';
+    const repValEl = document.getElementById('graph-physics-repulsion-val');
+    const ldValEl  = document.getElementById('graph-physics-linkdist-val');
+    const lsValEl  = document.getElementById('graph-physics-linkstr-val');
+    const gValEl   = document.getElementById('graph-physics-gravity-val');
+    if (repValEl) repValEl.textContent = '2000';
+    if (ldValEl)  ldValEl.textContent  = '140';
+    if (lsValEl)  lsValEl.textContent  = '0.065';
+    if (gValEl)   gValEl.textContent   = '0.010';
   });
 
   document.getElementById('graph-dep-mode-btn')?.addEventListener('click', () => {
@@ -1269,6 +1376,49 @@ function bindHudEvents(): void {
     updateInfoPanel();
     syncCanvas();
   });
+
+  // Global keyboard shortcuts for the graph view
+  const graphKeyHandler = (e: KeyboardEvent) => {
+    const tag = (e.target as HTMLElement).tagName.toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+
+    if (e.code === 'Space' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const paused = canvasRef.current?.togglePhysics() ?? false;
+      physicsLabel = paused ? 'Resume Physics' : 'Pause Physics';
+      const physBtn = document.getElementById('graph-physics-btn');
+      if (physBtn) physBtn.textContent = physicsLabel;
+    }
+    if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      canvasRef.current?.fitView();
+    }
+    if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      canvasRef.current?.destroy();
+      canvasRef.current = null;
+      void renderGraphView();
+    }
+    if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      infoDrawerOpen = !infoDrawerOpen;
+      document.getElementById('graph-info-drawer')?.classList.toggle('open', infoDrawerOpen);
+      document.getElementById('graph-info-toggle')?.classList.toggle('active', infoDrawerOpen);
+    }
+    if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      filterOpen = !filterOpen;
+      document.getElementById('graph-filter-overlay')?.classList.toggle('open', filterOpen);
+      document.getElementById('graph-filter-toggle')?.classList.toggle('active', filterOpen);
+    }
+    if ((e.key === 'f' || e.key === 'F') && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      queryInput?.focus();
+    }
+  };
+  document.addEventListener('keydown', graphKeyHandler);
+  // Store for cleanup on graph exit
+  (window as unknown as { __graphKeyHandler?: (e: KeyboardEvent) => void }).__graphKeyHandler = graphKeyHandler;
 }
 
 // ── URL routing (pushState) ─────────────────────────────────
@@ -1517,4 +1667,105 @@ export async function refreshGraphData(): Promise<void> {
   } catch {
     // Silently ignore — user can hit Refresh manually
   }
+}
+
+// ── Local graph (embedded mini-graph for item detail) ─────────
+
+// Registry of active local graph canvases so they can be cleaned up
+const localGraphRegistry = new Map<string, GraphCanvas>();
+
+export function destroyLocalGraph(containerId: string): void {
+  const existing = localGraphRegistry.get(containerId);
+  if (existing) { existing.destroy(); localGraphRegistry.delete(containerId); }
+}
+
+export async function renderLocalGraph(
+  containerId: string,
+  nodeId: string,
+  depth: number = 2,
+): Promise<void> {
+  const container = document.getElementById(containerId);
+  if (!container || !state.currentProject) return;
+
+  // Cleanup previous instance
+  destroyLocalGraph(containerId);
+  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--text-muted);font-size:12px"><div class="loading-spinner" style="width:16px;height:16px"></div>Loading…</div>';
+
+  // Use cached graph data if available, otherwise fetch
+  let graphData: GraphResponse | null = currentGraph;
+  if (!graphData?.graph?.nodes?.length) {
+    try {
+      graphData = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
+    } catch {
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px">Graph unavailable.</div>';
+      return;
+    }
+  }
+
+  const graph  = graphData.graph || {};
+  const nodes  = graph.nodes || [];
+  const rels   = graph.relationships || [];
+
+  // Get neighborhood
+  const neighborIds = expandedNeighborIds(nodeId, rels, depth);
+  if (neighborIds.size < 2) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;text-align:center">No connections to display.<br><small>Add dependencies or tags to see the local graph.</small></div>';
+    return;
+  }
+
+  const subNodes = nodes.filter((n) => neighborIds.has(n.id));
+  const subRels  = rels.filter((r) => neighborIds.has(r.from) && neighborIds.has(r.to));
+  const deg      = degreeMap(subRels);
+
+  container.innerHTML = '';
+  container.style.position = 'relative';
+  container.style.background = '#080d1a';
+  container.style.borderRadius = '8px';
+  container.style.overflow = 'hidden';
+
+  const canvas = new GraphCanvas(container, {
+    layout: 'force',
+    onSelectNode(id) {
+      if (!id) return;
+      canvas.setSelected(id);
+      // Clicking a neighbor node navigates to its item detail
+      if (id !== nodeId) {
+        const n = nodes.find((nd) => nd.id === id);
+        if (n && isItemNode(n)) {
+          const appw = window as unknown as { __app?: { openItemDetail(id: string): void } };
+          appw.__app?.openItemDetail(id);
+        }
+      }
+    },
+    onOpenNode(id) {
+      const appw = window as unknown as { __app?: { openItemDetail(id: string): void } };
+      appw.__app?.openItemDetail(id);
+    },
+    onContextMenu() { /* no context menu in local graph */ },
+  });
+
+  const canvasNodes: CanvasNode[] = subNodes.map((n) => ({
+    id:     n.id,
+    label:  nodeTitle(n),
+    type:   nodeType(n),
+    status: nodeStatus(n),
+    lane:   nodeLane(n),
+    degree: deg.get(n.id) || 0,
+    tags:   Array.isArray(n.properties?.tags) ? (n.properties.tags as unknown[]).map(String) : [],
+  }));
+  const canvasEdges: CanvasEdge[] = subRels.map((r) => ({ from: r.from, to: r.to, type: r.type }));
+
+  canvas.setData(canvasNodes, canvasEdges);
+  canvas.setSelected(nodeId);
+  canvas.setFilter({
+    visibleNodeIds:    null,
+    selectedId:        nodeId,
+    query:             '',
+    highlightRelTypes: new Set(),
+    colorMode:         'status',
+    colorTag:          '',
+    criticalPathIds:   new Set(),
+  });
+
+  localGraphRegistry.set(containerId, canvas);
 }
