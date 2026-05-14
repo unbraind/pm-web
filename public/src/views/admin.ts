@@ -2,7 +2,7 @@ import { api } from '../api.js';
 import type { AdminGroup, AdminProject, AdminUser } from '../types.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
-import { confirmDialog } from '../components/modals.js';
+import { confirmDialog, createModal, showModal, hideModal } from '../components/modals.js';
 
 type AdminOverview = {
   users: AdminUser[];
@@ -15,6 +15,8 @@ type AdminOverview = {
     sharedProjects: number;
     groups: number;
   };
+  serverVersion?: string;
+  uptimeSeconds?: number;
 };
 
 type AuditEntry = {
@@ -121,6 +123,13 @@ function renderGroupCard(group: AdminGroup): string {
     </div>`;
 }
 
+function formatUptime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 function renderAdmin(data: AdminOverview): string {
   // Filter users
   const filteredUsers = data.users.filter(u =>
@@ -163,11 +172,14 @@ function renderAdmin(data: AdminOverview): string {
     </div>
 
     <div class="admin-stats">
-      <div class="stat-card"><div class="stat-value">${data.stats.users}</div><div class="stat-label">Users</div></div>
-      <div class="stat-card"><div class="stat-value">${data.stats.admins}</div><div class="stat-label">Admins</div></div>
-      <div class="stat-card"><div class="stat-value">${data.stats.projects}</div><div class="stat-label">Projects</div></div>
-      <div class="stat-card"><div class="stat-value">${data.stats.sharedProjects}</div><div class="stat-label">Shares</div></div>
-      <div class="stat-card"><div class="stat-value">${data.stats.groups}</div><div class="stat-label">Groups</div></div>
+      <div class="stat-card"><div class="stat-icon">◉</div><div class="stat-value">${data.stats.users}</div><div class="stat-label">Users</div></div>
+      <div class="stat-card"><div class="stat-icon">◇</div><div class="stat-value">${data.stats.admins}</div><div class="stat-label">Admins</div></div>
+      <div class="stat-card"><div class="stat-icon">⊞</div><div class="stat-value">${data.stats.projects}</div><div class="stat-label">Projects</div></div>
+      <div class="stat-card"><div class="stat-icon">⇄</div><div class="stat-value">${data.stats.sharedProjects}</div><div class="stat-label">Shares</div></div>
+      <div class="stat-card"><div class="stat-icon">◈</div><div class="stat-value">${data.stats.groups}</div><div class="stat-label">Groups</div></div>
+      ${data.uptimeSeconds !== undefined ? `<div class="stat-card"><div class="stat-icon">◎</div><div class="stat-value">${formatUptime(data.uptimeSeconds)}</div><div class="stat-label">Uptime</div></div>` : ''}
+      ${data.serverVersion ? `<div class="stat-card"><div class="stat-icon">◫</div><div class="stat-value">v${escHtml(data.serverVersion)}</div><div class="stat-label">Version</div></div>` : ''}
+      <div class="stat-card"><div class="stat-icon">◷</div><div class="stat-value" style="font-size:12px">${new Date().toLocaleTimeString()}</div><div class="stat-label">Last Refreshed</div></div>
     </div>
 
     <div class="tabs" role="tablist">
@@ -214,7 +226,7 @@ function renderAdmin(data: AdminOverview): string {
     <section class="admin-panel" aria-label="Groups management">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
         <div class="graph-panel-title" style="margin-bottom:0">Groups</div>
-        <button class="btn btn-primary btn-sm" onclick="window.__app.adminCreateGroupPrompt()" aria-label="Create new group">+ New Group</button>
+        <button class="btn btn-primary btn-sm" onclick="window.__app.adminCreateGroup()" aria-label="Create new group">+ New Group</button>
       </div>
       <div class="admin-grid-list">
         ${data.groups.length === 0
@@ -361,9 +373,8 @@ export async function adminDeleteGroup(groupId: string, groupName: string): Prom
   );
 }
 
-export function adminCreateGroupPrompt(): void {
+export function adminCreateGroup(): void {
   const id = 'admin-create-group-' + Date.now();
-  const { createModal, showModal } = require_or_import_modals();
   createModal(id, 'Create Group', `
     <div class="form-group">
       <label class="form-label" for="admin-group-name">Group Name</label>
@@ -384,57 +395,10 @@ export function adminCreateGroupPrompt(): void {
     try {
       await api('POST', '/admin/groups', { name, description: desc });
       toast('Group created', 'success');
-      const { hideModal } = require_or_import_modals();
       hideModal(id);
       await renderAdminView();
     } catch (err: unknown) {
       if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = 'block'; }
     }
   });
-}
-
-// Avoid circular import at module level — lazy load modals helpers
-function require_or_import_modals() {
-  // We can't use dynamic import easily here (sync context), so inline the references
-  // These are already imported at top level via confirmDialog
-  return {
-    createModal: (id: string, title: string, body: string, footer: string) => {
-      const { createModal: cm } = require_modals_sync();
-      return cm(id, title, body, footer);
-    },
-    showModal: (id: string) => {
-      document.getElementById(id) && ((document.getElementById(id) as HTMLElement).style.display = 'flex');
-    },
-    hideModal: (id: string) => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    },
-  };
-}
-
-function require_modals_sync() {
-  // Use the imported createModal from top-level import
-  return { createModal: _createModalImpl };
-}
-
-function _createModalImpl(id: string, title: string, bodyHtml: string, footerHtml: string): HTMLElement {
-  let existing = document.getElementById(id);
-  if (existing) existing.remove();
-  const el = document.createElement('div');
-  el.id = id;
-  el.className = 'modal-backdrop';
-  el.style.display = 'none';
-  el.innerHTML = `
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title">${escHtml(title)}</div>
-        <button class="modal-close" onclick="window.__app.hideModal('${id}')" aria-label="Close dialog">&times;</button>
-      </div>
-      <div class="modal-body">${bodyHtml}</div>
-      ${footerHtml ? `<div class="modal-footer">${footerHtml}</div>` : ''}
-    </div>`;
-  el.addEventListener('click', e => { if (e.target === el) el.style.display = 'none'; });
-  const container = document.getElementById('modal-container');
-  if (container) container.appendChild(el);
-  return el;
 }

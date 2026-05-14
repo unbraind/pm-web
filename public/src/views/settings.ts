@@ -7,6 +7,17 @@ import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { confirmDialog } from '../components/modals.js';
 
+function avatarInitial(name: string): string {
+  return (name.trim()[0] || '?').toUpperCase();
+}
+
+function avatarBg(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) { hash = (hash * 31 + seed.charCodeAt(i)) >>> 0; }
+  const hue = hash % 360;
+  return `hsl(${hue},55%,45%)`;
+}
+
 export function renderSettingsView(): void {
   const el = document.getElementById('content-settings');
   if (!el) return;
@@ -22,6 +33,13 @@ export function renderSettingsView(): void {
       <div class="card">
         <div class="card-header"><div class="card-title">Profile</div></div>
         <div class="card-body">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+            <div style="width:64px;height:64px;border-radius:50%;background:${avatarBg(u.email||u.display_name||'?')};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;flex-shrink:0;user-select:none" aria-hidden="true">${escHtml(avatarInitial(u.display_name||u.email||'?'))}</div>
+            <div>
+              <div style="font-weight:600;font-size:16px">${escHtml(u.display_name||u.email||'')}</div>
+              <div style="font-size:13px;color:var(--text-muted)">${escHtml(u.email||'')}</div>
+            </div>
+          </div>
           <div class="form-group">
             <label class="form-label" for="settings-display-name">Display Name</label>
             <input class="form-input" id="settings-display-name" type="text" value="${escHtml(u.display_name||u.email||'')}" placeholder="Your display name" aria-label="Display name">

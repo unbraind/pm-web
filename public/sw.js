@@ -34,6 +34,7 @@ const STATIC_ASSETS = [
   '/src/views/dedupe.js',
   '/src/views/export.js',
   '/src/views/github.js',
+  '/src/views/graph-canvas.js',
   '/src/views/graph.js',
   '/src/views/groups.js',
   '/src/views/guide.js',
