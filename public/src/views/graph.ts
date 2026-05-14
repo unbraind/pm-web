@@ -1188,6 +1188,11 @@ function bindHudEvents(): void {
       syncCanvas();
       updateFilterToolbarState();
       updateLegend();
+      // Sync color-mode select to reflect new colorMode (for Filters panel)
+      const colorSel = document.getElementById('graph-color-mode') as HTMLSelectElement | null;
+      if (colorSel) colorSel.value = filter.colorMode;
+      // Fit and reheat after preset switch so the new layout settles cleanly
+      setTimeout(() => { canvasRef.current?.reheat(); canvasRef.current?.fitView(); }, 80);
       document.querySelectorAll<HTMLButtonElement>('[data-graph-preset]').forEach((presetBtn) => {
         presetBtn.classList.toggle('active', graphPresetActive(presetBtn.dataset.graphPreset || ''));
       });
@@ -1378,6 +1383,13 @@ function bindHudEvents(): void {
     filter = { ...filter, colorMode: (e.target as HTMLSelectElement).value as GraphFilter['colorMode'] };
     syncCanvas();
     updateLegend();
+    // If switching to tag mode, reheat so clustering force takes effect
+    if (filter.colorMode === 'tag') canvasRef.current?.reheat();
+    // Sync preset buttons
+    document.querySelectorAll<HTMLButtonElement>('[data-graph-preset]').forEach((b) => {
+      b.classList.toggle('active', graphPresetActive(b.dataset.graphPreset || ''));
+    });
+    pushGraphState();
   });
 
   // Search input
