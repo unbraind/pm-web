@@ -1065,10 +1065,25 @@ function updateLegend(): void {
       <span><i class="legend-dot legend-external"></i>External</span>
       <span class="legend-sep">·</span>
       ${[...tagMap.entries()].slice(0, 6).map(([t, c]) =>
-        `<span><i class="legend-dot" style="background:${c};box-shadow:0 0 4px ${c}66"></i>#${escHtml(t)}</span>`
+        `<button class="legend-tag-btn" data-legend-tag="${escHtml(t)}" style="border-color:${c}33;color:${c}"><i class="legend-dot" style="background:${c};box-shadow:0 0 4px ${c}66;flex-shrink:0"></i>#${escHtml(t)}</button>`
       ).join('')}
       ${tagMap.size === 0 ? '<span style="color:var(--text-muted);font-size:11px">No tags</span>' : ''}
     `;
+    // Bind tag filter clicks
+    legend.querySelectorAll<HTMLButtonElement>('[data-legend-tag]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.dataset.legendTag || '';
+        const isActive = filter.query === tag;
+        filter = { ...filter, query: isActive ? '' : tag };
+        const inp = document.getElementById('graph-filter-query') as HTMLInputElement | null;
+        if (inp) inp.value = filter.query;
+        syncCanvas();
+        updateInfoPanel();
+        legend.querySelectorAll<HTMLButtonElement>('[data-legend-tag]').forEach((b) => {
+          b.classList.toggle('active', !isActive && b.dataset.legendTag === tag);
+        });
+      });
+    });
   } else if (filter.depMode) {
     legend.innerHTML = `
       <span><i class="legend-dot legend-item"></i>Item</span>
