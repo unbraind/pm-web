@@ -261,6 +261,9 @@ export class GraphCanvas {
   // Pulse animation (selected node)
   private pulseT = 0;
 
+  // Animated dash offset for cluster borders
+  private dashOffset = 0;
+
   // Keyboard nav: ordered list of visible node ids
   private navOrder: string[] = [];
 
@@ -838,7 +841,9 @@ export class GraphCanvas {
     }
 
     // Pulse timer
-    this.pulseT = (this.pulseT + dtS * 2.5) % (Math.PI * 2);
+    this.pulseT   = (this.pulseT   + dtS * 2.5) % (Math.PI * 2);
+    // Cluster border animation
+    this.dashOffset = (this.dashOffset - dtS * 8) % 18;
   }
 
   // ── Draw ───────────────────────────────────────────────────
@@ -1038,15 +1043,17 @@ export class GraphCanvas {
         ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.055)`;
         ctx.fill();
 
-        // Glowing border
-        ctx.shadowColor = color;
-        ctx.shadowBlur  = 12;
-        ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.25)`;
-        ctx.lineWidth   = 1.5;
+        // Animated glowing border (marching ants)
+        ctx.shadowColor    = color;
+        ctx.shadowBlur     = 12;
+        ctx.strokeStyle    = `rgba(${rgb.r},${rgb.g},${rgb.b},0.28)`;
+        ctx.lineWidth      = 1.5;
         ctx.setLineDash([5, 4]);
+        ctx.lineDashOffset = this.dashOffset;
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.shadowBlur  = 0;
+        ctx.lineDashOffset = 0;
+        ctx.shadowBlur     = 0;
 
         // Tag label near centroid top edge
         if (this.scale > 0.18) {
@@ -1316,12 +1323,28 @@ export class GraphCanvas {
 
     ctx.save();
     ctx.globalAlpha = opacity * (isActive ? 0.95 : 0.42);
-    ctx.strokeStyle = isActive ? color : EDGE_DEFAULT;
     ctx.lineWidth   = isActive ? (onCritPath && !highlighted ? 2.0 : 1.8) : 1.1;
 
     if (isActive) {
+      // Gradient stroke from source to target node color for highlighted edges
+      if (!onCritPath && s.color !== t.color) {
+        const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+        const sRgb = hexToRgb(s.color);
+        const tRgb = hexToRgb(t.color);
+        if (sRgb && tRgb) {
+          grad.addColorStop(0, `rgba(${sRgb.r},${sRgb.g},${sRgb.b},0.9)`);
+          grad.addColorStop(1, `rgba(${tRgb.r},${tRgb.g},${tRgb.b},0.9)`);
+          ctx.strokeStyle = grad;
+        } else {
+          ctx.strokeStyle = color;
+        }
+      } else {
+        ctx.strokeStyle = color;
+      }
       ctx.shadowColor = color;
       ctx.shadowBlur  = onCritPath ? 8 : 5;
+    } else {
+      ctx.strokeStyle = EDGE_DEFAULT;
     }
 
     // Draw straight line or quadratic bezier
