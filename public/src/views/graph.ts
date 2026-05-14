@@ -38,7 +38,7 @@ let physicsOpen      = false;
 
 let filter: GraphFilter = {
   query:     '',
-  kind:      'all',
+  kind:      'items',
   rel:       'all',
   direction: 'all',
   scope:     'all',
@@ -680,11 +680,11 @@ function renderRelList(data: GraphResponse): string {
 
 function graphPresetActive(id: string): boolean {
   if (id === 'knowledge') {
-    return !filter.depMode && filter.kind === 'all' && filter.rel === 'all' && filter.scope === 'all' && filter.colorMode === 'status';
+    return !filter.depMode && (filter.kind === 'items' || filter.kind === 'all') && filter.rel === 'all' && filter.scope === 'all' && filter.colorMode === 'status';
   }
   if (id === 'dependency') return filter.depMode;
   if (id === 'unlinked') return filter.kind === 'unlinked';
-  if (id === 'metadata') return filter.kind === 'facets';
+  if (id === 'metadata') return filter.kind === 'facets' || (filter.kind === 'all' && !filter.depMode && filter.colorMode !== 'tag');
   if (id === 'critical') return filter.depMode && filter.scope === 'focus' && Boolean(selectedNodeId);
   if (id === 'tags') return !filter.depMode && filter.colorMode === 'tag';
   return false;
@@ -1166,14 +1166,14 @@ function bindHudEvents(): void {
     btn.addEventListener('click', () => {
       const preset = btn.dataset.graphPreset || 'knowledge';
       if (preset === 'knowledge') {
-        filter = { ...filter, depMode: false, kind: 'all', rel: 'all', scope: 'all', direction: 'all' };
+        filter = { ...filter, depMode: false, kind: 'items', rel: 'all', scope: 'all', direction: 'all', colorMode: 'status' };
       } else if (preset === 'dependency') {
         filter = { ...filter, depMode: true, kind: 'items', rel: 'all', scope: 'all', direction: 'all', layout: 'hierarchical' };
         canvasRef.current?.setLayout('hierarchical');
       } else if (preset === 'unlinked') {
         filter = { ...filter, depMode: false, kind: 'unlinked', rel: 'all', scope: 'all', direction: 'all' };
       } else if (preset === 'metadata') {
-        filter = { ...filter, depMode: false, kind: 'facets', rel: 'all', scope: 'all', direction: 'all', colorMode: 'type' };
+        filter = { ...filter, depMode: false, kind: 'all', rel: 'all', scope: 'all', direction: 'all', colorMode: 'type' };
       } else if (preset === 'critical') {
         const nextSelected = selectedNodeId || [...criticalPath][0] || '';
         selectedNodeId = nextSelected;
@@ -1640,7 +1640,7 @@ export async function renderGraphView(): Promise<void> {
     selectedItemCache = null;
     if (!urlStateRestored) {
       selectedNodeId = '';
-      filter = { query: '', kind: 'all', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false, layout: 'force', edgeBundling: false };
+      filter = { query: '', kind: 'items', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false, layout: 'force', edgeBundling: false };
     }
     criticalPath = computeCriticalPath(currentGraph.graph?.relationships ?? []);
 
