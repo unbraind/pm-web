@@ -1643,8 +1643,16 @@ export class GraphCanvas {
       document.body.appendChild(tt);
     }
 
-    const degText  = `${hov.degree} link${hov.degree !== 1 ? 's' : ''}`;
+    const degText   = `${hov.degree} link${hov.degree !== 1 ? 's' : ''}`;
     const laneLabel = hov.lane === 'facet' ? 'Metadata' : hov.lane === 'external' ? 'External' : 'Item';
+    const tags      = hov.tags ?? [];
+    const tagHtml   = tags.length > 0
+      ? `<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:3px;">${
+          tags.slice(0, 6).map((t) => {
+            const tc = this.tagColorMap.get(t) ?? '#64748b';
+            return `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:${hexAlpha(tc, 0.18)};color:${tc};border:1px solid ${hexAlpha(tc, 0.35)}">#${escHtml(t)}</span>`;
+          }).join('')
+        }</div>` : '';
 
     tt.innerHTML = `
       <div style="font-weight:600;font-size:13px;margin-bottom:5px;color:#f1f5f9;word-break:break-all;display:flex;align-items:center;gap:7px;">
@@ -1658,6 +1666,7 @@ export class GraphCanvas {
         <span style="color:#64748b;">Lane</span><span>${escHtml(laneLabel)}</span>
         <span style="color:#64748b;">Links</span><span>${escHtml(degText)}</span>
       </div>
+      ${tagHtml}
       <div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.1);color:#475569;font-size:10px;">
         Click to select · Double-click to open
       </div>
