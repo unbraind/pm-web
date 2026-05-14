@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { state } from '../state.js';
 import type { AdminGroup, AdminProject, AdminUser } from '../types.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
@@ -22,13 +23,55 @@ type AdminOverview = {
 type AuditEntry = {
   id?: string;
   action?: string;
+  actor_id?: string;
+  actor_email?: string;
+  actor_name?: string;
+  description?: string;
+  created_at?: string;
   userId?: string;
   userEmail?: string;
   target?: string;
   details?: string;
-  created_at?: string;
   timestamp?: string;
 };
+
+type AuditApiEntry = {
+  id?: string;
+  action?: string;
+  actor_email?: string;
+  actor_name?: string;
+  description?: string;
+  created_at?: string;
+};
+
+type AdminAuditResponse = {
+  entries: AuditApiEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+function getAuditActor(entry: AuditEntry): string {
+  return entry.actor_name || entry.actor_email || entry.userId || entry.userEmail || '—';
+}
+
+function normalizeAuditEntries(entries: AuditApiEntry[]): AuditEntry[] {
+  return entries.map((entry) => ({
+    id: entry.id,
+    action: entry.action,
+    actor_email: entry.actor_email,
+    actor_name: entry.actor_name,
+    description: entry.description,
+    created_at: entry.created_at,
+  }));
+}
+
+function getAuditDescription(entry: AuditEntry): string {
+  if (entry.description) return entry.description;
+  if (entry.userId && entry.action) return `${entry.action} by ${entry.userId}`;
+  if (entry.action) return entry.action;
+  return '—';
+}
 
 let adminData: AdminOverview | null = null;
 let adminTab: 'users' | 'projects' | 'groups' | 'audit' = 'users';
@@ -38,6 +81,17 @@ let auditEntries: AuditEntry[] = [];
 let auditFilter = '';
 let currentPage = 1;
 const PAGE_SIZE = 20;
+let adminAuditTotal = 0;
+
+async function loadAuditData(page = 1): Promise<void> {
+  if (!state.user?.is_admin) return;
+  const safePage = Math.max(1, page);
+  const offset = (safePage - 1) * PAGE_SIZE;
+  const data = await api('GET', `/admin/audit?limit=${PAGE_SIZE}&offset=${offset}`) as AdminAuditResponse;
+  auditEntries = normalizeAuditEntries(data.entries || []);
+  adminAuditTotal = data.total || 0;
+  currentPage = safePage;
+}
 
 function paginate<T>(items: T[], page: number): T[] {
   const start = (page - 1) * PAGE_SIZE;
@@ -101,12 +155,14 @@ function renderProjectRow(project: AdminProject): string {
 }
 
 function renderAuditRow(entry: AuditEntry): string {
+  const actor = getAuditActor(entry);
+  const details = getAuditDescription(entry);
   return `
     <tr>
-      <td style="white-space:nowrap">${escHtml(entry.userEmail || entry.userId || '—')}</td>
+      <td style="white-space:nowrap">${escHtml(actor)}</td>
       <td><span class="admin-pill">${escHtml(entry.action || '—')}</span></td>
       <td>${escHtml(entry.target || '—')}</td>
-      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis">${escHtml(entry.details || '—')}</td>
+      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis">${escHtml(details || '—')}</td>
       <td style="white-space:nowrap">${entry.created_at ? new Date(entry.created_at).toLocaleString() : entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '—'}</td>
     </tr>`;
 }
@@ -151,13 +207,13 @@ function renderAdmin(data: AdminOverview): string {
     (e.target || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
     (e.details || '').toLowerCase().includes(auditFilter.toLowerCase())
   );
-  const pagedAudit = paginate(filteredAudit, adminTab === 'audit' ? currentPage : 1);
+  const pagedAudit = adminTab === 'audit' ? filteredAudit : [];
 
   const tabs = [
     { id: 'users' as const, label: 'Users', count: filteredUsers.length },
     { id: 'projects' as const, label: 'Projects', count: filteredProjects.length },
     { id: 'groups' as const, label: 'Groups', count: data.groups.length },
-    { id: 'audit' as const, label: 'Audit Log', count: filteredAudit.length },
+    { id: 'audit' as const, label: 'Audit Log', count: adminAuditTotal },
   ];
 
   return `
@@ -252,16 +308,23 @@ function renderAdmin(data: AdminOverview): string {
           <tbody>${pagedAudit.map(renderAuditRow).join('')}</tbody>
         </table>
       </div>
-      ${renderPagination(filteredAudit.length, currentPage, 'audit')}`}
+      ${renderPagination(adminAuditTotal, currentPage, 'audit')}`}
     </section>` : ''}`;
 }
 
 export async function renderAdminView(): Promise<void> {
   const el = document.getElementById('content-admin');
   if (!el) return;
+  if (!state.user?.is_admin) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Admin access is required to view this page.</div></div>`;
+    return;
+  }
   el.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   try {
     adminData = await api('GET', '/admin/overview') as AdminOverview;
+    if (adminTab === 'audit') {
+      await loadAuditData(currentPage);
+    }
     el.innerHTML = renderAdmin(adminData);
   } catch (err: unknown) {
     el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Admin failed: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
@@ -281,9 +344,19 @@ export async function setAdminRole(userId: string, isAdmin: boolean): Promise<vo
 export function adminSwitchTab(tab: 'users' | 'projects' | 'groups' | 'audit'): void {
   adminTab = tab;
   currentPage = 1;
-  if (adminData) {
-    const el = document.getElementById('content-admin');
-    if (el) el.innerHTML = renderAdmin(adminData);
+  if (tab === 'audit') {
+    void loadAuditData(1).then(() => {
+      const el = document.getElementById('content-admin');
+      if (adminData && el) el.innerHTML = renderAdmin(adminData);
+    }).catch((err: unknown) => {
+      const el = document.getElementById('content-admin');
+      if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Failed to load audit log: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    });
+    return;
+  }
+  const el = document.getElementById('content-admin');
+  if (el && adminData) {
+    el.innerHTML = renderAdmin(adminData);
   }
 }
 
@@ -310,16 +383,43 @@ export function adminFilterAudit(filter: string): void {
   currentPage = 1;
   if (adminData) {
     const el = document.getElementById('content-admin');
+    if (adminTab === 'audit') {
+      void loadAuditData(1).then(() => {
+        if (el) el.innerHTML = renderAdmin(adminData as AdminOverview);
+      }).catch((err: unknown) => {
+        if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Failed to reload audit log: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+      });
+      return;
+    }
     if (el) el.innerHTML = renderAdmin(adminData);
   }
 }
 
-export function adminSetPage(page: number): void {
-  currentPage = page;
-  if (adminData) {
+export async function adminSetPage(page: number): Promise<void> {
+  if (page < 1) return;
+  if (!adminData) return;
+
+  if (adminTab === 'audit') {
+    await loadAuditData(page);
     const el = document.getElementById('content-admin');
     if (el) el.innerHTML = renderAdmin(adminData);
+    return;
   }
+
+  const userFilterLower = userFilter.toLowerCase();
+  const projectFilterLower = projectFilter.toLowerCase();
+  const filtered = adminTab === 'users'
+    ? adminData.users.filter((u) =>
+      !userFilter || u.email.toLowerCase().includes(userFilterLower) || (u.display_name || '').toLowerCase().includes(userFilterLower)
+    )
+    : adminData.projects.filter((p) =>
+      !projectFilter || p.name.toLowerCase().includes(projectFilterLower) || p.slug.toLowerCase().includes(projectFilterLower) || p.owner_email.toLowerCase().includes(projectFilterLower)
+    );
+  const totalPages = Math.max(1, Math.ceil((filtered?.length || 0) / PAGE_SIZE));
+  currentPage = Math.min(page, totalPages);
+
+  const el = document.getElementById('content-admin');
+  if (el) el.innerHTML = renderAdmin(adminData);
 }
 
 export async function adminDeleteUser(userId: string, userName: string): Promise<void> {

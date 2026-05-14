@@ -5,7 +5,7 @@ import { state } from './state.js';
 import { api } from './api.js';
 import { showView } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
-import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate } from './views/items.js';
+import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate } from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
 import { renderActivityView } from './views/activity.js';
 import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSearch } from './views/search.js';
@@ -31,7 +31,7 @@ import { renderHealthView } from './views/health.js';
 import { renderDedupeAuditView } from './views/dedupe.js';
 import { renderValidateView } from './views/validate.js';
 import { renderSettingsView, saveProfile, changePassword, saveGitHubToken, clearGitHubToken } from './views/settings.js';
-import { renderGitHubView, linkGitHubRepo, unlinkGitHubRepo, loadGitHubIssues, selectAllIssues, importGitHubIssues } from './views/github.js';
+import { renderGitHubView, linkGitHubRepo, unlinkGitHubRepo, loadGitHubIssues, selectAllIssues, importGitHubIssues, loadItemsForPush, selectAllPushItems, pushItemsToGitHub, updateGitHubIssue } from './views/github.js';
 import { renderExportView, exportData, importData } from './views/export.js';
 import { renderNormalizeView, applyNormalize } from './views/normalize.js';
 import { renderSharedView } from './views/shared.js';
@@ -255,6 +255,7 @@ let deferredPrompt: any = null;
   startItem,
   pauseItem,
   addDep,
+  removeDep,
   addLearning,
   addTest,
   addFileLink,
@@ -304,6 +305,10 @@ let deferredPrompt: any = null;
   loadGitHubIssues,
   selectAllIssues,
   importGitHubIssues,
+  loadItemsForPush,
+  selectAllPushItems,
+  pushItemsToGitHub,
+  updateGitHubIssue,
 
   // Export
   exportData,
@@ -422,17 +427,41 @@ function connectSSE(projectId: string, attempt = 0): void {
         refreshView();
       }
     };
+    const graphSyncFailed = (evt: MessageEvent) => {
+      let reason = '';
+      let detail = '';
+      try {
+        const payload = JSON.parse(evt.data) as { reason?: string; error?: string };
+        reason = payload.reason || '';
+        detail = payload.error || '';
+      } catch {
+        detail = evt.data;
+      }
+      const message = detail
+        ? `Graph sync failed${reason ? ` (${reason})` : ''}: ${detail}`
+        : `Graph sync failed${reason ? ` (${reason})` : ''}`;
+      toast(message, 'error');
+    };
 
     source.addEventListener('item-created', refreshGraphData);
     source.addEventListener('item-updated', refreshGraphData);
+    source.addEventListener('dependency-added', refreshGraphData);
+    source.addEventListener('dependency-removed', refreshGraphData);
+    source.addEventListener('dependency_added', refreshGraphData);
+    source.addEventListener('dependency_removed', refreshGraphData);
+    source.addEventListener('items-imported', refreshGraphData);
+    source.addEventListener('items-bulk-updated', refreshGraphData);
     source.addEventListener('item-closed', refreshGraphData);
     source.addEventListener('item-deleted', refreshGraphData);
     source.addEventListener('graph-synced', refreshGraph);
     source.addEventListener('item_created', refreshGraphData);
     source.addEventListener('item_updated', refreshGraphData);
+    source.addEventListener('item_bulk_updated', refreshGraphData);
     source.addEventListener('item_closed', refreshGraphData);
     source.addEventListener('item_deleted', refreshGraphData);
     source.addEventListener('graph_synced', refreshGraph);
+    source.addEventListener('graph-sync-failed', graphSyncFailed);
+    source.addEventListener('graph_sync_failed', graphSyncFailed);
     source.addEventListener('update', refreshView);
 
     source.onerror = () => {
@@ -480,7 +509,7 @@ export async function bootApp(): Promise<void> {
 async function handleLaunchAction(): Promise<void> {
   const action = new URLSearchParams(window.location.search).get('action');
 
-  if (action === 'new-project') {
+    if (action === 'new-project') {
     showView('projects');
     showModal('create-project-modal');
     setTimeout(() => document.getElementById('cp-name')?.focus(), 50);
@@ -511,6 +540,12 @@ async function handleLaunchAction(): Promise<void> {
   const projectRequired = view !== 'projects' && view !== 'settings' && view !== 'admin' && view !== 'shared' && view !== 'groups' && view !== 'guide';
   if (projectRequired && !state.currentProject && state.projects[0]) {
     await onProjectSelect(state.projects[0].id);
+  }
+  if (view === 'admin' && !state.user?.is_admin) {
+    history.replaceState({ view: 'projects' }, '', '/');
+    toast('Admin access is required to open this view', 'error');
+    showView('projects');
+    return;
   }
   if (projectRequired && !state.currentProject) {
     showView('projects');

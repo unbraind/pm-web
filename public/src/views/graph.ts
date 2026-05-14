@@ -5,6 +5,7 @@ import { api } from '../api.js';
 import { state } from '../state.js';
 import type { GraphNode, GraphRelationship, ProjectGraph } from '../types.js';
 import { escHtml } from '../utils.js';
+import { toast } from '../components/toast.js';
 import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode } from './graph-canvas.js';
 
 type GraphResponse = {
@@ -31,6 +32,7 @@ let currentGraph: GraphResponse | null = null;
 let selectedNodeId = '';
 const canvasRef: { current: GraphCanvas | null } = { current: null };
 let physicsLabel = 'Pause Physics';
+let graphSyncInFlight = false;
 let infoDrawerOpen   = false;
 let relDrawerOpen    = false;
 let filterOpen       = false;
@@ -195,14 +197,28 @@ function directNeighborIds(nodeId: string, rels: GraphRelationship[]): Set<strin
   return ids;
 }
 
-function expandedNeighborIds(nodeId: string, rels: GraphRelationship[], depth: number): Set<string> {
+function walkDirectionMatch(rel: GraphRelationship, nodeId: string, dir: GraphFilter['direction']): string[] {
+  if (dir === 'incoming') {
+    return rel.to === nodeId ? [rel.from] : [];
+  }
+  if (dir === 'outgoing') {
+    return rel.from === nodeId ? [rel.to] : [];
+  }
+  return rel.to === nodeId ? [rel.from] : rel.from === nodeId ? [rel.to] : [];
+}
+
+function expandedNeighborIds(nodeId: string, rels: GraphRelationship[], depth: number, direction: GraphFilter['direction']): Set<string> {
   const ids = new Set<string>([nodeId]);
   let frontier = new Set<string>([nodeId]);
+  const dir = direction === 'all' ? 'connected' : direction;
   for (let d = 0; d < depth; d++) {
     const next = new Set<string>();
     for (const r of rels) {
-      if (frontier.has(r.from) && !ids.has(r.to))   next.add(r.to);
-      if (frontier.has(r.to)   && !ids.has(r.from)) next.add(r.from);
+      for (const f of frontier) {
+        for (const n of walkDirectionMatch(r, f, dir)) {
+          if (!ids.has(n)) next.add(n);
+        }
+      }
     }
     for (const id of next) ids.add(id);
     frontier = next;
@@ -311,7 +327,7 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRel
   }
 
   const focusIds = selectedNodeId && filter.scope === 'focus'
-    ? expandedNeighborIds(selectedNodeId, rels, Number(filter.depth))
+    ? expandedNeighborIds(selectedNodeId, rels, Number(filter.depth), filter.direction)
     : null;
 
   const q = filter.query.trim().toLowerCase();
@@ -484,7 +500,7 @@ function renderPaths(
   if (!node) return '<div class="graph-node-empty">Select a node to explore paths.</div>';
   const oneHop = directNeighborIds(node.id, rels);
   oneHop.delete(node.id);
-  const twoHop = expandedNeighborIds(node.id, rels, 2);
+  const twoHop = expandedNeighborIds(node.id, rels, 2, 'connected');
   for (const id of oneHop) twoHop.delete(id);
   twoHop.delete(node.id);
 
@@ -763,6 +779,7 @@ function renderGraphShell(data: GraphResponse): string {
         </div>
         <div class="graph-hud-right">
           <button class="graph-hud-btn" id="graph-refresh" title="Reload graph data (R)">↻</button>
+          <button class="graph-hud-btn" id="graph-sync-btn" title="Run backend graph sync (S)">${graphSyncInFlight ? 'Syncing…' : '⧉ Sync'}</button>
           <button class="graph-hud-btn" id="graph-fit-btn" title="Fit all in view (F)">⊡ Fit</button>
           <button class="graph-hud-btn" id="graph-physics-btn" title="Pause/Resume physics (Space)">${physicsLabel}</button>
           <button class="graph-hud-btn" id="graph-export-png" title="Export as PNG">PNG</button>
@@ -1178,11 +1195,38 @@ function bindHudEvents(): void {
     (window as unknown as { __app: { showView(v: string): void } }).__app.showView('items');
   });
 
+  const runGraphSync = async (): Promise<void> => {
+    if (!state.currentProject || graphSyncInFlight) return;
+    const syncBtn = document.getElementById('graph-sync-btn') as HTMLButtonElement | null;
+    graphSyncInFlight = true;
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.textContent = 'Syncing…';
+    }
+    try {
+      await api('POST', `/projects/${state.currentProject.id}/pm/graph/sync`);
+      toast('Graph sync completed', 'success');
+      await renderGraphView();
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : String(err), 'error');
+    } finally {
+      graphSyncInFlight = false;
+      if (syncBtn) {
+        syncBtn.disabled = false;
+        syncBtn.textContent = '⧉ Sync';
+      }
+    }
+  };
+
   // Refresh
   document.getElementById('graph-refresh')?.addEventListener('click', () => {
     canvasRef.current?.destroy();
     canvasRef.current = null;
     void renderGraphView();
+  });
+
+  document.getElementById('graph-sync-btn')?.addEventListener('click', () => {
+    void runGraphSync();
   });
 
   // Fit view
@@ -1449,6 +1493,10 @@ function bindHudEvents(): void {
       canvasRef.current = null;
       void renderGraphView();
     }
+    if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      void runGraphSync();
+    }
     if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       infoDrawerOpen = !infoDrawerOpen;
@@ -1565,7 +1613,7 @@ function showAddDependencyModal(): void {
     }
 
     try {
-      await api('POST', `/projects/${state.currentProject!.id}/pm/rel`, { from: fromId, to: toId, type: relType });
+      await api('POST', `/projects/${state.currentProject!.id}/pm/deps/${fromId}`, { targetId: toId, rel: relType });
       document.getElementById('graph-add-dep-modal')?.remove();
       // Refresh graph
       canvasRef.current?.destroy();
@@ -1629,7 +1677,7 @@ function showRemoveDependencyModal(): void {
     }
 
     try {
-      await api('DELETE', `/projects/${state.currentProject!.id}/pm/rel`, { from: rel.from, to: rel.to, type: rel.type });
+      await api('DELETE', `/projects/${state.currentProject!.id}/pm/deps/${rel.from}`, { targetId: rel.to, rel: rel.type });
       document.getElementById('graph-remove-dep-modal')?.remove();
       // Refresh graph
       canvasRef.current?.destroy();
@@ -1757,7 +1805,7 @@ export async function renderLocalGraph(
   const rels   = graph.relationships || [];
 
   // Get neighborhood
-  const neighborIds = expandedNeighborIds(nodeId, rels, depth);
+  const neighborIds = expandedNeighborIds(nodeId, rels, depth, 'connected');
   if (neighborIds.size < 2) {
     container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;text-align:center">No connections to display.<br><small>Add dependencies or tags to see the local graph.</small></div>';
     return;

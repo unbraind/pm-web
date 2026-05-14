@@ -28,6 +28,7 @@ export interface GraphCanvasOptions {
   onSelectNode(id: string | null): void;
   onOpenNode(id: string): void;
   onContextMenu(id: string, x: number, y: number): void;
+  onContextMenuEdge?(fromId: string, toId: string, type: string, x: number, y: number): void;
   layout?: LayoutMode;
   edgeBundling?: boolean;
   onExportPng?(canvas: HTMLCanvasElement): void;
@@ -111,6 +112,25 @@ interface SimNode extends CanvasNode {
 interface SimEdge extends CanvasEdge {
   source: SimNode;
   target: SimNode;
+}
+
+interface EdgeGeometry {
+  source: SimNode;
+  target: SimNode;
+  isBiDir: boolean;
+  key: string;
+  cpX: number;
+  cpY: number;
+  len: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  labelX: number;
+  labelY: number;
+  hitDistBase: number;
+  midpointX: number;
+  midpointY: number;
 }
 
 /** A particle flowing along an edge */
@@ -248,6 +268,7 @@ export class GraphCanvas {
   private downY = 0;
   private hasMoved = false;
   private hoveredId: string | null = null;
+  private hoveredEdge: SimEdge | null = null;
 
   // Touch
   private touchDist = 0;
@@ -310,12 +331,14 @@ export class GraphCanvas {
   private onSelectNode:   (id: string | null) => void;
   private onOpenNode:     (id: string) => void;
   private onContextMenu:  (id: string, x: number, y: number) => void;
+  private onContextMenuEdge?: (fromId: string, toId: string, type: string, x: number, y: number) => void;
   private onExportPng:    ((canvas: HTMLCanvasElement) => void) | undefined;
 
   constructor(container: HTMLElement, options: GraphCanvasOptions) {
     this.onSelectNode  = options.onSelectNode;
     this.onOpenNode    = options.onOpenNode;
     this.onContextMenu = options.onContextMenu;
+    this.onContextMenuEdge = options.onContextMenuEdge;
     this.onExportPng   = options.onExportPng;
     this.layout        = options.layout ?? 'force';
     this.edgeBundling  = options.edgeBundling ?? false;
@@ -394,6 +417,10 @@ export class GraphCanvas {
     if (this.layout === 'hierarchical') {
       this.applyHierarchicalLayout();
     }
+
+    this.hoveredId = null;
+    this.hoveredEdge = null;
+    this.hideTooltip();
   }
 
   setFilter(filter: Partial<CanvasFilter>): void {
@@ -627,6 +654,131 @@ export class GraphCanvas {
       }
     }
     return result;
+  }
+
+  private isSameEdge(a: SimEdge, b: SimEdge | null): boolean {
+    if (!b) return false;
+    return a.source.id === b.source.id && a.target.id === b.target.id && a.type === b.type;
+  }
+
+  private buildEdgeGeometry(edge: SimEdge): EdgeGeometry {
+    const { source: s, target: t } = edge;
+
+    const dx = t.x - s.x || 0.01;
+    const dy = t.y - s.y || 0.01;
+    const len = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+    const nx = dx / len;
+    const ny = dy / len;
+    const px = -dy / len;
+    const py = dx / len;
+
+    const key = [s.id, t.id].sort().join('|');
+    const isBiDir = this.biDirPairs.has(key);
+    const curveDir = isBiDir ? (s.id < t.id ? 1 : -1) : 0;
+    const cpOffset = isBiDir ? len * 0.22 * curveDir : 0;
+    const cpX = (s.x + t.x) / 2 + px * cpOffset;
+    const cpY = (s.y + t.y) / 2 + py * cpOffset;
+
+    const x1 = s.x + nx * s.r;
+    const y1 = s.y + ny * s.r;
+    const x2 = t.x - nx * (t.r + 7);
+    const y2 = t.y - ny * (t.r + 7);
+
+    const qX = (u: number): number => (1 - u) * (1 - u) * x1 + 2 * (1 - u) * u * cpX + u * u * x2;
+    const qY = (u: number): number => (1 - u) * (1 - u) * y1 + 2 * (1 - u) * u * cpY + u * u * y2;
+
+    const midU = 0.5;
+    const labelX = isBiDir ? qX(midU) : (x1 + x2) / 2;
+    const labelY = isBiDir ? qY(midU) : (y1 + y2) / 2;
+
+    return {
+      source: s,
+      target: t,
+      isBiDir,
+      key,
+      cpX,
+      cpY,
+      len,
+      x1,
+      y1,
+      x2,
+      y2,
+      labelX,
+      labelY,
+      hitDistBase: 0.8 + (9 / Math.max(this.scale, 0.1)),
+      midpointX: (x1 + x2) / 2,
+      midpointY: (y1 + y2) / 2,
+    };
+  }
+
+  private distancePointToSegmentSq(
+    px: number,
+    py: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+  ): number {
+    const vx = x2 - x1;
+    const vy = y2 - y1;
+    const wx = px - x1;
+    const wy = py - y1;
+    const lenSq = vx * vx + vy * vy;
+    if (lenSq < 1e-9) {
+      return wx * wx + wy * wy;
+    }
+    let t = (wx * vx + wy * vy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    const cx = x1 + vx * t;
+    const cy = y1 + vy * t;
+    const dx = px - cx;
+    const dy = py - cy;
+    return dx * dx + dy * dy;
+  }
+
+  private distancePointToQuadraticSq(
+    px: number,
+    py: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    cpx: number,
+    cpy: number,
+  ): number {
+    let best = Infinity;
+    const steps = 24;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const omt = 1 - t;
+      const x = omt * omt * x1 + 2 * omt * t * cpx + t * t * x2;
+      const y = omt * omt * y1 + 2 * omt * t * cpy + t * t * y2;
+      const dx = px - x;
+      const dy = py - y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < best) best = d2;
+    }
+    return best;
+  }
+
+  private hitTestEdge(wx: number, wy: number): SimEdge | null {
+    const vis = this.filter.visibleNodeIds;
+    let best: SimEdge | null = null;
+    let bestDist = Infinity;
+
+    for (const edge of this.edges) {
+      if (vis && !vis.has(edge.source.id) && !vis.has(edge.target.id)) continue;
+      const g = this.buildEdgeGeometry(edge);
+      const d2 = g.isBiDir
+        ? this.distancePointToQuadraticSq(wx, wy, g.x1, g.y1, g.x2, g.y2, g.cpX, g.cpY)
+        : this.distancePointToSegmentSq(wx, wy, g.x1, g.y1, g.x2, g.y2);
+      if (d2 <= g.hitDistBase * g.hitDistBase && d2 < bestDist) {
+        best = edge;
+        bestDist = d2;
+      }
+    }
+
+    return best;
   }
 
   destroy(): void {
@@ -1613,8 +1765,9 @@ export class GraphCanvas {
   // ── Tooltip (DOM) ──────────────────────────────────────────
 
   private renderTooltip(): void {
-    const hov = this.hoveredId ? this.nodeMap.get(this.hoveredId) : null;
-    if (!hov || hov.id === this.filter.selectedId) {
+    const edge = this.hoveredEdge;
+    const node = this.hoveredId ? this.nodeMap.get(this.hoveredId) : null;
+    if ((!edge && (!node || node.id === this.filter.selectedId))) {
       this.hideTooltip();
       return;
     }
@@ -1643,41 +1796,81 @@ export class GraphCanvas {
       document.body.appendChild(tt);
     }
 
-    const degText   = `${hov.degree} link${hov.degree !== 1 ? 's' : ''}`;
-    const laneLabel = hov.lane === 'facet' ? 'Metadata' : hov.lane === 'external' ? 'External' : 'Item';
-    const tags      = hov.tags ?? [];
-    const tagHtml   = tags.length > 0
-      ? `<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:3px;">${
-          tags.slice(0, 6).map((t) => {
-            const tc = this.tagColorMap.get(t) ?? '#64748b';
-            return `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:${hexAlpha(tc, 0.18)};color:${tc};border:1px solid ${hexAlpha(tc, 0.35)}">#${escHtml(t)}</span>`;
-          }).join('')
-        }</div>` : '';
+    const tooltipData = edge ? {
+      kind: 'edge' as const,
+      edge,
+      fromNode: this.nodeMap.get(edge.source.id),
+      toNode: this.nodeMap.get(edge.target.id),
+    } : {
+      kind: 'node' as const,
+      node,
+    };
 
-    tt.innerHTML = `
-      <div style="font-weight:600;font-size:13px;margin-bottom:5px;color:#f1f5f9;word-break:break-all;display:flex;align-items:center;gap:7px;">
-        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${hov.color};flex-shrink:0;box-shadow:0 0 6px ${hov.color}"></span>
-        ${escHtml(hov.label || hov.id)}
-      </div>
-      <div style="color:#475569;font-size:10px;font-family:'JetBrains Mono',monospace;margin-bottom:8px;word-break:break-all;">${escHtml(hov.id)}</div>
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px;">
-        <span style="color:#64748b;">Type</span><span>${escHtml(hov.type)}</span>
-        <span style="color:#64748b;">Status</span><span style="color:${hov.color};">${escHtml(hov.status)}</span>
-        <span style="color:#64748b;">Lane</span><span>${escHtml(laneLabel)}</span>
-        <span style="color:#64748b;">Links</span><span>${escHtml(degText)}</span>
-      </div>
-      ${tagHtml}
-      <div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.1);color:#475569;font-size:10px;">
-        Click to select · Double-click to open
-      </div>
-    `;
+    if (tooltipData.kind === 'edge') {
+      const fromName = tooltipData.fromNode?.label || tooltipData.fromNode?.id || tooltipData.edge.source.id;
+      const toName = tooltipData.toNode?.label || tooltipData.toNode?.id || tooltipData.edge.target.id;
+      const directionText = `${escHtml(fromName)} → ${escHtml(toName)}`;
+
+      tt.innerHTML = `
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:#f1f5f9;word-break:break-all;display:flex;align-items:center;gap:7px;">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${getEdgeColor(tooltipData.edge.type)};flex-shrink:0;box-shadow:0 0 6px ${getEdgeColor(tooltipData.edge.type)}"></span>
+          Relationship
+        </div>
+        <div style="color:#94a3b8;font-size:10px;letter-spacing:0.02em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">${tooltipData.edge.type}</div>
+        <div style="font-size:11px;line-height:1.4;color:#e2e8f0;"><strong style="color:#64748b">From:</strong> ${directionText}</div>
+        <div style="margin-top:4px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.1);color:#475569;font-size:10px;">
+          Right-click for actions
+        </div>
+      `;
+    } else {
+      const n = tooltipData.node;
+      if (!n) { return; }
+
+      const degText   = `${n.degree} link${n.degree !== 1 ? 's' : ''}`;
+      const laneLabel = n.lane === 'facet' ? 'Metadata' : n.lane === 'external' ? 'External' : 'Item';
+      const tags      = n.tags ?? [];
+      const tagHtml   = tags.length > 0
+        ? `<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:3px;">${
+            tags.slice(0, 6).map((t) => {
+              const tc = this.tagColorMap.get(t) ?? '#64748b';
+              return `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:${hexAlpha(tc, 0.18)};color:${tc};border:1px solid ${hexAlpha(tc, 0.35)}">#${escHtml(t)}</span>`;
+            }).join('')
+          }</div>` : '';
+
+      tt.innerHTML = `
+        <div style="font-weight:600;font-size:13px;margin-bottom:5px;color:#f1f5f9;word-break:break-all;display:flex;align-items:center;gap:7px;">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${n.color};flex-shrink:0;box-shadow:0 0 6px ${n.color}"></span>
+          ${escHtml(n.label || n.id)}
+        </div>
+        <div style="color:#475569;font-size:10px;font-family:'JetBrains Mono',monospace;margin-bottom:8px;word-break:break-all;">${escHtml(n.id)}</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px;">
+          <span style="color:#64748b;">Type</span><span>${escHtml(n.type)}</span>
+          <span style="color:#64748b;">Status</span><span style="color:${n.color};">${escHtml(n.status)}</span>
+          <span style="color:#64748b;">Lane</span><span>${escHtml(laneLabel)}</span>
+          <span style="color:#64748b;">Links</span><span>${escHtml(degText)}</span>
+        </div>
+        ${tagHtml}
+        <div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.1);color:#475569;font-size:10px;">
+          Click to select · Double-click to open
+        </div>
+      `;
+    }
     tt.style.display = 'block';
     tt.style.opacity = '1';
 
     // Position near cursor / node
     const rect = this.canvas.getBoundingClientRect();
-    const sx   = hov.x * this.scale + this.tx + rect.left;
-    const sy   = hov.y * this.scale + this.ty + rect.top;
+    let rawX: number, rawY: number;
+    if (tooltipData.kind === 'node' && tooltipData.node) {
+      rawX = tooltipData.node.x; rawY = tooltipData.node.y;
+    } else if (tooltipData.kind === 'edge' && tooltipData.fromNode && tooltipData.toNode) {
+      rawX = (tooltipData.fromNode.x + tooltipData.toNode.x) / 2;
+      rawY = (tooltipData.fromNode.y + tooltipData.toNode.y) / 2;
+    } else {
+      rawX = 0; rawY = 0;
+    }
+    const sx   = rawX * this.scale + this.tx + rect.left;
+    const sy   = rawY * this.scale + this.ty + rect.top;
     const ttW  = 250;
     const left = Math.min(sx + 18, window.innerWidth - ttW - 10);
     const top  = Math.max(sy - 70, 8);

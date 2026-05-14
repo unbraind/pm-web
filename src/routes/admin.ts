@@ -6,6 +6,16 @@ const router = Router();
 
 router.use(requireAuth);
 
+async function getAdminCount(): Promise<number> {
+  const result = await pool.query(`SELECT COUNT(*)::int AS count FROM pm_users WHERE is_admin = TRUE`);
+  return result.rows[0]?.count ?? 0;
+}
+
+async function isUserAdmin(userId: string): Promise<boolean> {
+  const result = await pool.query(`SELECT is_admin FROM pm_users WHERE id = $1`, [userId]);
+  return result.rows[0]?.is_admin === true;
+}
+
 async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await pool.query(`SELECT is_admin FROM pm_users WHERE id = $1`, [req.user!.userId]);
@@ -77,6 +87,15 @@ router.patch("/users/:id", async (req: AuthRequest, res) => {
   }
 
   try {
+    const currentAdmin = await isUserAdmin(req.params.id);
+    if (currentAdmin && !isAdmin) {
+      const adminCount = await getAdminCount();
+      if (adminCount <= 1) {
+        res.status(409).json({ error: "Cannot remove the last admin user." });
+        return;
+      }
+    }
+
     const result = await pool.query(
       `UPDATE pm_users SET is_admin = $1, updated_at = NOW()
        WHERE id = $2
@@ -98,6 +117,14 @@ router.patch("/users/:id", async (req: AuthRequest, res) => {
 // DELETE /admin/users/:id — Delete a user and all their data
 router.delete("/users/:id", async (req: AuthRequest, res) => {
   try {
+    if (await isUserAdmin(req.params.id)) {
+      const adminCount = await getAdminCount();
+      if (adminCount <= 1) {
+        res.status(409).json({ error: "Cannot delete the last admin user." });
+        return;
+      }
+    }
+
     const result = await pool.query(`DELETE FROM pm_users WHERE id = $1 RETURNING id, email`, [req.params.id]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: "User not found" });
