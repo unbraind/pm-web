@@ -680,20 +680,28 @@ function renderRelList(data: GraphResponse): string {
 
 function graphPresetActive(id: string): boolean {
   if (id === 'knowledge') {
-    return !filter.depMode && filter.kind === 'all' && filter.rel === 'all' && filter.scope === 'all';
+    return !filter.depMode && filter.kind === 'all' && filter.rel === 'all' && filter.scope === 'all' && filter.colorMode === 'status';
   }
   if (id === 'dependency') return filter.depMode;
   if (id === 'unlinked') return filter.kind === 'unlinked';
   if (id === 'metadata') return filter.kind === 'facets';
   if (id === 'critical') return filter.depMode && filter.scope === 'focus' && Boolean(selectedNodeId);
+  if (id === 'tags') return !filter.depMode && filter.colorMode === 'tag';
   return false;
 }
 
 function renderGraphPresets(depRels: GraphRelationship[], isolatedCount: number): string {
+  const allNodes = currentGraph?.graph?.nodes ?? [];
+  const tagSet = new Set<string>();
+  for (const n of allNodes) {
+    const tags = Array.isArray(n.properties?.tags) ? (n.properties.tags as unknown[]).map(String) : [];
+    for (const t of tags) tagSet.add(t);
+  }
   const presets = [
-    { id: 'knowledge', label: 'Knowledge', value: String((currentGraph?.graph?.nodes ?? []).length) },
+    { id: 'knowledge', label: 'Knowledge', value: String(allNodes.length) },
     { id: 'dependency', label: 'Dependencies', value: String(depRels.length) },
     { id: 'unlinked', label: 'Unlinked', value: String(isolatedCount) },
+    { id: 'tags', label: 'Tags', value: tagSet.size ? String(tagSet.size) : 'none' },
     { id: 'metadata', label: 'Metadata', value: 'facets' },
     { id: 'critical', label: 'Critical', value: criticalPath.size ? String(criticalPath.size) : 'pick node' },
   ];
@@ -1172,6 +1180,9 @@ function bindHudEvents(): void {
         filter = { ...filter, depMode: true, kind: 'items', rel: 'all', scope: nextSelected ? 'focus' : 'all', depth: '2', direction: 'connected', layout: 'hierarchical' };
         canvasRef.current?.setLayout('hierarchical');
         canvasRef.current?.setSelected(nextSelected || null);
+      } else if (preset === 'tags') {
+        filter = { ...filter, depMode: false, kind: 'all', rel: 'all', scope: 'all', direction: 'all', colorMode: 'tag', layout: 'force' };
+        canvasRef.current?.setLayout('force');
       }
       updateInfoPanel();
       syncCanvas();

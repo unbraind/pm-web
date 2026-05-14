@@ -169,6 +169,31 @@ function easeOutQuart(t: number): number {
   return 1 - Math.pow(1 - t, 4);
 }
 
+/** Graham scan convex hull — returns hull in counter-clockwise order */
+function convexHull(pts: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> {
+  if (pts.length < 3) return pts.slice();
+  let bot = pts[0];
+  for (const p of pts) if (p.y < bot.y || (p.y === bot.y && p.x < bot.x)) bot = p;
+  const rest = pts.filter((p) => p !== bot);
+  rest.sort((a, b) => {
+    const ax = a.x - bot.x, ay = a.y - bot.y;
+    const bx = b.x - bot.x, by = b.y - bot.y;
+    const cross = ax * by - ay * bx;
+    if (Math.abs(cross) < 1e-9) return (ax * ax + ay * ay) - (bx * bx + by * by);
+    return -cross;
+  });
+  const hull: Array<{ x: number; y: number }> = [bot];
+  for (const p of rest) {
+    while (hull.length >= 2) {
+      const a = hull[hull.length - 2], b = hull[hull.length - 1];
+      if ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= 0) hull.pop();
+      else break;
+    }
+    hull.push(p);
+  }
+  return hull;
+}
+
 // escHtml is imported from utils.ts in graph.ts — canvas uses its own for DOM tooltip only
 function escHtml(s: string): string {
   return s
@@ -756,6 +781,32 @@ export class GraphCanvas {
       nd.vy -= nd.y * this.CENTER * a;
     }
 
+    // Tag centroid grouping — nodes sharing a tag gently attract each other
+    if (this.filter.colorMode === 'tag' && this.tagColorMap.size > 0) {
+      const tagCent = new Map<string, { x: number; y: number; count: number }>();
+      for (const nd of nodes) {
+        for (const t of nd.tags ?? []) {
+          if (!this.tagColorMap.has(t)) continue;
+          let c = tagCent.get(t);
+          if (!c) { c = { x: 0, y: 0, count: 0 }; tagCent.set(t, c); }
+          c.x += nd.x; c.y += nd.y; c.count++;
+          break;
+        }
+      }
+      const cs = 0.004 * a;
+      for (const nd of nodes) {
+        for (const t of nd.tags ?? []) {
+          if (!this.tagColorMap.has(t)) continue;
+          const c = tagCent.get(t);
+          if (c && c.count >= 2) {
+            nd.vx += (c.x / c.count - nd.x) * cs;
+            nd.vy += (c.y / c.count - nd.y) * cs;
+          }
+          break;
+        }
+      }
+    }
+
     // Integrate
     for (const nd of nodes) {
       nd.vx *= this.VEL_DECAY;
@@ -865,6 +916,9 @@ export class GraphCanvas {
     );
     for (const n of vpNodes) visibleNodesSet.add(n.id);
 
+    // Tag cluster blobs (behind everything)
+    this.drawTagClusters(visibleNodesSet);
+
     // Edges (back) — cull edges whose endpoints are both off-screen
     if (this.edgeBundling && !sel) {
       this.drawBundledEdges(nodeOpacity, isHighlightedEdge, visibleNodesSet);
@@ -895,6 +949,123 @@ export class GraphCanvas {
 
     // DOM tooltip
     this.renderTooltip();
+  }
+
+  // ── Tag cluster blobs ─────────────────────────────────────
+
+  private drawTagClusters(visibleNodesSet: Set<string>): void {
+    if (this.filter.colorMode !== 'tag' || this.tagColorMap.size === 0) return;
+
+    const vis = this.filter.visibleNodeIds;
+    const { ctx } = this;
+
+    // Group visible, on-screen nodes by their primary tag
+    const tagGroups = new Map<string, SimNode[]>();
+    for (const nd of this.nodes) {
+      if (!visibleNodesSet.has(nd.id)) continue;
+      if (vis && !vis.has(nd.id)) continue;
+      for (const t of nd.tags ?? []) {
+        if (this.tagColorMap.has(t)) {
+          if (!tagGroups.has(t)) tagGroups.set(t, []);
+          tagGroups.get(t)!.push(nd);
+          break;
+        }
+      }
+    }
+
+    for (const [tag, nodes] of tagGroups) {
+      if (nodes.length < 1) continue;
+      const color = this.tagColorMap.get(tag)!;
+      const rgb = hexToRgb(color);
+      if (!rgb) continue;
+
+      ctx.save();
+      ctx.globalAlpha = 1;
+
+      const PAD = 30;
+
+      if (nodes.length === 1) {
+        // Single node: radial halo
+        const nd = nodes[0];
+        const haloR = nd.r + PAD * 1.2;
+        const grad = ctx.createRadialGradient(nd.x, nd.y, nd.r, nd.x, nd.y, haloR);
+        grad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.10)`);
+        grad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
+        ctx.beginPath();
+        ctx.arc(nd.x, nd.y, haloR, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      } else {
+        // Multiple nodes: smooth convex hull blob
+        const hull = convexHull(nodes.map((nd) => ({ x: nd.x, y: nd.y })));
+        if (hull.length < 2) {
+          ctx.restore();
+          continue;
+        }
+
+        // Expand hull points outward from centroid
+        const centX = hull.reduce((s, p) => s + p.x, 0) / hull.length;
+        const centY = hull.reduce((s, p) => s + p.y, 0) / hull.length;
+        const expanded = hull.map((p) => {
+          const dx = p.x - centX;
+          const dy = p.y - centY;
+          const d = Math.sqrt(dx * dx + dy * dy) || 1;
+          return { x: p.x + (dx / d) * PAD, y: p.y + (dy / d) * PAD };
+        });
+
+        const hn = expanded.length;
+
+        // Draw blob using catmull-rom spline through expanded hull
+        ctx.beginPath();
+        for (let i = 0; i < hn; i++) {
+          const p0 = expanded[(i - 1 + hn) % hn];
+          const p1 = expanded[i];
+          const p2 = expanded[(i + 1) % hn];
+          const p3 = expanded[(i + 2) % hn];
+
+          if (i === 0) {
+            ctx.moveTo((p0.x + p1.x) / 2, (p0.y + p1.y) / 2);
+          }
+          const cp1x = p1.x + (p2.x - p0.x) / 6;
+          const cp1y = p1.y + (p2.y - p0.y) / 6;
+          const cp2x = p2.x - (p3.x - p1.x) / 6;
+          const cp2y = p2.y - (p3.y - p1.y) / 6;
+          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+        }
+        ctx.closePath();
+
+        // Translucent fill
+        ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.055)`;
+        ctx.fill();
+
+        // Glowing border
+        ctx.shadowColor = color;
+        ctx.shadowBlur  = 12;
+        ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.25)`;
+        ctx.lineWidth   = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur  = 0;
+
+        // Tag label near centroid top edge
+        if (this.scale > 0.18) {
+          const topY = Math.min(...expanded.map((p) => p.y)) - 6;
+          ctx.font        = `600 10px Inter, sans-serif`;
+          ctx.textAlign   = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.globalAlpha  = 0.55;
+          ctx.fillStyle    = color;
+          ctx.shadowColor  = color;
+          ctx.shadowBlur   = 4;
+          ctx.fillText(`#${tag}`, centX, topY);
+          ctx.shadowBlur   = 0;
+          ctx.globalAlpha  = 1;
+        }
+      }
+
+      ctx.restore();
+    }
   }
 
   // ── Dot grid ───────────────────────────────────────────────
