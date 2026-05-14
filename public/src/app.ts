@@ -39,7 +39,7 @@ import { renderTemplatesView, createFromTemplate } from './views/templates.js';
 import { renderCommentsAuditView } from './views/comments-audit.js';
 import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject } from './views/config.js';
 import { renderGuideView } from './views/guide.js';
-import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage } from './views/admin.js';
+import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage, adminCreateGroup } from './views/admin.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -344,6 +344,7 @@ let deferredPrompt: any = null;
   adminFilterProjects,
   adminFilterAudit,
   adminSetPage,
+  adminCreateGroup,
 
   // Graph navigation
   openGraphAt,
@@ -596,12 +597,53 @@ async function init(): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS
 // ═══════════════════════════════════════════════════════════════
+let lastKeyTime = 0;
+let lastKey = '';
+
+function openShortcutsHelp(): void {
+  createModal('shortcuts-help-modal', 'Keyboard Shortcuts', `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tbody>
+        ${[
+          ['?', 'Show this shortcuts help'],
+          ['Ctrl+K', 'Open global search'],
+          ['/', 'Focus search (from any view)'],
+          ['Esc', 'Close modal / go back'],
+          ['n / c', 'Create new item'],
+          ['a', 'Go to Activity view'],
+          ['g i', 'Go to Items view'],
+          ['g g', 'Go to Graph view'],
+          ['g s', 'Go to Search view'],
+          ['g c', 'Go to Calendar view'],
+        ].map(([key, desc]) => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 12px 8px 0;white-space:nowrap"><kbd style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--accent)">${escHtml(key)}</kbd></td>
+            <td style="padding:8px 0;color:var(--text-secondary)">${escHtml(desc)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`, '');
+  showModal('shortcuts-help-modal');
+}
+
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault();
     if (state.user) openSearchModal();
   }
   if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA' || (e.target as HTMLElement).tagName === 'SELECT') return;
+
+  // Multi-key sequences (e.g. g i, g g)
+  const now = Date.now();
+  if (lastKey === 'g' && now - lastKeyTime < 1500) {
+    if (e.key === 'i') { e.preventDefault(); if (state.currentProject) showView('items'); lastKey = ''; return; }
+    if (e.key === 'g') { e.preventDefault(); if (state.currentProject) showView('graph'); lastKey = ''; return; }
+    if (e.key === 's') { e.preventDefault(); if (state.currentProject) showView('search'); lastKey = ''; return; }
+    if (e.key === 'c') { e.preventDefault(); if (state.currentProject) showView('calendar'); lastKey = ''; return; }
+  }
+  lastKey = e.key;
+  lastKeyTime = now;
+
+  if (e.key === '?') { e.preventDefault(); if (state.user) openShortcutsHelp(); }
   if (e.key === 'n' || e.key === 'N') { if (state.currentProject) showView('create'); }
   if (e.key === 'c' || e.key === 'C') { if (state.currentProject) showView('create'); }
   if (e.key === 'a' || e.key === 'A') { if (state.currentProject) showView('activity'); }
@@ -650,6 +692,28 @@ window.addEventListener('appinstalled', () => {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// OFFLINE / ONLINE STATUS BANNER
+// ═══════════════════════════════════════════════════════════════
+function updateOfflineBanner(): void {
+  const banner = document.getElementById('offline-banner');
+  if (!banner) return;
+  if (!navigator.onLine) {
+    banner.classList.add('visible');
+  } else {
+    banner.classList.remove('visible');
+  }
+}
+
+window.addEventListener('offline', updateOfflineBanner);
+window.addEventListener('online', () => {
+  updateOfflineBanner();
+  toast('Back online — syncing…', 'success');
+});
+
+// Set initial state
+updateOfflineBanner();
+
+// ═══════════════════════════════════════════════════════════════
 // PULL TO REFRESH (mobile)
 // ═══════════════════════════════════════════════════════════════
 (function() {
@@ -684,7 +748,7 @@ window.addEventListener('appinstalled', () => {
 // ═══════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=7', { updateViaCache: 'none' }).catch(() => {/* silent */});
+    navigator.serviceWorker.register('/sw.js?v=8', { updateViaCache: 'none' }).catch(() => {/* silent */});
   });
 }
 

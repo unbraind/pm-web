@@ -381,6 +381,7 @@ html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--b
 /* ── Stats ── */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
 .stat-card { background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.stat-icon { font-size: 16px; color: var(--text-muted); margin-bottom: 6px; line-height: 1; }
 .stat-value { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); line-height: 1; }
 .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 
@@ -1680,6 +1681,14 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
 .claim-btn-wrap { display: flex; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 
 /* ── PWA Install Banner ── */
+.offline-banner {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 950;
+  background: #7c3aed; color: #fff; font-size: 13px; font-weight: 500;
+  padding: 10px 20px; text-align: center;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.4);
+}
+.offline-banner.visible { display: flex; align-items: center; justify-content: center; gap: 8px; }
+
 .install-banner {
   display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 900;
   background: var(--bg-sidebar); border-top: 1px solid var(--border-light);

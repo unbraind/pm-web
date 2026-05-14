@@ -60,6 +60,8 @@ router.get("/overview", async (_req, res) => {
         sharedProjects: shares.rows[0]?.count ?? 0,
         groups: groups.rowCount,
       },
+      serverVersion: process.env.npm_package_version || '1.0.0',
+      uptimeSeconds: Math.floor(process.uptime()),
     });
   } catch (err) {
     console.error("Admin overview failed:", err);
