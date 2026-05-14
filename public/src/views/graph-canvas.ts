@@ -195,15 +195,15 @@ export class GraphCanvas {
   private alpha = 1;
   private paused = false;
 
-  // Physics constants
+  // Physics constants (mutable for live slider control)
   private readonly ALPHA_DECAY   = 0.020;
   private readonly ALPHA_MIN     = 0.001;
-  private readonly VEL_DECAY     = 0.56;
-  private readonly REPULSE       = 2000;
-  private readonly SPRING        = 0.065;
-  private readonly REST_LEN      = 140;
-  private readonly CENTER        = 0.010;
-  private readonly LINK_DIST_FAC = 80;
+  private VEL_DECAY     = 0.56;
+  private REPULSE       = 2000;
+  private SPRING        = 0.065;
+  private REST_LEN      = 140;
+  private CENTER        = 0.010;
+  private LINK_DIST_FAC = 80;
 
   // Camera
   private tx = 0;
@@ -384,6 +384,24 @@ export class GraphCanvas {
   }
 
   getTagColorMap(): Map<string, string> { return this.tagColorMap; }
+
+  // Live physics control — used by the physics sliders panel
+  setPhysicsParams(params: {
+    repulsion?: number;
+    linkDistance?: number;
+    centerForce?: number;
+    linkStrength?: number;
+  }): void {
+    if (params.repulsion   !== undefined) this.REPULSE  = params.repulsion;
+    if (params.linkDistance !== undefined) { this.REST_LEN = params.linkDistance; this.LINK_DIST_FAC = params.linkDistance * 0.57; }
+    if (params.centerForce !== undefined) this.CENTER   = params.centerForce;
+    if (params.linkStrength !== undefined) this.SPRING  = params.linkStrength;
+    this.reheat();
+  }
+
+  getPhysicsParams(): { repulsion: number; linkDistance: number; centerForce: number; linkStrength: number } {
+    return { repulsion: this.REPULSE, linkDistance: this.REST_LEN, centerForce: this.CENTER, linkStrength: this.SPRING };
+  }
 
   setSelected(id: string | null): void {
     this.filter = { ...this.filter, selectedId: id };
@@ -1266,25 +1284,48 @@ export class GraphCanvas {
       ctx.fill();
     }
 
-    // Label
-    const showLabel = this.scale > 0.32 || prominent;
+    // Label — always show at scale > 0.14 (was 0.32), with background pill for readability
+    const showLabel = this.scale > 0.14 || prominent;
     if (showLabel) {
-      const maxLen = this.scale > 0.72 ? 28 : this.scale > 0.45 ? 18 : 13;
+      const maxLen = this.scale > 0.72 ? 28 : this.scale > 0.45 ? 20 : this.scale > 0.25 ? 15 : 10;
       const label  = truncate(node.label || node.id, maxLen);
-      const fSize  = Math.max(9, Math.min(13, r * 0.95));
+      const fSize  = prominent ? Math.max(10, Math.min(13, r * 0.95)) : Math.max(9, Math.min(12, r * 0.85));
+      const labelAlpha = selected ? 1.0 : hovered ? 0.96 : this.scale > 0.45 ? 0.82 : 0.62;
 
-      ctx.shadowBlur  = prominent ? 8 : 3;
+      ctx.font        = `${selected ? 600 : 400} ${fSize}px Inter, sans-serif`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'top';
+
+      const labelY  = y + r + 5;
+      const textW   = ctx.measureText(label).width;
+      const pillW   = textW + 8;
+      const pillH   = fSize + 5;
+
+      // Background pill for readability (skip when very faint)
+      if (labelAlpha > 0.35) {
+        ctx.globalAlpha = opacity * labelAlpha * 0.72;
+        ctx.fillStyle   = 'rgba(8,13,26,0.75)';
+        ctx.shadowBlur  = 0;
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(x - pillW / 2, labelY - 2, pillW, pillH, 3);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x - pillW / 2, labelY - 2, pillW, pillH);
+        }
+      }
+
+      ctx.globalAlpha = opacity * labelAlpha;
+      ctx.shadowBlur  = prominent ? 6 : 0;
       ctx.shadowColor = '#000';
       ctx.fillStyle   = selected
         ? '#ffffff'
         : hovered
-          ? 'rgba(226,232,240,0.95)'
-          : 'rgba(203,213,225,0.78)';
-      ctx.font        = `${selected ? 600 : 400} ${fSize}px Inter, sans-serif`;
-      ctx.textAlign   = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(label, x, y + r + 5);
+          ? 'rgba(226,232,240,0.98)'
+          : 'rgba(203,213,225,0.88)';
+      ctx.fillText(label, x, labelY);
       ctx.shadowBlur  = 0;
+      ctx.globalAlpha = opacity;
     }
 
     ctx.restore();

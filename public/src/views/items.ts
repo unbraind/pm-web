@@ -9,6 +9,7 @@ import { toast } from '../components/toast.js';
 import { TYPES, STATUSES, TYPE_ICONS, PRIORITY_LABELS } from '../constants.js';
 import { showView } from './router.js';
 import { loadItemsBadge } from './projects.js';
+import { renderLocalGraph, destroyLocalGraph } from './graph.js';
 import type { Item } from '../types.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -438,6 +439,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-update')">Update</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-notes')">Notes (${notes.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-deps')">Deps (${deps.length})</div>
+        <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-graph','${escHtml(itemId)}')">◎ Graph</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-learnings')">Learnings (${learnings.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-tests')">Tests (${tests.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-files')">Files (${files.length})</div>
@@ -599,6 +601,17 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
       <div id="tab-history" style="display:none">${historyHtml}</div>
 
+      <!-- Local graph tab -->
+      <div id="tab-graph" style="display:none">
+        <div class="local-graph-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:12px;color:var(--text-muted)">Depth</span>
+          <input type="range" id="local-graph-depth" min="1" max="5" step="1" value="2" class="graph-depth-slider" style="width:100px">
+          <span id="local-graph-depth-val" style="font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;min-width:12px">2</span>
+          <button class="btn btn-ghost btn-sm" onclick="window.__app.openGraphAt('${escHtml(itemId)}')" title="Open in full graph view" style="margin-left:auto">Full graph →</button>
+        </div>
+        <div id="local-graph-canvas" style="height:320px;border-radius:8px;overflow:hidden;background:#080d1a;border:1px solid rgba(148,163,184,0.12)"></div>
+      </div>
+
       <div id="tab-files" style="display:none">
         <div style="margin-bottom:16px">
           ${files.length === 0
@@ -656,12 +669,29 @@ function fmtDate(ts: string | undefined | null): string {
   return new Date(ts).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
 }
 
-export function switchDetailTab(tabEl: HTMLElement, targetId: string): void {
+export function switchDetailTab(tabEl: HTMLElement, targetId: string, nodeId?: string): void {
   const allTabs = tabEl.parentElement?.querySelectorAll('.tab');
   allTabs?.forEach(t => t.classList.remove('active'));
   tabEl.classList.add('active');
-  const ids = ['tab-comments','tab-update','tab-notes','tab-deps','tab-learnings','tab-tests','tab-files','tab-history','tab-close'];
-  ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = id===targetId?'':'none'; });
+  const ids = ['tab-comments','tab-update','tab-notes','tab-deps','tab-graph','tab-learnings','tab-tests','tab-files','tab-history','tab-close'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === targetId ? '' : 'none';
+    // Clean up local graph canvas when switching away
+    if (id === 'tab-graph' && id !== targetId) destroyLocalGraph('local-graph-canvas');
+  });
+  // Initialize local graph when tab is opened
+  if (targetId === 'tab-graph' && nodeId) {
+    const depthSlider = document.getElementById('local-graph-depth') as HTMLInputElement | null;
+    const depthVal    = document.getElementById('local-graph-depth-val');
+    const depth = depthSlider ? parseInt(depthSlider.value, 10) : 2;
+    void renderLocalGraph('local-graph-canvas', nodeId, depth);
+    depthSlider?.addEventListener('input', () => {
+      const d = parseInt(depthSlider.value, 10);
+      if (depthVal) depthVal.textContent = String(d);
+      void renderLocalGraph('local-graph-canvas', nodeId, d);
+    });
+  }
 }
 
 export async function addComment(itemId: string): Promise<void> {
