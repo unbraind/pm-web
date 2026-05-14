@@ -1069,6 +1069,17 @@ function updateLegend(): void {
       ).join('')}
       ${tagMap.size === 0 ? '<span style="color:var(--text-muted);font-size:11px">No tags</span>' : ''}
     `;
+  } else if (filter.depMode) {
+    legend.innerHTML = `
+      <span><i class="legend-dot legend-item"></i>Item</span>
+      <span class="legend-sep">·</span>
+      <span><i class="legend-line" style="background:#fb923c"></i>depends on</span>
+      <span><i class="legend-line" style="background:#f87171"></i>blocked by</span>
+      <span><i class="legend-line" style="background:#60a5fa"></i>parent / child</span>
+      <span><i class="legend-line" style="background:#94a3b8"></i>related</span>
+      <span class="legend-sep">·</span>
+      <span><i class="legend-dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf2488"></i>critical path</span>
+    `;
   } else {
     legend.innerHTML = `
       <span><i class="legend-dot legend-item"></i>Item</span>
@@ -1373,6 +1384,7 @@ function bindHudEvents(): void {
     updateInfoPanel();
     syncCanvas();
     updateFilterToolbarState();
+    updateLegend();
     const btn = document.getElementById('graph-dep-mode-btn');
     btn?.classList.toggle('active', filter.depMode);
     const strong = btn?.querySelector('strong');
