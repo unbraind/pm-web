@@ -814,21 +814,39 @@ export class GraphCanvas {
     const vis  = this.filter.visibleNodeIds;
     const hrel = this.filter.highlightRelTypes;
 
+    const hov = this.hoveredId;
+
     const isHighlightedEdge = (e: SimEdge): boolean => {
       if (sel && (e.source.id === sel || e.target.id === sel)) return true;
+      if (hov && (e.source.id === hov || e.target.id === hov)) return true;
       if (hrel.size > 0 && hrel.has(e.type)) return true;
       return false;
     };
 
+    // Precompute hovered-node neighbors for dimming
+    const hovNeighbors = hov ? new Set<string>(
+      this.edges
+        .filter((e) => e.source.id === hov || e.target.id === hov)
+        .flatMap((e) => [e.source.id, e.target.id])
+    ) : null;
+
     const nodeOpacity = (nd: SimNode): number => {
       if (vis && !vis.has(nd.id)) return 0.07;
-      if (!sel) return 1;
-      if (nd.id === sel) return 1;
-      const connected = this.edges.some(
-        (e) => (e.source.id === sel && e.target.id === nd.id) ||
-               (e.target.id === sel && e.source.id === nd.id),
-      );
-      return connected ? 0.85 : 0.15;
+      // Selected node dims unrelated nodes
+      if (sel) {
+        if (nd.id === sel) return 1;
+        const connectedToSel = this.edges.some(
+          (e) => (e.source.id === sel && e.target.id === nd.id) ||
+                 (e.target.id === sel && e.source.id === nd.id),
+        );
+        return connectedToSel ? 0.85 : 0.15;
+      }
+      // Hovered node softly highlights neighbors
+      if (hov && hovNeighbors && !sel) {
+        if (nd.id === hov) return 1;
+        return hovNeighbors.has(nd.id) ? 0.85 : 0.45;
+      }
+      return 1;
     };
 
     // Rebuild spatial grid for culling
@@ -1126,9 +1144,9 @@ export class GraphCanvas {
     const isActive = highlighted || onCritPath;
 
     ctx.save();
-    ctx.globalAlpha = opacity * (isActive ? 0.95 : 0.32);
+    ctx.globalAlpha = opacity * (isActive ? 0.95 : 0.42);
     ctx.strokeStyle = isActive ? color : EDGE_DEFAULT;
-    ctx.lineWidth   = isActive ? (onCritPath && !highlighted ? 2.0 : 1.8) : 0.9;
+    ctx.lineWidth   = isActive ? (onCritPath && !highlighted ? 2.0 : 1.8) : 1.1;
 
     if (isActive) {
       ctx.shadowColor = color;
@@ -1231,23 +1249,21 @@ export class GraphCanvas {
       ctx.shadowBlur  = 0;
     }
 
-    // Glow
-    if (prominent) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur  = selected ? 18 + pulse * 10 : 10;
-    }
+    // Ambient glow on all nodes (subtle for non-selected, stronger for selected/hovered)
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = selected ? (18 + pulse * 10) : hovered ? 10 : (r > 10 ? 5 : 3);
 
-    // Radial gradient fill
+    // Radial gradient fill — more vibrant on non-selected nodes than before
     const grad = ctx.createRadialGradient(x - r * 0.32, y - r * 0.32, r * 0.08, x, y, r);
     if (selected) {
       grad.addColorStop(0, hexAlpha(color, 1.0));
-      grad.addColorStop(1, hexAlpha(color, 0.62));
+      grad.addColorStop(1, hexAlpha(color, 0.65));
     } else if (hovered) {
-      grad.addColorStop(0, hexAlpha(color, 0.58));
-      grad.addColorStop(1, hexAlpha(color, 0.20));
+      grad.addColorStop(0, hexAlpha(color, 0.72));
+      grad.addColorStop(1, hexAlpha(color, 0.28));
     } else {
-      grad.addColorStop(0, hexAlpha(color, 0.30));
-      grad.addColorStop(1, hexAlpha(color, 0.06));
+      grad.addColorStop(0, hexAlpha(color, 0.55));
+      grad.addColorStop(1, hexAlpha(color, 0.15));
     }
 
     ctx.beginPath();
@@ -1255,10 +1271,10 @@ export class GraphCanvas {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Stroke
-    ctx.strokeStyle = hexAlpha(color, selected ? 1 : hovered ? 0.88 : 0.55);
-    ctx.lineWidth   = selected ? 2.2 : hovered ? 1.8 : 1.1;
+    // Stroke — more vivid for all nodes
     ctx.shadowBlur  = 0;
+    ctx.strokeStyle = hexAlpha(color, selected ? 1 : hovered ? 0.92 : 0.72);
+    ctx.lineWidth   = selected ? 2.2 : hovered ? 1.8 : 1.2;
     ctx.stroke();
 
     // Type icon or inner dot
