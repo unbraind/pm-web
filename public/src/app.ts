@@ -684,7 +684,7 @@ window.addEventListener('appinstalled', () => {
 // ═══════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=6', { updateViaCache: 'none' }).catch(() => {/* silent */});
+    navigator.serviceWorker.register('/sw.js?v=7', { updateViaCache: 'none' }).catch(() => {/* silent */});
   });
 }
 
