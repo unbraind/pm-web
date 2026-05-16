@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -235,6 +235,6 @@ export function runPm(opts: PmRunOptions): PmRunResult {
 export function deleteProjectDir(userId: string, slug: string): void {
   const dir = getProjectDir(userId, slug);
   if (fs.existsSync(dir)) {
-    execSync(`rm -rf "${dir}"`);
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 }

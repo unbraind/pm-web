@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS pm_project_shares (
   UNIQUE(project_id, shared_with_group_id)
 );
 
+-- Encrypted GitHub PAT payload: pmweb:v1:<iv>:<tag>:<ciphertext>
 ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS github_token TEXT;
 ALTER TABLE pm_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_owner TEXT;

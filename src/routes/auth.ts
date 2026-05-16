@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { pool } from "../db.js";
 import { signToken } from "../auth.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { encryptSecret } from "../crypto.js";
 
 const router = Router();
 const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "stefan@preu.at")
@@ -171,8 +172,10 @@ router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
 router.patch("/github-token", requireAuth, async (req: AuthRequest, res) => {
   const { token } = req.body as { token?: string };
   try {
-    await pool.query(`UPDATE pm_users SET github_token = $1 WHERE id = $2`, [token?.trim() || null, req.user!.userId]);
-    res.json({ ok: true, hasToken: !!(token?.trim()) });
+    const trimmedToken = token?.trim() || "";
+    const encryptedToken = trimmedToken ? encryptSecret(trimmedToken) : null;
+    await pool.query(`UPDATE pm_users SET github_token = $1 WHERE id = $2`, [encryptedToken, req.user!.userId]);
+    res.json({ ok: true, hasToken: Boolean(trimmedToken) });
   } catch (err) {
     console.error("GitHub token error:", err);
     res.status(500).json({ error: "Failed to save GitHub token" });

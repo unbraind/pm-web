@@ -3,6 +3,7 @@ import { pool } from "../db.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
 import { runPm } from "../services/pm-runner.js";
+import { decryptSecret } from "../crypto.js";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
@@ -20,7 +21,7 @@ interface GitHubIssue {
 
 async function getGitHubToken(userId: string): Promise<string | null> {
   const result = await pool.query(`SELECT github_token FROM pm_users WHERE id = $1`, [userId]);
-  return result.rows[0]?.github_token || null;
+  return decryptSecret(result.rows[0]?.github_token || null);
 }
 
 async function ghFetch(url: string, token: string, opts: RequestInit = {}): Promise<Response> {

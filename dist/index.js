@@ -1,12 +1,30 @@
 // pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 // Inline defineExtension helper (avoids runtime dependency on @unbrained/pm-cli/sdk)
 function defineExtension(m) { return m; }
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, "..");
 let serverProcess = null;
+function ensureRuntimeDependencies() {
+    const expressPackage = path.join(packageRoot, "node_modules", "express", "package.json");
+    if (fs.existsSync(expressPackage))
+        return;
+    console.error("Installing pm-web runtime dependencies...");
+    const install = spawnSync("npm", ["install", "--omit=dev"], {
+        cwd: packageRoot,
+        stdio: "inherit",
+        env: { ...process.env, NODE_ENV: "production" },
+    });
+    if (install.error)
+        throw install.error;
+    if (install.status !== 0) {
+        throw new Error(`npm install --omit=dev failed with exit code ${install.status ?? "unknown"}`);
+    }
+}
 export default defineExtension({
     name: "pm-web",
     version: "1.0.0",
@@ -30,6 +48,7 @@ export default defineExtension({
                 const port = ctx.options["port"] ?? process.env["PORT"] ?? "4000";
                 const detach = Boolean(ctx.options["detach"]);
                 const serverPath = path.resolve(__dirname, "server.js");
+                ensureRuntimeDependencies();
                 if (detach) {
                     if (serverProcess) {
                         console.error(`pm-web is already running (PID ${serverProcess.pid})`);
@@ -51,10 +70,17 @@ export default defineExtension({
                     env: { ...process.env, PORT: String(port) },
                     stdio: "inherit",
                 });
-                child.on("exit", (code) => {
-                    console.error(`pm-web exited with code ${code}`);
+                await new Promise((resolve, reject) => {
+                    child.on("error", reject);
+                    child.on("exit", (code, signal) => {
+                        if (code === 0 || signal === "SIGINT" || signal === "SIGTERM") {
+                            resolve();
+                            return;
+                        }
+                        reject(new Error(`pm-web exited with code ${code ?? `signal ${signal}`}`));
+                    });
                 });
-                return { status: "started", port: Number(port) };
+                return { status: "stopped", port: Number(port) };
             },
         });
     },

@@ -59,6 +59,7 @@ pm install github.com/unbraind/pm-web --global
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `JWT_SECRET` | Yes | Secret for signing JWT tokens |
+| `PM_WEB_SECRET_KEY` | Recommended | At-rest encryption key for saved GitHub PATs. Falls back to `JWT_SECRET`; use at least 32 characters |
 | `PORT` | No | Server port (default: 4000) |
 | `NODE_ENV` | No | `production` enables caching |
 | `OLLAMA_BASE_URL` / `OLLAMA_HOST` | No | Local Ollama endpoint for semantic pm search |
@@ -69,6 +70,8 @@ pm install github.com/unbraind/pm-web --global
 | `PM_GRAPH_EXTENSION_PATH` | No | Bundled pm-graph extension path, default `extensions/pm-graph` |
 
 New pm-web projects configure local Ollama search automatically and install the bundled `pm-graph` extension into the project workspace. Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
+
+Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
 
 ---
 

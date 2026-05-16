@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 const PROJECTS_ROOT = process.env.PROJECTS_ROOT || "/app/projects";
@@ -183,7 +183,7 @@ export function runPm(opts) {
 export function deleteProjectDir(userId, slug) {
     const dir = getProjectDir(userId, slug);
     if (fs.existsSync(dir)) {
-        execSync(`rm -rf "${dir}"`);
+        fs.rmSync(dir, { recursive: true, force: true });
     }
 }
 //# sourceMappingURL=pm-runner.js.map
