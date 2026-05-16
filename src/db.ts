@@ -17,6 +17,10 @@ export const pool = new Pool({
   connectionTimeoutMillis: 5_000,
 });
 
+const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "stefan@preu.at")
+  .trim()
+  .toLowerCase();
+
 export async function initSchema(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS pm_users (
@@ -102,6 +106,6 @@ export async function initSchema(): Promise<void> {
 
   await pool.query(
     `UPDATE pm_users SET is_admin = TRUE, updated_at = NOW() WHERE lower(email) = lower($1)`,
-    ["stefan@preu.at"]
+    [bootstrapAdminEmail]
   );
 }

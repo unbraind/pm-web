@@ -5,6 +5,9 @@ import { signToken } from "../auth.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
+const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "stefan@preu.at")
+  .trim()
+  .toLowerCase();
 
 router.post("/register", async (req, res) => {
   const { email, password, displayName } = req.body as {
@@ -32,7 +35,7 @@ router.post("/register", async (req, res) => {
     const result = await pool.query(
       `INSERT INTO pm_users (email, password_hash, display_name, is_admin)
        VALUES ($1, $2, $3, lower($1) = lower($4)) RETURNING id, email, display_name, is_admin, created_at`,
-      [normalizedEmail, hash, displayName?.trim() || null, "stefan@preu.at"]
+      [normalizedEmail, hash, displayName?.trim() || null, bootstrapAdminEmail]
     );
     const user = result.rows[0] as { id: string; email: string };
     const token = signToken({ userId: user.id, email: user.email });
