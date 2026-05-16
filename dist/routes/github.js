@@ -3,11 +3,12 @@ import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
 import { runPm } from "../services/pm-runner.js";
+import { decryptSecret } from "../crypto.js";
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
 async function getGitHubToken(userId) {
     const result = await pool.query(`SELECT github_token FROM pm_users WHERE id = $1`, [userId]);
-    return result.rows[0]?.github_token || null;
+    return decryptSecret(result.rows[0]?.github_token || null);
 }
 async function ghFetch(url, token, opts = {}) {
     return fetch(url, {
