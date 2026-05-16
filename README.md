@@ -43,7 +43,7 @@ Open http://localhost:4000 in your browser.
 ## Installation as pm Extension
 
 ```bash
-pm extension install github.com/unbraind/pm-cli-web --global
+pm install github.com/unbraind/pm-cli-web --global
 ```
 
 ### Commands

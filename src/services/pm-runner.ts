@@ -163,12 +163,7 @@ export function ensureGraphExtension(userId: string, slug: string): EnsureGraphE
   const projectManifest = projectGraphExtensionManifest(dir);
   const needsInstall = !projectManifest || projectManifest.version !== bundledManifest.version;
   if (needsInstall) {
-    const install = runExtensionCommand(dir, [
-      "extension",
-      "install",
-      PM_GRAPH_EXTENSION_PATH,
-      "--project",
-    ]);
+    const install = runExtensionCommand(dir, ["install", PM_GRAPH_EXTENSION_PATH, "--project"]);
     if (!install.ok) {
       return {
         ok: false,
