@@ -42,7 +42,7 @@ jobs:
             --arg source_ref "${{ steps.refs.outputs.source_ref }}" \
             --arg pm_web_source_repo "$WEB_SOURCE_REPO" \
             --arg pm_web_source_ref "${{ steps.refs.outputs.source_ref }}" \
-            '{event_type:"pm-web-updated",client_payload:{
+            '{ref:"main",inputs:{
               pm_web_source_repo:$pm_web_source_repo,
               pm_web_source_ref:$pm_web_source_ref,
               source_repo:$source_repo,
