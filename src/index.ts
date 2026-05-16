@@ -1,4 +1,4 @@
-// pm-cli-web — Extension wrapper for the pm-web server
+// pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 
 import { spawn } from "node:child_process";
