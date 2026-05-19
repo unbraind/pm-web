@@ -40,6 +40,7 @@ import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSave
 import { renderGuideView } from './views/guide.js';
 import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage, adminCreateGroup } from './views/admin.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
+import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan } from './views/plan.js';
 import { showModal, hideModal, createModal } from './components/modals.js';
 import { toast } from './components/toast.js';
 import { escHtml } from './utils.js';
@@ -61,6 +62,7 @@ const mobileCommandGroups = [
         commands: [
             { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
             { view: 'create', title: 'Create Item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+            { view: 'plan', title: 'Plans', desc: 'Create and manage structured agentic plans with steps.', icon: '◧', requiresProject: true },
             { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },
             { view: 'templates', title: 'Templates', desc: 'Create from saved pm templates.', icon: '⎘', requiresProject: true },
         ],
@@ -319,6 +321,20 @@ window.__app = {
     adminCreateGroup,
     // Graph navigation
     openGraphAt,
+    // Plan
+    initPlanView,
+    openPlanDetail,
+    openCreatePlanModal,
+    submitCreatePlan,
+    openAddStepModal,
+    submitAddStep,
+    planCompleteStep,
+    planBlockStepPrompt,
+    submitBlockStep,
+    planRemoveStep,
+    planApprove,
+    planMaterializePrompt,
+    submitMaterializePlan,
 };
 // ═══════════════════════════════════════════════════════════════
 // SSE REAL-TIME SYNC
@@ -379,6 +395,9 @@ function connectSSE(projectId, attempt = 0) {
             }
             else if (view === 'stats') {
                 renderStatsView();
+            }
+            else if (view === 'plan') {
+                initPlanView();
             }
             loadItemsBadge();
         };

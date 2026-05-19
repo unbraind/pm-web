@@ -74,6 +74,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     commands: [
       { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
       { view: 'create', title: 'Create Item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+      { view: 'plan', title: 'Plans', desc: 'Create and manage structured agentic plans with steps.', icon: '◧', requiresProject: true },
       { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },
       { view: 'templates', title: 'Templates', desc: 'Create from saved pm templates.', icon: '⎘', requiresProject: true },
     ],

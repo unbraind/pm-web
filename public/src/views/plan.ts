@@ -65,7 +65,7 @@ function renderStepRow(step: PlanStep, planId: string): string {
   const isDone = ['done', 'completed'].includes((step.status || '').toLowerCase());
   const isBlocked = (step.status || '').toLowerCase() === 'blocked';
   return `
-    <div class="plan-step-row" data-step-ref="${escHtml(ref)}" style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <div class="plan-step-row" data-step-ref="${escHtml(ref)}">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace">${escHtml(ref)}</span>
@@ -97,11 +97,11 @@ export function renderPlanView(): string {
         <button class="btn btn-secondary btn-sm" onclick="window.__app.initPlanView()">↺ Refresh</button>
       </div>
     </div>
-    <div style="display:flex;gap:16px;align-items:flex-start">
-      <div style="min-width:260px;max-width:300px;flex-shrink:0">
+    <div class="plan-layout">
+      <div class="plan-list-panel">
         <div id="plan-list-panel"><div class="loading-state"><div class="loading-spinner"></div></div></div>
       </div>
-      <div style="flex:1;min-width:0">
+      <div class="plan-detail-panel">
         <div id="plan-detail-panel">
           <div class="empty-state"><div class="empty-state-text">Select a plan to view its steps</div></div>
         </div>
