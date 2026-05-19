@@ -416,6 +416,25 @@ async function verifyProject(
   return { slug: access.slug, prefix: access.prefix, ownerUserId: access.ownerUserId };
 }
 
+// GET /api/projects/:projectId/pm/schema
+// Returns runtime types/statuses from `pm contracts --json` so the frontend
+// stays in sync with whatever pm CLI version + extensions are installed.
+router.get("/schema", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const result = runPm({ args: ["contracts", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const contracts = result.ok && result.parsed ? (result.parsed as Record<string, unknown>) : null;
+  const rt = contracts?.["runtime_schema"] as Record<string, unknown> | undefined;
+  res.json({
+    types: Array.isArray(rt?.["types"]) ? rt["types"] : [],
+    statuses: Array.isArray(rt?.["statuses"]) ? rt["statuses"] : [],
+    openStatus: typeof rt?.["open_status"] === "string" ? rt["open_status"] : "open",
+    closeStatus: typeof rt?.["close_status"] === "string" ? rt["close_status"] : "closed",
+    canceledStatus: typeof rt?.["canceled_status"] === "string" ? rt["canceled_status"] : "canceled",
+  });
+});
+
 // GET /api/projects/:projectId/pm/list
 router.get("/list", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
