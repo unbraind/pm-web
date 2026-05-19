@@ -2134,3 +2134,57 @@ hr.section-divider { border: none; border-top: 1px solid var(--border); margin: 
     flex-direction: column;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PLAN VIEW
+   ═══════════════════════════════════════════════════════════════ */
+
+.plan-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.plan-list-panel {
+  min-width: 260px;
+  max-width: 300px;
+  flex-shrink: 0;
+}
+
+.plan-detail-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.plan-step-row:last-child {
+  border-bottom: none;
+}
+
+.plan-step-row:hover {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.plan-steps-list {
+  padding: 4px 0;
+}
+
+@media (max-width: 700px) {
+  .plan-layout {
+    flex-direction: column;
+  }
+  .plan-list-panel {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+}

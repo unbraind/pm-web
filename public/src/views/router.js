@@ -27,6 +27,7 @@ import { renderCommentsAuditView } from './comments-audit.js';
 import { renderConfigView } from './config.js';
 import { renderGuideView } from './guide.js';
 import { renderAdminView } from './admin.js';
+import { initPlanView } from './plan.js';
 // View name → URL path mapping
 const VIEW_TO_PATH = {
     'projects': '/',
@@ -53,6 +54,7 @@ const VIEW_TO_PATH = {
     'config': '/config',
     'guide': '/guide',
     'admin': '/admin',
+    'plan': '/plan',
 };
 // Reverse: URL path → view name
 const PATH_TO_VIEW = {};
@@ -175,6 +177,9 @@ export function showView(view, pushState = true) {
             break;
         case 'admin':
             renderAdminView();
+            break;
+        case 'plan':
+            void initPlanView();
             break;
     }
     updateMobileNav(view);
