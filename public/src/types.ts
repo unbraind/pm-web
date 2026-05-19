@@ -179,6 +179,14 @@ export interface ItemFilters {
   assignee: string;
 }
 
+export interface ProjectSchema {
+  types: string[];
+  statuses: string[];
+  openStatus: string;
+  closeStatus: string;
+  canceledStatus: string;
+}
+
 export interface AppState {
   user: User | null;
   projects: Project[];
@@ -191,6 +199,7 @@ export interface AppState {
   searchResults: Item[];
   searchMode: string;
   calOffset: number;
+  schema: ProjectSchema | null;
 }
 
 export interface AdminUser {

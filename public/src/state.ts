@@ -15,4 +15,5 @@ export const state: AppState = {
   searchResults: [],
   searchMode: 'hybrid',
   calOffset: 0,
+  schema: null,
 };

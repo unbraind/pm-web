@@ -22,9 +22,19 @@ export function renderProjectSelector(): void {
     state.projects.map(p=>`<option value="${p.id}"${p.id===cur?' selected':''}>${escHtml(p.name)}</option>`).join('');
 }
 
+async function fetchProjectSchema(projectId: string): Promise<void> {
+  try {
+    const schema = await api('GET', `/projects/${projectId}/pm/schema`);
+    if (schema && Array.isArray(schema.types) && schema.types.length) {
+      state.schema = schema as import('../types.js').ProjectSchema;
+    }
+  } catch (_) { /* fallback to constants */ }
+}
+
 export async function onProjectSelect(id: string): Promise<void> {
   if (!id) {
     state.currentProject = null;
+    state.schema = null;
     (window as any).__app?.disconnectSSE?.();
     const pmSection = document.getElementById('sidebar-pm-section');
     if (pmSection) pmSection.style.display = 'none';
@@ -39,6 +49,8 @@ export async function onProjectSelect(id: string): Promise<void> {
   const projName = document.getElementById('sidebar-project-name');
   if (projName) projName.textContent = proj.name;
   (window as any).__app?.connectSSE?.(proj.id);
+  // Fetch schema in background — views use fallback until it resolves
+  fetchProjectSchema(proj.id);
   showView('items');
   loadItemsBadge();
 }
