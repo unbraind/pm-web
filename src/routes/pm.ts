@@ -1978,6 +1978,117 @@ router.post("/plan/:planId/materialize", async (req: AuthRequest, res) => {
   res.json(result.parsed || {});
 });
 
+// POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/reorder
+router.post("/plan/:planId/steps/:stepRef/reorder", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { reorderTo } = req.body as { reorderTo?: string | number };
+  if (reorderTo === undefined || reorderTo === null || reorderTo === "") {
+    res.status(400).json({ error: "reorderTo (new order integer) is required" });
+    return;
+  }
+
+  const result = runPm({
+    args: ["plan", "reorder-step", req.params["planId"]!, req.params["stepRef"]!, String(reorderTo)],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to reorder step" });
+    return;
+  }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-updated",
+    data: { itemId: req.params["planId"], userId: req.user!.userId },
+  });
+  res.json(result.parsed || {});
+});
+
+// POST /api/projects/:projectId/pm/plan/:planId/link
+router.post("/plan/:planId/link", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { link, linkKind, linkNote, promoteToItemDep } = req.body as Record<string, string>;
+  if (!link?.trim()) { res.status(400).json({ error: "link (item id) is required" }); return; }
+
+  const args = ["plan", "link", req.params["planId"]!, "--link", link.trim()];
+  if (linkKind) args.push("--link-kind", linkKind);
+  if (linkNote) args.push("--link-note", linkNote);
+  if (promoteToItemDep === "true") args.push("--promote-to-item-dep");
+
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to link plan" });
+    return;
+  }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-updated",
+    data: { itemId: req.params["planId"], userId: req.user!.userId },
+  });
+  res.status(201).json(result.parsed || {});
+});
+
+// DELETE /api/projects/:projectId/pm/plan/:planId/link
+router.delete("/plan/:planId/link", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { link, linkKind } = req.body as Record<string, string>;
+  if (!link?.trim()) { res.status(400).json({ error: "link (item id) is required" }); return; }
+
+  const args = ["plan", "unlink", req.params["planId"]!, "--link", link.trim()];
+  if (linkKind) args.push("--link-kind", linkKind);
+
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to unlink plan" });
+    return;
+  }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-updated",
+    data: { itemId: req.params["planId"], userId: req.user!.userId },
+  });
+  res.json(result.parsed || {});
+});
+
+// GET /api/projects/:projectId/pm/upgrade
+// Returns a dry-run preview of what upgrade would do (safe, read-only).
+// POST /api/projects/:projectId/pm/upgrade
+// Runs pm upgrade --packages-only (never upgrades the CLI itself via the web UI).
+router.get("/upgrade", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const result = runPm({
+    args: ["upgrade", "--dry-run", "--packages-only"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  res.json(result.ok ? (result.parsed || { dryRun: true }) : { error: result.stderr });
+});
+
+router.post("/upgrade", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  // Only allow package upgrades from the web UI — never self-upgrade the CLI binary.
+  const result = runPm({
+    args: ["upgrade", "--packages-only"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Upgrade failed" });
+    return;
+  }
+  res.json(result.parsed || { ok: true });
+});
+
 // ─── SSE endpoint ───
 // GET /api/projects/:projectId/pm/events
 router.get("/events", async (req: AuthRequest, res) => {

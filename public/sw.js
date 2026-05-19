@@ -50,6 +50,7 @@ const STATIC_ASSETS = [
   '/src/views/stats.js',
   '/src/views/templates.js',
   '/src/views/validate.js',
+  '/src/views/plan.js',
 ];
 
 // ── Offline fallback page ──
