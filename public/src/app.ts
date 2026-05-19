@@ -424,6 +424,8 @@ function connectSSE(projectId: string, attempt = 0): void {
         renderActivityView();
       } else if (view === 'stats') {
         renderStatsView();
+      } else if (view === 'plan') {
+        initPlanView();
       }
       loadItemsBadge();
     };
