@@ -41,6 +41,7 @@ import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSave
 import { renderGuideView } from './views/guide.js';
 import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage, adminCreateGroup } from './views/admin.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
+import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan } from './views/plan.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
 import { escHtml } from './utils.js';
@@ -353,6 +354,21 @@ let deferredPrompt: any = null;
 
   // Graph navigation
   openGraphAt,
+
+  // Plan
+  initPlanView,
+  openPlanDetail,
+  openCreatePlanModal,
+  submitCreatePlan,
+  openAddStepModal,
+  submitAddStep,
+  planCompleteStep,
+  planBlockStepPrompt,
+  submitBlockStep,
+  planRemoveStep,
+  planApprove,
+  planMaterializePrompt,
+  submitMaterializePlan,
 };
 
 // ═══════════════════════════════════════════════════════════════

@@ -243,4 +243,4 @@ export type ViewName =
   | 'stats' | 'calendar' | 'context' | 'graph' | 'sharing' | 'groups'
   | 'health' | 'dedupe' | 'validate' | 'settings' | 'github'
   | 'export' | 'normalize' | 'shared' | 'templates' | 'comments-audit'
-  | 'config' | 'guide';
+  | 'config' | 'guide' | 'plan';
