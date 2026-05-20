@@ -914,6 +914,25 @@ body.graph-mode #app-body {
   padding: 4px 8px;
   white-space: nowrap;
 }
+.graph-rel-props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.graph-rel-props em {
+  color: var(--text-secondary);
+  font-style: normal;
+  font-weight: 600;
+}
+.graph-rel-props span {
+  background: rgba(148,163,184,0.07);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
 .graph-type-list { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
 .graph-type-row {
   display: flex;

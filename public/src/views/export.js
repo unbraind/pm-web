@@ -34,6 +34,14 @@ export async function renderExportView() {
         </div>
         <button class="btn btn-secondary btn-sm" onclick="window.__app.exportData('csv')"><span>Export CSV</span></button>
       </div>
+      <div class="export-card">
+        <div class="export-card-icon">📋</div>
+        <div class="export-card-info">
+          <div class="export-card-title">Export as YAML</div>
+          <div class="export-card-desc">Download items as a human-readable YAML file</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="window.__app.exportData('yaml')"><span>Export YAML</span></button>
+      </div>
       <hr class="section-divider">
       <div class="export-card">
         <div class="export-card-icon">📤</div>
@@ -72,6 +80,52 @@ export async function exportData(format) {
             content = headers.join(',') + '\n' + rows.join('\n');
             filename = `${state.currentProject.slug}-items.csv`;
             mime = 'text/csv';
+        }
+        else if (format === 'yaml') {
+            // Minimal YAML serializer — no external dependency needed for this structure
+            const yamlVal = (v, indent) => {
+                const pad = '  '.repeat(indent);
+                if (v === null || v === undefined)
+                    return 'null';
+                if (typeof v === 'boolean')
+                    return v ? 'true' : 'false';
+                if (typeof v === 'number')
+                    return String(v);
+                if (Array.isArray(v)) {
+                    if (v.length === 0)
+                        return '[]';
+                    return '\n' + v.map((item) => `${pad}- ${yamlVal(item, indent + 1)}`).join('\n');
+                }
+                if (typeof v === 'object') {
+                    const entries = Object.entries(v).filter(([, val]) => val !== null && val !== undefined);
+                    if (entries.length === 0)
+                        return '{}';
+                    return '\n' + entries.map(([k, val]) => {
+                        const valStr = yamlVal(val, indent + 1);
+                        return valStr.startsWith('\n') ? `${pad}${k}:${valStr}` : `${pad}${k}: ${valStr}`;
+                    }).join('\n');
+                }
+                // String: quote if contains special chars
+                const str = String(v);
+                if (str.includes('\n') || str.includes(':') || str.includes('#') || str.includes('"') || str.startsWith(' ') || str.endsWith(' ')) {
+                    return `"${str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
+                }
+                return str || '""';
+            };
+            const yamlItems = items.map((item) => {
+                const fields = ['id', 'title', 'type', 'status', 'priority', 'tags', 'assignee', 'deadline', 'sprint', 'release', 'description', 'body', 'created_at', 'updated_at'];
+                const lines = fields
+                    .filter(f => item[f] !== null && item[f] !== undefined && item[f] !== '')
+                    .map(f => {
+                    const valStr = yamlVal(item[f], 1);
+                    return valStr.startsWith('\n') ? `  ${f}:${valStr}` : `  ${f}: ${valStr}`;
+                });
+                return '- ' + lines.join('\n').trimStart();
+            });
+            const header = `# pm-web export\n# project: ${state.currentProject.name}\n# exported_at: ${new Date().toISOString()}\nitems:\n`;
+            content = header + yamlItems.join('\n');
+            filename = `${state.currentProject.slug}-items.yaml`;
+            mime = 'text/yaml';
         }
         else {
             content = JSON.stringify({ exportedAt: new Date().toISOString(), project: state.currentProject.name, version: '1.0', items }, null, 2);

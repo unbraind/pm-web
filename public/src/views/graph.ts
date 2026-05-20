@@ -487,7 +487,12 @@ function renderSelectedNode(
             const otherId = r.from === node.id ? r.to : r.from;
             const other   = byId.get(otherId);
             const dir     = r.from === node.id ? '→' : '←';
-            return `<button class="graph-neighbor" data-graph-node-id="${escHtml(otherId)}"><span class="graph-rel-badge">${escHtml(r.type)}</span> ${dir} <strong>${escHtml(nodeTitle(other || { id: otherId }))}</strong></button>`;
+            // Show any non-trivial relationship properties (e.g. weight, since, note)
+            const relProps = r.properties ? Object.entries(r.properties).filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '') : [];
+            const propHint = relProps.length > 0
+              ? ` <span style="font-size:10px;color:var(--text-muted);opacity:0.8">[${relProps.slice(0,3).map(([k,v])=>`${k}:${escHtml(String(v))}`).join(', ')}]</span>`
+              : '';
+            return `<button class="graph-neighbor" data-graph-node-id="${escHtml(otherId)}"><span class="graph-rel-badge">${escHtml(r.type)}</span> ${dir} <strong>${escHtml(nodeTitle(other || { id: otherId }))}</strong>${propHint}</button>`;
           }).join('') + (direct.length > 16 ? `<div class="graph-limit-note">+${direct.length - 16} more — use Focus scope to narrow</div>` : '')}
     </div>`;
 }
@@ -679,10 +684,14 @@ function renderRelList(data: GraphResponse): string {
   const rows = visRels.slice(0, 100).map((r) => {
     const from = byId.get(r.from);
     const to   = byId.get(r.to);
+    const relProps = r.properties ? Object.entries(r.properties).filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '') : [];
+    const propHtml = relProps.length > 0
+      ? `<div class="graph-rel-props">${relProps.slice(0, 4).map(([k, v]) => `<span><em>${escHtml(k)}</em> ${escHtml(String(v))}</span>`).join('')}</div>`
+      : '';
     return `
       <button class="graph-rel-row" data-graph-from-id="${escHtml(r.from)}" data-graph-to-id="${escHtml(r.to)}" data-graph-rel-type="${escHtml(r.type)}">
         <div><div class="graph-rel-title">${escHtml(nodeTitle(from || { id: r.from }))}</div><div class="graph-rel-id">${escHtml(r.from)}</div></div>
-        <div class="graph-rel-type">${escHtml(r.type)}</div>
+        <div class="graph-rel-type">${escHtml(r.type)}${propHtml}</div>
         <div><div class="graph-rel-title">${escHtml(nodeTitle(to || { id: r.to }))}</div><div class="graph-rel-id">${escHtml(r.to)}</div></div>
       </button>`;
   }).join('');
