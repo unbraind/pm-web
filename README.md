@@ -18,7 +18,7 @@ docker run -p 4000:4000 -e DATABASE_URL=postgres://... pm-web
 ### Node.js
 
 ```bash
-git clone https://github.com/unbraind/pm-web.git
+git clone https://github.com/unbraind/pm-cli-web.git
 cd pm-web
 npm install
 npm run build
@@ -43,7 +43,7 @@ Open http://localhost:4000 in your browser.
 ## Installation as pm Extension
 
 ```bash
-pm install github.com/unbraind/pm-web --global
+pm install github.com/unbraind/pm-cli-web --global
 ```
 
 ### Commands
