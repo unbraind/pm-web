@@ -6,7 +6,7 @@ import { api } from '../api.js';
 import { escHtml, statusBadge, priorityDot, typeIcon } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
-import { TYPES, STATUSES, PRIORITY_LABELS } from '../constants.js';
+import { getTypes, getStatuses, PRIORITY_LABELS } from '../constants.js';
 import { loadItemsBadge } from './projects.js';
 import { renderLocalGraph, destroyLocalGraph } from './graph.js';
 const DEP_REL_OPTIONS = [
@@ -74,14 +74,14 @@ export function showBulkUpdateModal() {
           <label class="form-label">Status</label>
           <select class="form-select" id="bu-filter-status">
             <option value="">Any status</option>
-            ${STATUSES.map(s => `<option value="${s}">${s.replace('_', ' ')}</option>`).join('')}
+            ${getStatuses(state.schema).map(s => `<option value="${s}">${s.replace('_', ' ')}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Type</label>
           <select class="form-select" id="bu-filter-type">
             <option value="">Any type</option>
-            ${TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+            ${getTypes(state.schema).map(t => `<option value="${t}">${t}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -110,7 +110,7 @@ export function showBulkUpdateModal() {
         <label class="form-label">Set Status</label>
         <select class="form-select" id="bu-set-status">
           <option value="">— don't change —</option>
-          ${STATUSES.map(s => `<option value="${s}">${s.replace('_', ' ')}</option>`).join('')}
+          ${getStatuses(state.schema).map(s => `<option value="${s}">${s.replace('_', ' ')}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -280,11 +280,11 @@ export async function renderItemsView() {
     <div class="filter-bar">
       <select class="filter-select" id="filter-status" onchange="window.__app.applyItemFilters()">
         <option value="">All Statuses</option>
-        ${STATUSES.map(s => `<option value="${s}"${state.itemFilters.status === s ? ' selected' : ''}>${s.replace('_', ' ')}</option>`).join('')}
+        ${getStatuses(state.schema).map(s => `<option value="${s}"${state.itemFilters.status === s ? ' selected' : ''}>${s.replace('_', ' ')}</option>`).join('')}
       </select>
       <select class="filter-select" id="filter-type" onchange="window.__app.applyItemFilters()">
         <option value="">All Types</option>
-        ${TYPES.map(t => `<option value="${t}"${state.itemFilters.type === t ? ' selected' : ''}>${t}</option>`).join('')}
+        ${getTypes(state.schema).map(t => `<option value="${t}"${state.itemFilters.type === t ? ' selected' : ''}>${t}</option>`).join('')}
       </select>
       <select class="filter-select" id="filter-priority" onchange="window.__app.applyItemFilters()">
         <option value="">All Priorities</option>
@@ -534,7 +534,7 @@ export async function openItemDetail(itemId) {
           <div class="form-group">
             <label class="form-label">Status</label>
             <select class="form-select" id="edit-status">
-              ${STATUSES.map(s => `<option value="${s}"${item.status === s ? ' selected' : ''}>${s.replace('_', ' ')}</option>`).join('')}
+              ${getStatuses(state.schema).map(s => `<option value="${s}"${item.status === s ? ' selected' : ''}>${s.replace('_', ' ')}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">

@@ -1818,6 +1818,50 @@ router.get("/plan/:planId", async (req: AuthRequest, res) => {
   res.json(result.parsed || {});
 });
 
+// PATCH /api/projects/:projectId/pm/plan/:planId
+router.patch("/plan/:planId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { title, description } = req.body as Record<string, string>;
+  const args = ["update", req.params["planId"]!];
+  if (title?.trim()) args.push("--title", title.trim());
+  if (description !== undefined) args.push("--description", description);
+
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to update plan" });
+    return;
+  }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-updated",
+    data: { itemId: req.params["planId"], userId: req.user!.userId },
+  });
+  res.json(result.parsed || {});
+});
+
+// DELETE /api/projects/:projectId/pm/plan/:planId
+router.delete("/plan/:planId", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const result = runPm({
+    args: ["delete", req.params["planId"]!],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.stderr || "Failed to delete plan" });
+    return;
+  }
+  broadcastProjectEvent(req.params["projectId"]!, {
+    type: "item-deleted",
+    data: { itemId: req.params["planId"], userId: req.user!.userId },
+  });
+  res.json({ ok: true });
+});
+
 // POST /api/projects/:projectId/pm/plan/:planId/steps
 router.post("/plan/:planId/steps", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, req.params["projectId"]!);

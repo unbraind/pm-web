@@ -5,7 +5,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
-import { showModal, hideModal, createModal } from '../components/modals.js';
+import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 // ─── State ───────────────────────────────────────────────────
 let currentPlanId = null;
 // ─── Helpers ─────────────────────────────────────────────────
@@ -141,6 +141,8 @@ export async function openPlanDetail(planId) {
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             ${!isApproved ? `<button class="btn btn-secondary btn-sm" onclick="window.__app.planApprove('${escHtml(planId)}')">✓ Approve</button>` : '<span style="font-size:12px;color:var(--status-closed)">✓ Approved</span>'}
             <button class="btn btn-primary btn-sm" onclick="window.__app.planMaterializePrompt('${escHtml(planId)}')">⇗ Materialize</button>
+            <button class="btn btn-ghost btn-sm" onclick="window.__app.planEditPrompt('${escHtml(planId)}','${escHtml(plan.title || '')}')" title="Edit plan">✎</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger,#f87171)" onclick="window.__app.planDeletePrompt('${escHtml(planId)}')" title="Delete plan">✕</button>
           </div>
         </div>
         <div class="card-body">
@@ -313,33 +315,33 @@ export async function submitBlockStep(planId, stepRef) {
         toast(err instanceof Error ? err.message : 'Failed to block step', 'error');
     }
 }
-export async function planRemoveStep(planId, stepRef) {
-    if (!state.currentProject)
-        return;
-    if (!confirm(`Remove step ${stepRef}?`))
-        return;
-    try {
-        await api('DELETE', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}/steps/${encodeURIComponent(stepRef)}`, {});
-        toast('Step removed', 'success');
-        await openPlanDetail(planId);
-    }
-    catch (err) {
-        toast(err instanceof Error ? err.message : 'Failed to remove step', 'error');
-    }
+export function planRemoveStep(planId, stepRef) {
+    confirmDialog('Remove step', `Remove step ${stepRef} from plan?`, async () => {
+        if (!state.currentProject)
+            return;
+        try {
+            await api('DELETE', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}/steps/${encodeURIComponent(stepRef)}`, {});
+            toast('Step removed', 'success');
+            await openPlanDetail(planId);
+        }
+        catch (err) {
+            toast(err instanceof Error ? err.message : 'Failed to remove step', 'error');
+        }
+    }, true);
 }
-export async function planApprove(planId) {
-    if (!state.currentProject)
-        return;
-    if (!confirm(`Approve plan ${planId}?`))
-        return;
-    try {
-        await api('POST', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}/approve`, {});
-        toast('Plan approved', 'success');
-        await openPlanDetail(planId);
-    }
-    catch (err) {
-        toast(err instanceof Error ? err.message : 'Failed to approve plan', 'error');
-    }
+export function planApprove(planId) {
+    confirmDialog('Approve plan', `Approve plan ${planId}? Once approved, it can be materialized.`, async () => {
+        if (!state.currentProject)
+            return;
+        try {
+            await api('POST', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}/approve`, {});
+            toast('Plan approved', 'success');
+            await openPlanDetail(planId);
+        }
+        catch (err) {
+            toast(err instanceof Error ? err.message : 'Failed to approve plan', 'error');
+        }
+    });
 }
 export function planMaterializePrompt(planId) {
     createModal('materialize-plan-modal', 'Materialize Plan', `
@@ -381,11 +383,71 @@ export async function submitMaterializePlan(planId) {
     try {
         await api('POST', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}/materialize`, body);
         hideModal('materialize-plan-modal');
-        toast('Plan materialized — items created', 'success');
+        toast('Plan materialized — items created. Switching to Items view.', 'success');
+        // Navigate to items view so user can see the created items
+        setTimeout(() => window.__app?.showView('items'), 1200);
     }
     catch (err) {
         toast(err instanceof Error ? err.message : 'Failed to materialize plan', 'error');
     }
+}
+export function planEditPrompt(planId, currentTitle) {
+    createModal('edit-plan-modal', 'Edit Plan', `
+    <div class="form-group">
+      <label class="form-label">Title</label>
+      <input class="form-input" id="edit-plan-title" type="text" value="${escHtml(currentTitle)}" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-textarea" id="edit-plan-desc" rows="3" placeholder="Plan description"></textarea>
+    </div>`, `<button class="btn btn-primary" onclick="window.__app.submitEditPlan('${escHtml(planId)}')">Save</button>
+     <button class="btn btn-ghost" onclick="window.__app.hideModal('edit-plan-modal')">Cancel</button>`);
+    showModal('edit-plan-modal');
+    // Populate description async after modal shows
+    api('GET', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}`).then((data) => {
+        const desc = data?.plan?.description || data?.description || '';
+        const el = document.getElementById('edit-plan-desc');
+        if (el)
+            el.value = desc;
+    }).catch(() => { });
+}
+export async function submitEditPlan(planId) {
+    if (!state.currentProject)
+        return;
+    const title = document.getElementById('edit-plan-title')?.value?.trim();
+    const description = document.getElementById('edit-plan-desc')?.value?.trim() || '';
+    if (!title) {
+        toast('Title is required', 'error');
+        return;
+    }
+    try {
+        await api('PATCH', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}`, { title, description });
+        hideModal('edit-plan-modal');
+        toast('Plan updated', 'success');
+        await loadPlanList();
+        await openPlanDetail(planId);
+    }
+    catch (err) {
+        toast(err instanceof Error ? err.message : 'Failed to update plan', 'error');
+    }
+}
+export function planDeletePrompt(planId) {
+    confirmDialog('Delete plan', `Delete plan ${planId} and all its steps? This cannot be undone.`, async () => {
+        if (!state.currentProject)
+            return;
+        try {
+            await api('DELETE', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}`, {});
+            toast('Plan deleted', 'success');
+            currentPlanId = null;
+            const detailEl = document.getElementById('plan-detail-panel');
+            if (detailEl)
+                detailEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">Select a plan to view its steps</div></div>';
+            await loadPlanList();
+        }
+        catch (err) {
+            toast(err instanceof Error ? err.message : 'Failed to delete plan', 'error');
+        }
+    }, true);
 }
 // Expose currentPlanId for potential external use
 export function getCurrentPlanId() { return currentPlanId; }

@@ -5,7 +5,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
-import { TYPES, TYPE_ICONS, PRIORITY_LABELS } from '../constants.js';
+import { getTypes, TYPE_ICONS, PRIORITY_LABELS } from '../constants.js';
 import { showView } from './router.js';
 import { loadItemsBadge } from './projects.js';
 import { openItemDetail } from './items.js';
@@ -32,7 +32,7 @@ export function renderCreateView() {
             <div class="form-group">
               <label class="form-label">Type</label>
               <select class="form-select" id="ci-type">
-                ${TYPES.map(t => `<option value="${t}"${t === 'Task' ? ' selected' : ''}>${TYPE_ICONS[t] || ''} ${t}</option>`).join('')}
+                ${getTypes(state.schema).map(t => `<option value="${t}"${t === 'Task' ? ' selected' : ''}>${TYPE_ICONS[t] || ''} ${t}</option>`).join('')}
               </select>
             </div>
             <div class="form-group">
