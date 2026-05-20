@@ -20,9 +20,19 @@ export function renderProjectSelector() {
     sel.innerHTML = '<option value="">— Select project —</option>' +
         state.projects.map(p => `<option value="${p.id}"${p.id === cur ? ' selected' : ''}>${escHtml(p.name)}</option>`).join('');
 }
+async function fetchProjectSchema(projectId) {
+    try {
+        const schema = await api('GET', `/projects/${projectId}/pm/schema`);
+        if (schema && Array.isArray(schema.types) && schema.types.length) {
+            state.schema = schema;
+        }
+    }
+    catch (_) { /* fallback to constants */ }
+}
 export async function onProjectSelect(id) {
     if (!id) {
         state.currentProject = null;
+        state.schema = null;
         window.__app?.disconnectSSE?.();
         const pmSection = document.getElementById('sidebar-pm-section');
         if (pmSection)
@@ -41,6 +51,8 @@ export async function onProjectSelect(id) {
     if (projName)
         projName.textContent = proj.name;
     window.__app?.connectSSE?.(proj.id);
+    // Fetch schema in background — views use fallback until it resolves
+    fetchProjectSchema(proj.id);
     showView('items');
     loadItemsBadge();
 }

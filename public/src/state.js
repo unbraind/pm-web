@@ -10,5 +10,6 @@ export const state = {
     searchResults: [],
     searchMode: 'hybrid',
     calOffset: 0,
+    schema: null,
 };
 //# sourceMappingURL=state.js.map

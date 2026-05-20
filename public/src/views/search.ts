@@ -4,6 +4,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
+import { toast } from '../components/toast.js';
 import { renderItemRow } from './items.js';
 
 let searchTimer: ReturnType<typeof setTimeout>;
@@ -51,12 +52,12 @@ export async function reindexProject(): Promise<void> {
   if (!btn) return;
   btn.disabled = true;
   btn.textContent = '⟳ Reindexing…';
-  const mode = state.searchMode === 'keyword' ? 'keyword' : 'hybrid';
+  const mode = state.searchMode as string;
   try {
     await api('POST',`/projects/${state.currentProject.id}/pm/reindex`,{mode});
-    (window as any).__app.toast(`Reindex complete (${mode})`, 'success');
+    toast(`Reindex complete (${mode})`, 'success');
   } catch(err: unknown) {
-    (window as any).__app.toast(`Reindex failed: ${err instanceof Error ? err.message : String(err)}`,'error');
+    toast(`Reindex failed: ${err instanceof Error ? err.message : String(err)}`,'error');
   } finally {
     btn.disabled = false;
     btn.textContent = '⟳ Reindex';
