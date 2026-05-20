@@ -7,6 +7,7 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ||
     "http://localhost:11434";
 const OLLAMA_EMBEDDING_MODEL = process.env.PM_OLLAMA_MODEL ||
     "qwen3-embedding:0.6b";
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
 const PM_GRAPH_EXTENSION_PATH = process.env.PM_GRAPH_EXTENSION_PATH ||
     path.join(process.cwd(), "extensions", "pm-graph");
 export function getProjectDir(userId, slug) {

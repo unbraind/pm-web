@@ -5,6 +5,23 @@ import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
+// Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
+let _neo4jDriver = null;
+let _neo4jDriverKey = "";
+function getNeo4jDriver() {
+    const uri = process.env.NEO4J_URI ?? "";
+    const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME ?? "";
+    const password = process.env.NEO4J_PASSWORD ?? "";
+    const key = `${uri}:${user}`;
+    if (!_neo4jDriver || _neo4jDriverKey !== key) {
+        if (_neo4jDriver) {
+            void _neo4jDriver.close().catch(() => undefined);
+        }
+        _neo4jDriver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+        _neo4jDriverKey = key;
+    }
+    return _neo4jDriver;
+}
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
 const pendingGraphSyncs = new Map();
@@ -194,7 +211,7 @@ async function syncGraphToNeo4j(graph, projectKey) {
     if (!uri || !user || !password) {
         throw new Error("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before syncing the graph.");
     }
-    const driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+    const driver = getNeo4jDriver();
     const session = driver.session({ database: process.env.NEO4J_DATABASE });
     try {
         await session.executeWrite((tx) => tx.run("MATCH (n:PmGraphNode {projectKey: $projectKey}) DETACH DELETE n", { projectKey }));
@@ -208,7 +225,6 @@ async function syncGraphToNeo4j(graph, projectKey) {
     }
     finally {
         await session.close();
-        await driver.close();
     }
     return { syncedNodes: graph.nodes.length, syncedRelationships: graph.relationships.length };
 }
@@ -313,6 +329,26 @@ async function verifyProject(userId, projectId) {
         return null;
     return { slug: access.slug, prefix: access.prefix, ownerUserId: access.ownerUserId };
 }
+// GET /api/projects/:projectId/pm/schema
+// Returns runtime types/statuses from `pm contracts --json` so the frontend
+// stays in sync with whatever pm CLI version + extensions are installed.
+router.get("/schema", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const result = runPm({ args: ["contracts", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    const contracts = result.ok && result.parsed ? result.parsed : null;
+    const rt = contracts?.["runtime_schema"];
+    res.json({
+        types: Array.isArray(rt?.["types"]) ? rt["types"] : [],
+        statuses: Array.isArray(rt?.["statuses"]) ? rt["statuses"] : [],
+        openStatus: typeof rt?.["open_status"] === "string" ? rt["open_status"] : "open",
+        closeStatus: typeof rt?.["close_status"] === "string" ? rt["close_status"] : "closed",
+        canceledStatus: typeof rt?.["canceled_status"] === "string" ? rt["canceled_status"] : "canceled",
+    });
+});
 // GET /api/projects/:projectId/pm/list
 router.get("/list", async (req, res) => {
     const project = await verifyProject(req.user.userId, req.params["projectId"]);
@@ -1003,6 +1039,67 @@ router.post("/graph/sync", async (req, res) => {
             },
         });
         res.status(400).json({ error: err instanceof Error ? err.message : "Graph sync failed." });
+    }
+});
+// GET /api/projects/:projectId/pm/graph/neighbors/:nodeId
+router.get("/graph/neighbors/:nodeId", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const nodeId = req.params["nodeId"];
+    if (!nodeId) {
+        res.status(400).json({ error: "nodeId is required" });
+        return;
+    }
+    const result = runPm({
+        args: ["pm-graph", "neighbors", nodeId, "--json"],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: false,
+    });
+    if (!result.ok) {
+        // Extension not available — return empty neighbors
+        res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, error: result.stderr || "pm-graph extension not available" });
+        return;
+    }
+    try {
+        const parsed = result.stdout ? JSON.parse(result.stdout) : null;
+        res.json({ ok: true, ...parsed, extensionAvailable: true });
+    }
+    catch {
+        res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, error: "pm-graph neighbors returned invalid JSON" });
+    }
+});
+// POST /api/projects/:projectId/pm/graph/query
+router.post("/graph/query", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { cypher } = req.body;
+    if (!cypher?.trim()) {
+        res.status(400).json({ error: "cypher query is required" });
+        return;
+    }
+    const result = runPm({
+        args: ["pm-graph", "query", cypher.trim(), "--json"],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: false,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "pm-graph query failed — ensure Neo4j is configured and pm-graph extension is installed" });
+        return;
+    }
+    try {
+        const parsed = result.stdout ? JSON.parse(result.stdout) : { ok: true, records: [] };
+        res.json(parsed);
+    }
+    catch {
+        res.status(500).json({ error: "pm-graph query returned invalid JSON" });
     }
 });
 // GET /api/projects/:projectId/pm/learnings/:itemId
@@ -1749,6 +1846,405 @@ router.get("/list-in-progress", buildListShortcutRoute("list-in-progress"));
 router.get("/list-blocked", buildListShortcutRoute("list-blocked"));
 router.get("/list-closed", buildListShortcutRoute("list-closed"));
 router.get("/list-canceled", buildListShortcutRoute("list-canceled"));
+// ─────────────────────────────────────────────────────────
+// Plan routes
+// ─────────────────────────────────────────────────────────
+// POST /api/projects/:projectId/pm/plan
+router.post("/plan", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { title, description, scope, tags, priority, body } = req.body;
+    if (!title?.trim()) {
+        res.status(400).json({ error: "Title is required" });
+        return;
+    }
+    const args = ["plan", "create", "--title", title.trim()];
+    if (description)
+        args.push("--description", description);
+    if (scope)
+        args.push("--scope", scope);
+    if (tags)
+        args.push("--tags", tags);
+    if (priority)
+        args.push("--priority", priority);
+    if (body)
+        args.push("--body", body);
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to create plan" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-created",
+        data: { result: result.parsed, userId: req.user.userId },
+    });
+    res.status(201).json(result.parsed || {});
+});
+// GET /api/projects/:projectId/pm/plan/:planId
+router.get("/plan/:planId", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const result = runPm({
+        args: ["plan", "show", req.params["planId"], "--depth", "standard"],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(404).json({ error: result.stderr || "Plan not found" });
+        return;
+    }
+    res.json(result.parsed || {});
+});
+// PATCH /api/projects/:projectId/pm/plan/:planId
+router.patch("/plan/:planId", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { title, description } = req.body;
+    const args = ["update", req.params["planId"]];
+    if (title?.trim())
+        args.push("--title", title.trim());
+    if (description !== undefined)
+        args.push("--description", description);
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to update plan" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// DELETE /api/projects/:projectId/pm/plan/:planId
+router.delete("/plan/:planId", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const result = runPm({
+        args: ["delete", req.params["planId"]],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to delete plan" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-deleted",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json({ ok: true });
+});
+// POST /api/projects/:projectId/pm/plan/:planId/steps
+router.post("/plan/:planId/steps", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { title, description, dependsOn } = req.body;
+    if (!title?.trim()) {
+        res.status(400).json({ error: "Title is required" });
+        return;
+    }
+    const args = ["plan", "add-step", req.params["planId"], "--title", title.trim()];
+    if (description)
+        args.push("--description", description);
+    if (dependsOn)
+        args.push("--depends-on", dependsOn);
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to add step" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.status(201).json(result.parsed || {});
+});
+// PATCH /api/projects/:projectId/pm/plan/:planId/steps/:stepRef
+router.patch("/plan/:planId/steps/:stepRef", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { title, description } = req.body;
+    const args = ["plan", "update-step", req.params["planId"], req.params["stepRef"]];
+    if (title)
+        args.push("--title", title);
+    if (description)
+        args.push("--description", description);
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to update step" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/complete
+router.post("/plan/:planId/steps/:stepRef/complete", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const result = runPm({
+        args: ["plan", "complete-step", req.params["planId"], req.params["stepRef"]],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to complete step" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/block
+router.post("/plan/:planId/steps/:stepRef/block", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { reason } = req.body;
+    if (!reason?.trim()) {
+        res.status(400).json({ error: "Block reason is required" });
+        return;
+    }
+    const result = runPm({
+        args: ["plan", "block-step", req.params["planId"], req.params["stepRef"], "--step-blocked-reason", reason.trim()],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to block step" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// DELETE /api/projects/:projectId/pm/plan/:planId/steps/:stepRef
+router.delete("/plan/:planId/steps/:stepRef", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const result = runPm({
+        args: ["plan", "remove-step", req.params["planId"], req.params["stepRef"]],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to remove step" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// POST /api/projects/:projectId/pm/plan/:planId/approve
+router.post("/plan/:planId/approve", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const result = runPm({
+        args: ["plan", "approve", req.params["planId"]],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to approve plan" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// POST /api/projects/:projectId/pm/plan/:planId/materialize
+router.post("/plan/:planId/materialize", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { materializeType, materializeParent, steps } = req.body;
+    const args = ["plan", "materialize", req.params["planId"]];
+    if (materializeType)
+        args.push("--materialize-type", materializeType);
+    if (materializeParent)
+        args.push("--materialize-parent", materializeParent);
+    if (steps)
+        args.push("--steps", steps);
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to materialize plan" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-created",
+        data: { result: result.parsed, userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/reorder
+router.post("/plan/:planId/steps/:stepRef/reorder", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { reorderTo } = req.body;
+    if (reorderTo === undefined || reorderTo === null || reorderTo === "") {
+        res.status(400).json({ error: "reorderTo (new order integer) is required" });
+        return;
+    }
+    const result = runPm({
+        args: ["plan", "reorder-step", req.params["planId"], req.params["stepRef"], String(reorderTo)],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to reorder step" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// POST /api/projects/:projectId/pm/plan/:planId/link
+router.post("/plan/:planId/link", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { link, linkKind, linkNote, promoteToItemDep } = req.body;
+    if (!link?.trim()) {
+        res.status(400).json({ error: "link (item id) is required" });
+        return;
+    }
+    const args = ["plan", "link", req.params["planId"], "--link", link.trim()];
+    if (linkKind)
+        args.push("--link-kind", linkKind);
+    if (linkNote)
+        args.push("--link-note", linkNote);
+    if (promoteToItemDep === "true")
+        args.push("--promote-to-item-dep");
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to link plan" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.status(201).json(result.parsed || {});
+});
+// DELETE /api/projects/:projectId/pm/plan/:planId/link
+router.delete("/plan/:planId/link", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const { link, linkKind } = req.body;
+    if (!link?.trim()) {
+        res.status(400).json({ error: "link (item id) is required" });
+        return;
+    }
+    const args = ["plan", "unlink", req.params["planId"], "--link", link.trim()];
+    if (linkKind)
+        args.push("--link-kind", linkKind);
+    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Failed to unlink plan" });
+        return;
+    }
+    broadcastProjectEvent(req.params["projectId"], {
+        type: "item-updated",
+        data: { itemId: req.params["planId"], userId: req.user.userId },
+    });
+    res.json(result.parsed || {});
+});
+// GET /api/projects/:projectId/pm/upgrade
+// Returns a dry-run preview of what upgrade would do (safe, read-only).
+// POST /api/projects/:projectId/pm/upgrade
+// Runs pm upgrade --packages-only (never upgrades the CLI itself via the web UI).
+router.get("/upgrade", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const result = runPm({
+        args: ["upgrade", "--dry-run", "--packages-only"],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    res.json(result.ok ? (result.parsed || { dryRun: true }) : { error: result.stderr });
+});
+router.post("/upgrade", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    // Only allow package upgrades from the web UI — never self-upgrade the CLI binary.
+    const result = runPm({
+        args: ["upgrade", "--packages-only"],
+        userId: project.ownerUserId,
+        slug: project.slug,
+        jsonOutput: true,
+    });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "Upgrade failed" });
+        return;
+    }
+    res.json(result.parsed || { ok: true });
+});
 // ─── SSE endpoint ───
 // GET /api/projects/:projectId/pm/events
 router.get("/events", async (req, res) => {

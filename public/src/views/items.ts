@@ -248,6 +248,145 @@ export async function applyBulkUpdate(): Promise<void> {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// BULK CLOSE
+// ═══════════════════════════════════════════════════════════════
+export function showBulkCloseModal(): void {
+  if (!state.currentProject) { toast('Select a project first', 'info'); return; }
+  createModal('bulk-close-modal', 'Bulk Close Items', `
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items to Close</div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">Current Status</label>
+          <select class="form-select" id="bc-filter-status">
+            <option value="">Any active status</option>
+            ${getStatuses(state.schema).filter(s => s !== 'closed' && s !== 'canceled').map(s=>`<option value="${s}">${s.replace('_',' ')}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="bc-filter-type">
+            <option value="">Any type</option>
+            ${getTypes(state.schema).map(t=>`<option value="${t}">${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">Sprint</label>
+          <input class="form-input" id="bc-filter-sprint" type="text" placeholder="Filter by sprint…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assignee</label>
+          <input class="form-input" id="bc-filter-assignee" type="text" placeholder="Filter by assignee…">
+        </div>
+      </div>
+    </div>
+    <hr class="section-divider">
+    <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Close Action</div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">Target Status</label>
+        <select class="form-select" id="bc-target-status">
+          <option value="closed">closed</option>
+          <option value="canceled">canceled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reason *</label>
+        <input class="form-input" id="bc-reason" type="text" placeholder="Why are these items being closed?">
+      </div>
+    </div>
+    <div id="bc-preview" style="margin-top:12px"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-secondary" onclick="window.__app.previewBulkClose()">Preview</button>
+      <button class="btn btn-danger" id="bc-apply-btn" onclick="window.__app.applyBulkClose()" disabled>Close Items</button>
+    </div>`, '');
+  showModal('bulk-close-modal');
+}
+
+export async function previewBulkClose(): Promise<void> {
+  const pid = state.currentProject?.id;
+  if (!pid) return;
+  const previewEl = document.getElementById('bc-preview');
+  if (previewEl) previewEl.innerHTML = '<div class="loading-state" style="padding:12px 0"><div class="loading-spinner"></div></div>';
+
+  const fStatus = (document.getElementById('bc-filter-status') as HTMLSelectElement | null)?.value || '';
+  const fType = (document.getElementById('bc-filter-type') as HTMLSelectElement | null)?.value || '';
+  const fSprint = (document.getElementById('bc-filter-sprint') as HTMLInputElement | null)?.value.trim() || '';
+  const fAssignee = (document.getElementById('bc-filter-assignee') as HTMLInputElement | null)?.value.trim() || '';
+  const targetStatus = (document.getElementById('bc-target-status') as HTMLSelectElement | null)?.value || 'closed';
+  const reason = (document.getElementById('bc-reason') as HTMLInputElement | null)?.value.trim() || '';
+
+  if (!reason) {
+    if (previewEl) previewEl.innerHTML = '<div style="color:var(--status-blocked);font-size:13px">A close reason is required.</div>';
+    return;
+  }
+
+  const payload: Record<string, string> = { status: targetStatus, dryRun: 'true' };
+  if (fStatus) payload.filterStatus = fStatus;
+  if (fType) payload.filterType = fType;
+  if (fSprint) payload.filterSprint = fSprint;
+  if (fAssignee) payload.filterAssignee = fAssignee;
+
+  try {
+    const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
+    const matched: any[] = (data as any).items || (data as any).matched || [];
+    const count = (data as any).count ?? (data as any).total ?? matched.length;
+    const applyBtn = document.getElementById('bc-apply-btn') as HTMLButtonElement | null;
+    if (previewEl) {
+      if (count === 0 && matched.length === 0) {
+        previewEl.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:10px 0">No items match the filter criteria.</div>`;
+        if (applyBtn) applyBtn.disabled = true;
+      } else {
+        const displayCount = count || matched.length;
+        previewEl.innerHTML = `
+          <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
+            <div style="margin-bottom:8px">Will <strong>${targetStatus}</strong> <strong>${displayCount}</strong> item${displayCount!==1?'s':''}. Reason: <em>${escHtml(reason)}</em></div>
+            ${matched.slice(0,8).map((it: any)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id||'')} ${escHtml(it.title||'')}</div>`).join('')}
+            ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
+          </div>`;
+        if (applyBtn) {
+          applyBtn.disabled = false;
+          (applyBtn as any)._bulkClosePayload = { fStatus, fType, fSprint, fAssignee, targetStatus, reason };
+        }
+      }
+    }
+  } catch(err: unknown) {
+    if (previewEl) previewEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+  }
+}
+
+export async function applyBulkClose(): Promise<void> {
+  const pid = state.currentProject?.id;
+  if (!pid) return;
+  const applyBtn = document.getElementById('bc-apply-btn') as HTMLButtonElement | null;
+  const bulkClosePayload = (applyBtn as any)?._bulkClosePayload as Record<string, string> | undefined;
+  if (!bulkClosePayload) { toast('Run Preview first', 'info'); return; }
+  if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Closing…'; }
+
+  // First set status via update-many, then we'd ideally call close on each, but update-many
+  // with status:closed is the practical approach (matches bulk update behavior).
+  const payload: Record<string, string> = { status: bulkClosePayload.targetStatus };
+  if (bulkClosePayload.fStatus) payload.filterStatus = bulkClosePayload.fStatus;
+  if (bulkClosePayload.fType) payload.filterType = bulkClosePayload.fType;
+  if (bulkClosePayload.fSprint) payload.filterSprint = bulkClosePayload.fSprint;
+  if (bulkClosePayload.fAssignee) payload.filterAssignee = bulkClosePayload.fAssignee;
+
+  try {
+    const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
+    const updated = (data as any).updated ?? (data as any).count ?? (data as any).total ?? 'some';
+    toast(`Closed ${updated} item${updated!==1?'s':''}`, 'success');
+    hideModal('bulk-close-modal');
+    if (state.currentView === 'items') fetchAndRenderItems();
+    loadItemsBadge();
+  } catch(err: unknown) {
+    toast(err instanceof Error ? err.message : String(err), 'error');
+    if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Close Items'; }
+  }
+}
+
 export async function renderItemsView(): Promise<void> {
   const el = document.getElementById('content-items');
   if (!el) return;
@@ -265,6 +404,7 @@ export async function renderItemsView(): Promise<void> {
       <div class="page-actions">
         <button class="btn btn-secondary btn-sm" onclick="window.__app.renderItemsView()" title="Refresh">↺ Refresh</button>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkUpdateModal()">⊞ Bulk Update</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkCloseModal()" title="Close or cancel many items at once">⊘ Bulk Close</button>
         <button class="btn btn-primary" onclick="window.__app.showView('create')">+ New Item</button>
       </div>
     </div>
@@ -481,6 +621,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <button class="btn btn-ghost btn-sm" onclick="window.__app.releaseItem('${escHtml(itemId)}')">⊖ Release</button>
           ${item.status === 'open' ? `<button class="btn btn-secondary btn-sm" onclick="window.__app.startItem('${escHtml(itemId)}')">▶ Start</button>` : ''}
           ${item.status === 'in_progress' ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.pauseItem('${escHtml(itemId)}')">⏸ Pause</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="window.__app.useItemAsTemplate(${JSON.stringify(item)})" title="Open create form pre-filled with this item's fields">⊡ Use as Template</button>
         </div>
       </div>
 
@@ -993,4 +1134,43 @@ export async function addFileLink(itemId: string): Promise<void> {
     toast('File linked','success');
     openItemDetail(itemId);
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// USE ITEM AS TEMPLATE
+// ═══════════════════════════════════════════════════════════════
+export function useItemAsTemplate(item: Record<string, unknown>): void {
+  // Close the item detail modal and navigate to create view
+  hideModal('item-detail-modal');
+  showView('create');
+  // Give the create view time to render, then fill fields
+  setTimeout(() => {
+    const setVal = (id: string, val: string | undefined) => {
+      if (!val) return;
+      const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+      if (el) el.value = val;
+    };
+    // Pre-fill create form from item fields (title gets "Copy of …" prefix)
+    const origTitle = String(item['title'] || '');
+    setVal('ci-title', origTitle ? `Copy of ${origTitle}` : '');
+    setVal('ci-type', String(item['type'] || ''));
+    setVal('ci-priority', String(item['priority'] || ''));
+    const tags = Array.isArray(item['tags']) ? (item['tags'] as string[]).join(', ') : String(item['tags'] || '');
+    setVal('ci-tags', tags);
+    setVal('ci-desc', String(item['description'] || ''));
+    setVal('ci-sprint', String(item['sprint'] || ''));
+    setVal('ci-release', String(item['release'] || ''));
+    setVal('ci-assignee', String(item['assignee'] || ''));
+    if (item['acceptance_criteria'] || item['acceptanceCriteria']) {
+      setVal('ci-acceptance-criteria', String(item['acceptance_criteria'] || item['acceptanceCriteria'] || ''));
+    }
+    if (item['body']) {
+      setVal('ci-body', String(item['body']));
+    }
+    document.getElementById('ci-title')?.focus();
+    // Select all title text so user can immediately replace or refine
+    const titleEl = document.getElementById('ci-title') as HTMLInputElement | null;
+    titleEl?.select();
+    toast('Create form pre-filled from item', 'success');
+  }, 150);
 }

@@ -5,7 +5,7 @@ import { state } from './state.js';
 import { api } from './api.js';
 import { showView } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
-import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate } from './views/items.js';
+import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
 import { renderActivityView } from './views/activity.js';
 import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSearch } from './views/search.js';
@@ -250,6 +250,10 @@ window.__app = {
     showBulkUpdateModal,
     previewBulkUpdate,
     applyBulkUpdate,
+    showBulkCloseModal,
+    previewBulkClose,
+    applyBulkClose,
+    useItemAsTemplate,
     // Create
     submitCreateItem,
     submitCreateItemAndOpen,
