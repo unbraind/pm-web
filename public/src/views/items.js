@@ -181,8 +181,8 @@ export async function previewBulkUpdate() {
     payload.dryRun = 'true';
     try {
         const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
-        const matched = data.items || data.matched || [];
-        const count = data.count ?? data.total ?? matched.length;
+        const matched = data.item_plans || data.items || data.matched || [];
+        const count = data.matched_count ?? data.count ?? data.total ?? matched.length;
         const applyBtn = document.getElementById('bu-apply-btn');
         if (previewEl) {
             const updateParts = [];
@@ -240,8 +240,14 @@ export async function applyBulkUpdate() {
     }
     try {
         const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
-        const updated = data.updated ?? data.count ?? data.total ?? 'some';
-        toast(`Updated ${updated} item${updated !== 1 ? 's' : ''}`, 'success');
+        const updated = data.updated_count ?? data.updated ?? data.count ?? data.total ?? 'some';
+        const failed = data.failed_count ?? 0;
+        if (failed > 0) {
+            toast(`Updated ${updated} item${updated !== 1 ? 's' : ''} (${failed} failed)`, 'info');
+        }
+        else {
+            toast(`Updated ${updated} item${updated !== 1 ? 's' : ''}`, 'success');
+        }
         hideModal('bulk-update-modal');
         if (state.currentView === 'items')
             fetchAndRenderItems();
@@ -333,7 +339,7 @@ export async function previewBulkClose() {
             previewEl.innerHTML = '<div style="color:var(--status-blocked);font-size:13px">A close reason is required.</div>';
         return;
     }
-    const payload = { status: targetStatus, dryRun: 'true' };
+    const payload = { reason: reason, targetStatus };
     if (fStatus)
         payload.filterStatus = fStatus;
     if (fType)
@@ -343,9 +349,20 @@ export async function previewBulkClose() {
     if (fAssignee)
         payload.filterAssignee = fAssignee;
     try {
-        const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
-        const matched = data.items || data.matched || [];
-        const count = data.count ?? data.total ?? matched.length;
+        // Use update-many dry-run to preview which items will be closed/canceled.
+        // Dry-run accepts status=closed for preview purposes; actual close uses close-many.
+        const previewPayload = { status: targetStatus, dryRun: 'true' };
+        if (fStatus)
+            previewPayload.filterStatus = fStatus;
+        if (fType)
+            previewPayload.filterType = fType;
+        if (fSprint)
+            previewPayload.filterSprint = fSprint;
+        if (fAssignee)
+            previewPayload.filterAssignee = fAssignee;
+        const data = await api('POST', `/projects/${pid}/pm/update-many`, previewPayload);
+        const matched = data.item_plans || data.items || data.matched || [];
+        const count = data.matched_count ?? data.count ?? data.total ?? matched.length;
         const applyBtn = document.getElementById('bc-apply-btn');
         if (previewEl) {
             if (count === 0 && matched.length === 0) {
@@ -387,9 +404,12 @@ export async function applyBulkClose() {
         applyBtn.disabled = true;
         applyBtn.textContent = 'Closing…';
     }
-    // First set status via update-many, then we'd ideally call close on each, but update-many
-    // with status:closed is the practical approach (matches bulk update behavior).
-    const payload = { status: bulkClosePayload.targetStatus };
+    // Use the close-many endpoint which calls pm close <id> <reason> for each matched item.
+    // update-many --status closed is rejected by pm CLI; close-many handles it correctly.
+    const payload = {
+        reason: bulkClosePayload.reason,
+        targetStatus: bulkClosePayload.targetStatus,
+    };
     if (bulkClosePayload.fStatus)
         payload.filterStatus = bulkClosePayload.fStatus;
     if (bulkClosePayload.fType)
@@ -399,9 +419,15 @@ export async function applyBulkClose() {
     if (bulkClosePayload.fAssignee)
         payload.filterAssignee = bulkClosePayload.fAssignee;
     try {
-        const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
-        const updated = data.updated ?? data.count ?? data.total ?? 'some';
-        toast(`Closed ${updated} item${updated !== 1 ? 's' : ''}`, 'success');
+        const data = await api('POST', `/projects/${pid}/pm/close-many`, payload);
+        const closed = data.closed_count ?? 'some';
+        const failed = data.failed_count ?? 0;
+        if (failed > 0) {
+            toast(`Closed ${closed} item${closed !== 1 ? 's' : ''} (${failed} failed)`, 'info');
+        }
+        else {
+            toast(`Closed ${closed} item${closed !== 1 ? 's' : ''}`, 'success');
+        }
         hideModal('bulk-close-modal');
         if (state.currentView === 'items')
             fetchAndRenderItems();

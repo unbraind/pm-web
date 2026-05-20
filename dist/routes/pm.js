@@ -683,8 +683,11 @@ router.get("/context", async (req, res) => {
         res.status(404).json({ error: "Project not found" });
         return;
     }
+    const { depth } = req.query;
+    const validDepths = ["brief", "standard", "deep"];
+    const resolvedDepth = validDepths.includes(depth) ? depth : "standard";
     const result = runPm({
-        args: ["context", "--depth", "full"],
+        args: ["context", "--depth", resolvedDepth],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1650,6 +1653,81 @@ router.post("/update-many", async (req, res) => {
     });
     scheduleGraphSync(req.params["projectId"], project, "items-bulk-updated");
     res.json(result.parsed || {});
+});
+// POST /api/projects/:projectId/pm/close-many
+// Bulk-close items matching filter criteria using pm close <id> <reason> for each matched item.
+// Accepts same filter options as update-many plus a required `reason` field.
+// Returns { closed_count, failed_count, skipped_count, rows }.
+router.post("/close-many", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const body = req.body;
+    const reason = body.reason?.trim();
+    if (!reason) {
+        res.status(400).json({ error: "A close reason is required" });
+        return;
+    }
+    const targetStatus = body.targetStatus === "canceled" ? "canceled" : "closed";
+    // First, use update-many --dry-run to get the list of matched items
+    const listArgs = ["update-many", "--dry-run", "--status", "open"];
+    const filterFlags = {
+        filterStatus: "--filter-status", filterType: "--filter-type",
+        filterTag: "--filter-tag", filterPriority: "--filter-priority",
+        filterAssignee: "--filter-assignee", filterParent: "--filter-parent",
+        filterSprint: "--filter-sprint", filterRelease: "--filter-release",
+        limit: "--limit",
+    };
+    for (const [key, flag] of Object.entries(filterFlags)) {
+        if (body[key])
+            listArgs.push(flag, body[key]);
+    }
+    const listResult = runPm({ args: listArgs, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!listResult.ok) {
+        res.status(400).json({ error: listResult.stderr || "Failed to list items for close-many" });
+        return;
+    }
+    const parsed = listResult.parsed;
+    const itemPlans = Array.isArray(parsed?.["item_plans"]) ? parsed["item_plans"] : [];
+    const matchedIds = itemPlans.map((p) => p.id).filter(Boolean);
+    if (matchedIds.length === 0) {
+        res.json({ closed_count: 0, failed_count: 0, skipped_count: 0, rows: [], matched_count: 0 });
+        return;
+    }
+    // Close (or cancel) each matched item individually
+    const rows = [];
+    let closedCount = 0;
+    let failedCount = 0;
+    for (const itemId of matchedIds) {
+        const closeArgs = targetStatus === "canceled"
+            ? ["update", itemId, "--status", "canceled"]
+            : ["close", itemId, reason];
+        const closeResult = runPm({ args: closeArgs, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+        if (closeResult.ok) {
+            rows.push({ id: itemId, status: "ok" });
+            closedCount++;
+        }
+        else {
+            rows.push({ id: itemId, status: "failed", error: closeResult.stderr || "close failed" });
+            failedCount++;
+        }
+    }
+    if (closedCount > 0) {
+        broadcastProjectEvent(req.params["projectId"], {
+            type: "items-bulk-updated",
+            data: { userId: req.user.userId },
+        });
+        scheduleGraphSync(req.params["projectId"], project, "items-bulk-updated");
+    }
+    res.json({
+        closed_count: closedCount,
+        failed_count: failedCount,
+        skipped_count: 0,
+        matched_count: matchedIds.length,
+        rows,
+    });
 });
 // GET /api/projects/:projectId/pm/docs/:itemId
 router.get("/docs/:itemId", async (req, res) => {
