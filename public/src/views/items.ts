@@ -122,7 +122,7 @@ export function showBulkUpdateModal(): void {
         <label class="form-label">Set Priority</label>
         <select class="form-select" id="bu-set-priority">
           <option value="">— don't change —</option>
-          ${[1,2,3,4,5].map(p=>`<option value="${p}">P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+          ${[0,1,2,3,4].map(p=>`<option value="${p}">P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
@@ -442,7 +442,7 @@ export async function renderItemsView(): Promise<void> {
       </select>
       <select class="filter-select" id="filter-priority" onchange="window.__app.applyItemFilters()">
         <option value="">All Priorities</option>
-        ${[1,2,3,4,5].map(p=>`<option value="${p}"${state.itemFilters.priority==String(p)?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+        ${[0,1,2,3,4].map(p=>`<option value="${p}"${state.itemFilters.priority==String(p)?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
       </select>
       <input class="filter-select" id="filter-sprint" type="text" placeholder="Sprint…" value="${escHtml(state.itemFilters.sprint)}" oninput="window.__app.applyItemFilters()" style="width:100px">
       <input class="filter-select" id="filter-release" type="text" placeholder="Release…" value="${escHtml(state.itemFilters.release)}" oninput="window.__app.applyItemFilters()" style="width:100px">
@@ -502,7 +502,7 @@ export function renderItemRow(item: Item): string {
     <span class="item-title">${escHtml(item.title)}</span>
     <div class="item-meta">
       ${tags ? `<div class="item-tags">${tags}</div>` : ''}
-      ${priorityDot(item.priority||5)}
+      ${priorityDot(item.priority??4)}
       ${statusBadge(item.status||'draft')}
     </div>
   </div>`;
@@ -623,7 +623,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="item-detail-title">${escHtml(item.title)}</div>
         <div class="item-detail-meta">
           ${statusBadge(item.status||'draft')}
-          <div class="meta-chip">${priorityDot(item.priority||5)} <strong>P${item.priority}</strong> ${PRIORITY_LABELS[item.priority]||''}</div>
+          <div class="meta-chip">${priorityDot(item.priority??4)} <strong>P${item.priority}</strong> ${PRIORITY_LABELS[item.priority]||''}</div>
           ${item.created_at ? `<div class="meta-chip">Created <strong>${fmtDate(item.created_at)}</strong></div>` : ''}
           ${item.updated_at ? `<div class="meta-chip">Updated <strong>${relTime(item.updated_at)}</strong></div>` : ''}
           ${item.parent ? `<div class="meta-chip">Parent <strong class="mono">${escHtml(item.parent)}</strong></div>` : ''}
@@ -701,7 +701,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <div class="form-group">
             <label class="form-label">Priority</label>
             <select class="form-select" id="edit-priority">
-              ${[1,2,3,4,5].map(p=>`<option value="${p}"${item.priority==p?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+              ${[0,1,2,3,4].map(p=>`<option value="${p}"${item.priority==p?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
             </select>
           </div>
         </div>

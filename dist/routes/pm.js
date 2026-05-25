@@ -2385,5 +2385,16 @@ router.get("/events", async (req, res) => {
         unsubscribe();
     });
 });
+// ─── Presence endpoint ───
+// GET /api/projects/:projectId/pm/presence
+router.get("/presence", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const users = getProjectPresence(req.params["projectId"]);
+    res.json({ users });
+});
 export { router as pmRouter };
 //# sourceMappingURL=pm.js.map

@@ -19,7 +19,7 @@ export const TYPE_ICONS = {
     Milestone: '⚑', Decision: '⚖', Chore: '⚙', Event: '◷', Meeting: '◉', Reminder: '◉', Plan: '◧'
 };
 export const PRIORITY_LABELS = {
-    1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low', 5: 'Minimal'
+    0: 'Critical', 1: 'High', 2: 'Medium', 3: 'Low', 4: 'Minimal'
 };
 export const VIEW_NAMES = [
     'projects', 'items', 'create', 'activity', 'search', 'stats', 'calendar',

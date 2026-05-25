@@ -18,7 +18,7 @@ docker run -p 4000:4000 -e DATABASE_URL=postgres://... pm-web
 ### Node.js
 
 ```bash
-git clone https://github.com/unbraind/pm-cli-web.git
+git clone https://github.com/unbraind/pm-web.git
 cd pm-web
 npm install
 npm run build
@@ -43,10 +43,10 @@ Open http://localhost:4000 in your browser.
 ## Installation as pm Package
 
 ```bash
-pm install github.com/unbraind/pm-cli-web --global
+pm install github.com/unbraind/pm-web --global
 ```
 
-The GitHub install path resolves to the private `unbraind/pm-web` package repository while the package is pre-release. Keep the `pm-cli-web` URL in user-facing docs so installs continue to work after publication.
+The package repository is at **github.com/unbraind/pm-web** (private while pre-release).
 
 ### Commands
 
