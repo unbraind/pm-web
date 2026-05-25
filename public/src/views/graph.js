@@ -27,6 +27,7 @@ let filter = {
     depMode: false,
     layout: 'force',
     edgeBundling: false,
+    statusFilter: '',
 };
 let selectedItemCache = null;
 let criticalPath = new Set();
@@ -314,6 +315,8 @@ function visibleGraph(graph) {
             return false;
         if (filter.kind === 'unlinked' && (!isItemNode(n) || connected.has(n.id)))
             return false;
+        if (filter.statusFilter && nodeStatus(n) !== filter.statusFilter)
+            return false;
         if (!q)
             return true;
         const hay = [n.id, nodeTitle(n), nodeType(n), nodeStatus(n),
@@ -350,6 +353,8 @@ function toCanvasNodes(nodes, rels) {
         tags: Array.isArray(n.properties?.tags)
             ? n.properties.tags.map(String)
             : [],
+        priority: n.properties?.priority !== undefined ? Number(n.properties.priority) : undefined,
+        assignee: n.properties?.assignee ? String(n.properties.assignee) : undefined,
     }));
 }
 function toCanvasEdges(rels) {
@@ -797,6 +802,13 @@ function renderGraphShell(data) {
             <select id="graph-filter-kind">
               ${[['all', 'All nodes'], ['items', 'Items only'], ['facets', 'Metadata only'], ['external', 'External'], ['unlinked', 'Unlinked']]
         .map(([v, l]) => `<option value="${v}"${filter.kind === v ? ' selected' : ''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="graph-filter-row">
+            <label>Status</label>
+            <select id="graph-filter-status">
+              ${[['', 'All statuses'], ['open', 'Open'], ['in-progress', 'In Progress'], ['blocked', 'Blocked'], ['draft', 'Draft'], ['closed', 'Closed']]
+        .map(([v, l]) => `<option value="${v}"${filter.statusFilter === v ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
           </div>
           <div class="graph-filter-row">
@@ -1296,6 +1308,7 @@ function bindHudEvents() {
     onFilterChange('graph-filter-kind', 'kind', (el) => el.value);
     onFilterChange('graph-filter-rel', 'rel', (el) => el.value);
     onFilterChange('graph-filter-direction', 'direction', (el) => el.value);
+    onFilterChange('graph-filter-status', 'statusFilter', (el) => el.value);
     // Depth slider (range input, not select)
     const depthSlider = document.getElementById('graph-filter-depth');
     const depthLabel = document.getElementById('graph-depth-label');
@@ -1670,7 +1683,7 @@ export async function renderGraphView() {
         selectedItemCache = null;
         if (!urlStateRestored) {
             selectedNodeId = '';
-            filter = { query: '', kind: 'items', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false, layout: 'force', edgeBundling: false };
+            filter = { query: '', kind: 'items', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false, layout: 'force', edgeBundling: false, statusFilter: '' };
         }
         criticalPath = computeCriticalPath(currentGraph.graph?.relationships ?? []);
         el.innerHTML = renderGraphShell(currentGraph);

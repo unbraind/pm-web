@@ -63,6 +63,11 @@ for (const [view, path] of Object.entries(VIEW_TO_PATH)) {
 }
 // Whether pushState was just called (to ignore the resulting popstate)
 let navigatingInternally = false;
+// Callback invoked when the view changes — used to notify presence service
+let onViewChange = null;
+export function setOnViewChange(cb) {
+    onViewChange = cb;
+}
 export function getPathForView(view) {
     return VIEW_TO_PATH[view] || '/';
 }
@@ -183,6 +188,8 @@ export function showView(view, pushState = true) {
             break;
     }
     updateMobileNav(view);
+    // Notify presence service of view change
+    onViewChange?.(view);
     // Scroll main content to top on view change
     const mainContent = document.getElementById('main-content');
     if (mainContent)
