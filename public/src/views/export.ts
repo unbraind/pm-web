@@ -19,7 +19,7 @@ export async function renderExportView(): Promise<void> {
         <div class="export-card-icon">📥</div>
         <div class="export-card-info">
           <div class="export-card-title">Export as JSON</div>
-          <div class="export-card-desc">Download all items with full metadata, comments, and history</div>
+          <div class="export-card-desc">Download all items with full metadata, body, tags, and all available fields</div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="window.__app.exportData('json')"><span>Export JSON</span></button>
       </div>
@@ -27,7 +27,7 @@ export async function renderExportView(): Promise<void> {
         <div class="export-card-icon">📊</div>
         <div class="export-card-info">
           <div class="export-card-title">Export as CSV</div>
-          <div class="export-card-desc">Download items as a spreadsheet-compatible CSV file</div>
+          <div class="export-card-desc">Download items as a spreadsheet-compatible CSV file (includes body, parent, estimate)</div>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="window.__app.exportData('csv')"><span>Export CSV</span></button>
       </div>
@@ -35,7 +35,7 @@ export async function renderExportView(): Promise<void> {
         <div class="export-card-icon">📋</div>
         <div class="export-card-info">
           <div class="export-card-title">Export as YAML</div>
-          <div class="export-card-desc">Download items as a human-readable YAML file</div>
+          <div class="export-card-desc">Download items as a human-readable YAML file with all available fields</div>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="window.__app.exportData('yaml')"><span>Export YAML</span></button>
       </div>
@@ -43,12 +43,12 @@ export async function renderExportView(): Promise<void> {
       <div class="export-card">
         <div class="export-card-icon">📤</div>
         <div class="export-card-info">
-          <div class="export-card-title">Import from JSON</div>
-          <div class="export-card-desc">Upload a previously exported JSON file to restore items</div>
+          <div class="export-card-title">Import from JSON or YAML</div>
+          <div class="export-card-desc">Upload a previously exported JSON or YAML file to add items to this project (max 500 items)</div>
         </div>
         <label class="btn btn-secondary btn-sm" style="cursor:pointer">
           <span>Choose File</span>
-          <input type="file" accept=".json" style="display:none" onchange="window.__app.importData(this.files[0])">
+          <input type="file" accept=".json,.yaml,.yml" style="display:none" onchange="window.__app.importData(this.files[0])">
         </label>
       </div>
       <div id="export-status" style="display:none"></div>
@@ -61,21 +61,37 @@ export async function exportData(format: string): Promise<void> {
   statusEl.style.display = '';
   statusEl.innerHTML = '<div class="loading-state" style="padding:16px"><div class="loading-spinner"></div></div>';
   try {
-    const data = await api('GET', `/projects/${state.currentProject.id}/pm/list-all?limit=9999`);
-    const items = (data as any).items || [];
-    if (items.length === 0) { statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px">No items to export</div>'; return; }
-    let content: string, filename: string, mime: string;
+    // Use server-side export endpoint which fetches --full --include-body data
+    const projectId = state.currentProject.id;
+    const slug = state.currentProject.slug;
+    const exportedAt = new Date().toISOString();
+
     if (format === 'csv') {
-      const headers = ['id','title','type','status','priority','tags','assignee','deadline','sprint','release','created_at','updated_at'];
-      const rows = items.map((i: any) => headers.map((h: string) => {
-        const val = h === 'tags' ? (i.tags||[]).join(';') : String(i[h]||'');
-        return `"${val.replace(/"/g,'""')}"`;
-      }).join(','));
-      content = headers.join(',') + '\n' + rows.join('\n');
-      filename = `${state.currentProject.slug}-items.csv`;
-      mime = 'text/csv';
-    } else if (format === 'yaml') {
-      // Minimal YAML serializer — no external dependency needed for this structure
+      // Fetch via the dedicated server-side export endpoint for CSV
+      const resp = await fetch(`/api/projects/${encodeURIComponent(projectId)}/pm/export?format=csv`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Export failed' })) as { error?: string };
+        throw new Error(err.error || `Export failed (${resp.status})`);
+      }
+      const content = await resp.text();
+      const lineCount = content.split('\n').length - 1; // subtract header
+      downloadFile(content, `${slug}-items.csv`, 'text/csv');
+      statusEl.innerHTML = `<div style="color:var(--status-closed);font-size:13px;padding:12px">✓ Exported ${lineCount} items as CSV</div>`;
+      toast(`Exported ${lineCount} items as CSV`, 'success');
+      return;
+    }
+
+    // For JSON/YAML: fetch from list-all with all fields, then format client-side
+    const data = await api('GET', `/projects/${projectId}/pm/list-all?limit=9999`);
+    const items = (data as { items?: unknown[] }).items || [];
+    if (items.length === 0) { statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px">No items to export</div>'; return; }
+
+    let content: string, filename: string, mime: string;
+
+    if (format === 'yaml') {
+      // YAML serializer — no external dependency needed for this structure
       const yamlVal = (v: unknown, indent: number): string => {
         const pad = '  '.repeat(indent);
         if (v === null || v === undefined) return 'null';
@@ -100,34 +116,105 @@ export async function exportData(format: string): Promise<void> {
         }
         return str || '""';
       };
-      const yamlItems = items.map((item: any) => {
-        const fields = ['id','title','type','status','priority','tags','assignee','deadline','sprint','release','description','body','created_at','updated_at'];
-        const lines: string[] = fields
-          .filter(f => item[f] !== null && item[f] !== undefined && item[f] !== '')
-          .map(f => {
-            const valStr = yamlVal(item[f], 1);
-            return valStr.startsWith('\n') ? `  ${f}:${valStr}` : `  ${f}: ${valStr}`;
-          });
+      const yamlItems = items.map((item) => {
+        const itemObj = item as Record<string, unknown>;
+        const fields = Object.keys(itemObj).filter(f => itemObj[f] !== null && itemObj[f] !== undefined && itemObj[f] !== '');
+        const lines: string[] = fields.map(f => {
+          const valStr = yamlVal(itemObj[f], 1);
+          return valStr.startsWith('\n') ? `  ${f}:${valStr}` : `  ${f}: ${valStr}`;
+        });
         return '- ' + lines.join('\n').trimStart();
       });
-      const header = `# pm-web export\n# project: ${state.currentProject.name}\n# exported_at: ${new Date().toISOString()}\nitems:\n`;
+      const header = `# pm-web export\n# project: ${state.currentProject.name}\n# exported_at: ${exportedAt}\n# version: "2.0"\nitems:\n`;
       content = header + yamlItems.join('\n');
-      filename = `${state.currentProject.slug}-items.yaml`;
+      filename = `${slug}-items.yaml`;
       mime = 'text/yaml';
     } else {
-      content = JSON.stringify({exportedAt: new Date().toISOString(), project: state.currentProject.name, version: '1.0', items}, null, 2);
-      filename = `${state.currentProject.slug}-items.json`;
+      content = JSON.stringify({ exportedAt, project: state.currentProject.name, version: '2.0', items }, null, 2);
+      filename = `${slug}-items.json`;
       mime = 'application/json';
     }
-    const blob = new Blob([content], {type: mime});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(content, filename, mime);
     statusEl.innerHTML = `<div style="color:var(--status-closed);font-size:13px;padding:12px">✓ Exported ${items.length} items as ${format.toUpperCase()}</div>`;
     toast(`Exported ${items.length} items`, 'success');
   } catch(err: unknown) {
     statusEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px;padding:12px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
   }
+}
+
+function downloadFile(content: string, filename: string, mime: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Parse a minimal YAML items list into an array of objects
+// Handles the pm-web export YAML format (flat key: value under "- " list items)
+function parseYamlItems(text: string): Record<string, unknown>[] {
+  const items: Record<string, unknown>[] = [];
+  // Strip comment lines and find items block
+  const lines = text.split('\n');
+  let inItems = false;
+  let current: Record<string, unknown> | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const stripped = line.trimEnd();
+
+    // Skip comments and empty lines before items block
+    if (!inItems) {
+      if (stripped.match(/^items\s*:/)) { inItems = true; }
+      continue;
+    }
+
+    // List item start
+    if (stripped.match(/^- /)) {
+      if (current) items.push(current);
+      current = {};
+      const rest = stripped.slice(2).trim();
+      if (rest) {
+        const colonIdx = rest.indexOf(':');
+        if (colonIdx > 0) {
+          const k = rest.slice(0, colonIdx).trim();
+          const v = rest.slice(colonIdx + 1).trim();
+          current[k] = parseYamlValue(v);
+        }
+      }
+    } else if (current && stripped.match(/^  [a-zA-Z_]/)) {
+      // Continuation key under current item
+      const inner = stripped.slice(2);
+      const colonIdx = inner.indexOf(':');
+      if (colonIdx > 0) {
+        const k = inner.slice(0, colonIdx).trim();
+        const v = inner.slice(colonIdx + 1).trim();
+        if (v) {
+          current[k] = parseYamlValue(v);
+        }
+      }
+    }
+  }
+  if (current) items.push(current);
+  return items;
+}
+
+function parseYamlValue(v: string): unknown {
+  if (!v || v === 'null') return null;
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (/^\d+(\.\d+)?$/.test(v)) return Number(v);
+  // Quoted string
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    return v.slice(1, -1).replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+  // Inline list
+  if (v.startsWith('[') && v.endsWith(']')) {
+    return v.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return v;
 }
 
 export async function importData(file: File): Promise<void> {
@@ -138,9 +225,19 @@ export async function importData(file: File): Promise<void> {
   statusEl.innerHTML = '<div class="loading-state" style="padding:16px"><div class="loading-spinner"></div></div>';
   try {
     const text = await file.text();
-    const data = JSON.parse(text);
-    const rawItems: unknown[] = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
-    if (rawItems.length === 0) { throw new Error('No items found in file'); }
+    const name = file.name.toLowerCase();
+    let rawItems: unknown[] = [];
+
+    if (name.endsWith('.yaml') || name.endsWith('.yml')) {
+      rawItems = parseYamlItems(text);
+      if (rawItems.length === 0) throw new Error('No items found in YAML file. Make sure the file has an "items:" list.');
+    } else {
+      // JSON
+      const data = JSON.parse(text) as unknown;
+      rawItems = Array.isArray(data) ? data : (Array.isArray((data as { items?: unknown[] }).items) ? (data as { items: unknown[] }).items : []);
+      if (rawItems.length === 0) throw new Error('No items found in JSON file');
+    }
+
     if (rawItems.length > 500) { throw new Error(`File contains ${rawItems.length} items — maximum is 500 per import`); }
 
     const items = rawItems.map((item: unknown) => {
@@ -158,6 +255,8 @@ export async function importData(file: File): Promise<void> {
       if (i['sprint']) mapped['sprint'] = String(i['sprint']);
       if (i['release']) mapped['release'] = String(i['release']);
       if (i['body']) mapped['body'] = String(i['body']);
+      if (i['parent']) mapped['parent'] = String(i['parent']);
+      if (i['estimate']) mapped['estimate'] = String(i['estimate']);
       return mapped;
     });
 
@@ -166,7 +265,9 @@ export async function importData(file: File): Promise<void> {
     const failed = result.errors?.length ?? 0;
     statusEl.innerHTML = `<div style="padding:12px;font-size:13px"><span style="color:var(--status-closed)">✓ Imported ${created} items</span>${failed ? `<span style="color:var(--status-blocked);margin-left:12px">✗ ${failed} failed</span>` : ''}</div>`;
     toast(`Imported ${created} items`, 'success');
-    if ((window as any).__app?.loadItemsBadge) (window as any).__app.loadItemsBadge();
+    if ((window as unknown as { __app?: { loadItemsBadge?: () => void } }).__app?.loadItemsBadge) {
+      (window as unknown as { __app: { loadItemsBadge: () => void } }).__app.loadItemsBadge();
+    }
   } catch(err: unknown) {
     statusEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px;padding:12px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
   }
