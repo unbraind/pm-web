@@ -352,6 +352,9 @@ let sseSource = null;
 let sseReconnectTimer = null;
 let sseCurrentProjectId = null;
 let sseClientId = null;
+// Debounce timer for SSE-triggered view refresh (prevents thrashing on bulk operations)
+let sseRefreshTimer = null;
+const SSE_REFRESH_DEBOUNCE_MS = 400;
 function userInitials(displayName) {
     return displayName
         .split(/[\s@._-]+/)
@@ -416,6 +419,10 @@ function disconnectSSE() {
         clearTimeout(sseReconnectTimer);
         sseReconnectTimer = null;
     }
+    if (sseRefreshTimer) {
+        clearTimeout(sseRefreshTimer);
+        sseRefreshTimer = null;
+    }
     if (sseSource) {
         sseSource.close();
         sseSource = null;
@@ -464,8 +471,8 @@ function connectSSE(projectId, attempt = 0) {
             }
             catch { /* ignore */ }
         });
-        // Handle item updates — refresh the current view
-        const refreshView = () => {
+        // Handle item updates — refresh the current view (debounced to prevent thrashing)
+        const doRefreshView = () => {
             const view = state.currentView;
             if (view === 'items') {
                 fetchAndRenderItems();
@@ -481,6 +488,11 @@ function connectSSE(projectId, attempt = 0) {
             }
             loadItemsBadge();
         };
+        const refreshView = () => {
+            if (sseRefreshTimer)
+                clearTimeout(sseRefreshTimer);
+            sseRefreshTimer = setTimeout(doRefreshView, SSE_REFRESH_DEBOUNCE_MS);
+        };
         // Graph-synced events (Neo4j sync complete) do a full graph reload
         const refreshGraph = () => {
             if (state.currentView === 'graph') {
@@ -488,7 +500,32 @@ function connectSSE(projectId, attempt = 0) {
             }
         };
         // Item events on graph view use lightweight data-only refresh
-        const refreshGraphData = () => {
+        const refreshGraphData = (evt) => {
+            // Show a subtle toast when another user's action triggers a refresh
+            // (only if client ID is known, meaning we've fully connected)
+            if (sseClientId) {
+                try {
+                    const payload = JSON.parse(evt.data);
+                    const myUserId = state.user?.id;
+                    // Only notify if the change came from a different user
+                    if (payload.userId && payload.userId !== myUserId) {
+                        const evtType = evt.type || '';
+                        let msg = 'Project updated by another user';
+                        if (evtType.includes('created'))
+                            msg = 'New item created by another user';
+                        else if (evtType.includes('deleted'))
+                            msg = 'An item was deleted by another user';
+                        else if (evtType.includes('closed'))
+                            msg = 'An item was closed by another user';
+                        else if (evtType.includes('imported'))
+                            msg = 'Items were imported by another user';
+                        else if (evtType.includes('bulk'))
+                            msg = 'Items were bulk-updated by another user';
+                        toast(msg, 'info');
+                    }
+                }
+                catch { /* ignore parse errors */ }
+            }
             if (state.currentView === 'graph') {
                 import('./views/graph.js').then((module) => module.refreshGraphData());
             }
