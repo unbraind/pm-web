@@ -132,6 +132,41 @@ function renderConfigData(el, data) {
     </div>` : ''}
 
     ${data.settings_path ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Settings path: <code style="font-family:monospace;background:var(--bg-input);padding:1px 4px;border-radius:3px">${escHtml(data.settings_path)}</code></div>` : ''}
+
+    <div class="card" style="margin-top:24px">
+      <div class="card-header">
+        <div class="card-title">Custom Schema Types</div>
+        <div style="font-size:11px;color:var(--text-muted)">Add a new item type using <code style="font-family:monospace">pm schema add-type</code></div>
+      </div>
+      <div class="card-body">
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">Type Name *</label>
+            <input class="form-input" id="schema-type-name" type="text" placeholder="e.g. Bug, Story, Spike">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Default Status</label>
+            <input class="form-input" id="schema-type-default-status" type="text" placeholder="e.g. open">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input class="form-input" id="schema-type-description" type="text" placeholder="What is this type for?">
+        </div>
+        <div class="two-col">
+          <div class="form-group">
+            <label class="form-label">Folder</label>
+            <input class="form-input" id="schema-type-folder" type="text" placeholder="Subfolder for this type (optional)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Aliases (comma-separated)</label>
+            <input class="form-input" id="schema-type-aliases" type="text" placeholder="e.g. b, defect">
+          </div>
+        </div>
+        <div id="schema-type-error" style="display:none;color:var(--status-blocked);font-size:13px;margin-bottom:8px"></div>
+        <button class="btn btn-primary btn-sm" onclick="window.__app.addSchemaType()">Add Custom Type</button>
+      </div>
+    </div>
   `;
     // Store the current keys in DOM for mutation use
     el.__configKeys = keys;
@@ -206,6 +241,60 @@ export async function configSaveSimple(key) {
     }
     catch (err) {
         toast(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
+    }
+}
+export async function addSchemaType() {
+    const pid = state.currentProject?.id;
+    if (!pid)
+        return;
+    const nameEl = document.getElementById('schema-type-name');
+    const descEl = document.getElementById('schema-type-description');
+    const defaultStatusEl = document.getElementById('schema-type-default-status');
+    const folderEl = document.getElementById('schema-type-folder');
+    const aliasesEl = document.getElementById('schema-type-aliases');
+    const errEl = document.getElementById('schema-type-error');
+    const name = nameEl?.value?.trim() ?? '';
+    if (!name) {
+        if (errEl) {
+            errEl.textContent = 'Type name is required';
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+    if (errEl)
+        errEl.style.display = 'none';
+    const description = descEl?.value?.trim() ?? '';
+    const defaultStatus = defaultStatusEl?.value?.trim() ?? '';
+    const folder = folderEl?.value?.trim() ?? '';
+    const aliasesRaw = aliasesEl?.value?.trim() ?? '';
+    const aliases = aliasesRaw ? aliasesRaw.split(',').map(a => a.trim()).filter(Boolean) : [];
+    try {
+        await api('POST', `/projects/${pid}/pm/schema/add-type`, {
+            name,
+            ...(description ? { description } : {}),
+            ...(defaultStatus ? { defaultStatus } : {}),
+            ...(folder ? { folder } : {}),
+            ...(aliases.length ? { aliases } : {}),
+        });
+        toast(`Custom type "${name}" added`, 'success');
+        if (nameEl)
+            nameEl.value = '';
+        if (descEl)
+            descEl.value = '';
+        if (defaultStatusEl)
+            defaultStatusEl.value = '';
+        if (folderEl)
+            folderEl.value = '';
+        if (aliasesEl)
+            aliasesEl.value = '';
+    }
+    catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (errEl) {
+            errEl.textContent = msg;
+            errEl.style.display = 'block';
+        }
+        toast(`Error: ${msg}`, 'error');
     }
 }
 export async function configSaveObject(key) {

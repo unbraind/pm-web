@@ -38,7 +38,7 @@ export function renderCreateView() {
             <div class="form-group">
               <label class="form-label">Priority</label>
               <select class="form-select" id="ci-priority">
-                ${[1, 2, 3, 4, 5].map(p => `<option value="${p}"${p === 3 ? ' selected' : ''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+                ${[0, 1, 2, 3, 4].map(p => `<option value="${p}"${p === 2 ? ' selected' : ''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -265,7 +265,7 @@ export async function submitCreateItem(e, openAfter = false) {
             typeEl.value = 'Task';
         const priEl = document.getElementById('ci-priority');
         if (priEl)
-            priEl.value = '3';
+            priEl.value = '2';
         loadItemsBadge();
         if (openAfter && newId) {
             showView('items');
