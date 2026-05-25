@@ -2215,6 +2215,48 @@ router.post("/upgrade", async (req: AuthRequest, res) => {
   res.json(result.parsed || { ok: true });
 });
 
+// POST /api/projects/:projectId/pm/schema/add-type
+router.post("/schema/add-type", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { name, description, defaultStatus, folder, aliases } = req.body as {
+    name?: string;
+    description?: string;
+    defaultStatus?: string;
+    folder?: string;
+    aliases?: string[];
+  };
+
+  if (!name?.trim()) { res.status(400).json({ error: "Type name is required" }); return; }
+
+  const args = ["schema", "add-type", name.trim()];
+  if (description) args.push("--description", description);
+  if (defaultStatus) args.push("--default-status", defaultStatus);
+  if (folder) args.push("--folder", folder);
+  if (aliases?.length) aliases.forEach(a => args.push("--alias", a));
+
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) { res.status(400).json({ error: result.stderr || "Failed to add custom type" }); return; }
+  res.json(result.parsed || {});
+});
+
+// POST /api/projects/:projectId/pm/items/:itemId/history-repair
+router.post("/items/:itemId/history-repair", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const { itemId } = req.params as { itemId: string };
+  const { dryRun } = req.body as { dryRun?: boolean };
+
+  const args = ["history-repair", itemId];
+  if (dryRun) args.push("--dry-run");
+
+  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok) { res.status(400).json({ error: result.stderr || "History repair failed" }); return; }
+  res.json(result.parsed || { ok: true });
+});
+
 // ─── SSE endpoint ───
 // GET /api/projects/:projectId/pm/events
 router.get("/events", async (req: AuthRequest, res) => {
