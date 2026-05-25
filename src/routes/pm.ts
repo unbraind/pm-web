@@ -2,7 +2,8 @@ import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { ensureGraphExtension, runPm, projectExists } from "../services/pm-runner.js";
 import { verifyProjectAccess } from "./projects.js";
-import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, type SSEEvent } from "../services/sse.js";
+import { addSSEClient, broadcastProjectEvent, broadcastPresenceUpdate, getProjectPresence, setupSSEHeaders, type SSEEvent } from "../services/sse.js";
+import { pool } from "../db.js";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
 
@@ -2269,16 +2270,39 @@ router.get("/events", async (req: AuthRequest, res) => {
     return;
   }
 
+  // Look up display_name for presence
+  let displayName: string | undefined;
+  try {
+    const userRow = await pool.query<{ display_name: string | null }>(
+      `SELECT display_name FROM pm_users WHERE id = $1`,
+      [req.user!.userId]
+    );
+    displayName = userRow.rows[0]?.display_name ?? undefined;
+  } catch {
+    // Non-fatal; presence will fall back to email
+  }
+
   setupSSEHeaders(res);
 
   const clientId = uuidv4();
+  const projectId = req.params["projectId"]!;
   const unsubscribe = addSSEClient({
     id: clientId,
-    projectId: req.params["projectId"]!,
+    projectId,
     userId: req.user!.userId,
+    displayName,
+    userEmail: req.user!.email,
     res,
     connectedAt: new Date(),
   });
+
+  // Send current presence to this new client immediately (so they see who's already there)
+  const currentPresence = getProjectPresence(projectId);
+  try {
+    res.write(`event: presence-update\ndata: ${JSON.stringify(currentPresence)}\n\n`);
+  } catch {
+    // Client already disconnected
+  }
 
   // Heartbeat every 30s to keep connection alive
   const heartbeat = setInterval(() => {
@@ -2294,6 +2318,15 @@ router.get("/events", async (req: AuthRequest, res) => {
     clearInterval(heartbeat);
     unsubscribe();
   });
+});
+
+// ─── Presence endpoint ───
+// GET /api/projects/:projectId/pm/presence
+router.get("/presence", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  const users = getProjectPresence(req.params["projectId"]!);
+  res.json({ users });
 });
 
 export { router as pmRouter };
