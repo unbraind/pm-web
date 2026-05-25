@@ -27,7 +27,7 @@ async function openGraphAt(nodeId: string): Promise<void> {
 }
 import { renderSharingView, openShareModal, submitShare, removeShare } from './views/sharing.js';
 import { renderGroupsView, openCreateGroupModal, submitCreateGroup, deleteGroup, openGroupDetail, inviteMember, removeMember } from './views/groups.js';
-import { renderHealthView } from './views/health.js';
+import { renderHealthView, repairItemHistory } from './views/health.js';
 import { renderDedupeAuditView } from './views/dedupe.js';
 import { renderValidateView } from './views/validate.js';
 import { renderSettingsView, saveProfile, changePassword, saveGitHubToken, clearGitHubToken } from './views/settings.js';
@@ -37,7 +37,7 @@ import { renderNormalizeView, applyNormalize } from './views/normalize.js';
 import { renderSharedView } from './views/shared.js';
 import { renderTemplatesView, createFromTemplate } from './views/templates.js';
 import { renderCommentsAuditView } from './views/comments-audit.js';
-import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject } from './views/config.js';
+import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject, addSchemaType } from './views/config.js';
 import { renderGuideView } from './views/guide.js';
 import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage, adminCreateGroup } from './views/admin.js';
 import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
@@ -210,6 +210,7 @@ let deferredPrompt: any = null;
   renderSharingView,
   renderGroupsView,
   renderHealthView,
+  repairItemHistory,
   renderDedupeAuditView,
   renderValidateView,
   renderSettingsView,
@@ -229,6 +230,7 @@ let deferredPrompt: any = null;
   configSaveArray,
   configSaveSimple,
   configSaveObject,
+  addSchemaType,
   setAdminRole,
 
   // Auth

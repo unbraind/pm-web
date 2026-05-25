@@ -114,6 +114,13 @@ export interface Learning {
   created_at?: string;
 }
 
+export interface PresenceUser {
+  userId: string;
+  displayName: string;
+  currentView: string;
+  connectedAt: string;
+}
+
 export interface Note {
   text?: string;
   content?: string;
