@@ -27,7 +27,7 @@ jobs:
       - name: Dispatch website sync workflow
         env:
           GH_REPO: unbraind/pm-cli-companion
-          WEB_SOURCE_REPO: unbraind/pm-cli-web
+          WEB_SOURCE_REPO: unbraind/pm-web
           WEBSITE_DISPATCH_TOKEN: ${{ secrets.PM_WEBSITE_DISPATCH_TOKEN || secrets.PM_SYNC_GITHUB_TOKEN || secrets.GH_PAT }}
         run: |
           set -euo pipefail
