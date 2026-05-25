@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from './state.js';
 import { api } from './api.js';
+import type { PresenceUser } from './types.js';
 import { showView } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
 import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
@@ -382,6 +383,61 @@ let deferredPrompt: any = null;
 };
 
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// PRESENCE
+// ═══════════════════════════════════════════════════════════════
+
+const PRESENCE_COLORS = [
+  '#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#f87171',
+  '#38bdf8', '#c084fc', '#4ade80', '#fb923c', '#e879f9',
+];
+
+function presenceColorForUser(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
+  }
+  return PRESENCE_COLORS[hash % PRESENCE_COLORS.length];
+}
+
+function handlePresenceUpdate(users: PresenceUser[]): void {
+  const currentUserId = state.user?.id;
+  // Filter out the current user
+  const others = users.filter((u) => u.userId !== currentUserId);
+
+  const container = document.getElementById('presence-users');
+  if (!container) return;
+
+  if (others.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  container.style.display = 'flex';
+
+  const MAX_VISIBLE = 5;
+  const visible = others.slice(0, MAX_VISIBLE);
+  const overflow = others.length - MAX_VISIBLE;
+
+  let html = '';
+  for (const user of visible) {
+    const label = user.displayName || user.email;
+    const initial = label.charAt(0).toUpperCase();
+    const color = presenceColorForUser(user.userId);
+    const tooltip = user.displayName ? `${user.displayName} (${user.email})` : user.email;
+    html += `<div class="presence-avatar" style="background:${color}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}">${escapeHtml(initial)}</div>`;
+  }
+  if (overflow > 0) {
+    html += `<div class="presence-avatar presence-avatar-overflow" title="${overflow} more user${overflow > 1 ? 's' : ''}" aria-label="${overflow} more users">+${overflow}</div>`;
+  }
+  container.innerHTML = html;
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // SSE REAL-TIME SYNC
 // ═══════════════════════════════════════════════════════════════
 let sseSource: EventSource | null = null;
@@ -408,6 +464,8 @@ function disconnectSSE(): void {
   if (sseSource) { sseSource.close(); sseSource = null; }
   sseCurrentProjectId = null;
   setSseStatus('disconnected');
+  // Clear presence display on disconnect
+  handlePresenceUpdate([]);
 }
 
 function connectSSE(projectId: string, attempt = 0): void {
@@ -491,6 +549,13 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('graph-sync-failed', graphSyncFailed);
     source.addEventListener('graph_sync_failed', graphSyncFailed);
     source.addEventListener('update', refreshView);
+    source.addEventListener('presence-update', (evt: MessageEvent) => {
+      try {
+        handlePresenceUpdate(JSON.parse(evt.data) as PresenceUser[]);
+      } catch {
+        // Ignore malformed presence data
+      }
+    });
 
     source.onerror = () => {
       setSseStatus('reconnecting');

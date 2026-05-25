@@ -46,7 +46,7 @@ Open http://localhost:4000 in your browser.
 pm install github.com/unbraind/pm-cli-web --global
 ```
 
-The GitHub install path resolves to the private `unbraind/pm-web` package repository while the package is pre-release. Keep the `pm-cli-web` URL in user-facing docs so installs continue to work after publication.
+The package repository is at **github.com/unbraind/pm-cli-web** (private while pre-release).
 
 ### Commands
 
