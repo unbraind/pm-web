@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { ensureGraphExtension, runPm } from "../services/pm-runner.js";
 import { verifyProjectAccess } from "./projects.js";
-import { addSSEClient, broadcastProjectEvent, setupSSEHeaders } from "../services/sse.js";
+import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, broadcastPresence, updateClientView, getProjectPresence } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
@@ -2323,6 +2323,20 @@ router.post("/upgrade", async (req, res) => {
     }
     res.json(result.parsed || { ok: true });
 });
+// ─── Presence endpoints ───
+// GET /api/projects/:projectId/pm/presence
+router.get("/presence", async (req, res) => {
+    const projectId = req.params["projectId"];
+    res.json({ users: getProjectPresence(projectId) });
+});
+// PATCH /api/projects/:projectId/pm/presence/:clientId
+router.patch("/presence/:clientId", async (req, res) => {
+    const { clientId } = req.params;
+    const { view } = req.body;
+    if (view)
+        updateClientView(clientId, view);
+    res.json({ ok: true });
+});
 // ─── SSE endpoint ───
 // GET /api/projects/:projectId/pm/events
 router.get("/events", async (req, res) => {
@@ -2340,17 +2354,26 @@ router.get("/events", async (req, res) => {
     }
     setupSSEHeaders(res);
     const clientId = uuidv4();
+    const projectId = req.params["projectId"];
+    const userId = req.user.userId;
+    // Client sends display name as query param; fall back to email
+    const displayName = String(req.query["dn"] ?? req.user.email ?? userId);
+    const currentView = String(req.query["view"] ?? "items");
     const unsubscribe = addSSEClient({
         id: clientId,
-        projectId: req.params["projectId"],
-        userId: req.user.userId,
+        projectId,
+        userId,
+        displayName,
+        currentView,
         res,
         connectedAt: new Date(),
     });
-    // Heartbeat every 30s to keep connection alive
+    // Heartbeat every 30s to keep connection alive and refresh presence
     const heartbeat = setInterval(() => {
         try {
             res.write(": heartbeat\n\n");
+            // Re-broadcast presence on heartbeat to keep list fresh
+            broadcastPresence(projectId);
         }
         catch {
             clearInterval(heartbeat);

@@ -25,6 +25,7 @@ type GraphFilter = {
   depMode:   boolean;
   layout:    LayoutMode;
   edgeBundling: boolean;
+  statusFilter: string;  // '' = all, or specific status
 };
 
 // ── Module state ──────────────────────────────────────────────
@@ -39,16 +40,17 @@ let filterOpen       = false;
 let physicsOpen      = false;
 
 let filter: GraphFilter = {
-  query:     '',
-  kind:      'items',
-  rel:       'all',
-  direction: 'all',
-  scope:     'all',
-  depth:     '1',
-  colorMode: 'status',
-  depMode:   false,
-  layout:    'force',
+  query:        '',
+  kind:         'items',
+  rel:          'all',
+  direction:    'all',
+  scope:        'all',
+  depth:        '1',
+  colorMode:    'status',
+  depMode:      false,
+  layout:       'force',
   edgeBundling: false,
+  statusFilter: '',
 };
 
 let selectedItemCache: Record<string, unknown> | null = null;
@@ -343,6 +345,7 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRel
     if (filter.kind === 'facets'   && !isFacetNode(n))                        return false;
     if (filter.kind === 'external' && !n.labels?.includes('ExternalPmItem'))  return false;
     if (filter.kind === 'unlinked' && (!isItemNode(n) || connected.has(n.id))) return false;
+    if (filter.statusFilter && nodeStatus(n) !== filter.statusFilter) return false;
     if (!q) return true;
     const hay = [n.id, nodeTitle(n), nodeType(n), nodeStatus(n),
       (n.properties?.tags as string[] | undefined)?.join(' ') || ''].join(' ').toLowerCase();
@@ -369,15 +372,17 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRel
 function toCanvasNodes(nodes: GraphNode[], rels: GraphRelationship[]): CanvasNode[] {
   const deg = degreeMap(rels);
   return nodes.map((n) => ({
-    id:     n.id,
-    label:  nodeTitle(n),
-    type:   nodeType(n),
-    status: nodeStatus(n),
-    lane:   nodeLane(n),
-    degree: deg.get(n.id) || 0,
-    tags:   Array.isArray(n.properties?.tags)
+    id:       n.id,
+    label:    nodeTitle(n),
+    type:     nodeType(n),
+    status:   nodeStatus(n),
+    lane:     nodeLane(n),
+    degree:   deg.get(n.id) || 0,
+    tags:     Array.isArray(n.properties?.tags)
       ? (n.properties.tags as unknown[]).map(String)
       : [],
+    priority: n.properties?.priority !== undefined ? Number(n.properties.priority) : undefined,
+    assignee: n.properties?.assignee ? String(n.properties.assignee) : undefined,
   }));
 }
 
@@ -862,6 +867,13 @@ function renderGraphShell(data: GraphResponse): string {
             <select id="graph-filter-kind">
               ${[['all','All nodes'],['items','Items only'],['facets','Metadata only'],['external','External'],['unlinked','Unlinked']]
                 .map(([v,l]) => `<option value="${v}"${filter.kind===v?' selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="graph-filter-row">
+            <label>Status</label>
+            <select id="graph-filter-status">
+              ${[['','All statuses'],['open','Open'],['in-progress','In Progress'],['blocked','Blocked'],['draft','Draft'],['closed','Closed']]
+                .map(([v,l]) => `<option value="${v}"${filter.statusFilter===v?' selected':''}>${l}</option>`).join('')}
             </select>
           </div>
           <div class="graph-filter-row">
@@ -1364,9 +1376,10 @@ function bindHudEvents(): void {
     });
   };
 
-  onFilterChange('graph-filter-kind',      'kind',      (el) => (el as HTMLSelectElement).value);
-  onFilterChange('graph-filter-rel',       'rel',       (el) => (el as HTMLSelectElement).value);
-  onFilterChange('graph-filter-direction', 'direction', (el) => (el as HTMLSelectElement).value);
+  onFilterChange('graph-filter-kind',      'kind',         (el) => (el as HTMLSelectElement).value);
+  onFilterChange('graph-filter-rel',       'rel',          (el) => (el as HTMLSelectElement).value);
+  onFilterChange('graph-filter-direction', 'direction',    (el) => (el as HTMLSelectElement).value);
+  onFilterChange('graph-filter-status',    'statusFilter', (el) => (el as HTMLSelectElement).value);
 
   // Depth slider (range input, not select)
   const depthSlider = document.getElementById('graph-filter-depth') as HTMLInputElement | null;
@@ -1724,7 +1737,7 @@ export async function renderGraphView(): Promise<void> {
     selectedItemCache = null;
     if (!urlStateRestored) {
       selectedNodeId = '';
-      filter = { query: '', kind: 'items', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false, layout: 'force', edgeBundling: false };
+      filter = { query: '', kind: 'items', rel: 'all', direction: 'all', scope: 'all', depth: '1', colorMode: 'status', depMode: false, layout: 'force', edgeBundling: false, statusFilter: '' };
     }
     criticalPath = computeCriticalPath(currentGraph.graph?.relationships ?? []);
 

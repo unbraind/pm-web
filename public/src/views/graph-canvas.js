@@ -1613,6 +1613,8 @@ export class GraphCanvas {
         <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px;">
           <span style="color:#64748b;">Type</span><span>${escHtml(n.type)}</span>
           <span style="color:#64748b;">Status</span><span style="color:${n.color};">${escHtml(n.status)}</span>
+          ${n.priority !== undefined && n.priority !== null ? `<span style="color:#64748b;">Priority</span><span>${escHtml(String(n.priority))}</span>` : ''}
+          ${n.assignee ? `<span style="color:#64748b;">Assignee</span><span>${escHtml(n.assignee)}</span>` : ''}
           <span style="color:#64748b;">Lane</span><span>${escHtml(laneLabel)}</span>
           <span style="color:#64748b;">Links</span><span>${escHtml(degText)}</span>
         </div>

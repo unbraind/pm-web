@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from './state.js';
 import { api } from './api.js';
-import { showView } from './views/router.js';
+import { showView, setOnViewChange } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
 import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
@@ -349,6 +349,43 @@ window.__app = {
 let sseSource = null;
 let sseReconnectTimer = null;
 let sseCurrentProjectId = null;
+let sseClientId = null;
+function userInitials(displayName) {
+    return displayName
+        .split(/[\s@._-]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('');
+}
+function renderPresenceBar(users) {
+    const bar = document.getElementById('presence-bar');
+    if (!bar)
+        return;
+    const myId = state.user?.id;
+    // Show other users; if only me, hide the bar
+    const others = users.filter((u) => u.userId !== myId);
+    if (others.length === 0) {
+        bar.innerHTML = '';
+        bar.style.display = 'none';
+        return;
+    }
+    bar.style.display = 'flex';
+    const MAX_VISIBLE = 5;
+    const visible = others.slice(0, MAX_VISIBLE);
+    const extra = others.length - MAX_VISIBLE;
+    const chips = visible.map((u) => {
+        const initials = userInitials(u.displayName);
+        const hue = Math.abs(u.userId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % 360;
+        const color = `hsl(${hue},60%,55%)`;
+        const viewLabel = u.currentView.replace(/-/g, ' ');
+        return `<div class="presence-chip" title="${escHtml(u.displayName)} · ${escHtml(viewLabel)}" style="background:${color}22;border-color:${color}66;color:${color}">${escHtml(initials)}</div>`;
+    }).join('');
+    const extraChip = extra > 0
+        ? `<div class="presence-chip presence-chip-extra" title="${extra} more user${extra > 1 ? 's' : ''} viewing">+${extra}</div>`
+        : '';
+    bar.innerHTML = `<span class="presence-label">Viewing:</span>${chips}${extraChip}`;
+}
 function setSseStatus(status) {
     const el = document.getElementById('sse-indicator');
     if (!el)
@@ -364,6 +401,12 @@ function setSseStatus(status) {
     }
     else {
         el.title = 'Real-time sync disconnected';
+        // Clear presence bar on disconnect
+        const bar = document.getElementById('presence-bar');
+        if (bar) {
+            bar.innerHTML = '';
+            bar.style.display = 'none';
+        }
     }
 }
 function disconnectSSE() {
@@ -376,7 +419,18 @@ function disconnectSSE() {
         sseSource = null;
     }
     sseCurrentProjectId = null;
+    sseClientId = null;
     setSseStatus('disconnected');
+}
+function notifyPresenceView(view) {
+    if (!sseClientId || !sseCurrentProjectId)
+        return;
+    // Fire-and-forget: update current view on server
+    void fetch(`/api/projects/${encodeURIComponent(sseCurrentProjectId)}/pm/presence/${encodeURIComponent(sseClientId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ view }),
+    }).catch(() => undefined);
 }
 function connectSSE(projectId, attempt = 0) {
     if (sseCurrentProjectId === projectId && sseSource && sseSource.readyState !== EventSource.CLOSED)
@@ -384,12 +438,29 @@ function connectSSE(projectId, attempt = 0) {
     disconnectSSE();
     sseCurrentProjectId = projectId;
     setSseStatus(attempt > 0 ? 'reconnecting' : 'disconnected');
-    const url = `/api/projects/${encodeURIComponent(projectId)}/pm/events`;
+    const u = state.user;
+    const displayName = encodeURIComponent(u?.display_name || u?.email || '');
+    const currentView = encodeURIComponent(state.currentView || 'items');
+    const url = `/api/projects/${encodeURIComponent(projectId)}/pm/events?dn=${displayName}&view=${currentView}`;
     try {
         const source = new EventSource(url);
         sseSource = source;
-        source.addEventListener('connected', () => {
+        source.addEventListener('connected', (evt) => {
             setSseStatus('connected');
+            try {
+                const data = JSON.parse(evt.data);
+                if (data.clientId)
+                    sseClientId = data.clientId;
+            }
+            catch { /* ignore */ }
+        });
+        // Handle presence updates
+        source.addEventListener('presence', (evt) => {
+            try {
+                const data = JSON.parse(evt.data);
+                renderPresenceBar(data.users);
+            }
+            catch { /* ignore */ }
         });
         // Handle item updates — refresh the current view
         const refreshView = () => {
@@ -472,7 +543,7 @@ function connectSSE(projectId, attempt = 0) {
         setSseStatus('disconnected');
     }
 }
-export { connectSSE, disconnectSSE };
+export { connectSSE, disconnectSSE, notifyPresenceView };
 // ═══════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════
@@ -497,6 +568,8 @@ export async function bootApp() {
     buildCreateProjectModal();
     buildSearchModal();
     buildMobileCommandSheet();
+    // Wire up presence view-change notifications
+    setOnViewChange((view) => notifyPresenceView(view));
     await loadProjects();
     await handleLaunchAction();
 }
