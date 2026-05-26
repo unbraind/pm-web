@@ -1,0 +1,12 @@
+id: pm-web-m1lf
+title: Scope npm package as @unbrained/pm-web
+description: "Original unscoped 'pm-web' name blocked by npm with 403: too similar to existing 'pmweb'. Switched to @unbrained scope so npm publish succeeds. Published @unbrained/pm-web@1.0.0 manually to claim the name. Manifest name (pm extension id) remains 'pm-web' so pm install paths are unchanged."
+type: Task
+status: closed
+priority: 1
+tags[2]: npm,release
+created_at: "2026-05-26T13:59:45.377Z"
+updated_at: "2026-05-26T13:59:58.616Z"
+author: codex
+close_reason: Scoped name published as @unbrained/pm-web@1.0.0; package.json updated. Daily release workflow will publish subsequent versions to the scoped name automatically.
+body: ""
