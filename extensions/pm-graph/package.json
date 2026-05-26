@@ -2,7 +2,6 @@
   "name": "pm-graph",
   "version": "0.1.4",
   "description": "Knowledge graph and dependency graph extension for pm CLI workspaces, with optional Neo4j sync.",
-  "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -13,8 +12,10 @@
     "neo4j-driver": "^5.28.1"
   },
   "devDependencies": {
-    "@types/node": "^22.15.17",
-    "typescript": "^5.8.3"
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3",
+    "@unbrained/pm-cli": "^2026.5.24",
+    "pm-changelog": "^2026.5.25"
   },
   "files": [
     "dist/",

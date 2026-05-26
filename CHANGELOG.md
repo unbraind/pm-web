@@ -1,3 +1,7 @@
 # Changelog
 
-All notable changes to pm-web are documented here. This file is auto-generated from pm-cli items using [pm-changelog](https://github.com/unbraind/pm-changelog).
+## 1.0.0 - 2026-05-26
+
+### Other
+
+- Release readiness hardening for pm-web ([pm-web-srg8](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-srg8.toon))

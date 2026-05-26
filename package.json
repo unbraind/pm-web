@@ -1,14 +1,15 @@
 {
   "name": "pm-web",
   "version": "1.0.0",
-  "description": "Web UI for pm-cli",
+  "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
     "dist/",
     "public/",
     "sql/",
     "manifest.json",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -21,12 +22,20 @@
     "typecheck:server": "tsc --noEmit",
     "typecheck:frontend": "cd public && npx tsc --noEmit",
     "build:frontend": "cd public && npx tsc",
-    "build:all": "npm run build"
+    "build:all": "npm run build",
+    "check": "npm run typecheck",
+    "audit:prod": "npm audit --omit=dev",
+    "pack:dry-run": "npm pack --dry-run",
+    "changelog": "pm-changelog --pm-root .agents/pm --mode prepend --output CHANGELOG.md --release-version-from-package --since-previous-tag --until-release-tag --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm",
+    "changelog:full": "pm-changelog --pm-root .agents/pm --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm",
+    "changelog:check": "pm-changelog --pm-root .agents/pm --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --check",
+    "release:check": "npm run typecheck && npm run build && npm run audit:prod && npm run pack:dry-run && npm run changelog:check",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
-    "express": "^4.21.2",
+    "express": "^4.22.2",
     "jsonwebtoken": "^9.0.2",
     "neo4j-driver": "^5.28.3",
     "pg": "^8.14.1",
@@ -35,13 +44,68 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.8",
-    "@types/express": "^4.17.21",
+    "@types/express": "^4.17.25",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.15.17",
     "@types/pg": "^8.11.11",
     "@types/uuid": "^10.0.0",
-    "@unbrained/pm-cli": "latest",
+    "@unbrained/pm-cli": "^2026.5.24",
     "tsx": "^4.19.4",
-    "typescript": "^5.7.3"
+    "typescript": "^6.0.3",
+    "pm-changelog": "^2026.5.25"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unbraind/pm-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/unbraind/pm-web/issues"
+  },
+  "homepage": "https://github.com/unbraind/pm-web#readme",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "@unbraind",
+  "license": "MIT",
+  "keywords": [
+    "pm-cli",
+    "pm-extension",
+    "pm-package",
+    "web"
+  ],
+  "pm": {
+    "aliases": [
+      "web"
+    ],
+    "extensions": [
+      "."
+    ],
+    "catalog": {
+      "display_name": "pm Web UI",
+      "category": "app",
+      "summary": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+      "tags": [
+        "web",
+        "pwa",
+        "collaboration",
+        "github",
+        "graph"
+      ],
+      "links": {
+        "docs": "https://github.com/unbraind/pm-web#readme",
+        "npm": "https://www.npmjs.com/package/pm-web",
+        "repository": "https://github.com/unbraind/pm-web",
+        "report": "https://github.com/unbraind/pm-web/issues"
+      }
+    },
+    "docs": [
+      "README.md",
+      "CHANGELOG.md"
+    ],
+    "examples": [
+      "README.md"
+    ]
   }
 }
