@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Fix notify-website-sync: drop misleading source\_repo alias ([pm-web-egz2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-egz2.toon))
+
 ### Other
 
 - Scope npm package as @unbrained/pm-web ([pm-web-m1lf](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-m1lf.toon))
