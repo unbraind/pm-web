@@ -1482,7 +1482,7 @@ router.get("/guide/:topicId", async (req, res) => {
 // test-runs, gc, templates, config, list-status-shortcuts,
 // SSE endpoint
 // ─────────────────────────────────────────────────────────
-// GET /api/projects/:projectId/pm/export?format=json|csv
+// GET /api/projects/:projectId/pm/export?format=json|csv|yaml
 router.get("/export", async (req, res) => {
     const project = await verifyProject(req.user.userId, req.params["projectId"]);
     if (!project) {
@@ -1490,8 +1490,9 @@ router.get("/export", async (req, res) => {
         return;
     }
     const format = req.query["format"] || "json";
+    // Use --full --include-body to get the richest available list-level metadata
     const result = runPm({
-        args: ["list-all", "--limit", "10000"],
+        args: ["list-all", "--limit", "10000", "--full", "--include-body"],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1501,6 +1502,7 @@ router.get("/export", async (req, res) => {
         return;
     }
     const data = result.parsed;
+    const exportedAt = new Date().toISOString();
     if (format === "csv") {
         const items = data?.items ?? [];
         const rows = items;
@@ -1510,7 +1512,7 @@ router.get("/export", async (req, res) => {
             res.send("");
             return;
         }
-        const headers = ["id", "title", "description", "type", "status", "priority", "tags", "assignee", "sprint", "release", "deadline", "created_at", "updated_at"];
+        const headers = ["id", "title", "description", "type", "status", "priority", "tags", "assignee", "sprint", "release", "deadline", "parent", "estimate", "body", "created_at", "updated_at"];
         const csvLines = [headers.join(",")];
         for (const item of rows) {
             const row = headers.map((h) => {
@@ -1530,10 +1532,54 @@ router.get("/export", async (req, res) => {
         res.setHeader("Content-Disposition", `attachment; filename="${project.slug}-export.csv"`);
         res.send(csvLines.join("\n"));
     }
+    else if (format === "yaml") {
+        const items = (data?.items ?? []);
+        // Simple YAML serializer for this data shape
+        function yamlEscape(v, indent) {
+            const pad = "  ".repeat(indent);
+            if (v === null || v === undefined)
+                return "null";
+            if (typeof v === "boolean")
+                return v ? "true" : "false";
+            if (typeof v === "number")
+                return String(v);
+            if (Array.isArray(v)) {
+                if (v.length === 0)
+                    return "[]";
+                return "\n" + v.map((item) => `${pad}- ${yamlEscape(item, indent + 1)}`).join("\n");
+            }
+            if (typeof v === "object") {
+                const entries = Object.entries(v).filter(([, val]) => val !== null && val !== undefined);
+                if (entries.length === 0)
+                    return "{}";
+                return "\n" + entries.map(([k, val]) => {
+                    const valStr = yamlEscape(val, indent + 1);
+                    return valStr.startsWith("\n") ? `${pad}${k}:${valStr}` : `${pad}${k}: ${valStr}`;
+                }).join("\n");
+            }
+            const str = String(v);
+            if (str.includes("\n") || str.includes(":") || str.includes("#") || str.includes('"') || str.startsWith(" ") || str.endsWith(" ")) {
+                return `"${str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+            }
+            return str || '""';
+        }
+        const yamlItems = items.map((item) => {
+            const fields = Object.keys(item).filter((k) => item[k] !== null && item[k] !== undefined && item[k] !== "");
+            const lines = fields.map((f) => {
+                const valStr = yamlEscape(item[f], 1);
+                return valStr.startsWith("\n") ? `  ${f}:${valStr}` : `  ${f}: ${valStr}`;
+            });
+            return "- " + lines.join("\n").trimStart();
+        });
+        const header = `# pm-web export\n# project: ${project.slug}\n# exported_at: ${exportedAt}\n# version: "2.0"\nitems:\n`;
+        res.setHeader("Content-Type", "text/yaml");
+        res.setHeader("Content-Disposition", `attachment; filename="${project.slug}-export.yaml"`);
+        res.send(header + yamlItems.join("\n"));
+    }
     else {
         res.setHeader("Content-Type", "application/json");
         res.setHeader("Content-Disposition", `attachment; filename="${project.slug}-export.json"`);
-        res.json(data || { items: [] });
+        res.json({ exportedAt, project: project.slug, version: "2.0", items: data?.items ?? [] });
     }
 });
 // POST /api/projects/:projectId/pm/import — import JSON items
