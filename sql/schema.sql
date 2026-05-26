@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS pm_github_item_links (
 );
 CREATE INDEX IF NOT EXISTS pm_github_item_links_project ON pm_github_item_links(project_id);
 
-UPDATE pm_users SET is_admin = TRUE, updated_at = NOW() WHERE lower(email) = lower('stefan@preu.at');
+-- Bootstrap admin promotion is now applied at runtime via PM_WEB_BOOTSTRAP_ADMIN_EMAIL (see src/db.ts).
 
 -- Update trigger
 CREATE OR REPLACE FUNCTION update_updated_at()
