@@ -1,0 +1,12 @@
+id: pm-web-mvu4
+title: Remove hardcoded personal email default from pm-web source
+description: "Security/privacy fix: src/db.ts, src/routes/auth.ts, sql/schema.sql had redacted@example.invalid as default for PM_WEB_BOOTSTRAP_ADMIN_EMAIL. Replaced with empty default; guard SQL to skip promotion when env var unset. README updated. Source-only fix per user instruction (no history rewrite)."
+type: Task
+status: closed
+priority: 1
+tags[3]: privacy,release,security
+created_at: "2026-05-26T13:32:14.267Z"
+updated_at: "2026-05-26T13:32:38.614Z"
+author: codex
+close_reason: "Source scrub complete: redacted@example.invalid removed from source, dist, sql, README updated. Verified no remaining hits."
+body: ""

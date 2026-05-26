@@ -6,7 +6,7 @@ import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { encryptSecret } from "../crypto.js";
 
 const router = Router();
-const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "redacted@example.invalid")
+const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "")
   .trim()
   .toLowerCase();
 

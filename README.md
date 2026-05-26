@@ -46,7 +46,7 @@ Open http://localhost:4000 in your browser.
 pm install github.com/unbraind/pm-web --global
 ```
 
-The package repository is at **github.com/unbraind/pm-web** (private while pre-release).
+The package repository is at **github.com/unbraind/pm-web**.
 
 ### Commands
 
@@ -62,6 +62,7 @@ The package repository is at **github.com/unbraind/pm-web** (private while pre-r
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `JWT_SECRET` | Yes | Secret for signing JWT tokens |
 | `PM_WEB_SECRET_KEY` | Recommended | At-rest encryption key for saved GitHub PATs. Falls back to `JWT_SECRET`; use at least 32 characters |
+| `PM_WEB_BOOTSTRAP_ADMIN_EMAIL` | Recommended | Email of the user account to auto-promote to admin on schema init. Leave unset to skip auto-promotion (manage admins via the admin UI). |
 | `PORT` | No | Server port (default: 4000) |
 | `NODE_ENV` | No | `production` enables caching |
 | `OLLAMA_BASE_URL` / `OLLAMA_HOST` | No | Local Ollama endpoint for semantic pm search |
