@@ -1,0 +1,12 @@
+id: pm-web-egz2
+title: "Fix notify-website-sync: drop misleading source_repo alias"
+description: "pm-web's notify-website-sync.yml was dispatching {source_repo: unbraind/pm-web, source_ref: <web-sha>} to the companion's deploy.yml. The companion treats source_repo/source_ref as legacy aliases for pm_cli_source_repo/pm_cli_source_ref, so the docs build then tried to fetch pm-cli docs (e.g. docs/QUICKSTART.md) from pm-web instead, hitting HTTP 404 for all of them and producing only 7/19 partials before the verify step failed (test -f website/index.html). Fix: only send pm_web_source_repo/pm_web_source_ref in the dispatch payload."
+type: Task
+status: closed
+priority: 1
+tags[1]: automation
+created_at: "2026-05-26T15:44:21.316Z"
+updated_at: "2026-05-26T15:44:44.388Z"
+author: codex
+close_reason: "Fixed: notify-website-sync.yml now only sends pm_web_source_repo/pm_web_source_ref. The source_repo/source_ref aliases were causing the companion docs build to fetch pm-cli docs from pm-web (HTTP 404 across docs/*.md)."
+body: ""

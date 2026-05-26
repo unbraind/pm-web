@@ -22,7 +22,6 @@ jobs:
         id: refs
         run: |
           echo "source_ref=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "source_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch website sync workflow
         env:
@@ -37,16 +36,16 @@ jobs:
             exit 1
           fi
 
+          # NOTE: only send pm_web_source_* keys. The companion's deploy.yml
+          # treats `source_repo`/`source_ref` as aliases for `pm_cli_source_*`,
+          # so sending pm-web's ref under those names points the docs fetcher
+          # at the wrong repo. See pm-web-egz2 for the incident.
           payload=$(jq -cn \
-            --arg source_repo "${{ steps.refs.outputs.source_repo }}" \
-            --arg source_ref "${{ steps.refs.outputs.source_ref }}" \
             --arg pm_web_source_repo "$WEB_SOURCE_REPO" \
             --arg pm_web_source_ref "${{ steps.refs.outputs.source_ref }}" \
             '{ref:"main",inputs:{
               pm_web_source_repo:$pm_web_source_repo,
-              pm_web_source_ref:$pm_web_source_ref,
-              source_repo:$source_repo,
-              source_ref:$source_ref
+              pm_web_source_ref:$pm_web_source_ref
             }}')
 
           curl -sSf \
