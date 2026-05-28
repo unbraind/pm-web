@@ -1,7 +1,7 @@
 {
   "name": "@unbrained/pm-web",
-  "version": "2026.5.27",
-  "description": "Full web UI for pm-cli \u2014 browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+  "version": "2026.5.28",
+  "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
     "dist/",
@@ -87,7 +87,7 @@
     "catalog": {
       "display_name": "pm Web UI",
       "category": "app",
-      "summary": "Full web UI for pm-cli \u2014 browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+      "summary": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
       "tags": [
         "web",
         "pwa",
