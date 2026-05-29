@@ -1,0 +1,11 @@
+id: pm-web-avpc
+title: "Fix pm-web startup: drop private-infra DB host default + graceful Postgres-unreachable guidance"
+description: "pm web crashed on startup for any non-internal user: POSTGRES_HOST defaulted to the private infra hostname 'pm-telemetry-postgres' (getaddrinfo EAI_AGAIN), and DB-init failures dumped a raw stack trace then exit 1.\n\nChanges:\n- src/db.ts: default POSTGRES_HOST -> 127.0.0.1 (was 'pm-telemetry-postgres'). Production deploy is unaffected: docker-compose.yml sets POSTGRES_HOST=pm-telemetry-postgres explicitly.\n- src/server.ts: on connection-class errors (ECONNREFUSED/EAI_AGAIN/ENOTFOUND/ETIMEDOUT/28P01/28000/3D000) print actionable setup guidance (DATABASE_URL / POSTGRES_* / docker one-liner / README pointer) and exit 1 cleanly instead of a raw stack trace.\n\nVerification (real data):\n- typecheck + build green; npm test 2/2 pass.\n- Unreachable DB -> friendly guidance shown, no stack trace.\n- Real postgres:16 in Docker -> server boots, /healthz 200, SPA 200, user register+login (JWT issued, gen_random_uuid ok), all 7 schema tables auto-created."
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-05-29T00:46:46.862Z"
+updated_at: "2026-05-29T00:46:46.862Z"
+author: codex
+body: ""

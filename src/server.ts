@@ -69,7 +69,37 @@ initSchema()
     // Periodic cleanup of stale SSE clients
     setInterval(cleanupStaleClients, 5 * 60 * 1000);
   })
-  .catch((err) => {
+  .catch((err: NodeJS.ErrnoException & { code?: string }) => {
+    const connectionCodes = new Set([
+      "ECONNREFUSED",
+      "EAI_AGAIN",
+      "ENOTFOUND",
+      "ETIMEDOUT",
+      "28P01", // invalid_password
+      "28000", // invalid_authorization_specification
+      "3D000", // invalid_catalog_name (database does not exist)
+    ]);
+    if (err?.code && connectionCodes.has(err.code)) {
+      console.error(
+        [
+          "",
+          "pm-web could not connect to PostgreSQL.",
+          "",
+          "pm-web requires a PostgreSQL database. Configure one of the following and retry:",
+          "  • DATABASE_URL   — full connection string, e.g. postgres://user:pass@localhost:5432/pmweb",
+          "  • POSTGRES_HOST / POSTGRES_PORT / POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB",
+          "",
+          "The quickest local setup is Docker:",
+          "  docker run -d --name pmweb-db -p 5432:5432 -e POSTGRES_PASSWORD=pmweb -e POSTGRES_DB=pmweb postgres:16",
+          "  export DATABASE_URL=postgres://postgres:pmweb@localhost:5432/pmweb",
+          "",
+          "See the README (Configuration) for all environment variables.",
+          `  (underlying error: ${err.code})`,
+          "",
+        ].join("\n")
+      );
+      process.exit(1);
+    }
     console.error("Failed to initialize database schema:", err);
     process.exit(1);
   });
