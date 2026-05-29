@@ -6,6 +6,10 @@
 
 - Fix pm-web startup: drop private-infra DB host default + graceful Postgres-unreachable guidance ([pm-web-avpc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-avpc.toon))
 
+### Removed
+
+- Remove obsolete notify-website-sync workflow \(dispatched deleted companion deploy.yml -\> 422\) ([pm-web-9m5w](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9m5w.toon))
+
 ## 2026.05.28 - 2026-05-28
 
 ### Added
