@@ -1,0 +1,11 @@
+id: pm-web-9m5w
+title: Remove obsolete notify-website-sync workflow (dispatched deleted companion deploy.yml -> 422)
+description: "notify-website-sync.yml fired on every push to main and POSTed to unbraind/pm-cli-companion's deploy.yml workflow_dispatch. That deploy.yml was removed in companion commit 3c6439a ('website repo must not use GitHub runners'), so the dispatch returned HTTP 422 and the check was permanently red. The live site (pm-cli.unbrained.dev) self-refreshes its data every 5 min at runtime, so this notify->deploy chain is fully redundant. Removed the workflow; pm-web push checks are now CI + Generate Changelog + Daily Release only."
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-05-29T00:48:20.741Z"
+updated_at: "2026-05-29T00:48:20.741Z"
+author: codex
+body: ""
