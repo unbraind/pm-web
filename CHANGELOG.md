@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Production-readiness audit 2026-05-28 ([pm-web-8u17](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8u17.toon))
+
 ## 2026.05.29-1 - 2026-05-29
 
 ### Added
