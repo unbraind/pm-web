@@ -1,0 +1,12 @@
+id: pm-web-ul0n
+title: Hands-on functional test pass 2026-05-29 (real data + Postgres)
+description: "Full functional + production-hardening test pass against an isolated throwaway Postgres and real pm workspaces. Verified build/typecheck/test, both launch paths (pm web extension + node dist/server.js), and the full HTTP API (auth, projects, item CRUD, deps, search, graph, stats) with persistence cross-checked via the pm CLI. Error cases return proper 4xx. Hardened DB-config startup UX."
+type: Feature
+status: closed
+priority: 2
+tags: []
+created_at: "2026-05-29T15:44:34.554Z"
+updated_at: "2026-05-29T15:45:42.170Z"
+author: codex
+close_reason: Functional test pass complete. Build/typecheck/test green; both launch paths verified; full HTTP API exercised with persistence cross-checked via pm CLI; error cases return proper 4xx; DB-config startup UX hardened (2 issues found+fixed).
+body: ""

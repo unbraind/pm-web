@@ -1,0 +1,13 @@
+id: pm-web-2wrz
+title: Catalog npm link points to unpublished unscoped pm-web (404)
+description: "SYMPTOM: package.json pm.catalog.links.npm pointed to https://www.npmjs.com/package/pm-web (unscoped), which 404s. REPRO: npm view pm-web version -> E404; npm view @unbrained/pm-web version -> 2026.5.29. FINDING: the package is actually published SCOPED as @unbrained/pm-web (CI release.yml publishes require('./package.json').name with --access public; live latest = 2026.5.29). The unscoped pm-web name has never been published. Ecosystem is mixed (pm-github/pm-changelog are unscoped; pm-cli and pm-web are scoped @unbrained). EXPECTED vs OBSERVED: link should resolve to the live package; instead it 404s. RESOLUTION: did NOT rename the package to unscoped (that would orphan the live @unbrained/pm-web and break installs); fixed the dead catalog link to https://www.npmjs.com/package/@unbrained/pm-web to match the actually-published, CI-wired name."
+type: Issue
+status: closed
+priority: 3
+tags: []
+created_at: "2026-05-29T15:45:09.664Z"
+updated_at: "2026-05-29T15:45:29.477Z"
+author: codex
+parent: pm-web-ul0n
+close_reason: "Fixed: corrected catalog npm link to @unbrained/pm-web (the actually-published, CI-wired scoped name). Did not rename package to avoid orphaning live published package."
+body: ""

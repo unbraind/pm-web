@@ -1,15 +1,49 @@
 import pg from "pg";
 const { Pool } = pg;
-export const pool = new Pool({
-    ...(process.env.DATABASE_URL
-        ? { connectionString: process.env.DATABASE_URL }
-        : {
-            host: process.env.POSTGRES_HOST || "127.0.0.1",
+/**
+ * Resolve the PostgreSQL connection config from the environment.
+ *
+ * pm-web requires a PostgreSQL database. Rather than silently falling back to
+ * an opaque default host (which produces a cryptic `getaddrinfo` DNS error
+ * several seconds after start), we validate up front and throw a clear,
+ * actionable error when no database is configured.
+ */
+function resolvePoolConfig() {
+    if (process.env.DATABASE_URL) {
+        return { connectionString: process.env.DATABASE_URL };
+    }
+    // Allow discrete POSTGRES_* vars as an alternative to DATABASE_URL.
+    if (process.env.POSTGRES_HOST && process.env.POSTGRES_DB) {
+        return {
+            host: process.env.POSTGRES_HOST,
             port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
             user: process.env.POSTGRES_USER,
             password: process.env.POSTGRES_PASSWORD,
             database: process.env.POSTGRES_DB,
-        }),
+        };
+    }
+    return {};
+}
+/**
+ * Throw a clear, actionable error when no database is configured.
+ *
+ * pm-web requires a PostgreSQL database. Without this guard, an unset
+ * DATABASE_URL produced a cryptic `getaddrinfo` DNS error several seconds
+ * after start (or a silent hang). Call this before using the pool so the
+ * server fails fast with guidance instead.
+ */
+export function assertDbConfigured() {
+    const configured = Boolean(process.env.DATABASE_URL) ||
+        Boolean(process.env.POSTGRES_HOST && process.env.POSTGRES_DB);
+    if (configured)
+        return;
+    throw new Error("DATABASE_URL is not set. pm-web requires a PostgreSQL database.\n" +
+        "  Set it before starting, e.g.:\n" +
+        "    export DATABASE_URL=postgres://user:pass@localhost:5432/pmweb\n" +
+        "  (or provide POSTGRES_HOST + POSTGRES_DB and related POSTGRES_* vars).");
+}
+export const pool = new Pool({
+    ...resolvePoolConfig(),
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
