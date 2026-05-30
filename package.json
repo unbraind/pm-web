@@ -1,5 +1,5 @@
 {
-  "name": "pm-web",
+  "name": "@unbrained/pm-web",
   "version": "2026.5.29-1",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",

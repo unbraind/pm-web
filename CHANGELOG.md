@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- Daily Release fails at changelog:check — version-format mismatch \(padded tag vs npm version\) ([pm-web-ysd5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-ysd5.toon))
+
 ### Other
 
+- Keep pm-web published scoped as @unbrained/pm-web \(not unscoped pm-web\) ([pm-web-1qq4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-1qq4.toon))
 - Production-readiness audit 2026-05-28 ([pm-web-8u17](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8u17.toon))
 
 ## 2026.05.29-1 - 2026-05-29
