@@ -1,6 +1,6 @@
 {
   "name": "pm-web",
-  "version": "2026.5.30",
+  "version": "2026.6.2",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "author": "@unbraind",
   "entry": "./dist/index.js",
