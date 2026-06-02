@@ -52,7 +52,7 @@
     "@types/pg": "^8.11.11",
     "@types/uuid": "^10.0.0",
     "@unbrained/pm-cli": "^2026.5.31",
-    "pm-changelog": "^2026.5.29-2",
+    "pm-changelog": "^2026.6.2",
     "tsx": "^4.19.4",
     "typescript": "^6.0.3"
   },
