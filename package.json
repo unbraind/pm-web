@@ -51,7 +51,7 @@
     "@types/node": "^22.15.17",
     "@types/pg": "^8.11.11",
     "@types/uuid": "^10.0.0",
-    "@unbrained/pm-cli": "^2026.5.29",
+    "@unbrained/pm-cli": "^2026.5.31",
     "pm-changelog": "^2026.5.29-2",
     "tsx": "^4.19.4",
     "typescript": "^6.0.3"

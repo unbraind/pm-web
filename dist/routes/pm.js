@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { ensureGraphExtension, runPm } from "../services/pm-runner.js";
+import { boardColumns, filterItemsByQuery } from "../board.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, broadcastPresence, updateClientView, getProjectPresence } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
@@ -390,6 +391,45 @@ router.get("/list-all", async (req, res) => {
         args.push("--limit", limit);
     const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
+});
+// GET /api/projects/:projectId/pm/board
+// Kanban board: items grouped into columns by the workspace's runtime statuses
+// (read live from `pm contracts`) so the board matches the installed CLI.
+router.get("/board", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const contracts = runPm({ args: ["contracts", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    const rt = contracts.ok && contracts.parsed
+        ? contracts.parsed["runtime_schema"]
+        : undefined;
+    const statuses = Array.isArray(rt?.["statuses"]) ? rt["statuses"] : [];
+    const listed = runPm({ args: ["list-all", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!listed.ok) {
+        res.json({ error: listed.stderr, columns: [] });
+        return;
+    }
+    const items = itemsFromListAll(listed.parsed);
+    res.json({ columns: boardColumns(items, statuses), statuses, count: items.length });
+});
+// GET /api/projects/:projectId/pm/search?q=...
+// Full-text search over id/title/tags/body via a single list-all read.
+router.get("/search", async (req, res) => {
+    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const query = String(req.query["q"] ?? "");
+    const listed = runPm({ args: ["list-all", "--json", "--include-body"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!listed.ok) {
+        res.json({ error: listed.stderr, items: [] });
+        return;
+    }
+    const items = filterItemsByQuery(itemsFromListAll(listed.parsed), query);
+    res.json({ query, items, count: items.length });
 });
 // POST /api/projects/:projectId/pm/create
 router.post("/create", async (req, res) => {

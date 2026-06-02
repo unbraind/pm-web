@@ -105,3 +105,19 @@ MIT
 ## Release Automation
 
 This package is release-ready for GitHub, npm, and Bun-compatible installs. CI runs type checking, build, production dependency audit, package packing, Bun install verification, and pm-changelog validation. The daily release workflow publishes only when commits exist after the latest release tag and uses pm-changelog to generate CHANGELOG.md and GitHub release notes.
+
+## New data endpoints (kanban board & search)
+
+The pm data API now exposes board and search views, both driven by the
+workspace's live `pm contracts` schema (so they reflect the installed pm CLI +
+extensions):
+
+- `GET /api/projects/:projectId/pm/board` — items grouped into kanban columns by
+  the workspace's runtime statuses (unlisted statuses fall into `(other)`).
+- `GET /api/projects/:projectId/pm/search?q=<text>` — case-insensitive full-text
+  search over id, title, tags and body.
+- `GET /api/projects/:projectId/pm/schema` — runtime types/statuses (existing).
+- `GET /api/projects/:projectId/pm/graph` — dependency graph (existing).
+
+The pure grouping/search helpers live in `src/board.ts` and are unit-tested
+independently of the database.
