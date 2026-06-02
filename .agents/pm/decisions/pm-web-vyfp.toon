@@ -1,0 +1,13 @@
+id: pm-web-vyfp
+title: Do NOT add the 'services' extension capability to pm-web
+description: "EVALUATED: SDK registerService(name, override) only accepts one of 8 FIXED CORE service names (output_format, error_format, help_format, lock_acquire, lock_release, history_append, item_store_write, item_store_delete) and registerService THROWS TypeError for any other name (loader.js:1009). A registered override REPLACES that core service's behavior on EVERY pm command (extension-hook-runtime.js runServiceOverride). For output_format, returning anything non-null/non-payload corrupts ALL command output (the documented hazard); only a pass-through no-op is 'safe' but adds risk for zero value. There is NO API to register a NEW 'pm-web lifecycle' service name. DECISION: per the 'correctness over capability-count' constraint, keep capabilities = [commands, schema]; do NOT declare 'services'. The server lifecycle is surfaced safely via web/status/stop/doctor commands. Code keeps a guarded (typeof api.registerService === 'function') no-op block documenting the rationale. REPORT-only SDK idea: add support for namespaced/custom extension service names so packages can register lifecycle services without overriding core ones."
+type: Decision
+status: closed
+priority: 2
+tags: []
+created_at: "2026-06-02T11:38:16.140Z"
+updated_at: "2026-06-02T11:40:00.275Z"
+author: codex
+parent: pm-web-7pxa
+close_reason: "Decision recorded: services capability not added; keep [commands,schema]."
+body: ""

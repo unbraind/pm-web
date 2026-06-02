@@ -52,8 +52,55 @@ The package repository is at **github.com/unbraind/pm-web**.
 
 | Command | Description |
 |---|---|
-| `pm web` | Start the pm-web server |
+| `pm web` | Start the pm-web server (foreground) |
 | `pm web --port 8080` | Start on a custom port |
+| `pm web --detach` | Start the server in the background (tracked via a pidfile) |
+| `pm web status` | Report whether a server is reachable (probes `/healthz`); `--json` supported |
+| `pm web stop` | Stop a server previously started with `--detach`; `--json` supported |
+| `pm web doctor` | Preflight diagnostics (Node, runtime deps, port, pm, workspace); `--json` supported |
+
+#### `pm web status`
+
+Probes `http://localhost:<port>/healthz` and reports `up`/`down`, the responding
+port, and the server version. Never errors when the server is down — it returns a
+structured `down` result. The port is resolved from `--port`, then `PORT`, then
+the default `4000`.
+
+```bash
+pm web status                 # human-readable
+pm web status --port 8080 --json
+```
+
+#### `pm web stop`
+
+Stops a server started with `pm web --detach`. The detached PID is recorded in a
+pidfile (under `PM_WEB_STATE_DIR` if set, otherwise the OS temp dir, keyed by
+port). `pm web stop` reads the pidfile, sends `SIGTERM`, and clears the pidfile.
+If nothing is running it reports `not_running` gracefully and cleans up any stale
+pidfile.
+
+```bash
+pm web stop                   # stops the server on the default port
+pm web stop --port 8080 --json
+```
+
+#### `pm web doctor`
+
+Runs preflight checks before starting the server: Node version (>= 20), whether
+runtime dependencies (express, etc.) are installed, whether the target port is
+free, whether `pm` is on `PATH`, and whether the workspace is initialized.
+Returns an overall `ok` boolean. The `port_available` check is informational (a
+busy port may just be a server you already started) and does not gate `ok`.
+
+```bash
+pm web doctor
+pm web doctor --json
+```
+
+> Note: the `services` extension capability is intentionally **not** declared.
+> The pm SDK's `registerService` only overrides one of eight fixed core services
+> (e.g. `output_format`), which would alter core output for unrelated commands;
+> the server lifecycle is exposed safely through the commands above instead.
 
 ### Environment Variables
 
@@ -64,6 +111,7 @@ The package repository is at **github.com/unbraind/pm-web**.
 | `PM_WEB_SECRET_KEY` | Recommended | At-rest encryption key for saved GitHub PATs. Falls back to `JWT_SECRET`; use at least 32 characters |
 | `PM_WEB_BOOTSTRAP_ADMIN_EMAIL` | Recommended | Email of the user account to auto-promote to admin on schema init. Leave unset to skip auto-promotion (manage admins via the admin UI). |
 | `PORT` | No | Server port (default: 4000) |
+| `PM_WEB_STATE_DIR` | No | Directory for the `--detach` pidfile used by `pm web stop` (default: OS temp dir) |
 | `NODE_ENV` | No | `production` enables caching |
 | `OLLAMA_BASE_URL` / `OLLAMA_HOST` | No | Local Ollama endpoint for semantic pm search |
 | `PM_OLLAMA_MODEL` | No | Embedding model for new projects, default `qwen3-embedding:0.6b` |

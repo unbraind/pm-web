@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Do NOT add the 'services' extension capability to pm-web ([pm-web-vyfp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-vyfp.toon))
+- Deepen pm-web extension command surface \(status/stop/doctor\) + services-capability evaluation ([pm-web-7pxa](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7pxa.toon))
+- Add /healthz version + unit tests + README docs ([pm-web-edyj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-edyj.toon))
+- Introduce CommandError \(numeric exitCode\) for new handlers ([pm-web-9ycn](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9ycn.toon))
+
+### Other
+
+- Implement 'pm web doctor' command ([pm-web-vyqb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-vyqb.toon))
+- Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
+- Implement 'pm web status' command ([pm-web-8eqs](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8eqs.toon))
+
 ## 2026.05.30 - 2026-05-30
 
 ### Fixed

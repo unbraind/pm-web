@@ -1,0 +1,12 @@
+id: pm-web-7pxa
+title: Deepen pm-web extension command surface (status/stop/doctor) + services-capability evaluation
+description: "Add curated pm-extension commands so the pm-web server is fully manageable through pm without breaking the app, Docker image, or existing 'pm web' command. Adds: pm web status (probe /healthz), pm web stop (pidfile-tracked detached stop), pm web doctor (preflight diagnostics). Evaluates the 'services' capability. Introduces a CommandError class (numeric exitCode) for new handlers. Minimal additive server change: /healthz now returns version."
+type: Feature
+status: closed
+priority: 2
+tags: []
+created_at: "2026-06-02T11:37:48.869Z"
+updated_at: "2026-06-02T11:39:53.626Z"
+author: codex
+close_reason: "All child tasks complete. Commands status/stop/doctor shipped + functionally verified end-to-end against a live Postgres-backed server; services capability deliberately NOT added (see decision pm-web-vyfp); build+tests+release:check green."
+body: ""

@@ -1,0 +1,13 @@
+id: pm-web-8eqs
+title: Implement 'pm web status' command
+description: Probe /healthz on resolved port (flag/PORT/default 4000) via built-in fetch with a short timeout. Print up/down + responding port + version. --json supported. Never throws on down; returns a structured down result. Pure helpers resolvePort + shapeStatusResult unit-tested.
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-06-02T11:38:01.695Z"
+updated_at: "2026-06-02T11:39:51.515Z"
+author: codex
+parent: pm-web-7pxa
+close_reason: "Implemented. Functionally verified: pm web status --port 4555 --json reports {status:up,version:2026.6.2} against a live server and {status:down} when unreachable; never throws on down."
+body: ""

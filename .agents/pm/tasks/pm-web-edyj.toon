@@ -1,0 +1,13 @@
+id: pm-web-edyj
+title: Add /healthz version + unit tests + README docs
+description: "Minimal additive server change: /healthz returns {ok,version} (version read from package.json at boot). Add test/extension.test.ts for pure helpers and command registration. Document pm web status|stop|doctor + PM_WEB_STATE_DIR in README."
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-06-02T11:38:05.599Z"
+updated_at: "2026-06-02T11:39:53.325Z"
+author: codex
+parent: pm-web-7pxa
+close_reason: "Implemented. /healthz now returns {ok,version}; added test/extension.test.ts (10 helper/registration tests, all green; 15 total); README documents status|stop|doctor + PM_WEB_STATE_DIR."
+body: ""

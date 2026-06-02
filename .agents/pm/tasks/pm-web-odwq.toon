@@ -1,0 +1,13 @@
+id: pm-web-odwq
+title: Implement 'pm web stop' command + pidfile-on-detach
+description: "Extend --detach to write a pidfile (PM_WEB_STATE_DIR or OS tmp, keyed by port). pm web stop reads the pidfile/in-process handle, SIGTERMs the process, clears the pidfile. Graceful not_running + stale-pidfile cleanup. --json supported. pidfilePath unit-tested."
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-06-02T11:38:03.027Z"
+updated_at: "2026-06-02T11:39:52.059Z"
+author: codex
+parent: pm-web-7pxa
+close_reason: "Implemented. Verified end-to-end: PORT=... pm web --port 4555 --detach wrote pidfile (pm-web-4555.pid); pm web stop SIGTERMed PID 1816607, cleared the pidfile, server went down; second stop reports not_running gracefully."
+body: ""

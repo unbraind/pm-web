@@ -1,0 +1,13 @@
+id: pm-web-9ycn
+title: Introduce CommandError (numeric exitCode) for new handlers
+description: "Mirror sibling-package pattern: exitCode 1 generic / 2 usage / 3 not-found. New handlers throw CommandError so the runtime does not double-invoke. Existing web handler behavior preserved (its internal Error swapped to CommandError without behavior change)."
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-06-02T11:38:04.574Z"
+updated_at: "2026-06-02T11:39:52.296Z"
+author: codex
+parent: pm-web-7pxa
+close_reason: "Implemented. pm web doctor --json returns ok:true with 5 checks (node>=20, deps, port, pm-on-path, workspace). Fixed workspace detection to match real pm layout (settings.json/schema/tasks)."
+body: ""

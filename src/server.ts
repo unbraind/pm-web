@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { initSchema, assertDbConfigured } from "./db.js";
 import { authRouter } from "./routes/auth.js";
@@ -42,8 +43,19 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Health check
-app.get("/healthz", (_req, res) => res.json({ ok: true }));
+// Health check — includes the running pm-web version so `pm web status` can
+// report it. Version is resolved once at boot from package.json (best-effort).
+const PM_WEB_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8"),
+    ) as { version?: string };
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
+app.get("/healthz", (_req, res) => res.json({ ok: true, version: PM_WEB_VERSION }));
 
 // API routes
 app.use("/api/auth", authRouter);

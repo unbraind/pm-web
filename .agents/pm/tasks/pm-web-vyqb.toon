@@ -1,0 +1,13 @@
+id: pm-web-vyqb
+title: Implement 'pm web doctor' command
+description: "Preflight: Node>=20, runtime deps installed (read-only reuse of ensureRuntimeDependencies logic), target port free, pm on PATH, workspace initialized. Structured report with overall ok boolean (port_available is informational, not gating). --json supported."
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-06-02T11:38:03.905Z"
+updated_at: "2026-06-02T11:39:52.536Z"
+author: codex
+parent: pm-web-7pxa
+close_reason: Implemented CommandError(exitCode) class (1 generic/2 usage/3 not-found); new handlers throw it; existing web handler internal Error swapped to CommandError with no behavior change.
+body: ""
