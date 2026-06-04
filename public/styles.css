@@ -81,7 +81,92 @@
   --radius-lg: 12px;
   --shadow: 0 4px 24px rgba(0,0,0,0.4);
   --transition: 0.15s ease;
+  color-scheme: dark;
 }
+
+/* ── Light theme ──────────────────────────────────────────────
+   Applied when the user explicitly selects "light" via the theme
+   toggle (html[data-theme="light"]) and, for "auto", when the OS
+   prefers a light scheme and no explicit theme is set. Only the
+   palette variables are overridden; component rules reference the
+   variables so they recolor automatically. */
+:root[data-theme="light"] {
+  --bg-base: #f6f8fc;
+  --bg-sidebar: #ffffff;
+  --bg-sidebar-hover: #eef2f9;
+  --bg-card: #ffffff;
+  --bg-card2: #f1f5fb;
+  --bg-input: #ffffff;
+  --bg-modal: #ffffff;
+  --border: #e2e8f0;
+  --border-light: #cbd5e1;
+  --accent: #0d9488;
+  --accent-dim: #99f6e4;
+  --accent-glow: rgba(13,148,136,0.12);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-accent: #0d9488;
+  --status-draft: #64748b;
+  --status-open: #2563eb;
+  --status-in_progress: #0d9488;
+  --status-blocked: #dc2626;
+  --status-closed: #16a34a;
+  --status-canceled: #94a3b8;
+  --priority-1: #dc2626;
+  --priority-2: #ea580c;
+  --priority-3: #ca8a04;
+  --priority-4: #2563eb;
+  --priority-5: #64748b;
+  --shadow: 0 4px 24px rgba(15,23,42,0.12);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  /* Auto theme: honor the OS preference only when the user has not pinned a
+     theme. data-theme="dark"/"light" both opt out of this block. */
+  :root[data-theme="auto"] {
+    --bg-base: #f6f8fc;
+    --bg-sidebar: #ffffff;
+    --bg-sidebar-hover: #eef2f9;
+    --bg-card: #ffffff;
+    --bg-card2: #f1f5fb;
+    --bg-input: #ffffff;
+    --bg-modal: #ffffff;
+    --border: #e2e8f0;
+    --border-light: #cbd5e1;
+    --accent: #0d9488;
+    --accent-dim: #99f6e4;
+    --accent-glow: rgba(13,148,136,0.12);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --text-accent: #0d9488;
+    --status-draft: #64748b;
+    --status-open: #2563eb;
+    --status-in_progress: #0d9488;
+    --status-blocked: #dc2626;
+    --status-closed: #16a34a;
+    --status-canceled: #94a3b8;
+    --priority-1: #dc2626;
+    --priority-2: #ea580c;
+    --priority-3: #ca8a04;
+    --priority-4: #2563eb;
+    --priority-5: #64748b;
+    --shadow: 0 4px 24px rgba(15,23,42,0.12);
+    color-scheme: light;
+  }
+}
+
+/* Theme toggle button in the top nav */
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg-input); border: 1px solid var(--border-light);
+  color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+  font-size: 15px; line-height: 1; transition: var(--transition);
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
 html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg-base); color: var(--text-primary); font-size: 14px; line-height: 1.5; }
 

@@ -10,6 +10,31 @@ import { getTypes, getStatuses, PRIORITY_LABELS } from '../constants.js';
 import { showView } from './router.js';
 import { loadItemsBadge } from './projects.js';
 import { renderLocalGraph, destroyLocalGraph } from './graph.js';
+import { EMPTY_FILTERS, filtersToQueryString, filtersFromSearchParams, hasActiveFilters } from '../filters.js';
+// Mirror the active item filters into the URL query string (on the /items
+// path) so a filtered view is shareable and bookmarkable. Replaces the current
+// history entry to avoid polluting back/forward with every keystroke.
+function syncFiltersToUrl() {
+    if (state.currentView !== 'items')
+        return;
+    const qs = filtersToQueryString(state.itemFilters);
+    const url = '/items' + (qs ? `?${qs}` : '');
+    try {
+        history.replaceState(history.state, '', url);
+    }
+    catch { /* ignore */ }
+}
+// Read filters from the current URL's query string into state. Called when the
+// Items view is opened so a shared link applies its filters.
+export function loadFiltersFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    // Only override when the URL actually carries filter params, so navigating
+    // to /items without a query string preserves the in-memory filters.
+    const parsed = filtersFromSearchParams(params);
+    if (hasActiveFilters(parsed)) {
+        state.itemFilters = parsed;
+    }
+}
 const DEP_REL_OPTIONS = [
     { value: 'blocked_by', label: 'Blocked by / depends on' },
     { value: 'blocks', label: 'Blocks' },
@@ -449,6 +474,8 @@ export async function renderItemsView() {
         el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>';
         return;
     }
+    // Apply any filters carried in the URL query string (shared/bookmarked link).
+    loadFiltersFromUrl();
     el.innerHTML = `
     <div class="page-header">
       <div>
@@ -481,7 +508,9 @@ export async function renderItemsView() {
       <input class="filter-select" id="filter-sprint" type="text" placeholder="Sprint…" value="${escHtml(state.itemFilters.sprint)}" oninput="window.__app.applyItemFilters()" style="width:100px">
       <input class="filter-select" id="filter-release" type="text" placeholder="Release…" value="${escHtml(state.itemFilters.release)}" oninput="window.__app.applyItemFilters()" style="width:100px">
       <input class="filter-select" id="filter-assignee" type="text" placeholder="Assignee…" value="${escHtml(state.itemFilters.assignee)}" oninput="window.__app.applyItemFilters()" style="width:110px">
+      <input class="filter-select" id="filter-tag" type="text" placeholder="Tag…" value="${escHtml(state.itemFilters.tag)}" oninput="window.__app.applyItemFilters()" style="width:100px">
       <button class="btn btn-ghost btn-sm" onclick="window.__app.clearFilters()">Clear</button>
+      <button class="btn btn-ghost btn-sm" onclick="window.__app.copyFilterLink()" title="Copy a shareable link to this filtered view">🔗 Copy link</button>
     </div>
     <div id="items-list"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
     await fetchAndRenderItems();
@@ -507,7 +536,14 @@ export async function fetchAndRenderItems() {
     const endpoint = f.status ? `list?${params}` : `list-all?${params}`;
     try {
         const data = await api('GET', `/projects/${pid}/pm/${endpoint}`);
-        state.items = data.items || [];
+        let items = data.items || [];
+        // Tag is filtered client-side (pm list has no --tag flag): match items
+        // whose tag list contains the requested tag (case-insensitive).
+        const tag = (f.tag || '').trim().toLowerCase();
+        if (tag) {
+            items = items.filter((i) => (i.tags || []).some((t) => t.toLowerCase() === tag));
+        }
+        state.items = items;
         const sub = document.getElementById('items-subtitle');
         if (sub)
             sub.textContent = `${state.items.length} item${state.items.length !== 1 ? 's' : ''}`;
@@ -553,26 +589,43 @@ export function applyItemFilters() {
     const fsp = document.getElementById('filter-sprint');
     const frl = document.getElementById('filter-release');
     const fas = document.getElementById('filter-assignee');
+    const ftg = document.getElementById('filter-tag');
     state.itemFilters.status = fs?.value || '';
     state.itemFilters.type = ft?.value || '';
     state.itemFilters.priority = fp?.value || '';
     state.itemFilters.sprint = fsp?.value || '';
     state.itemFilters.release = frl?.value || '';
     state.itemFilters.assignee = fas?.value || '';
+    state.itemFilters.tag = ftg?.value || '';
+    syncFiltersToUrl();
     fetchAndRenderItems();
 }
 export function clearFilters() {
-    state.itemFilters = { status: '', type: '', priority: '', sprint: '', release: '', assignee: '' };
-    const ids = ['filter-status', 'filter-type', 'filter-priority', 'filter-sprint', 'filter-release', 'filter-assignee'];
+    state.itemFilters = { ...EMPTY_FILTERS };
+    const ids = ['filter-status', 'filter-type', 'filter-priority', 'filter-sprint', 'filter-release', 'filter-assignee', 'filter-tag'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el)
             el.value = '';
     });
+    syncFiltersToUrl();
     fetchAndRenderItems();
+}
+// Copy a shareable URL for the current filtered Items view to the clipboard.
+export async function copyFilterLink() {
+    const qs = filtersToQueryString(state.itemFilters);
+    const url = `${window.location.origin}/items${qs ? `?${qs}` : ''}`;
+    try {
+        await navigator.clipboard.writeText(url);
+        toast('Filtered view link copied', 'success');
+    }
+    catch {
+        toast(url, 'info');
+    }
 }
 export function setStatusFilter(status) {
     state.itemFilters.status = status;
+    syncFiltersToUrl();
     renderItemsView();
 }
 // ═══════════════════════════════════════════════════════════════

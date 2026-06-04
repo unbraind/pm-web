@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { ensureGraphExtension, runPm, projectExists } from "../services/pm-runner.js";
 import { boardColumns, filterItemsByQuery } from "../board.js";
+import { buildIcsCalendar, type CalendarItem } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, broadcastPresence, updateClientView, getProjectPresence, type SSEEvent } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
@@ -856,6 +857,47 @@ router.get("/calendar", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   res.json(result.ok ? (result.parsed || {}) : { events: [] });
+});
+
+// GET /api/projects/:projectId/pm/calendar.ics
+// RFC 5545 iCalendar feed of item deadlines, for subscribing in Google
+// Calendar / Outlook / Apple Calendar. Reuses the same list-all read as the
+// calendar view. Auth works via the usual token (header/cookie) or a
+// `?token=` query param, since calendar clients cannot send cookies.
+router.get("/calendar.ics", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, req.params["projectId"]!);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const listed = runPm({
+    args: ["list-all", "--json"],
+    userId: project.ownerUserId,
+    slug: project.slug,
+    jsonOutput: true,
+  });
+  if (!listed.ok) { res.status(502).json({ error: listed.stderr || "Failed to load items" }); return; }
+
+  const items = itemsFromListAll(listed.parsed)
+    .filter((i) => Boolean(i.deadline))
+    .map<CalendarItem>((i) => ({
+      id: i.id,
+      title: i.title,
+      type: i.type,
+      status: i.status,
+      priority: i.priority,
+      deadline: i.deadline,
+      assignee: i.assignee,
+      tags: i.tags,
+    }));
+
+  const ics = buildIcsCalendar(items, {
+    calendarName: `pm · ${project.slug}`,
+    uidDomain: `${project.slug}.pm-web`,
+  });
+
+  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="pm-${project.slug}.ics"`);
+  res.setHeader("Cache-Control", "no-cache");
+  res.send(ics);
 });
 
 // GET /api/projects/:projectId/pm/health

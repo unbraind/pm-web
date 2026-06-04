@@ -20,6 +20,7 @@ export async function renderCalendarView(): Promise<void> {
         <span id="cal-month-label" style="font-size:13px;font-weight:600;min-width:120px;text-align:center"></span>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.calNav(1)">Next →</button>
         <button class="btn btn-secondary btn-sm" onclick="window.__app.renderCalendarView()">↺ Today</button>
+        <a class="btn btn-secondary btn-sm" href="/api/projects/${escHtml(state.currentProject.id)}/pm/calendar.ics" download="pm-calendar.ics" title="Download an iCalendar (.ics) file of all item deadlines for Google/Outlook/Apple Calendar">📅 Export .ics</a>
       </div>
     </div>
     <div id="calendar-content">${skeletonRows(6)}</div>`;

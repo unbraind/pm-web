@@ -184,6 +184,7 @@ export interface ItemFilters {
   sprint: string;
   release: string;
   assignee: string;
+  tag: string;
 }
 
 export interface ProjectSchema {

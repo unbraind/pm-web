@@ -5,7 +5,7 @@ import { state } from './state.js';
 import { api } from './api.js';
 import { showView, setOnViewChange } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
-import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
+import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, copyFilterLink, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
 import { renderActivityView } from './views/activity.js';
 import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSearch } from './views/search.js';
@@ -45,6 +45,11 @@ import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, op
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
 import { escHtml } from './utils.js';
+import { initTheme, cycleTheme } from './theme.js';
+
+// Apply the persisted theme immediately on script load (before boot) so the UI
+// renders in the right palette without a flash.
+initTheme();
 
 // Global search modal
 let globalSearchTimer: ReturnType<typeof setTimeout>;
@@ -266,6 +271,7 @@ let deferredPrompt: any = null;
   setStatusFilter,
   applyItemFilters,
   clearFilters,
+  copyFilterLink,
   showBulkUpdateModal,
   previewBulkUpdate,
   applyBulkUpdate,
@@ -337,6 +343,9 @@ let deferredPrompt: any = null;
   globalSearchDebounced,
   openMobileCommandSheet,
   runMobileCommand,
+
+  // Theme
+  cycleTheme,
 
   // Badge
   loadItemsBadge,
@@ -783,6 +792,7 @@ function openShortcutsHelp(): void {
           ['/', 'Focus search (from any view)'],
           ['Esc', 'Close modal / go back'],
           ['n / c', 'Create new item'],
+          ['t', 'Cycle theme (auto / light / dark)'],
           ['a', 'Go to Activity view'],
           ['g i', 'Go to Items view'],
           ['g g', 'Go to Graph view'],
@@ -820,6 +830,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'n' || e.key === 'N') { if (state.currentProject) showView('create'); }
   if (e.key === 'c' || e.key === 'C') { if (state.currentProject) showView('create'); }
   if (e.key === 'a' || e.key === 'A') { if (state.currentProject) showView('activity'); }
+  if (e.key === 't' || e.key === 'T') { cycleTheme(); }
   if (e.key === '/') { e.preventDefault(); if (state.currentProject) { showView('search'); setTimeout(()=>document.getElementById('search-query')?.focus(), 100); } }
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-backdrop').forEach(m => { (m as HTMLElement).style.display='none'; });

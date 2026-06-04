@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="auto">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
@@ -80,6 +80,7 @@
       <div class="sse-indicator" id="sse-indicator" title="Real-time sync disconnected">
         <div class="sse-dot"></div>
       </div>
+      <button class="theme-toggle" id="theme-toggle" onclick="window.__app.cycleTheme()" title="Toggle theme (dark / light / auto)" aria-label="Toggle theme" tabindex="0">◐</button>
       <div class="user-menu">
         <div class="user-avatar" id="user-avatar" aria-hidden="true">?</div>
         <span class="user-name" id="user-name-display"></span>

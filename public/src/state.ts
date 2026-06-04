@@ -10,7 +10,7 @@ export const state: AppState = {
   currentView: 'projects',
   authTab: 'login',
   items: [],
-  itemFilters: { status: '', type: '', priority: '', sprint: '', release: '', assignee: '' },
+  itemFilters: { status: '', type: '', priority: '', sprint: '', release: '', assignee: '', tag: '' },
   searchQuery: '',
   searchResults: [],
   searchMode: 'hybrid',

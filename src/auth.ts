@@ -24,5 +24,10 @@ export function extractToken(req: Request): string | null {
   }
   const cookie = (req as Request & { cookies?: Record<string, string> }).cookies?.pm_token;
   if (cookie) return cookie;
+  // Allow a `?token=` query param. Calendar clients subscribing to an .ics
+  // feed cannot send cookies or an Authorization header, so the feed URL
+  // carries the JWT directly. Additive — header/cookie still take precedence.
+  const queryToken = (req.query as Record<string, unknown> | undefined)?.["token"];
+  if (typeof queryToken === "string" && queryToken) return queryToken;
   return null;
 }

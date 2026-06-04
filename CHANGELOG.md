@@ -1,6 +1,12 @@
 # Changelog
 
-## 2026.6.2-1 - 2026-06-02
+## Unreleased
+
+### Added
+
+- Add light/auto theme toggle, URL-state item filters, and iCal \(.ics\) calendar export ([pm-web-b6eo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-b6eo.toon))
+
+## 2026.06.02-1 - 2026-06-02
 
 ### Added
 

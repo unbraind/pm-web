@@ -1,0 +1,12 @@
+id: pm-web-b6eo
+title: "Add light/auto theme toggle, URL-state item filters, and iCal (.ics) calendar export"
+description: "Three additive web UI enhancements: a dark/light/auto theme toggle persisted to localStorage via CSS variables; multi-dimension item filters (status/type/priority/sprint/release/assignee/tag) reflected in shareable URL query params; and an RFC 5545 iCalendar feed endpoint generating VEVENTs from item deadlines for Google/Outlook/Apple Calendar subscription."
+type: Task
+status: closed
+priority: 2
+tags[5]: filters,frontend,ical,theme,web
+created_at: "2026-06-04T05:48:51.484Z"
+updated_at: "2026-06-04T05:49:27.814Z"
+author: codex
+close_reason: "Implemented, functionally tested, all checks green"
+body: ""
