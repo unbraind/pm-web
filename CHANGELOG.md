@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Normalize board and search behavior for real pm data ([pm-web-hzb0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-hzb0.toon))
+
 ### Other
 
 - Align package dependencies to pm CLI/SDK 2026.6.6 ([pm-web-9z1i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-9z1i.toon))

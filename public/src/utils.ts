@@ -10,7 +10,9 @@ export function escHtml(s: string | undefined | null): string {
 
 export function statusBadge(s: string): string {
   const labels: Record<string, string> = { in_progress: 'In Progress' };
-  return `<span class="status-badge status-${s}">${labels[s] || s}</span>`;
+  const status = String(s || 'unknown');
+  const classSuffix = status.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown';
+  return `<span class="status-badge status-${classSuffix}">${escHtml(labels[status] || status)}</span>`;
 }
 
 export function priorityDot(p: number): string {
