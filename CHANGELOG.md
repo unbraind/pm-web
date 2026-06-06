@@ -8,6 +8,7 @@
 
 ### Other
 
+- Harden web release readiness checks ([pm-web-d5ef](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-d5ef.toon))
 - Align package dependencies to pm CLI/SDK 2026.6.6 ([pm-web-9z1i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-9z1i.toon))
 
 ## 2026.06.04 - 2026-06-04

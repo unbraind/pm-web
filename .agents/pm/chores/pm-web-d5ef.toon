@@ -1,0 +1,18 @@
+id: pm-web-d5ef
+title: Harden web release readiness checks
+description: "Include web package tests in release readiness, stop tracking generated pm runtime/search cache artifacts, and align website governance with the private/no-GitHub-runners policy."
+type: Chore
+status: closed
+priority: 1
+tags[4]: privacy,release,testing,website
+created_at: "2026-06-06T20:55:22.116Z"
+updated_at: "2026-06-06T20:58:54.306Z"
+author: codex
+acceptance_criteria: "release:check runs tests; generated pm runtime/search artifacts are ignored and removed from git tracking; package is private; GitHub Actions workflows are removed from the website repo"
+resolution: "Added npm test to release:check, removed generated pm runtime/search artifacts from git tracking where present, updated ignore rules, and applied website no-runner/private package governance for pm-web."
+expected_result: Release readiness checks exercise tests and generated local pm caches are not tracked.
+actual_result: Package test sweep completed successfully; npm audit endpoint failures were isolated to registry responses rather than package test failures.
+notes[1]{created_at,author,text}:
+  "2026-06-06T20:58:25.151Z",codex,GitHub audit showed pm-web was public and still had CI/changelog/release workflows despite the website no-runner policy. Marked package private locally and removed workflows; repo visibility will be changed with gh after commit/push prep.
+close_reason: Release readiness hardening implemented and npm test passed for the package sweep.
+body: ""
