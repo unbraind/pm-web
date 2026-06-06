@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { routeParam } from "./route-params.js";
 
 const sharesRouter = Router({ mergeParams: true });
 sharesRouter.use(requireAuth);
@@ -19,7 +20,7 @@ async function verifyProjectOwner(
 
 // GET /api/projects/:id/shares - list who the project is shared with
 sharesRouter.get("/", async (req: AuthRequest, res) => {
-  const projectId = req.params["id"] || req.params["projectId"];
+  const projectId = routeParam(req, "id") || routeParam(req, "projectId");
   try {
     const isOwner = await verifyProjectOwner(req.user!.userId, projectId!);
     if (!isOwner) {
@@ -48,7 +49,7 @@ sharesRouter.get("/", async (req: AuthRequest, res) => {
 
 // POST /api/projects/:id/shares - share project
 sharesRouter.post("/", async (req: AuthRequest, res) => {
-  const projectId = req.params["id"] || req.params["projectId"];
+  const projectId = routeParam(req, "id") || routeParam(req, "projectId");
   const { email, groupId, permission } = req.body as {
     email?: string;
     groupId?: string;
@@ -145,7 +146,7 @@ sharesRouter.post("/", async (req: AuthRequest, res) => {
 
 // DELETE /api/projects/:id/shares/:shareId - remove a share
 sharesRouter.delete("/:shareId", async (req: AuthRequest, res) => {
-  const projectId = req.params["id"] || req.params["projectId"];
+  const projectId = routeParam(req, "id") || routeParam(req, "projectId");
   try {
     const isOwner = await verifyProjectOwner(req.user!.userId, projectId!);
     if (!isOwner) {
@@ -155,7 +156,7 @@ sharesRouter.delete("/:shareId", async (req: AuthRequest, res) => {
 
     const result = await pool.query(
       `DELETE FROM pm_project_shares WHERE id = $1 AND project_id = $2 RETURNING id`,
-      [req.params["shareId"], projectId]
+      [routeParam(req, "shareId"), projectId]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: "Share not found" });

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { routeParam } from "./route-params.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -66,7 +67,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
     const memberCheck = await pool.query(
       `SELECT gm.role FROM pm_group_members gm
        WHERE gm.group_id = $1 AND gm.user_id = $2`,
-      [req.params["id"], req.user!.userId]
+      [routeParam(req, "id"), req.user!.userId]
     );
     if (memberCheck.rows.length === 0) {
       res.status(404).json({ error: "Group not found" });
@@ -76,7 +77,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
     const groupResult = await pool.query(
       `SELECT id, owner_id, name, description, created_at, updated_at
        FROM pm_groups WHERE id = $1`,
-      [req.params["id"]]
+      [routeParam(req, "id")]
     );
     const group = groupResult.rows[0];
 
@@ -87,7 +88,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
        JOIN pm_users u ON u.id = gm.user_id
        WHERE gm.group_id = $1
        ORDER BY gm.invited_at ASC`,
-      [req.params["id"]]
+      [routeParam(req, "id")]
     );
 
     res.json({ group: { ...group, members: membersResult.rows } });
@@ -108,7 +109,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
            updated_at = NOW()
        WHERE id = $3 AND owner_id = $4
        RETURNING id, owner_id, name, description, created_at, updated_at`,
-      [name?.trim() || null, description !== undefined ? description : null, req.params["id"], req.user!.userId]
+      [name?.trim() || null, description !== undefined ? description : null, routeParam(req, "id"), req.user!.userId]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: "Group not found or you are not the owner" });
@@ -126,7 +127,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
       `DELETE FROM pm_groups WHERE id = $1 AND owner_id = $2 RETURNING id`,
-      [req.params["id"], req.user!.userId]
+      [routeParam(req, "id"), req.user!.userId]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: "Group not found or you are not the owner" });
@@ -152,7 +153,7 @@ router.post("/:id/members", async (req: AuthRequest, res) => {
     // Verify requester is owner
     const ownerCheck = await pool.query(
       `SELECT id FROM pm_groups WHERE id = $1 AND owner_id = $2`,
-      [req.params["id"], req.user!.userId]
+      [routeParam(req, "id"), req.user!.userId]
     );
     if (ownerCheck.rows.length === 0) {
       res.status(403).json({ error: "Only the group owner can invite members" });
@@ -175,7 +176,7 @@ router.post("/:id/members", async (req: AuthRequest, res) => {
        VALUES ($1, $2, $3)
        ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role
        RETURNING id, user_id, role, invited_at`,
-      [req.params["id"], invitedUser.id, memberRole]
+      [routeParam(req, "id"), invitedUser.id, memberRole]
     );
 
     res.status(201).json({
@@ -195,10 +196,10 @@ router.post("/:id/members", async (req: AuthRequest, res) => {
 router.delete("/:id/members/:userId", async (req: AuthRequest, res) => {
   try {
     // Verify requester is owner, OR member is removing themselves
-    const isSelf = req.params["userId"] === req.user!.userId;
+    const isSelf = routeParam(req, "userId") === req.user!.userId;
     const ownerCheck = await pool.query(
       `SELECT id FROM pm_groups WHERE id = $1 AND owner_id = $2`,
-      [req.params["id"], req.user!.userId]
+      [routeParam(req, "id"), req.user!.userId]
     );
     const isOwner = ownerCheck.rows.length > 0;
 
@@ -215,7 +216,7 @@ router.delete("/:id/members/:userId", async (req: AuthRequest, res) => {
 
     const result = await pool.query(
       `DELETE FROM pm_group_members WHERE group_id = $1 AND user_id = $2 RETURNING id`,
-      [req.params["id"], req.params["userId"]]
+      [routeParam(req, "id"), routeParam(req, "userId")]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: "Member not found" });

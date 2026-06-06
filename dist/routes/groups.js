@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { routeParam } from "./route-params.js";
 const router = Router();
 router.use(requireAuth);
 // GET /api/groups - list groups I own or am a member of
@@ -52,20 +53,20 @@ router.get("/:id", async (req, res) => {
     try {
         // Check membership
         const memberCheck = await pool.query(`SELECT gm.role FROM pm_group_members gm
-       WHERE gm.group_id = $1 AND gm.user_id = $2`, [req.params["id"], req.user.userId]);
+       WHERE gm.group_id = $1 AND gm.user_id = $2`, [routeParam(req, "id"), req.user.userId]);
         if (memberCheck.rows.length === 0) {
             res.status(404).json({ error: "Group not found" });
             return;
         }
         const groupResult = await pool.query(`SELECT id, owner_id, name, description, created_at, updated_at
-       FROM pm_groups WHERE id = $1`, [req.params["id"]]);
+       FROM pm_groups WHERE id = $1`, [routeParam(req, "id")]);
         const group = groupResult.rows[0];
         const membersResult = await pool.query(`SELECT gm.id, gm.user_id, gm.role, gm.invited_at,
               u.email, u.display_name
        FROM pm_group_members gm
        JOIN pm_users u ON u.id = gm.user_id
        WHERE gm.group_id = $1
-       ORDER BY gm.invited_at ASC`, [req.params["id"]]);
+       ORDER BY gm.invited_at ASC`, [routeParam(req, "id")]);
         res.json({ group: { ...group, members: membersResult.rows } });
     }
     catch (err) {
@@ -82,7 +83,7 @@ router.patch("/:id", async (req, res) => {
            description = COALESCE($2, description),
            updated_at = NOW()
        WHERE id = $3 AND owner_id = $4
-       RETURNING id, owner_id, name, description, created_at, updated_at`, [name?.trim() || null, description !== undefined ? description : null, req.params["id"], req.user.userId]);
+       RETURNING id, owner_id, name, description, created_at, updated_at`, [name?.trim() || null, description !== undefined ? description : null, routeParam(req, "id"), req.user.userId]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "Group not found or you are not the owner" });
             return;
@@ -97,7 +98,7 @@ router.patch("/:id", async (req, res) => {
 // DELETE /api/groups/:id - delete group (owner only)
 router.delete("/:id", async (req, res) => {
     try {
-        const result = await pool.query(`DELETE FROM pm_groups WHERE id = $1 AND owner_id = $2 RETURNING id`, [req.params["id"], req.user.userId]);
+        const result = await pool.query(`DELETE FROM pm_groups WHERE id = $1 AND owner_id = $2 RETURNING id`, [routeParam(req, "id"), req.user.userId]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "Group not found or you are not the owner" });
             return;
@@ -119,7 +120,7 @@ router.post("/:id/members", async (req, res) => {
     const memberRole = role === "owner" ? "owner" : "member";
     try {
         // Verify requester is owner
-        const ownerCheck = await pool.query(`SELECT id FROM pm_groups WHERE id = $1 AND owner_id = $2`, [req.params["id"], req.user.userId]);
+        const ownerCheck = await pool.query(`SELECT id FROM pm_groups WHERE id = $1 AND owner_id = $2`, [routeParam(req, "id"), req.user.userId]);
         if (ownerCheck.rows.length === 0) {
             res.status(403).json({ error: "Only the group owner can invite members" });
             return;
@@ -134,7 +135,7 @@ router.post("/:id/members", async (req, res) => {
         const memberResult = await pool.query(`INSERT INTO pm_group_members (group_id, user_id, role)
        VALUES ($1, $2, $3)
        ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role
-       RETURNING id, user_id, role, invited_at`, [req.params["id"], invitedUser.id, memberRole]);
+       RETURNING id, user_id, role, invited_at`, [routeParam(req, "id"), invitedUser.id, memberRole]);
         res.status(201).json({
             member: {
                 ...memberResult.rows[0],
@@ -152,8 +153,8 @@ router.post("/:id/members", async (req, res) => {
 router.delete("/:id/members/:userId", async (req, res) => {
     try {
         // Verify requester is owner, OR member is removing themselves
-        const isSelf = req.params["userId"] === req.user.userId;
-        const ownerCheck = await pool.query(`SELECT id FROM pm_groups WHERE id = $1 AND owner_id = $2`, [req.params["id"], req.user.userId]);
+        const isSelf = routeParam(req, "userId") === req.user.userId;
+        const ownerCheck = await pool.query(`SELECT id FROM pm_groups WHERE id = $1 AND owner_id = $2`, [routeParam(req, "id"), req.user.userId]);
         const isOwner = ownerCheck.rows.length > 0;
         if (!isOwner && !isSelf) {
             res.status(403).json({ error: "Not authorized to remove this member" });
@@ -164,7 +165,7 @@ router.delete("/:id/members/:userId", async (req, res) => {
             res.status(400).json({ error: "Group owner cannot leave the group. Delete the group instead." });
             return;
         }
-        const result = await pool.query(`DELETE FROM pm_group_members WHERE group_id = $1 AND user_id = $2 RETURNING id`, [req.params["id"], req.params["userId"]]);
+        const result = await pool.query(`DELETE FROM pm_group_members WHERE group_id = $1 AND user_id = $2 RETURNING id`, [routeParam(req, "id"), routeParam(req, "userId")]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "Member not found" });
             return;

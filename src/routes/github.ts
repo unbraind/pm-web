@@ -4,6 +4,7 @@ import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
 import { runPm } from "../services/pm-runner.js";
 import { decryptSecret } from "../crypto.js";
+import { routeParam } from "./route-params.js";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
@@ -39,12 +40,12 @@ async function ghFetch(url: string, token: string, opts: RequestInit = {}): Prom
 
 // GET /api/projects/:id/github — get linked repo info
 router.get("/", async (req: AuthRequest, res) => {
-  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access) { res.status(404).json({ error: "Project not found" }); return; }
 
   const result = await pool.query(
     `SELECT github_owner, github_repo, github_sync_enabled FROM pm_projects WHERE id = $1`,
-    [req.params["id"]]
+    [routeParam(req, "id")]
   );
   const row = result.rows[0] as { github_owner: string | null; github_repo: string | null; github_sync_enabled: boolean };
   res.json({
@@ -57,7 +58,7 @@ router.get("/", async (req: AuthRequest, res) => {
 
 // PATCH /api/projects/:id/github — link or unlink a repo
 router.patch("/", async (req: AuthRequest, res) => {
-  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access || access.permission !== "edit") { res.status(403).json({ error: "Not authorized" }); return; }
 
   const { owner, repo, syncEnabled } = req.body as { owner?: string; repo?: string; syncEnabled?: boolean };
@@ -74,7 +75,7 @@ router.patch("/", async (req: AuthRequest, res) => {
 
     await pool.query(
       `UPDATE pm_projects SET github_owner = $1, github_repo = $2, github_sync_enabled = $3 WHERE id = $4`,
-      [owner?.trim() || null, repo?.trim() || null, syncEnabled ?? false, req.params["id"]]
+      [owner?.trim() || null, repo?.trim() || null, syncEnabled ?? false, routeParam(req, "id")]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -85,12 +86,12 @@ router.patch("/", async (req: AuthRequest, res) => {
 
 // GET /api/projects/:id/github/issues — list GitHub issues
 router.get("/issues", async (req: AuthRequest, res) => {
-  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access) { res.status(404).json({ error: "Project not found" }); return; }
 
   const repoResult = await pool.query(
     `SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`,
-    [req.params["id"]]
+    [routeParam(req, "id")]
   );
   const { github_owner: owner, github_repo: repo } = repoResult.rows[0] as { github_owner: string | null; github_repo: string | null };
   if (!owner || !repo) { res.status(400).json({ error: "No GitHub repo linked to this project" }); return; }
@@ -123,12 +124,12 @@ router.get("/issues", async (req: AuthRequest, res) => {
 
 // POST /api/projects/:id/github/import — import selected GitHub issues as pm items
 router.post("/import", async (req: AuthRequest, res) => {
-  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access || access.permission !== "edit") { res.status(403).json({ error: "Not authorized" }); return; }
 
   const repoResult = await pool.query(
     `SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`,
-    [req.params["id"]]
+    [routeParam(req, "id")]
   );
   const { github_owner: owner, github_repo: repo } = repoResult.rows[0] as { github_owner: string | null; github_repo: string | null };
   if (!owner || !repo) { res.status(400).json({ error: "No GitHub repo linked" }); return; }
@@ -182,24 +183,24 @@ router.post("/import", async (req: AuthRequest, res) => {
 
 // GET /api/projects/:id/github/links — fetch pm-item ↔ GitHub-issue links
 router.get("/links", async (req: AuthRequest, res) => {
-  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access) { res.status(404).json({ error: "Project not found" }); return; }
 
   const result = await pool.query(
     `SELECT pm_item_id, issue_number, issue_url, synced_at FROM pm_github_item_links WHERE project_id = $1 ORDER BY synced_at DESC`,
-    [req.params["id"]]
+    [routeParam(req, "id")]
   );
   res.json({ links: result.rows as { pm_item_id: string; issue_number: number; issue_url: string; synced_at: string }[] });
 });
 
 // POST /api/projects/:id/github/push — push pm items as new GitHub issues
 router.post("/push", async (req: AuthRequest, res) => {
-  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access || access.permission !== "edit") { res.status(403).json({ error: "Not authorized" }); return; }
 
   const repoResult = await pool.query(
     `SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`,
-    [req.params["id"]]
+    [routeParam(req, "id")]
   );
   const { github_owner: owner, github_repo: repo } = repoResult.rows[0] as { github_owner: string | null; github_repo: string | null };
   if (!owner || !repo) { res.status(400).json({ error: "No GitHub repo linked to this project" }); return; }
@@ -270,7 +271,7 @@ router.post("/push", async (req: AuthRequest, res) => {
         `INSERT INTO pm_github_item_links (project_id, pm_item_id, issue_number, issue_url, synced_at)
          VALUES ($1, $2, $3, $4, NOW())
          ON CONFLICT (project_id, pm_item_id) DO UPDATE SET issue_number = EXCLUDED.issue_number, issue_url = EXCLUDED.issue_url, synced_at = NOW()`,
-        [req.params["id"], itemId, issue.number, issue.html_url]
+        [routeParam(req, "id"), itemId, issue.number, issue.html_url]
       );
 
       pushed.push({ pmItemId: itemId, issueNumber: issue.number, issueUrl: issue.html_url });
@@ -284,18 +285,18 @@ router.post("/push", async (req: AuthRequest, res) => {
 
 // PATCH /api/projects/:id/github/push/:itemId — update an existing linked GitHub issue from pm item
 router.patch("/push/:itemId", async (req: AuthRequest, res) => {
-  const access = await verifyProjectAccess(req.user!.userId, req.params["id"]!);
+  const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access || access.permission !== "edit") { res.status(403).json({ error: "Not authorized" }); return; }
 
-  const itemId = req.params["itemId"]!;
+  const itemId = routeParam(req, "itemId");
   const linkResult = await pool.query(
     `SELECT issue_number FROM pm_github_item_links WHERE project_id = $1 AND pm_item_id = $2`,
-    [req.params["id"], itemId]
+    [routeParam(req, "id"), itemId]
   );
   if (linkResult.rows.length === 0) { res.status(404).json({ error: "No linked GitHub issue for this item" }); return; }
   const issueNumber = linkResult.rows[0].issue_number as number;
 
-  const repoResult = await pool.query(`SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`, [req.params["id"]]);
+  const repoResult = await pool.query(`SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`, [routeParam(req, "id")]);
   const { github_owner: owner, github_repo: repo } = repoResult.rows[0] as { github_owner: string | null; github_repo: string | null };
   if (!owner || !repo) { res.status(400).json({ error: "No GitHub repo linked" }); return; }
 
@@ -340,7 +341,7 @@ router.patch("/push/:itemId", async (req: AuthRequest, res) => {
   const issue = (await resp.json()) as { number: number; html_url: string };
   await pool.query(
     `UPDATE pm_github_item_links SET synced_at = NOW() WHERE project_id = $1 AND pm_item_id = $2`,
-    [req.params["id"], itemId]
+    [routeParam(req, "id"), itemId]
   );
 
   res.json({ ok: true, issueNumber: issue.number, issueUrl: issue.html_url });

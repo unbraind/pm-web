@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { routeParam } from "./route-params.js";
 const sharesRouter = Router({ mergeParams: true });
 sharesRouter.use(requireAuth);
 // Helper: verify project ownership for sharing operations
@@ -10,7 +11,7 @@ async function verifyProjectOwner(userId, projectId) {
 }
 // GET /api/projects/:id/shares - list who the project is shared with
 sharesRouter.get("/", async (req, res) => {
-    const projectId = req.params["id"] || req.params["projectId"];
+    const projectId = routeParam(req, "id") || routeParam(req, "projectId");
     try {
         const isOwner = await verifyProjectOwner(req.user.userId, projectId);
         if (!isOwner) {
@@ -34,7 +35,7 @@ sharesRouter.get("/", async (req, res) => {
 });
 // POST /api/projects/:id/shares - share project
 sharesRouter.post("/", async (req, res) => {
-    const projectId = req.params["id"] || req.params["projectId"];
+    const projectId = routeParam(req, "id") || routeParam(req, "projectId");
     const { email, groupId, permission } = req.body;
     if (!email && !groupId) {
         res.status(400).json({ error: "Either email or groupId is required" });
@@ -107,14 +108,14 @@ sharesRouter.post("/", async (req, res) => {
 });
 // DELETE /api/projects/:id/shares/:shareId - remove a share
 sharesRouter.delete("/:shareId", async (req, res) => {
-    const projectId = req.params["id"] || req.params["projectId"];
+    const projectId = routeParam(req, "id") || routeParam(req, "projectId");
     try {
         const isOwner = await verifyProjectOwner(req.user.userId, projectId);
         if (!isOwner) {
             res.status(404).json({ error: "Project not found" });
             return;
         }
-        const result = await pool.query(`DELETE FROM pm_project_shares WHERE id = $1 AND project_id = $2 RETURNING id`, [req.params["shareId"], projectId]);
+        const result = await pool.query(`DELETE FROM pm_project_shares WHERE id = $1 AND project_id = $2 RETURNING id`, [routeParam(req, "shareId"), projectId]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "Share not found" });
             return;
