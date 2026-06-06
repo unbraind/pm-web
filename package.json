@@ -35,25 +35,25 @@
     "test": "npm run build:server && npm run build:test && node --test dist-test/*.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
-    "express": "^4.22.2",
+    "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
-    "neo4j-driver": "^5.28.3",
-    "pg": "^8.14.1",
-    "uuid": "^11.1.0"
+    "neo4j-driver": "^6.1.0",
+    "pg": "^8.21.0",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.8",
-    "@types/express": "^4.17.25",
+    "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/node": "^22.15.17",
+    "@types/node": "^25.9.2",
     "@types/pg": "^8.11.11",
     "@types/uuid": "^10.0.0",
-    "@unbrained/pm-cli": "^2026.5.31",
-    "pm-changelog": "^2026.6.2",
-    "tsx": "^4.19.4",
+    "@unbrained/pm-cli": "^2026.6.6",
+    "pm-changelog": "^2026.6.6",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   },
   "repository": {

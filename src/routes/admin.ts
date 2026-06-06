@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Response } from "express";
 import { pool } from "../db.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { routeParam } from "./route-params.js";
 
 const router = Router();
 
@@ -87,7 +88,7 @@ router.patch("/users/:id", async (req: AuthRequest, res) => {
   }
 
   try {
-    const currentAdmin = await isUserAdmin(req.params.id);
+    const currentAdmin = await isUserAdmin(routeParam(req, "id"));
     if (currentAdmin && !isAdmin) {
       const adminCount = await getAdminCount();
       if (adminCount <= 1) {
@@ -100,13 +101,13 @@ router.patch("/users/:id", async (req: AuthRequest, res) => {
       `UPDATE pm_users SET is_admin = $1, updated_at = NOW()
        WHERE id = $2
        RETURNING id, email, display_name, is_admin, github_token IS NOT NULL AS has_github_token, created_at, updated_at`,
-      [isAdmin, req.params.id]
+      [isAdmin, routeParam(req, "id")]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    await logAudit(req.user!.userId, "user.update", `Set is_admin=${isAdmin} for user ${req.params.id}`);
+    await logAudit(req.user!.userId, "user.update", `Set is_admin=${isAdmin} for user ${routeParam(req, "id")}`);
     res.json({ user: result.rows[0] });
   } catch (err) {
     console.error("Admin user update failed:", err);
@@ -117,7 +118,7 @@ router.patch("/users/:id", async (req: AuthRequest, res) => {
 // DELETE /admin/users/:id — Delete a user and all their data
 router.delete("/users/:id", async (req: AuthRequest, res) => {
   try {
-    if (await isUserAdmin(req.params.id)) {
+    if (await isUserAdmin(routeParam(req, "id"))) {
       const adminCount = await getAdminCount();
       if (adminCount <= 1) {
         res.status(409).json({ error: "Cannot delete the last admin user." });
@@ -125,12 +126,12 @@ router.delete("/users/:id", async (req: AuthRequest, res) => {
       }
     }
 
-    const result = await pool.query(`DELETE FROM pm_users WHERE id = $1 RETURNING id, email`, [req.params.id]);
+    const result = await pool.query(`DELETE FROM pm_users WHERE id = $1 RETURNING id, email`, [routeParam(req, "id")]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    await logAudit(req.user!.userId, "user.delete", `Deleted user ${result.rows[0].email} (${req.params.id})`);
+    await logAudit(req.user!.userId, "user.delete", `Deleted user ${result.rows[0].email} (${routeParam(req, "id")})`);
     res.json({ ok: true, deleted: result.rows[0] });
   } catch (err) {
     console.error("Admin user delete failed:", err);
@@ -141,12 +142,12 @@ router.delete("/users/:id", async (req: AuthRequest, res) => {
 // DELETE /admin/projects/:id — Delete a project
 router.delete("/projects/:id", async (req: AuthRequest, res) => {
   try {
-    const result = await pool.query(`DELETE FROM pm_projects WHERE id = $1 RETURNING id, name, slug`, [req.params.id]);
+    const result = await pool.query(`DELETE FROM pm_projects WHERE id = $1 RETURNING id, name, slug`, [routeParam(req, "id")]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: "Project not found" });
       return;
     }
-    await logAudit(req.user!.userId, "project.delete", `Deleted project ${result.rows[0].name} (${req.params.id})`);
+    await logAudit(req.user!.userId, "project.delete", `Deleted project ${result.rows[0].name} (${routeParam(req, "id")})`);
     res.json({ ok: true, deleted: result.rows[0] });
   } catch (err) {
     console.error("Admin project delete failed:", err);
@@ -178,12 +179,12 @@ router.post("/groups", async (req: AuthRequest, res) => {
 // DELETE /admin/groups/:id — Delete a group
 router.delete("/groups/:id", async (req: AuthRequest, res) => {
   try {
-    const result = await pool.query(`DELETE FROM pm_groups WHERE id = $1 RETURNING id, name`, [req.params.id]);
+    const result = await pool.query(`DELETE FROM pm_groups WHERE id = $1 RETURNING id, name`, [routeParam(req, "id")]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: "Group not found" });
       return;
     }
-    await logAudit(req.user!.userId, "group.delete", `Deleted group "${result.rows[0].name}" (${req.params.id})`);
+    await logAudit(req.user!.userId, "group.delete", `Deleted group "${result.rows[0].name}" (${routeParam(req, "id")})`);
     res.json({ ok: true, deleted: result.rows[0] });
   } catch (err) {
     console.error("Admin group delete failed:", err);

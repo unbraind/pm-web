@@ -7,6 +7,7 @@ import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, broadcastPresence, updateClientView, getProjectPresence } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
+import { routeParam } from "./route-params.js";
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
 let _neo4jDriver = null;
 let _neo4jDriverKey = "";
@@ -32,7 +33,7 @@ router.use(async (req, res, next) => {
         next();
         return;
     }
-    const projectId = req.params["projectId"];
+    const projectId = routeParam(req, "projectId");
     if (!projectId) {
         next();
         return;
@@ -335,7 +336,7 @@ async function verifyProject(userId, projectId) {
 // Returns runtime types/statuses from `pm contracts --json` so the frontend
 // stays in sync with whatever pm CLI version + extensions are installed.
 router.get("/schema", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -353,7 +354,7 @@ router.get("/schema", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/list
 router.get("/list", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -379,7 +380,7 @@ router.get("/list", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/list-all
 router.get("/list-all", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -397,7 +398,7 @@ router.get("/list-all", async (req, res) => {
 // Kanban board: items grouped into columns by the workspace's runtime statuses
 // (read live from `pm contracts`) so the board matches the installed CLI.
 router.get("/board", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -418,7 +419,7 @@ router.get("/board", async (req, res) => {
 // GET /api/projects/:projectId/pm/search?q=...
 // Full-text search over id/title/tags/body via a single list-all read.
 router.get("/search", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -434,7 +435,7 @@ router.get("/search", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/create
 router.post("/create", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -513,22 +514,22 @@ router.post("/create", async (req, res) => {
         return;
     }
     // Broadcast SSE create event
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-created",
         data: { result: result.parsed, userId: req.user.userId },
     });
-    scheduleGraphSync(req.params["projectId"], project, "item-created");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-created");
     res.status(201).json(result.parsed || {});
 });
 // GET /api/projects/:projectId/pm/get/:itemId
 router.get("/get/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["get", req.params["itemId"]],
+        args: ["get", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -541,13 +542,13 @@ router.get("/get/:itemId", async (req, res) => {
 });
 // PATCH /api/projects/:projectId/pm/update/:itemId
 router.patch("/update/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const body = req.body;
-    const args = ["update", req.params["itemId"]];
+    const args = ["update", routeParam(req, "itemId")];
     // String options
     const stringFlags = {
         title: "--title", description: "--description", status: "--status", priority: "--priority",
@@ -580,16 +581,16 @@ router.patch("/update/:itemId", async (req, res) => {
         return;
     }
     // Broadcast SSE update event
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["itemId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "itemId"), userId: req.user.userId },
     });
-    scheduleGraphSync(req.params["projectId"], project, "item-updated");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-updated");
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/close/:itemId
 router.post("/close/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -600,7 +601,7 @@ router.post("/close/:itemId", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["close", req.params["itemId"], reason.trim()],
+        args: ["close", routeParam(req, "itemId"), reason.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -609,22 +610,22 @@ router.post("/close/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to close item" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-closed",
-        data: { itemId: req.params["itemId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "itemId"), userId: req.user.userId },
     });
-    scheduleGraphSync(req.params["projectId"], project, "item-closed");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-closed");
     res.json(result.parsed || {});
 });
 // DELETE /api/projects/:projectId/pm/delete/:itemId
 router.delete("/delete/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["delete", req.params["itemId"], "--yes"],
+        args: ["delete", routeParam(req, "itemId"), "--yes"],
         userId: project.ownerUserId,
         slug: project.slug,
     });
@@ -632,16 +633,16 @@ router.delete("/delete/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to delete item" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-deleted",
-        data: { itemId: req.params["itemId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "itemId"), userId: req.user.userId },
     });
-    scheduleGraphSync(req.params["projectId"], project, "item-deleted");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-deleted");
     res.json({ ok: true });
 });
 // POST /api/projects/:projectId/pm/comments/:itemId
 router.post("/comments/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -652,7 +653,7 @@ router.post("/comments/:itemId", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["comments", req.params["itemId"], text.trim()],
+        args: ["comments", routeParam(req, "itemId"), text.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -665,13 +666,13 @@ router.post("/comments/:itemId", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/comments/:itemId
 router.get("/comments/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["comments", req.params["itemId"]],
+        args: ["comments", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -680,13 +681,13 @@ router.get("/comments/:itemId", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/notes/:itemId
 router.get("/notes/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["notes", req.params["itemId"]],
+        args: ["notes", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -695,7 +696,7 @@ router.get("/notes/:itemId", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/notes/:itemId
 router.post("/notes/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -706,7 +707,7 @@ router.post("/notes/:itemId", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["notes", req.params["itemId"], text.trim()],
+        args: ["notes", routeParam(req, "itemId"), text.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -719,7 +720,7 @@ router.post("/notes/:itemId", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/context
 router.get("/context", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -737,7 +738,7 @@ router.get("/context", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/activity
 router.get("/activity", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -751,7 +752,7 @@ router.get("/activity", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/stats
 router.get("/stats", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -766,7 +767,7 @@ router.get("/stats", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/aggregate
 router.get("/aggregate", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -781,7 +782,7 @@ router.get("/aggregate", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/search
 router.post("/search", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -810,7 +811,7 @@ router.post("/search", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/calendar
 router.get("/calendar", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -829,7 +830,7 @@ router.get("/calendar", async (req, res) => {
 // calendar view. Auth works via the usual token (header/cookie) or a
 // `?token=` query param, since calendar clients cannot send cookies.
 router.get("/calendar.ics", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -867,7 +868,7 @@ router.get("/calendar.ics", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/health
 router.get("/health", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -882,7 +883,7 @@ router.get("/health", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/append/:itemId
 router.post("/append/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -893,7 +894,7 @@ router.post("/append/:itemId", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["append", req.params["itemId"], text.trim()],
+        args: ["append", routeParam(req, "itemId"), text.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -902,18 +903,18 @@ router.post("/append/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to append" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "item-appended");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-appended");
     res.json(result.parsed || { ok: true });
 });
 // GET /api/projects/:projectId/pm/history/:itemId
 router.get("/history/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["history", req.params["itemId"]],
+        args: ["history", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -922,13 +923,13 @@ router.get("/history/:itemId", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/deps/:itemId
 router.get("/deps/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["deps", req.params["itemId"]],
+        args: ["deps", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -937,7 +938,7 @@ router.get("/deps/:itemId", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/deps/:itemId
 router.post("/deps/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -949,7 +950,7 @@ router.post("/deps/:itemId", async (req, res) => {
     }
     const depRel = normalizeDependencyKind(rel);
     const result = runPm({
-        args: ["update", req.params["itemId"], "--dep", `id=${targetId.trim()},kind=${depRel}`],
+        args: ["update", routeParam(req, "itemId"), "--dep", `id=${targetId.trim()},kind=${depRel}`],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -958,9 +959,9 @@ router.post("/deps/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to add dependency" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "dependency-added");
-    broadcastDependencyEvent(req.params["projectId"], "dependency-added", {
-        from: req.params["itemId"],
+    scheduleGraphSync(routeParam(req, "projectId"), project, "dependency-added");
+    broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-added", {
+        from: routeParam(req, "itemId"),
         to: targetId.trim(),
         rel: depRel,
         userId: req.user.userId,
@@ -969,7 +970,7 @@ router.post("/deps/:itemId", async (req, res) => {
 });
 // DELETE /api/projects/:projectId/pm/deps/:itemId
 router.delete("/deps/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -982,7 +983,7 @@ router.delete("/deps/:itemId", async (req, res) => {
     const depRel = normalizeDependencyKind(rel || "relates_to");
     const selector = `id=${targetId.trim()},kind=${depRel}`;
     const result = runPm({
-        args: ["update", req.params["itemId"], "--dep-remove", selector],
+        args: ["update", routeParam(req, "itemId"), "--dep-remove", selector],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -991,18 +992,18 @@ router.delete("/deps/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to remove dependency" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "dependency-removed");
-    broadcastDependencyEvent(req.params["projectId"], "dependency-removed", {
-        from: req.params["itemId"],
+    scheduleGraphSync(routeParam(req, "projectId"), project, "dependency-removed");
+    broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-removed", {
+        from: routeParam(req, "itemId"),
         to: targetId.trim(),
         rel: depRel,
         userId: req.user.userId,
     });
-    res.status(200).json({ ok: true, from: req.params["itemId"], to: targetId.trim(), type: depRel, result: result.parsed || null });
+    res.status(200).json({ ok: true, from: routeParam(req, "itemId"), to: targetId.trim(), type: depRel, result: result.parsed || null });
 });
 // POST /api/projects/:projectId/pm/rel — Create a relationship between two items
 router.post("/rel", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1023,8 +1024,8 @@ router.post("/rel", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to create relationship" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "rel-created");
-    broadcastDependencyEvent(req.params["projectId"], "dependency-added", {
+    scheduleGraphSync(routeParam(req, "projectId"), project, "rel-created");
+    broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-added", {
         from: from.trim(),
         to: to.trim(),
         rel: depRel,
@@ -1034,7 +1035,7 @@ router.post("/rel", async (req, res) => {
 });
 // DELETE /api/projects/:projectId/pm/rel — Remove a relationship between two items
 router.delete("/rel", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1056,8 +1057,8 @@ router.delete("/rel", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to remove relationship" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "rel-removed");
-    broadcastDependencyEvent(req.params["projectId"], "dependency-removed", {
+    scheduleGraphSync(routeParam(req, "projectId"), project, "rel-removed");
+    broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-removed", {
         from: from.trim(),
         to: to.trim(),
         rel: depRel,
@@ -1067,7 +1068,7 @@ router.delete("/rel", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/graph
 router.get("/graph", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1095,7 +1096,7 @@ router.get("/graph", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/graph/sync
 router.post("/graph/sync", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1103,21 +1104,21 @@ router.post("/graph/sync", async (req, res) => {
     try {
         const syncResult = await syncProjectGraph(project);
         const payload = { reason: "manual-sync", ...syncResult, projectKey: graphProjectKey(project), source: "pm-web" };
-        broadcastProjectEvent(req.params["projectId"], {
+        broadcastProjectEvent(routeParam(req, "projectId"), {
             type: "graph-synced",
             data: payload,
         });
         res.json({ ok: true, ...payload });
     }
     catch (err) {
-        broadcastProjectEvent(req.params["projectId"], {
+        broadcastProjectEvent(routeParam(req, "projectId"), {
             type: "graph-sync-failed",
             data: {
                 reason: "manual-sync",
                 error: err instanceof Error ? err.message : String(err),
             },
         });
-        broadcastProjectEvent(req.params["projectId"], {
+        broadcastProjectEvent(routeParam(req, "projectId"), {
             type: "graph_sync_failed",
             data: {
                 reason: "manual-sync",
@@ -1129,12 +1130,12 @@ router.post("/graph/sync", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/graph/neighbors/:nodeId
 router.get("/graph/neighbors/:nodeId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const nodeId = req.params["nodeId"];
+    const nodeId = routeParam(req, "nodeId");
     if (!nodeId) {
         res.status(400).json({ error: "nodeId is required" });
         return;
@@ -1160,7 +1161,7 @@ router.get("/graph/neighbors/:nodeId", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/graph/query
 router.post("/graph/query", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1190,13 +1191,13 @@ router.post("/graph/query", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/learnings/:itemId
 router.get("/learnings/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["learnings", req.params["itemId"]],
+        args: ["learnings", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1205,7 +1206,7 @@ router.get("/learnings/:itemId", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/learnings/:itemId
 router.post("/learnings/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1216,7 +1217,7 @@ router.post("/learnings/:itemId", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["learnings", req.params["itemId"], text.trim()],
+        args: ["learnings", routeParam(req, "itemId"), text.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1229,13 +1230,13 @@ router.post("/learnings/:itemId", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/claim/:itemId
 router.post("/claim/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["claim", req.params["itemId"]],
+        args: ["claim", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1244,18 +1245,18 @@ router.post("/claim/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to claim item" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "item-claimed");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-claimed");
     res.json(result.parsed || { ok: true });
 });
 // POST /api/projects/:projectId/pm/release/:itemId
 router.post("/release/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["release", req.params["itemId"]],
+        args: ["release", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1264,18 +1265,18 @@ router.post("/release/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to release item" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "item-released");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-released");
     res.json(result.parsed || { ok: true });
 });
 // POST /api/projects/:projectId/pm/start-task/:itemId
 router.post("/start-task/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["start-task", req.params["itemId"]],
+        args: ["start-task", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1284,18 +1285,18 @@ router.post("/start-task/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to start task" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "task-started");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "task-started");
     res.json(result.parsed || { ok: true });
 });
 // POST /api/projects/:projectId/pm/pause-task/:itemId
 router.post("/pause-task/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["pause-task", req.params["itemId"]],
+        args: ["pause-task", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1304,18 +1305,18 @@ router.post("/pause-task/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to pause task" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "task-paused");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "task-paused");
     res.json(result.parsed || { ok: true });
 });
 // GET /api/projects/:projectId/pm/tests/:itemId
 router.get("/tests/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["test", req.params["itemId"]],
+        args: ["test", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1324,7 +1325,7 @@ router.get("/tests/:itemId", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/tests/:itemId
 router.post("/tests/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1334,7 +1335,7 @@ router.post("/tests/:itemId", async (req, res) => {
         res.status(400).json({ error: "Test command is required" });
         return;
     }
-    const args = ["test", req.params["itemId"], "--add", "--command", command.trim()];
+    const args = ["test", routeParam(req, "itemId"), "--add", "--command", command.trim()];
     if (description)
         args.push("--description", description.trim());
     const result = runPm({
@@ -1351,7 +1352,7 @@ router.post("/tests/:itemId", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/dedupe-audit
 router.get("/dedupe-audit", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1366,7 +1367,7 @@ router.get("/dedupe-audit", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/validate
 router.get("/validate", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1381,7 +1382,7 @@ router.get("/validate", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/restore/:itemId
 router.post("/restore/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1392,7 +1393,7 @@ router.post("/restore/:itemId", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["restore", req.params["itemId"], target.trim()],
+        args: ["restore", routeParam(req, "itemId"), target.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1401,12 +1402,12 @@ router.post("/restore/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to restore item" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "item-restored");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "item-restored");
     res.json(result.parsed || { ok: true });
 });
 // POST /api/projects/:projectId/pm/close-task/:itemId
 router.post("/close-task/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1417,7 +1418,7 @@ router.post("/close-task/:itemId", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["close-task", req.params["itemId"], reason.trim()],
+        args: ["close-task", routeParam(req, "itemId"), reason.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1426,12 +1427,12 @@ router.post("/close-task/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to close task" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "task-closed");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "task-closed");
     res.json(result.parsed || { ok: true });
 });
 // POST /api/projects/:projectId/pm/reindex
 router.post("/reindex", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1454,7 +1455,7 @@ router.post("/reindex", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/normalize
 router.post("/normalize", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1469,7 +1470,7 @@ router.post("/normalize", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/comments-audit
 router.get("/comments-audit", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1484,7 +1485,7 @@ router.get("/comments-audit", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/files/:itemId
 router.post("/files/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1497,7 +1498,7 @@ router.post("/files/:itemId", async (req, res) => {
     let addVal = `path=${filePath.trim()}`;
     if (scope)
         addVal += `,scope=${scope}`;
-    const args = ["files", req.params["itemId"], "--add", addVal];
+    const args = ["files", routeParam(req, "itemId"), "--add", addVal];
     const result = runPm({
         args,
         userId: project.ownerUserId,
@@ -1508,18 +1509,18 @@ router.post("/files/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to link file" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "file-linked");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "file-linked");
     res.status(201).json(result.parsed || { ok: true });
 });
 // GET /api/projects/:projectId/pm/files/:itemId
 router.get("/files/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["files", req.params["itemId"]],
+        args: ["files", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1528,7 +1529,7 @@ router.get("/files/:itemId", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/guide — list guide topics
 router.get("/guide", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1543,13 +1544,13 @@ router.get("/guide", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/guide/:topicId — get single guide topic
 router.get("/guide/:topicId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["guide", req.params["topicId"]],
+        args: ["guide", routeParam(req, "topicId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1567,7 +1568,7 @@ router.get("/guide/:topicId", async (req, res) => {
 // ─────────────────────────────────────────────────────────
 // GET /api/projects/:projectId/pm/export?format=json|csv|yaml
 router.get("/export", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1667,7 +1668,7 @@ router.get("/export", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/import — import JSON items
 router.post("/import", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1723,17 +1724,17 @@ router.post("/import", async (req, res) => {
             errors.push(`item[${i}]: ${result.stderr || "create failed"}`);
         }
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "items-imported",
         data: { count: created.length, userId: req.user.userId },
     });
     if (created.length > 0)
-        scheduleGraphSync(req.params["projectId"], project, "items-imported");
+        scheduleGraphSync(routeParam(req, "projectId"), project, "items-imported");
     res.json({ created, errors, total: items.length });
 });
 // POST /api/projects/:projectId/pm/update-many
 router.post("/update-many", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1776,11 +1777,11 @@ router.post("/update-many", async (req, res) => {
         res.status(400).json({ error: result.stderr || "update-many failed" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "items-bulk-updated",
         data: { userId: req.user.userId },
     });
-    scheduleGraphSync(req.params["projectId"], project, "items-bulk-updated");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "items-bulk-updated");
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/close-many
@@ -1788,7 +1789,7 @@ router.post("/update-many", async (req, res) => {
 // Accepts same filter options as update-many plus a required `reason` field.
 // Returns { closed_count, failed_count, skipped_count, rows }.
 router.post("/close-many", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1844,11 +1845,11 @@ router.post("/close-many", async (req, res) => {
         }
     }
     if (closedCount > 0) {
-        broadcastProjectEvent(req.params["projectId"], {
+        broadcastProjectEvent(routeParam(req, "projectId"), {
             type: "items-bulk-updated",
             data: { userId: req.user.userId },
         });
-        scheduleGraphSync(req.params["projectId"], project, "items-bulk-updated");
+        scheduleGraphSync(routeParam(req, "projectId"), project, "items-bulk-updated");
     }
     res.json({
         closed_count: closedCount,
@@ -1860,13 +1861,13 @@ router.post("/close-many", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/docs/:itemId
 router.get("/docs/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["docs", req.params["itemId"]],
+        args: ["docs", routeParam(req, "itemId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -1875,13 +1876,13 @@ router.get("/docs/:itemId", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/docs/:itemId
 router.post("/docs/:itemId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const { path: docPath, scope, note, remove, validatePaths } = req.body;
-    const args = ["docs", req.params["itemId"]];
+    const args = ["docs", routeParam(req, "itemId")];
     if (remove) {
         args.push("--remove", remove);
     }
@@ -1905,12 +1906,12 @@ router.post("/docs/:itemId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to update docs" });
         return;
     }
-    scheduleGraphSync(req.params["projectId"], project, "docs-updated");
+    scheduleGraphSync(routeParam(req, "projectId"), project, "docs-updated");
     res.json(result.parsed || { ok: true });
 });
 // POST /api/projects/:projectId/pm/test-all
 router.post("/test-all", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1932,7 +1933,7 @@ router.post("/test-all", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/test-runs
 router.get("/test-runs", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1948,7 +1949,7 @@ router.get("/test-runs", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/gc
 router.post("/gc", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1958,7 +1959,7 @@ router.post("/gc", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/templates
 router.get("/templates", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1968,17 +1969,17 @@ router.get("/templates", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/templates/:name
 router.get("/templates/:name", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const result = runPm({ args: ["templates", "show", req.params["name"]], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    const result = runPm({ args: ["templates", "show", routeParam(req, "name")], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
 });
 // GET /api/projects/:projectId/pm/config
 router.get("/config", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -1988,23 +1989,23 @@ router.get("/config", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/config/:key
 router.get("/config/:key", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const key = req.params["key"];
+    const key = routeParam(req, "key");
     const result = runPm({ args: ["config", "project", "get", key], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
 });
 // PATCH /api/projects/:projectId/pm/config/:key
 router.patch("/config/:key", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const key = req.params["key"];
+    const key = routeParam(req, "key");
     const body = req.body;
     const args = ["config", "project", "set", key];
     if (body.value)
@@ -2020,7 +2021,7 @@ router.patch("/config/:key", async (req, res) => {
 // These wrap pm list-draft, list-open, etc.
 function buildListShortcutRoute(pmCommand) {
     return async (req, res) => {
-        const project = await verifyProject(req.user.userId, req.params["projectId"]);
+        const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
         if (!project) {
             res.status(404).json({ error: "Project not found" });
             return;
@@ -2058,7 +2059,7 @@ router.get("/list-canceled", buildListShortcutRoute("list-canceled"));
 // ─────────────────────────────────────────────────────────
 // POST /api/projects/:projectId/pm/plan
 router.post("/plan", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2084,7 +2085,7 @@ router.post("/plan", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to create plan" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-created",
         data: { result: result.parsed, userId: req.user.userId },
     });
@@ -2092,13 +2093,13 @@ router.post("/plan", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/plan/:planId
 router.get("/plan/:planId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["plan", "show", req.params["planId"], "--depth", "standard"],
+        args: ["plan", "show", routeParam(req, "planId"), "--depth", "standard"],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -2111,13 +2112,13 @@ router.get("/plan/:planId", async (req, res) => {
 });
 // PATCH /api/projects/:projectId/pm/plan/:planId
 router.patch("/plan/:planId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const { title, description } = req.body;
-    const args = ["update", req.params["planId"]];
+    const args = ["update", routeParam(req, "planId")];
     if (title?.trim())
         args.push("--title", title.trim());
     if (description !== undefined)
@@ -2127,21 +2128,21 @@ router.patch("/plan/:planId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to update plan" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
 // DELETE /api/projects/:projectId/pm/plan/:planId
 router.delete("/plan/:planId", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["delete", req.params["planId"]],
+        args: ["delete", routeParam(req, "planId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -2150,15 +2151,15 @@ router.delete("/plan/:planId", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to delete plan" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-deleted",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json({ ok: true });
 });
 // POST /api/projects/:projectId/pm/plan/:planId/steps
 router.post("/plan/:planId/steps", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2168,7 +2169,7 @@ router.post("/plan/:planId/steps", async (req, res) => {
         res.status(400).json({ error: "Title is required" });
         return;
     }
-    const args = ["plan", "add-step", req.params["planId"], "--title", title.trim()];
+    const args = ["plan", "add-step", routeParam(req, "planId"), "--title", title.trim()];
     if (description)
         args.push("--description", description);
     if (dependsOn)
@@ -2178,21 +2179,21 @@ router.post("/plan/:planId/steps", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to add step" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.status(201).json(result.parsed || {});
 });
 // PATCH /api/projects/:projectId/pm/plan/:planId/steps/:stepRef
 router.patch("/plan/:planId/steps/:stepRef", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const { title, description } = req.body;
-    const args = ["plan", "update-step", req.params["planId"], req.params["stepRef"]];
+    const args = ["plan", "update-step", routeParam(req, "planId"), routeParam(req, "stepRef")];
     if (title)
         args.push("--title", title);
     if (description)
@@ -2202,21 +2203,21 @@ router.patch("/plan/:planId/steps/:stepRef", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to update step" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/complete
 router.post("/plan/:planId/steps/:stepRef/complete", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["plan", "complete-step", req.params["planId"], req.params["stepRef"]],
+        args: ["plan", "complete-step", routeParam(req, "planId"), routeParam(req, "stepRef")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -2225,15 +2226,15 @@ router.post("/plan/:planId/steps/:stepRef/complete", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to complete step" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/block
 router.post("/plan/:planId/steps/:stepRef/block", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2244,7 +2245,7 @@ router.post("/plan/:planId/steps/:stepRef/block", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["plan", "block-step", req.params["planId"], req.params["stepRef"], "--step-blocked-reason", reason.trim()],
+        args: ["plan", "block-step", routeParam(req, "planId"), routeParam(req, "stepRef"), "--step-blocked-reason", reason.trim()],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -2253,21 +2254,21 @@ router.post("/plan/:planId/steps/:stepRef/block", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to block step" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
 // DELETE /api/projects/:projectId/pm/plan/:planId/steps/:stepRef
 router.delete("/plan/:planId/steps/:stepRef", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["plan", "remove-step", req.params["planId"], req.params["stepRef"]],
+        args: ["plan", "remove-step", routeParam(req, "planId"), routeParam(req, "stepRef")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -2276,21 +2277,21 @@ router.delete("/plan/:planId/steps/:stepRef", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to remove step" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/plan/:planId/approve
 router.post("/plan/:planId/approve", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const result = runPm({
-        args: ["plan", "approve", req.params["planId"]],
+        args: ["plan", "approve", routeParam(req, "planId")],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -2299,21 +2300,21 @@ router.post("/plan/:planId/approve", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to approve plan" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/plan/:planId/materialize
 router.post("/plan/:planId/materialize", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
     const { materializeType, materializeParent, steps } = req.body;
-    const args = ["plan", "materialize", req.params["planId"]];
+    const args = ["plan", "materialize", routeParam(req, "planId")];
     if (materializeType)
         args.push("--materialize-type", materializeType);
     if (materializeParent)
@@ -2325,7 +2326,7 @@ router.post("/plan/:planId/materialize", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to materialize plan" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-created",
         data: { result: result.parsed, userId: req.user.userId },
     });
@@ -2333,7 +2334,7 @@ router.post("/plan/:planId/materialize", async (req, res) => {
 });
 // POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/reorder
 router.post("/plan/:planId/steps/:stepRef/reorder", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2344,7 +2345,7 @@ router.post("/plan/:planId/steps/:stepRef/reorder", async (req, res) => {
         return;
     }
     const result = runPm({
-        args: ["plan", "reorder-step", req.params["planId"], req.params["stepRef"], String(reorderTo)],
+        args: ["plan", "reorder-step", routeParam(req, "planId"), routeParam(req, "stepRef"), String(reorderTo)],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -2353,15 +2354,15 @@ router.post("/plan/:planId/steps/:stepRef/reorder", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to reorder step" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/plan/:planId/link
 router.post("/plan/:planId/link", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2371,7 +2372,7 @@ router.post("/plan/:planId/link", async (req, res) => {
         res.status(400).json({ error: "link (item id) is required" });
         return;
     }
-    const args = ["plan", "link", req.params["planId"], "--link", link.trim()];
+    const args = ["plan", "link", routeParam(req, "planId"), "--link", link.trim()];
     if (linkKind)
         args.push("--link-kind", linkKind);
     if (linkNote)
@@ -2383,15 +2384,15 @@ router.post("/plan/:planId/link", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to link plan" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.status(201).json(result.parsed || {});
 });
 // DELETE /api/projects/:projectId/pm/plan/:planId/link
 router.delete("/plan/:planId/link", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2401,7 +2402,7 @@ router.delete("/plan/:planId/link", async (req, res) => {
         res.status(400).json({ error: "link (item id) is required" });
         return;
     }
-    const args = ["plan", "unlink", req.params["planId"], "--link", link.trim()];
+    const args = ["plan", "unlink", routeParam(req, "planId"), "--link", link.trim()];
     if (linkKind)
         args.push("--link-kind", linkKind);
     const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
@@ -2409,9 +2410,9 @@ router.delete("/plan/:planId/link", async (req, res) => {
         res.status(400).json({ error: result.stderr || "Failed to unlink plan" });
         return;
     }
-    broadcastProjectEvent(req.params["projectId"], {
+    broadcastProjectEvent(routeParam(req, "projectId"), {
         type: "item-updated",
-        data: { itemId: req.params["planId"], userId: req.user.userId },
+        data: { itemId: routeParam(req, "planId"), userId: req.user.userId },
     });
     res.json(result.parsed || {});
 });
@@ -2420,7 +2421,7 @@ router.delete("/plan/:planId/link", async (req, res) => {
 // POST /api/projects/:projectId/pm/upgrade
 // Runs pm upgrade --packages-only (never upgrades the CLI itself via the web UI).
 router.get("/upgrade", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2434,7 +2435,7 @@ router.get("/upgrade", async (req, res) => {
     res.json(result.ok ? (result.parsed || { dryRun: true }) : { error: result.stderr });
 });
 router.post("/upgrade", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
@@ -2455,7 +2456,7 @@ router.post("/upgrade", async (req, res) => {
 // ─── Presence endpoints ───
 // GET /api/projects/:projectId/pm/presence
 router.get("/presence", async (req, res) => {
-    const projectId = req.params["projectId"];
+    const projectId = routeParam(req, "projectId");
     res.json({ users: getProjectPresence(projectId) });
 });
 // PATCH /api/projects/:projectId/pm/presence/:clientId
@@ -2470,7 +2471,7 @@ router.patch("/presence/:clientId", async (req, res) => {
 // GET /api/projects/:projectId/pm/events
 router.get("/events", async (req, res) => {
     try {
-        const project = await verifyProject(req.user.userId, req.params["projectId"]);
+        const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
         if (!project) {
             res.status(404).json({ error: "Project not found" });
             return;
@@ -2483,7 +2484,7 @@ router.get("/events", async (req, res) => {
     }
     setupSSEHeaders(res);
     const clientId = uuidv4();
-    const projectId = req.params["projectId"];
+    const projectId = routeParam(req, "projectId");
     const userId = req.user.userId;
     // Client sends display name as query param; fall back to email
     const displayName = String(req.query["dn"] ?? req.user.email ?? userId);
@@ -2517,12 +2518,12 @@ router.get("/events", async (req, res) => {
 // ─── Presence endpoint ───
 // GET /api/projects/:projectId/pm/presence
 router.get("/presence", async (req, res) => {
-    const project = await verifyProject(req.user.userId, req.params["projectId"]);
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const users = getProjectPresence(req.params["projectId"]);
+    const users = getProjectPresence(routeParam(req, "projectId"));
     res.json({ users });
 });
 export { router as pmRouter };

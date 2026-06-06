@@ -6,9 +6,21 @@ export type BoardItem = {
   id: string;
   title?: string;
   status?: string;
-  tags?: string[];
+  tags?: string[] | string;
   body?: string;
+  description?: string;
 };
+
+export function normalizeStatusKey(value: unknown): string {
+  const raw = typeof value === "string" && value.trim() ? value.trim() : "open";
+  return raw.toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+export function normalizeItemTags(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).map((tag) => tag.trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  return [];
+}
 
 // Group items into board columns keyed by the workspace's actual statuses
 // (from `pm contracts`), so the kanban board reflects whatever statuses the
@@ -18,13 +30,22 @@ export function boardColumns<T extends BoardItem>(
   items: T[],
   statuses: string[],
 ): Array<{ status: string; items: T[] }> {
-  const known = statuses.length > 0 ? statuses : ["open", "in_progress", "blocked", "closed"];
+  const known = (statuses.length > 0 ? statuses : ["open", "in_progress", "blocked", "closed"])
+    .map((status) => String(status).trim())
+    .filter(Boolean);
   const columns = new Map<string, T[]>();
-  for (const s of known) columns.set(s, []);
+  const statusKeyToColumn = new Map<string, string>();
+  for (const s of known) {
+    const key = normalizeStatusKey(s);
+    if (!statusKeyToColumn.has(key)) {
+      statusKeyToColumn.set(key, s);
+      columns.set(s, []);
+    }
+  }
   const OTHER = "(other)";
   for (const item of items) {
-    const s = item.status ?? "open";
-    if (columns.has(s)) columns.get(s)!.push(item);
+    const column = statusKeyToColumn.get(normalizeStatusKey(item.status));
+    if (column && columns.has(column)) columns.get(column)!.push(item);
     else {
       if (!columns.has(OTHER)) columns.set(OTHER, []);
       columns.get(OTHER)!.push(item);
@@ -41,8 +62,9 @@ export function filterItemsByQuery<T extends BoardItem>(items: T[], query: strin
     const hay = [
       item.id,
       item.title ?? "",
-      (item.tags ?? []).join(" "),
+      normalizeItemTags(item.tags).join(" "),
       item.body ?? "",
+      item.description ?? "",
     ].join(" ").toLowerCase();
     return hay.includes(q);
   });

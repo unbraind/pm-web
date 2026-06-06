@@ -1,0 +1,22 @@
+id: pm-web-hzb0
+title: Normalize board and search behavior for real pm data
+description: ""
+type: Feature
+status: closed
+priority: 1
+tags[2]: context-management,enhancement
+created_at: "2026-06-06T19:33:13.220Z"
+updated_at: "2026-06-06T19:33:14.413Z"
+author: codex
+files[5]{path,scope,note}:
+  dist/board.js,project,compiled implementation
+  public/src/utils.js,project,compiled frontend helper
+  public/src/utils.ts,project,implementation
+  src/board.ts,project,implementation
+  test/board.test.ts,project,implementation
+tests[1]{command,path,scope,timeout_seconds,pm_context_mode,env_set,env_clear,shared_host_safe,assert_stdout_contains,assert_stdout_regex,assert_stderr_contains,assert_stderr_regex,assert_stdout_min_lines,assert_json_field_equals,assert_json_field_gte,note}:
+  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm test,null,project,240,null,null,null,null,null,null,null,null,null,null,null,package verification
+docs[1]{path,scope,note}:
+  README.md,project,Website package docs unchanged; board/search behavior is covered by tests
+close_reason: pm-web board and search helpers now handle real-world pm data variants with tests.
+body: "Normalize hyphenated status aliases into configured board columns, search string tags and descriptions, dedupe board columns, and sanitize status badge class suffixes."

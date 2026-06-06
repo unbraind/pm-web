@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { initProject, deleteProjectDir } from "../services/pm-runner.js";
+import { routeParam } from "./route-params.js";
 const router = Router();
 router.use(requireAuth);
 /**
@@ -102,7 +103,7 @@ router.post("/", async (req, res) => {
 });
 router.get("/:id", async (req, res) => {
     try {
-        const access = await verifyProjectAccess(req.user.userId, req.params["id"]);
+        const access = await verifyProjectAccess(req.user.userId, routeParam(req, "id"));
         if (!access) {
             res.status(404).json({ error: "Project not found" });
             return;
@@ -119,7 +120,7 @@ router.patch("/:id", async (req, res) => {
     try {
         const result = await pool.query(`UPDATE pm_projects SET name = COALESCE($1, name), description = COALESCE($2, description)
        WHERE id = $3 AND user_id = $4
-       RETURNING id, name, slug, description, prefix, created_at, updated_at`, [name?.trim() || null, description !== undefined ? description : null, req.params["id"], req.user.userId]);
+       RETURNING id, name, slug, description, prefix, created_at, updated_at`, [name?.trim() || null, description !== undefined ? description : null, routeParam(req, "id"), req.user.userId]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "Project not found" });
             return;
@@ -133,7 +134,7 @@ router.patch("/:id", async (req, res) => {
 });
 router.delete("/:id", async (req, res) => {
     try {
-        const result = await pool.query(`DELETE FROM pm_projects WHERE id = $1 AND user_id = $2 RETURNING slug`, [req.params["id"], req.user.userId]);
+        const result = await pool.query(`DELETE FROM pm_projects WHERE id = $1 AND user_id = $2 RETURNING slug`, [routeParam(req, "id"), req.user.userId]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "Project not found" });
             return;

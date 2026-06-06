@@ -1,0 +1,1 @@
+{"version":3,"file":"route-params.js","sourceRoot":"","sources":["../../src/routes/route-params.ts"],"names":[],"mappings":"AAEA,MAAM,UAAU,UAAU,CAAC,GAA4B,EAAE,IAAY;IACnE,MAAM,KAAK,GAAG,GAAG,CAAC,MAAM,CAAC,IAAI,CAAC,CAAC;IAC/B,IAAI,KAAK,CAAC,OAAO,CAAC,KAAK,CAAC;QAAE,OAAO,KAAK,CAAC,CAAC,CAAC,IAAI,EAAE,CAAC;IAChD,OAAO,KAAK,IAAI,EAAE,CAAC;AACrB,CAAC"}
