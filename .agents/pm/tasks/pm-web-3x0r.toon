@@ -1,0 +1,22 @@
+id: pm-web-3x0r
+title: "Full-cycle hardening wave: pm-web"
+description: "Dependency alignment, generated JS cleanup, release-readiness checks."
+type: Task
+status: in_progress
+priority: 1
+tags[4]: full-cycle-hardening,pm-web-hardening,typescript-sources,wave-full-cycle-2026-06-07
+created_at: "2026-06-07T07:55:24.987Z"
+updated_at: "2026-06-07T08:00:45.580Z"
+assignee: codex-5.3-full-cycle
+author: codex-5.3-full-cycle
+notes[2]{created_at,author,text}:
+  "2026-06-07T07:55:26.408Z",codex-5.3-full-cycle,"pm-web release:check passed after dependency alignment and generated frontend JS cleanup from git-tracked sources."
+  "2026-06-07T08:00:45.580Z",codex-5.3-full-cycle,"Security gate: high-confidence token/key regex scan over tracked files and git history found no actionable secrets. Binary-history false positives were traced to embedded wasm base64 blobs, not credentials."
+files[4]{path,scope,note}:
+  .gitignore,project,Ignore generated frontend JS/JS.map artifacts to keep TS sources canonical
+  extensions/pm-graph/package.json,project,Updated embedded extension dependency baseline
+  package.json,project,Updated pm CLI/changelog devDependencies to latest
+  public/src/app.ts,project,Frontend TypeScript source-of-truth entrypoint
+tests[1]{command,path,scope,timeout_seconds,pm_context_mode,env_set,env_clear,shared_host_safe,assert_stdout_contains,assert_stdout_regex,assert_stderr_contains,assert_stderr_regex,assert_stdout_min_lines,assert_json_field_equals,assert_json_field_gte,note}:
+  "npm run release:check",.,project,3600,null,null,null,null,null,null,null,null,null,null,null,null
+body: Track pm-web TS/readiness hardening evidence.
