@@ -7,3 +7,5 @@ dist-test/
 .agents/pm/locks/
 .agents/pm/runtime/
 .agents/pm/search/
+public/src/**/*.js
+public/src/**/*.js.map
