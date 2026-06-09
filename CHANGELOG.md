@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## 2026.6.9 - 2026-06-09
 
 ### Added
 
 - Normalize board and search behavior for real pm data ([pm-web-hzb0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-hzb0.toon))
+
+### Removed
+
+- Restore CI and Daily Release workflows removed by no-runner policy misapplication ([pm-web-2xlv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-2xlv.toon))
 
 ### Other
 
