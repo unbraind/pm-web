@@ -98,7 +98,6 @@
       ],
       "links": {
         "docs": "https://github.com/unbraind/pm-web#readme",
-        "npm": "https://www.npmjs.com/package/@unbrained/pm-web",
         "repository": "https://github.com/unbraind/pm-web",
         "report": "https://github.com/unbraind/pm-web/issues"
       }
@@ -111,5 +110,5 @@
       "README.md"
     ]
   },
-  "private": "true"
+  "private": true
 }
