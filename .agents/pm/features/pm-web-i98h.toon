@@ -1,0 +1,24 @@
+id: pm-web-i98h
+title: Full pm ecosystem production pass for pm-web
+description: ""
+type: Feature
+status: in_progress
+priority: 1
+tags[3]: ecosystem,ecosystem-pass-2026-06-10,production
+created_at: "2026-06-09T22:38:21.554Z"
+updated_at: "2026-06-09T23:38:47.349Z"
+assignee: codex-5-3-sweep
+author: codex-5-3-sweep
+notes[1]{created_at,author,text}:
+  "2026-06-09T22:56:18.153Z",codex-5-3-sweep,Added step-specific prompt UX for ready/waiting/blocked plan steps and validated via typecheck/build/test.
+files[4]{path,scope,note}:
+  public/src/app.ts,project,expose plan prompt copy handlers
+  public/src/views/plan-execution.ts,project,plan readiness and prompt builders
+  public/src/views/plan.ts,project,add execution focus dependency guidance
+  test/plan-execution.test.ts,project,unit coverage for plan execution snapshot
+tests[4]{command,path,scope,timeout_seconds,pm_context_mode,env_set,env_clear,shared_host_safe,assert_stdout_contains,assert_stdout_regex,assert_stderr_contains,assert_stderr_regex,assert_stdout_min_lines,assert_json_field_equals,assert_json_field_gte,note}:
+  "npm run release:check",null,project,3600,null,null,null,null,null,null,null,null,null,null,null,null
+  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm run typecheck && PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm run build && PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm test,null,project,3600,null,null,null,null,null,null,null,null,null,null,null,null
+  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm test,null,project,3600,null,null,null,null,null,null,null,null,null,null,null,null
+  rm -rf /tmp/pm-realdata-web && mkdir -p /tmp/pm-realdata-web && cd /tmp/pm-realdata-web && pm init >/dev/null && pm install /home/steve/container/pm-sweep/pm-web --project >/dev/null && pm web doctor --json > web-doctor.json,null,project,1200,null,null,null,null,null,null,null,null,null,null,null,null
+body: ""
