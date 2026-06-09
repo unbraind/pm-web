@@ -56,7 +56,7 @@ app.use("/api/shared", sharedWithMeRouter);
 app.use("/api/projects/:id/github", githubRouter);
 app.use("/api/admin", adminRouter);
 // SPA fallback — serve index.html for all non-API routes
-app.get("*", (_req, res) => {
+app.get("/{*splat}", (_req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 // Validate configuration before doing anything that needs the database, so a
