@@ -1,5 +1,5 @@
 {
-  "name": "@unbrained/pm-web",
+  "name": "pm-web",
   "version": "2026.6.9",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
@@ -32,7 +32,8 @@
     "release:check": "npm run typecheck && npm run build && npm test && npm run audit:prod && npm run pack:dry-run && npm run changelog:check",
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
-    "test": "npm run build:server && npm run build:test && node --test dist-test/*.js"
+    "test": "npm run build:server && npm run build:test && node --test dist-test/*.js",
+    "prepublishOnly": "npm run release:check"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -51,8 +52,8 @@
     "@types/node": "^25.9.2",
     "@types/pg": "^8.11.11",
     "@types/uuid": "^10.0.0",
-    "@unbrained/pm-cli": "^2026.6.7",
-    "pm-changelog": "^2026.6.7",
+    "@unbrained/pm-cli": "^2026.6.9",
+    "pm-changelog": "^2026.6.8",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   },
@@ -109,5 +110,6 @@
     "examples": [
       "README.md"
     ]
-  }
+  },
+  "private": "true"
 }
