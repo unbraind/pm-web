@@ -1,0 +1,15 @@
+id: pm-web-2xlv
+title: Restore CI and Daily Release workflows removed by no-runner policy misapplication
+description: ""
+type: Task
+status: open
+priority: 1
+tags[3]: ci,release,workflows
+created_at: "2026-06-09T15:37:54.495Z"
+updated_at: "2026-06-09T15:50:45.994Z"
+author: codex
+acceptance_criteria: ci.yml and release.yml restored from canonical pre-deletion versions (matching sibling packages); pm-web repo made public so Actions are free; npm catalog link corrected to scoped @unbrained/pm-web; typecheck/build/tests/audit/pack/changelog all green; daily release resumes.
+comments[2]{created_at,author,text}:
+  "2026-06-09T15:38:06.563Z",codex,"Root cause: commit e4ddf3c 'Align website repo with private no-runner policy' deleted .github/workflows/{ci,release,changelog}.yml. That policy applies to the WEBSITE repo (pm-cli-companion), not to pm-web, which is a distributable pm package that must build, test and auto-release like every sibling. Effect: Daily Release stopped after 2026-06-06; package stuck at 2026.6.4 on npm while the fleet moved to 2026.6.8/9. Fix: (1) made the repo public (history scanned, no secrets/PII), so Actions minutes are free; (2) restored ci.yml + release.yml from the canonical pre-deletion versions, which are byte-identical to sibling packages except for the repo URL; (3) corrected the pm catalog npm link to the scoped @unbrained/pm-web. Verified locally: typecheck, full build, 30/30 tests, 0 vulns, clean pack dry-run, changelog up-to-date."
+  "2026-06-09T15:50:45.994Z",codex,"Review feedback (Gemini): the same e4ddf3c commit that removed the workflows also set \"private\": true in package.json. With workflows gone no release ran, so it was never exercised, but the restored release.yml's 'npm publish --access public' would fail on a private package. Removed the private flag (it was absent before e4ddf3c, which is how 2026.6.4 was published). CodeRabbit's persist-credentials:false / SHA-pinning suggestions are intentionally not applied: release.yml requires persisted credentials for 'git push origin HEAD:main' + tag push, and pinning pm-web alone would diverge from the 16 byte-identical sibling workflows; SHA pinning belongs in a coordinated fleet-wide hardening."
+body: ""
