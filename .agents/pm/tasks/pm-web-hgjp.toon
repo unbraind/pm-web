@@ -1,0 +1,15 @@
+id: pm-web-hgjp
+title: Restore self-hosted daily release automation
+description: "Add self-hosted daily release workflow with change gating and pm-changelog release-note generation for pm-web, plus matching package scripts."
+type: Task
+status: closed
+priority: 1
+tags[3]: automation,release,self-hosted
+created_at: "2026-06-10T05:09:14.065Z"
+updated_at: "2026-06-10T05:37:43.268Z"
+author: codex-5-3-hardening
+files[2]{path,scope,note}:
+  .github/workflows/release.yml,project,self-hosted daily release flow
+  package.json,project,"added release:notes script"
+close_reason: Implemented self-hosted change-gated release automation with pm-changelog release notes and validated via typecheck/build/test.
+body: ""

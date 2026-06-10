@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Restore self-hosted daily release automation ([pm-web-hgjp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hgjp.toon))
+
 ## 2026.06.09 - 2026-06-09
 
 ### Added
