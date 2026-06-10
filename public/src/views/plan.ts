@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
+import { buildPlanExecutionSnapshot, buildPlanAgentBrief, buildNextStepPrompt, type AnalyzedPlanStep, type PlanExecutionSnapshot } from './plan-execution.js';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -39,6 +40,8 @@ type PlanData = {
 // ─── State ───────────────────────────────────────────────────
 
 let currentPlanId: string | null = null;
+let currentPlanData: PlanData | null = null;
+let currentExecutionSnapshot: PlanExecutionSnapshot | null = null;
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -60,10 +63,96 @@ function stepStatusBadge(status?: string): string {
   return `<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:color-mix(in srgb,${color} 18%,transparent);color:${color};font-weight:600;letter-spacing:.3px">${escHtml(s)}</span>`;
 }
 
-function renderStepRow(step: PlanStep, planId: string): string {
+function metricBadge(label: string, value: string, color: string): string {
+  return `
+    <div style="padding:8px 10px;border-radius:8px;background:color-mix(in srgb,${color} 14%, var(--bg-card));border:1px solid color-mix(in srgb,${color} 28%, var(--border));min-width:95px">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px">${escHtml(label)}</div>
+      <div style="font-size:14px;font-weight:600;color:${color};margin-top:2px">${escHtml(value)}</div>
+    </div>`;
+}
+
+function renderDependencyHint(analyzed?: AnalyzedPlanStep): string {
+  if (!analyzed || analyzed.dependsOn.length === 0 || analyzed.isDone || analyzed.isBlocked) return '';
+
+  if (analyzed.incompleteDependencies.length === 0 && analyzed.unresolvedDependencies.length === 0) {
+    return `<div style="font-size:12px;color:var(--text-muted);margin-top:3px">Dependencies complete: ${escHtml(analyzed.dependsOn.join(', '))}</div>`;
+  }
+
+  const blockers = [
+    ...analyzed.incompleteDependencies,
+    ...analyzed.unresolvedDependencies.map(dep => `${dep} (missing)`),
+  ];
+  return `<div style="font-size:12px;color:var(--warning,#f59e0b);margin-top:3px">Waiting on: ${escHtml(blockers.join(', '))}</div>`;
+}
+
+function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): string {
+  const next = snapshot.nextReadyStep;
+  const waitingPreview = snapshot.waitingSteps.slice(0, 2).map(step => {
+    const blockers = [
+      ...step.incompleteDependencies,
+      ...step.unresolvedDependencies.map(dep => `${dep} (missing)`),
+    ];
+    return `
+      <li style="font-size:12px;color:var(--text-secondary);line-height:1.5">
+        <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">[${escHtml(step.ref)}]</span>
+        ${escHtml(step.title)} - waiting on ${escHtml(blockers.join(', '))}
+      </li>`;
+  }).join('');
+  const blockedPreview = snapshot.blockedStepDetails.slice(0, 2).map(step => `
+    <li style="font-size:12px;color:var(--text-secondary);line-height:1.5">
+      <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">[${escHtml(step.ref)}]</span>
+      ${escHtml(step.title)}
+      ${step.blockedReason ? `<span style="color:var(--status-blocked)"> - ${escHtml(step.blockedReason)}</span>` : ''}
+    </li>`).join('');
+
+  return `
+    <div style="margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-elevated)">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <div style="font-size:13px;font-weight:600">Execution Focus</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Dependency-aware summary to guide agent execution.</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="window.__app.copyPlanAgentBrief('${escHtml(planId)}')" title="Copy dependency and status summary">Copy agent brief</button>
+          ${next ? `<button class="btn btn-secondary btn-sm" onclick="window.__app.copyPlanNextStepPrompt('${escHtml(planId)}','${escHtml(next.ref)}')" title="Copy prompt for the next ready step">Copy next-step prompt</button>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        ${metricBadge('Complete', `${snapshot.completedSteps}/${snapshot.totalSteps}`, 'var(--status-closed)')}
+        ${metricBadge('Ready', String(snapshot.readySteps.length), 'var(--accent)')}
+        ${metricBadge('Waiting', String(snapshot.waitingSteps.length), 'var(--warning,#f59e0b)')}
+        ${metricBadge('Blocked', String(snapshot.blockedStepDetails.length), 'var(--status-blocked)')}
+      </div>
+      ${next
+        ? `<div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">Next ready step: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">[${escHtml(next.ref)}]</span> <strong>${escHtml(next.title)}</strong></div>`
+        : '<div style="margin-top:10px;font-size:12px;color:var(--text-muted)">No ready steps right now. Resolve blockers or dependencies to continue.</div>'}
+      ${waitingPreview
+        ? `<div style="margin-top:8px">
+            <div style="font-size:12px;font-weight:600;color:var(--text-secondary)">Waiting queue</div>
+            <ul style="margin:6px 0 0 16px;padding:0;display:flex;flex-direction:column;gap:4px">${waitingPreview}</ul>
+            ${snapshot.waitingSteps.length > 2 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">+ ${snapshot.waitingSteps.length - 2} more waiting step(s)</div>` : ''}
+          </div>`
+        : ''}
+      ${blockedPreview
+        ? `<div style="margin-top:8px">
+            <div style="font-size:12px;font-weight:600;color:var(--status-blocked)">Blocked steps</div>
+            <ul style="margin:6px 0 0 16px;padding:0;display:flex;flex-direction:column;gap:4px">${blockedPreview}</ul>
+            ${snapshot.blockedStepDetails.length > 2 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">+ ${snapshot.blockedStepDetails.length - 2} more blocked step(s)</div>` : ''}
+          </div>`
+        : ''}
+    </div>`;
+}
+
+function renderStepRow(step: PlanStep, planId: string, analyzed?: AnalyzedPlanStep): string {
   const ref = stepRef(step);
   const isDone = ['done', 'completed'].includes((step.status || '').toLowerCase());
   const isBlocked = (step.status || '').toLowerCase() === 'blocked';
+  const isWaiting = !!analyzed && !analyzed.isDone && !analyzed.isBlocked
+    && (analyzed.incompleteDependencies.length > 0 || analyzed.unresolvedDependencies.length > 0);
+  const promptTitle = isBlocked
+    ? 'Copy blocker-resolution prompt'
+    : (isWaiting ? 'Copy dependency-resolution prompt' : 'Copy execution prompt');
+  const dependencyHint = renderDependencyHint(analyzed);
   return `
     <div class="plan-step-row" data-step-ref="${escHtml(ref)}">
       <div style="flex:1;min-width:0">
@@ -73,9 +162,11 @@ function renderStepRow(step: PlanStep, planId: string): string {
           ${stepStatusBadge(step.status)}
         </div>
         ${step.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:3px">${escHtml(step.description)}</div>` : ''}
+        ${dependencyHint}
         ${isBlocked && (step.blockedReason || step.blocked_reason) ? `<div style="font-size:12px;color:var(--status-blocked);margin-top:3px">Blocked: ${escHtml(step.blockedReason || step.blocked_reason || '')}</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
+        ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.copyPlanNextStepPrompt('${escHtml(planId)}','${escHtml(ref)}')" title="${escHtml(promptTitle)}" ${isBlocked ? 'style="color:var(--status-blocked)"' : ''}>⧉</button>` : ''}
         ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.planCompleteStep('${escHtml(planId)}','${escHtml(ref)}')" title="Mark complete">✓</button>` : ''}
         ${!isBlocked && !isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.planBlockStepPrompt('${escHtml(planId)}','${escHtml(ref)}')" title="Block">⊘</button>` : ''}
         <button class="btn btn-ghost btn-sm" onclick="window.__app.planRemoveStep('${escHtml(planId)}','${escHtml(ref)}')" title="Remove" style="color:var(--danger,#f87171)">✕</button>
@@ -112,6 +203,9 @@ export function renderPlanView(): string {
 export async function initPlanView(): Promise<void> {
   const el = document.getElementById('content-plan');
   if (!el) return;
+  currentPlanId = null;
+  currentPlanData = null;
+  currentExecutionSnapshot = null;
   if (!state.currentProject) {
     el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>';
     return;
@@ -134,6 +228,9 @@ async function loadPlanList(): Promise<void> {
     if (subEl) subEl.textContent = state.currentProject.name;
 
     if (items.length === 0) {
+      currentPlanId = null;
+      currentPlanData = null;
+      currentExecutionSnapshot = null;
       listEl.innerHTML = '<div class="empty-state" style="padding:16px"><div class="empty-state-text">No plans yet</div></div>';
       return;
     }
@@ -172,6 +269,9 @@ export async function openPlanDetail(planId: string): Promise<void> {
     const data = await api('GET', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}`) as any;
     const plan = (data.plan || data) as PlanData;
     const steps = plan.steps || [];
+    const snapshot = buildPlanExecutionSnapshot(steps);
+    currentPlanData = plan;
+    currentExecutionSnapshot = snapshot;
 
     const isApproved = !!(plan.approvedAt || plan.approved_at);
 
@@ -192,6 +292,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
         <div class="card-body">
           ${plan.description ? `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">${escHtml(plan.description)}</div>` : ''}
           ${plan.scope ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Scope: ${escHtml(plan.scope)}</div>` : ''}
+          ${renderExecutionFocus(planId, snapshot)}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <div style="font-size:13px;font-weight:600">Steps (${steps.length})</div>
             <button class="btn btn-ghost btn-sm" onclick="window.__app.openAddStepModal('${escHtml(planId)}')">+ Add Step</button>
@@ -199,11 +300,13 @@ export async function openPlanDetail(planId: string): Promise<void> {
           <div id="plan-steps-list">
             ${steps.length === 0
               ? '<div style="font-size:13px;color:var(--text-muted);padding:8px 0">No steps yet. Add the first step to get started.</div>'
-              : steps.map(s => renderStepRow(s, planId)).join('')}
+              : steps.map((s, index) => renderStepRow(s, planId, snapshot.allSteps[index])).join('')}
           </div>
         </div>
       </div>`;
   } catch(err: unknown) {
+    currentPlanData = null;
+    currentExecutionSnapshot = null;
     detailEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
   }
 }
@@ -434,6 +537,65 @@ export async function submitMaterializePlan(planId: string): Promise<void> {
   }
 }
 
+async function copyTextWithFallback(modalTitle: string, text: string, successMessage: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(successMessage, 'success');
+      return;
+    } catch {
+      // Fall through to manual-copy modal.
+    }
+  }
+
+  const modalId = 'plan-copy-fallback-modal';
+  createModal(modalId, modalTitle, `
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Clipboard access is unavailable in this browser context. Copy manually:</p>
+    <textarea class="form-textarea" id="plan-copy-fallback-text" rows="12" spellcheck="false"></textarea>`,
+  `<button class="btn btn-primary" onclick="window.__app.hideModal('${modalId}')">Close</button>`);
+  showModal(modalId);
+  const el = document.getElementById('plan-copy-fallback-text') as HTMLTextAreaElement | null;
+  if (el) {
+    el.value = text;
+    el.focus();
+    el.select();
+  }
+  toast('Clipboard blocked. Opened manual copy panel.', 'info');
+}
+
+function getCurrentPlanContext(planId: string): { plan: PlanData; snapshot: PlanExecutionSnapshot } | null {
+  const activeId = currentPlanData?.id || currentPlanId;
+  if (!currentPlanData || !currentExecutionSnapshot || activeId !== planId) {
+    toast('Open this plan first to generate prompts', 'info');
+    return null;
+  }
+  return { plan: currentPlanData, snapshot: currentExecutionSnapshot };
+}
+
+export async function copyPlanAgentBrief(planId: string): Promise<void> {
+  const ctx = getCurrentPlanContext(planId);
+  if (!ctx) return;
+  const brief = buildPlanAgentBrief(ctx.plan, ctx.snapshot);
+  await copyTextWithFallback('Plan Agent Brief', brief, 'Agent brief copied');
+}
+
+export async function copyPlanNextStepPrompt(planId: string, stepRef?: string): Promise<void> {
+  const ctx = getCurrentPlanContext(planId);
+  if (!ctx) return;
+
+  if (stepRef && !ctx.snapshot.stepByRef[stepRef]) {
+    toast(`Step ${stepRef} not found`, 'error');
+    return;
+  }
+  if (!stepRef && !ctx.snapshot.nextReadyStep) {
+    toast('No ready step available right now', 'info');
+    return;
+  }
+
+  const prompt = buildNextStepPrompt(ctx.plan, ctx.snapshot, stepRef);
+  await copyTextWithFallback('Next Step Prompt', prompt, 'Next-step prompt copied');
+}
+
 export function planEditPrompt(planId: string, currentTitle: string): void {
   createModal('edit-plan-modal', 'Edit Plan', `
     <div class="form-group">
@@ -481,6 +643,8 @@ export function planDeletePrompt(planId: string): void {
         await api('DELETE', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}`, {});
         toast('Plan deleted', 'success');
         currentPlanId = null;
+        currentPlanData = null;
+        currentExecutionSnapshot = null;
         const detailEl = document.getElementById('plan-detail-panel');
         if (detailEl) detailEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">Select a plan to view its steps</div></div>';
         await loadPlanList();
