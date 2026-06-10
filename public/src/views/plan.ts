@@ -275,35 +275,135 @@ export async function openPlanDetail(planId: string): Promise<void> {
 
     const isApproved = !!(plan.approvedAt || plan.approved_at);
 
-    detailEl.innerHTML = `
-      <div class="card">
-        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div>
-            <div class="card-title">${escHtml(plan.title || planId)}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;font-family:'JetBrains Mono',monospace">${escHtml(plan.id || planId)}</div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            ${!isApproved ? `<button class="btn btn-secondary btn-sm" onclick="window.__app.planApprove('${escHtml(planId)}')">✓ Approve</button>` : '<span style="font-size:12px;color:var(--status-closed)">✓ Approved</span>'}
-            <button class="btn btn-primary btn-sm" onclick="window.__app.planMaterializePrompt('${escHtml(planId)}')">⇗ Materialize</button>
-            <button class="btn btn-ghost btn-sm" onclick="window.__app.planEditPrompt('${escHtml(planId)}','${escHtml(plan.title||'')}')" title="Edit plan">✎</button>
-            <button class="btn btn-ghost btn-sm" style="color:var(--danger,#f87171)" onclick="window.__app.planDeletePrompt('${escHtml(planId)}')" title="Delete plan">✕</button>
-          </div>
-        </div>
-        <div class="card-body">
-          ${plan.description ? `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">${escHtml(plan.description)}</div>` : ''}
-          ${plan.scope ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Scope: ${escHtml(plan.scope)}</div>` : ''}
-          ${renderExecutionFocus(planId, snapshot)}
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <div style="font-size:13px;font-weight:600">Steps (${steps.length})</div>
-            <button class="btn btn-ghost btn-sm" onclick="window.__app.openAddStepModal('${escHtml(planId)}')">+ Add Step</button>
-          </div>
-          <div id="plan-steps-list">
-            ${steps.length === 0
-              ? '<div style="font-size:13px;color:var(--text-muted);padding:8px 0">No steps yet. Add the first step to get started.</div>'
-              : steps.map((s, index) => renderStepRow(s, planId, snapshot.allSteps[index])).join('')}
-          </div>
-        </div>
-      </div>`;
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.justifyContent = 'space-between';
+    header.style.flexWrap = 'wrap';
+    header.style.gap = '8px';
+
+    const heading = document.createElement('div');
+    const titleEl = document.createElement('div');
+    titleEl.className = 'card-title';
+    titleEl.textContent = plan.title || planId;
+    const idEl = document.createElement('div');
+    idEl.style.fontSize = '12px';
+    idEl.style.color = 'var(--text-muted)';
+    idEl.style.marginTop = '2px';
+    idEl.style.fontFamily = "'JetBrains Mono',monospace";
+    idEl.textContent = plan.id || planId;
+    heading.append(titleEl, idEl);
+
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
+    actions.style.flexWrap = 'wrap';
+
+    if (!isApproved) {
+      const approveBtn = document.createElement('button');
+      approveBtn.className = 'btn btn-secondary btn-sm';
+      approveBtn.textContent = '✓ Approve';
+      approveBtn.addEventListener('click', () => { void planApprove(planId); });
+      actions.appendChild(approveBtn);
+    } else {
+      const approvedLabel = document.createElement('span');
+      approvedLabel.style.fontSize = '12px';
+      approvedLabel.style.color = 'var(--status-closed)';
+      approvedLabel.textContent = '✓ Approved';
+      actions.appendChild(approvedLabel);
+    }
+
+    const materializeBtn = document.createElement('button');
+    materializeBtn.className = 'btn btn-primary btn-sm';
+    materializeBtn.textContent = '⇗ Materialize';
+    materializeBtn.addEventListener('click', () => planMaterializePrompt(planId));
+    actions.appendChild(materializeBtn);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-ghost btn-sm';
+    editBtn.title = 'Edit plan';
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', () => planEditPrompt(planId, plan.title || ''));
+    actions.appendChild(editBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-ghost btn-sm';
+    deleteBtn.title = 'Delete plan';
+    deleteBtn.style.color = 'var(--danger,#f87171)';
+    deleteBtn.textContent = '✕';
+    deleteBtn.addEventListener('click', () => planDeletePrompt(planId));
+    actions.appendChild(deleteBtn);
+
+    header.append(heading, actions);
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    if (plan.description) {
+      const descEl = document.createElement('div');
+      descEl.style.fontSize = '13px';
+      descEl.style.color = 'var(--text-secondary)';
+      descEl.style.marginBottom = '12px';
+      descEl.textContent = plan.description;
+      body.appendChild(descEl);
+    }
+
+    if (plan.scope) {
+      const scopeEl = document.createElement('div');
+      scopeEl.style.fontSize = '12px';
+      scopeEl.style.color = 'var(--text-muted)';
+      scopeEl.style.marginBottom = '8px';
+      scopeEl.textContent = `Scope: ${plan.scope}`;
+      body.appendChild(scopeEl);
+    }
+
+    const focusTemplate = document.createElement('template');
+    focusTemplate.innerHTML = renderExecutionFocus(planId, snapshot);
+    body.appendChild(focusTemplate.content);
+
+    const stepsHeader = document.createElement('div');
+    stepsHeader.style.display = 'flex';
+    stepsHeader.style.alignItems = 'center';
+    stepsHeader.style.justifyContent = 'space-between';
+    stepsHeader.style.marginBottom = '8px';
+
+    const stepsTitle = document.createElement('div');
+    stepsTitle.style.fontSize = '13px';
+    stepsTitle.style.fontWeight = '600';
+    stepsTitle.textContent = `Steps (${steps.length})`;
+
+    const addStepBtn = document.createElement('button');
+    addStepBtn.className = 'btn btn-ghost btn-sm';
+    addStepBtn.textContent = '+ Add Step';
+    addStepBtn.addEventListener('click', () => openAddStepModal(planId));
+
+    stepsHeader.append(stepsTitle, addStepBtn);
+    body.appendChild(stepsHeader);
+
+    const stepsList = document.createElement('div');
+    stepsList.id = 'plan-steps-list';
+    if (steps.length === 0) {
+      const emptySteps = document.createElement('div');
+      emptySteps.style.fontSize = '13px';
+      emptySteps.style.color = 'var(--text-muted)';
+      emptySteps.style.padding = '8px 0';
+      emptySteps.textContent = 'No steps yet. Add the first step to get started.';
+      stepsList.appendChild(emptySteps);
+    } else {
+      steps.forEach((step, index) => {
+        const rowTemplate = document.createElement('template');
+        rowTemplate.innerHTML = renderStepRow(step, planId, snapshot.allSteps[index]);
+        stepsList.appendChild(rowTemplate.content);
+      });
+    }
+    body.appendChild(stepsList);
+
+    card.append(header, body);
+    detailEl.replaceChildren(card);
   } catch(err: unknown) {
     currentPlanData = null;
     currentExecutionSnapshot = null;
