@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Spec new package pm-report for stakeholder status deliverables ([pm-web-pbl3](https://github.com/unbraind/pm-web/blob/main/.agents/pm/plans/pm-web-pbl3.toon))
+- Spec new package pm-hooks for git workflow enforcement ([pm-web-9y25](https://github.com/unbraind/pm-web/blob/main/.agents/pm/plans/pm-web-9y25.toon))
+- Spec new package pm-ai for token-efficient context bundles ([pm-web-ism0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/plans/pm-web-ism0.toon))
+- Spec new package pm-metrics for project health telemetry ([pm-web-l5ko](https://github.com/unbraind/pm-web/blob/main/.agents/pm/plans/pm-web-l5ko.toon))
+
+### Other
+
+- Restore self-hosted daily release automation ([pm-web-hgjp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hgjp.toon))
+
 ## 2026.06.09 - 2026-06-09
 
 ### Added
