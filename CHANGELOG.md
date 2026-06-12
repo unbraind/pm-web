@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Fix Daily Release: runs-on self-hosted has no registered runner, switch to ubuntu-latest ([pm-web-rzmv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-rzmv.toon))
+
 ### Other
 
 - Restore self-hosted daily release automation ([pm-web-hgjp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hgjp.toon))

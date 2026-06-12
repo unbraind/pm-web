@@ -2,13 +2,14 @@ id: pm-web-rzmv
 title: "Fix Daily Release: runs-on self-hosted has no registered runner, switch to ubuntu-latest"
 description: "Daily Release runs queued 24h then auto-cancelled since 2026-06-10 (runs 27333897005, 27403423905): release.yml targets runs-on: self-hosted but the repo has zero self-hosted runners. All sibling pm packages release on ubuntu-latest. Switch to ubuntu-latest so the scheduled npm/GitHub release pipeline actually executes."
 type: Task
-status: in_progress
+status: closed
 priority: 1
 tags[2]: ci,release-automation
 created_at: "2026-06-12T16:10:08.520Z"
-updated_at: "2026-06-12T16:10:27.263Z"
+updated_at: "2026-06-12T22:35:38.626Z"
 author: codex
 acceptance_criteria: Daily Release workflow run completes (not queued/cancelled) on ubuntu-latest
 files[1]{path,scope,note}:
   .github/workflows/release.yml,project,"runs-on: self-hosted -> ubuntu-latest"
+close_reason: "Proven: dispatched run 27430061038 executed on ubuntu-latest (previous runs queued 24h on self-hosted and auto-cancelled; a stale queued run also blocked the concurrency group and was cancelled). The run reached the changelog step — queue defect resolved. Its changelog:check failure is a separate pre-existing bug tracked in a follow-up item."
 body: ""
