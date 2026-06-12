@@ -1,6 +1,12 @@
 # Changelog
 
-## 2026.6.13-1 - 2026-06-12
+## Unreleased
+
+### Fixed
+
+- npm publish 403: package name unscoped pm-web rejected \(too similar to pmweb\) — restore @unbrained/pm-web ([pm-web-kkyo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-kkyo.toon))
+
+## 2026.06.13-1 - 2026-06-12
 
 ### Fixed
 

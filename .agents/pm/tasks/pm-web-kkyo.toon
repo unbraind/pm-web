@@ -1,0 +1,15 @@
+id: pm-web-kkyo
+title: "npm publish 403: package name unscoped pm-web rejected (too similar to pmweb) — restore @unbrained/pm-web"
+description: "Daily Release run 27448994089 got past all pipeline fixes and failed at npm publish with E403: 'Package name too similar to existing package pmweb; try renaming your package to @unbrained/pm-web'. Commit 8100c48 (2026-06-09 'Align website release policy with private deployment') renamed package.json from @unbrained/pm-web to pm-web; PR #7 reverted the private:true half of that commit but missed the name. npm has @unbrained/pm-web@2026.6.9 published — the scoped name is the only publishable one. Fix restores the scoped name in package.json + package-lock.json; manifest.json keeps extension id pm-web (historical layout per 0c83657)."
+type: Task
+status: closed
+priority: 1
+tags[3]: bug,naming,release-automation
+created_at: "2026-06-12T23:35:24.915Z"
+updated_at: "2026-06-12T23:35:25.315Z"
+author: codex
+acceptance_criteria: Daily Release publishes @unbrained/pm-web to npm successfully
+files[1]{path,scope,note}:
+  package.json,project,name -> @unbrained/pm-web
+close_reason: Scoped name restored; tests 35/35; changelog regenerated
+body: ""
