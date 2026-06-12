@@ -6,12 +6,13 @@ status: in_progress
 priority: 1
 tags[4]: full-cycle-hardening,pm-web-hardening,typescript-sources,wave-full-cycle-2026-06-07
 created_at: "2026-06-07T07:55:24.987Z"
-updated_at: "2026-06-07T08:00:45.580Z"
+updated_at: "2026-06-12T11:53:16.482Z"
 assignee: codex-5.3-full-cycle
 author: codex-5.3-full-cycle
-notes[2]{created_at,author,text}:
+notes[3]{created_at,author,text}:
   "2026-06-07T07:55:26.408Z",codex-5.3-full-cycle,"pm-web release:check passed after dependency alignment and generated frontend JS cleanup from git-tracked sources."
   "2026-06-07T08:00:45.580Z",codex-5.3-full-cycle,"Security gate: high-confidence token/key regex scan over tracked files and git history found no actionable secrets. Binary-history false positives were traced to embedded wasm base64 blobs, not credentials."
+  "2026-06-12T11:53:16.482Z",codex-audit,"2026-06-12 package/release audit: release workflow contains unresolved merge-conflict markers and is invalid YAML. package.json is private:true but release.yml includes npm publish, so publish intent is contradictory. TypeScript-only compliance gap: public/src has tracked generated .js and .js.map alongside .ts sources. Dev/lock dependencies are staged to latest @unbrained/pm-cli 2026.6.12 and pm-changelog 2026.6.10. Files to review: .github/workflows/release.yml, package.json, package-lock.json, .gitignore, public/src/**/*.js, public/src/**/*.js.map."
 files[4]{path,scope,note}:
   .gitignore,project,Ignore generated frontend JS/JS.map artifacts to keep TS sources canonical
   extensions/pm-graph/package.json,project,Updated embedded extension dependency baseline
