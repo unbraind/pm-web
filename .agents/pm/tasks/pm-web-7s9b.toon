@@ -1,0 +1,15 @@
+id: pm-web-7s9b
+title: Server prints false success and hangs on EADDRINUSE (Express 5 listen callback receives the error)
+description: "Found during 2026-06-12 fleet verification (companion task pm-cli-website-wwrz). Express 5 once()-wraps the app.listen callback and installs it as the server error handler (express/lib/application.js:598-606). src/server.ts:88 ignored the callback argument, so on EADDRINUSE pm-web printed 'pm-web running on :PORT' while owning zero sockets and idled forever; pm web never exited non-zero. Fix: callback now checks (err) and exits 1 with a clear message; an additional server.on('error') handler covers post-bind errors. A/B proven: HEAD on occupied port -> false success + hang (timeout exit 124); fixed build -> 'Failed to bind :4177: listen EADDRINUSE' exit 1; success path unchanged."
+type: Task
+status: closed
+priority: 1
+tags[3]: bug,express5,server
+created_at: "2026-06-12T23:00:05.489Z"
+updated_at: "2026-06-12T23:00:05.974Z"
+author: codex
+acceptance_criteria: Starting pm-web on an occupied port exits 1 with a clear bind error; success path prints running message and serves traffic
+files[1]{path,scope,note}:
+  src/server.ts,project,listen callback err handling + server error handler
+close_reason: Fixed and A/B-proven locally against a throwaway Postgres + port squatter; tests 0 fail; ships with the --ignore-scripts publish alignment
+body: ""

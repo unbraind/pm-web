@@ -2,13 +2,14 @@ id: pm-web-5myg
 title: "Daily Release fails at changelog:check: generate step uses prepend/since-previous-tag but check expects replace/all-release-tags"
 description: "Run 27430061038 (first ever pm-web release run to actually execute, after the ubuntu-latest runner fix) failed: the workflow's generate step ran 'npm run changelog -- --github-step-summary' (mode prepend, --since-previous-tag --until-release-tag) while 'npm run changelog:check' validates with mode replace + --all-release-tags. The two layouts can never agree once the version is bumped, so changelog:check always exits 1 and the release aborts before commit/tag/publish. Siblings (pm-todos et al.) regenerate with replace/all-release-tags in the release workflow. Fix: call 'npm run changelog:full -- --github-step-summary' (already the exact replace/all-release-tags counterpart of changelog:check) in release.yml."
 type: Task
-status: in_progress
+status: closed
 priority: 1
 tags[3]: changelog,ci,release-automation
 created_at: "2026-06-12T22:35:38.797Z"
-updated_at: "2026-06-12T22:35:39.167Z"
+updated_at: "2026-06-12T23:00:05.222Z"
 author: codex
 acceptance_criteria: Dispatched Daily Release run completes successfully end-to-end and publishes pm-web to npm + GitHub release
 files[1]{path,scope,note}:
   .github/workflows/release.yml,project,"changelog -> changelog:full in the generate step"
+close_reason: "Two-part fix shipped: (1) PR #14 changelog:full in the generate step (proven: run 27447490522 passed generate+check and reached publish); (2) remaining publish-time failure was prepublishOnly re-running changelog:check post-tag, where pm-changelog suppresses the pending-version window and renders the padded tag heading — siblings avoid this via npm publish --ignore-scripts, now aligned in the listen-fix PR"
 body: ""
