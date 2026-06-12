@@ -1,6 +1,16 @@
 # Changelog
 
-## 2026.6.13 - 2026-06-12
+## Unreleased
+
+### Fixed
+
+- Server prints false success and hangs on EADDRINUSE \(Express 5 listen callback receives the error\) ([pm-web-7s9b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-7s9b.toon))
+
+### Other
+
+- Daily Release fails at changelog:check: generate step uses prepend/since-previous-tag but check expects replace/all-release-tags ([pm-web-5myg](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-5myg.toon))
+
+## 2026.06.13 - 2026-06-12
 
 ### Fixed
 
