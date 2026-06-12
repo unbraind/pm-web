@@ -96,7 +96,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm run changelog -- --github-step-summary
+          npm run changelog:full -- --github-step-summary
           npm run changelog:check
           npm run release:notes > RELEASE_NOTES.md
 
