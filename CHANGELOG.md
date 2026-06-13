@@ -6,7 +6,7 @@
 
 - npm publish 403: package name unscoped pm-web rejected \(too similar to pmweb\) — restore @unbrained/pm-web ([pm-web-kkyo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-kkyo.toon))
 
-## 2026.06.13-1 - 2026-06-12
+## 2026.6.13-1 - 2026-06-12
 
 ### Fixed
 
@@ -16,7 +16,7 @@
 
 - Daily Release fails at changelog:check: generate step uses prepend/since-previous-tag but check expects replace/all-release-tags ([pm-web-5myg](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-5myg.toon))
 
-## 2026.06.13 - 2026-06-12
+## 2026.6.13 - 2026-06-12
 
 ### Fixed
 
@@ -26,7 +26,7 @@
 
 - Restore self-hosted daily release automation ([pm-web-hgjp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hgjp.toon))
 
-## 2026.06.09 - 2026-06-09
+## 2026.6.9 - 2026-06-09
 
 ### Added
 
@@ -41,13 +41,13 @@
 - Harden web release readiness checks ([pm-web-d5ef](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-d5ef.toon))
 - Align package dependencies to pm CLI/SDK 2026.6.6 ([pm-web-9z1i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-9z1i.toon))
 
-## 2026.06.04 - 2026-06-04
+## 2026.6.4 - 2026-06-04
 
 ### Added
 
 - Add light/auto theme toggle, URL-state item filters, and iCal \(.ics\) calendar export ([pm-web-b6eo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-b6eo.toon))
 
-## 2026.06.02-1 - 2026-06-02
+## 2026.6.2-1 - 2026-06-02
 
 ### Added
 
@@ -62,7 +62,7 @@
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
 - Implement 'pm web status' command ([pm-web-8eqs](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8eqs.toon))
 
-## 2026.05.30 - 2026-05-30
+## 2026.5.30 - 2026-05-30
 
 ### Fixed
 
@@ -73,7 +73,7 @@
 - Keep pm-web published scoped as @unbrained/pm-web \(not unscoped pm-web\) ([pm-web-1qq4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-1qq4.toon))
 - Production-readiness audit 2026-05-28 ([pm-web-8u17](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8u17.toon))
 
-## 2026.05.29-1 - 2026-05-29
+## 2026.5.29-1 - 2026-05-29
 
 ### Added
 
@@ -84,7 +84,7 @@
 - Catalog npm link points to unpublished unscoped pm-web \(404\) ([pm-web-2wrz](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-2wrz.toon))
 - Server hangs/cryptic error when DATABASE\_URL is unset ([pm-web-onv4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-onv4.toon))
 
-## 2026.05.29 - 2026-05-29
+## 2026.5.29 - 2026-05-29
 
 ### Fixed
 
@@ -94,13 +94,13 @@
 
 - Remove obsolete notify-website-sync workflow \(dispatched deleted companion deploy.yml -\> 422\) ([pm-web-9m5w](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9m5w.toon))
 
-## 2026.05.28 - 2026-05-28
+## 2026.5.28 - 2026-05-28
 
 ### Added
 
 - Add publish retry + provenance fallback to release workflow ([pm-web-2s2i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-2s2i.toon))
 
-## 2026.05.27 - 2026-05-27
+## 2026.5.27 - 2026-05-27
 
 ### Added
 
@@ -114,7 +114,7 @@
 
 - Scope npm package as @unbrained/pm-web ([pm-web-m1lf](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-m1lf.toon))
 
-## 2026.05.26 - 2026-05-26
+## 2026.5.26 - 2026-05-26
 
 ### Fixed
 
