@@ -2,11 +2,12 @@ id: pm-web-v9sq
 title: Rename npm package from @unbrained/pm-web to pm-web (unscoped)
 description: ""
 type: Task
-status: in_progress
+status: blocked
 priority: 1
 tags[2]: branding,npm
 created_at: "2026-07-05T20:04:07.810Z"
-updated_at: "2026-07-05T20:04:13.412Z"
+updated_at: "2026-07-05T20:20:50.764Z"
 assignee: codex
 author: codex
+blocked_reason: "npm name-similarity collision: pm-web reduces to existing parked pmweb@0.0.0 (npm strips punctuation); real publish would 403. Awaiting maintainer decision (name dispute / alt unscoped name / keep scoped + relax validator). PR #20 closed unmerged. See .agents/pm/decisions/rename-to-unscoped-pm-web.md"
 body: ""
