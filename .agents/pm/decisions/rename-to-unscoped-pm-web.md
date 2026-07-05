@@ -61,9 +61,70 @@ No other references exist:
    `name: pm-web` and `pm install github.com/unbraind/pm-web --project`,
    so no registry change is required.
 
-## Notes
+## ⛔ BLOCKED — npm name-similarity collision with `pmweb`
 
-- Confirmed `pm-web` (unscoped) is **free** on npm (404 as of 2026-07-05).
+**Status update (2026-07-05): RENAME CANNOT PROCEED AS PLANNED.**
+
+Although `pm-web` returns 404 on npm (so it is nominally "free"), a real
+publish would be **rejected**. npm's official [New Package Moniker Rules]
+strip all punctuation from a candidate name and compare it against existing
+package names. `pm-web` → `pmweb`, and **`pmweb` already exists on npm**
+(`pmweb@0.0.0`, a parked/squatter placeholder).
+
+Publishing `pm-web` would fail at release time with:
+> *"npm ERR! 403 Forbidden — pm-web is too similar to pmweb"*
+
+This was caught by **two of four bot reviewers** on PR #20:
+- **cubic** (P1): *"Using unscoped `pm-web` here can block publishing if
+  npm's moniker-similarity check detects an existing
+  punctuation-equivalent name (for example `pmweb`)."*
+- **CodeRabbit**: *"The package name is no longer scoped, which causes a
+  publish collision with the existing pmweb package."*
+
+**Greptile** (5/5 "safe to merge") and CI **missed this** — neither checked
+the registry for punctuation-equivalent sibling names. `npm publish --dry-run`
+also passes because dry-run does not perform the server-side similarity check;
+the rejection only surfaces on a real publish.
+
+### Why we did not force it
+
+The task constraint was explicit: *"If `pm-web` (unscoped) is somehow
+already taken on npm, STOP and report — do not force."* A name blocked by
+npm's similarity rule is effectively taken.
+
+### Options for the maintainer (decision needed)
+
+1. **File a name dispute with npm** to claim `pm-web` from the parked
+   `pmweb` (npm support sometimes transfers parked `0.0.0` names). Slow
+   and uncertain.
+2. **Pick a different unscoped name** that has no punctuation-equivalent
+   sibling, e.g. `pmwebui`, `pm-webui`, `pm-web-ui` (verify each first —
+   `pmwebui` would collide with `pmwebui` only if it exists; must check).
+   This would also require updating `manifest.json` and the companion
+   registry, and breaks the strict `pm-web` branding.
+3. **Keep the scoped `@unbrained/pm-web`** and instead adjust the website
+   ecosystem validator to accept the scoped name as legitimate branding
+   (the maintainer owns both the org and the fleet). Lowest risk.
+4. **Stay scoped but under a personal/org scope the validator accepts**
+   (if the validator's rule is configurable).
+
+This is a maintainer decision; the agent is not choosing unilaterally.
+
+### State left behind
+
+- PR #20 opened with all CI + bot checks green, but is **NOT merged**
+  (would break the daily release publish step).
+- The branch `chore/rename-to-unscoped-pm-web` is pushed.
+- The scoped `@unbrained/pm-web` is **NOT deprecated** (no new package
+  was published).
+- This decision record is updated with the finding.
+
+[New Package Moniker Rules]: https://blog.npmjs.org/post/168978377570/new-package-moniker-rules.html
+
+## Original notes (pre-finding, for history)
+
+- Confirmed `pm-web` (unscoped) is **free** on npm (404 as of 2026-07-05)
+  — *but blocked by the `pmweb` similarity rule (see above).*
 - Confirmed `@unbrained/pm-web` latest is `2026.6.14`.
 - A prior commit `cc820a3 Restore scoped npm package name @unbrained/pm-web`
-  shows an earlier rename attempt was reverted; this attempt completes it.
+  shows an earlier rename attempt was reverted; this attempt is also blocked.
