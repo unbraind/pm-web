@@ -1,16 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Fix release CI ordering (publish-before-tag) ([pm-web-v1pr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-v1pr.toon))
+
+### Security
+
+- Remove hard-coded dev JWT fallback ([pm-web-hvkc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hvkc.toon))
+
+### Other
+
+- Generate pm-web package declarations and refresh bundled graph toolchain ([pm-web-1xkj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-1xkj.toon))
+- Regenerate CHANGELOG after pm close item ([pm-web-0ww0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-0ww0.toon))
+
 ## 2026.6.13-2 - 2026-06-13
 
 ### Fixed
 
-- npm publish 403: package name unscoped pm-web rejected \(too similar to pmweb\) — restore @unbrained/pm-web ([pm-web-kkyo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-kkyo.toon))
+- npm publish 403: package name unscoped pm-web rejected (too similar to pmweb) — restore @unbrained/pm-web ([pm-web-kkyo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-kkyo.toon))
 
 ## 2026.6.13-1 - 2026-06-12
 
 ### Fixed
 
-- Server prints false success and hangs on EADDRINUSE \(Express 5 listen callback receives the error\) ([pm-web-7s9b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-7s9b.toon))
+- Server prints false success and hangs on EADDRINUSE (Express 5 listen callback receives the error) ([pm-web-7s9b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-7s9b.toon))
 
 ### Other
 
@@ -45,16 +60,16 @@
 
 ### Added
 
-- Add light/auto theme toggle, URL-state item filters, and iCal \(.ics\) calendar export ([pm-web-b6eo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-b6eo.toon))
+- Add light/auto theme toggle, URL-state item filters, and iCal (.ics) calendar export ([pm-web-b6eo](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-b6eo.toon))
 
 ## 2026.6.2-1 - 2026-06-02
 
 ### Added
 
 - Do NOT add the 'services' extension capability to pm-web ([pm-web-vyfp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-vyfp.toon))
-- Deepen pm-web extension command surface \(status/stop/doctor\) + services-capability evaluation ([pm-web-7pxa](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7pxa.toon))
+- Deepen pm-web extension command surface (status/stop/doctor) + services-capability evaluation ([pm-web-7pxa](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7pxa.toon))
 - Add /healthz version + unit tests + README docs ([pm-web-edyj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-edyj.toon))
-- Introduce CommandError \(numeric exitCode\) for new handlers ([pm-web-9ycn](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9ycn.toon))
+- Introduce CommandError (numeric exitCode) for new handlers ([pm-web-9ycn](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9ycn.toon))
 
 ### Other
 
@@ -66,23 +81,23 @@
 
 ### Fixed
 
-- Daily Release fails at changelog:check — version-format mismatch \(padded tag vs npm version\) ([pm-web-ysd5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-ysd5.toon))
+- Daily Release fails at changelog:check — version-format mismatch (padded tag vs npm version) ([pm-web-ysd5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-ysd5.toon))
 
 ### Other
 
-- Keep pm-web published scoped as @unbrained/pm-web \(not unscoped pm-web\) ([pm-web-1qq4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-1qq4.toon))
+- Keep pm-web published scoped as @unbrained/pm-web (not unscoped pm-web) ([pm-web-1qq4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-1qq4.toon))
 - Production-readiness audit 2026-05-28 ([pm-web-8u17](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8u17.toon))
 
 ## 2026.5.29-1 - 2026-05-29
 
 ### Added
 
-- Hands-on functional test pass 2026-05-29 \(real data + Postgres\) ([pm-web-ul0n](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-ul0n.toon))
+- Hands-on functional test pass 2026-05-29 (real data + Postgres) ([pm-web-ul0n](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-ul0n.toon))
 
 ### Fixed
 
-- Catalog npm link points to unpublished unscoped pm-web \(404\) ([pm-web-2wrz](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-2wrz.toon))
-- Server hangs/cryptic error when DATABASE\_URL is unset ([pm-web-onv4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-onv4.toon))
+- Catalog npm link points to unpublished unscoped pm-web (404) ([pm-web-2wrz](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-2wrz.toon))
+- Server hangs/cryptic error when DATABASE_URL is unset ([pm-web-onv4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-onv4.toon))
 
 ## 2026.5.29 - 2026-05-29
 
@@ -92,7 +107,7 @@
 
 ### Removed
 
-- Remove obsolete notify-website-sync workflow \(dispatched deleted companion deploy.yml -\> 422\) ([pm-web-9m5w](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9m5w.toon))
+- Remove obsolete notify-website-sync workflow (dispatched deleted companion deploy.yml -\> 422) ([pm-web-9m5w](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9m5w.toon))
 
 ## 2026.5.28 - 2026-05-28
 
@@ -108,7 +123,7 @@
 
 ### Fixed
 
-- Fix notify-website-sync: drop misleading source\_repo alias ([pm-web-egz2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-egz2.toon))
+- Fix notify-website-sync: drop misleading source_repo alias ([pm-web-egz2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-egz2.toon))
 
 ### Other
 

@@ -1,8 +1,14 @@
 import jwt from "jsonwebtoken";
 import type { Request } from "express";
+import crypto from "node:crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || "pm-web-dev-secret-change-in-prod";
+const DEV_JWT_SECRET = crypto.randomBytes(32).toString("base64url");
+const JWT_SECRET = process.env.JWT_SECRET ?? (process.env.NODE_ENV === "production" ? "" : DEV_JWT_SECRET);
 const JWT_EXPIRES = "30d";
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required when running pm-web in production.");
+}
 
 export interface JwtPayload {
   userId: string;

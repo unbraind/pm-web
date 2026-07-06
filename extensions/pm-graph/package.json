@@ -13,8 +13,8 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
-    "@unbrained/pm-cli": "^2026.6.7",
-    "pm-changelog": "^2026.6.7",
+    "@unbrained/pm-cli": "^2026.7.5",
+    "pm-changelog": "^2026.6.30",
     "typescript": "^6.0.3"
   },
   "files": [

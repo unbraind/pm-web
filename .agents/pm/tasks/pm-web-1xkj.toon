@@ -1,0 +1,17 @@
+id: pm-web-1xkj
+title: Generate pm-web package declarations and refresh bundled graph toolchain
+description: ""
+type: Task
+status: closed
+priority: 1
+tags: []
+created_at: "2026-07-05T23:58:35.635Z"
+updated_at: "2026-07-06T00:00:32.934Z"
+author: codex
+resolution: "Enabled declaration output, refreshed nested graph toolchain pins, regenerated lock/build outputs."
+expected_result: Package tarball includes dist/index.d.ts and nested graph toolchain metadata is current.
+actual_result: Build produced declaration files and nested package-lock resolves @unbrained/pm-cli 2026.7.5 plus pm-changelog 2026.6.30.
+notes[1]{created_at,author,text}:
+  "2026-07-06T00:00:32.933Z",codex,"Implemented: enabled TypeScript declaration and declarationMap output for the server package, refreshed the bundled extensions/pm-graph pm CLI/changelog pins to @unbrained/pm-cli 2026.7.5 and pm-changelog 2026.6.30, ran npm install --package-lock-only in the nested graph workspace, and rebuilt pm-web. dist/index.d.ts and related declarations now exist for the advertised package types entry."
+close_reason: pm-web now emits the advertised declaration files and the bundled graph workspace uses the current pm CLI/changelog package versions.
+body: "Context: pm-web package.json advertises dist/index.d.ts, but the server tsconfig disabled declaration output. The bundled extensions/pm-graph workspace also lagged the current pm CLI and pm-changelog versions.\\n\\nScope: enable declaration output, refresh bundled graph dependency pins, regenerate locks/build artifacts, and validate release readiness."
