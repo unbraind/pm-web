@@ -6,6 +6,10 @@
 
 - Fix release CI ordering (publish-before-tag) ([pm-web-v1pr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-v1pr.toon))
 
+### Removed
+
+- Remove GitHub runners from private pm-web repo ([pm-web-y28b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-y28b.toon))
+
 ### Security
 
 - Remove hard-coded dev JWT fallback ([pm-web-hvkc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hvkc.toon))

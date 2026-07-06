@@ -1,0 +1,16 @@
+id: pm-web-y28b
+title: Remove GitHub runners from private pm-web repo
+description: ""
+type: Task
+status: closed
+priority: 1
+tags[3]: github-actions,private-repo,release-readiness
+created_at: "2026-07-06T01:51:54.261Z"
+updated_at: "2026-07-06T01:51:54.572Z"
+author: codex-agent
+acceptance_criteria: Repository Actions permissions are disabled; .github/workflows CI/release files are removed; local build/test/package checks remain documented; changelog is regenerated from pm items.
+resolution: Disabled GitHub Actions for unbraind/pm-web through repository permissions and removed CI/release workflow files from the private repo.
+expected_result: The private pm-web repository no longer schedules or triggers GitHub-hosted runner jobs.
+actual_result: gh API reports actions.enabled=false and workflow files are deleted on the cleanup branch.
+close_reason: Private pm-web GitHub runner usage removed and repository Actions disabled.
+body: Remove GitHub Actions workflows from the private pm-web repository and disable repository Actions so the private website/package repo does not use GitHub-hosted runners. Public pm packages keep their daily release jobs; pm-web is the private exception requested for the website repo.
