@@ -86,7 +86,7 @@ pm web stop --port 8080 --json
 
 #### `pm web doctor`
 
-Runs preflight checks before starting the server: Node version (>= 20), whether
+Runs preflight checks before starting the server: Node version (>= 22.18.0), whether
 runtime dependencies (express, etc.) are installed, whether the target port is
 free, whether `pm` is on `PATH`, and whether the workspace is initialized.
 Returns an overall `ok` boolean. The `port_available` check is informational (a

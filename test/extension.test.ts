@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { resolvePort, pidfilePath, shapeStatusResult } from "../dist/index.js";
+import { resolvePort, pidfilePath, shapeStatusResult, nodeVersionMeetsRequirement } from "../dist/index.js";
 
 test("resolvePort prefers the --port flag", () => {
   assert.strictEqual(resolvePort({ port: "8080" }, { PORT: "4000" }), "8080");
@@ -29,6 +29,14 @@ test("pidfilePath keys by port in the temp dir by default", () => {
 test("pidfilePath honors PM_WEB_STATE_DIR", () => {
   const p = pidfilePath("4000", { PM_WEB_STATE_DIR: "/var/state" }, os.tmpdir());
   assert.strictEqual(p, path.join("/var/state", "pm-web-4000.pid"));
+});
+
+test("nodeVersionMeetsRequirement enforces the package engine floor", () => {
+  assert.strictEqual(nodeVersionMeetsRequirement("20.19.0"), false);
+  assert.strictEqual(nodeVersionMeetsRequirement("22.17.9"), false);
+  assert.strictEqual(nodeVersionMeetsRequirement("22.18.0"), true);
+  assert.strictEqual(nodeVersionMeetsRequirement("22.19.0"), true);
+  assert.strictEqual(nodeVersionMeetsRequirement("23.0.0"), true);
 });
 
 test("shapeStatusResult marks a reachable server as up", () => {
