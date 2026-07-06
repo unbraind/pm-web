@@ -12,6 +12,7 @@
 
 ### Other
 
+- Align Node engine with pm CLI runtime ([pm-web-ndeb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ndeb.toon))
 - Generate pm-web package declarations and refresh bundled graph toolchain ([pm-web-1xkj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-1xkj.toon))
 - Regenerate CHANGELOG after pm close item ([pm-web-0ww0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-0ww0.toon))
 
