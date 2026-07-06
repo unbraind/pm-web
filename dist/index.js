@@ -26,6 +26,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, "..");
 let serverProcess = null;
 const DEFAULT_PORT = "4000";
+const REQUIRED_NODE_VERSION = [22, 18, 0];
+const REQUIRED_NODE_VERSION_RANGE = ">=22.18.0";
 // ---------------------------------------------------------------------------
 // Pure helpers (unit-tested in test/)
 // ---------------------------------------------------------------------------
@@ -50,6 +52,19 @@ export function pidfilePath(port, env = process.env, tmpDir = os.tmpdir()) {
         ? String(env["PM_WEB_STATE_DIR"])
         : tmpDir;
     return path.join(baseDir, `pm-web-${String(port)}.pid`);
+}
+export function nodeVersionMeetsRequirement(version = process.versions.node) {
+    const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version);
+    if (!match)
+        return false;
+    const parsed = [Number(match[1]), Number(match[2]), Number(match[3])];
+    for (let i = 0; i < REQUIRED_NODE_VERSION.length; i += 1) {
+        if (parsed[i] > REQUIRED_NODE_VERSION[i])
+            return true;
+        if (parsed[i] < REQUIRED_NODE_VERSION[i])
+            return false;
+    }
+    return true;
 }
 /** Shape a /healthz probe outcome into a stable status result object. */
 export function shapeStatusResult(input) {
@@ -350,7 +365,6 @@ export default defineExtension({
             async run(ctx) {
                 const port = resolvePort(ctx.options);
                 const json = Boolean(ctx.options["json"]);
-                const nodeMajor = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
                 const depsInstalled = runtimeDependenciesInstalled();
                 const portFree = await isPortFree(Number(port));
                 const pmAvailable = pmOnPath();
@@ -358,8 +372,8 @@ export default defineExtension({
                 const checks = [
                     {
                         name: "node_version",
-                        ok: nodeMajor >= 20,
-                        detail: `Node ${process.versions.node} (requires >= 20)`,
+                        ok: nodeVersionMeetsRequirement(),
+                        detail: `Node ${process.versions.node} (requires ${REQUIRED_NODE_VERSION_RANGE})`,
                     },
                     {
                         name: "runtime_dependencies",

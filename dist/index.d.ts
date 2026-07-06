@@ -28,6 +28,7 @@ export declare function resolvePort(options: Record<string, unknown>, env?: Node
  * multiple detached servers don't clobber each other's pidfile.
  */
 export declare function pidfilePath(port: string | number, env?: NodeJS.ProcessEnv, tmpDir?: string): string;
+export declare function nodeVersionMeetsRequirement(version?: string): boolean;
 /** Shape a /healthz probe outcome into a stable status result object. */
 export declare function shapeStatusResult(input: {
     port: string | number;
