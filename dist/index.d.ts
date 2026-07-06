@@ -49,4 +49,3 @@ declare const _default: {
     activate(api: ExtensionApi): void;
 };
 export default _default;
-//# sourceMappingURL=index.d.ts.map

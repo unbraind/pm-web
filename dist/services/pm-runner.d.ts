@@ -23,4 +23,3 @@ export interface EnsureGraphExtensionResult {
 export declare function ensureGraphExtension(userId: string, slug: string): EnsureGraphExtensionResult;
 export declare function runPm(opts: PmRunOptions): PmRunResult;
 export declare function deleteProjectDir(userId: string, slug: string): void;
-//# sourceMappingURL=pm-runner.d.ts.map

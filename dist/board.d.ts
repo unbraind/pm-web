@@ -13,4 +13,3 @@ export declare function boardColumns<T extends BoardItem>(items: T[], statuses: 
     items: T[];
 }>;
 export declare function filterItemsByQuery<T extends BoardItem>(items: T[], query: string): T[];
-//# sourceMappingURL=board.d.ts.map

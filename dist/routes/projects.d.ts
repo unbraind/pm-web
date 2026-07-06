@@ -14,4 +14,3 @@ export declare function verifyProjectAccess(userId: string, projectId: string): 
     permission: string;
 } | null>;
 export { router as projectsRouter };
-//# sourceMappingURL=projects.d.ts.map

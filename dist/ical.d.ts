@@ -22,4 +22,3 @@ export declare function itemToVevent(item: CalendarItem, opts: {
     dtstamp: string;
 }): string | null;
 export declare function buildIcsCalendar(items: CalendarItem[], opts?: IcsOptions): string;
-//# sourceMappingURL=ical.d.ts.map

@@ -9,4 +9,3 @@
 export declare function assertDbConfigured(): void;
 export declare const pool: import("pg").Pool;
 export declare function initSchema(): Promise<void>;
-//# sourceMappingURL=db.d.ts.map

@@ -6,4 +6,3 @@ export interface AuthRequest extends Request {
     };
 }
 export declare function requireAuth(req: AuthRequest, res: Response, next: NextFunction): void;
-//# sourceMappingURL=auth.d.ts.map

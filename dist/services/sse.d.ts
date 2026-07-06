@@ -26,4 +26,3 @@ export interface SSEEvent {
     type: string;
     data: unknown;
 }
-//# sourceMappingURL=sse.d.ts.map
