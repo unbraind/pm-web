@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026.7.10 - 2026-07-10
 
 ### Fixed
 
@@ -12,6 +12,7 @@
 
 ### Security
 
+- Restore pm-web release pipeline (mistaken runner removal 6691d413) ([pm-web-yjb2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-yjb2.toon))
 - Remove hard-coded dev JWT fallback ([pm-web-hvkc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hvkc.toon))
 
 ### Other
