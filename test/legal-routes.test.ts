@@ -54,8 +54,15 @@ function request(method: string, url: string): Promise<{ status: number; headers
     // (req, res, next).
     try {
       (app as unknown as (req: any, res: any, next: (err?: any) => void) => void)(req, res, (err?: any) => {
-        if (err) reject(err);
-        else resolve({ status: res.statusCode, headers: res._headers, body: Buffer.concat(res._chunks).toString("utf8"), location: res._headers.location as string | undefined });
+        if (err) {
+          reject(err);
+          return;
+        }
+        // next() at the end of the chain means NO route matched. Simulate
+        // Express's default 404 instead of leaking the initial 200, so a
+        // broken route pattern cannot produce false-positive passes.
+        res.statusCode = 404;
+        resolve({ status: res.statusCode, headers: res._headers, body: Buffer.concat(res._chunks).toString("utf8"), location: res._headers.location as string | undefined });
       });
     } catch (err) {
       reject(err as Error);
