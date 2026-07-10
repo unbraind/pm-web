@@ -1,0 +1,50 @@
+/* Cookie consent banner — shared by the SPA (index.html) and legal pages.
+   Legal pages get these rules via legal-common.css; keep both in sync. */
+
+.cookie-consent {
+  position: fixed;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.35);
+}
+
+.cookie-consent[hidden] {
+  display: none;
+}
+
+.cookie-consent-text {
+  display: grid;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
+.cookie-consent-text strong {
+  color: var(--text-primary);
+}
+
+.cookie-consent-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cookie-consent {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    align-items: stretch;
+    flex-direction: column;
+  }
