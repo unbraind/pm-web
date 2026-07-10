@@ -96,3 +96,17 @@ test("unknown legal-ish path falls through to the SPA fallback (200)", async () 
   const res = await request("GET", "/some-unknown-spa-route");
   assert.equal(res.status, 200, "SPA fallback should serve index.html");
 });
+
+test("legal pages tolerate trailing slashes (non-strict routing)", async () => {
+  for (const page of ["legal-notice", "privacy-policy", "terms", "cookie-settings"]) {
+    const res = await request("GET", `/${page}/`);
+    assert.equal(res.status, 200, `GET /${page}/ should return 200`);
+  }
+});
+
+test("unknown API routes return JSON 404 instead of the SPA shell", async () => {
+  const res = await request("GET", "/api/definitely-not-a-route");
+  assert.equal(res.status, 404, "unknown /api path should 404");
+  const body = JSON.parse(res.body);
+  assert.equal(body.error, "Not found");
+});

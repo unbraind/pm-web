@@ -1,0 +1,6 @@
+# Hound CI configuration.
+# dist/ is generated ES2022 output (committed deliberately for the private
+# deploy flow) and public/ contains generated bundles — linting them with
+# jshint's default ES5 profile only produces noise.
+jshint:
+  enabled: false

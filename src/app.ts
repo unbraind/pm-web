@@ -86,12 +86,14 @@ export function createApp(): Express {
   });
 
   app.get(["/legal-notice", "/privacy-policy", "/terms", "/cookie-settings"], (req, res) => {
-    const page = req.path.slice(1);
+    // Non-strict routing also matches trailing-slash variants (/terms/), so
+    // normalize before the whitelist lookup instead of 404ing on them.
+    const page = req.path.replace(/\/+$/, "").slice(1);
     if (!legalPages.has(page)) {
       res.status(404).end();
       return;
     }
-    res.sendFile(path.join(PUBLIC_DIR, `${req.path.slice(1)}.html`));
+    res.sendFile(path.join(PUBLIC_DIR, `${page}.html`));
   });
 
   // API routes
@@ -103,6 +105,12 @@ export function createApp(): Express {
   app.use("/api/shared", sharedWithMeRouter);
   app.use("/api/projects/:id/github", githubRouter);
   app.use("/api/admin", adminRouter);
+
+  // Unknown API routes get a JSON 404 instead of falling through to the SPA
+  // shell, which would hand HTML to API clients expecting JSON.
+  app.all("/api/{*splat}", (_req, res) => {
+    res.status(404).json({ error: "Not found" });
+  });
 
   // SPA fallback — serve index.html for all non-API routes
   app.get("/{*splat}", (_req, res) => {
