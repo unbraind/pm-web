@@ -51,7 +51,11 @@ function validateHttpsUrl(raw, name, production) {
     if (!production && !["http:", "https:"].includes(url.protocol)) {
         throw new OidcConfigurationError(`${name} must use HTTP or HTTPS.`);
     }
-    return url.href;
+    // URL.href adds "/" to a bare origin, while several conforming providers
+    // (including Google) publish an issuer without that slash. Preserve exact
+    // path-based issuers, but canonicalize a root issuer to URL.origin so the
+    // configured value and verified `iss` claim use the same representation.
+    return url.pathname === "/" ? url.origin : url.href;
 }
 /** Resolve optional OIDC configuration without exposing any configured value. */
 export function resolveOidcSettings(env = process.env) {
@@ -247,6 +251,15 @@ export async function resolveExternalIdentity(client, identity) {
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
             `oidc:${identity.issuer}:${identity.subject}`,
         ]);
+        if (identity.email) {
+            // Serialize all identity resolution for a shared email before either the
+            // existing-mapping or email-link path reads state. This keeps concurrent
+            // identities deterministic and makes an unverified collision a protocol
+            // error rather than a late uniqueness failure.
+            await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+                `oidc-email:${identity.email}`,
+            ]);
+        }
         const mapped = await queryUser(client, `SELECT u.id, u.email, u.display_name, u.is_admin, u.created_at
          FROM pm_external_identities i
          JOIN pm_users u ON u.id = i.user_id
@@ -261,9 +274,6 @@ export async function resolveExternalIdentity(client, identity) {
         }
         let user = null;
         if (identity.email) {
-            await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
-                `oidc-email:${identity.email}`,
-            ]);
             user = await queryUser(client, `SELECT id, email, display_name, is_admin, created_at
            FROM pm_users WHERE lower(email) = lower($1) FOR UPDATE`, [identity.email]);
             if (user && !identity.emailVerified) {

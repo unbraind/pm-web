@@ -6,7 +6,7 @@ status: closed
 priority: 1
 tags[5]: auth,oidc,pkce,security,self-hosted
 created_at: "2026-07-11T13:27:36.450Z"
-updated_at: "2026-07-11T13:43:40.264Z"
+updated_at: "2026-07-12T14:56:24.095Z"
 closed_at: "2026-07-11T13:43:13.010Z"
 author: codex
 acceptance_criteria: OIDC is disabled by default; partial production configuration fails closed; discovery/JWKS and exact token validation are used; identity resolution is transactional and safe; password login remains; generic docs and tests pass with no hosted values.
@@ -15,8 +15,9 @@ confidence: high
 resolution: "Public pm-web now supports reusable self-hosted OIDC using only generic OIDC_* configuration; full typecheck, tests, build, npm audit, and diff checks pass."
 expected_result: "Optional generic OIDC login is disabled by default, fails closed on partial production config, securely validates protocol state and identity, preserves password login, and adds no hosted values."
 actual_result: "Implemented openid-client discovery/JWKS Authorization Code + PKCE, signed state cookies, exact claim checks, transactional issuer-subject mapping, verified-email collision rules, OIDC-only provisioning, UI discovery, schema, docs, and 12 focused OIDC tests within a 60-test passing suite."
-notes[1]{created_at,author,text}:
+notes[2]{created_at,author,text}:
   "2026-07-11T13:40:13.068Z",codex,"Implemented optional provider-neutral OIDC Authorization Code + PKCE S256 login. Environment contract: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI, optional OIDC_SCOPES (default openid profile email), dedicated OIDC_COOKIE_SECRET, and optional OIDC_REQUIRE_VERIFIED_EMAIL. OIDC remains disabled with no variables and partial production configuration stops startup."
+  "2026-07-12T14:56:24.090Z",codex,"Pre-push Greptile d40def06 found root issuer normalization, advisory-lock ordering clarity, and callback observability issues. Root issuers now canonicalize to URL.origin with a regression test; shared-email locking occurs before mapping lookup; non-protocol callback errors log only a safe error class/code. Full gate passes with 67 tests."
 learnings[1]{created_at,author,text}:
   "2026-07-11T13:40:13.602Z",codex,"Use immutable issuer+subject as the external identity key. Email may link an existing account only when email_verified is the boolean true; unverified collisions must be rejected. Provider discovery/JWKS and code-grant validation stay in openid-client, with explicit defense-in-depth issuer, audience, nonce, and time checks."
 files[38]{path,scope,note}:

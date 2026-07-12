@@ -62,6 +62,22 @@ test("OIDC full config uses generic defaults and public config leaks no secrets"
   assert.equal(publicJson.includes("identity.example"), false);
 });
 
+test("root OIDC issuer normalization matches providers that omit the trailing slash", () => {
+  const settings = resolveOidcSettings(fullEnv({ OIDC_ISSUER: "https://accounts.example" }));
+  assert.equal(settings.enabled, true);
+  if (!settings.enabled) return;
+  assert.equal(settings.issuer, "https://accounts.example");
+  const now = 1_750_000_000;
+  assert.doesNotThrow(() => validateOidcClaims({
+    iss: "https://accounts.example",
+    sub: "subject",
+    aud: settings.clientId,
+    exp: now + 300,
+    iat: now,
+    nonce: "nonce",
+  }, settings, "nonce", now));
+});
+
 test("OIDC production config requires HTTPS, openid scope, and a dedicated-length cookie secret", () => {
   assert.throws(() => resolveOidcSettings(fullEnv({ OIDC_ISSUER: "http://identity.example/" })));
   assert.throws(() => resolveOidcSettings(fullEnv({ OIDC_SCOPES: "profile email" })));
