@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApp } from "../dist/app.js";
+import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { createApp, LEGAL_PAGES, resolveLegalPagesDir } from "../dist/app.js";
 
 const app = createApp();
 
@@ -74,6 +77,27 @@ test("legal pages are served with 200 from their canonical routes", async () => 
   for (const page of ["legal-notice", "privacy-policy", "terms", "cookie-settings"]) {
     const res = await request("GET", `/${page}`);
     assert.equal(res.status, 200, `GET /${page} should return 200`);
+    assert.equal(res.headers["cache-control"], "no-store");
+  }
+});
+
+test("private legal overlays must be absolute, complete, regular, and non-symlinked", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pm-web-legal-"));
+  try {
+    assert.throws(() => resolveLegalPagesDir({ PM_WEB_LEGAL_DIR: "relative" }), /absolute path/);
+    assert.throws(() => resolveLegalPagesDir({ PM_WEB_LEGAL_DIR: root }));
+
+    for (const page of LEGAL_PAGES) writeFileSync(path.join(root, `${page}.html`), page);
+    assert.equal(resolveLegalPagesDir({ PM_WEB_LEGAL_DIR: root }), realpathSync(root));
+
+    rmSync(path.join(root, "terms.html"));
+    symlinkSync(path.join(root, "privacy-policy.html"), path.join(root, "terms.html"));
+    assert.throws(
+      () => resolveLegalPagesDir({ PM_WEB_LEGAL_DIR: root }),
+      /must not be a symbolic link/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -97,6 +121,12 @@ test("healthz reports ok and a version", async () => {
   const body = JSON.parse(res.body);
   assert.equal(body.ok, true);
   assert.ok(typeof body.version === "string" && body.version.length > 0, "version should be a non-empty string");
+});
+
+test("OIDC discovery route is mounted and safely reports disabled by default", async () => {
+  const res = await request("GET", "/api/auth/oidc/config");
+  assert.equal(res.status, 200);
+  assert.deepEqual(JSON.parse(res.body), { enabled: false, label: "OpenID Connect" });
 });
 
 test("unknown legal-ish path falls through to the SPA fallback (200)", async () => {

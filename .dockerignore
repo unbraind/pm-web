@@ -1,0 +1,15 @@
+.git
+.github
+.agents
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+**/dist-test
+dist-test
+coverage
+*.log
+*.tgz
+docs
+test

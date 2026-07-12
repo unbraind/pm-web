@@ -118,6 +118,20 @@ export async function initSchema() {
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_repo TEXT;
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_sync_enabled BOOLEAN DEFAULT FALSE;
   `);
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS pm_external_identities (
+      issuer TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      user_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+      email TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (issuer, subject),
+      UNIQUE (issuer, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS pm_external_identities_user_id
+      ON pm_external_identities(user_id);
+  `);
     await pool.query(`CREATE TABLE IF NOT EXISTS pm_admin_audit (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       actor_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,

@@ -40,7 +40,7 @@ import { renderCommentsAuditView } from './views/comments-audit.js';
 import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject, addSchemaType } from './views/config.js';
 import { renderGuideView } from './views/guide.js';
 import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage, adminCreateGroup } from './views/admin.js';
-import { switchAuthTab, submitAuth, logout, showAuth } from './views/auth.js';
+import { switchAuthTab, submitAuth, logout, showAuth, startOidcLogin } from './views/auth.js';
 import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan, copyPlanAgentBrief, copyPlanNextStepPrompt, planEditPrompt, submitEditPlan, planDeletePrompt } from './views/plan.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -241,6 +241,7 @@ let deferredPrompt: any = null;
   // Auth
   switchAuthTab,
   submitAuth,
+  startOidcLogin,
   logout,
 
   // Projects
@@ -494,10 +495,8 @@ function connectSSE(projectId: string, attempt = 0): void {
   sseCurrentProjectId = projectId;
   setSseStatus(attempt > 0 ? 'reconnecting' : 'disconnected');
 
-  const u = state.user;
-  const displayName = encodeURIComponent(u?.display_name || u?.email || '');
   const currentView = encodeURIComponent(state.currentView || 'items');
-  const url = `/api/projects/${encodeURIComponent(projectId)}/pm/events?dn=${displayName}&view=${currentView}`;
+  const url = `/api/projects/${encodeURIComponent(projectId)}/pm/events?view=${currentView}`;
   try {
     const source = new EventSource(url);
     sseSource = source;
@@ -609,6 +608,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('graph-sync-failed', graphSyncFailed);
     source.addEventListener('graph_sync_failed', graphSyncFailed);
     source.addEventListener('update', refreshView);
+    source.addEventListener('workspace-changed', refreshGraphData);
 
     source.onerror = () => {
       setSseStatus('reconnecting');

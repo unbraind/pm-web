@@ -1,25 +1,4 @@
-interface ExtensionApi {
-    registerCommand(def: {
-        name: string;
-        description: string;
-        intent?: string;
-        examples?: string[];
-        flags?: Array<{
-            long: string;
-            value_name?: string;
-            description: string;
-        }>;
-        run(ctx: CommandHandlerContext): Promise<unknown>;
-    }): void;
-    registerService?: (service: string, override: (ctx: unknown) => unknown) => void;
-}
-interface CommandHandlerContext {
-    command: string;
-    args: string[];
-    options: Record<string, unknown>;
-    global: Record<string, unknown>;
-    pm_root: string;
-}
+import { type ExtensionApi } from "@unbrained/pm-cli/sdk";
 /** Resolve the port from flag → PORT env → default 4000. */
 export declare function resolvePort(options: Record<string, unknown>, env?: NodeJS.ProcessEnv): string;
 /**

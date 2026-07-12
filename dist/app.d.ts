@@ -3,6 +3,7 @@ import { type Express } from "express";
 export declare const LEGAL_PAGES: readonly ["legal-notice", "privacy-policy", "terms", "cookie-settings"];
 /** German short-path aliases that 308-redirect to the canonical legal pages. */
 export declare const LEGAL_REDIRECTS: Record<string, string>;
+export declare function resolveLegalPagesDir(env?: NodeJS.ProcessEnv): string;
 /**
  * Build the Express application with all middleware, static assets, legal
  * page routes, API routes and the SPA fallback — but WITHOUT touching the

@@ -37,26 +37,26 @@
     "prepublishOnly": "npm run release:check"
   },
   "dependencies": {
+    "@unbrained/pm-cli": "^2026.7.12",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
-    "neo4j-driver": "^6.1.0",
+    "neo4j-driver": "^6.2.0",
+    "openid-client": "6.8.4",
     "pg": "^8.21.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^3.0.0",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/node": "^25.9.2",
+    "@types/node": "^26.1.1",
     "@types/pg": "^8.11.11",
     "@types/uuid": "^10.0.0",
-    "@unbrained/pm-cli": "^2026.7.5",
-    "pm-changelog": "^2026.6.30",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "pm-changelog": "^2026.7.12",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2"
   },
   "repository": {
     "type": "git",

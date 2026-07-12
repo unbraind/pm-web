@@ -1,0 +1,29 @@
+id: pm-web-184g
+title: Pin pm-web container dependencies and minimize build context
+description: Remove mutable production image/package resolution and prevent local/runtime artifacts from entering the Docker build context.
+type: Task
+status: closed
+priority: 1
+tags[4]: docker,privacy,security,supply-chain
+created_at: "2026-07-11T14:28:29.432Z"
+updated_at: "2026-07-12T14:37:58.396Z"
+closed_at: "2026-07-11T14:28:34.037Z"
+author: codex
+acceptance_criteria: "Node base image uses an immutable digest; embedded pm CLI is an explicit version; Docker context excludes git, pm tracker, env, node_modules, tests, docs, logs, and nested dependency trees; image builds and all tests pass."
+risk: high
+confidence: high
+resolution: "Pinned the Node base by digest and pm CLI 2026.7.11, and excluded nested dependencies plus local/private artifacts from Docker context."
+expected_result: Production builds are reproducible and cannot accidentally send private local artifacts in their build context.
+actual_result: "67 tests, typecheck, production audit, diff check, and production image build pass; live pm-web reports pm CLI 2026.7.11."
+notes[1]{created_at,author,text}:
+  "2026-07-12T14:37:58.396Z",codex,"Verification correction 2026-07-12: Docker now uses the pinned multi-architecture Node image digest sha256:752ea8a2f758c34002a0461bd9f1cee4f9a3c36d48494586f60ffce1fc708e0e and the runtime dependency @unbrained/pm-cli 2026.7.12 from package-lock; the review image built successfully and reports pm 2026.7.12."
+files[2]{path,scope,note}:
+  .dockerignore,project,Sensitive and unnecessary build-context exclusions
+  Dockerfile,project,Immutable Node digest and exact pm CLI version
+tests[4]{command,scope,timeout_seconds}:
+  npm audit --omit=dev,project,120
+  npm run typecheck,project,300
+  npm test,project,300
+  production Docker image build,project,600
+close_reason: Container dependency and build-context hardening completed with full tests and a successful production build.
+body: ""

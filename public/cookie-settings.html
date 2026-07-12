@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de" data-theme="auto">
+<html lang="en" data-theme="auto" data-package-legal-template>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Cookie- und Speicherinformationen fuer pm-web.">
+<meta name="description" content="Package template for pm-web browser-storage disclosures.">
 <title>Cookie Settings - pm-web</title>
 <link rel="stylesheet" href="/styles.css?v=20">
 <link rel="stylesheet" href="/legal-common.css?v=1">
@@ -11,12 +11,12 @@
 <body class="legal-shell">
 <nav class="legal-nav"><a class="legal-brand" href="/">pm-web</a><div class="legal-links"><a href="/legal-notice">Legal Notice</a><a href="/privacy-policy">Privacy Policy</a><a href="/terms">Terms</a></div></nav>
 <main class="legal-main">
-  <p class="legal-kicker">Legal</p>
+  <p class="legal-kicker">Operator template — verify the deployed application</p>
   <h1>Cookie Settings</h1>
-  <p class="legal-updated">Stand: 26. Juni 2026</p>
-  <section class="legal-section"><h2>Aktuelle Einstellung</h2><p>pm-web verwendet keine optionalen Tracking- oder Marketing-Cookies. Technisch notwendige Speicherung kann fuer Anmeldung, Sicherheit, Darstellung und Consent-Status erforderlich sein.</p><button type="button" class="btn btn-primary" data-cookie-settings>Open Cookie Settings</button></section>
-  <section class="legal-section"><h2>Notwendige Speicherung</h2><p><code>pm_token</code> speichert die angemeldete Sitzung als HTTP-only Cookie. Lokale Einstellungen wie Theme, PWA-Installationshinweise und Cookie-Status werden im Browser gespeichert.</p></section>
-  <section class="legal-section"><h2>Optionale Cookies</h2><p>Derzeit werden keine optionalen Cookies gesetzt. Sollten Analyse- oder Marketingdienste spaeter aktiviert werden, werden sie erst nach ausdruecklicher Einwilligung geladen.</p></section>
+  <p class="legal-updated">This page describes package capabilities, not an operator's full deployment.</p>
+  <section class="legal-section"><h2>Package defaults</h2><p>pm-web can use an HTTP-only <code>pm_token</code> session cookie, short-lived OIDC flow state when configured, and local browser preferences such as theme, PWA prompts, and this banner choice.</p><button type="button" class="btn btn-primary" data-cookie-settings>Open Cookie Settings</button></section>
+  <section class="legal-section"><h2>Operator verification required</h2><p>Reverse proxies, identity providers, analytics, embeds, support tools, and other deployment components may add cookies or storage. Inventory the running service and replace this page with a reviewed disclosure.</p></section>
+  <section class="legal-section"><h2>No package-level consent claim</h2><p>The reusable package cannot decide which storage is necessary, optional, or consent-based for an unknown deployment and jurisdiction.</p></section>
 </main>
 <div class="cookie-consent" id="cookie-consent" hidden><div class="cookie-consent-text"><strong>Cookie Settings</strong><span>We only use technically necessary storage for sign-in, security, and preferences. No optional tracking cookies.</span></div><div class="cookie-consent-actions"><a href="/privacy-policy">Privacy Policy</a><button type="button" class="btn btn-secondary btn-sm" data-cookie-decline>Necessary only</button><button type="button" class="btn btn-primary btn-sm" data-cookie-accept>Got it</button></div></div>
 <script src="/cookie-consent.js?v=1"></script>

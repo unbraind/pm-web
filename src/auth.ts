@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import crypto from "node:crypto";
 
 const DEV_JWT_SECRET = crypto.randomBytes(32).toString("base64url");
@@ -17,6 +17,17 @@ export interface JwtPayload {
 
 export function signToken(payload: JwtPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+}
+
+export function setSessionCookie(res: Response, payload: JwtPayload): string {
+  const token = signToken(payload);
+  res.cookie("pm_token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+  return token;
 }
 
 export function verifyToken(token: string): JwtPayload {

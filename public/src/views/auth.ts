@@ -6,6 +6,25 @@ import { api } from '../api.js';
 import { bootApp } from '../app.js';
 import type { User } from '../types.js';
 
+async function configureOidcLogin(): Promise<void> {
+  const button = document.getElementById('oidc-login') as HTMLButtonElement | null;
+  const divider = document.getElementById('oidc-divider') as HTMLElement | null;
+  if (!button) return;
+  try {
+    const config = await api('GET', '/auth/oidc/config') as { enabled: boolean; label: string };
+    button.hidden = !config.enabled;
+    if (divider) divider.hidden = !config.enabled;
+    button.textContent = `Continue with ${config.label}`;
+  } catch {
+    button.hidden = true;
+    if (divider) divider.hidden = true;
+  }
+}
+
+export function startOidcLogin(): void {
+  window.location.assign('/api/auth/oidc/start');
+}
+
 export function switchAuthTab(tab: 'login' | 'register'): void {
   state.authTab = tab;
   document.getElementById('tab-login')?.classList.toggle('active', tab==='login');
@@ -71,4 +90,5 @@ export function showAuth(): void {
   const mainApp = document.getElementById('main-app');
   if (authScreen) authScreen.style.display = 'flex';
   if (mainApp) mainApp.style.display = 'none';
+  void configureOidcLogin();
 }

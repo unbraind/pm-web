@@ -1,34 +1,24 @@
-FROM node:22-slim AS builder
+FROM node:22.18.0-bookworm-slim@sha256:752ea8a2f758c34002a0461bd9f1cee4f9a3c36d48494586f60ffce1fc708e0e AS builder
 WORKDIR /app
-ARG PM_CLI_CACHE_BUST=latest
-
-# Install pm-cli globally + fix shebang path
-RUN echo "pm-cli cache bust: ${PM_CLI_CACHE_BUST}" && npm install -g @unbrained/pm-cli@latest && \
-    (test -f /usr/bin/node || ln -s $(which node) /usr/bin/node)
 
 COPY package.json package-lock.json* ./
-RUN npm install --ignore-scripts
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Copy server source and build
 COPY tsconfig.json ./
 COPY src/ ./src/
 COPY extensions/ ./extensions/
-RUN cd extensions/pm-graph && npm install --ignore-scripts
+RUN cd extensions/pm-graph && npm ci --ignore-scripts --no-audit --no-fund
 # Copy entire public directory for frontend build
 COPY public/ ./public/
 # Build both server and frontend
 RUN npm run build
 
-FROM node:22-slim AS runtime
+FROM node:22.18.0-bookworm-slim@sha256:752ea8a2f758c34002a0461bd9f1cee4f9a3c36d48494586f60ffce1fc708e0e AS runtime
 WORKDIR /app
-ARG PM_CLI_CACHE_BUST=latest
-
-# Install pm-cli globally in runtime stage
-RUN echo "pm-cli cache bust: ${PM_CLI_CACHE_BUST}" && npm install -g @unbrained/pm-cli@latest && \
-    (test -f /usr/bin/node || ln -s $(which node) /usr/bin/node)
 
 COPY package.json package-lock.json* ./
-RUN npm install --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public

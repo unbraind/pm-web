@@ -112,6 +112,9 @@ pm web doctor --json
 | `PM_WEB_BOOTSTRAP_ADMIN_EMAIL` | Recommended | Email of the user account to auto-promote to admin on schema init. Leave unset to skip auto-promotion (manage admins via the admin UI). |
 | `PORT` | No | Server port (default: 4000) |
 | `PM_WEB_STATE_DIR` | No | Directory for the `--detach` pidfile used by `pm web stop` (default: OS temp dir) |
+| `PROJECTS_ROOT` | No | Host-mounted root for persistent pm workspaces (default: `/app/projects`) |
+| `PM_WEB_PM_CONCURRENCY` | No | Maximum pm CLI child processes across independent workspaces (default: `8`); commands for one workspace always serialize |
+| `PM_CLI_BIN` | No | Explicit pm CLI executable path (default: packaged `node_modules/.bin/pm`, then `pm` from `PATH`) |
 | `NODE_ENV` | No | `production` enables caching |
 | `OLLAMA_BASE_URL` / `OLLAMA_HOST` | No | Local Ollama endpoint for semantic pm search |
 | `PM_OLLAMA_MODEL` | No | Embedding model for new projects, default `qwen3-embedding:0.6b` |
@@ -119,10 +122,32 @@ pm web doctor --json
 | `NEO4J_USER` / `NEO4J_USERNAME` | No | Neo4j username |
 | `NEO4J_PASSWORD` | No | Neo4j password |
 | `PM_GRAPH_EXTENSION_PATH` | No | Bundled pm-graph extension path, default `extensions/pm-graph` |
+| `PM_WEB_LEGAL_DIR` | Production | Absolute path to a complete, private, operator-reviewed legal-page overlay; see `docs/LEGAL_DEPLOYMENT_BOUNDARY.md` |
+| `OIDC_ISSUER` | No | Provider issuer URL; setting any OIDC variable enables strict configuration validation |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | With OIDC | OIDC confidential client credentials |
+| `OIDC_REDIRECT_URI` | With OIDC | Exact HTTPS callback URL ending in `/api/oidc/callback` in production |
+| `OIDC_COOKIE_SECRET` | With OIDC | Dedicated secret for signed, short-lived login state; at least 32 characters in production |
+| `OIDC_SCOPES` | No | Requested scopes (default: `openid profile email`) |
+| `OIDC_REQUIRE_VERIFIED_EMAIL` | No | Reject identities without a provider-verified email when `true` |
 
 New pm-web projects configure local Ollama search automatically and install the bundled `pm-graph` extension into the project workspace. Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
 
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
+
+pm CLI commands run asynchronously with bounded global concurrency. Requests for
+the same workspace are serialized in process (in addition to pm's own storage
+locks), while independent projects can make progress concurrently. This keeps
+HTTP responses, SSE delivery, and PostgreSQL realtime notifications responsive
+during command bursts without allowing unbounded child-process fan-out.
+
+Optional OIDC uses Authorization Code flow with PKCE, provider discovery/JWKS,
+signed state cookies, and issuer/subject identity mapping. It is disabled when
+no OIDC variables are present and production startup fails closed on partial or
+unsafe configuration. Password login remains available.
+
+The public package ships operator-neutral legal placeholders only. A hosted
+deployment must mount all reviewed pages privately through `PM_WEB_LEGAL_DIR`;
+the server refuses partial overlays. See [the legal deployment boundary](docs/LEGAL_DEPLOYMENT_BOUNDARY.md).
 
 ---
 

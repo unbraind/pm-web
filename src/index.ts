@@ -7,31 +7,11 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-// Inline defineExtension helper (avoids runtime dependency on @unbrained/pm-cli/sdk)
-function defineExtension<T>(m: T): T { return m; }
-
-// Minimal type stubs so TypeScript is satisfied without the SDK package
-interface ExtensionApi {
-  registerCommand(def: {
-    name: string;
-    description: string;
-    intent?: string;
-    examples?: string[];
-    flags?: Array<{ long: string; value_name?: string; description: string }>;
-    run(ctx: CommandHandlerContext): Promise<unknown>;
-  }): void;
-  // Present on the v2 SDK runtime; guarded with a typeof check before use.
-  registerService?: (service: string, override: (ctx: unknown) => unknown) => void;
-}
-
-interface CommandHandlerContext {
-  command: string;
-  args: string[];
-  options: Record<string, unknown>;
-  global: Record<string, unknown>;
-  pm_root: string;
-}
+import {
+  defineExtension,
+  type CommandHandlerContext,
+  type ExtensionApi,
+} from "@unbrained/pm-cli/sdk";
 
 // ---------------------------------------------------------------------------
 // Error contract

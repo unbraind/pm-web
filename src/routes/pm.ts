@@ -4,10 +4,11 @@ import { ensureGraphExtension, runPm, projectExists } from "../services/pm-runne
 import { boardColumns, filterItemsByQuery } from "../board.js";
 import { buildIcsCalendar, type CalendarItem } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
-import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, broadcastPresence, updateClientView, getProjectPresence, type SSEEvent } from "../services/sse.js";
+import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, type SSEEvent } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
 import { routeParam } from "./route-params.js";
+import { pool } from "../db.js";
 
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
 let _neo4jDriver: ReturnType<typeof neo4j.driver> | null = null;
@@ -82,7 +83,7 @@ type ProjectRef = {
 const pendingGraphSyncs = new Map<string, NodeJS.Timeout>();
 
 router.use(async (req: AuthRequest, res, next) => {
-  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method) || (req.method === "PATCH" && req.path.startsWith("/presence/"))) {
     next();
     return;
   }
@@ -316,8 +317,8 @@ async function syncGraphToNeo4j(
 }
 
 async function syncProjectGraph(project: ProjectRef): Promise<{ syncedNodes: number; syncedRelationships: number }> {
-  const extensionGraph = pmGraphExtensionGraphForProject(project);
-  const graph = extensionGraph.graph ?? fallbackGraphForProject(project.ownerUserId, project.slug);
+  const extensionGraph = await pmGraphExtensionGraphForProject(project);
+  const graph = extensionGraph.graph ?? await fallbackGraphForProject(project.ownerUserId, project.slug);
   return syncGraphToNeo4j(graph, graphProjectKey(project));
 }
 
@@ -380,8 +381,8 @@ function itemsFromListAll(parsed: unknown): PmItem[] {
   return ((((parsed as { items?: PmItem[] } | undefined)?.items) ?? []) as PmItem[]);
 }
 
-function fallbackGraphForProject(ownerUserId: string, slug: string): ProjectGraph {
-  const itemsResult = runPm({
+async function fallbackGraphForProject(ownerUserId: string, slug: string): Promise<ProjectGraph> {
+  const itemsResult = await runPm({
     args: ["list-all"],
     userId: ownerUserId,
     slug,
@@ -395,13 +396,13 @@ function fallbackGraphForProject(ownerUserId: string, slug: string): ProjectGrap
   return graphFromItems(items, new Map());
 }
 
-function pmGraphExtensionGraphForProject(project: ProjectRef): { graph?: ProjectGraph; error?: string } {
-  const provision = ensureGraphExtension(project.ownerUserId, project.slug);
+async function pmGraphExtensionGraphForProject(project: ProjectRef): Promise<{ graph?: ProjectGraph; error?: string }> {
+  const provision = await ensureGraphExtension(project.ownerUserId, project.slug);
   if (!provision.ok) {
     return { error: provision.error };
   }
 
-  const extensionResult = runPm({
+  const extensionResult = await runPm({
     args: ["pm-graph", "export", "--json"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -444,7 +445,7 @@ router.get("/schema", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({ args: ["contracts", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args: ["contracts", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   const contracts = result.ok && result.parsed ? (result.parsed as Record<string, unknown>) : null;
   const rt = contracts?.["runtime_schema"] as Record<string, unknown> | undefined;
   res.json({
@@ -471,7 +472,7 @@ router.get("/list", async (req: AuthRequest, res) => {
   if (release) args.push("--release", release);
   if (assignee) args.push("--assignee", assignee);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 
@@ -485,7 +486,7 @@ router.get("/list-all", async (req: AuthRequest, res) => {
   if (type) args.push("--type", type);
   if (limit) args.push("--limit", limit);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 
@@ -496,13 +497,13 @@ router.get("/board", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const contracts = runPm({ args: ["contracts", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const contracts = await runPm({ args: ["contracts", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   const rt = contracts.ok && contracts.parsed
     ? ((contracts.parsed as Record<string, unknown>)["runtime_schema"] as Record<string, unknown> | undefined)
     : undefined;
   const statuses = Array.isArray(rt?.["statuses"]) ? (rt!["statuses"] as string[]) : [];
 
-  const listed = runPm({ args: ["list-all", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const listed = await runPm({ args: ["list-all", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!listed.ok) { res.json({ error: listed.stderr, columns: [] }); return; }
   const items = itemsFromListAll(listed.parsed);
   res.json({ columns: boardColumns(items, statuses), statuses, count: items.length });
@@ -515,7 +516,7 @@ router.get("/search", async (req: AuthRequest, res) => {
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const query = String((req.query as Record<string, string>)["q"] ?? "");
-  const listed = runPm({ args: ["list-all", "--json", "--include-body"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const listed = await runPm({ args: ["list-all", "--json", "--include-body"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!listed.ok) { res.json({ error: listed.stderr, items: [] }); return; }
   const items = filterItemsByQuery(itemsFromListAll(listed.parsed), query);
   res.json({ query, items, count: items.length });
@@ -567,7 +568,7 @@ router.post("/create", async (req: AuthRequest, res) => {
   if (outcome) args.push("--outcome", outcome);
   if (definitionOfReady) args.push("--definition-of-ready", definitionOfReady);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to create item" });
     return;
@@ -586,7 +587,7 @@ router.get("/get/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["get", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -629,7 +630,7 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   // Type can be set but must use --type
   if (body.type) args.push("--type", body.type);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to update item" });
     return;
@@ -651,7 +652,7 @@ router.post("/close/:itemId", async (req: AuthRequest, res) => {
   const { reason } = req.body as { reason?: string };
   if (!reason?.trim()) { res.status(400).json({ error: "Close reason is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["close", routeParam(req, "itemId"), reason.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -674,7 +675,7 @@ router.delete("/delete/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["delete", routeParam(req, "itemId"), "--yes"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -699,7 +700,7 @@ router.post("/comments/:itemId", async (req: AuthRequest, res) => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: "Comment text is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["comments", routeParam(req, "itemId"), text.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -717,7 +718,7 @@ router.get("/comments/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["comments", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -730,7 +731,7 @@ router.get("/comments/:itemId", async (req: AuthRequest, res) => {
 router.get("/notes/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["notes", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -747,7 +748,7 @@ router.post("/notes/:itemId", async (req: AuthRequest, res) => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: "Note text is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["notes", routeParam(req, "itemId"), text.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -769,7 +770,7 @@ router.get("/context", async (req: AuthRequest, res) => {
   const validDepths = ["brief", "standard", "deep"];
   const resolvedDepth = validDepths.includes(depth) ? depth : "standard";
 
-  const result = runPm({
+  const result = await runPm({
     args: ["context", "--depth", resolvedDepth],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -787,7 +788,7 @@ router.get("/activity", async (req: AuthRequest, res) => {
   const args = ["activity"];
   if (limit) args.push("--limit", limit);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { activity: [] });
 });
 
@@ -796,7 +797,7 @@ router.get("/stats", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["stats"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -810,7 +811,7 @@ router.get("/aggregate", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["aggregate"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -830,7 +831,7 @@ router.post("/search", async (req: AuthRequest, res) => {
   const validModes = ["keyword", "semantic", "hybrid"];
   const safeMode = validModes.includes(mode || "") ? mode! : "hybrid";
 
-  const result = runPm({
+  const result = await runPm({
     args: ["search", "--mode", safeMode, ...query.trim().split(/\s+/)],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -851,7 +852,7 @@ router.get("/calendar", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["calendar", "--view", "month"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -869,7 +870,7 @@ router.get("/calendar.ics", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const listed = runPm({
+  const listed = await runPm({
     args: ["list-all", "--json"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -906,7 +907,7 @@ router.get("/health", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["health"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -923,7 +924,7 @@ router.post("/append/:itemId", async (req: AuthRequest, res) => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: "Text is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["append", routeParam(req, "itemId"), text.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -942,7 +943,7 @@ router.get("/history/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["history", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -956,7 +957,7 @@ router.get("/deps/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["deps", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -974,7 +975,7 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
   if (!targetId?.trim()) { res.status(400).json({ error: "targetId is required" }); return; }
 
   const depRel = normalizeDependencyKind(rel);
-  const result = runPm({
+  const result = await runPm({
     args: ["update", routeParam(req, "itemId"), "--dep", `id=${targetId.trim()},kind=${depRel}`],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1004,7 +1005,7 @@ router.delete("/deps/:itemId", async (req: AuthRequest, res) => {
 
   const depRel = normalizeDependencyKind(rel || "relates_to");
   const selector = `id=${targetId.trim()},kind=${depRel}`;
-  const result = runPm({
+  const result = await runPm({
     args: ["update", routeParam(req, "itemId"), "--dep-remove", selector],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1035,7 +1036,7 @@ router.post("/rel", async (req: AuthRequest, res) => {
     return;
   }
   const depRel = normalizeDependencyKind(relType || "relates_to");
-  const result = runPm({
+  const result = await runPm({
     args: ["update", from.trim(), "--dep", `id=${to.trim()},kind=${depRel}`],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1067,7 +1068,7 @@ router.delete("/rel", async (req: AuthRequest, res) => {
   }
   const depRel = normalizeDependencyKind(relType || "relates_to");
   const selector = `id=${to.trim()},kind=${depRel}`;
-  const result = runPm({
+  const result = await runPm({
     args: ["update", from.trim(), "--dep-remove", selector, "--message", `Remove ${depRel} dependency on ${to.trim()}`],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1092,7 +1093,7 @@ router.get("/graph", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const extensionGraph = pmGraphExtensionGraphForProject(project);
+  const extensionGraph = await pmGraphExtensionGraphForProject(project);
   if (extensionGraph.graph) {
     res.json({
       ok: true,
@@ -1105,7 +1106,7 @@ router.get("/graph", async (req: AuthRequest, res) => {
   try {
     res.json({
       ok: true,
-      graph: fallbackGraphForProject(project.ownerUserId, project.slug),
+      graph: await fallbackGraphForProject(project.ownerUserId, project.slug),
       extensionAvailable: false,
       extensionError: extensionGraph.error,
     });
@@ -1154,7 +1155,7 @@ router.get("/graph/neighbors/:nodeId", async (req: AuthRequest, res) => {
   const nodeId = routeParam(req, "nodeId");
   if (!nodeId) { res.status(400).json({ error: "nodeId is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["pm-graph", "neighbors", nodeId, "--json"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1183,7 +1184,7 @@ router.post("/graph/query", async (req: AuthRequest, res) => {
   const { cypher } = req.body as { cypher?: string };
   if (!cypher?.trim()) { res.status(400).json({ error: "cypher query is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["pm-graph", "query", cypher.trim(), "--json"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1208,7 +1209,7 @@ router.get("/learnings/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["learnings", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1225,7 +1226,7 @@ router.post("/learnings/:itemId", async (req: AuthRequest, res) => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: "Learning text is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["learnings", routeParam(req, "itemId"), text.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1243,7 +1244,7 @@ router.post("/claim/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["claim", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1262,7 +1263,7 @@ router.post("/release/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["release", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1281,7 +1282,7 @@ router.post("/start-task/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["start-task", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1300,7 +1301,7 @@ router.post("/pause-task/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["pause-task", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1319,7 +1320,7 @@ router.get("/tests/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["test", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1339,7 +1340,7 @@ router.post("/tests/:itemId", async (req: AuthRequest, res) => {
   const args = ["test", routeParam(req, "itemId"), "--add", "--command", command.trim()];
   if (description) args.push("--description", description.trim());
 
-  const result = runPm({
+  const result = await runPm({
     args,
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1356,7 +1357,7 @@ router.post("/tests/:itemId", async (req: AuthRequest, res) => {
 router.get("/dedupe-audit", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["dedupe-audit"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1369,7 +1370,7 @@ router.get("/dedupe-audit", async (req: AuthRequest, res) => {
 router.get("/validate", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["validate"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1384,7 +1385,7 @@ router.post("/restore/:itemId", async (req: AuthRequest, res) => {
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   const { target } = req.body as { target?: string };
   if (!target?.trim()) { res.status(400).json({ error: "Restore target (timestamp or version) is required" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["restore", routeParam(req, "itemId"), target.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1406,7 +1407,7 @@ router.post("/close-task/:itemId", async (req: AuthRequest, res) => {
   const { reason } = req.body as { reason?: string };
   if (!reason?.trim()) { res.status(400).json({ error: "Close reason is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["close-task", routeParam(req, "itemId"), reason.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1427,7 +1428,7 @@ router.post("/reindex", async (req: AuthRequest, res) => {
   const { mode = "keyword" } = req.body as { mode?: string };
   const validModes = ["keyword", "semantic", "hybrid"];
   const safeMode = validModes.includes(mode) ? mode : "keyword";
-  const result = runPm({
+  const result = await runPm({
     args: ["reindex", "--mode", safeMode],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1445,7 +1446,7 @@ router.post("/reindex", async (req: AuthRequest, res) => {
 router.post("/normalize", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["normalize"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1458,7 +1459,7 @@ router.post("/normalize", async (req: AuthRequest, res) => {
 router.get("/comments-audit", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["comments-audit"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1476,7 +1477,7 @@ router.post("/files/:itemId", async (req: AuthRequest, res) => {
   let addVal = `path=${filePath.trim()}`;
   if (scope) addVal += `,scope=${scope}`;
   const args = ["files", routeParam(req, "itemId"), "--add", addVal];
-  const result = runPm({
+  const result = await runPm({
     args,
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1494,7 +1495,7 @@ router.post("/files/:itemId", async (req: AuthRequest, res) => {
 router.get("/files/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["files", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1508,7 +1509,7 @@ router.get("/guide", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["guide"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1522,7 +1523,7 @@ router.get("/guide/:topicId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["guide", routeParam(req, "topicId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1545,7 +1546,7 @@ router.get("/export", async (req: AuthRequest, res) => {
 
   const format = (req.query["format"] as string) || "json";
   // Use --full --include-body to get the richest available list-level metadata
-  const result = runPm({
+  const result = await runPm({
     args: ["list-all", "--limit", "10000", "--full", "--include-body"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1670,7 +1671,7 @@ router.post("/import", async (req: AuthRequest, res) => {
     if (item.body) args.push("--body", item.body);
     if (item.parent) args.push("--parent", item.parent);
 
-    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     if (result.ok && result.parsed) {
       const parsed = result.parsed as { item?: { id: string } };
       created.push(parsed.item?.id || `item[${i}]`);
@@ -1724,7 +1725,7 @@ router.post("/update-many", async (req: AuthRequest, res) => {
     if (body[key]) args.push(flag, body[key]!);
   }
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "update-many failed" });
     return;
@@ -1764,7 +1765,7 @@ router.post("/close-many", async (req: AuthRequest, res) => {
     if (body[key]) listArgs.push(flag, body[key]!);
   }
 
-  const listResult = runPm({ args: listArgs, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const listResult = await runPm({ args: listArgs, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!listResult.ok) {
     res.status(400).json({ error: listResult.stderr || "Failed to list items for close-many" });
     return;
@@ -1788,7 +1789,7 @@ router.post("/close-many", async (req: AuthRequest, res) => {
     const closeArgs = targetStatus === "canceled"
       ? ["update", itemId, "--status", "canceled"]
       : ["close", itemId, reason];
-    const closeResult = runPm({ args: closeArgs, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    const closeResult = await runPm({ args: closeArgs, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     if (closeResult.ok) {
       rows.push({ id: itemId, status: "ok" });
       closedCount++;
@@ -1819,7 +1820,7 @@ router.post("/close-many", async (req: AuthRequest, res) => {
 router.get("/docs/:itemId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({
+  const result = await runPm({
     args: ["docs", routeParam(req, "itemId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -1847,7 +1848,7 @@ router.post("/docs/:itemId", async (req: AuthRequest, res) => {
     res.status(400).json({ error: "path, remove, or validatePaths is required" });
     return;
   }
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to update docs" });
     return;
@@ -1865,7 +1866,7 @@ router.post("/test-all", async (req: AuthRequest, res) => {
   if (body.status) args.push("--status", body.status);
   if (body.limit) args.push("--limit", body.limit);
   if (body.timeout) args.push("--timeout", body.timeout);
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "test-all failed" });
     return;
@@ -1881,7 +1882,7 @@ router.get("/test-runs", async (req: AuthRequest, res) => {
   const args = ["test-runs", "list"];
   if (status) args.push("--status", status);
   if (limit) args.push("--limit", limit);
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { runs: [] });
 });
 
@@ -1889,7 +1890,7 @@ router.get("/test-runs", async (req: AuthRequest, res) => {
 router.post("/gc", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({ args: ["gc"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args: ["gc"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
 });
 
@@ -1897,7 +1898,7 @@ router.post("/gc", async (req: AuthRequest, res) => {
 router.get("/templates", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({ args: ["templates", "list"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args: ["templates", "list"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { templates: [] });
 });
 
@@ -1905,7 +1906,7 @@ router.get("/templates", async (req: AuthRequest, res) => {
 router.get("/templates/:name", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({ args: ["templates", "show", routeParam(req, "name")], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args: ["templates", "show", routeParam(req, "name")], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
 });
 
@@ -1913,7 +1914,7 @@ router.get("/templates/:name", async (req: AuthRequest, res) => {
 router.get("/config", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const result = runPm({ args: ["config", "project", "list"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args: ["config", "project", "list"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
 });
 
@@ -1922,7 +1923,7 @@ router.get("/config/:key", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   const key = routeParam(req, "key");
-  const result = runPm({ args: ["config", "project", "get", key], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args: ["config", "project", "get", key], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
 });
 
@@ -1936,7 +1937,7 @@ router.patch("/config/:key", async (req: AuthRequest, res) => {
   if (body.value) args.push(body.value);
   if (body.policy) args.push("--policy", body.policy);
   if (body.format) args.push("--format", body.format);
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
 });
 
@@ -1956,7 +1957,7 @@ function buildListShortcutRoute(pmCommand: string) {
     if (assignee) args.push("--assignee", assignee);
     if (sprint) args.push("--sprint", sprint);
     if (release) args.push("--release", release);
-    const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     res.json(result.ok ? (result.parsed || {}) : { items: [] });
   };
 }
@@ -1989,7 +1990,7 @@ router.post("/plan", async (req: AuthRequest, res) => {
   if (priority) args.push("--priority", priority);
   if (body) args.push("--body", body);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to create plan" });
     return;
@@ -2006,7 +2007,7 @@ router.get("/plan/:planId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["plan", "show", routeParam(req, "planId"), "--depth", "standard"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2026,7 +2027,7 @@ router.patch("/plan/:planId", async (req: AuthRequest, res) => {
   if (title?.trim()) args.push("--title", title.trim());
   if (description !== undefined) args.push("--description", description);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to update plan" });
     return;
@@ -2043,7 +2044,7 @@ router.delete("/plan/:planId", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["delete", routeParam(req, "planId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2072,7 +2073,7 @@ router.post("/plan/:planId/steps", async (req: AuthRequest, res) => {
   if (description) args.push("--description", description);
   if (dependsOn) args.push("--depends-on", dependsOn);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to add step" });
     return;
@@ -2094,7 +2095,7 @@ router.patch("/plan/:planId/steps/:stepRef", async (req: AuthRequest, res) => {
   if (title) args.push("--title", title);
   if (description) args.push("--description", description);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to update step" });
     return;
@@ -2111,7 +2112,7 @@ router.post("/plan/:planId/steps/:stepRef/complete", async (req: AuthRequest, re
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["plan", "complete-step", routeParam(req, "planId"), routeParam(req, "stepRef")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2136,7 +2137,7 @@ router.post("/plan/:planId/steps/:stepRef/block", async (req: AuthRequest, res) 
   const { reason } = req.body as { reason?: string };
   if (!reason?.trim()) { res.status(400).json({ error: "Block reason is required" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["plan", "block-step", routeParam(req, "planId"), routeParam(req, "stepRef"), "--step-blocked-reason", reason.trim()],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2158,7 +2159,7 @@ router.delete("/plan/:planId/steps/:stepRef", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["plan", "remove-step", routeParam(req, "planId"), routeParam(req, "stepRef")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2180,7 +2181,7 @@ router.post("/plan/:planId/approve", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["plan", "approve", routeParam(req, "planId")],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2208,7 +2209,7 @@ router.post("/plan/:planId/materialize", async (req: AuthRequest, res) => {
   if (materializeParent) args.push("--materialize-parent", materializeParent);
   if (steps) args.push("--steps", steps);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to materialize plan" });
     return;
@@ -2231,7 +2232,7 @@ router.post("/plan/:planId/steps/:stepRef/reorder", async (req: AuthRequest, res
     return;
   }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["plan", "reorder-step", routeParam(req, "planId"), routeParam(req, "stepRef"), String(reorderTo)],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2261,7 +2262,7 @@ router.post("/plan/:planId/link", async (req: AuthRequest, res) => {
   if (linkNote) args.push("--link-note", linkNote);
   if (promoteToItemDep === "true") args.push("--promote-to-item-dep");
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to link plan" });
     return;
@@ -2284,7 +2285,7 @@ router.delete("/plan/:planId/link", async (req: AuthRequest, res) => {
   const args = ["plan", "unlink", routeParam(req, "planId"), "--link", link.trim()];
   if (linkKind) args.push("--link-kind", linkKind);
 
-  const result = runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || "Failed to unlink plan" });
     return;
@@ -2304,7 +2305,7 @@ router.get("/upgrade", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const result = runPm({
+  const result = await runPm({
     args: ["upgrade", "--dry-run", "--packages-only"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2318,7 +2319,7 @@ router.post("/upgrade", async (req: AuthRequest, res) => {
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   // Only allow package upgrades from the web UI — never self-upgrade the CLI binary.
-  const result = runPm({
+  const result = await runPm({
     args: ["upgrade", "--packages-only"],
     userId: project.ownerUserId,
     slug: project.slug,
@@ -2331,18 +2332,25 @@ router.post("/upgrade", async (req: AuthRequest, res) => {
   res.json(result.parsed || { ok: true });
 });
 
-// ─── Presence endpoints ───
-// GET /api/projects/:projectId/pm/presence
-router.get("/presence", async (req: AuthRequest, res) => {
-  const projectId = routeParam(req, "projectId");
-  res.json({ users: getProjectPresence(projectId) });
-});
-
 // PATCH /api/projects/:projectId/pm/presence/:clientId
 router.patch("/presence/:clientId", async (req: AuthRequest, res) => {
+  const projectId = routeParam(req, "projectId");
+  const access = await verifyProjectAccess(req.user!.userId, projectId);
+  if (!access) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
   const { clientId } = req.params as { clientId: string };
   const { view } = req.body as { view?: string };
-  if (view) updateClientView(clientId, view);
+  if (!view || !/^[a-z][a-z0-9-]{0,63}$/.test(view)) {
+    res.status(400).json({ error: "Invalid view" });
+    return;
+  }
+  const updated = updateClientView(clientId, req.user!.userId, projectId, view);
+  if (!updated) {
+    res.status(404).json({ error: "Presence session not found" });
+    return;
+  }
   res.json({ ok: true });
 });
 
@@ -2363,8 +2371,11 @@ router.get("/events", async (req: AuthRequest, res) => {
   const clientId = uuidv4();
   const projectId = routeParam(req, "projectId");
   const userId = req.user!.userId;
-  // Client sends display name as query param; fall back to email
-  const displayName = String(req.query["dn"] ?? req.user!.email ?? userId);
+  const userResult = await pool.query<{ display_name: string | null }>(
+    "SELECT display_name FROM pm_users WHERE id = $1",
+    [userId],
+  );
+  const displayName = userResult.rows[0]?.display_name?.trim() || "Project member";
   const currentView = String(req.query["view"] ?? "items");
 
   const unsubscribe = addSSEClient({
@@ -2381,8 +2392,6 @@ router.get("/events", async (req: AuthRequest, res) => {
   const heartbeat = setInterval(() => {
     try {
       res.write(": heartbeat\n\n");
-      // Re-broadcast presence on heartbeat to keep list fresh
-      broadcastPresence(projectId);
     } catch {
       clearInterval(heartbeat);
       unsubscribe();

@@ -109,7 +109,7 @@ router.post("/", async (req: AuthRequest, res) => {
 
     // Initialize pm storage in the project directory
     try {
-      initProject(req.user!.userId, project.slug, project.prefix);
+      await initProject(req.user!.userId, project.slug, project.prefix);
     } catch (err) {
       // Rollback DB entry if pm init fails
       await pool.query("DELETE FROM pm_projects WHERE id = $1", [project.id]);

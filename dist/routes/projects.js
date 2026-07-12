@@ -81,7 +81,7 @@ router.post("/", async (req, res) => {
         const project = result.rows[0];
         // Initialize pm storage in the project directory
         try {
-            initProject(req.user.userId, project.slug, project.prefix);
+            await initProject(req.user.userId, project.slug, project.prefix);
         }
         catch (err) {
             // Rollback DB entry if pm init fails

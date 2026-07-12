@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { pool } from "../db.js";
-import { signToken } from "../auth.js";
+import { setSessionCookie } from "../auth.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { encryptSecret } from "../crypto.js";
 
@@ -39,14 +39,7 @@ router.post("/register", async (req, res) => {
       [normalizedEmail, hash, displayName?.trim() || null, bootstrapAdminEmail]
     );
     const user = result.rows[0] as { id: string; email: string };
-    const token = signToken({ userId: user.id, email: user.email });
-
-    res.cookie("pm_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    const token = setSessionCookie(res, { userId: user.id, email: user.email });
 
     res.status(201).json({ token, user: result.rows[0] });
   } catch (err: unknown) {
@@ -86,14 +79,7 @@ router.post("/login", async (req, res) => {
       return;
     }
 
-    const token = signToken({ userId: user.id, email: user.email });
-
-    res.cookie("pm_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    const token = setSessionCookie(res, { userId: user.id, email: user.email });
 
     res.json({
       token,

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- Pin pm-web container dependencies and minimize build context ([pm-web-184g](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-184g.toon))
+- Add generic self-hostable OIDC login ([pm-web-t03i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-t03i.toon))
+
+### Other
+
+- Separate public legal templates from hosted deployment notices ([pm-web-apu6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-apu6.toon))
+
 ## 2026.7.10 - 2026-07-10
 
 ### Fixed
