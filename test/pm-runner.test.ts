@@ -4,7 +4,35 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { runPm } from "../dist/services/pm-runner.js";
+import { runPm, Semaphore } from "../dist/services/pm-runner.js";
+
+test("semaphore hands a released slot directly to the oldest waiter", async () => {
+  const semaphore = new Semaphore(1);
+  const releaseFirst = await semaphore.acquire();
+  let secondAcquired = false;
+  let thirdAcquired = false;
+  let releaseSecond: (() => void) | undefined;
+
+  const second = semaphore.acquire().then((release) => {
+    secondAcquired = true;
+    releaseSecond = release;
+  });
+  releaseFirst();
+  const third = semaphore.acquire().then((release) => {
+    thirdAcquired = true;
+    return release;
+  });
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(secondAcquired, true);
+  assert.equal(thirdAcquired, false, "a new acquire must not steal a slot handed to a waiter");
+
+  releaseSecond!();
+  await second;
+  const releaseThird = await third;
+  assert.equal(thirdAcquired, true);
+  releaseThird();
+});
 
 test("pm runner stays non-blocking, serializes a workspace, and overlaps independent workspaces", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-runner-"));

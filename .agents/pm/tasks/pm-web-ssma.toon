@@ -6,7 +6,7 @@ status: in_progress
 priority: 1
 tags[4]: concurrency,performance,pm-cli,realtime
 created_at: "2026-07-12T14:20:29.351Z"
-updated_at: "2026-07-12T15:39:50.570Z"
+updated_at: "2026-07-12T16:41:56.941Z"
 assignee: codex
 author: codex
 acceptance_criteria: All pm command paths are asynchronous; commands serialize per workspace while independent workspaces run concurrently under a configurable global cap; timeouts and output limits terminate safely; event-loop responsiveness and concurrency behavior have automated tests; the hosted load test no longer shows multi-second foreign-event delivery stalls.
@@ -14,8 +14,10 @@ parent: pm-web-2rek
 risk: high
 confidence: high
 expected_result: pm-web remains responsive during pm CLI work and preserves safe workspace serialization.
-notes[1]{created_at,author,text}:
+notes[3]{created_at,author,text}:
   "2026-07-12T15:39:50.570Z",codex,"GitHub review follow-up: Gemini timer/spawn findings and CodeRabbit binary findings resolved. The runner now clears escalation timers, converts synchronous spawn failures to structured results, caches packaged resolution, and invokes the JavaScript CLI entry through node on Windows. Full 68-test/type/build/audit/container gate passes."
+  "2026-07-12T16:41:55.548Z",codex,"2026-07-12 Gemini follow-up: fixed a semaphore slot-handoff race where a new acquire could steal capacity already promised to the oldest waiter. The semaphore now transfers an occupied slot directly and only decrements active capacity when no waiter exists; a deterministic regression test reproduces the microtask interleaving."
+  "2026-07-12T16:41:56.934Z",codex,"2026-07-12 project initialization follow-up: failed pm initialization now best-effort removes its newly created project directory before deleting the database row, preventing orphaned bind-mounted data while ensuring a cleanup exception cannot block DB rollback."
 files[5]{path,scope,note}:
   src/routes/github.ts,project,Await pm commands
   src/routes/pm.ts,project,Await pm commands

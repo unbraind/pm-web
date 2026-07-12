@@ -10,7 +10,7 @@ function positiveInteger(value: string | undefined, fallback: number): number {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-class Semaphore {
+export class Semaphore {
   private active = 0;
   private readonly waiting: Array<() => void> = [];
 
@@ -19,14 +19,16 @@ class Semaphore {
   async acquire(): Promise<() => void> {
     if (this.active >= this.limit) {
       await new Promise<void>((resolve) => this.waiting.push(resolve));
+    } else {
+      this.active += 1;
     }
-    this.active += 1;
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      this.active -= 1;
-      this.waiting.shift()?.();
+      const next = this.waiting.shift();
+      if (next) next();
+      else this.active -= 1;
     };
   }
 }

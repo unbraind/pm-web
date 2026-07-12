@@ -400,7 +400,7 @@ export async function resolveExternalIdentity(
       user = await queryUser(
         client,
         `SELECT id, email, display_name, is_admin, created_at
-           FROM pm_users WHERE lower(email) = lower($1) FOR UPDATE`,
+           FROM pm_users WHERE email = $1 FOR UPDATE`,
         [identity.email],
       );
       if (user && !identity.emailVerified) {

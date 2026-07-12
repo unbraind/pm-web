@@ -275,7 +275,7 @@ export async function resolveExternalIdentity(client, identity) {
         let user = null;
         if (identity.email) {
             user = await queryUser(client, `SELECT id, email, display_name, is_admin, created_at
-           FROM pm_users WHERE lower(email) = lower($1) FOR UPDATE`, [identity.email]);
+           FROM pm_users WHERE email = $1 FOR UPDATE`, [identity.email]);
             if (user && !identity.emailVerified) {
                 throw new OidcFlowError("unverified_email_collision", "An account with this email already exists and the provider did not verify it.", 409);
             }

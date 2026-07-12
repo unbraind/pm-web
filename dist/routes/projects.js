@@ -84,7 +84,14 @@ router.post("/", async (req, res) => {
             await initProject(req.user.userId, project.slug, project.prefix);
         }
         catch (err) {
-            // Rollback DB entry if pm init fails
+            // Roll back both persistence layers if pm initialization fails. Directory
+            // cleanup is best-effort so it cannot prevent removal of the DB row.
+            try {
+                deleteProjectDir(req.user.userId, project.slug);
+            }
+            catch (cleanupError) {
+                console.error("Failed to clean up project directory after initialization error:", cleanupError instanceof Error ? cleanupError.name : typeof cleanupError);
+            }
             await pool.query("DELETE FROM pm_projects WHERE id = $1", [project.id]);
             throw err;
         }

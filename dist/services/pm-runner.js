@@ -7,7 +7,7 @@ function positiveInteger(value, fallback) {
     const parsed = Number.parseInt(value ?? "", 10);
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
-class Semaphore {
+export class Semaphore {
     limit;
     active = 0;
     waiting = [];
@@ -18,14 +18,19 @@ class Semaphore {
         if (this.active >= this.limit) {
             await new Promise((resolve) => this.waiting.push(resolve));
         }
-        this.active += 1;
+        else {
+            this.active += 1;
+        }
         let released = false;
         return () => {
             if (released)
                 return;
             released = true;
-            this.active -= 1;
-            this.waiting.shift()?.();
+            const next = this.waiting.shift();
+            if (next)
+                next();
+            else
+                this.active -= 1;
         };
     }
 }

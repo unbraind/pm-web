@@ -245,9 +245,9 @@ class FakeOidcDb {
       if (mapping) mapping.email = values[2] as string | null;
       return { rows: [] };
     }
-    if (normalized.includes("FROM pm_users WHERE lower(email)")) {
-      const email = String(values[0]).toLowerCase();
-      const user = this.users.find((candidate) => candidate.email.toLowerCase() === email);
+    if (normalized.includes("FROM pm_users WHERE email = $1")) {
+      const email = String(values[0]);
+      const user = this.users.find((candidate) => candidate.email === email);
       return { rows: user ? [user] : [] };
     }
     if (normalized.startsWith("INSERT INTO pm_users")) {
