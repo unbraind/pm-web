@@ -44,7 +44,9 @@ export function assertDbConfigured() {
 }
 export const pool = new Pool({
     ...resolvePoolConfig(),
-    max: 10,
+    // One client is permanently reserved for LISTEN/NOTIFY. Keep request/query
+    // capacity separate and configurable for larger multi-user deployments.
+    max: Math.max(2, parseInt(process.env.PM_WEB_DB_POOL_MAX || "20", 10) || 20),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
 });
@@ -117,6 +119,20 @@ export async function initSchema() {
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_owner TEXT;
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_repo TEXT;
     ALTER TABLE pm_projects ADD COLUMN IF NOT EXISTS github_sync_enabled BOOLEAN DEFAULT FALSE;
+  `);
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS pm_external_identities (
+      issuer TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      user_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+      email TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (issuer, subject),
+      UNIQUE (issuer, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS pm_external_identities_user_id
+      ON pm_external_identities(user_id);
   `);
     await pool.query(`CREATE TABLE IF NOT EXISTS pm_admin_audit (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

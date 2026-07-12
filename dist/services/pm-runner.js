@@ -1,7 +1,44 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-const PROJECTS_ROOT = process.env.PROJECTS_ROOT || "/app/projects";
+const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
+const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
+function positiveInteger(value, fallback) {
+    const parsed = Number.parseInt(value ?? "", 10);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+export class Semaphore {
+    limit;
+    active = 0;
+    waiting = [];
+    constructor(limit) {
+        this.limit = limit;
+    }
+    async acquire() {
+        if (this.active >= this.limit) {
+            await new Promise((resolve) => this.waiting.push(resolve));
+        }
+        else {
+            this.active += 1;
+        }
+        let released = false;
+        return () => {
+            if (released)
+                return;
+            released = true;
+            const next = this.waiting.shift();
+            if (next)
+                next();
+            else
+                this.active -= 1;
+        };
+    }
+}
+const commandSlots = new Semaphore(positiveInteger(process.env.PM_WEB_PM_CONCURRENCY, 8));
+const workspaceTails = new Map();
+function projectsRoot() {
+    return process.env.PROJECTS_ROOT || "/app/projects";
+}
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ||
     process.env.OLLAMA_HOST ||
     "http://localhost:11434";
@@ -11,23 +48,123 @@ const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
 const PM_GRAPH_EXTENSION_PATH = process.env.PM_GRAPH_EXTENSION_PATH ||
     path.join(process.cwd(), "extensions", "pm-graph");
 export function getProjectDir(userId, slug) {
-    return path.join(PROJECTS_ROOT, userId, slug);
+    return path.join(projectsRoot(), userId, slug);
 }
-export function initProject(userId, slug, prefix) {
+let cachedPmCommand;
+function pmCliCommand() {
+    if (process.env.PM_CLI_BIN)
+        return { command: process.env.PM_CLI_BIN, prefixArgs: [] };
+    if (cachedPmCommand)
+        return cachedPmCommand;
+    if (process.platform === "win32") {
+        const entry = path.join(process.cwd(), "node_modules", "@unbrained", "pm-cli", "dist", "cli.js");
+        cachedPmCommand = fs.existsSync(entry)
+            ? { command: process.execPath, prefixArgs: [entry] }
+            : { command: "pm", prefixArgs: [] };
+        return cachedPmCommand;
+    }
+    const local = path.join(process.cwd(), "node_modules", ".bin", "pm");
+    cachedPmCommand = fs.existsSync(local)
+        ? { command: local, prefixArgs: [] }
+        : { command: "pm", prefixArgs: [] };
+    return cachedPmCommand;
+}
+async function runProcess(cwd, args, options = {}) {
+    const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+    return new Promise((resolve) => {
+        const pmCommand = pmCliCommand();
+        let child;
+        try {
+            child = spawn(pmCommand.command, [...pmCommand.prefixArgs, ...args], {
+                cwd,
+                env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env },
+                stdio: ["pipe", "pipe", "pipe"],
+                windowsHide: true,
+            });
+        }
+        catch (error) {
+            resolve({
+                stdout: "",
+                stderr: error instanceof Error ? error.message : String(error),
+                ok: false,
+            });
+            return;
+        }
+        const stdout = [];
+        const stderr = [];
+        let outputBytes = 0;
+        let failure = "";
+        let settled = false;
+        let forceKill;
+        const terminate = (reason) => {
+            if (failure)
+                return;
+            failure = reason;
+            child.kill("SIGTERM");
+            forceKill = setTimeout(() => child.kill("SIGKILL"), 1_000);
+            forceKill.unref();
+        };
+        const collect = (chunks, chunk) => {
+            outputBytes += chunk.length;
+            if (outputBytes > MAX_OUTPUT_BYTES) {
+                terminate(`pm command exceeded the ${MAX_OUTPUT_BYTES}-byte output limit`);
+                return;
+            }
+            chunks.push(chunk);
+        };
+        child.stdout.on("data", (chunk) => collect(stdout, chunk));
+        child.stderr.on("data", (chunk) => collect(stderr, chunk));
+        child.on("error", (error) => {
+            failure = error.message;
+        });
+        const timeout = setTimeout(() => terminate(`pm command timed out after ${timeoutMs}ms`), timeoutMs);
+        timeout.unref();
+        child.on("close", (code) => {
+            if (settled)
+                return;
+            settled = true;
+            clearTimeout(timeout);
+            if (forceKill)
+                clearTimeout(forceKill);
+            const stderrText = Buffer.concat(stderr).toString("utf8");
+            resolve({
+                stdout: Buffer.concat(stdout).toString("utf8"),
+                stderr: failure ? `${stderrText}${stderrText ? "\n" : ""}${failure}` : stderrText,
+                ok: code === 0 && !failure,
+            });
+        });
+        child.stdin.on("error", () => undefined);
+        child.stdin.end(options.input);
+    });
+}
+async function runSerialized(workspace, work) {
+    const previous = workspaceTails.get(workspace) ?? Promise.resolve();
+    let releaseWorkspace;
+    const gate = new Promise((resolve) => { releaseWorkspace = resolve; });
+    const tail = previous.catch(() => undefined).then(() => gate);
+    workspaceTails.set(workspace, tail);
+    await previous.catch(() => undefined);
+    const releaseSlot = await commandSlots.acquire();
+    try {
+        return await work();
+    }
+    finally {
+        releaseSlot();
+        releaseWorkspace();
+        void tail.finally(() => {
+            if (workspaceTails.get(workspace) === tail)
+                workspaceTails.delete(workspace);
+        });
+    }
+}
+export async function initProject(userId, slug, prefix) {
     const dir = getProjectDir(userId, slug);
     fs.mkdirSync(dir, { recursive: true });
-    const result = spawnSync("pm", ["init", prefix], {
-        cwd: dir,
-        encoding: "utf8",
-        timeout: 15_000,
-        env: { ...process.env, HOME: "/tmp" },
-    });
-    if (result.error)
-        throw result.error;
-    if (result.status !== 0)
+    const result = await runSerialized(dir, () => runProcess(dir, ["init", prefix], { timeoutMs: 15_000 }));
+    if (!result.ok)
         throw new Error(result.stderr || "pm init failed");
     configureLocalOllamaSearch(dir);
-    ensureGraphExtension(userId, slug);
+    await ensureGraphExtension(userId, slug);
 }
 function configureLocalOllamaSearch(projectDir) {
     const settingsPath = path.join(projectDir, ".agents", "pm", "settings.json");
@@ -76,14 +213,9 @@ function bundledGraphExtensionManifest() {
 function projectGraphExtensionManifest(projectDir) {
     return readJsonFile(path.join(projectDir, ".agents", "pm", "extensions", "pm-graph", "manifest.json"));
 }
-function graphExtensionIsActive(projectDir) {
-    const result = spawnSync("pm", ["extension", "explore", "--project", "--json"], {
-        cwd: projectDir,
-        encoding: "utf8",
-        timeout: 15_000,
-        env: { ...process.env, HOME: "/tmp", NO_COLOR: "1" },
-    });
-    if (result.status !== 0 || !result.stdout)
+async function graphExtensionIsActive(projectDir) {
+    const result = await runSerialized(projectDir, () => runProcess(projectDir, ["extension", "explore", "--project", "--json"], { timeoutMs: 15_000 }));
+    if (!result.ok || !result.stdout)
         return false;
     try {
         const parsed = JSON.parse(result.stdout);
@@ -93,20 +225,10 @@ function graphExtensionIsActive(projectDir) {
         return false;
     }
 }
-function runExtensionCommand(projectDir, args) {
-    const result = spawnSync("pm", args, {
-        cwd: projectDir,
-        encoding: "utf8",
-        timeout: 30_000,
-        env: { ...process.env, HOME: "/tmp", NO_COLOR: "1" },
-    });
-    return {
-        stdout: result.stdout || "",
-        stderr: result.stderr || (result.error ? result.error.message : ""),
-        ok: result.status === 0,
-    };
+async function runExtensionCommand(projectDir, args) {
+    return runSerialized(projectDir, () => runProcess(projectDir, args));
 }
-export function ensureGraphExtension(userId, slug) {
+export async function ensureGraphExtension(userId, slug) {
     const dir = getProjectDir(userId, slug);
     const bundledManifest = bundledGraphExtensionManifest();
     if (!bundledManifest) {
@@ -120,7 +242,7 @@ export function ensureGraphExtension(userId, slug) {
     const projectManifest = projectGraphExtensionManifest(dir);
     const needsInstall = !projectManifest || projectManifest.version !== bundledManifest.version;
     if (needsInstall) {
-        const install = runExtensionCommand(dir, ["install", PM_GRAPH_EXTENSION_PATH, "--project"]);
+        const install = await runExtensionCommand(dir, ["install", PM_GRAPH_EXTENSION_PATH, "--project"]);
         if (!install.ok) {
             return {
                 ok: false,
@@ -130,8 +252,8 @@ export function ensureGraphExtension(userId, slug) {
             };
         }
     }
-    if (!graphExtensionIsActive(dir)) {
-        const activate = runExtensionCommand(dir, ["extension", "activate", "pm-graph", "--project"]);
+    if (!(await graphExtensionIsActive(dir))) {
+        const activate = await runExtensionCommand(dir, ["extension", "activate", "pm-graph", "--project"]);
         if (!activate.ok) {
             return {
                 ok: false,
@@ -141,7 +263,7 @@ export function ensureGraphExtension(userId, slug) {
             };
         }
     }
-    const ping = runExtensionCommand(dir, ["pm-graph", "ping", "--json"]);
+    const ping = await runExtensionCommand(dir, ["pm-graph", "ping", "--json"]);
     if (!ping.ok) {
         return {
             ok: false,
@@ -152,24 +274,15 @@ export function ensureGraphExtension(userId, slug) {
     }
     return { ok: true, installed: true, active: true };
 }
-export function runPm(opts) {
+export async function runPm(opts) {
     const dir = getProjectDir(opts.userId, opts.slug);
     const args = opts.jsonOutput ? ["--json", ...opts.args] : opts.args;
-    const result = spawnSync("pm", args, {
-        cwd: dir,
-        encoding: "utf8",
-        timeout: 30_000,
+    const result = await runSerialized(dir, () => runProcess(dir, args, {
         input: opts.input,
-        env: {
-            ...process.env,
-            HOME: "/tmp",
-            NO_COLOR: "1",
-            PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}`,
-        },
-    });
-    const stdout = result.stdout || "";
-    const stderr = result.stderr || "";
-    const ok = result.status === 0;
+        timeoutMs: opts.timeoutMs,
+        env: { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` },
+    }));
+    const { stdout, stderr, ok } = result;
     let parsed;
     if (opts.jsonOutput && ok && stdout) {
         try {

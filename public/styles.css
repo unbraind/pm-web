@@ -240,6 +240,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .form-error { color: #f87171; font-size: 12px; margin-top: 8px; }
 
 /* ── Buttons ── */
+[hidden] { display: none !important; }
+
 .btn {
   display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px;
   border: none; border-radius: var(--radius); cursor: pointer; font-family: inherit;

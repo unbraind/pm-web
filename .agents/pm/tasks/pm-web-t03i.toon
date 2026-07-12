@@ -1,0 +1,70 @@
+id: pm-web-t03i
+title: Add generic self-hostable OIDC login
+description: "Add optional provider-neutral OIDC Authorization Code + PKCE login to public pm-web with external identity mapping, secure state handling, UI discovery, docs, and tests."
+type: Task
+status: closed
+priority: 1
+tags[5]: auth,oidc,pkce,security,self-hosted
+created_at: "2026-07-11T13:27:36.450Z"
+updated_at: "2026-07-12T16:53:57.813Z"
+closed_at: "2026-07-11T13:43:13.010Z"
+author: codex
+acceptance_criteria: OIDC is disabled by default; partial production configuration fails closed; discovery/JWKS and exact token validation are used; identity resolution is transactional and safe; password login remains; generic docs and tests pass with no hosted values.
+risk: high
+confidence: high
+resolution: "Public pm-web now supports reusable self-hosted OIDC using only generic OIDC_* configuration; full typecheck, tests, build, npm audit, and diff checks pass."
+expected_result: "Optional generic OIDC login is disabled by default, fails closed on partial production config, securely validates protocol state and identity, preserves password login, and adds no hosted values."
+actual_result: "Implemented openid-client discovery/JWKS Authorization Code + PKCE, signed state cookies, exact claim checks, transactional issuer-subject mapping, verified-email collision rules, OIDC-only provisioning, UI discovery, schema, docs, and 12 focused OIDC tests within a 60-test passing suite."
+notes[5]{created_at,author,text}:
+  "2026-07-11T13:40:13.068Z",codex,"Implemented optional provider-neutral OIDC Authorization Code + PKCE S256 login. Environment contract: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI, optional OIDC_SCOPES (default openid profile email), dedicated OIDC_COOKIE_SECRET, and optional OIDC_REQUIRE_VERIFIED_EMAIL. OIDC remains disabled with no variables and partial production configuration stops startup."
+  "2026-07-12T14:56:24.090Z",codex,"Pre-push Greptile d40def06 found root issuer normalization, advisory-lock ordering clarity, and callback observability issues. Root issuers now canonicalize to URL.origin with a regression test; shared-email locking occurs before mapping lookup; non-protocol callback errors log only a safe error class/code. Full gate passes with 67 tests."
+  "2026-07-12T16:00:42.607Z",codex,"2026-07-12 final bot-review correction: enforced the platform-wide HTML hidden contract with `[hidden] { display: none !important; }` so component display classes cannot expose disabled OIDC controls; added a regression assertion in test/oidc.test.ts. Full 68-test suite, typecheck, and build pass."
+  "2026-07-12T16:41:56.259Z",codex,"2026-07-12 Gemini follow-up: changed verified-email account lookup to exact `email = $1`, allowing PostgreSQL to use the existing unique index because every password and OIDC insertion path normalizes email to lowercase. Retained exact OIDC issuer comparison intentionally: OpenID Connect issuer identifiers are exact and openid-client already validates discovery/JWKS; root configured issuers canonicalize to URL.origin while path issuers preserve their registered form."
+  "2026-07-12T16:53:57.812Z",codex,"2026-07-12 final Greptile efficiency/UX follow-up: provider discovery now fetches metadata once and rebuilds the openid-client Configuration locally when client_secret_basic is required. Callback `error` responses are handled after signed state validation, distinguish user denial from provider failure, and never reflect provider-controlled descriptions. Regression suite increased to 70 tests."
+learnings[1]{created_at,author,text}:
+  "2026-07-11T13:40:13.602Z",codex,"Use immutable issuer+subject as the external identity key. Email may link an existing account only when email_verified is the boolean true; unverified collisions must be rejected. Provider discovery/JWKS and code-grant validation stay in openid-client, with explicit defense-in-depth issuer, audience, nonce, and time checks."
+files[38]{path,scope,note}:
+  dist/app.d.ts,project,Generated package artifacts
+  dist/app.js,project,Generated package artifacts
+  dist/app.js.map,project,Generated package artifacts
+  dist/auth.d.ts,project,Generated package artifacts
+  dist/auth.js,project,Generated package artifacts
+  dist/auth.js.map,project,Generated package artifacts
+  dist/db.d.ts,project,Generated package artifacts
+  dist/db.js,project,Generated package artifacts
+  dist/db.js.map,project,Generated package artifacts
+  dist/index.d.ts,project,Generated package artifacts
+  dist/index.js,project,Generated package artifacts
+  dist/index.js.map,project,Generated package artifacts
+  dist/oidc.d.ts,project,Generated package artifacts
+  dist/oidc.js,project,Generated package artifacts
+  dist/oidc.js.map,project,Generated package artifacts
+  dist/routes/auth.d.ts,project,Generated package artifacts
+  dist/routes/auth.js,project,Generated package artifacts
+  dist/routes/auth.js.map,project,Generated package artifacts
+  dist/routes/oidc.d.ts,project,Generated route artifacts
+  dist/routes/oidc.js,project,Generated route artifacts
+  dist/routes/oidc.js.map,project,Generated route artifacts
+  dist/server.d.ts,project,Generated package artifacts
+  dist/server.js,project,Generated package artifacts
+  dist/server.js.map,project,Generated package artifacts
+  package-lock.json,project,Locked OIDC dependency graph
+  package.json,project,openid-client runtime dependency
+  public/index.html,project,Provider-neutral hidden-by-default login button
+  public/src/app.ts,project,Frontend OIDC action exposure
+  public/src/views/auth.ts,project,OIDC config discovery and login navigation
+  sql/schema.sql,project,General schema external identity contract
+  src/app.ts,project,OIDC auth route mount
+  src/auth.ts,project,Existing JWT session cookie helpers
+  src/db.ts,project,Runtime idempotent external identity migration
+  src/oidc.ts,project,Generic OIDC config state claim validation and transactional identity resolution
+  src/routes/auth.ts,project,Shared session and logout cookie handling
+  src/routes/oidc.ts,project,Discovery PKCE callback and session routes
+  src/server.ts,project,Production partial-config startup gate
+  test/oidc.test.ts,project,OIDC security identity and schema test suite
+tests[1]{command,scope,timeout_seconds}:
+  npm run typecheck && npm test && npm run build && npm audit && git diff --check,project,600
+docs[1]{path,scope,note}:
+  README.md,project,Generic OIDC environment and security contract
+close_reason: "Generic self-hostable OIDC support is implemented with no hosted/private configuration. The pm-linked gate passed typecheck, 60 tests, build, npm audit (0 vulnerabilities), and git diff --check."
+body: ""

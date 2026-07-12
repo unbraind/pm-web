@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import {
+  activateExtensionForTest,
+  assertRegisteredCommandContract,
+} from "@unbrained/pm-cli/sdk/testing";
 
 import { resolvePort, pidfilePath, shapeStatusResult, nodeVersionMeetsRequirement } from "../dist/index.js";
 
@@ -65,13 +69,26 @@ test("shapeStatusResult tolerates a body without a version field", () => {
 
 test("extension registers web, status, stop and doctor commands", async () => {
   const { default: extension } = await import("../dist/index.js");
-  const registered: string[] = [];
-  const api = {
-    registerCommand: (cmd: { name: string }) => { registered.push(cmd.name); },
-    registerSchema: () => {},
-  };
-  extension.activate(api as any);
-  for (const name of ["web", "web status", "web stop", "web doctor"]) {
-    assert.ok(registered.includes(name), `expected command ${name}, got ${JSON.stringify(registered)}`);
-  }
+  const activation = await activateExtensionForTest(extension, {
+    name: "pm-web",
+    capabilities: ["commands", "schema"],
+  });
+  assert.deepEqual(activation.failed, []);
+  assert.equal(activation.command_handler_count, 4);
+  assertRegisteredCommandContract(activation.registrations, {
+    command: "web",
+    flags: ["--port", "--detach"],
+  });
+  assertRegisteredCommandContract(activation.registrations, {
+    command: "web status",
+    flags: ["--port", "--json"],
+  });
+  assertRegisteredCommandContract(activation.registrations, {
+    command: "web stop",
+    flags: ["--port", "--json"],
+  });
+  assertRegisteredCommandContract(activation.registrations, {
+    command: "web doctor",
+    flags: ["--port", "--json"],
+  });
 });

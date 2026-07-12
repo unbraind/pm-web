@@ -9,6 +9,22 @@ CREATE TABLE IF NOT EXISTS pm_users (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Stable mapping from an external OIDC subject to a local pm user. Provider
+-- access tokens are never stored here; issuer + subject are the identity key.
+CREATE TABLE IF NOT EXISTS pm_external_identities (
+  issuer TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  user_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+  email TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(issuer, subject),
+  UNIQUE(issuer, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS pm_external_identities_user_id
+  ON pm_external_identities(user_id);
+
 CREATE TABLE IF NOT EXISTS pm_projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,

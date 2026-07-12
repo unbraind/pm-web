@@ -1,23 +1,81 @@
-const clients = [];
+// Clients are indexed two ways so that per-event work scales with the number of
+// clients on the *affected project*, not the total number of connected clients.
+// This is what lets a single project sustain many concurrent viewers without an
+// O(total-clients) scan on every event, presence update, and disconnect.
+const byId = new Map();
+const byProject = new Map();
+const presenceTimers = new Map();
+let projectEventPublisher = null;
+export function configureProjectEventPublisher(publisher) {
+    projectEventPublisher = publisher;
+}
+function removeClient(client) {
+    if (byId.get(client.id) === client)
+        byId.delete(client.id);
+    const set = byProject.get(client.projectId);
+    if (set) {
+        set.delete(client);
+        if (set.size === 0)
+            byProject.delete(client.projectId);
+    }
+}
+function presenceUsers(set) {
+    if (!set || set.size === 0)
+        return [];
+    // Deduplicate by userId — keep most recent connection per user
+    const byUser = new Map();
+    for (const c of set) {
+        const existing = byUser.get(c.userId);
+        if (!existing || c.connectedAt > existing.connectedAt)
+            byUser.set(c.userId, c);
+    }
+    return [...byUser.values()].map((c) => ({
+        userId: c.userId,
+        displayName: c.displayName,
+        currentView: c.currentView,
+        connectedAt: c.connectedAt.toISOString(),
+    }));
+}
+function schedulePresence(projectId) {
+    const active = presenceTimers.get(projectId);
+    if (active)
+        clearTimeout(active);
+    presenceTimers.set(projectId, setTimeout(() => {
+        presenceTimers.delete(projectId);
+        broadcastPresence(projectId);
+    }, 75));
+}
 export function addSSEClient(client) {
-    clients.push(client);
+    byId.set(client.id, client);
+    let set = byProject.get(client.projectId);
+    if (!set) {
+        set = new Set();
+        byProject.set(client.projectId, set);
+    }
+    set.add(client);
     // Send initial connection confirmation
     client.res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, clientId: client.id })}\n\n`);
     // Broadcast presence update to all project viewers
-    broadcastPresence(client.projectId);
+    schedulePresence(client.projectId);
     // Return unsubscribe function
     return () => {
-        const idx = clients.indexOf(client);
-        if (idx !== -1)
-            clients.splice(idx, 1);
+        removeClient(client);
         // Broadcast updated presence after disconnect
-        broadcastPresence(client.projectId);
+        schedulePresence(client.projectId);
     };
 }
 export function broadcastProjectEvent(projectId, event) {
+    deliverProjectEvent(projectId, event);
+    if (projectEventPublisher) {
+        void projectEventPublisher(projectId, event).catch(() => undefined);
+    }
+}
+export function deliverProjectEvent(projectId, event) {
+    const set = byProject.get(projectId);
+    if (!set || set.size === 0)
+        return;
     const payload = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
-    const recipients = clients.filter((c) => c.projectId === projectId);
-    for (const client of recipients) {
+    for (const client of set) {
         try {
             client.res.write(payload);
         }
@@ -27,23 +85,12 @@ export function broadcastProjectEvent(projectId, event) {
     }
 }
 export function broadcastPresence(projectId) {
-    const projectClients = clients.filter((c) => c.projectId === projectId);
-    // Deduplicate by userId — keep most recent connection per user
-    const byUser = new Map();
-    for (const c of projectClients) {
-        const existing = byUser.get(c.userId);
-        if (!existing || c.connectedAt > existing.connectedAt) {
-            byUser.set(c.userId, c);
-        }
-    }
-    const users = [...byUser.values()].map((c) => ({
-        userId: c.userId,
-        displayName: c.displayName,
-        currentView: c.currentView,
-        connectedAt: c.connectedAt.toISOString(),
-    }));
+    const set = byProject.get(projectId);
+    if (!set || set.size === 0)
+        return;
+    const users = presenceUsers(set);
     const payload = `event: presence\ndata: ${JSON.stringify({ users })}\n\n`;
-    for (const client of projectClients) {
+    for (const client of set) {
         try {
             client.res.write(payload);
         }
@@ -52,28 +99,17 @@ export function broadcastPresence(projectId) {
         }
     }
 }
-export function updateClientView(clientId, currentView) {
-    const client = clients.find((c) => c.id === clientId);
-    if (client) {
+export function updateClientView(clientId, userId, projectId, currentView) {
+    const client = byId.get(clientId);
+    if (client && client.userId === userId && client.projectId === projectId) {
         client.currentView = currentView;
-        broadcastPresence(client.projectId);
+        schedulePresence(client.projectId);
+        return true;
     }
+    return false;
 }
 export function getProjectPresence(projectId) {
-    const projectClients = clients.filter((c) => c.projectId === projectId);
-    const byUser = new Map();
-    for (const c of projectClients) {
-        const existing = byUser.get(c.userId);
-        if (!existing || c.connectedAt > existing.connectedAt) {
-            byUser.set(c.userId, c);
-        }
-    }
-    return [...byUser.values()].map((c) => ({
-        userId: c.userId,
-        displayName: c.displayName,
-        currentView: c.currentView,
-        connectedAt: c.connectedAt.toISOString(),
-    }));
+    return presenceUsers(byProject.get(projectId));
 }
 export function setupSSEHeaders(res) {
     res.writeHead(200, {
@@ -84,13 +120,12 @@ export function setupSSEHeaders(res) {
     });
 }
 export function getSSEClientCount() {
-    return clients.length;
+    return byId.size;
 }
 export function cleanupStaleClients() {
     const now = Date.now();
     const staleProjectIds = new Set();
-    for (let i = clients.length - 1; i >= 0; i--) {
-        const client = clients[i];
+    for (const client of [...byId.values()]) {
         // If client connection has been open > 12 hours, close it
         if (now - client.connectedAt.getTime() > 12 * 60 * 60 * 1000) {
             try {
@@ -99,13 +134,13 @@ export function cleanupStaleClients() {
             catch {
                 // Already closed
             }
+            removeClient(client);
             staleProjectIds.add(client.projectId);
-            clients.splice(i, 1);
         }
     }
     // Broadcast updated presence for affected projects
     for (const projectId of staleProjectIds) {
-        broadcastPresence(projectId);
+        schedulePresence(projectId);
     }
 }
 //# sourceMappingURL=sse.js.map

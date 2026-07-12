@@ -9,3 +9,8 @@ dist-test/
 .agents/pm/search/
 public/src/**/*.js
 public/src/**/*.js.map
+
+# pm-cli:runtime-cache:start
+.agents/pm/runtime/
+.agents/pm/search/
+# pm-cli:runtime-cache:end

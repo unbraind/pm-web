@@ -166,7 +166,7 @@ router.post("/import", async (req: AuthRequest, res) => {
       if (tags) args.push("--tags", tags);
       if (issue.assignee) args.push("--assignee", issue.assignee.login);
 
-      const result = runPm({ args, userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
+      const result = await runPm({ args, userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
       if (result.ok && result.parsed) {
         const parsed = result.parsed as { item?: { id: string } };
         created.push(parsed.item?.id || `#${num}`);
@@ -217,7 +217,7 @@ router.post("/push", async (req: AuthRequest, res) => {
 
   for (const itemId of itemIds) {
     try {
-      const getResult = runPm({ args: ["get", itemId, "--json"], userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
+      const getResult = await runPm({ args: ["get", itemId, "--json"], userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
       if (!getResult.ok || !getResult.parsed) { errors.push(`${itemId}: item not found`); continue; }
       const item = (getResult.parsed as { item?: Record<string, unknown> }).item;
       if (!item) { errors.push(`${itemId}: item not found`); continue; }
@@ -303,7 +303,7 @@ router.patch("/push/:itemId", async (req: AuthRequest, res) => {
   const token = await getGitHubToken(access.ownerUserId);
   if (!token) { res.status(400).json({ error: "No GitHub token configured" }); return; }
 
-  const getResult = runPm({ args: ["get", itemId, "--json"], userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
+  const getResult = await runPm({ args: ["get", itemId, "--json"], userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
   if (!getResult.ok || !getResult.parsed) { res.status(404).json({ error: "Item not found" }); return; }
   const item = (getResult.parsed as { item?: Record<string, unknown> }).item;
   if (!item) { res.status(404).json({ error: "Item not found" }); return; }

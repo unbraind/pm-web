@@ -6,8 +6,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-// Inline defineExtension helper (avoids runtime dependency on @unbrained/pm-cli/sdk)
-function defineExtension(m) { return m; }
+import { defineExtension, } from "@unbrained/pm-cli/sdk";
 // ---------------------------------------------------------------------------
 // Error contract
 // CommandError carries a numeric exitCode so the pm runtime surfaces a clean
@@ -177,7 +176,7 @@ function processAlive(pid) {
 }
 export default defineExtension({
     name: "pm-web",
-    version: "2026.6.14",
+    version: "2026.7.11",
     activate(api) {
         // -----------------------------------------------------------------------
         // Command: pm web [--port <port>] [--detach]

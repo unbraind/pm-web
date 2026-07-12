@@ -1,5 +1,12 @@
+export declare class Semaphore {
+    private readonly limit;
+    private active;
+    private readonly waiting;
+    constructor(limit: number);
+    acquire(): Promise<() => void>;
+}
 export declare function getProjectDir(userId: string, slug: string): string;
-export declare function initProject(userId: string, slug: string, prefix: string): void;
+export declare function initProject(userId: string, slug: string, prefix: string): Promise<void>;
 export declare function projectExists(userId: string, slug: string): boolean;
 export interface PmRunOptions {
     args: string[];
@@ -7,6 +14,7 @@ export interface PmRunOptions {
     slug: string;
     input?: string;
     jsonOutput?: boolean;
+    timeoutMs?: number;
 }
 export interface PmRunResult {
     stdout: string;
@@ -20,6 +28,6 @@ export interface EnsureGraphExtensionResult {
     active: boolean;
     error?: string;
 }
-export declare function ensureGraphExtension(userId: string, slug: string): EnsureGraphExtensionResult;
-export declare function runPm(opts: PmRunOptions): PmRunResult;
+export declare function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult>;
+export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
 export declare function deleteProjectDir(userId: string, slug: string): void;

@@ -1,9 +1,10 @@
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { accessSync, constants, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { authRouter } from "./routes/auth.js";
+import { oidcRouter } from "./routes/oidc.js";
 import { projectsRouter } from "./routes/projects.js";
 import { pmRouter } from "./routes/pm.js";
 import { groupsRouter } from "./routes/groups.js";
@@ -30,6 +31,38 @@ export const LEGAL_REDIRECTS: Record<string, string> = {
   "/cookies": "/cookie-settings",
 };
 
+export function resolveLegalPagesDir(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.PM_WEB_LEGAL_DIR?.trim();
+  if (!configured) return PUBLIC_DIR;
+  if (!path.isAbsolute(configured)) {
+    throw new Error("PM_WEB_LEGAL_DIR must be an absolute path.");
+  }
+
+  const root = realpathSync(configured);
+  if (!statSync(root).isDirectory()) {
+    throw new Error("PM_WEB_LEGAL_DIR must resolve to a directory.");
+  }
+  for (const page of LEGAL_PAGES) {
+    const candidate = path.join(root, `${page}.html`);
+    try {
+      if (lstatSync(candidate).isSymbolicLink()) {
+        throw new Error(`PM_WEB_LEGAL_DIR file ${page}.html must not be a symbolic link.`);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new Error(`PM_WEB_LEGAL_DIR is missing required file ${page}.html.`);
+      }
+      throw error;
+    }
+    const resolved = realpathSync(candidate);
+    if (!resolved.startsWith(`${root}${path.sep}`) || !statSync(resolved).isFile()) {
+      throw new Error(`PM_WEB_LEGAL_DIR file ${page}.html must be a regular file inside the overlay.`);
+    }
+    accessSync(resolved, constants.R_OK);
+  }
+  return root;
+}
+
 /**
  * Build the Express application with all middleware, static assets, legal
  * page routes, API routes and the SPA fallback — but WITHOUT touching the
@@ -38,6 +71,7 @@ export const LEGAL_REDIRECTS: Record<string, string> = {
  */
 export function createApp(): Express {
   const app = express();
+  const legalPagesDir = resolveLegalPagesDir();
 
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
@@ -93,10 +127,12 @@ export function createApp(): Express {
       res.status(404).end();
       return;
     }
-    res.sendFile(path.join(PUBLIC_DIR, `${page}.html`));
+    res.setHeader("Cache-Control", "no-store");
+    res.sendFile(path.join(legalPagesDir, `${page}.html`));
   });
 
   // API routes
+  app.use("/api/auth", oidcRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/projects", projectsRouter);
   app.use("/api/projects/:projectId/pm", pmRouter);

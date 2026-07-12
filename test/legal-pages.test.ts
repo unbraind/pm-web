@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,6 +26,8 @@ test("all legal pages exist and are well-formed HTML", () => {
     assert.match(html, /<!DOCTYPE html>/i, `${name} should start with DOCTYPE`);
     assert.match(html, /<\/html>/i, `${name} should close <html>`);
     assert.match(html, new RegExp(`<title>.*${name.replace("-", " ")}.*</title>`, "i"), `${name} should have a title`);
+    assert.match(html, /data-package-legal-template/, `${name} should be visibly marked as a package template`);
+    assert.doesNotMatch(html, /unbrained\.dev|preu\.at|Steinbruch|Wieselburg/i, `${name} must not contain hosted operator data`);
   }
 });
 

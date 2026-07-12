@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { pool } from "../db.js";
-import { signToken } from "../auth.js";
+import { setSessionCookie } from "../auth.js";
 import { requireAuth } from "../middleware/auth.js";
 import { encryptSecret } from "../crypto.js";
 const router = Router();
@@ -28,13 +28,7 @@ router.post("/register", async (req, res) => {
         const result = await pool.query(`INSERT INTO pm_users (email, password_hash, display_name, is_admin)
        VALUES ($1, $2, $3, lower($1) = lower($4)) RETURNING id, email, display_name, is_admin, created_at`, [normalizedEmail, hash, displayName?.trim() || null, bootstrapAdminEmail]);
         const user = result.rows[0];
-        const token = signToken({ userId: user.id, email: user.email });
-        res.cookie("pm_token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            maxAge: 30 * 24 * 60 * 60 * 1000,
-        });
+        const token = setSessionCookie(res, { userId: user.id, email: user.email });
         res.status(201).json({ token, user: result.rows[0] });
     }
     catch (err) {
@@ -66,13 +60,7 @@ router.post("/login", async (req, res) => {
             res.status(401).json({ error: "Invalid email or password" });
             return;
         }
-        const token = signToken({ userId: user.id, email: user.email });
-        res.cookie("pm_token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            maxAge: 30 * 24 * 60 * 60 * 1000,
-        });
+        const token = setSessionCookie(res, { userId: user.id, email: user.email });
         res.json({
             token,
             user: { id: user.id, email: user.email, display_name: user.display_name, is_admin: user.is_admin, created_at: user.created_at },
