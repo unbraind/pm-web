@@ -35,14 +35,85 @@ function parseEnvelope(raw) {
 export async function startRealtimeBus() {
     if (process.env.PM_REALTIME_ENABLED === "false")
         return async () => undefined;
-    const listener = await pool.connect();
-    await listener.query(`LISTEN ${CHANNEL}`);
-    listener.on("notification", (message) => {
-        const event = parseEnvelope(message.payload);
-        if (!event || event.sourceId === INSTANCE_ID)
+    let listener = null;
+    let reconnectTimer = null;
+    let reconnectDelayMs = 250;
+    let stopped = false;
+    let connecting = null;
+    const handlers = new Map();
+    const safeDiagnostic = (error) => {
+        if (!(error instanceof Error))
+            return { name: typeof error };
+        const code = error.code;
+        return {
+            name: error.name,
+            ...(code && /^[A-Z0-9_]{1,32}$/i.test(String(code)) ? { code: String(code) } : {}),
+        };
+    };
+    const releaseClient = (client, destroy) => {
+        const registered = handlers.get(client);
+        if (!registered)
             return;
-        deliverProjectEvent(event.projectId, { type: event.type, data: event.data });
-    });
+        client.off("error", registered.error);
+        client.off("notification", registered.notification);
+        handlers.delete(client);
+        client.release(destroy);
+    };
+    const scheduleReconnect = (error) => {
+        if (stopped || reconnectTimer)
+            return;
+        console.error("Realtime PostgreSQL listener disconnected", safeDiagnostic(error));
+        const delay = reconnectDelayMs;
+        reconnectDelayMs = Math.min(reconnectDelayMs * 2, 30_000);
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            void connect().catch(scheduleReconnect);
+        }, delay);
+        reconnectTimer.unref();
+    };
+    const connectOnce = async () => {
+        const client = await pool.connect();
+        const notification = (message) => {
+            const event = parseEnvelope(message.payload);
+            if (!event || event.sourceId === INSTANCE_ID)
+                return;
+            deliverProjectEvent(event.projectId, { type: event.type, data: event.data });
+        };
+        const error = (cause) => {
+            if (listener !== client)
+                return;
+            listener = null;
+            releaseClient(client, true);
+            scheduleReconnect(cause);
+        };
+        handlers.set(client, { error, notification });
+        client.on("error", error);
+        client.on("notification", notification);
+        listener = client;
+        try {
+            await client.query(`LISTEN ${CHANNEL}`);
+        }
+        catch (cause) {
+            if (listener === client)
+                listener = null;
+            releaseClient(client, true);
+            throw cause;
+        }
+        if (stopped) {
+            if (listener === client)
+                listener = null;
+            releaseClient(client, false);
+            return;
+        }
+        reconnectDelayMs = 250;
+    };
+    const connect = () => {
+        if (connecting)
+            return connecting;
+        connecting = connectOnce().finally(() => { connecting = null; });
+        return connecting;
+    };
+    await connect();
     configureProjectEventPublisher(async (projectId, event) => {
         if (!PROJECT_ID.test(projectId) || !EVENT_TYPE.test(event.type))
             return;
@@ -57,9 +128,17 @@ export async function startRealtimeBus() {
         }
     });
     return async () => {
+        stopped = true;
+        if (reconnectTimer)
+            clearTimeout(reconnectTimer);
+        reconnectTimer = null;
         configureProjectEventPublisher(null);
-        await listener.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined);
-        listener.release();
+        const client = listener;
+        listener = null;
+        if (client) {
+            await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined);
+            releaseClient(client, false);
+        }
     };
 }
 //# sourceMappingURL=realtime-bus.js.map

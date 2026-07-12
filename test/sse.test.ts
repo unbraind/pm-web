@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -12,6 +13,14 @@ import {
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const otherProjectId = "33333333-3333-4333-8333-333333333333";
+
+test("persistent PostgreSQL realtime listener handles errors and reconnects", () => {
+  const source = readFileSync(new URL("../src/services/realtime-bus.ts", import.meta.url), "utf8");
+  assert.match(source, /client\.on\("error", error\)/);
+  assert.match(source, /scheduleReconnect\(cause\)/);
+  assert.match(source, /reconnectDelayMs = Math\.min/);
+  assert.match(source, /client\.release\(destroy\)/);
+});
 
 function fakeResponse() {
   const writes: string[] = [];

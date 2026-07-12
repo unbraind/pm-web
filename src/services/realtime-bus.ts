@@ -45,13 +45,85 @@ function parseEnvelope(raw: string | undefined): RealtimeEnvelope | null {
 export async function startRealtimeBus(): Promise<() => Promise<void>> {
   if (process.env.PM_REALTIME_ENABLED === "false") return async () => undefined;
 
-  const listener: PoolClient = await pool.connect();
-  await listener.query(`LISTEN ${CHANNEL}`);
-  listener.on("notification", (message) => {
-    const event = parseEnvelope(message.payload);
-    if (!event || event.sourceId === INSTANCE_ID) return;
-    deliverProjectEvent(event.projectId, { type: event.type, data: event.data });
-  });
+  let listener: PoolClient | null = null;
+  let reconnectTimer: NodeJS.Timeout | null = null;
+  let reconnectDelayMs = 250;
+  let stopped = false;
+  let connecting: Promise<void> | null = null;
+  const handlers = new Map<PoolClient, {
+    error: (error: Error) => void;
+    notification: (message: { payload?: string }) => void;
+  }>();
+
+  const safeDiagnostic = (error: unknown): Record<string, string> => {
+    if (!(error instanceof Error)) return { name: typeof error };
+    const code = (error as Error & { code?: unknown }).code;
+    return {
+      name: error.name,
+      ...(code && /^[A-Z0-9_]{1,32}$/i.test(String(code)) ? { code: String(code) } : {}),
+    };
+  };
+
+  const releaseClient = (client: PoolClient, destroy: boolean): void => {
+    const registered = handlers.get(client);
+    if (!registered) return;
+    client.off("error", registered.error);
+    client.off("notification", registered.notification);
+    handlers.delete(client);
+    client.release(destroy);
+  };
+
+  const scheduleReconnect = (error: unknown): void => {
+    if (stopped || reconnectTimer) return;
+    console.error("Realtime PostgreSQL listener disconnected", safeDiagnostic(error));
+    const delay = reconnectDelayMs;
+    reconnectDelayMs = Math.min(reconnectDelayMs * 2, 30_000);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      void connect().catch(scheduleReconnect);
+    }, delay);
+    reconnectTimer.unref();
+  };
+
+  const connectOnce = async (): Promise<void> => {
+    const client = await pool.connect();
+    const notification = (message: { payload?: string }): void => {
+      const event = parseEnvelope(message.payload);
+      if (!event || event.sourceId === INSTANCE_ID) return;
+      deliverProjectEvent(event.projectId, { type: event.type, data: event.data });
+    };
+    const error = (cause: Error): void => {
+      if (listener !== client) return;
+      listener = null;
+      releaseClient(client, true);
+      scheduleReconnect(cause);
+    };
+    handlers.set(client, { error, notification });
+    client.on("error", error);
+    client.on("notification", notification);
+    listener = client;
+    try {
+      await client.query(`LISTEN ${CHANNEL}`);
+    } catch (cause) {
+      if (listener === client) listener = null;
+      releaseClient(client, true);
+      throw cause;
+    }
+    if (stopped) {
+      if (listener === client) listener = null;
+      releaseClient(client, false);
+      return;
+    }
+    reconnectDelayMs = 250;
+  };
+
+  const connect = (): Promise<void> => {
+    if (connecting) return connecting;
+    connecting = connectOnce().finally(() => { connecting = null; });
+    return connecting;
+  };
+
+  await connect();
 
   configureProjectEventPublisher(async (projectId: string, event: SSEEvent) => {
     if (!PROJECT_ID.test(projectId) || !EVENT_TYPE.test(event.type)) return;
@@ -67,8 +139,15 @@ export async function startRealtimeBus(): Promise<() => Promise<void>> {
   });
 
   return async () => {
+    stopped = true;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = null;
     configureProjectEventPublisher(null);
-    await listener.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined);
-    listener.release();
+    const client = listener;
+    listener = null;
+    if (client) {
+      await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined);
+      releaseClient(client, false);
+    }
   };
 }
