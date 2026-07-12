@@ -40,7 +40,7 @@ initSchema()
     setInterval(cleanupStaleClients, 5 * 60 * 1000);
 })
     .catch((err) => {
-    console.error("Failed to initialize database schema:", err instanceof Error ? err.message : err);
+    console.error("Failed to initialize pm-web runtime:", err instanceof Error ? err.message : err);
     process.exit(1);
 });
 //# sourceMappingURL=server.js.map

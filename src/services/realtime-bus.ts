@@ -111,6 +111,7 @@ export async function startRealtimeBus(): Promise<() => Promise<void>> {
     }
     if (stopped) {
       if (listener === client) listener = null;
+      await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined);
       releaseClient(client, false);
       return;
     }

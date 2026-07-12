@@ -102,6 +102,7 @@ export async function startRealtimeBus() {
         if (stopped) {
             if (listener === client)
                 listener = null;
+            await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined);
             releaseClient(client, false);
             return;
         }

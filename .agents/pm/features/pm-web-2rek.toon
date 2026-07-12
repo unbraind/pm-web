@@ -6,11 +6,12 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-07-11T15:54:35.079Z"
-updated_at: "2026-07-12T15:39:51.156Z"
+updated_at: "2026-07-12T16:26:40.170Z"
 assignee: codex
 author: claude
 acceptance_criteria: "SSE broadcasts propagate across processes/replicas via Postgres LISTEN/NOTIFY (Postgres is already a shared dependency — no new infra). On any pm item create/update/close — whether made by pm-web itself, pm-gpt (ChatGPT), or pm-mcp writing to the shared PROJECTS_ROOT volume — a NOTIFY is emitted; every pm-web instance LISTENs and re-broadcasts to its local SSE clients (item events + presence). Writes that bypass the pm-web API (direct file writes on the shared volume) are still surfaced (via a NOTIFY hook or a lightweight change-detector). Verified: an edit via pm-gpt appears in a pm-web UI SSE stream in real time; two pm-web instances sharing the DB both deliver the same event. No data loss; no regression to single-process behavior."
-notes[2]{created_at,author,text}:
+notes[3]{created_at,author,text}:
   "2026-07-12T15:04:26.232Z",codex,"Second pre-push Greptile 95372384 found the dedicated LISTEN client lacked an error handler. The bus now consumes client errors, destroys the failed connection, reconnects with capped exponential backoff, resets after recovery, and shuts down without reconnecting. Full gate passes with 68 tests and Docker image sha256:512210671a02."
   "2026-07-12T15:39:51.156Z",codex,"GitHub review follow-up: oversized NOTIFY payloads now emit a safe warning, the pool defaults to 20 connections including the dedicated listener, SSE display-name lookup completes before headers, and the runtime container has a healthcheck plus non-root default. Hosted compose already overrides UID/GID 10001:10001 to match its persistent bind mount."
+  "2026-07-12T16:26:40.170Z",codex,"2026-07-12 final pre-push review correction: a listener connection that completes after shutdown now explicitly UNLISTENs before returning to the pool, preventing a reused pooled connection from retaining the channel subscription. Runtime startup errors now use an accurate component-neutral diagnostic."
 body: ""

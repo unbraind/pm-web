@@ -20,6 +20,7 @@ test("persistent PostgreSQL realtime listener handles errors and reconnects", ()
   assert.match(source, /scheduleReconnect\(cause\)/);
   assert.match(source, /reconnectDelayMs = Math\.min/);
   assert.match(source, /client\.release\(destroy\)/);
+  assert.equal(source.match(/client\.query\(`UNLISTEN \$\{CHANNEL\}`\)/g)?.length, 2);
 });
 
 function fakeResponse() {
