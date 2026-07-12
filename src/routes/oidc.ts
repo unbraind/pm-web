@@ -5,8 +5,8 @@ import {
   authorizationCodeGrant,
   buildAuthorizationUrl,
   ClientSecretBasic,
+  Configuration,
   discovery,
-  type Configuration,
 } from "openid-client";
 import { pool } from "../db.js";
 import { setSessionCookie } from "../auth.js";
@@ -68,14 +68,29 @@ async function discoverProvider(settings: OidcSettings): Promise<Configuration> 
     !methods.includes("client_secret_post") &&
     methods.includes("client_secret_basic")
   ) {
-    return discovery(
-      issuer,
+    return new Configuration(
+      initial.serverMetadata(),
       settings.clientId,
       { client_secret: settings.clientSecret },
       ClientSecretBasic(settings.clientSecret),
     );
   }
   return initial;
+}
+
+export function providerAuthorizationError(value: unknown): OidcFlowError | null {
+  if (typeof value !== "string" || !value) return null;
+  if (value === "access_denied") {
+    return new OidcFlowError(
+      "provider_access_denied",
+      "OpenID Connect login was canceled or denied.",
+      403,
+    );
+  }
+  return new OidcFlowError(
+    "provider_error",
+    "The OpenID Connect provider could not complete login.",
+  );
 }
 
 function callbackUrl(req: Request, configuredRedirectUri: string): URL {
@@ -133,6 +148,8 @@ router.get("/oidc/callback", async (req, res) => {
     if (req.query.state !== flow.state) {
       throw new OidcFlowError("state_mismatch", "OIDC state does not match the login request.");
     }
+    const providerError = providerAuthorizationError(req.query.error);
+    if (providerError) throw providerError;
     if (typeof req.query.code !== "string" || !req.query.code) {
       throw new OidcFlowError("missing_code", "OIDC authorization code is missing.");
     }

@@ -19,6 +19,7 @@ import {
   type PmUserRow,
   type ValidatedOidcIdentity,
 } from "../dist/oidc.js";
+import { providerAuthorizationError } from "../dist/routes/oidc.js";
 
 const cookieSecret = "cookie-secret-that-is-at-least-thirty-two-bytes";
 
@@ -122,6 +123,18 @@ test("OIDC login state uses a valid PKCE S256 challenge", () => {
   });
 });
 
+test("OIDC provider callback errors are safe and distinguish user cancellation", () => {
+  const denied = providerAuthorizationError("access_denied");
+  assert.equal(denied?.code, "provider_access_denied");
+  assert.equal(denied?.status, 403);
+  assert.match(denied?.message ?? "", /canceled or denied/);
+
+  const providerFailure = providerAuthorizationError("temporarily_unavailable");
+  assert.equal(providerFailure?.code, "provider_error");
+  assert.equal(providerFailure?.message.includes("temporarily_unavailable"), false);
+  assert.equal(providerAuthorizationError(undefined), null);
+});
+
 test("general schema includes the idempotent external identity contract", () => {
   const schema = readFileSync(new URL("../sql/schema.sql", import.meta.url), "utf8");
   const runtimeSchema = readFileSync(new URL("../src/db.ts", import.meta.url), "utf8");
@@ -129,6 +142,7 @@ test("general schema includes the idempotent external identity contract", () => 
   const server = readFileSync(new URL("../src/server.ts", import.meta.url), "utf8");
   const authView = readFileSync(new URL("../public/src/views/auth.ts", import.meta.url), "utf8");
   const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+  const oidcRoute = readFileSync(new URL("../src/routes/oidc.ts", import.meta.url), "utf8");
   assert.match(schema, /CREATE TABLE IF NOT EXISTS pm_external_identities/);
   assert.match(schema, /PRIMARY KEY\(issuer, subject\)/);
   assert.match(schema, /UNIQUE\(issuer, user_id\)/);
@@ -139,6 +153,7 @@ test("general schema includes the idempotent external identity contract", () => 
   assert.match(authView, /\/auth\/oidc\/config/);
   assert.match(authView, /\/api\/auth\/oidc\/start/);
   assert.match(styles, /\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/);
+  assert.equal(oidcRoute.match(/\bdiscovery\(/g)?.length, 1, "provider metadata should be fetched once");
 });
 
 test("ID token claim validation enforces issuer, audience, nonce, and time", () => {
