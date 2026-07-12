@@ -2,18 +2,21 @@ id: pm-web-ssma
 title: Make pm CLI execution non-blocking with bounded concurrency
 description: "Replace synchronous child processes with awaitable execution so write bursts do not stall HTTP, SSE, or Postgres LISTEN callbacks."
 type: Task
-status: in_progress
+status: closed
 priority: 1
 tags[4]: concurrency,performance,pm-cli,realtime
 created_at: "2026-07-12T14:20:29.351Z"
-updated_at: "2026-07-12T16:41:56.941Z"
-assignee: codex
+updated_at: "2026-07-12T17:32:23.722Z"
+closed_at: "2026-07-12T17:32:23.698Z"
 author: codex
 acceptance_criteria: All pm command paths are asynchronous; commands serialize per workspace while independent workspaces run concurrently under a configurable global cap; timeouts and output limits terminate safely; event-loop responsiveness and concurrency behavior have automated tests; the hosted load test no longer shows multi-second foreign-event delivery stalls.
 parent: pm-web-2rek
 risk: high
 confidence: high
+resolution: "Replaced spawnSync with bounded asynchronous child processes, direct FIFO semaphore handoff, per-workspace serialization, safe output/time limits, and awaited all route call sites."
 expected_result: pm-web remains responsive during pm CLI work and preserves safe workspace serialization.
+actual_result: "Merged in PR #39 and deployed as image sha256:963ea03c0aee. Production rerun connected 2000/2000 clients, completed 12/12 concurrent writes, delivered a foreign Postgres notification to 2000/2000 clients within 199 ms maximum, retained all clients for 65 seconds, and delivered post-soak fan-out to 2000/2000 within 915 ms maximum."
+fixed_version: 2026.7.12
 notes[3]{created_at,author,text}:
   "2026-07-12T15:39:50.570Z",codex,"GitHub review follow-up: Gemini timer/spawn findings and CodeRabbit binary findings resolved. The runner now clears escalation timers, converts synchronous spawn failures to structured results, caches packaged resolution, and invokes the JavaScript CLI entry through node on Windows. Full 68-test/type/build/audit/container gate passes."
   "2026-07-12T16:41:55.548Z",codex,"2026-07-12 Gemini follow-up: fixed a semaphore slot-handoff race where a new acquire could steal capacity already promised to the oldest waiter. The semaphore now transfers an occupied slot directly and only decrements active capacity when no waiter exists; a deterministic regression test reproduces the microtask interleaving."
@@ -26,4 +29,5 @@ files[5]{path,scope,note}:
   test/pm-runner.test.ts,project,Event-loop and concurrency contract
 tests[1]{command,path,scope,timeout_seconds}:
   npm run typecheck && npm test,test/pm-runner.test.ts,project,600
+close_reason: "Merged via PR #39, deployed to pm-web.unbrained.dev, all 70 tests and release gates pass, and the 2000-client production load test proves the former multi-second event-loop stall is resolved."
 body: "GitHub issue: https://github.com/unbraind/pm-web/issues/33"

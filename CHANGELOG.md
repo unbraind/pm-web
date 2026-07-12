@@ -9,6 +9,7 @@
 
 ### Other
 
+- Make pm CLI execution non-blocking with bounded concurrency ([pm-web-ssma](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ssma.toon))
 - Separate public legal templates from hosted deployment notices ([pm-web-apu6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-apu6.toon))
 
 ## 2026.7.10 - 2026-07-10
