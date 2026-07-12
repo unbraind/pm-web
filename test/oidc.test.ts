@@ -128,6 +128,7 @@ test("general schema includes the idempotent external identity contract", () => 
   const app = readFileSync(new URL("../src/app.ts", import.meta.url), "utf8");
   const server = readFileSync(new URL("../src/server.ts", import.meta.url), "utf8");
   const authView = readFileSync(new URL("../public/src/views/auth.ts", import.meta.url), "utf8");
+  const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
   assert.match(schema, /CREATE TABLE IF NOT EXISTS pm_external_identities/);
   assert.match(schema, /PRIMARY KEY\(issuer, subject\)/);
   assert.match(schema, /UNIQUE\(issuer, user_id\)/);
@@ -137,6 +138,7 @@ test("general schema includes the idempotent external identity contract", () => 
   assert.match(server, /assertOidcConfiguration\(\)/);
   assert.match(authView, /\/auth\/oidc\/config/);
   assert.match(authView, /\/api\/auth\/oidc\/start/);
+  assert.match(styles, /\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/);
 });
 
 test("ID token claim validation enforces issuer, audience, nonce, and time", () => {
