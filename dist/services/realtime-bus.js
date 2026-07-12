@@ -126,6 +126,9 @@ export async function startRealtimeBus() {
         if (Buffer.byteLength(payload, "utf8") <= 7_500) {
             await pool.query("SELECT pg_notify($1, $2)", [CHANNEL, payload]);
         }
+        else {
+            console.warn(`Realtime event payload exceeded size limit: ${projectId}/${event.type}`);
+        }
     });
     return async () => {
         stopped = true;

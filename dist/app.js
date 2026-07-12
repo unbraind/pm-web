@@ -40,8 +40,16 @@ export function resolveLegalPagesDir(env = process.env) {
     }
     for (const page of LEGAL_PAGES) {
         const candidate = path.join(root, `${page}.html`);
-        if (lstatSync(candidate).isSymbolicLink()) {
-            throw new Error(`PM_WEB_LEGAL_DIR file ${page}.html must not be a symbolic link.`);
+        try {
+            if (lstatSync(candidate).isSymbolicLink()) {
+                throw new Error(`PM_WEB_LEGAL_DIR file ${page}.html must not be a symbolic link.`);
+            }
+        }
+        catch (error) {
+            if (error.code === "ENOENT") {
+                throw new Error(`PM_WEB_LEGAL_DIR is missing required file ${page}.html.`);
+            }
+            throw error;
         }
         const resolved = realpathSync(candidate);
         if (!resolved.startsWith(`${root}${path.sep}`) || !statSync(resolved).isFile()) {

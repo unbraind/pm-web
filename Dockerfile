@@ -8,7 +8,9 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY tsconfig.json ./
 COPY src/ ./src/
 COPY extensions/ ./extensions/
-RUN cd extensions/pm-graph && npm ci --ignore-scripts --no-audit --no-fund
+WORKDIR /app/extensions/pm-graph
+RUN npm ci --ignore-scripts --no-audit --no-fund
+WORKDIR /app
 # Copy entire public directory for frontend build
 COPY public/ ./public/
 # Build both server and frontend
@@ -24,10 +26,14 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/extensions ./extensions
 
-RUN mkdir -p /app/projects
+RUN mkdir -p /app/projects && chown node:node /app/projects
 
 ENV PORT=4000
 ENV NODE_ENV=production
 EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||'4000')+'/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+
+USER node
 
 CMD ["node", "dist/server.js"]

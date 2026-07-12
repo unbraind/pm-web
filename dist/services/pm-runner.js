@@ -45,32 +45,58 @@ const PM_GRAPH_EXTENSION_PATH = process.env.PM_GRAPH_EXTENSION_PATH ||
 export function getProjectDir(userId, slug) {
     return path.join(projectsRoot(), userId, slug);
 }
-function pmCliBinary() {
+let cachedPmCommand;
+function pmCliCommand() {
     if (process.env.PM_CLI_BIN)
-        return process.env.PM_CLI_BIN;
-    const local = path.join(process.cwd(), "node_modules", ".bin", process.platform === "win32" ? "pm.cmd" : "pm");
-    return fs.existsSync(local) ? local : "pm";
+        return { command: process.env.PM_CLI_BIN, prefixArgs: [] };
+    if (cachedPmCommand)
+        return cachedPmCommand;
+    if (process.platform === "win32") {
+        const entry = path.join(process.cwd(), "node_modules", "@unbrained", "pm-cli", "dist", "cli.js");
+        cachedPmCommand = fs.existsSync(entry)
+            ? { command: process.execPath, prefixArgs: [entry] }
+            : { command: "pm", prefixArgs: [] };
+        return cachedPmCommand;
+    }
+    const local = path.join(process.cwd(), "node_modules", ".bin", "pm");
+    cachedPmCommand = fs.existsSync(local)
+        ? { command: local, prefixArgs: [] }
+        : { command: "pm", prefixArgs: [] };
+    return cachedPmCommand;
 }
 async function runProcess(cwd, args, options = {}) {
     const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
     return new Promise((resolve) => {
-        const child = spawn(pmCliBinary(), args, {
-            cwd,
-            env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env },
-            stdio: ["pipe", "pipe", "pipe"],
-            windowsHide: true,
-        });
+        const pmCommand = pmCliCommand();
+        let child;
+        try {
+            child = spawn(pmCommand.command, [...pmCommand.prefixArgs, ...args], {
+                cwd,
+                env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env },
+                stdio: ["pipe", "pipe", "pipe"],
+                windowsHide: true,
+            });
+        }
+        catch (error) {
+            resolve({
+                stdout: "",
+                stderr: error instanceof Error ? error.message : String(error),
+                ok: false,
+            });
+            return;
+        }
         const stdout = [];
         const stderr = [];
         let outputBytes = 0;
         let failure = "";
         let settled = false;
+        let forceKill;
         const terminate = (reason) => {
             if (failure)
                 return;
             failure = reason;
             child.kill("SIGTERM");
-            const forceKill = setTimeout(() => child.kill("SIGKILL"), 1_000);
+            forceKill = setTimeout(() => child.kill("SIGKILL"), 1_000);
             forceKill.unref();
         };
         const collect = (chunks, chunk) => {
@@ -93,6 +119,8 @@ async function runProcess(cwd, args, options = {}) {
                 return;
             settled = true;
             clearTimeout(timeout);
+            if (forceKill)
+                clearTimeout(forceKill);
             const stderrText = Buffer.concat(stderr).toString("utf8");
             resolve({
                 stdout: Buffer.concat(stdout).toString("utf8"),

@@ -2490,13 +2490,21 @@ router.get("/events", async (req, res) => {
         res.status(500).json({ error: "Failed to verify project for real-time sync" });
         return;
     }
-    setupSSEHeaders(res);
     const clientId = uuidv4();
     const projectId = routeParam(req, "projectId");
     const userId = req.user.userId;
-    const userResult = await pool.query("SELECT display_name FROM pm_users WHERE id = $1", [userId]);
-    const displayName = userResult.rows[0]?.display_name?.trim() || "Project member";
+    let displayName;
+    try {
+        const userResult = await pool.query("SELECT display_name FROM pm_users WHERE id = $1", [userId]);
+        displayName = userResult.rows[0]?.display_name?.trim() || "Project member";
+    }
+    catch (error) {
+        console.error("SSE presence lookup failed", error instanceof Error ? error.name : typeof error);
+        res.status(500).json({ error: "Failed to initialize real-time presence" });
+        return;
+    }
     const currentView = String(req.query["view"] ?? "items");
+    setupSSEHeaders(res);
     const unsubscribe = addSSEClient({
         id: clientId,
         projectId,

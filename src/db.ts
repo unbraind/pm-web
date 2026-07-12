@@ -52,7 +52,9 @@ export function assertDbConfigured(): void {
 
 export const pool = new Pool({
   ...resolvePoolConfig(),
-  max: 10,
+  // One client is permanently reserved for LISTEN/NOTIFY. Keep request/query
+  // capacity separate and configurable for larger multi-user deployments.
+  max: Math.max(2, parseInt(process.env.PM_WEB_DB_POOL_MAX || "20", 10) || 20),
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
 });

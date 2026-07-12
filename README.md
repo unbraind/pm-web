@@ -114,7 +114,8 @@ pm web doctor --json
 | `PM_WEB_STATE_DIR` | No | Directory for the `--detach` pidfile used by `pm web stop` (default: OS temp dir) |
 | `PROJECTS_ROOT` | No | Host-mounted root for persistent pm workspaces (default: `/app/projects`) |
 | `PM_WEB_PM_CONCURRENCY` | No | Maximum pm CLI child processes across independent workspaces (default: `8`); commands for one workspace always serialize |
-| `PM_CLI_BIN` | No | Explicit pm CLI executable path (default: packaged `node_modules/.bin/pm`, then `pm` from `PATH`) |
+| `PM_CLI_BIN` | No | Explicit pm CLI executable path (default: packaged CLI, then `pm` from `PATH`) |
+| `PM_WEB_DB_POOL_MAX` | No | PostgreSQL pool size including one dedicated realtime listener (default: `20`, minimum: `2`) |
 | `NODE_ENV` | No | `production` enables caching |
 | `OLLAMA_BASE_URL` / `OLLAMA_HOST` | No | Local Ollama endpoint for semantic pm search |
 | `PM_OLLAMA_MODEL` | No | Embedding model for new projects, default `qwen3-embedding:0.6b` |
@@ -125,7 +126,7 @@ pm web doctor --json
 | `PM_WEB_LEGAL_DIR` | Production | Absolute path to a complete, private, operator-reviewed legal-page overlay; see `docs/LEGAL_DEPLOYMENT_BOUNDARY.md` |
 | `OIDC_ISSUER` | No | Provider issuer URL; setting any OIDC variable enables strict configuration validation |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | With OIDC | OIDC confidential client credentials |
-| `OIDC_REDIRECT_URI` | With OIDC | Exact HTTPS callback URL ending in `/api/oidc/callback` in production |
+| `OIDC_REDIRECT_URI` | With OIDC | Exact HTTPS callback URL ending in `/api/auth/oidc/callback` in production |
 | `OIDC_COOKIE_SECRET` | With OIDC | Dedicated secret for signed, short-lived login state; at least 32 characters in production |
 | `OIDC_SCOPES` | No | Requested scopes (default: `openid profile email`) |
 | `OIDC_REQUIRE_VERIFIED_EMAIL` | No | Reject identities without a provider-verified email when `true` |
