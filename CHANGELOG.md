@@ -9,6 +9,7 @@
 
 ### Other
 
+- Migrate hand-written public/sw.js and public/cookie-consent.js to TypeScript sources ([pm-web-qihk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-qihk.toon))
 - Make pm CLI execution non-blocking with bounded concurrency ([pm-web-ssma](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ssma.toon))
 - Separate public legal templates from hosted deployment notices ([pm-web-apu6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-apu6.toon))
 
