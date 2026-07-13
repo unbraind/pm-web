@@ -23,7 +23,9 @@ function buildScripts(): void {
   for (const project of ["tsconfig.sw.json", "tsconfig.scripts.json"]) {
     execFileSync(process.execPath, [tscBin, "-p", `public/${project}`], {
       cwd: packageRoot,
-      stdio: ["ignore", "pipe", "pipe"],
+      // Forward tsc stdout/stderr diagnostics to the CI log (inherit) while
+      // keeping stdin ignored so the build stays noninteractive (no prompts).
+      stdio: ["ignore", "inherit", "inherit"],
     });
   }
 }
