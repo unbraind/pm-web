@@ -2,14 +2,30 @@
 // SERVICE WORKER — pm-web PWA
 // Cache versioning: auto-bust based on build timestamp
 // Offline fallback page, mutation queue via IndexedDB
+//
+// This is the TypeScript source for /sw.js. It is compiled with the
+// `WebWorker` lib (see public/tsconfig.sw.json) so the ServiceWorker
+// global scope (`ServiceWorkerGlobalScope`, `caches`, `clients`,
+// `skipWaiting`, IndexedDB, fetch) is fully typed. The emitted
+// `public/sw.js` is plain JavaScript served at the same URL.
 // ═══════════════════════════════════════════════════════════════
 
-const BUILD_TIMESTAMP = '__BUILD_TIME__';
+// `self` is the ServiceWorkerGlobalScope inside a service worker. The
+// `WebWorker` lib types the ambient `self` as the generic WorkerGlobalScope,
+// so narrow it once at the top via a `unknown` cast (no `any`).
+const sw = self as unknown as ServiceWorkerGlobalScope;
+
+// `__BUILD_TIME__` is an optional build-time substitution placeholder.
+// No substitution is performed by the default build, so the literal is
+// retained verbatim and the cache name falls back to a runtime stamp.
+// Kept as a widened `string` so the placeholder comparison stays a
+// runtime check and the emitted output is deterministic.
+const BUILD_TIMESTAMP: string = '__BUILD_TIME__';
 const CACHE_NAME = 'pm-web-' + (BUILD_TIMESTAMP !== '__BUILD_TIME__' ? BUILD_TIMESTAMP : Date.now().toString(36));
 const MUTATION_DB = 'pm-web-offline';
 const MUTATION_STORE = 'mutations';
 
-const STATIC_ASSETS = [
+const STATIC_ASSETS: readonly string[] = [
   '/',
   '/styles.css',
   '/manifest.json',
@@ -20,7 +36,9 @@ const STATIC_ASSETS = [
   '/src/components/modals.js',
   '/src/components/toast.js',
   '/src/constants.js',
+  '/src/filters.js',
   '/src/state.js',
+  '/src/theme.js',
   '/src/types.js',
   '/src/utils.js',
   '/src/views/activity.js',
@@ -41,6 +59,8 @@ const STATIC_ASSETS = [
   '/src/views/health.js',
   '/src/views/items.js',
   '/src/views/normalize.js',
+  '/src/views/plan.js',
+  '/src/views/plan-execution.js',
   '/src/views/projects.js',
   '/src/views/router.js',
   '/src/views/search.js',
@@ -50,7 +70,6 @@ const STATIC_ASSETS = [
   '/src/views/stats.js',
   '/src/views/templates.js',
   '/src/views/validate.js',
-  '/src/views/plan.js',
 ];
 
 // ── Offline fallback page ──
@@ -81,6 +100,28 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 </html>`;
 
 // ── IndexedDB Mutation Queue ──
+
+interface QueuedMutation {
+  id: number;
+  method: string;
+  path: string;
+  body: string | null;
+  timestamp: number;
+}
+
+interface StoredMutation {
+  method: string;
+  path: string;
+  body: string | null;
+  timestamp: number;
+}
+
+// Minimal Background Sync event typing. The `WebWorker` lib does not ship
+// `SyncEvent`, so declare the surface we use (it extends ExtendableEvent).
+interface SyncEvent extends ExtendableEvent {
+  readonly tag: string;
+}
+
 function openMutationDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(MUTATION_DB, 1);
@@ -96,31 +137,57 @@ function openMutationDB(): Promise<IDBDatabase> {
   });
 }
 
-async function queueMutation(method: string, path: string, body: unknown): Promise<void> {
+/**
+ * Resolve when an IDB transaction has durably committed; reject on abort or
+ * error so callers can never mistake a half-applied (or never-applied) write
+ * for a persisted mutation. The transaction auto-commits once all queued
+ * requests settle, so awaiting this is sufficient to know the write is durable.
+ */
+function transactionDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error ?? new Error('IDB transaction aborted'));
+    tx.onerror = () => reject(tx.error ?? new Error('IDB transaction error'));
+  });
+}
+
+/**
+ * Queue a mutation for later replay. Returns `true` only when the mutation has
+ * been durably persisted to IndexedDB; `false` when persistence failed so the
+ * caller can respond with an explicit error instead of claiming it was queued.
+ */
+async function queueMutation(method: string, path: string, body: unknown): Promise<boolean> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
     const store = tx.objectStore(MUTATION_STORE);
-    store.add({
+    const record: StoredMutation = {
       method,
       path,
       body: body !== undefined ? JSON.stringify(body) : null,
       timestamp: Date.now(),
-    });
+    };
+    store.add(record);
+    // Await the transaction commit (not just the request dispatch) so the
+    // promise only resolves after the mutation is durably persisted. A request
+    // error triggers a transaction abort, surfaced via `transactionDone`.
+    await transactionDone(tx);
+    return true;
   } catch (e) {
-    // If IndexedDB fails, mutations are lost — graceful degradation
+    // Persistence failed — do NOT claim the mutation was queued.
     console.warn('Failed to queue mutation for offline:', e);
+    return false;
   }
 }
 
-async function getQueuedMutations(): Promise<Array<{ id: number; method: string; path: string; body: string | null; timestamp: number }>> {
+async function getQueuedMutations(): Promise<QueuedMutation[]> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readonly');
     const store = tx.objectStore(MUTATION_STORE);
-    return new Promise((resolve, reject) => {
+    return await new Promise<QueuedMutation[]>((resolve, reject) => {
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => resolve(request.result as QueuedMutation[]);
       request.onerror = () => reject(request.error);
     });
   } catch {
@@ -128,12 +195,22 @@ async function getQueuedMutations(): Promise<Array<{ id: number; method: string;
   }
 }
 
-async function clearMutation(id: number): Promise<void> {
+/**
+ * Remove a replayed mutation from the queue. Returns `true` only when the
+ * deletion has committed, so the caller can stop replay on a persistence
+ * failure instead of silently leaving duplicate entries to be retried.
+ */
+async function clearMutation(id: number): Promise<boolean> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
     tx.objectStore(MUTATION_STORE).delete(id);
-  } catch { /* ignore */ }
+    await transactionDone(tx);
+    return true;
+  } catch (e) {
+    console.warn('Failed to clear queued mutation:', e);
+    return false;
+  }
 }
 
 async function flushMutationQueue(): Promise<void> {
@@ -150,7 +227,12 @@ async function flushMutationQueue(): Promise<void> {
       if (mut.body !== null) opts.body = mut.body;
       const res = await fetch('/api' + mut.path, opts);
       if (res.ok) {
-        await clearMutation(mut.id);
+        const cleared = await clearMutation(mut.id);
+        if (!cleared) {
+          // Could not remove the replayed mutation from the queue — stop to
+          // avoid duplicate replays on the next flush; it will retry later.
+          break;
+        }
       } else {
         console.warn('Offline mutation failed:', mut.method, mut.path, res.status);
         // Stop processing on first failure — try again later
@@ -164,41 +246,44 @@ async function flushMutationQueue(): Promise<void> {
 
   // Notify clients about replayed mutations
   const remaining = await getQueuedMutations();
+  const clients = await sw.clients.matchAll();
   if (remaining.length === 0 && mutations.length > 0) {
-    const clients = await self.clients.matchAll();
-    clients.forEach(client => {
+    clients.forEach((client) => {
       client.postMessage({ type: 'MUTATIONS_REPLAYED', count: mutations.length });
     });
   } else if (remaining.length > 0) {
-    const clients = await self.clients.matchAll();
-    clients.forEach(client => {
-      client.postMessage({ type: 'MUTATIONS_PARTIAL', replayed: mutations.length - remaining.length, remaining: remaining.length });
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'MUTATIONS_PARTIAL',
+        replayed: mutations.length - remaining.length,
+        remaining: remaining.length,
+      });
     });
   }
 }
 
 // ── Install ──
-self.addEventListener('install', (event) => {
+sw.addEventListener('install', (event: ExtendableEvent) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
       Promise.all(STATIC_ASSETS.map((asset) => cache.add(asset).catch(() => null)))
     )
   );
-  self.skipWaiting();
+  sw.skipWaiting();
 });
 
 // ── Activate ──
-self.addEventListener('activate', (event) => {
+sw.addEventListener('activate', (event: ExtendableEvent) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
-  self.clients.claim();
+  sw.clients.claim();
 });
 
 // ── Fetch strategy ──
-self.addEventListener('fetch', (event) => {
+sw.addEventListener('fetch', (event: FetchEvent) => {
   const url = new URL(event.request.url);
 
   // API calls: try network, queue mutations if offline
@@ -207,17 +292,28 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
       event.respondWith(
         fetch(event.request).catch(async () => {
-          // Network failed — queue the mutation for later
+          // Network failed — queue the mutation for later.
           let body: unknown = undefined;
           try {
             body = await event.request.clone().json();
           } catch { /* no body */ }
-          await queueMutation(event.request.method, url.pathname.replace('/api', ''), body);
-          return new Response(JSON.stringify({ queued: true, message: 'Request queued for when you are back online' }), {
-            status: 202,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        })
+          const queued = await queueMutation(
+            event.request.method,
+            url.pathname.replace('/api', ''),
+            body,
+          );
+          if (queued) {
+            return new Response(
+              JSON.stringify({ queued: true, message: 'Request queued for when you are back online' }),
+              { status: 202, headers: { 'Content-Type': 'application/json' } },
+            );
+          }
+          // Persistence failed — do not claim the mutation was queued.
+          return new Response(
+            JSON.stringify({ error: 'Offline and unable to queue mutation', queued: false }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+          );
+        }),
       );
       return;
     }
@@ -271,48 +367,77 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('fonts.gstatic.com')
   ) {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) =>
-        cache.match(event.request).then((cached) => {
-          const fetched = fetch(event.request).then((res) => {
-            if (res.ok) cache.put(event.request, res.clone());
+      (async (): Promise<Response> => {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(event.request);
+        // Kick off revalidation in the background. The network promise resolves
+        // to `undefined` on failure (no unsafe cast — the type is explicit).
+        const network = fetch(event.request)
+          .then((res): Response => {
+            if (res.ok) void cache.put(event.request, res.clone());
             return res;
-          }).catch(() => cached);
-          return cached || fetched;
-        })
-      )
+          })
+          .catch((): Response | undefined => undefined);
+        // Stale-while-revalidate: serve cached immediately when present.
+        if (cached) {
+          void network;
+          return cached;
+        }
+        // No cached entry — must wait for the network.
+        const res = await network;
+        if (res) return res;
+        return new Response('Unavailable offline', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      })(),
     );
     return;
   }
 
-  // Default: network, fallback to cache
+  // Default: network, fallback to cache, then explicit 503.
   event.respondWith(
-    fetch(event.request)
-      .catch(() => caches.match(event.request))
+    (async (): Promise<Response> => {
+      try {
+        return await fetch(event.request);
+      } catch {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        return new Response('Unavailable offline', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+    })(),
   );
 });
 
 // ── Messages ──
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+sw.addEventListener('message', (event: ExtendableMessageEvent) => {
+  const data = event.data as { type?: string; urls?: string[] } | null;
+  if (data && data.type === 'SKIP_WAITING') {
+    sw.skipWaiting();
   }
-  if (event.data && event.data.type === 'CACHE_URLS') {
-    const urls = event.data.urls || [];
+  if (data && data.type === 'CACHE_URLS') {
+    const urls = data.urls ?? [];
     caches.open(CACHE_NAME).then((cache) => cache.addAll(urls).catch(() => {}));
   }
-  if (event.data && event.data.type === 'FLUSH_QUEUE') {
-    flushMutationQueue();
+  if (data && data.type === 'FLUSH_QUEUE') {
+    void flushMutationQueue();
   }
 });
 
 // ── Background sync ──
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'pm-sync') {
-    event.waitUntil(flushMutationQueue());
+// The `WebWorker` lib has no `SyncEvent`, so receive the generic Event and
+// narrow to our minimal SyncEvent interface (no `any`).
+sw.addEventListener('sync', (event: Event) => {
+  const syncEvent = event as unknown as SyncEvent;
+  if (syncEvent.tag === 'pm-sync') {
+    syncEvent.waitUntil(flushMutationQueue());
   }
 });
 
 // ── Online event: flush queue when connectivity returns ──
-self.addEventListener('online', () => {
-  flushMutationQueue();
+sw.addEventListener('online', () => {
+  void flushMutationQueue();
 });

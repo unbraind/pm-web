@@ -9,6 +9,11 @@ dist-test/
 .agents/pm/search/
 public/src/**/*.js
 public/src/**/*.js.map
+# Generated from TypeScript sources (public/src/sw.ts, public/src/cookie-consent.ts)
+# via public/tsconfig.sw.json / public/tsconfig.scripts.json. Retained on
+# disk by the build for runtime packaging; not hand-edited sources.
+public/sw.js
+public/cookie-consent.js
 
 # pm-cli:runtime-cache:start
 .agents/pm/runtime/
