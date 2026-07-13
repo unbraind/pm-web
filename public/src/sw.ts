@@ -137,7 +137,26 @@ function openMutationDB(): Promise<IDBDatabase> {
   });
 }
 
-async function queueMutation(method: string, path: string, body: unknown): Promise<void> {
+/**
+ * Resolve when an IDB transaction has durably committed; reject on abort or
+ * error so callers can never mistake a half-applied (or never-applied) write
+ * for a persisted mutation. The transaction auto-commits once all queued
+ * requests settle, so awaiting this is sufficient to know the write is durable.
+ */
+function transactionDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error ?? new Error('IDB transaction aborted'));
+    tx.onerror = () => reject(tx.error ?? new Error('IDB transaction error'));
+  });
+}
+
+/**
+ * Queue a mutation for later replay. Returns `true` only when the mutation has
+ * been durably persisted to IndexedDB; `false` when persistence failed so the
+ * caller can respond with an explicit error instead of claiming it was queued.
+ */
+async function queueMutation(method: string, path: string, body: unknown): Promise<boolean> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
@@ -149,9 +168,15 @@ async function queueMutation(method: string, path: string, body: unknown): Promi
       timestamp: Date.now(),
     };
     store.add(record);
+    // Await the transaction commit (not just the request dispatch) so the
+    // promise only resolves after the mutation is durably persisted. A request
+    // error triggers a transaction abort, surfaced via `transactionDone`.
+    await transactionDone(tx);
+    return true;
   } catch (e) {
-    // If IndexedDB fails, mutations are lost — graceful degradation
+    // Persistence failed — do NOT claim the mutation was queued.
     console.warn('Failed to queue mutation for offline:', e);
+    return false;
   }
 }
 
@@ -170,12 +195,22 @@ async function getQueuedMutations(): Promise<QueuedMutation[]> {
   }
 }
 
-async function clearMutation(id: number): Promise<void> {
+/**
+ * Remove a replayed mutation from the queue. Returns `true` only when the
+ * deletion has committed, so the caller can stop replay on a persistence
+ * failure instead of silently leaving duplicate entries to be retried.
+ */
+async function clearMutation(id: number): Promise<boolean> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
     tx.objectStore(MUTATION_STORE).delete(id);
-  } catch { /* ignore */ }
+    await transactionDone(tx);
+    return true;
+  } catch (e) {
+    console.warn('Failed to clear queued mutation:', e);
+    return false;
+  }
 }
 
 async function flushMutationQueue(): Promise<void> {
@@ -192,7 +227,12 @@ async function flushMutationQueue(): Promise<void> {
       if (mut.body !== null) opts.body = mut.body;
       const res = await fetch('/api' + mut.path, opts);
       if (res.ok) {
-        await clearMutation(mut.id);
+        const cleared = await clearMutation(mut.id);
+        if (!cleared) {
+          // Could not remove the replayed mutation from the queue — stop to
+          // avoid duplicate replays on the next flush; it will retry later.
+          break;
+        }
       } else {
         console.warn('Offline mutation failed:', mut.method, mut.path, res.status);
         // Stop processing on first failure — try again later
@@ -252,17 +292,28 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
     if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
       event.respondWith(
         fetch(event.request).catch(async () => {
-          // Network failed — queue the mutation for later
+          // Network failed — queue the mutation for later.
           let body: unknown = undefined;
           try {
             body = await event.request.clone().json();
           } catch { /* no body */ }
-          await queueMutation(event.request.method, url.pathname.replace('/api', ''), body);
-          return new Response(JSON.stringify({ queued: true, message: 'Request queued for when you are back online' }), {
-            status: 202,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        })
+          const queued = await queueMutation(
+            event.request.method,
+            url.pathname.replace('/api', ''),
+            body,
+          );
+          if (queued) {
+            return new Response(
+              JSON.stringify({ queued: true, message: 'Request queued for when you are back online' }),
+              { status: 202, headers: { 'Content-Type': 'application/json' } },
+            );
+          }
+          // Persistence failed — do not claim the mutation was queued.
+          return new Response(
+            JSON.stringify({ error: 'Offline and unable to queue mutation', queued: false }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+          );
+        }),
       );
       return;
     }
@@ -316,22 +367,48 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
     url.hostname.includes('fonts.gstatic.com')
   ) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
+      (async (): Promise<Response> => {
+        const cache = await caches.open(CACHE_NAME);
         const cached = await cache.match(event.request);
-        const fetched = fetch(event.request).then((res) => {
-          if (res.ok) cache.put(event.request, res.clone());
-          return res;
-        }).catch(() => cached) as Promise<Response>;
-        return cached || fetched;
-      })
+        // Kick off revalidation in the background. The network promise resolves
+        // to `undefined` on failure (no unsafe cast — the type is explicit).
+        const network = fetch(event.request)
+          .then((res): Response => {
+            if (res.ok) void cache.put(event.request, res.clone());
+            return res;
+          })
+          .catch((): Response | undefined => undefined);
+        // Stale-while-revalidate: serve cached immediately when present.
+        if (cached) {
+          void network;
+          return cached;
+        }
+        // No cached entry — must wait for the network.
+        const res = await network;
+        if (res) return res;
+        return new Response('Unavailable offline', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      })(),
     );
     return;
   }
 
-  // Default: network, fallback to cache
+  // Default: network, fallback to cache, then explicit 503.
   event.respondWith(
-    fetch(event.request)
-      .catch(() => caches.match(event.request)) as Promise<Response>
+    (async (): Promise<Response> => {
+      try {
+        return await fetch(event.request);
+      } catch {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        return new Response('Unavailable offline', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+    })(),
   );
 });
 

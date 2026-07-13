@@ -75,6 +75,11 @@ function gitCheckIgnore(paths: string[]): string[] {
   }
 }
 
+/** Remove block and line comments so interface/cast checks are not fooled by prose. */
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+}
+
 test("TypeScript sources are the tracked source of truth and generated outputs are build artifacts", () => {
   assert.ok(existsSync(swSourcePath), "public/src/sw.ts should exist");
   assert.ok(existsSync(cookieSourcePath), "public/src/cookie-consent.ts should exist");
@@ -143,7 +148,76 @@ test("the service worker precache list covers every generated frontend chunk", (
   }
 });
 
-/** Remove block and line comments so interface/cast checks are not fooled by prose. */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-}
+test("sw.ts source is type-safe: no `any`, ts-ignore, or unsafe response casts", () => {
+  const src = readFileSync(swSourcePath, "utf8");
+  const stripped = stripComments(src);
+  // The ServiceWorkerGlobalScope narrow is the one documented, intentional
+  // `as unknown as` cast (the WebWorker lib types `self` as the generic
+  // WorkerGlobalScope). Every other `as` narrowing must be explicit and
+  // annotation-free of `any`.
+  assert.ok(!/\bas\s+any\b/.test(stripped), "sw.ts must not use `as any` casts");
+  assert.ok(!/:\s*any\b/.test(stripped), "sw.ts must not use `: any` annotations");
+  assert.ok(!/@ts-ignore/.test(src), "sw.ts must not use @ts-ignore");
+  assert.ok(!/@ts-expect-error/.test(src), "sw.ts must not use @ts-expect-error");
+  // event.respondWith must never receive an unsafe `as Promise<Response>` cast.
+  assert.ok(!/as\s+Promise\u003cResponse\u003e/.test(stripped), "sw.ts must not cast to Promise<Response>");
+});
+
+test("sw.ts compiles cleanly under the service-worker tsconfig (type-level safety)", () => {
+  // A zero-exit `tsc --noEmit` proves the source typechecks against the
+  // WebWorker lib with strict mode — the strongest type-level guarantee we
+  // can assert without a browser/IndexedDB runtime.
+  const tscBin = path.join(packageRoot, "node_modules", "typescript", "bin", "tsc");
+  execFileSync(process.execPath, [tscBin, "-p", "public/tsconfig.sw.json", "--noEmit"], {
+    cwd: packageRoot,
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+});
+
+test("emitted sw.js honors the mutation-queue persistence contract", () => {
+  const src = readFileSync(swOutputPath, "utf8");
+  // A typed transaction-completion helper is emitted and awaited by both the
+  // queue and clear paths, so persistence is durable (not fire-and-forget).
+  assert.ok(src.includes("function transactionDone("), "sw.js emits the transactionDone helper");
+  assert.ok(/await transactionDone\(tx\)/.test(src), "sw.js awaits transaction completion");
+  // queueMutation returns an explicit boolean so callers cannot claim a queued
+  // mutation when persistence failed.
+  assert.ok(/queueMutation\b/.test(src), "sw.js emits queueMutation");
+  // Success path: 202 with queued:true.
+  assert.ok(src.includes("queued: true"), "sw.js reports queued:true on persistence success");
+  assert.ok(/status:\s*202/.test(src), "sw.js responds 202 Accepted when queued");
+  // Failure path: explicit 503 with queued:false — never claims success.
+  assert.ok(src.includes("queued: false"), "sw.js reports queued:false on persistence failure");
+  assert.ok(src.includes("unable to queue mutation"), "sw.js surfaces a 503 when persistence fails");
+});
+
+test("emitted sw.js always resolves fetch handlers with a Response (no undefined)", () => {
+  const src = readFileSync(swOutputPath, "utf8");
+  // Every fetch branch must terminate with an explicit 503 fallback instead of
+  // resolving event.respondWith with `undefined` (which throws at runtime).
+  // Static-asset + default paths share the "Unavailable offline" 503 body.
+  const offline503 = src.match(/Unavailable offline/g) ?? [];
+  assert.ok(offline503.length >= 2, "sw.js ships an explicit 503 fallback for static + default paths");
+  // No unsafe `as Promise<Response>` cast survives in emitted JS.
+  assert.ok(!/as\s+Promise\u003cResponse\u003e/.test(src), "sw.js must not leak unsafe Promise<Response> casts");
+  assert.ok(!/\.catch\(\(\) =\u003e cached\)/.test(src), "sw.js must not fall back to an undefined cached value");
+});
+
+test("emitted sw.js preserves service-worker behavioral contracts", () => {
+  const src = readFileSync(swOutputPath, "utf8");
+  // Install/activate/fetch lifecycle markers.
+  assert.ok(/addEventListener\(['"]install['"]/.test(src), "sw.js registers an install handler");
+  assert.ok(/addEventListener\(['"]activate['"]/.test(src), "sw.js registers an activate handler");
+  assert.ok(/addEventListener\(['"]fetch['"]/.test(src), "sw.js registers a fetch handler");
+  // Background sync + online flush contracts.
+  assert.ok(src.includes("pm-sync"), "sw.js registers the background sync tag");
+  assert.ok(src.includes("FLUSH_QUEUE"), "sw.js handles the FLUSH_QUEUE message");
+  assert.ok(src.includes("MUTATIONS_REPLAYED"), "sw.js notifies clients of replayed mutations");
+  assert.ok(src.includes("MUTATIONS_PARTIAL"), "sw.js notifies clients of partial replay");
+  // Offline fallback page contract.
+  assert.ok(src.includes("You're offline"), "sw.js ships the offline fallback page");
+  // Cache-name + build-placeholder determinism.
+  assert.ok(src.includes("pm-web-"), "sw.js builds the pm-web cache name");
+  assert.ok(src.includes("'__BUILD_TIME__'"), "sw.js preserves the __BUILD_TIME__ placeholder");
+  assert.ok(src.includes("Date.now().toString(36)"), "sw.js preserves the runtime cache-name fallback");
+});
