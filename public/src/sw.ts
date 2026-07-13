@@ -2,14 +2,30 @@
 // SERVICE WORKER — pm-web PWA
 // Cache versioning: auto-bust based on build timestamp
 // Offline fallback page, mutation queue via IndexedDB
+//
+// This is the TypeScript source for /sw.js. It is compiled with the
+// `WebWorker` lib (see public/tsconfig.sw.json) so the ServiceWorker
+// global scope (`ServiceWorkerGlobalScope`, `caches`, `clients`,
+// `skipWaiting`, IndexedDB, fetch) is fully typed. The emitted
+// `public/sw.js` is plain JavaScript served at the same URL.
 // ═══════════════════════════════════════════════════════════════
 
-const BUILD_TIMESTAMP = '__BUILD_TIME__';
+// `self` is the ServiceWorkerGlobalScope inside a service worker. The
+// `WebWorker` lib types the ambient `self` as the generic WorkerGlobalScope,
+// so narrow it once at the top via a `unknown` cast (no `any`).
+const sw = self as unknown as ServiceWorkerGlobalScope;
+
+// `__BUILD_TIME__` is an optional build-time substitution placeholder.
+// No substitution is performed by the default build, so the literal is
+// retained verbatim and the cache name falls back to a runtime stamp.
+// Kept as a widened `string` so the placeholder comparison stays a
+// runtime check and the emitted output is deterministic.
+const BUILD_TIMESTAMP: string = '__BUILD_TIME__';
 const CACHE_NAME = 'pm-web-' + (BUILD_TIMESTAMP !== '__BUILD_TIME__' ? BUILD_TIMESTAMP : Date.now().toString(36));
 const MUTATION_DB = 'pm-web-offline';
 const MUTATION_STORE = 'mutations';
 
-const STATIC_ASSETS = [
+const STATIC_ASSETS: readonly string[] = [
   '/',
   '/styles.css',
   '/manifest.json',
@@ -20,7 +36,9 @@ const STATIC_ASSETS = [
   '/src/components/modals.js',
   '/src/components/toast.js',
   '/src/constants.js',
+  '/src/filters.js',
   '/src/state.js',
+  '/src/theme.js',
   '/src/types.js',
   '/src/utils.js',
   '/src/views/activity.js',
@@ -41,6 +59,8 @@ const STATIC_ASSETS = [
   '/src/views/health.js',
   '/src/views/items.js',
   '/src/views/normalize.js',
+  '/src/views/plan.js',
+  '/src/views/plan-execution.js',
   '/src/views/projects.js',
   '/src/views/router.js',
   '/src/views/search.js',
@@ -50,7 +70,6 @@ const STATIC_ASSETS = [
   '/src/views/stats.js',
   '/src/views/templates.js',
   '/src/views/validate.js',
-  '/src/views/plan.js',
 ];
 
 // ── Offline fallback page ──
@@ -81,6 +100,28 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 </html>`;
 
 // ── IndexedDB Mutation Queue ──
+
+interface QueuedMutation {
+  id: number;
+  method: string;
+  path: string;
+  body: string | null;
+  timestamp: number;
+}
+
+interface StoredMutation {
+  method: string;
+  path: string;
+  body: string | null;
+  timestamp: number;
+}
+
+// Minimal Background Sync event typing. The `WebWorker` lib does not ship
+// `SyncEvent`, so declare the surface we use (it extends ExtendableEvent).
+interface SyncEvent extends ExtendableEvent {
+  readonly tag: string;
+}
+
 function openMutationDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(MUTATION_DB, 1);
@@ -101,26 +142,27 @@ async function queueMutation(method: string, path: string, body: unknown): Promi
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
     const store = tx.objectStore(MUTATION_STORE);
-    store.add({
+    const record: StoredMutation = {
       method,
       path,
       body: body !== undefined ? JSON.stringify(body) : null,
       timestamp: Date.now(),
-    });
+    };
+    store.add(record);
   } catch (e) {
     // If IndexedDB fails, mutations are lost — graceful degradation
     console.warn('Failed to queue mutation for offline:', e);
   }
 }
 
-async function getQueuedMutations(): Promise<Array<{ id: number; method: string; path: string; body: string | null; timestamp: number }>> {
+async function getQueuedMutations(): Promise<QueuedMutation[]> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readonly');
     const store = tx.objectStore(MUTATION_STORE);
-    return new Promise((resolve, reject) => {
+    return await new Promise<QueuedMutation[]>((resolve, reject) => {
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => resolve(request.result as QueuedMutation[]);
       request.onerror = () => reject(request.error);
     });
   } catch {
@@ -164,41 +206,44 @@ async function flushMutationQueue(): Promise<void> {
 
   // Notify clients about replayed mutations
   const remaining = await getQueuedMutations();
+  const clients = await sw.clients.matchAll();
   if (remaining.length === 0 && mutations.length > 0) {
-    const clients = await self.clients.matchAll();
-    clients.forEach(client => {
+    clients.forEach((client) => {
       client.postMessage({ type: 'MUTATIONS_REPLAYED', count: mutations.length });
     });
   } else if (remaining.length > 0) {
-    const clients = await self.clients.matchAll();
-    clients.forEach(client => {
-      client.postMessage({ type: 'MUTATIONS_PARTIAL', replayed: mutations.length - remaining.length, remaining: remaining.length });
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'MUTATIONS_PARTIAL',
+        replayed: mutations.length - remaining.length,
+        remaining: remaining.length,
+      });
     });
   }
 }
 
 // ── Install ──
-self.addEventListener('install', (event) => {
+sw.addEventListener('install', (event: ExtendableEvent) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
       Promise.all(STATIC_ASSETS.map((asset) => cache.add(asset).catch(() => null)))
     )
   );
-  self.skipWaiting();
+  sw.skipWaiting();
 });
 
 // ── Activate ──
-self.addEventListener('activate', (event) => {
+sw.addEventListener('activate', (event: ExtendableEvent) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
-  self.clients.claim();
+  sw.clients.claim();
 });
 
 // ── Fetch strategy ──
-self.addEventListener('fetch', (event) => {
+sw.addEventListener('fetch', (event: FetchEvent) => {
   const url = new URL(event.request.url);
 
   // API calls: try network, queue mutations if offline
@@ -271,15 +316,14 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('fonts.gstatic.com')
   ) {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) =>
-        cache.match(event.request).then((cached) => {
-          const fetched = fetch(event.request).then((res) => {
-            if (res.ok) cache.put(event.request, res.clone());
-            return res;
-          }).catch(() => cached);
-          return cached || fetched;
-        })
-      )
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(event.request);
+        const fetched = fetch(event.request).then((res) => {
+          if (res.ok) cache.put(event.request, res.clone());
+          return res;
+        }).catch(() => cached) as Promise<Response>;
+        return cached || fetched;
+      })
     );
     return;
   }
@@ -287,32 +331,36 @@ self.addEventListener('fetch', (event) => {
   // Default: network, fallback to cache
   event.respondWith(
     fetch(event.request)
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(event.request)) as Promise<Response>
   );
 });
 
 // ── Messages ──
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+sw.addEventListener('message', (event: ExtendableMessageEvent) => {
+  const data = event.data as { type?: string; urls?: string[] } | null;
+  if (data && data.type === 'SKIP_WAITING') {
+    sw.skipWaiting();
   }
-  if (event.data && event.data.type === 'CACHE_URLS') {
-    const urls = event.data.urls || [];
+  if (data && data.type === 'CACHE_URLS') {
+    const urls = data.urls ?? [];
     caches.open(CACHE_NAME).then((cache) => cache.addAll(urls).catch(() => {}));
   }
-  if (event.data && event.data.type === 'FLUSH_QUEUE') {
-    flushMutationQueue();
+  if (data && data.type === 'FLUSH_QUEUE') {
+    void flushMutationQueue();
   }
 });
 
 // ── Background sync ──
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'pm-sync') {
-    event.waitUntil(flushMutationQueue());
+// The `WebWorker` lib has no `SyncEvent`, so receive the generic Event and
+// narrow to our minimal SyncEvent interface (no `any`).
+sw.addEventListener('sync', (event: Event) => {
+  const syncEvent = event as unknown as SyncEvent;
+  if (syncEvent.tag === 'pm-sync') {
+    syncEvent.waitUntil(flushMutationQueue());
   }
 });
 
 // ── Online event: flush queue when connectivity returns ──
-self.addEventListener('online', () => {
-  flushMutationQueue();
+sw.addEventListener('online', () => {
+  void flushMutationQueue();
 });

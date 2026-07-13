@@ -6,9 +6,11 @@ status: in_progress
 priority: 1
 tags[3]: ecosystem,ecosystem-pass-2026-06-10,production
 created_at: "2026-06-09T22:38:21.554Z"
-updated_at: "2026-06-09T23:38:47.349Z"
+updated_at: "2026-07-13T05:00:44.238Z"
 assignee: codex-5-3-sweep
 author: codex-5-3-sweep
+comments[1]{created_at,author,text}:
+  "2026-07-13T05:00:44.230Z",codex-root,"2026-07-13 GitHub security hardening: public unbraind/pm-web secret scanning and push protection enabled and verified by API; zero open alerts. Non-provider patterns and validity checks remain disabled because GitHub did not enable them for this repository/account despite accepting the PATCH; base protection is active. Existing stale codex-5-3-sweep claim was respected (no force/release). No repository files or telemetry changed."
 notes[1]{created_at,author,text}:
   "2026-06-09T22:56:18.153Z",codex-5-3-sweep,Added step-specific prompt UX for ready/waiting/blocked plan steps and validated via typecheck/build/test.
 files[4]{path,scope,note}:
@@ -16,9 +18,9 @@ files[4]{path,scope,note}:
   public/src/views/plan-execution.ts,project,plan readiness and prompt builders
   public/src/views/plan.ts,project,add execution focus dependency guidance
   test/plan-execution.test.ts,project,unit coverage for plan execution snapshot
-tests[4]{command,path,scope,timeout_seconds,pm_context_mode,env_set,env_clear,shared_host_safe,assert_stdout_contains,assert_stdout_regex,assert_stderr_contains,assert_stderr_regex,assert_stdout_min_lines,assert_json_field_equals,assert_json_field_gte,note}:
-  "npm run release:check",null,project,3600,null,null,null,null,null,null,null,null,null,null,null,null
-  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm run typecheck && PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm run build && PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm test,null,project,3600,null,null,null,null,null,null,null,null,null,null,null,null
-  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm test,null,project,3600,null,null,null,null,null,null,null,null,null,null,null,null
-  rm -rf /tmp/pm-realdata-web && mkdir -p /tmp/pm-realdata-web && cd /tmp/pm-realdata-web && pm init >/dev/null && pm install /home/steve/container/pm-sweep/pm-web --project >/dev/null && pm web doctor --json > web-doctor.json,null,project,1200,null,null,null,null,null,null,null,null,null,null,null,null
+tests[4]{command,scope,timeout_seconds}:
+  "npm run release:check",project,3600
+  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm run typecheck && PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm run build && PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm test,project,3600
+  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm test,project,3600
+  rm -rf /tmp/pm-realdata-web && mkdir -p /tmp/pm-realdata-web && cd /tmp/pm-realdata-web && pm init >/dev/null && pm install /home/steve/container/pm-sweep/pm-web --project >/dev/null && pm web doctor --json > web-doctor.json,project,1200
 body: ""

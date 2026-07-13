@@ -3,18 +3,17 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",
+    "moduleDetection": "legacy",
     "outDir": ".",
-    "rootDir": ".",
+    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
     "declaration": false,
-    "sourceMap": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "noEmit": false
+    "sourceMap": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "src/sw.ts", "src/cookie-consent.ts"]
+  "include": ["src/cookie-consent.ts"],
+  "exclude": ["node_modules"]
 }
