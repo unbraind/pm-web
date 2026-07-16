@@ -1,0 +1,16 @@
+id: pm-web-glqh
+title: Point-in-time item view endpoint via SDK getItemAt
+description: "Expose pm CLI 2026.7.15's mutation-free point-in-time read projection (SDK getItemAt, pm get --at) as a REST endpoint GET /api/projects/:projectId/pm/at/:itemId/:ref so web and agent clients can view reconstructed historical item state at a one-based version or ISO timestamp. Returns the reconstructed item with provenance (as_of_version/as_of_timestamp/history_length); 404 unknown item, 400 invalid/out-of-range ref, proper error envelope."
+type: Feature
+status: closed
+priority: 2
+tags: []
+created_at: "2026-07-16T21:40:51.139Z"
+updated_at: "2026-07-16T21:41:03.182Z"
+closed_at: "2026-07-16T21:41:03.178Z"
+author: pi-agent
+acceptance_criteria: "GET /api/projects/:projectId/pm/at/:itemId/:ref reconstructs historical item state at a one-based version or ISO timestamp via the pm CLI SDK getItemAt projection; response mirrors the pm get envelope (item + reconstructed/as_of_version/as_of_timestamp/history_length/target); 404 for unknown item, 400 for invalid or out-of-range ref. Bumps @unbrained/pm-cli dependency floor to ^2026.7.15. New tests cover happy path, timestamp ref, invalid ref, out-of-range version, and unknown item. End-to-end curl against a throwaway pm workspace confirms reconstruction."
+notes[1]{created_at,author,text}:
+  "2026-07-16T21:41:02.690Z",pi-agent,"Implemented runGetItemAt in src/services/pm-runner.ts wrapping the SDK getItemAt projection (pmRoot = projectDir/.agents/pm). Route GET /at/:itemId/:ref in src/routes/pm.ts maps PmCliError exit codes to HTTP: NOT_FOUND->404, USAGE->400. Dependency floor bumped to ^2026.7.15. Added test/item-history-at.test.ts (5 tests) exercising the real SDK against a throwaway workspace. End-to-end verified with curl: v1/v2/v3 reconstruction, timestamp ref, 400/404 error envelopes all correct."
+close_reason: "Point-in-time item view endpoint implemented, tested (5 new tests, 84 total passing), and verified end-to-end via curl; @unbrained/pm-cli floor bumped to ^2026.7.15."
+body: ""

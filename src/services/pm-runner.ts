@@ -1,6 +1,16 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  getItemAt,
+  PmCliError,
+  EXIT_CODE,
+  type GetItemAtResult,
+} from "@unbrained/pm-cli/sdk";
+
+// Re-exported so route handlers and tests can reference the verified projection
+// shape and the typed error class without reaching into the SDK package map.
+export { PmCliError, EXIT_CODE, type GetItemAtResult };
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
@@ -365,6 +375,29 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
   }
 
   return { stdout, stderr, ok, parsed };
+}
+
+/**
+ * Reconstruct a single item at a one-based version or ISO timestamp using the
+ * pm CLI SDK's mutation-free `getItemAt` projection (the same verified replay
+ * kernel that powers `pm get --at` and `pm restore`).
+ *
+ * Unlike {@link runPm}, this calls the SDK in-process — there is no history
+ * write, lock acquisition, or derived-index mutation — so it is safe to run
+ * concurrently with other readers and writers of the same workspace.
+ *
+ * @throws {PmCliError} with `exitCode` {@link EXIT_CODE}.NOT_FOUND when the item
+ *   does not exist (or has no history), and {@link EXIT_CODE}.USAGE for an
+ *   invalid ref or a version/timestamp outside the available history range.
+ */
+export async function runGetItemAt(
+  userId: string,
+  slug: string,
+  itemId: string,
+  ref: string,
+): Promise<GetItemAtResult> {
+  const pmRoot = path.join(getProjectDir(userId, slug), ".agents", "pm");
+  return await getItemAt(itemId, ref, { pmRoot });
 }
 
 export function deleteProjectDir(userId: string, slug: string): void {

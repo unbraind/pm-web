@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { ensureGraphExtension, runPm, projectExists } from "../services/pm-runner.js";
+import { ensureGraphExtension, runPm, runGetItemAt, projectExists, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
 import { boardColumns, filterItemsByQuery } from "../board.js";
 import { buildIcsCalendar, type CalendarItem } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
@@ -595,6 +595,53 @@ router.get("/get/:itemId", async (req: AuthRequest, res) => {
   });
   if (!result.ok) { res.status(404).json({ error: "Item not found" }); return; }
   res.json(result.parsed || {});
+});
+
+// GET /api/projects/:projectId/pm/at/:itemId/:ref
+// Point-in-time item view: reconstruct a verified historical item state at a
+// one-based version number or ISO timestamp via the pm CLI SDK `getItemAt`
+// projection (the same replay kernel that powers `pm get --at`). The read is
+// mutation-free and lock-free, so it never interferes with concurrent writers.
+//
+//   200 — reconstructed item state at the requested ref
+//   400 — invalid ref, or version/timestamp outside the available history range
+//   404 — unknown item, or item with no recorded history
+router.get("/at/:itemId/:ref", async (req: AuthRequest, res) => {
+  const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const itemId = routeParam(req, "itemId");
+  const ref = routeParam(req, "ref");
+
+  try {
+    const result = await runGetItemAt(project.ownerUserId, project.slug, itemId, ref);
+    // Mirror the `pm get` envelope so existing clients can reuse the same shape:
+    // the reconstructed metadata is exposed as `item` (with `body` inlined),
+    // alongside the provenance fields `reconstructed` / `as_of_version` /
+    // `as_of_timestamp` / `history_length` and the resolved `target`.
+    const item = { ...result.document.metadata, body: result.document.body };
+    res.json({
+      item,
+      reconstructed: result.reconstructed,
+      as_of_version: result.as_of_version,
+      as_of_timestamp: result.as_of_timestamp,
+      history_length: result.history_length,
+      target: result.target,
+    });
+  } catch (err) {
+    if (err instanceof PmCliError) {
+      if (err.exitCode === EXIT_CODE.NOT_FOUND) {
+        res.status(404).json({ error: err.message });
+      } else if (err.exitCode === EXIT_CODE.USAGE) {
+        res.status(400).json({ error: err.message });
+      } else {
+        res.status(500).json({ error: err.message });
+      }
+      return;
+    }
+    console.error("Point-in-time item read failed:", err);
+    res.status(500).json({ error: "Failed to reconstruct historical item state" });
+  }
 });
 
 // PATCH /api/projects/:projectId/pm/update/:itemId

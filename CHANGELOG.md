@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Point-in-time item view endpoint via SDK getItemAt ([pm-web-glqh](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-glqh.toon))
+
 ## 2026.7.13 - 2026-07-13
 
 ### Security
