@@ -284,6 +284,14 @@ function errorReverseMap(): Map<string, string> {
   return map;
 }
 
+/** Compile-time-complete mapping from supported locale → BCP 47 tag. */
+const LOCALE_TAGS: Record<SupportedLocale, string> = {
+  en: 'en-US',
+  de: 'de-DE',
+  es: 'es-ES',
+  zh: 'zh-CN',
+};
+
 /**
  * Format a date in the active locale (`de-DE` for de, `en-US` for en) using
  * Intl.DateTimeFormat. Replaces hard-coded `toLocaleDateString('en-US', …)`.
@@ -292,7 +300,7 @@ export function localeDate(
   date: Date | string | number,
   options?: Intl.DateTimeFormatOptions,
 ): string {
-  const localeTag = currentLocale === 'de' ? 'de-DE' : currentLocale === 'es' ? 'es-ES' : currentLocale === 'zh' ? 'zh-CN' : 'en-US';
+  const localeTag = LOCALE_TAGS[currentLocale];
   const d = date instanceof Date ? date : new Date(date);
   return new Intl.DateTimeFormat(localeTag, options).format(d);
 }
