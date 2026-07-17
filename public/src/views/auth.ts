@@ -4,6 +4,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { bootApp } from '../app.js';
+import { t, translateError } from '../i18n.js';
 import type { User } from '../types.js';
 
 async function configureOidcLogin(): Promise<void> {
@@ -14,7 +15,7 @@ async function configureOidcLogin(): Promise<void> {
     const config = await api('GET', '/auth/oidc/config') as { enabled: boolean; label: string };
     button.hidden = !config.enabled;
     if (divider) divider.hidden = !config.enabled;
-    button.textContent = `Continue with ${config.label}`;
+    button.textContent = t('auth.oidc.template', { label: config.label });
   } catch {
     button.hidden = true;
     if (divider) divider.hidden = true;
@@ -32,11 +33,11 @@ export function switchAuthTab(tab: 'login' | 'register'): void {
   const fieldName = document.getElementById('field-name') as HTMLElement | null;
   if (fieldName) fieldName.style.display = tab==='register' ? '' : 'none';
   const authTitle = document.getElementById('auth-title');
-  if (authTitle) authTitle.textContent = tab==='login' ? 'Welcome back' : 'Create account';
+  if (authTitle) authTitle.textContent = tab==='login' ? t('auth.title.login') : t('auth.title.register');
   const authSub = document.getElementById('auth-sub');
-  if (authSub) authSub.textContent = tab==='login' ? 'Sign in to your account to continue' : 'Join pm-web and start managing projects';
+  if (authSub) authSub.textContent = tab==='login' ? t('auth.sub.login') : t('auth.sub.register');
   const authBtnText = document.getElementById('auth-btn-text');
-  if (authBtnText) authBtnText.textContent = tab==='login' ? 'Sign In' : 'Create Account';
+  if (authBtnText) authBtnText.textContent = tab==='login' ? t('auth.button.login') : t('auth.button.register');
   const authError = document.getElementById('auth-error') as HTMLElement | null;
   if (authError) authError.style.display = 'none';
 }
@@ -58,7 +59,7 @@ export async function submitAuth(e: Event): Promise<void> {
   errEl.style.display = 'none';
   btn.disabled = true;
   const span = btn.querySelector('span');
-  if (span) span.textContent = 'Please wait…';
+  if (span) span.textContent = t('auth.loading');
 
   try {
     let data: { user: User };
@@ -70,10 +71,10 @@ export async function submitAuth(e: Event): Promise<void> {
     state.user = data.user;
     await bootApp();
   } catch(err: unknown) {
-    errEl.textContent = err instanceof Error ? err.message : String(err);
+    errEl.textContent = translateError(err instanceof Error ? err.message : String(err));
     errEl.style.display = 'block';
     btn.disabled = false;
-    if (span) span.textContent = state.authTab==='login' ? 'Sign In' : 'Create Account';
+    if (span) span.textContent = state.authTab==='login' ? t('auth.button.login') : t('auth.button.register');
   }
 }
 

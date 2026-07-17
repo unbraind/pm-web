@@ -10,6 +10,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="pm-web">
 <title>pm-web — Project Management</title>
+<!-- Set <html lang> from the persisted locale BEFORE first paint so assistive
+     tech and search engines report the right language without a flash. The
+     full catalog is applied later by the i18n module (public/src/i18n.ts). -->
+<script>try{var l=localStorage.getItem('pmLocale');if(l==='de'||l==='en'){document.documentElement.lang=l;}}catch(e){}</script>
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
@@ -17,49 +21,49 @@
 <link rel="stylesheet" href="/cookie-consent.css?v=1">
 </head>
 <body>
-<a href="#main-content" class="skip-link">Skip to main content</a>
+<a href="#main-content" class="skip-link" data-i18n="nav.skipLink">Skip to main content</a>
 <div id="app">
   <!-- Auth Screen -->
   <div id="auth-screen" style="display:none">
     <div class="auth-left">
       <div class="auth-brand">
         <div class="auth-logo">pm<span>-web</span></div>
-        <div class="auth-tagline">Git-native project management</div>
+        <div class="auth-tagline" data-i18n="auth.brand.tagline">Git-native project management</div>
         <ul class="auth-features">
-          <li>Manage tasks, features, bugs, epics &amp; more</li>
-          <li>Git-native storage in .agents/pm/</li>
-          <li>Full history, comments &amp; activity feeds</li>
-          <li>Team-friendly project isolation</li>
+          <li data-i18n="auth.feature.tasks">Manage tasks, features, bugs, epics &amp; more</li>
+          <li data-i18n="auth.feature.storage">Git-native storage in .agents/pm/</li>
+          <li data-i18n="auth.feature.history">Full history, comments &amp; activity feeds</li>
+          <li data-i18n="auth.feature.team">Team-friendly project isolation</li>
         </ul>
       </div>
     </div>
     <div class="auth-right">
-      <div class="auth-form-title" id="auth-title">Welcome back</div>
-      <div class="auth-form-sub" id="auth-sub">Sign in to your account to continue</div>
+      <div class="auth-form-title" id="auth-title" data-i18n="auth.title.login">Welcome back</div>
+      <div class="auth-form-sub" id="auth-sub" data-i18n="auth.sub.login">Sign in to your account to continue</div>
       <div class="auth-toggle">
-        <button class="active" id="tab-login" onclick="window.__app.switchAuthTab('login')">Sign In</button>
-        <button id="tab-register" onclick="window.__app.switchAuthTab('register')">Register</button>
+        <button class="active" id="tab-login" onclick="window.__app.switchAuthTab('login')" data-i18n="auth.tab.login">Sign In</button>
+        <button id="tab-register" onclick="window.__app.switchAuthTab('register')" data-i18n="auth.tab.register">Register</button>
       </div>
       <form id="auth-form" onsubmit="window.__app.submitAuth(event)">
         <div class="form-group" id="field-name" style="display:none">
-          <label class="form-label">Display Name</label>
-          <input class="form-input" type="text" id="auth-name" placeholder="Your name" autocomplete="name">
+          <label class="form-label" data-i18n="auth.field.displayName">Display Name</label>
+          <input class="form-input" type="text" id="auth-name" placeholder="Your name" data-i18n-placeholder="auth.placeholder.name" autocomplete="name">
         </div>
         <div class="form-group">
-          <label class="form-label">Email</label>
+          <label class="form-label" data-i18n="auth.field.email">Email</label>
           <input class="form-input" type="email" id="auth-email" placeholder="you@example.com" required autocomplete="email">
         </div>
         <div class="form-group">
-          <label class="form-label">Password</label>
+          <label class="form-label" data-i18n="auth.field.password">Password</label>
           <input class="form-input" type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password">
         </div>
         <div class="form-error" id="auth-error" style="display:none"></div>
         <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px" id="auth-submit">
-          <span id="auth-btn-text">Sign In</span>
+          <span id="auth-btn-text" data-i18n="auth.button.login">Sign In</span>
         </button>
       </form>
-      <div id="oidc-divider" class="auth-form-sub" style="margin:18px 0 10px;text-align:center" hidden>or</div>
-      <button id="oidc-login" type="button" class="btn btn-secondary btn-full btn-lg" hidden onclick="window.__app.startOidcLogin()">Continue with OpenID Connect</button>
+      <div id="oidc-divider" class="auth-form-sub" style="margin:18px 0 10px;text-align:center" hidden data-i18n="auth.divider">or</div>
+      <button id="oidc-login" type="button" class="btn btn-secondary btn-full btn-lg" hidden onclick="window.__app.startOidcLogin()" data-i18n="auth.oidc.default">Continue with OpenID Connect</button>
     </div>
   </div>
 
@@ -71,21 +75,21 @@
       <div class="project-selector-wrap">
         <label for="project-selector" class="sr-only">Select project</label>
         <select class="project-selector" id="project-selector" onchange="window.__app.onProjectSelect(this.value)" aria-label="Select project">
-          <option value="">— Select project —</option>
+          <option value="" data-i18n="nav.selectProject">— Select project —</option>
         </select>
       </div>
       <div class="nav-spacer"></div>
-      <div class="nav-search-hint" onclick="window.__app.openSearchModal()" title="Ctrl+K" role="button" tabindex="0" aria-label="Open search (Ctrl+K)" onkeydown="if(event.key==='Enter')window.__app.openSearchModal()">⌘K Search</div>
+      <div class="nav-search-hint" onclick="window.__app.openSearchModal()" title="Ctrl+K" role="button" tabindex="0" aria-label="Open search (Ctrl+K)" data-i18n-aria="nav.search.title" onkeydown="if(event.key==='Enter')window.__app.openSearchModal()" data-i18n="nav.search">⌘K Search</div>
       <div class="presence-bar" id="presence-bar" style="display:none" aria-label="Users viewing this project"></div>
-      <div class="sse-indicator" id="sse-indicator" title="Real-time sync disconnected">
+      <div class="sse-indicator" id="sse-indicator" title="Real-time sync disconnected" data-i18n-title="nav.sse.disconnected">
         <div class="sse-dot"></div>
       </div>
-      <button class="theme-toggle" id="theme-toggle" onclick="window.__app.cycleTheme()" title="Toggle theme (dark / light / auto)" aria-label="Toggle theme" tabindex="0">◐</button>
+      <button class="theme-toggle" id="theme-toggle" onclick="window.__app.cycleTheme()" title="Toggle theme (dark / light / auto)" data-i18n-title="nav.theme.title" aria-label="Toggle theme" tabindex="0">◐</button>
       <div class="user-menu">
         <div class="user-avatar" id="user-avatar" aria-hidden="true">?</div>
         <span class="user-name" id="user-name-display"></span>
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.showView('settings')" style="margin-right:4px" aria-label="Open settings">Settings</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.logout()" aria-label="Sign out">Sign out</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.showView('settings')" style="margin-right:4px" aria-label="Open settings" data-i18n="nav.settings">Settings</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.logout()" aria-label="Sign out" data-i18n-aria="nav.signOut" data-i18n="nav.signOut">Sign out</button>
       </div>
     </nav>
     <div id="app-body">
@@ -219,15 +223,15 @@
 
 <!-- Offline Banner -->
 <div class="offline-banner" id="offline-banner">
-  <span>You are offline — changes will sync when reconnected</span>
+  <span data-i18n="banner.offline">You are offline — changes will sync when reconnected</span>
 </div>
 
 <!-- PWA Install Banner -->
 <div class="install-banner" id="install-banner">
-  <div class="install-banner-text">Install <strong>pm-web</strong> for a native app experience</div>
+  <div class="install-banner-text" data-i18n-html="banner.install.text">Install <strong>pm-web</strong> for a native app experience</div>
   <div style="display:flex;gap:8px">
-    <button class="btn btn-ghost btn-sm" onclick="dismissInstallBanner()">Not now</button>
-    <button class="btn btn-primary btn-sm" id="install-btn" onclick="installPwa()"><span>Install</span></button>
+    <button class="btn btn-ghost btn-sm" onclick="dismissInstallBanner()" data-i18n="banner.install.dismiss">Not now</button>
+    <button class="btn btn-primary btn-sm" id="install-btn" onclick="installPwa()"><span data-i18n="banner.install.button">Install</span></button>
   </div>
 </div>
 
@@ -262,7 +266,7 @@
 </nav>
 
 <script type="module" src="/src/app.js?v=9"></script>
-<div class="cookie-consent" id="cookie-consent" hidden><div class="cookie-consent-text"><strong>Cookie Settings</strong><span>We only use technically necessary storage for sign-in, security, and preferences. No optional tracking cookies.</span></div><div class="cookie-consent-actions"><a href="/privacy-policy">Privacy Policy</a><button type="button" class="btn btn-secondary btn-sm" data-cookie-decline>Necessary only</button><button type="button" class="btn btn-primary btn-sm" data-cookie-accept>Got it</button></div></div>
+<div class="cookie-consent" id="cookie-consent" hidden><div class="cookie-consent-text"><strong data-i18n="cookie.banner.title">Cookie Settings</strong><span data-i18n="cookie.banner.text">We only use technically necessary storage for sign-in, security, and preferences. No optional tracking cookies.</span></div><div class="cookie-consent-actions"><a href="/privacy-policy" data-i18n="cookie.banner.privacy">Privacy Policy</a><button type="button" class="btn btn-secondary btn-sm" data-cookie-decline data-i18n="cookie.banner.decline">Necessary only</button><button type="button" class="btn btn-primary btn-sm" data-cookie-accept data-i18n="cookie.banner.accept">Got it</button></div></div>
 <script src="/cookie-consent.js?v=1"></script>
 </body>
 </html>
