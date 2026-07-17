@@ -28,7 +28,7 @@ export function renderSettingsView(): void {
     : '';
   const currentLocale = getLocale();
   const langOptions = SUPPORTED_LOCALES.map((loc) => {
-    const label = loc === 'en' ? t('settings.languageEn') : loc === 'de' ? t('settings.languageDe') : t('settings.languageEs');
+    const label = loc === 'en' ? t('settings.languageEn') : loc === 'de' ? t('settings.languageDe') : loc === 'es' ? t('settings.languageEs') : t('settings.languageZh');
     return `<option value="${loc}"${loc === currentLocale ? ' selected' : ''}>${escHtml(label)}</option>`;
   }).join('');
   el.innerHTML = `

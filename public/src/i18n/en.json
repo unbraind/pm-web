@@ -112,5 +112,6 @@
   "error.oidcDenied": "OpenID Connect login was canceled or denied.",
   "error.oidcMissingIdToken": "OIDC provider did not return an ID token.",
   "error.oidcLoginFailed": "OpenID Connect login failed.",
-  "legal.disclaimer": "This translation is provided for comprehension only; the English version is authoritative."
+  "legal.disclaimer": "This translation is provided for comprehension only; the English version is authoritative.",
+  "settings.languageZh": "中文"
 }
