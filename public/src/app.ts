@@ -41,6 +41,7 @@ import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSave
 import { renderGuideView } from './views/guide.js';
 import { renderAdminView, setAdminRole, adminSwitchTab, adminDeleteUser, adminDeleteProject, adminDeleteGroup, adminFilterUsers, adminFilterProjects, adminFilterAudit, adminSetPage, adminCreateGroup } from './views/admin.js';
 import { switchAuthTab, submitAuth, logout, showAuth, startOidcLogin } from './views/auth.js';
+import { initI18n, setLocale as i18nSetLocale, applyTranslations } from './i18n.js';
 import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan, copyPlanAgentBrief, copyPlanNextStepPrompt, planEditPrompt, submitEditPlan, planDeletePrompt } from './views/plan.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
@@ -313,6 +314,8 @@ let deferredPrompt: any = null;
   changePassword,
   saveGitHubToken,
   clearGitHubToken,
+  changeLanguage,
+  applyTranslations,
 
   // GitHub
   linkGitHubRepo,
@@ -768,7 +771,11 @@ window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => 
   event.preventDefault();
 });
 
+// Apply the persisted locale + catalog BEFORE the auth screen or main app
+// is shown so package-owned strings render in the right language on first
+// paint (after the inline <html lang> hint in index.html).
 async function init(): Promise<void> {
+  await initI18n();
   try {
     const data = await api('GET','/auth/me');
     state.user = (data as any).user;
@@ -776,6 +783,14 @@ async function init(): Promise<void> {
   } catch(_) {
     showAuth();
   }
+}
+
+/** Language selector handler: persist + reload catalog + re-bind DOM. */
+async function changeLanguage(locale: string): Promise<void> {
+  await i18nSetLocale(locale);
+  // Re-render the active settings view so its language card reflects the
+  // new selection, then re-bind any other data-i18n nodes across the document.
+  renderSettingsView();
 }
 
 // ═══════════════════════════════════════════════════════════════
