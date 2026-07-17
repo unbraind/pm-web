@@ -23,7 +23,7 @@
 export const LOCALE_STORAGE_KEY = 'pmLocale';
 
 /** Locales shipped by this package. The first entry is the default/fallback. */
-export const SUPPORTED_LOCALES = ['en', 'de'] as const;
+export const SUPPORTED_LOCALES = ['en', 'de', 'es'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 const DEFAULT_LOCALE: SupportedLocale = 'en';
@@ -292,7 +292,7 @@ export function localeDate(
   date: Date | string | number,
   options?: Intl.DateTimeFormatOptions,
 ): string {
-  const localeTag = currentLocale === 'de' ? 'de-DE' : 'en-US';
+  const localeTag = currentLocale === 'de' ? 'de-DE' : currentLocale === 'es' ? 'es-ES' : 'en-US';
   const d = date instanceof Date ? date : new Date(date);
   return new Intl.DateTimeFormat(localeTag, options).format(d);
 }

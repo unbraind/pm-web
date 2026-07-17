@@ -22,7 +22,6 @@
   "auth.button.login": "Sign In",
   "auth.button.register": "Create Account",
   "auth.loading": "Please wait…",
-
   "nav.skipLink": "Skip to main content",
   "nav.settings": "Settings",
   "nav.signOut": "Sign out",
@@ -33,23 +32,21 @@
   "nav.sse.connected": "Real-time sync connected",
   "nav.sse.reconnecting": "Real-time sync reconnecting…",
   "nav.theme.title": "Toggle theme (dark / light / auto)",
-
   "banner.offline": "You are offline — changes will sync when reconnected",
   "banner.install.text": "Install <strong>pm-web</strong> for a native app experience",
   "banner.install.dismiss": "Not now",
   "banner.install.button": "Install",
-
   "cookie.banner.title": "Cookie Settings",
   "cookie.banner.text": "We only use technically necessary storage for sign-in, security, and preferences. No optional tracking cookies.",
   "cookie.banner.privacy": "Privacy Policy",
   "cookie.banner.decline": "Necessary only",
   "cookie.banner.accept": "Got it",
-
   "settings.title": "Settings",
   "settings.subtitle": "Manage your profile and account",
   "settings.language": "Language",
   "settings.languageEn": "English",
   "settings.languageDe": "Deutsch",
+  "settings.languageEs": "Español",
   "settings.languageHint": "Interface language. Legal pages are provided by the operator and may not be translated.",
   "settings.profile": "Profile",
   "settings.displayName": "Display Name",
@@ -91,11 +88,9 @@
   "settings.tokenCleared": "GitHub token cleared",
   "settings.clearTokenTitle": "Clear GitHub Token?",
   "settings.clearTokenBody": "Your GitHub integration will stop working.",
-
   "dialog.cancel": "Cancel",
   "dialog.confirm": "Confirm",
   "dialog.delete": "Delete",
-
   "error.emailPasswordRequired": "Email and password are required",
   "error.passwordTooShort": "Password must be at least 8 characters",
   "error.invalidEmail": "Invalid email address",
@@ -117,6 +112,5 @@
   "error.oidcDenied": "OpenID Connect login was canceled or denied.",
   "error.oidcMissingIdToken": "OIDC provider did not return an ID token.",
   "error.oidcLoginFailed": "OpenID Connect login failed.",
-
   "legal.disclaimer": "This translation is provided for comprehension only; the English version is authoritative."
 }
