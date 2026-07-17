@@ -112,5 +112,6 @@
   "error.oidcDenied": "El inicio de sesión con OpenID Connect fue cancelado o denegado.",
   "error.oidcMissingIdToken": "El proveedor OIDC no devolvió un ID token.",
   "error.oidcLoginFailed": "Error en el inicio de sesión con OpenID Connect.",
-  "legal.disclaimer": "Esta traducción se proporciona solo para comprensión; la versión en inglés es la autoritativa."
+  "legal.disclaimer": "Esta traducción se proporciona solo para comprensión; la versión en inglés es la autoritativa.",
+  "settings.languageZh": "中文"
 }

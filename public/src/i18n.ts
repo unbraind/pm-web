@@ -23,7 +23,7 @@
 export const LOCALE_STORAGE_KEY = 'pmLocale';
 
 /** Locales shipped by this package. The first entry is the default/fallback. */
-export const SUPPORTED_LOCALES = ['en', 'de', 'es'] as const;
+export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'zh'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 const DEFAULT_LOCALE: SupportedLocale = 'en';
@@ -284,6 +284,14 @@ function errorReverseMap(): Map<string, string> {
   return map;
 }
 
+/** Compile-time-complete mapping from supported locale → BCP 47 tag. */
+const LOCALE_TAGS: Record<SupportedLocale, string> = {
+  en: 'en-US',
+  de: 'de-DE',
+  es: 'es-ES',
+  zh: 'zh-CN',
+};
+
 /**
  * Format a date in the active locale (`de-DE` for de, `en-US` for en) using
  * Intl.DateTimeFormat. Replaces hard-coded `toLocaleDateString('en-US', …)`.
@@ -292,7 +300,7 @@ export function localeDate(
   date: Date | string | number,
   options?: Intl.DateTimeFormatOptions,
 ): string {
-  const localeTag = currentLocale === 'de' ? 'de-DE' : currentLocale === 'es' ? 'es-ES' : 'en-US';
+  const localeTag = LOCALE_TAGS[currentLocale];
   const d = date instanceof Date ? date : new Date(date);
   return new Intl.DateTimeFormat(localeTag, options).format(d);
 }

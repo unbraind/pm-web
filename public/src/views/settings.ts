@@ -19,6 +19,14 @@ function avatarBg(seed: string): string {
   return `hsl(${hue},55%,45%)`;
 }
 
+/** Compile-time-complete mapping from supported locale → settings label key. */
+const LOCALE_LABEL_KEYS: Record<SupportedLocale, string> = {
+  en: 'settings.languageEn',
+  de: 'settings.languageDe',
+  es: 'settings.languageEs',
+  zh: 'settings.languageZh',
+};
+
 export function renderSettingsView(): void {
   const el = document.getElementById('content-settings');
   if (!el) return;
@@ -28,7 +36,7 @@ export function renderSettingsView(): void {
     : '';
   const currentLocale = getLocale();
   const langOptions = SUPPORTED_LOCALES.map((loc) => {
-    const label = loc === 'en' ? t('settings.languageEn') : loc === 'de' ? t('settings.languageDe') : t('settings.languageEs');
+    const label = t(LOCALE_LABEL_KEYS[loc]);
     return `<option value="${loc}"${loc === currentLocale ? ' selected' : ''}>${escHtml(label)}</option>`;
   }).join('');
   el.innerHTML = `

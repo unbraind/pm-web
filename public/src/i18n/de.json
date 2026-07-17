@@ -112,5 +112,6 @@
   "error.oidcDenied": "Die OpenID-Connect-Anmeldung wurde abgebrochen oder abgelehnt.",
   "error.oidcMissingIdToken": "Der OIDC-Provider hat kein ID-Token zurückgegeben.",
   "error.oidcLoginFailed": "OpenID-Connect-Anmeldung fehlgeschlagen.",
-  "legal.disclaimer": "Übersetzung dient nur der Verständlichkeit; die englische Fassung ist maßgeblich."
+  "legal.disclaimer": "Übersetzung dient nur der Verständlichkeit; die englische Fassung ist maßgeblich.",
+  "settings.languageZh": "中文"
 }

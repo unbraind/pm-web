@@ -22,12 +22,16 @@ const deJson = JSON.parse(
 const esJson = JSON.parse(
   readFileSync(path.join(i18nDir, "es.json"), "utf8"),
 ) as Record<string, string>;
+const zhJson = JSON.parse(
+  readFileSync(path.join(i18nDir, "zh.json"), "utf8"),
+) as Record<string, string>;
 // All shipped catalogs keyed by locale code, so parity/coverage tests can
 // loop generically over every locale instead of hard-coding each one.
 const allCatalogs: Record<string, Record<string, string>> = {
   en: enJson,
   de: deJson,
   es: esJson,
+  zh: zhJson,
 };
 const nonEnLocales = Object.keys(allCatalogs).filter((l) => l !== "en");
 const indexHtml = readFileSync(
@@ -143,6 +147,7 @@ test("non-en translations differ from en for non-structural strings", () => {
     "settings.languageEn",
     "settings.languageDe",
     "settings.languageEs",
+    "settings.languageZh",
     "auth.placeholder.email",
     "auth.placeholder.password",
     "settings.tokenPlaceholder.set",
@@ -191,6 +196,8 @@ test("resolveLocale: navigator.language prefix match when no stored choice", () 
   assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "en-US" }), "en");
   assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "es-MX" }), "es");
   assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "es" }), "es");
+  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "zh-CN" }), "zh");
+  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "zh" }), "zh");
 });
 
 test("resolveLocale: unsupported navigator language falls back to en", () => {
@@ -381,11 +388,14 @@ test("index.html first-paint hint negotiates navigator.language when no stored l
   assert.equal(runHint('de', 'en-US'), 'de');
   assert.equal(runHint('en', 'de-DE'), 'en');
   assert.equal(runHint('es', 'en-US'), 'es');
-  // No stored choice → browser-language prefix match (German → de, Spanish → es).
+  assert.equal(runHint('zh', 'en-US'), 'zh');
+  // No stored choice → browser-language prefix match (German → de, Spanish → es, Chinese → zh).
   assert.equal(runHint(null, 'de-DE'), 'de');
   assert.equal(runHint(null, 'de'), 'de');
   assert.equal(runHint(null, 'es-MX'), 'es');
   assert.equal(runHint(null, 'es'), 'es');
+  assert.equal(runHint(null, 'zh-CN'), 'zh');
+  assert.equal(runHint(null, 'zh'), 'zh');
   // Unsupported browser language → stays at default en.
   assert.equal(runHint(null, 'fr-FR'), 'en');
   assert.equal(runHint(null, 'en-US'), 'en');

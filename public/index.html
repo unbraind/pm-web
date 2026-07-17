@@ -13,7 +13,7 @@
 <!-- Set <html lang> from the persisted locale BEFORE first paint so assistive
      tech and search engines report the right language without a flash. The
      full catalog is applied later by the i18n module (public/src/i18n.ts). -->
-<script>try{var l=localStorage.getItem('pmLocale');if(l==='de'||l==='en'||l==='es'){document.documentElement.lang=l;}else{var n=(navigator.language||'').toLowerCase().split('-')[0];if(n==='de'){document.documentElement.lang='de';}else if(n==='es'){document.documentElement.lang='es';}}}catch(e){}</script>
+<script>try{const S=['en','de','es','zh'];const l=localStorage.getItem('pmLocale');if(S.indexOf(l)>=0){document.documentElement.lang=l;}else{const n=(navigator.language||'').toLowerCase().split('-')[0];if(S.indexOf(n)>=0){document.documentElement.lang=n;}}}catch(e){}</script>
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
