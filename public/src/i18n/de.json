@@ -92,6 +92,10 @@
   "settings.clearTokenTitle": "GitHub-Token löschen?",
   "settings.clearTokenBody": "Ihre GitHub-Integration wird danach nicht mehr funktionieren.",
 
+  "dialog.cancel": "Abbrechen",
+  "dialog.confirm": "Bestätigen",
+  "dialog.delete": "Löschen",
+
   "error.emailPasswordRequired": "E-Mail und Passwort sind erforderlich",
   "error.passwordTooShort": "Das Passwort muss mindestens 8 Zeichen lang sein",
   "error.invalidEmail": "Ungültige E-Mail-Adresse",

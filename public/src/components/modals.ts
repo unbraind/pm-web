@@ -51,17 +51,20 @@ export function confirmDialog(
   title: string,
   desc: string,
   onConfirm: () => void,
-  danger = false
+  danger = false,
+  labels?: { cancel?: string; confirm?: string },
 ): void {
   const id = 'confirm-dialog-' + Date.now();
+  const cancelLabel = labels?.cancel ?? 'Cancel';
+  const confirmLabel = labels?.confirm ?? (danger ? 'Delete' : 'Confirm');
   createModal(id, '', `
     <div class="confirm-dialog">
       <div class="confirm-dialog-icon">${danger ? '⚠' : '?'}</div>
       <div class="confirm-dialog-title">${escHtml(title)}</div>
       <div class="confirm-dialog-desc">${escHtml(desc)}</div>
       <div class="confirm-dialog-actions">
-        <button class="btn btn-ghost" onclick="window.__app.hideModal('${id}')">Cancel</button>
-        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="${id}-ok">${danger ? 'Delete' : 'Confirm'}</button>
+        <button class="btn btn-ghost" onclick="window.__app.hideModal('${id}')">${escHtml(cancelLabel)}</button>
+        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="${id}-ok">${escHtml(confirmLabel)}</button>
       </div>
     </div>`
   , '');

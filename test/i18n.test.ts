@@ -48,6 +48,9 @@ interface I18nModule {
     params?: Record<string, string | number>,
   ): string;
   translateError(message: string): string;
+  setLocale(locale: string): Promise<void>;
+  getLocale(): string;
+  t(key: string, params?: Record<string, string | number>): string;
 }
 
 let i18n: I18nModule | null = null;
@@ -323,4 +326,164 @@ test("functional: every data-i18n key wired in index.html has a de translation",
   assert.ok(keys.size > 0, "index.html should wire data-i18n keys");
   const missing = [...keys].filter((k) => !deJson[k] || !String(deJson[k]).trim());
   assert.deepEqual(missing, [], `wired keys without de translation: ${missing.join(", ")}`);
+});
+
+// ── First-paint hint: browser-language negotiation in index.html ─────────
+//
+// The inline head script must set <html lang> from the browser language when
+// no pmLocale is stored, mirroring resolveLocale()'s navigator prefix match.
+test("index.html first-paint hint negotiates navigator.language when no stored locale", () => {
+  // Extract the inline script block.
+  const m = indexHtml.match(/<script>([^<]*localStorage\.getItem[^<]*)<\/script>/);
+  assert.ok(m, "index.html should contain the first-paint locale script");
+  const src = m![1];
+  // Helper that runs the hint script against a fake document/language/store.
+  function runHint(stored: string | null, navLang: string): string {
+    let htmlLang = 'en';
+    const fakeDoc = { documentElement: { set lang(v: string) { htmlLang = v; }, get lang() { return htmlLang; } } };
+    const fakeStore = { getItem: (k: string) => (k === 'pmLocale' ? stored : null) };
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(
+      'localStorage', 'navigator', 'document',
+      `try{${src}}catch(e){}`,
+    );
+    fn(fakeStore, { language: navLang }, fakeDoc);
+    return htmlLang;
+  }
+  // Persisted preference takes precedence.
+  assert.equal(runHint('de', 'en-US'), 'de');
+  assert.equal(runHint('en', 'de-DE'), 'en');
+  // No stored choice → browser-language prefix match (German → de).
+  assert.equal(runHint(null, 'de-DE'), 'de');
+  assert.equal(runHint(null, 'de'), 'de');
+  // Unsupported browser language → stays at default en.
+  assert.equal(runHint(null, 'fr-FR'), 'en');
+  assert.equal(runHint(null, 'en-US'), 'en');
+});
+
+// ── localStorage hardening: storage access must not abort startup ───────
+//
+// Privacy/incognito modes can throw SecurityError on localStorage access.
+// resolveLocale must catch these and continue with fallbacks rather than
+// reject and prevent the app from rendering.
+test("resolveLocale: throwing storage.getItem falls back to navigator language", () => {
+  const throwingGet: LocaleStorage = {
+    getItem: () => { throw new Error("SecurityError: storage blocked"); },
+    setItem: () => {},
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    length: 0,
+  };
+  // getItem throws → caught → falls through to navLang prefix match → 'de'.
+  assert.equal(i18n!.resolveLocale({ storage: throwingGet, navLang: 'de-DE' }), 'de');
+  // No usable navLang → default 'en' (no throw).
+  assert.equal(i18n!.resolveLocale({ storage: throwingGet, navLang: 'fr-FR' }), 'en');
+});
+
+test("resolveLocale: safeLocalStorage getter throwing does not abort (no opts)", () => {
+  // Simulate a browser privacy mode where resolving the localStorage
+  // reference itself throws. The no-argument path uses safeLocalStorage()
+  // internally and must not throw — it continues with fallbacks. The exact
+  // fallback depends on the host's navigator.language (which varies by
+  // environment), so we only assert it returns a supported locale and never
+  // throws, which is the real contract being hardened.
+  const g = globalThis as unknown as Record<string, unknown>;
+  const had = Object.prototype.hasOwnProperty.call(g, 'localStorage');
+  const prev = g.localStorage;
+  Object.defineProperty(g, 'localStorage', {
+    configurable: true,
+    get() { throw new Error("SecurityError: localStorage blocked"); },
+  });
+  try {
+    const resolved = i18n!.resolveLocale();
+    assert.ok(
+      resolved === 'en' || resolved === 'de',
+      `resolveLocale should return a supported locale without throwing, got ${resolved}`,
+    );
+  } finally {
+    delete g.localStorage;
+    if (had) g.localStorage = prev;
+  }
+});
+
+test("setLocale: throwing storage.setItem does not abort the locale switch", async () => {
+  const realFetch = globalThis.fetch;
+  // setLocale only needs an en catalog; stub fetch to return it immediately.
+  globalThis.fetch = (() => Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve(enJson),
+  })) as unknown as typeof fetch;
+  const g = globalThis as unknown as Record<string, unknown>;
+  const prevLS = g.localStorage;
+  // A storage that throws on writes (privacy-mode write block).
+  g.localStorage = {
+    getItem: () => null,
+    setItem: () => { throw new Error("SecurityError: write blocked"); },
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    length: 0,
+  };
+  try {
+    // Must not reject despite setItem throwing.
+    await i18n!.setLocale('en');
+    assert.equal(i18n!.getLocale(), 'en');
+  } finally {
+    g.localStorage = prevLS;
+    globalThis.fetch = realFetch;
+  }
+});
+
+// ── Stale catalog fetch guard (rapid de → en) ───────────────────────────
+//
+// When two setLocale calls overlap, the earlier (slower) fetch must be
+// discarded so it can never overwrite the newer selection.
+test("setLocale: stale catalog fetch is discarded when a newer setLocale wins", async () => {
+  const realFetch = globalThis.fetch;
+  let deResolve: ((v: { ok: boolean; json: () => Promise<Record<string, string>> }) => void) | undefined;
+  globalThis.fetch = ((input: unknown) => {
+    const url = String(input);
+    if (url.endsWith('/en.json')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(enJson) });
+    }
+    if (url.endsWith('/de.json')) {
+      // Deferred: resolves only when we trigger it, simulating a slow fetch.
+      return new Promise((resolve) => { deResolve = resolve as typeof deResolve; });
+    }
+    return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+  }) as unknown as typeof fetch;
+
+  try {
+    // Pre-load the en fallback so both race calls skip the en fetch and go
+    // straight to their (possibly deferred) active-catalog fetch.
+    await i18n!.setLocale('en');
+
+    // Start the German selection — its de fetch is deferred (pending).
+    const dePromise = i18n!.setLocale('de');
+    // Immediately switch to en; en needs no fetch (activeCatalog = enCatalog).
+    await i18n!.setLocale('en');
+
+    // Release the stale German fetch.
+    assert.ok(deResolve, 'de fetch should have been requested');
+    deResolve!({ ok: true, json: () => Promise.resolve(deJson) });
+    await dePromise;
+
+    // The latest selection (en) must win: locale is en, catalog is English.
+    assert.equal(i18n!.getLocale(), 'en');
+    assert.equal(i18n!.t('auth.title.login'), enJson['auth.title.login']);
+    // German must NOT have leaked through the stale fetch.
+    assert.notEqual(i18n!.t('auth.title.login'), deJson['auth.title.login']);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+// ── Dialog button localization catalog keys ─────────────────────────────
+test("dialog.* catalog keys exist and are localized in de", () => {
+  for (const key of ['dialog.cancel', 'dialog.confirm', 'dialog.delete']) {
+    assert.ok(enJson[key], `en.json missing ${key}`);
+    assert.ok(deJson[key], `de.json missing ${key}`);
+    assert.notEqual(enJson[key], deJson[key], `${key} should differ between en and de`);
+  }
 });

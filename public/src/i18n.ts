@@ -52,7 +52,8 @@ export function resolveLocale(opts?: {
   const hasStorage = opts != null && Object.prototype.hasOwnProperty.call(opts, 'storage');
   const storage = hasStorage ? opts!.storage : safeLocalStorage();
   if (storage) {
-    const stored = storage.getItem(LOCALE_STORAGE_KEY);
+    let stored: string | null = null;
+    try { stored = storage.getItem(LOCALE_STORAGE_KEY); } catch { /* privacy mode */ }
     if (stored && isSupported(stored)) return stored;
   }
   const hasNav = opts != null && Object.prototype.hasOwnProperty.call(opts, 'navLang');
@@ -68,10 +69,16 @@ function isSupported(value: string): value is SupportedLocale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }
 
-/** localStorage access guarded so Node imports/tests never crash. */
+/** localStorage access guarded so Node imports/tests never crash.
+ * Resolving the storage reference itself can throw a `SecurityError` in
+ * privacy/incognito modes that disable storage, so the lookup is wrapped too. */
 function safeLocalStorage(): Storage | null {
-  const g = globalThis as { localStorage?: Storage };
-  return g.localStorage ?? null;
+  try {
+    const g = globalThis as { localStorage?: Storage };
+    return g.localStorage ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** navigator.language access guarded so Node imports/tests never crash. */
@@ -109,6 +116,15 @@ let currentLocale: SupportedLocale = DEFAULT_LOCALE;
 let activeCatalog: Record<string, string> = {};
 let enCatalog: Record<string, string> = {};
 let initialized = false;
+
+/**
+ * Monotonic request id for setLocale. Each invocation increments this; an
+ * in-flight request records its id and, after its awaited catalog fetch,
+ * commits state only if it is still the latest. This discards stale catalogs
+ * when language changes overlap (e.g. rapid de → en) so a slower earlier
+ * fetch can never overwrite a newer selection.
+ */
+let localeReqId = 0;
 
 /** Fetch a locale catalog JSON. Best-effort: returns {} on any failure. */
 async function fetchCatalog(locale: string): Promise<Record<string, string>> {
@@ -175,12 +191,20 @@ export function t(
 export async function setLocale(locale: string): Promise<void> {
   const next: SupportedLocale = isSupported(locale) ? locale : DEFAULT_LOCALE;
   const storage = safeLocalStorage();
-  if (storage) storage.setItem(LOCALE_STORAGE_KEY, next);
+  if (storage) { try { storage.setItem(LOCALE_STORAGE_KEY, next); } catch { /* privacy mode */ } }
   currentLocale = next;
+  const myReqId = ++localeReqId;
   if (!Object.keys(enCatalog).length) {
-    enCatalog = await fetchCatalog('en');
+    const en = await fetchCatalog('en');
+    // A newer setLocale superseded this one: do not assign enCatalog.
+    if (myReqId !== localeReqId) return;
+    enCatalog = en;
   }
-  activeCatalog = next === 'en' ? enCatalog : await fetchCatalog(next);
+  const fetched = next === 'en' ? enCatalog : await fetchCatalog(next);
+  // Stale request: discard the fetched catalog so it can never overwrite a
+  // newer selection (e.g. a slow German fetch finishing after en was chosen).
+  if (myReqId !== localeReqId) return;
+  activeCatalog = fetched;
   initialized = true;
   syncHtmlLang(next);
   applyTranslations();

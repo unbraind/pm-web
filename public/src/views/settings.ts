@@ -204,7 +204,7 @@ export function clearGitHubToken(): void {
     } catch(err: unknown) {
       toast(translateError(err instanceof Error ? err.message : String(err)),'error');
     }
-  });
+  }, false, { cancel: t('dialog.cancel'), confirm: t('dialog.confirm') });
 }
 
 // Re-export so type-only re-exports stay usable if extended later.
