@@ -19,6 +19,17 @@ const enJson = JSON.parse(
 const deJson = JSON.parse(
   readFileSync(path.join(i18nDir, "de.json"), "utf8"),
 ) as Record<string, string>;
+const esJson = JSON.parse(
+  readFileSync(path.join(i18nDir, "es.json"), "utf8"),
+) as Record<string, string>;
+// All shipped catalogs keyed by locale code, so parity/coverage tests can
+// loop generically over every locale instead of hard-coding each one.
+const allCatalogs: Record<string, Record<string, string>> = {
+  en: enJson,
+  de: deJson,
+  es: esJson,
+};
+const nonEnLocales = Object.keys(allCatalogs).filter((l) => l !== "en");
 const indexHtml = readFileSync(
   path.join(packageRoot, "public", "index.html"),
   "utf8",
@@ -95,53 +106,61 @@ before(() => {
   });
 });
 
-// ── Catalog parity: every en key must exist in de with a non-empty value ──
-test("catalog parity: every en key exists in de with a non-empty value", () => {
+// ── Catalog parity: every en key must exist in every shipped locale with a non-empty value ──
+test("catalog parity: every en key exists in every locale with a non-empty value", () => {
   const enKeys = Object.keys(enJson).sort();
   assert.ok(enKeys.length > 0, "en.json should not be empty");
-  const missing: string[] = [];
-  const empty: string[] = [];
-  for (const key of enKeys) {
-    if (!(key in deJson)) {
-      missing.push(key);
-    } else if (!String(deJson[key]).trim()) {
-      empty.push(key);
+  for (const loc of nonEnLocales) {
+    const cat = allCatalogs[loc];
+    const missing: string[] = [];
+    const empty: string[] = [];
+    for (const key of enKeys) {
+      if (!(key in cat)) {
+        missing.push(key);
+      } else if (!String(cat[key]).trim()) {
+        empty.push(key);
+      }
     }
+    assert.deepEqual(missing, [], `${loc}.json is missing keys: ${missing.join(", ")}`);
+    assert.deepEqual(empty, [], `${loc}.json has empty values for: ${empty.join(", ")}`);
   }
-  assert.deepEqual(missing, [], `de.json is missing keys: ${missing.join(", ")}`);
-  assert.deepEqual(empty, [], `de.json has empty values for: ${empty.join(", ")}`);
 });
 
-// ── No extra de keys that aren't in en (keep en as source of truth) ──────
-test("de has no keys absent from en (en is the source of truth)", () => {
-  const extra = Object.keys(deJson).filter((k) => !(k in enJson));
-  assert.deepEqual(extra, [], `de.json has keys not in en.json: ${extra.join(", ")}`);
+// ── No extra locale keys that aren't in en (keep en as source of truth) ──
+test("no locale has keys absent from en (en is the source of truth)", () => {
+  for (const loc of nonEnLocales) {
+    const extra = Object.keys(allCatalogs[loc]).filter((k) => !(k in enJson));
+    assert.deepEqual(extra, [], `${loc}.json has keys not in en.json: ${extra.join(", ")}`);
+  }
 });
 
-// ── German translations are actually German (differ from English) ────────
-test("de translations differ from en for non-structural strings", () => {
-  const same: string[] = [];
-  for (const key of Object.keys(enJson)) {
-    // Skip values that are intentionally identical across locales (proper
-    // nouns, brand, code tokens, the language-option labels, technical terms,
-    // and pure punctuation placeholders).
-    if (
-      key === "settings.languageEn" ||
-      key === "settings.languageDe" ||
-      key === "auth.placeholder.email" ||
-      key === "auth.placeholder.password" ||
-      key === "settings.tokenPlaceholder.set" ||
-      key === "settings.tokenLabel"
-    ) {
-      continue;
+// ── Translations are actually translated (differ from English) ───────────
+test("non-en translations differ from en for non-structural strings", () => {
+  // Keys whose values are intentionally identical across locales (proper
+  // nouns, brand, code tokens, language-option labels, technical terms,
+  // and pure punctuation placeholders).
+  const structural = new Set([
+    "settings.languageEn",
+    "settings.languageDe",
+    "settings.languageEs",
+    "auth.placeholder.email",
+    "auth.placeholder.password",
+    "settings.tokenPlaceholder.set",
+    "settings.tokenLabel",
+  ]);
+  for (const loc of nonEnLocales) {
+    const cat = allCatalogs[loc];
+    const same: string[] = [];
+    for (const key of Object.keys(enJson)) {
+      if (structural.has(key)) continue;
+      if (enJson[key] === cat[key]) same.push(key);
     }
-    if (enJson[key] === deJson[key]) same.push(key);
+    assert.deepEqual(
+      same,
+      [],
+      `${loc} value equals en for (translation looks untranslated): ${same.join(", ")}`,
+    );
   }
-  assert.deepEqual(
-    same,
-    [],
-    `de value equals en for (translation looks untranslated): ${same.join(", ")}`,
-  );
 });
 
 // ── Locale resolution order ─────────────────────────────────────────────
@@ -170,6 +189,8 @@ test("resolveLocale: navigator.language prefix match when no stored choice", () 
   assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "de-DE" }), "de");
   assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "de" }), "de");
   assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "en-US" }), "en");
+  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "es-MX" }), "es");
+  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "es" }), "es");
 });
 
 test("resolveLocale: unsupported navigator language falls back to en", () => {
@@ -255,13 +276,16 @@ test("translateError: unknown message is returned unchanged (fallback)", () => {
   assert.equal(i18n!.translateError("Something completely unexpected"), "Something completely unexpected");
 });
 
-test("translateError: every error.* key has a German translation", () => {
-  const missing: string[] = [];
-  for (const key of Object.keys(enJson)) {
-    if (!key.startsWith("error.")) continue;
-    if (!deJson[key] || !String(deJson[key]).trim()) missing.push(key);
+test("translateError: every error.* key has a translation in every locale", () => {
+  for (const loc of nonEnLocales) {
+    const cat = allCatalogs[loc];
+    const missing: string[] = [];
+    for (const key of Object.keys(enJson)) {
+      if (!key.startsWith("error.")) continue;
+      if (!cat[key] || !String(cat[key]).trim()) missing.push(key);
+    }
+    assert.deepEqual(missing, [], `untranslated error keys in ${loc}: ${missing.join(", ")}`);
   }
-  assert.deepEqual(missing, [], `untranslated error keys: ${missing.join(", ")}`);
 });
 
 // ── Functional check: auth screen renders German when pmLocale=de ────────
@@ -318,14 +342,17 @@ test("functional: auth screen renders German when de catalog is applied", () => 
   );
 });
 
-test("functional: every data-i18n key wired in index.html has a de translation", () => {
+test("functional: every data-i18n key wired in index.html has a translation in every locale", () => {
   const keys = new Set<string>();
   const re = /data-i18n(?:-html|-title|-placeholder|-aria)?="([^"]+)"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(indexHtml)) !== null) keys.add(m[1]);
   assert.ok(keys.size > 0, "index.html should wire data-i18n keys");
-  const missing = [...keys].filter((k) => !deJson[k] || !String(deJson[k]).trim());
-  assert.deepEqual(missing, [], `wired keys without de translation: ${missing.join(", ")}`);
+  for (const loc of nonEnLocales) {
+    const cat = allCatalogs[loc];
+    const missing = [...keys].filter((k) => !cat[k] || !String(cat[k]).trim());
+    assert.deepEqual(missing, [], `wired keys without ${loc} translation: ${missing.join(", ")}`);
+  }
 });
 
 // ── First-paint hint: browser-language negotiation in index.html ─────────
@@ -353,9 +380,12 @@ test("index.html first-paint hint negotiates navigator.language when no stored l
   // Persisted preference takes precedence.
   assert.equal(runHint('de', 'en-US'), 'de');
   assert.equal(runHint('en', 'de-DE'), 'en');
-  // No stored choice → browser-language prefix match (German → de).
+  assert.equal(runHint('es', 'en-US'), 'es');
+  // No stored choice → browser-language prefix match (German → de, Spanish → es).
   assert.equal(runHint(null, 'de-DE'), 'de');
   assert.equal(runHint(null, 'de'), 'de');
+  assert.equal(runHint(null, 'es-MX'), 'es');
+  assert.equal(runHint(null, 'es'), 'es');
   // Unsupported browser language → stays at default en.
   assert.equal(runHint(null, 'fr-FR'), 'en');
   assert.equal(runHint(null, 'en-US'), 'en');
@@ -480,10 +510,13 @@ test("setLocale: stale catalog fetch is discarded when a newer setLocale wins", 
 });
 
 // ── Dialog button localization catalog keys ─────────────────────────────
-test("dialog.* catalog keys exist and are localized in de", () => {
+test("dialog.* catalog keys exist and are localized in every locale", () => {
   for (const key of ['dialog.cancel', 'dialog.confirm', 'dialog.delete']) {
     assert.ok(enJson[key], `en.json missing ${key}`);
-    assert.ok(deJson[key], `de.json missing ${key}`);
-    assert.notEqual(enJson[key], deJson[key], `${key} should differ between en and de`);
+    for (const loc of nonEnLocales) {
+      const cat = allCatalogs[loc];
+      assert.ok(cat[key], `${loc}.json missing ${key}`);
+      assert.notEqual(enJson[key], cat[key], `${key} should differ between en and ${loc}`);
+    }
   }
 });

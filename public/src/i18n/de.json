@@ -22,7 +22,6 @@
   "auth.button.login": "Anmelden",
   "auth.button.register": "Konto erstellen",
   "auth.loading": "Bitte warten…",
-
   "nav.skipLink": "Zum Hauptinhalt springen",
   "nav.settings": "Einstellungen",
   "nav.signOut": "Abmelden",
@@ -33,23 +32,21 @@
   "nav.sse.connected": "Echtzeit-Synchronisierung verbunden",
   "nav.sse.reconnecting": "Echtzeit-Synchronisierung wird wiederhergestellt…",
   "nav.theme.title": "Design wechseln (dunkel / hell / auto)",
-
   "banner.offline": "Sie sind offline — Änderungen werden bei erneuter Verbindung synchronisiert",
   "banner.install.text": "Installieren Sie <strong>pm-web</strong> für ein nativeres App-Erlebnis",
   "banner.install.dismiss": "Nicht jetzt",
   "banner.install.button": "Installieren",
-
   "cookie.banner.title": "Cookie-Einstellungen",
   "cookie.banner.text": "Wir verwenden nur technisch notwendige Speicherung für Anmeldung, Sicherheit und Einstellungen. Keine optionalen Tracking-Cookies.",
   "cookie.banner.privacy": "Datenschutzerklärung",
   "cookie.banner.decline": "Nur notwendige",
   "cookie.banner.accept": "Verstanden",
-
   "settings.title": "Einstellungen",
   "settings.subtitle": "Verwalten Sie Ihr Profil und Ihr Konto",
   "settings.language": "Sprache",
   "settings.languageEn": "English",
   "settings.languageDe": "Deutsch",
+  "settings.languageEs": "Español",
   "settings.languageHint": "Oberflächensprache. Rechtsseiten werden vom Betreiber bereitgestellt und sind möglicherweise nicht übersetzt.",
   "settings.profile": "Profil",
   "settings.displayName": "Anzeigename",
@@ -91,11 +88,9 @@
   "settings.tokenCleared": "GitHub-Token gelöscht",
   "settings.clearTokenTitle": "GitHub-Token löschen?",
   "settings.clearTokenBody": "Ihre GitHub-Integration wird danach nicht mehr funktionieren.",
-
   "dialog.cancel": "Abbrechen",
   "dialog.confirm": "Bestätigen",
   "dialog.delete": "Löschen",
-
   "error.emailPasswordRequired": "E-Mail und Passwort sind erforderlich",
   "error.passwordTooShort": "Das Passwort muss mindestens 8 Zeichen lang sein",
   "error.invalidEmail": "Ungültige E-Mail-Adresse",
@@ -117,6 +112,5 @@
   "error.oidcDenied": "Die OpenID-Connect-Anmeldung wurde abgebrochen oder abgelehnt.",
   "error.oidcMissingIdToken": "Der OIDC-Provider hat kein ID-Token zurückgegeben.",
   "error.oidcLoginFailed": "OpenID-Connect-Anmeldung fehlgeschlagen.",
-
   "legal.disclaimer": "Übersetzung dient nur der Verständlichkeit; die englische Fassung ist maßgeblich."
 }
