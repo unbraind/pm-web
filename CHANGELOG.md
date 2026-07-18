@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.7.18 - 2026-07-18
+
+### Other
+
+- Harden release bun-verify so registry-mirror lag cannot block the GitHub release ([pm-web-rwsr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-rwsr.toon))
+
 ## 2026.7.17 - 2026-07-16
 
 ### Added
