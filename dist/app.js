@@ -91,6 +91,10 @@ export function createApp() {
         res.sendFile(path.join(PUBLIC_DIR, "sw.js"));
     });
     app.use(express.static(PUBLIC_DIR, {
+        // index:false so "/" is not auto-served as the RAW shell; it flows to the
+        // explicit "/" handler below which injects the resolved public origin into
+        // the canonical/OG/JSON-LD URLs (see PM_WEB_PUBLIC_ORIGIN).
+        index: false,
         maxAge: process.env.NODE_ENV === "production" ? "1h" : 0,
     }));
     // Security headers
@@ -150,6 +154,21 @@ export function createApp() {
     // hosted domain (pm-web.unbrained.dev) and any mirror an operator runs.
     const PUBLIC_ORIGIN = (process.env.PM_WEB_PUBLIC_ORIGIN || "https://pm-web.unbrained.dev").replace(/\/+$/, "");
     const today = () => new Date().toISOString().slice(0, 10);
+    // The SPA shell (public/index.html) bakes in the hosted origin for its
+    // canonical/Open Graph/Twitter/JSON-LD URLs. Read it once and rewrite that
+    // origin to the resolved PUBLIC_ORIGIN so mirrors/self-hosted deployments
+    // (PM_WEB_PUBLIC_ORIGIN) advertise their OWN origin to crawlers instead of
+    // pointing back at pm-web.unbrained.dev. For the default hosted deployment
+    // this is a byte-for-byte no-op. Served fresh (no-cache) so a redeploy that
+    // changes the origin or asset hashes is picked up immediately.
+    const INDEX_HTML = readFileSync(path.join(PUBLIC_DIR, "index.html"), "utf8")
+        .split("https://pm-web.unbrained.dev")
+        .join(PUBLIC_ORIGIN);
+    const sendIndex = (res) => {
+        res.type("html");
+        res.setHeader("Cache-Control", "no-cache");
+        res.send(INDEX_HTML);
+    };
     app.get("/robots.txt", (_req, res) => {
         res.type("text/plain");
         res.setHeader("Cache-Control", "public, max-age=3600");
@@ -166,7 +185,12 @@ export function createApp() {
             { loc: `${PUBLIC_ORIGIN}/legal-notice`, priority: "0.3", changefreq: "yearly" },
             { loc: `${PUBLIC_ORIGIN}/cookie-settings`, priority: "0.3", changefreq: "yearly" },
         ];
-        const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const escape = (s) => s
+            .replace(/&/g, "&amp;")
+            .replace(/'/g, "&apos;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
         const body = `<?xml version="1.0" encoding="UTF-8"?>\n` +
             `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
             urls
@@ -180,10 +204,10 @@ export function createApp() {
             `\n</urlset>\n`;
         res.send(body);
     });
-    // SPA fallback — serve index.html for all non-API routes
-    app.get("/{*splat}", (_req, res) => {
-        res.sendFile(path.join(PUBLIC_DIR, "index.html"));
-    });
+    // Home + SPA fallback — serve the origin-injected index.html for all non-API
+    // routes (including "/", which static no longer auto-serves).
+    app.get("/", (_req, res) => sendIndex(res));
+    app.get("/{*splat}", (_req, res) => sendIndex(res));
     return app;
 }
 //# sourceMappingURL=app.js.map

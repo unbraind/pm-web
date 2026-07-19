@@ -82,6 +82,13 @@ test("SPA fallback still serves index.html (200) for unknown client routes", asy
   assert.equal(res.status, 200);
 });
 
+test("/ serves the SPA shell with the Bing verification tag and hosted canonical", async () => {
+  const res = await request("GET", "/");
+  assert.equal(res.status, 200);
+  assert.match(res.body, /name="msvalidate\.01" content="A1A3EE3187D3953D97C9BE7C81961E53"/);
+  assert.match(res.body, /<link rel="canonical" href="https:\/\/pm-web\.unbrained\.dev\/">/);
+});
+
 // Per sourcery review on PR #51: prove PM_WEB_PUBLIC_ORIGIN is honoured and that
 // a trailing slash on the override does NOT produce a doubled slash (//sitemap.xml).
 test("robots.txt/sitemap.xml honour PM_WEB_PUBLIC_ORIGIN and normalize a trailing slash", async () => {
@@ -102,6 +109,14 @@ test("robots.txt/sitemap.xml honour PM_WEB_PUBLIC_ORIGIN and normalize a trailin
     assert.doesNotMatch(sitemap.body, /mirror\.example\.com\/\/[a-z]/);
     // The hosted default origin must not leak into an overridden deployment.
     assert.doesNotMatch(sitemap.body, /pm-web\.unbrained\.dev/);
+
+    // The served SPA shell must advertise the overridden origin in its canonical
+    // and Open Graph URLs — not the baked-in hosted default.
+    const shell = await request("GET", "/", overrideApp);
+    assert.equal(shell.status, 200);
+    assert.match(shell.body, /<link rel="canonical" href="https:\/\/mirror\.example\.com\/">/);
+    assert.match(shell.body, /property="og:url" content="https:\/\/mirror\.example\.com\/"/);
+    assert.doesNotMatch(shell.body, /pm-web\.unbrained\.dev/);
   } finally {
     if (prev === undefined) delete process.env.PM_WEB_PUBLIC_ORIGIN;
     else process.env.PM_WEB_PUBLIC_ORIGIN = prev;
