@@ -9,7 +9,7 @@ const app = createApp();
  * the Express app against a fake request without binding a port or needing a
  * running PostgreSQL instance (createApp deliberately does not touch the DB).
  */
-function request(method: string, url: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
+function request(method: string, url: string, targetApp: unknown = app): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
   return new Promise((resolve, reject) => {
     const req: any = { method, url, headers: {}, connection: { remoteAddress: "127.0.0.1" } };
     const res: any = {
@@ -38,7 +38,7 @@ function request(method: string, url: string): Promise<{ status: number; headers
     };
 
     try {
-      (app as unknown as (req: any, res: any, next: (err?: any) => void) => void)(req, res, (err?: any) => {
+      (targetApp as unknown as (req: any, res: any, next: (err?: any) => void) => void)(req, res, (err?: any) => {
         if (err) { reject(err); return; }
         res.statusCode = 404;
         resolve({ status: res.statusCode, headers: res._headers, body: Buffer.concat(res._chunks).toString("utf8") });
@@ -80,4 +80,30 @@ test("/sitemap.xml is application/xml with a valid <urlset> for public pages onl
 test("SPA fallback still serves index.html (200) for unknown client routes", async () => {
   const res = await request("GET", "/some-unknown-spa-route");
   assert.equal(res.status, 200);
+});
+
+// Per sourcery review on PR #51: prove PM_WEB_PUBLIC_ORIGIN is honoured and that
+// a trailing slash on the override does NOT produce a doubled slash (//sitemap.xml).
+test("robots.txt/sitemap.xml honour PM_WEB_PUBLIC_ORIGIN and normalize a trailing slash", async () => {
+  const prev = process.env.PM_WEB_PUBLIC_ORIGIN;
+  process.env.PM_WEB_PUBLIC_ORIGIN = "https://mirror.example.com/"; // note trailing slash
+  try {
+    const overrideApp = createApp(); // origin is resolved at construction time
+    const robots = await request("GET", "/robots.txt", overrideApp);
+    assert.equal(robots.status, 200);
+    assert.match(robots.body, /Sitemap: https:\/\/mirror\.example\.com\/sitemap\.xml/);
+    assert.doesNotMatch(robots.body, /mirror\.example\.com\/\/sitemap\.xml/);
+
+    const sitemap = await request("GET", "/sitemap.xml", overrideApp);
+    assert.equal(sitemap.status, 200);
+    assert.match(sitemap.body, /<loc>https:\/\/mirror\.example\.com\/<\/loc>/);
+    assert.match(sitemap.body, /<loc>https:\/\/mirror\.example\.com\/terms<\/loc>/);
+    // No doubled slash after the origin anywhere in the document.
+    assert.doesNotMatch(sitemap.body, /mirror\.example\.com\/\/[a-z]/);
+    // The hosted default origin must not leak into an overridden deployment.
+    assert.doesNotMatch(sitemap.body, /pm-web\.unbrained\.dev/);
+  } finally {
+    if (prev === undefined) delete process.env.PM_WEB_PUBLIC_ORIGIN;
+    else process.env.PM_WEB_PUBLIC_ORIGIN = prev;
+  }
 });
