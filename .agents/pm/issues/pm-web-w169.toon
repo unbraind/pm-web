@@ -1,0 +1,14 @@
+id: pm-web-w169
+title: SEO+Bing verification + real sitemap/robots for pm-web
+description: ""
+type: Issue
+status: in_progress
+priority: 2
+tags[1]: seo
+created_at: "2026-07-19T04:18:38.398Z"
+updated_at: "2026-07-19T04:19:06.310Z"
+assignee: pi-agent
+author: pi-agent
+comments[1]{created_at,author,text}:
+  "2026-07-19T04:19:06.310Z",pi-agent,"Implemented: index.html head SEO (Bing msvalidate.01, improved title/description/keywords, canonical, robots, OG, Twitter, JSON-LD WebApplication+Organization); src/app.ts GET /robots.txt (text/plain) and GET /sitemap.xml (application/xml urlset) registered before SPA fallback; PM_WEB_PUBLIC_ORIGIN env override defaults to https://pm-web.unbrained.dev. Added test/seo-routes.test.ts. Verified: npm run build green, npm test 109/109 pass, curl probe on :43987 confirms robots.txt text/plain with Sitemap line, sitemap.xml application/xml urlset with pm-web.unbrained.dev, index.html msvalidate count=1."
+body: ""

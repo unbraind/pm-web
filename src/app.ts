@@ -162,6 +162,52 @@ export function createApp(): Express {
     res.status(404).json({ error: "Not found" });
   });
 
+  // SEO: real robots.txt + sitemap.xml. Registered BEFORE the SPA fallback so
+  // the index.html catch-all cannot shadow them with a soft-200 HTML response.
+  // The public origin is configurable so the same image works behind the
+  // hosted domain (pm-web.unbrained.dev) and any mirror an operator runs.
+  const PUBLIC_ORIGIN = (
+    process.env.PM_WEB_PUBLIC_ORIGIN || "https://pm-web.unbrained.dev"
+  ).replace(/\/+$/, "");
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  app.get("/robots.txt", (_req, res) => {
+    res.type("text/plain");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(`User-agent: *\nAllow: /\nSitemap: ${PUBLIC_ORIGIN}/sitemap.xml\n`);
+  });
+
+  app.get("/sitemap.xml", (_req, res) => {
+    res.type("application/xml");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    const lastmod = today();
+    const urls: Array<{ loc: string; priority: string; changefreq: string }> = [
+      { loc: `${PUBLIC_ORIGIN}/`, priority: "1.0", changefreq: "weekly" },
+      { loc: `${PUBLIC_ORIGIN}/privacy-policy`, priority: "0.3", changefreq: "yearly" },
+      { loc: `${PUBLIC_ORIGIN}/terms`, priority: "0.3", changefreq: "yearly" },
+      { loc: `${PUBLIC_ORIGIN}/legal-notice`, priority: "0.3", changefreq: "yearly" },
+      { loc: `${PUBLIC_ORIGIN}/cookie-settings`, priority: "0.3", changefreq: "yearly" },
+    ];
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const body =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      urls
+        .map(
+          (u) =>
+            `  <url>\n` +
+            `    <loc>${escape(u.loc)}</loc>\n` +
+            `    <lastmod>${lastmod}</lastmod>\n` +
+            `    <changefreq>${u.changefreq}</changefreq>\n` +
+            `    <priority>${u.priority}</priority>\n` +
+            `  </url>`,
+        )
+        .join("\n") +
+      `\n</urlset>\n`;
+    res.send(body);
+  });
+
   // SPA fallback — serve index.html for all non-API routes
   app.get("/{*splat}", (_req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, "index.html"));
