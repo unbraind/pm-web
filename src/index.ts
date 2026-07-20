@@ -226,7 +226,7 @@ function processAlive(pid: number): boolean {
 
 export default defineExtension({
   name: "pm-web",
-  version: "2026.7.18",
+  version: "2026.7.20",
 
   activate(api: ExtensionApi) {
     // -----------------------------------------------------------------------
