@@ -83,8 +83,12 @@ async function createItem(userId: string, slug: string, title: string): Promise<
     jsonOutput: true,
   });
   assert.ok(result.ok && result.parsed, `pm create failed: ${result.stderr}`);
-  const item = (result.parsed as { item: { id: string } }).item;
-  return item.id;
+  // pm-cli 2026.7.21 returns a top-level mutation summary `{ id, status, ... }`;
+  // older versions wrapped it as `{ item: { id, ... } }`. Accept both.
+  const parsed = result.parsed as { id?: string; item?: { id: string } };
+  const id = parsed.item?.id ?? parsed.id;
+  assert.ok(id, `pm create returned no id: ${JSON.stringify(parsed)}`);
+  return id;
 }
 
 async function updateItem(userId: string, slug: string, id: string, ...flags: string[]): Promise<void> {
