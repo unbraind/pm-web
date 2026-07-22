@@ -35,7 +35,7 @@
     "build:test": "tsc -p tsconfig.test.json",
     "test": "npm run build:server && npm run build:test && node --test dist-test/*.js",
     "prepublishOnly": "npm run release:check",
-    "prepare": "if command -v pm >/dev/null 2>&1; then pm merge install; fi",
+    "prepare": "node scripts/prepare-merge-driver.mjs",
     "merge:install": "pm merge install"
   },
   "dependencies": {

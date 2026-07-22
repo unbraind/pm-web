@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Adopt pm field-aware merge driver for multi-agent branch-merge safety ([pm-web-94so](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-94so.toon))
+
 ## 2026.7.18 - 2026-07-18
 
 ### Other
