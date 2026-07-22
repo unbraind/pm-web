@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Recommend pm merge reconcile (2026.7.22) over raw history-repair in Multi-agent merge safety docs ([pm-web-n1pm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-n1pm.toon))
+
 ### Other
 
 - Adopt pm field-aware merge driver for multi-agent branch-merge safety ([pm-web-94so](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-94so.toon))
