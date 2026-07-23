@@ -40,7 +40,7 @@ export class Semaphore {
 }
 const commandSlots = new Semaphore(positiveInteger(process.env.PM_WEB_PM_CONCURRENCY, 8));
 const workspaceTails = new Map();
-function projectsRoot() {
+export function projectsRoot() {
     return process.env.PROJECTS_ROOT || "/app/projects";
 }
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ||

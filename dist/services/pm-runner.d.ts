@@ -7,6 +7,7 @@ export declare class Semaphore {
     constructor(limit: number);
     acquire(): Promise<() => void>;
 }
+export declare function projectsRoot(): string;
 export declare function getProjectDir(userId: string, slug: string): string;
 export declare function initProject(userId: string, slug: string, prefix: string): Promise<void>;
 export declare function projectExists(userId: string, slug: string): boolean;

@@ -26,6 +26,25 @@ const byProject = new Map<string, Set<SSEClient>>();
 const presenceTimers = new Map<string, NodeJS.Timeout>();
 let projectEventPublisher: ((projectId: string, event: SSEEvent) => Promise<void>) | null = null;
 
+const lastSignaledAt = new Map<string, number>();
+const SIGNAL_ENTRY_TTL_MS = 60_000;
+
+// Record that an item mutation for this project was just delivered to clients
+// (via API broadcast or a received cross-process NOTIFY). The filesystem
+// change-detector uses this to suppress re-announcing changes already signaled.
+export function noteSignaledMutation(projectId: string): void {
+  lastSignaledAt.set(projectId, Date.now());
+}
+
+export function wasSignaledWithin(projectId: string, windowMs: number, now: number = Date.now()): boolean {
+  const at = lastSignaledAt.get(projectId);
+  return at !== undefined && now - at <= windowMs;
+}
+
+export function getActiveProjectIds(): string[] {
+  return [...byProject.keys()];
+}
+
 export function configureProjectEventPublisher(
   publisher: ((projectId: string, event: SSEEvent) => Promise<void>) | null,
 ): void {
@@ -97,6 +116,7 @@ export function broadcastProjectEvent(projectId: string, event: SSEEvent): void 
 }
 
 export function deliverProjectEvent(projectId: string, event: SSEEvent): void {
+  noteSignaledMutation(projectId);
   const set = byProject.get(projectId);
   if (!set || set.size === 0) return;
   const payload = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
@@ -168,6 +188,9 @@ export function cleanupStaleClients(): void {
   // Broadcast updated presence for affected projects
   for (const projectId of staleProjectIds) {
     schedulePresence(projectId);
+  }
+  for (const [pid, at] of lastSignaledAt) {
+    if (now - at > SIGNAL_ENTRY_TTL_MS) lastSignaledAt.delete(pid);
   }
 }
 

@@ -2,6 +2,7 @@ import { initSchema, assertDbConfigured } from "./db.js";
 import { createApp } from "./app.js";
 import { cleanupStaleClients } from "./services/sse.js";
 import { startRealtimeBus } from "./services/realtime-bus.js";
+import { startProjectWatcher } from "./services/project-watcher.js";
 import { assertOidcConfiguration } from "./oidc.js";
 const PORT = parseInt(process.env.PORT || "4000", 10);
 const app = createApp();
@@ -20,6 +21,7 @@ catch (err) {
 initSchema()
     .then(async () => {
     const closeRealtimeBus = await startRealtimeBus();
+    const stopProjectWatcher = startProjectWatcher();
     // Express 5 invokes the listen callback WITH the error (it is installed
     // as the server's 'error' handler), so ignoring the argument turns
     // EADDRINUSE into a false "running" message and a process that idles
@@ -35,7 +37,7 @@ initSchema()
         console.error(`Server error on :${PORT}:`, err.message);
         process.exit(1);
     });
-    server.on("close", () => { void closeRealtimeBus(); });
+    server.on("close", () => { stopProjectWatcher(); void closeRealtimeBus(); });
     // Periodic cleanup of stale SSE clients
     setInterval(cleanupStaleClients, 5 * 60 * 1000);
 })

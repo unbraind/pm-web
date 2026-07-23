@@ -31,7 +31,7 @@ function safeSharedData(data: unknown): Record<string, unknown> {
   return safe;
 }
 
-function parseEnvelope(raw: string | undefined): RealtimeEnvelope | null {
+export function parseEnvelope(raw: string | undefined): RealtimeEnvelope | null {
   if (!raw || Buffer.byteLength(raw, "utf8") > 7_500) return null;
   try {
     const value = JSON.parse(raw) as Partial<RealtimeEnvelope>;
@@ -40,6 +40,22 @@ function parseEnvelope(raw: string | undefined): RealtimeEnvelope | null {
   } catch {
     return null;
   }
+}
+
+export function buildEnvelope(projectId: string, event: SSEEvent, sourceId: string): string | null {
+  if (!PROJECT_ID.test(projectId) || !EVENT_TYPE.test(event.type)) return null;
+  const payload = JSON.stringify({ projectId, type: event.type, data: safeSharedData(event.data), sourceId });
+  return Buffer.byteLength(payload, "utf8") <= 7_500 ? payload : null;
+}
+
+export function handleIncomingEnvelope(
+  raw: string | undefined,
+  instanceId: string,
+  deliver: (projectId: string, event: SSEEvent) => void,
+): void {
+  const event = parseEnvelope(raw);
+  if (!event || event.sourceId === instanceId) return;
+  deliver(event.projectId, { type: event.type, data: event.data });
 }
 
 export async function startRealtimeBus(): Promise<() => Promise<void>> {
@@ -88,9 +104,7 @@ export async function startRealtimeBus(): Promise<() => Promise<void>> {
   const connectOnce = async (): Promise<void> => {
     const client = await pool.connect();
     const notification = (message: { payload?: string }): void => {
-      const event = parseEnvelope(message.payload);
-      if (!event || event.sourceId === INSTANCE_ID) return;
-      deliverProjectEvent(event.projectId, { type: event.type, data: event.data });
+      handleIncomingEnvelope(message.payload, INSTANCE_ID, deliverProjectEvent);
     };
     const error = (cause: Error): void => {
       if (listener !== client) return;
@@ -127,14 +141,8 @@ export async function startRealtimeBus(): Promise<() => Promise<void>> {
   await connect();
 
   configureProjectEventPublisher(async (projectId: string, event: SSEEvent) => {
-    if (!PROJECT_ID.test(projectId) || !EVENT_TYPE.test(event.type)) return;
-    const payload = JSON.stringify({
-      projectId,
-      type: event.type,
-      data: safeSharedData(event.data),
-      sourceId: INSTANCE_ID,
-    });
-    if (Buffer.byteLength(payload, "utf8") <= 7_500) {
+    const payload = buildEnvelope(projectId, event, INSTANCE_ID);
+    if (payload) {
       await pool.query("SELECT pg_notify($1, $2)", [CHANNEL, payload]);
     } else {
       console.warn(`Realtime event payload exceeded size limit: ${projectId}/${event.type}`);
