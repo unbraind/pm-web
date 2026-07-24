@@ -4,7 +4,7 @@ export interface ProjectWatcherDeps {
     suppressWindowMs?: number;
     getActiveProjectIds?: () => string[];
     resolveProjectDir?: (projectId: string) => Promise<string | null>;
-    readMaxMtimeMs?: (projectDir: string) => Promise<number>;
+    readSignature?: (projectDir: string) => Promise<string>;
     wasSignaledWithin?: (projectId: string, windowMs: number) => boolean;
     emit?: (projectId: string, event: SSEEvent) => void;
     onError?: (err: unknown) => void;

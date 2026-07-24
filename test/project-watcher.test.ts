@@ -22,12 +22,14 @@ function makeHarness(opts: {
     suppressWindowMs: 10_000,
     getActiveProjectIds: () => opts.activeIds(),
     resolveProjectDir: async (id) => opts.dirs.get(id) ?? null,
-    readMaxMtimeMs: async (dir) => {
-      // dir is the project dir; find which projectId it maps to
+    readSignature: async (dir) => {
+      // dir is the project dir; find which projectId it maps to. The mtimes map
+      // stands in for the composite signature — any change (up OR down) is a
+      // distinct string, mirroring the real count:max:sum fingerprint.
       for (const [pid, d] of opts.dirs) {
-        if (d === dir) return opts.mtimes.get(pid) ?? 0;
+        if (d === dir) return String(opts.mtimes.get(pid) ?? 0);
       }
-      return 0;
+      return "0";
     },
     wasSignaledWithin: (id, _w) => opts.signaled.has(id),
     emit: (projectId, event) => { emitted.push({ projectId, event }); },
@@ -156,10 +158,10 @@ test("project watcher: readMaxMtimeMs throwing for one project calls onError but
     suppressWindowMs: 10_000,
     getActiveProjectIds: () => activeIds(),
     resolveProjectDir: async (id) => dirs.get(id) ?? null,
-    readMaxMtimeMs: async (dir) => {
+    readSignature: async (dir) => {
       if (dir === "/proj/a") throw new Error("boom");
-      for (const [pid, d] of dirs) if (d === dir) return mtimes.get(pid) ?? 0;
-      return 0;
+      for (const [pid, d] of dirs) if (d === dir) return String(mtimes.get(pid) ?? 0);
+      return "0";
     },
     wasSignaledWithin: () => false,
     emit: (projectId, event) => { emitted.push({ projectId, event }); },
@@ -176,4 +178,65 @@ test("project watcher: readMaxMtimeMs throwing for one project calls onError but
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].projectId, PID_B);
   assert.equal(emitted[0].event.type, "workspace-changed");
+});
+
+test("project watcher: signature change to a LOWER value (mtime-preserving restore) still emits", async () => {
+  // A raw restore can rewrite item files with older preserved mtimes, so the
+  // composite signature must trigger on ANY change, not only on an increase.
+  const activeIds = (): string[] => [PID_A];
+  const dirs = new Map<string, string | null>([[PID_A, "/proj/a"]]);
+  const mtimes = new Map<string, number>([[PID_A, 5_000]]);
+  const signaled = new Set<string>();
+  const errors: unknown[] = [];
+  const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+
+  await cycle.tick(); // baseline at 5_000
+  assert.equal(emitted.length, 0);
+
+  mtimes.set(PID_A, 1_000); // restore rolls the signature "backwards"
+  await cycle.tick();
+  assert.equal(emitted.length, 1, "a lower/different signature must emit");
+  assert.equal(emitted[0].projectId, PID_A);
+  assert.equal(emitted[0].event.type, "workspace-changed");
+  assert.equal(errors.length, 0);
+});
+
+test("project watcher: transient resolveProjectDir failure is retried, not cached as null", async () => {
+  // A DB error while resolving the project dir must NOT be cached for the whole
+  // SSE session — the next tick has to retry once the DB recovers.
+  const activeIds = (): string[] => [PID_A];
+  const signaled = new Set<string>();
+  const errors: unknown[] = [];
+  const emitted: EmitRecord[] = [];
+  let resolveCalls = 0;
+  const mtimes = new Map<string, number>([[PID_A, 1_000]]);
+
+  const cycle = createProjectWatchCycle({
+    intervalMs: 1000,
+    suppressWindowMs: 10_000,
+    getActiveProjectIds: () => activeIds(),
+    resolveProjectDir: async () => {
+      resolveCalls += 1;
+      if (resolveCalls === 1) throw new Error("db down");
+      return "/proj/a";
+    },
+    readSignature: async () => String(mtimes.get(PID_A) ?? 0),
+    wasSignaledWithin: () => false,
+    emit: (projectId, event) => { emitted.push({ projectId, event }); },
+    onError: (err) => { errors.push(err); },
+  });
+
+  await cycle.tick(); // resolve throws → onError, nothing cached
+  assert.equal(errors.length, 1);
+  assert.equal(emitted.length, 0);
+
+  await cycle.tick(); // retries resolve → succeeds → baselines (no emit yet)
+  assert.equal(resolveCalls, 2, "resolve must be retried, not cached as null");
+  assert.equal(emitted.length, 0);
+
+  mtimes.set(PID_A, 2_000);
+  await cycle.tick(); // now a real change emits, proving the project is watched
+  assert.equal(resolveCalls, 2, "dir is cached after the successful resolve");
+  assert.equal(emitted.length, 1);
+  assert.equal(emitted[0].projectId, PID_A);
 });

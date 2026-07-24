@@ -18,11 +18,18 @@ function positiveIntEnv(name, fallback) {
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n > 0 ? n : fallback;
 }
-async function safeMaxMtime(dir) {
-    // dir is a project root: <PROJECTS_ROOT>/<userId>/<slug>
+async function safeWorkspaceSignature(dir) {
+    // dir is a project root: <PROJECTS_ROOT>/<userId>/<slug>.
+    // A single reduced max(mtime) misses two real out-of-band cases: (1) a restore
+    // that rewrites files with *older* preserved mtimes (max never advances), and
+    // (2) files added/removed at the same instant. So build a composite signature —
+    // count + max + exact BigInt sum of mtimes — captured in the same stat pass at
+    // zero extra I/O. Any add, remove, or mtime shift (up OR down) changes it.
     const pmDir = path.join(dir, ".agents", "pm");
+    let count = 0;
     let max = 0;
-    let scanned = 0;
+    let sum = 0n;
+    let truncated = false;
     const scan = async (subdir, ext) => {
         let entries;
         try {
@@ -32,15 +39,19 @@ async function safeMaxMtime(dir) {
             return; // ENOENT etc — subdir may not exist
         }
         for (const entry of entries) {
-            if (scanned >= MAX_FILES_PER_PROJECT)
+            if (count >= MAX_FILES_PER_PROJECT) {
+                truncated = true;
                 return;
+            }
             if (!entry.isFile() || !entry.name.endsWith(ext))
                 continue;
-            scanned += 1;
             try {
                 const s = await stat(path.join(pmDir, subdir, entry.name));
-                if (s.mtimeMs > max)
-                    max = s.mtimeMs;
+                const ms = Math.round(s.mtimeMs);
+                count += 1;
+                if (ms > max)
+                    max = ms;
+                sum += BigInt(ms); // exact — a JS-number sum overflows 2^53 past ~5k files
             }
             catch {
                 // file vanished between readdir and stat — ignore
@@ -50,19 +61,22 @@ async function safeMaxMtime(dir) {
     for (const d of ITEM_DIRS)
         await scan(d, ".toon");
     await scan("history", ".jsonl");
-    return max;
+    // `truncated` marks that a >MAX_FILES project was capped; changes to files
+    // beyond the cap can still be missed (tracked as a follow-up: bounded
+    // round-robin scan). The common cases above are fully covered.
+    return `${count}:${max}:${sum}${truncated ? ":T" : ""}`;
 }
 async function defaultResolveProjectDir(projectId) {
-    try {
-        const res = await pool.query("SELECT user_id, slug FROM pm_projects WHERE id = $1", [projectId]);
-        const row = res.rows[0];
-        if (!row)
-            return null;
-        return getProjectDir(row.user_id, row.slug);
-    }
-    catch {
+    // Do NOT swallow DB errors here: a transient `pool.query` failure must reach
+    // the watcher's per-project try/catch (→ onError) so it is retried next tick.
+    // Swallowing it would cache `null` for the whole active SSE session and
+    // permanently stop watching this project. `null` is returned only when the
+    // row is genuinely absent (safe to cache — avoids re-querying every tick).
+    const res = await pool.query("SELECT user_id, slug FROM pm_projects WHERE id = $1", [projectId]);
+    const row = res.rows[0];
+    if (!row)
         return null;
-    }
+    return getProjectDir(row.user_id, row.slug);
 }
 // Pure, testable cycle. Holds per-project baseline state across ticks.
 export function createProjectWatchCycle(deps = {}) {
@@ -70,7 +84,7 @@ export function createProjectWatchCycle(deps = {}) {
     const suppressWindowMs = deps.suppressWindowMs ?? intervalMs * 2 + 3_000;
     const getIds = deps.getActiveProjectIds ?? getActiveProjectIds;
     const resolveDir = deps.resolveProjectDir ?? defaultResolveProjectDir;
-    const readMax = deps.readMaxMtimeMs ?? safeMaxMtime;
+    const readSig = deps.readSignature ?? safeWorkspaceSignature;
     const signaled = deps.wasSignaledWithin ?? wasSignaledWithin;
     const emit = deps.emit ?? deliverProjectEvent;
     const onError = deps.onError ?? (() => undefined);
@@ -99,14 +113,14 @@ export function createProjectWatchCycle(deps = {}) {
                     }
                     if (!dir)
                         continue;
-                    const maxMtime = await readMax(dir);
+                    const sig = await readSig(dir);
                     const prev = lastSeen.get(projectId);
                     if (prev === undefined) {
-                        lastSeen.set(projectId, maxMtime); // baseline — never emit on first observation
+                        lastSeen.set(projectId, sig); // baseline — never emit on first observation
                         continue;
                     }
-                    if (maxMtime > prev) {
-                        lastSeen.set(projectId, maxMtime);
+                    if (sig !== prev) {
+                        lastSeen.set(projectId, sig);
                         if (!signaled(projectId, suppressWindowMs)) {
                             emit(projectId, { type: "workspace-changed", data: { source: "filesystem" } });
                         }

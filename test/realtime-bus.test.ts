@@ -72,6 +72,43 @@ test("buildEnvelope returns null for invalid projectId or event type", () => {
   );
 });
 
+test("buildEnvelope normalizes non-plain-object data to an empty object", () => {
+  // safeSharedData only copies whitelisted scalar keys off a plain object; a
+  // function, array, or primitive payload must round-trip as {} so consumers
+  // never receive an unvetted structure.
+  for (const data of [
+    (() => 0) as unknown,
+    [1, 2, 3] as unknown,
+    "a raw string" as unknown,
+    null as unknown,
+  ]) {
+    const env = buildEnvelope(projectId, { type: "item-updated", data }, "instance-A");
+    assert.ok(env !== null);
+    const spy = deliverSpy();
+    handleIncomingEnvelope(env!, "instance-B", spy.fn);
+    assert.equal(spy.records.length, 1);
+    assert.deepEqual(spy.records[0].event.data, {});
+  }
+});
+
+test("buildEnvelope drops non-whitelisted and over-long fields, bounding payload size", () => {
+  // Over-long strings (>256) and unknown keys are stripped, which is *why* the
+  // built payload can never approach the 7.5KB envelope cap.
+  const env = buildEnvelope(
+    projectId,
+    { type: "item-updated", data: { itemId: "x".repeat(500), evil: "y", count: 3, source: "cli" } },
+    "instance-A",
+  );
+  assert.ok(env !== null);
+  assert.ok(Buffer.byteLength(env!, "utf8") <= 7_500);
+
+  const spy = deliverSpy();
+  handleIncomingEnvelope(env!, "instance-B", spy.fn);
+  assert.equal(spy.records.length, 1);
+  // itemId dropped (too long), evil dropped (not whitelisted); count + source kept.
+  assert.deepEqual(spy.records[0].event.data, { count: 3, source: "cli" });
+});
+
 test("parseEnvelope is exported and round-trips a built envelope", () => {
   const env = buildEnvelope(projectId, { type: "item-created", data: { itemId: "y" } }, "instance-C");
   assert.ok(env !== null);
