@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createProjectWatchCycle, computeWorkspaceSignature } from "../dist/services/project-watcher.js";
+import { createProjectWatchCycle, computeWorkspaceSignature, stepWorkspaceSweep, newSweepState } from "../dist/services/project-watcher.js";
 import type { SSEEvent } from "../dist/services/sse.js";
 
 interface EmitRecord {
@@ -273,6 +273,82 @@ test("project watcher: a signaled write consumes its signal so a LATER unrelated
   assert.equal(emitted.length, 1, "unrelated direct edit in the window still surfaces");
   assert.equal(emitted[0].projectId, PID_A);
   assert.equal(errors.length, 0);
+});
+
+test("project watcher: >cap project detects a LATE-swept file change within bounded ticks, no spurious mid-sweep emit", async () => {
+  // pm-web-acwm: a single project with more eligible files than the per-tick
+  // stat cap is swept round-robin across ticks. A change to a file that is only
+  // scanned near the END of a sweep must still be detected (once the sweep
+  // completes) — and no partial sweep may emit a spurious workspace-changed.
+  const root = await mkdtemp(path.join(tmpdir(), "pm-watch-sweep-"));
+  try {
+    const issues = path.join(root, ".agents", "pm", "issues");
+    await mkdir(issues, { recursive: true });
+    // 5 files, sorted a..e. With maxFilesPerTick=2 a full sweep spans 3 ticks:
+    // [a,b] [c,d] [e]. "e" is only observed on the 3rd tick of each sweep.
+    const names = ["a", "b", "c", "d", "e"].map((n) => `${n}.toon`);
+    for (const n of names) await writeFile(path.join(issues, n), "id: x\n");
+    const at = (secs: number): Date => new Date(1_700_000_000_000 + secs * 1000);
+    for (let i = 0; i < names.length; i += 1) await utimes(path.join(issues, names[i]), at(100 + i), at(100 + i));
+
+    const emitted: EmitRecord[] = [];
+    const errors: unknown[] = [];
+    const cycle = createProjectWatchCycle({
+      intervalMs: 1000,
+      suppressWindowMs: 10_000,
+      maxFilesPerTick: 2, // < 5 eligible files → multi-tick sweeps
+      getActiveProjectIds: () => [PID_A],
+      resolveProjectDir: async () => root,
+      // No readSignature/stepSignature → exercises the real stepWorkspaceSweep.
+      wasSignaledWithin: () => false,
+      emit: (projectId, event) => { emitted.push({ projectId, event }); },
+      onError: (err) => { errors.push(err); },
+    });
+
+    // Baseline sweep: 3 ticks, no emit at any point.
+    await cycle.tick();
+    await cycle.tick();
+    assert.equal(emitted.length, 0, "no emit mid baseline sweep");
+    await cycle.tick(); // baseline sweep completes here
+    assert.equal(emitted.length, 0, "baseline completion must not emit");
+
+    // Change the LAST-swept file only.
+    await utimes(path.join(issues, "e.toon"), at(900), at(900));
+
+    await cycle.tick(); // sweep2 tick1: [a,b] — change not yet observed
+    assert.equal(emitted.length, 0, "no emit before the changed late file is swept");
+    await cycle.tick(); // sweep2 tick2: [c,d] — still not observed
+    assert.equal(emitted.length, 0, "still mid-sweep, no emit");
+    await cycle.tick(); // sweep2 tick3: [e] — change folded, sweep completes → emit
+    assert.equal(emitted.length, 1, "late-file change surfaces once the sweep completes");
+    assert.equal(emitted[0].projectId, PID_A);
+    assert.equal(emitted[0].event.type, "workspace-changed");
+    assert.equal(errors.length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("stepWorkspaceSweep: completes in one tick for a project within the cap (parity with one-shot signature)", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "pm-watch-parity-"));
+  try {
+    const issues = path.join(root, ".agents", "pm", "issues");
+    await mkdir(issues, { recursive: true });
+    for (const n of ["a.toon", "b.toon", "c.toon"]) await writeFile(path.join(issues, n), "id: x\n");
+    const at = (secs: number): Date => new Date(1_700_000_000_000 + secs * 1000);
+    await utimes(path.join(issues, "a.toon"), at(10), at(10));
+    await utimes(path.join(issues, "b.toon"), at(20), at(20));
+    await utimes(path.join(issues, "c.toon"), at(30), at(30));
+
+    const state = newSweepState();
+    const res = await stepWorkspaceSweep(root, state, 8_000);
+    assert.equal(res.completed, true, "within-cap project sweeps in a single tick");
+    // The completed sweep signature must equal the one-shot signature exactly.
+    const oneShot = await computeWorkspaceSignature(root);
+    assert.equal(res.signature, oneShot, "sweep and one-shot signatures agree");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("computeWorkspaceSignature: aggregate-mtime-colliding states produce DISTINCT signatures", async () => {
