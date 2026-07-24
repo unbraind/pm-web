@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- project-watcher: bounded round-robin scan for projects beyond MAX_FILES_PER_PROJECT (8000) ([pm-web-acwm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-acwm.toon))
+
 ## 2026.7.24 - 2026-07-24
 
 ### Added

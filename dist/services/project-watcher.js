@@ -10,7 +10,10 @@ const ITEM_DIRS = [
     "tasks", "issues", "epics", "features", "chores",
     "decisions", "meetings", "milestones", "reminders", "events",
 ];
-const MAX_FILES_PER_PROJECT = 8_000; // safety cap on stat work per project per tick
+// Default cap on `stat` calls per project per tick. Projects with more eligible
+// files are swept round-robin across ticks so I/O stays bounded (see
+// stepWorkspaceSweep); overridable via PM_WATCH_MAX_FILES_PER_TICK.
+const DEFAULT_MAX_FILES_PER_TICK = 8_000;
 function positiveIntEnv(name, fallback) {
     const raw = process.env[name];
     if (!raw)
@@ -29,23 +32,20 @@ function fnv1a32(str) {
     }
     return h >>> 0;
 }
-export async function computeWorkspaceSignature(dir) {
-    // dir is a project root: <PROJECTS_ROOT>/<userId>/<slug>.
-    // Detect out-of-band changes without recursive inotify or per-file memory.
-    // A reduced max(mtime) alone misses (1) mtime-preserving restores (older
-    // mtimes never advance the max) and (2) same-instant add/remove; a raw
-    // count:max:sum(mtime) additionally *aliases* distinct states ({100,200,300}
-    // and {150,150,300} share count/max/sum). So fingerprint each file by a hash
-    // of its path bound to its mtime — h = fnv1a32("<subdir>/<name>:<mtimeMs>") —
-    // and combine order-independently via XOR *and* sum. Rearranging mtimes across
-    // paths changes each per-file hash, so the two aliasing states above now
-    // differ. Computed in the same stat pass at zero extra I/O.
-    const pmDir = path.join(dir, ".agents", "pm");
-    let count = 0;
-    let xorAcc = 0;
-    let sumAcc = 0;
-    let truncated = false;
-    const scan = async (subdir, ext) => {
+// A file's fingerprint contribution — its path bound to its mtime. Combined
+// order-independently via XOR *and* sum so rearranging mtimes across paths still
+// changes the aggregate (defeats the count:max:sum aliasing described below).
+function fileFingerprint(subdir, name, mtimeMs) {
+    return fnv1a32(`${subdir}/${name}:${Math.round(mtimeMs)}`);
+}
+// Enumerate every eligible `.toon`/`.jsonl` item file in a stable, deterministic
+// order (ITEM_DIRS order, then history; names sorted within each dir). This is
+// cheap regardless of project size: one `readdir` syscall per subdir, names
+// only — it performs NO `stat` calls. The expensive per-file `stat` work is what
+// the round-robin sweep below bounds per tick.
+async function enumerateEligibleFiles(pmDir) {
+    const files = [];
+    const collect = async (subdir, ext) => {
         let entries;
         try {
             entries = await readdir(path.join(pmDir, subdir), { withFileTypes: true });
@@ -53,32 +53,76 @@ export async function computeWorkspaceSignature(dir) {
         catch {
             return; // ENOENT etc — subdir may not exist
         }
-        for (const entry of entries) {
-            if (count >= MAX_FILES_PER_PROJECT) {
-                truncated = true;
-                return;
-            }
-            if (!entry.isFile() || !entry.name.endsWith(ext))
-                continue;
-            try {
-                const s = await stat(path.join(pmDir, subdir, entry.name));
-                const h = fnv1a32(`${subdir}/${entry.name}:${Math.round(s.mtimeMs)}`);
-                count += 1;
-                xorAcc ^= h;
-                sumAcc = (sumAcc + h) >>> 0; // wraps mod 2^32 — order-independent
-            }
-            catch {
-                // file vanished between readdir and stat — ignore
-            }
-        }
+        const names = entries
+            .filter((e) => e.isFile() && e.name.endsWith(ext))
+            .map((e) => e.name)
+            .sort();
+        for (const name of names)
+            files.push({ subdir, name });
     };
     for (const d of ITEM_DIRS)
-        await scan(d, ".toon");
-    await scan("history", ".jsonl");
-    // `truncated` marks that a >MAX_FILES project was capped; changes to files
-    // beyond the cap can still be missed (tracked as a follow-up: bounded
-    // round-robin scan — pm-web-acwm). The common cases above are fully covered.
-    return `${count}:${(xorAcc >>> 0)}:${sumAcc}${truncated ? ":T" : ""}`;
+        await collect(d, ".toon");
+    await collect("history", ".jsonl");
+    return files;
+}
+export async function computeWorkspaceSignature(dir) {
+    // dir is a project root: <PROJECTS_ROOT>/<userId>/<slug>.
+    // Detect out-of-band changes without recursive inotify or per-file memory.
+    // A reduced max(mtime) alone misses (1) mtime-preserving restores (older
+    // mtimes never advance the max) and (2) same-instant add/remove; a raw
+    // count:max:sum(mtime) additionally *aliases* distinct states ({100,200,300}
+    // and {150,150,300} share count/max/sum). So fingerprint each file by a hash
+    // of its path bound to its mtime and combine order-independently via XOR *and*
+    // sum. One-shot: stats every eligible file. `stepWorkspaceSweep` is the
+    // bounded, tick-spread variant used by the live watcher.
+    const pmDir = path.join(dir, ".agents", "pm");
+    const files = await enumerateEligibleFiles(pmDir);
+    let count = 0;
+    let xorAcc = 0;
+    let sumAcc = 0;
+    for (const f of files) {
+        try {
+            const s = await stat(path.join(pmDir, f.subdir, f.name));
+            const h = fileFingerprint(f.subdir, f.name, s.mtimeMs);
+            count += 1;
+            xorAcc ^= h;
+            sumAcc = (sumAcc + h) >>> 0; // wraps mod 2^32 — order-independent
+        }
+        catch {
+            // file vanished between readdir and stat — ignore
+        }
+    }
+    return `${count}:${xorAcc >>> 0}:${sumAcc}`;
+}
+export function newSweepState() {
+    return { cursor: 0, count: 0, xor: 0, sum: 0 };
+}
+export async function stepWorkspaceSweep(dir, state, maxFilesPerTick) {
+    const pmDir = path.join(dir, ".agents", "pm");
+    const files = await enumerateEligibleFiles(pmDir);
+    const total = files.length;
+    const end = Math.min(state.cursor + maxFilesPerTick, total);
+    for (let i = state.cursor; i < end; i += 1) {
+        const f = files[i];
+        try {
+            const s = await stat(path.join(pmDir, f.subdir, f.name));
+            const h = fileFingerprint(f.subdir, f.name, s.mtimeMs);
+            state.count += 1;
+            state.xor ^= h;
+            state.sum = (state.sum + h) >>> 0;
+        }
+        catch {
+            // file vanished between readdir and stat — ignore
+        }
+    }
+    state.cursor = end;
+    // Sweep completes once the cursor reaches the current file count (also when a
+    // shrink moved `total` at or below the cursor). Small projects (<= cap files)
+    // finish in a single tick — identical to the one-shot signature, no latency.
+    if (state.cursor >= total) {
+        return { completed: true, signature: `${state.count}:${state.xor >>> 0}:${state.sum}` };
+    }
+    return { completed: false };
 }
 async function defaultResolveProjectDir(projectId) {
     // Do NOT swallow DB errors here: a transient `pool.query` failure must reach
@@ -96,15 +140,25 @@ async function defaultResolveProjectDir(projectId) {
 export function createProjectWatchCycle(deps = {}) {
     const intervalMs = Math.max(MIN_INTERVAL_MS, deps.intervalMs ?? positiveIntEnv("PM_WATCH_INTERVAL_MS", DEFAULT_INTERVAL_MS));
     const suppressWindowMs = deps.suppressWindowMs ?? intervalMs * 2 + 3_000;
+    const maxFilesPerTick = Math.max(1, deps.maxFilesPerTick ?? DEFAULT_MAX_FILES_PER_TICK);
     const getIds = deps.getActiveProjectIds ?? getActiveProjectIds;
     const resolveDir = deps.resolveProjectDir ?? defaultResolveProjectDir;
-    const readSig = deps.readSignature ?? computeWorkspaceSignature;
     const signaled = deps.wasSignaledWithin ?? wasSignaledWithin;
     const consumeSignal = deps.consumeSignal ?? consumeSignaledMutation;
     const emit = deps.emit ?? deliverProjectEvent;
     const onError = deps.onError ?? (() => undefined);
+    // A caller-supplied one-shot `readSignature` is adapted into a sweep that
+    // completes on the first tick, so legacy callers/tests keep exact semantics.
+    const legacyReadSig = deps.readSignature;
+    const stepSig = legacyReadSig
+        ? async (dir) => ({
+            completed: true,
+            signature: await legacyReadSig(dir),
+        })
+        : deps.stepSignature ?? stepWorkspaceSweep;
     const lastSeen = new Map();
     const dirCache = new Map();
+    const sweeps = new Map();
     let inFlight = false;
     const tick = async () => {
         if (inFlight)
@@ -119,6 +173,9 @@ export function createProjectWatchCycle(deps = {}) {
             for (const id of [...dirCache.keys()])
                 if (!active.has(id))
                     dirCache.delete(id);
+            for (const id of [...sweeps.keys()])
+                if (!active.has(id))
+                    sweeps.delete(id);
             for (const projectId of ids) {
                 try {
                     let dir = dirCache.get(projectId);
@@ -128,7 +185,16 @@ export function createProjectWatchCycle(deps = {}) {
                     }
                     if (!dir)
                         continue;
-                    const sig = await readSig(dir);
+                    let state = sweeps.get(projectId);
+                    if (!state) {
+                        state = newSweepState();
+                        sweeps.set(projectId, state);
+                    }
+                    const { completed, signature } = await stepSig(dir, state, maxFilesPerTick);
+                    if (!completed || signature === undefined)
+                        continue; // mid-sweep — resume next tick
+                    sweeps.set(projectId, newSweepState()); // reset for the next sweep
+                    const sig = signature;
                     const prev = lastSeen.get(projectId);
                     if (prev === undefined) {
                         lastSeen.set(projectId, sig); // baseline — never emit on first observation
@@ -162,8 +228,9 @@ export function startProjectWatcher(deps = {}) {
     if (process.env.PM_WATCH_PROJECTS === "false")
         return () => undefined;
     const intervalMs = Math.max(MIN_INTERVAL_MS, deps.intervalMs ?? positiveIntEnv("PM_WATCH_INTERVAL_MS", DEFAULT_INTERVAL_MS));
+    const maxFilesPerTick = deps.maxFilesPerTick ?? positiveIntEnv("PM_WATCH_MAX_FILES_PER_TICK", DEFAULT_MAX_FILES_PER_TICK);
     const onError = deps.onError ?? ((err) => console.error("Project watcher tick failed", err instanceof Error ? err.message : err));
-    const { tick } = createProjectWatchCycle({ ...deps, intervalMs, onError });
+    const { tick } = createProjectWatchCycle({ ...deps, intervalMs, maxFilesPerTick, onError });
     const timer = setInterval(() => { void tick().catch(onError); }, intervalMs);
     timer.unref();
     return () => clearInterval(timer);
