@@ -41,6 +41,15 @@ export function wasSignaledWithin(projectId: string, windowMs: number, now: numb
   return at !== undefined && now - at <= windowMs;
 }
 
+// Consume the recorded signal after the change-detector has attributed one
+// filesystem delta to it. This makes suppression correlate 1:1 with a signaled
+// write instead of swallowing every delta for the whole window — so a later,
+// *unrelated* direct write on the shared volume is still surfaced rather than
+// being silently absorbed by a recent API/NOTIFY event's window.
+export function consumeSignaledMutation(projectId: string): void {
+  lastSignaledAt.delete(projectId);
+}
+
 export function getActiveProjectIds(): string[] {
   return [...byProject.keys()];
 }

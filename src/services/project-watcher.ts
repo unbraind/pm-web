@@ -3,6 +3,7 @@ import path from "node:path";
 import { pool } from "../db.js";
 import { getProjectDir } from "./pm-runner.js";
 import {
+  consumeSignaledMutation,
   deliverProjectEvent,
   getActiveProjectIds,
   wasSignaledWithin,
@@ -25,17 +26,33 @@ function positiveIntEnv(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-async function safeWorkspaceSignature(dir: string): Promise<string> {
+// FNV-1a (32-bit), computed over UTF-8 bytes via `Math.imul` — fast, no BigInt
+// per byte and no allocation. Used to bind each file's path to its mtime so the
+// aggregate fingerprint below can't be aliased by rearranging raw mtimes.
+function fnv1a32(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+export async function computeWorkspaceSignature(dir: string): Promise<string> {
   // dir is a project root: <PROJECTS_ROOT>/<userId>/<slug>.
-  // A single reduced max(mtime) misses two real out-of-band cases: (1) a restore
-  // that rewrites files with *older* preserved mtimes (max never advances), and
-  // (2) files added/removed at the same instant. So build a composite signature —
-  // count + max + exact BigInt sum of mtimes — captured in the same stat pass at
-  // zero extra I/O. Any add, remove, or mtime shift (up OR down) changes it.
+  // Detect out-of-band changes without recursive inotify or per-file memory.
+  // A reduced max(mtime) alone misses (1) mtime-preserving restores (older
+  // mtimes never advance the max) and (2) same-instant add/remove; a raw
+  // count:max:sum(mtime) additionally *aliases* distinct states ({100,200,300}
+  // and {150,150,300} share count/max/sum). So fingerprint each file by a hash
+  // of its path bound to its mtime — h = fnv1a32("<subdir>/<name>:<mtimeMs>") —
+  // and combine order-independently via XOR *and* sum. Rearranging mtimes across
+  // paths changes each per-file hash, so the two aliasing states above now
+  // differ. Computed in the same stat pass at zero extra I/O.
   const pmDir = path.join(dir, ".agents", "pm");
   let count = 0;
-  let max = 0;
-  let sum = 0n;
+  let xorAcc = 0;
+  let sumAcc = 0;
   let truncated = false;
   const scan = async (subdir: string, ext: string): Promise<void> => {
     let entries: import("node:fs").Dirent[];
@@ -49,10 +66,10 @@ async function safeWorkspaceSignature(dir: string): Promise<string> {
       if (!entry.isFile() || !entry.name.endsWith(ext)) continue;
       try {
         const s = await stat(path.join(pmDir, subdir, entry.name));
-        const ms = Math.round(s.mtimeMs);
+        const h = fnv1a32(`${subdir}/${entry.name}:${Math.round(s.mtimeMs)}`);
         count += 1;
-        if (ms > max) max = ms;
-        sum += BigInt(ms); // exact — a JS-number sum overflows 2^53 past ~5k files
+        xorAcc ^= h;
+        sumAcc = (sumAcc + h) >>> 0; // wraps mod 2^32 — order-independent
       } catch {
         // file vanished between readdir and stat — ignore
       }
@@ -62,8 +79,8 @@ async function safeWorkspaceSignature(dir: string): Promise<string> {
   await scan("history", ".jsonl");
   // `truncated` marks that a >MAX_FILES project was capped; changes to files
   // beyond the cap can still be missed (tracked as a follow-up: bounded
-  // round-robin scan). The common cases above are fully covered.
-  return `${count}:${max}:${sum}${truncated ? ":T" : ""}`;
+  // round-robin scan — pm-web-acwm). The common cases above are fully covered.
+  return `${count}:${(xorAcc >>> 0)}:${sumAcc}${truncated ? ":T" : ""}`;
 }
 
 async function defaultResolveProjectDir(projectId: string): Promise<string | null> {
@@ -88,6 +105,7 @@ export interface ProjectWatcherDeps {
   resolveProjectDir?: (projectId: string) => Promise<string | null>;
   readSignature?: (projectDir: string) => Promise<string>;
   wasSignaledWithin?: (projectId: string, windowMs: number) => boolean;
+  consumeSignal?: (projectId: string) => void;
   emit?: (projectId: string, event: SSEEvent) => void;
   onError?: (err: unknown) => void;
 }
@@ -101,8 +119,9 @@ export function createProjectWatchCycle(deps: ProjectWatcherDeps = {}): {
   const suppressWindowMs = deps.suppressWindowMs ?? intervalMs * 2 + 3_000;
   const getIds = deps.getActiveProjectIds ?? getActiveProjectIds;
   const resolveDir = deps.resolveProjectDir ?? defaultResolveProjectDir;
-  const readSig = deps.readSignature ?? safeWorkspaceSignature;
+  const readSig = deps.readSignature ?? computeWorkspaceSignature;
   const signaled = deps.wasSignaledWithin ?? wasSignaledWithin;
+  const consumeSignal = deps.consumeSignal ?? consumeSignaledMutation;
   const emit = deps.emit ?? deliverProjectEvent;
   const onError = deps.onError ?? (() => undefined);
 
@@ -134,7 +153,12 @@ export function createProjectWatchCycle(deps: ProjectWatcherDeps = {}): {
           }
           if (sig !== prev) {
             lastSeen.set(projectId, sig);
-            if (!signaled(projectId, suppressWindowMs)) {
+            if (signaled(projectId, suppressWindowMs)) {
+              // Attribute this one delta to the signaled write and consume the
+              // signal, so a *later* unrelated direct edit in the same window is
+              // no longer swallowed — it will find no signal and emit.
+              consumeSignal(projectId);
+            } else {
               emit(projectId, { type: "workspace-changed", data: { source: "filesystem" } });
             }
           }

@@ -1,4 +1,5 @@
 import { type SSEEvent } from "./sse.js";
+export declare function computeWorkspaceSignature(dir: string): Promise<string>;
 export interface ProjectWatcherDeps {
     intervalMs?: number;
     suppressWindowMs?: number;
@@ -6,6 +7,7 @@ export interface ProjectWatcherDeps {
     resolveProjectDir?: (projectId: string) => Promise<string | null>;
     readSignature?: (projectDir: string) => Promise<string>;
     wasSignaledWithin?: (projectId: string, windowMs: number) => boolean;
+    consumeSignal?: (projectId: string) => void;
     emit?: (projectId: string, event: SSEEvent) => void;
     onError?: (err: unknown) => void;
 }

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, writeFile, utimes, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { createProjectWatchCycle } from "../dist/services/project-watcher.js";
+import { createProjectWatchCycle, computeWorkspaceSignature } from "../dist/services/project-watcher.js";
 import type { SSEEvent } from "../dist/services/sse.js";
 
 interface EmitRecord {
@@ -32,6 +35,7 @@ function makeHarness(opts: {
       return "0";
     },
     wasSignaledWithin: (id, _w) => opts.signaled.has(id),
+    consumeSignal: (id) => { opts.signaled.delete(id); },
     emit: (projectId, event) => { emitted.push({ projectId, event }); },
     onError: (err) => { opts.errors.push(err); },
   });
@@ -239,4 +243,64 @@ test("project watcher: transient resolveProjectDir failure is retried, not cache
   assert.equal(resolveCalls, 2, "dir is cached after the successful resolve");
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].projectId, PID_A);
+});
+
+test("project watcher: a signaled write consumes its signal so a LATER unrelated direct edit still emits", async () => {
+  // A realtime (API/NOTIFY) event marks the project signaled AND changes the
+  // filesystem. The watcher must attribute exactly ONE delta to that signal and
+  // then stop suppressing — otherwise an unrelated out-of-band edit landing in
+  // the same window is silently swallowed (CodeRabbit finding).
+  const activeIds = (): string[] => [PID_A];
+  const dirs = new Map<string, string | null>([[PID_A, "/proj/a"]]);
+  const mtimes = new Map<string, number>([[PID_A, 1_000]]);
+  const signaled = new Set<string>([PID_A]); // realtime event just fired
+  const errors: unknown[] = [];
+  const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+
+  await cycle.tick(); // baseline
+  assert.equal(emitted.length, 0);
+
+  // The signaled write's own fs delta: suppressed AND consumes the signal.
+  mtimes.set(PID_A, 2_000);
+  await cycle.tick();
+  assert.equal(emitted.length, 0, "signaled write's own delta is suppressed");
+  assert.equal(signaled.has(PID_A), false, "signal is consumed, not left to swallow the window");
+
+  // A later, unrelated direct edit within the same wall-clock window: no signal
+  // remains, so it must emit rather than being absorbed.
+  mtimes.set(PID_A, 3_000);
+  await cycle.tick();
+  assert.equal(emitted.length, 1, "unrelated direct edit in the window still surfaces");
+  assert.equal(emitted[0].projectId, PID_A);
+  assert.equal(errors.length, 0);
+});
+
+test("computeWorkspaceSignature: aggregate-mtime-colliding states produce DISTINCT signatures", async () => {
+  // {100,200,300} and {150,150,300} share count/max/sum(mtime); a path-keyed
+  // fingerprint must still tell them apart so multi-file out-of-band edits
+  // between ticks are never invisible (CodeRabbit collision finding).
+  const root = await mkdtemp(path.join(tmpdir(), "pm-watch-sig-"));
+  try {
+    const issues = path.join(root, ".agents", "pm", "issues");
+    await mkdir(issues, { recursive: true });
+    const files = ["a.toon", "b.toon", "c.toon"].map((n) => path.join(issues, n));
+    for (const f of files) await writeFile(f, "id: x\n");
+    const at = (secs: number): Date => new Date(1_700_000_000_000 + secs * 1000);
+
+    // arrangement 1: a=100s, b=200s, c=300s
+    await utimes(files[0], at(100), at(100));
+    await utimes(files[1], at(200), at(200));
+    await utimes(files[2], at(300), at(300));
+    const sig1 = await computeWorkspaceSignature(root);
+
+    // arrangement 2: a=150s, b=150s, c=300s — identical count/max/sum of mtimes
+    await utimes(files[0], at(150), at(150));
+    await utimes(files[1], at(150), at(150));
+    await utimes(files[2], at(300), at(300));
+    const sig2 = await computeWorkspaceSignature(root);
+
+    assert.notEqual(sig1, sig2, "path-keyed fingerprint must distinguish mtime-aggregate collisions");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
