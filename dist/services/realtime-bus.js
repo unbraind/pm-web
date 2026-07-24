@@ -19,7 +19,7 @@ function safeSharedData(data) {
     }
     return safe;
 }
-function parseEnvelope(raw) {
+export function parseEnvelope(raw) {
     if (!raw || Buffer.byteLength(raw, "utf8") > 7_500)
         return null;
     try {
@@ -31,6 +31,18 @@ function parseEnvelope(raw) {
     catch {
         return null;
     }
+}
+export function buildEnvelope(projectId, event, sourceId) {
+    if (!PROJECT_ID.test(projectId) || !EVENT_TYPE.test(event.type))
+        return null;
+    const payload = JSON.stringify({ projectId, type: event.type, data: safeSharedData(event.data), sourceId });
+    return Buffer.byteLength(payload, "utf8") <= 7_500 ? payload : null;
+}
+export function handleIncomingEnvelope(raw, instanceId, deliver) {
+    const event = parseEnvelope(raw);
+    if (!event || event.sourceId === instanceId)
+        return;
+    deliver(event.projectId, { type: event.type, data: event.data });
 }
 export async function startRealtimeBus() {
     if (process.env.PM_REALTIME_ENABLED === "false")
@@ -74,10 +86,7 @@ export async function startRealtimeBus() {
     const connectOnce = async () => {
         const client = await pool.connect();
         const notification = (message) => {
-            const event = parseEnvelope(message.payload);
-            if (!event || event.sourceId === INSTANCE_ID)
-                return;
-            deliverProjectEvent(event.projectId, { type: event.type, data: event.data });
+            handleIncomingEnvelope(message.payload, INSTANCE_ID, deliverProjectEvent);
         };
         const error = (cause) => {
             if (listener !== client)
@@ -116,15 +125,8 @@ export async function startRealtimeBus() {
     };
     await connect();
     configureProjectEventPublisher(async (projectId, event) => {
-        if (!PROJECT_ID.test(projectId) || !EVENT_TYPE.test(event.type))
-            return;
-        const payload = JSON.stringify({
-            projectId,
-            type: event.type,
-            data: safeSharedData(event.data),
-            sourceId: INSTANCE_ID,
-        });
-        if (Buffer.byteLength(payload, "utf8") <= 7_500) {
+        const payload = buildEnvelope(projectId, event, INSTANCE_ID);
+        if (payload) {
             await pool.query("SELECT pg_notify($1, $2)", [CHANNEL, payload]);
         }
         else {

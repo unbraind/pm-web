@@ -14,6 +14,10 @@ export interface PresenceUser {
     currentView: string;
     connectedAt: string;
 }
+export declare function noteSignaledMutation(projectId: string): void;
+export declare function wasSignaledWithin(projectId: string, windowMs: number, now?: number): boolean;
+export declare function consumeSignaledMutation(projectId: string): void;
+export declare function getActiveProjectIds(): string[];
 export declare function configureProjectEventPublisher(publisher: ((projectId: string, event: SSEEvent) => Promise<void>) | null): void;
 export declare function addSSEClient(client: SSEClient): () => void;
 export declare function broadcastProjectEvent(projectId: string, event: SSEEvent): void;

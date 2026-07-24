@@ -1,0 +1,13 @@
+id: pm-web-acwm
+title: "project-watcher: bounded round-robin scan for projects beyond MAX_FILES_PER_PROJECT (8000)"
+description: "Follow-up from PR #56 review (CodeRabbit, project-watcher.ts:34). safeWorkspaceSignature caps each per-tick scan at MAX_FILES_PER_PROJECT=8000 stat calls. For a single project with >8000 eligible files (~>4000 items, since each item = 1 .toon + 1 history/*.jsonl), files scanned after the cap can be missed indefinitely for out-of-band change detection. This is a deliberate backstop limitation: the primary realtime paths (pm-web API broadcasts + pg_notify from pm-gpt/pm-mcp) already cover normal writes; the watcher only backstops RAW direct writes to the shared volume that bypass BOTH, and only for projects large enough to exceed the cap. FIX (deferred): a bounded round-robin scan that advances a per-project cursor across ticks so every eligible file is eventually covered while preserving the per-tick I/O budget (cost scales with live viewership, not project size). Alternatively raise/env-tune the cap. Must not reintroduce recursive inotify or unbounded per-tick stat work."
+type: Task
+status: open
+priority: 3
+tags[3]: follow-up,realtime,watcher
+created_at: "2026-07-24T05:20:53.320Z"
+updated_at: "2026-07-24T05:20:53.320Z"
+assignee: claude-orchestrator
+author: claude-orchestrator
+acceptance_criteria: Every eligible .toon/history file in a >8000-file project is eventually observed for out-of-band changes within a bounded number of ticks; per-tick stat work stays capped; no inotify; suppression + baseline semantics preserved; unit test covers a >cap project detecting a late-file change.
+body: ""

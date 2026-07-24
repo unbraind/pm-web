@@ -6,6 +6,29 @@ const byId = new Map();
 const byProject = new Map();
 const presenceTimers = new Map();
 let projectEventPublisher = null;
+const lastSignaledAt = new Map();
+const SIGNAL_ENTRY_TTL_MS = 60_000;
+// Record that an item mutation for this project was just delivered to clients
+// (via API broadcast or a received cross-process NOTIFY). The filesystem
+// change-detector uses this to suppress re-announcing changes already signaled.
+export function noteSignaledMutation(projectId) {
+    lastSignaledAt.set(projectId, Date.now());
+}
+export function wasSignaledWithin(projectId, windowMs, now = Date.now()) {
+    const at = lastSignaledAt.get(projectId);
+    return at !== undefined && now - at <= windowMs;
+}
+// Consume the recorded signal after the change-detector has attributed one
+// filesystem delta to it. This makes suppression correlate 1:1 with a signaled
+// write instead of swallowing every delta for the whole window — so a later,
+// *unrelated* direct write on the shared volume is still surfaced rather than
+// being silently absorbed by a recent API/NOTIFY event's window.
+export function consumeSignaledMutation(projectId) {
+    lastSignaledAt.delete(projectId);
+}
+export function getActiveProjectIds() {
+    return [...byProject.keys()];
+}
 export function configureProjectEventPublisher(publisher) {
     projectEventPublisher = publisher;
 }
@@ -71,6 +94,7 @@ export function broadcastProjectEvent(projectId, event) {
     }
 }
 export function deliverProjectEvent(projectId, event) {
+    noteSignaledMutation(projectId);
     const set = byProject.get(projectId);
     if (!set || set.size === 0)
         return;
@@ -141,6 +165,10 @@ export function cleanupStaleClients() {
     // Broadcast updated presence for affected projects
     for (const projectId of staleProjectIds) {
         schedulePresence(projectId);
+    }
+    for (const [pid, at] of lastSignaledAt) {
+        if (now - at > SIGNAL_ENTRY_TTL_MS)
+            lastSignaledAt.delete(pid);
     }
 }
 //# sourceMappingURL=sse.js.map
