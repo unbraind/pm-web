@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Cross-process real-time bus so pm-gpt/pm-mcp edits reach pm-web SSE clients (and scale across replicas) ([pm-web-2rek](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-2rek.toon))
+
+### Fixed
+
+- Hosted build: pm-web was un-redeployable — dedupe @unbrained/pm-cli to deps + align bundled pm-graph TS to ^7.0.2 ([pm-web-1h5b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-1h5b.toon))
+
 ## 2026.7.23 - 2026-07-23
 
 ### Fixed

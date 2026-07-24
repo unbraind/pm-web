@@ -2,11 +2,13 @@ id: pm-web-1h5b
 title: "Hosted build: pm-web was un-redeployable — dedupe @unbrained/pm-cli to deps + align bundled pm-graph TS to ^7.0.2"
 description: "The hosted pm-web Docker image could not be rebuilt (any redeploy crash-looped), a latent production risk discovered while deploying the #56 watcher. TWO independent breakages, both from the 2026.7.23 release automation regenerating locks with npm 11 while the Docker base (node:22.18.0) uses npm 10.9.3: (1) @unbrained/pm-cli was declared in BOTH dependencies (^2026.7.15) and devDependencies (^2026.7.22); the regenerated lock resolved the single copy as dev=true, so the runtime stage 'npm ci --omit=dev' dropped it → 'Cannot find package @unbrained/pm-cli' from dist/services/pm-runner.js at boot. (2) The bundled extensions/pm-graph pinned typescript ^6.0.3 (a version with NO platform-binary optionalDependencies), so build:graph's tsc failed 'Unable to resolve @typescript/typescript-linux-x64'. FIX: (1) remove the @unbrained/pm-cli devDependencies dup, keep dependencies ^2026.7.23 (lock now marks it dev=false, resolves 2026.7.24); (2) align extensions/pm-graph typescript to ^7.0.2 (matches the real fleet/pm-graph, known-good) + regen its lock (20 platform binaries). The 2026-07-17 image predated both and kept working, which is why the live service ran fine until a rebuild was attempted."
 type: Chore
-status: open
+status: closed
 priority: 1
 tags[4]: build,deploy,hosted,regression
 created_at: "2026-07-24T06:02:33.364Z"
-updated_at: "2026-07-24T06:02:33.364Z"
+updated_at: "2026-07-24T06:09:57.459Z"
+closed_at: "2026-07-24T06:09:57.458Z"
 author: claude-orchestrator
 acceptance_criteria: "docker compose build pm-web succeeds (graph+server+frontend); the built image BOOTS past module resolution (SDK present) and serves /healthz 200; live pm-web.unbrained.dev healthy after redeploy with the #56 watcher active; 123/123 tests, audit 0 vulns."
+close_reason: PR #57 merged + prod redeployed healthy
 body: ""
