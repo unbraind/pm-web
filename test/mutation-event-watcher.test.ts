@@ -166,6 +166,55 @@ test("mutation-event watcher: per-item dedupe skips events already announced by 
   assert.equal(errors.length, 0);
 });
 
+// Locks in the invariant that makes project+item (rather than per-mutation-id)
+// dedupe safe: consumption is ONE-SHOT, so a single recorded signal suppresses at
+// most ONE event and every later event for that same item is still delivered.
+// Without this property, a signal recorded for a later mutation could swallow an
+// unbounded run of earlier events on the same item and a client could be left
+// stale; with it, a surviving event always arrives and its authoritative refetch
+// covers whatever was suppressed.
+test("mutation-event watcher: a single per-item signal suppresses exactly one event, not the whole item stream", async () => {
+  const emitted: EmitRecord[] = [];
+  const errors: unknown[] = [];
+  const { instances, subscribe } = makeSubscribeHarness();
+  const signaled = new Set<string>();
+
+  const { reconcile } = createMutationEventReconciler({
+    intervalMs: 10,
+    getActiveProjectIds: () => [PID_A],
+    resolveProjectDir: async () => "/proj/a",
+    subscribe,
+    consumeSignaledItemMutation: (pid, itemId) => {
+      const key = `${pid} ${itemId}`;
+      if (signaled.has(key)) { signaled.delete(key); return true; }
+      return false;
+    },
+    emit: (projectId, event) => { emitted.push({ projectId, event }); },
+    onError: (err) => { errors.push(err); },
+  });
+
+  await reconcile();
+
+  // ONE signal recorded for item-1, then THREE mutations of item-1 arrive —
+  // e.g. this instance wrote once while another agent wrote twice.
+  signaled.add(`${PID_A} item-1`);
+  instances[0].events.push(makeEvent("item-1", "cursor-1"));
+  instances[0].events.push(makeEvent("item-1", "cursor-2"));
+  instances[0].events.push(makeEvent("item-1", "cursor-3"));
+
+  await new Promise((r) => setTimeout(r, 60));
+
+  // Exactly one suppressed; the remaining two still reach clients, so the
+  // concurrent agent's changes are never silently dropped.
+  assert.equal(emitted.length, 2);
+  assert.deepEqual(
+    emitted.map((e) => (e.event.data as { itemId: string }).itemId),
+    ["item-1", "item-1"],
+  );
+  assert.equal(signaled.size, 0, "the signal must be consumed, not left behind to suppress again");
+  assert.equal(errors.length, 0);
+});
+
 test("mutation-event watcher: cursor resume after an error restarts from stored cursor", async () => {
   const emitted: EmitRecord[] = [];
   const errors: unknown[] = [];

@@ -38,6 +38,29 @@ export function noteSignaledItemMutation(projectId, itemId) {
 // is present (i.e. this instance already announced this item's mutation);
 // returns false otherwise. The mutation-event watcher calls this for every
 // received event so its own API writes are not re-announced by the stream.
+//
+// The signal is keyed on project+item, NOT on a mutation id or event cursor, and
+// consumption is deliberately ONE-SHOT. That means a signal recorded for a later
+// mutation M2 can be consumed by an earlier mutation M1 on the same item, so the
+// event actually suppressed is not necessarily the one that was broadcast. This
+// mis-pairing cannot lose a change, and tightening the key would buy nothing,
+// because of three properties that hold together:
+//
+//   1. The SDK mutation stream is delivered in cursor order, so M1 (earlier
+//      cursor) is durably committed to disk BEFORE the broadcast that recorded
+//      M2's signal was ever issued.
+//   2. The event payload is a refetch TRIGGER, not a delta — clients never apply
+//      it as a patch. `refreshGraphData` in the frontend re-reads authoritative
+//      state, so any single surviving event converges the client to the latest
+//      state including every mutation that preceded it.
+//   3. Consumption is one-shot, so at most ONE event per recorded signal is ever
+//      suppressed; every subsequent event for that same item is delivered.
+//
+// Together: whichever event is suppressed, a later one still arrives and the
+// refetch it triggers already includes the suppressed mutation's effect. What a
+// mis-pair can do is attribute the surviving event's `operation`/`author`
+// metadata to the wrong mutation — that metadata drives only a cosmetic toast,
+// never state.
 export function consumeSignaledItemMutation(projectId, itemId) {
     const key = `${projectId}\u0000${itemId}`;
     if (signaledItemAt.has(key)) {

@@ -1,7 +1,7 @@
+import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { pool } from "../db.js";
-import { getProjectDir } from "./pm-runner.js";
+import { resolveProjectDir } from "./pm-runner.js";
 import {
   consumeSignaledMutation,
   deliverProjectEvent,
@@ -62,7 +62,7 @@ function fileFingerprint(subdir: string, name: string, mtimeMs: number): number 
 async function enumerateEligibleFiles(pmDir: string): Promise<Array<{ subdir: string; name: string }>> {
   const files: Array<{ subdir: string; name: string }> = [];
   const collect = async (subdir: string, ext: string): Promise<void> => {
-    let entries: import("node:fs").Dirent[];
+    let entries: Dirent[];
     try {
       entries = await readdir(path.join(pmDir, subdir), { withFileTypes: true });
     } catch {
@@ -156,21 +156,6 @@ export async function stepWorkspaceSweep(
   return { completed: false };
 }
 
-async function defaultResolveProjectDir(projectId: string): Promise<string | null> {
-  // Do NOT swallow DB errors here: a transient `pool.query` failure must reach
-  // the watcher's per-project try/catch (→ onError) so it is retried next tick.
-  // Swallowing it would cache `null` for the whole active SSE session and
-  // permanently stop watching this project. `null` is returned only when the
-  // row is genuinely absent (safe to cache — avoids re-querying every tick).
-  const res = await pool.query<{ user_id: string; slug: string }>(
-    "SELECT user_id, slug FROM pm_projects WHERE id = $1",
-    [projectId],
-  );
-  const row = res.rows[0];
-  if (!row) return null;
-  return getProjectDir(row.user_id, row.slug);
-}
-
 export interface ProjectWatcherDeps {
   intervalMs?: number;
   suppressWindowMs?: number;
@@ -205,7 +190,7 @@ export function createProjectWatchCycle(deps: ProjectWatcherDeps = {}): {
   const suppressWindowMs = deps.suppressWindowMs ?? intervalMs * 2 + 3_000;
   const maxFilesPerTick = Math.max(1, deps.maxFilesPerTick ?? DEFAULT_MAX_FILES_PER_TICK);
   const getIds = deps.getActiveProjectIds ?? getActiveProjectIds;
-  const resolveDir = deps.resolveProjectDir ?? defaultResolveProjectDir;
+  const resolveDir = deps.resolveProjectDir ?? resolveProjectDir;
   const signaled = deps.wasSignaledWithin ?? wasSignaledWithin;
   const consumeSignal = deps.consumeSignal ?? consumeSignaledMutation;
   const emit = deps.emit ?? deliverProjectEvent;

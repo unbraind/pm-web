@@ -18,8 +18,7 @@
 // per-item signal in sse.ts.
 import path from "node:path";
 import { subscribeMutationEvents } from "@unbrained/pm-cli/sdk";
-import { pool } from "../db.js";
-import { getProjectDir } from "./pm-runner.js";
+import { resolveProjectDir } from "./pm-runner.js";
 import { consumeSignaledItemMutation, deliverProjectEvent, getActiveProjectIds, } from "./sse.js";
 const DEFAULT_INTERVAL_MS = 250;
 const MIN_INTERVAL_MS = 10;
@@ -31,17 +30,6 @@ function positiveIntEnv(name, fallback) {
         return fallback;
     const n = Number.parseInt(raw, 10);
     return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-async function defaultResolveProjectDir(projectId) {
-    // Do NOT swallow DB errors here: a transient `pool.query` failure must reach
-    // the reconciler's per-project try/catch (→ onError) so it is retried on the
-    // next reconcile. Swallowing it would permanently stop watching this project.
-    // `null` is returned only when the row is genuinely absent.
-    const res = await pool.query("SELECT user_id, slug FROM pm_projects WHERE id = $1", [projectId]);
-    const row = res.rows[0];
-    if (!row)
-        return null;
-    return getProjectDir(row.user_id, row.slug);
 }
 // Determine whether an error from the subscription loop is an AbortError caused
 // by a deliberate stop (project went inactive or shutdown). Those must NOT be
@@ -60,7 +48,7 @@ function isAbortError(err) {
 export function createMutationEventReconciler(deps = {}) {
     const intervalMs = Math.max(MIN_INTERVAL_MS, deps.intervalMs ?? positiveIntEnv("PM_MUTATION_EVENT_INTERVAL_MS", DEFAULT_INTERVAL_MS));
     const getIds = deps.getActiveProjectIds ?? getActiveProjectIds;
-    const resolveDir = deps.resolveProjectDir ?? defaultResolveProjectDir;
+    const resolveDir = deps.resolveProjectDir ?? resolveProjectDir;
     const subscribe = deps.subscribe ?? subscribeMutationEvents;
     const consumeSignal = deps.consumeSignaledItemMutation ?? consumeSignaledItemMutation;
     const emit = deps.emit ?? deliverProjectEvent;
