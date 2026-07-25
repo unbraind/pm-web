@@ -3,7 +3,13 @@ import path from "node:path";
 import { pool } from "../db.js";
 import { getProjectDir } from "./pm-runner.js";
 import { consumeSignaledMutation, deliverProjectEvent, getActiveProjectIds, wasSignaledWithin, } from "./sse.js";
-const DEFAULT_INTERVAL_MS = 2_000;
+// Safety-net filesystem sweep. The mutation-event stream
+// (src/services/mutation-event-watcher.ts) is now the PRIMARY out-of-band change
+// detector; this poll only catches raw non-pm writes that bypass the committed
+// history (git merge, rsync restore, manual edits). Slower default cadence keeps
+// per-tick stat I/O low since the primary path covers committed mutations at
+// ~250ms latency.
+const DEFAULT_INTERVAL_MS = 15_000;
 const MIN_INTERVAL_MS = 500;
 // Item-type directories that hold user-facing `.toon` items:
 const ITEM_DIRS = [

@@ -27,6 +27,14 @@ const presenceTimers = new Map<string, NodeJS.Timeout>();
 let projectEventPublisher: ((projectId: string, event: SSEEvent) => Promise<void>) | null = null;
 
 const lastSignaledAt = new Map<string, number>();
+
+// Per-item signal tracking: keyed on `` `${projectId}\u0000${itemId}` `` → timestamp.
+// A NUL separator (never valid inside either id) keeps the composite key
+// unambiguous even if a caller passes an itemId containing the separator.
+// The mutation-event watcher uses this to skip events whose own API broadcast
+// already announced the change to clients (dedupe across this instance's writes).
+const signaledItemAt = new Map<string, number>();
+
 const SIGNAL_ENTRY_TTL_MS = 60_000;
 
 // Record that an item mutation for this project was just delivered to clients
@@ -34,6 +42,34 @@ const SIGNAL_ENTRY_TTL_MS = 60_000;
 // change-detector uses this to suppress re-announcing changes already signaled.
 export function noteSignaledMutation(projectId: string): void {
   lastSignaledAt.set(projectId, Date.now());
+}
+
+// Record that a mutation of this specific item was just announced to clients
+// (typically via broadcastProjectEvent with a granular payload). The
+// mutation-event watcher consults consumeSignaledItemMutation to skip the
+// matching committed-mutation event so it does not duplicate its own API
+// broadcast. This is per-item dedupe: a concurrent change to a *different* item
+// by another agent is still delivered (unlike the coarse project-level window).
+//
+// Narrow race caveat: route handlers broadcast *after* the pm child process
+// commits, so if the watcher's poll lands between commit and broadcast one
+// duplicate workspace-changed can still reach clients. That is harmless because
+// the client handler is an idempotent refetch — noted rather than pretended away.
+export function noteSignaledItemMutation(projectId: string, itemId: string): void {
+  signaledItemAt.set(`${projectId}\u0000${itemId}`, Date.now());
+}
+
+// Returns true and consumes the entry when a signal for this exact project+item
+// is present (i.e. this instance already announced this item's mutation);
+// returns false otherwise. The mutation-event watcher calls this for every
+// received event so its own API writes are not re-announced by the stream.
+export function consumeSignaledItemMutation(projectId: string, itemId: string): boolean {
+  const key = `${projectId}\u0000${itemId}`;
+  if (signaledItemAt.has(key)) {
+    signaledItemAt.delete(key);
+    return true;
+  }
+  return false;
 }
 
 export function wasSignaledWithin(projectId: string, windowMs: number, now: number = Date.now()): boolean {
@@ -118,6 +154,19 @@ export function addSSEClient(client: SSEClient): () => void {
 }
 
 export function broadcastProjectEvent(projectId: string, event: SSEEvent): void {
+  // When a route broadcasts an item-scoped event, note it per-item so the
+  // mutation-event watcher can skip the corresponding committed-mutation fact.
+  // This gives per-item dedupe for free across all ~15 existing route call sites
+  // with no route changes — only events whose data carries a string `itemId` of
+  // plausible length are tracked. (See noteSignaledItemMutation for the narrow
+  // race caveat.)
+  const data = event.data;
+  if (data !== null && typeof data === "object" && !Array.isArray(data)) {
+    const itemId = (data as { itemId?: unknown }).itemId;
+    if (typeof itemId === "string" && itemId.length >= 1 && itemId.length <= 256) {
+      noteSignaledItemMutation(projectId, itemId);
+    }
+  }
   deliverProjectEvent(projectId, event);
   if (projectEventPublisher) {
     void projectEventPublisher(projectId, event).catch(() => undefined);
@@ -200,6 +249,9 @@ export function cleanupStaleClients(): void {
   }
   for (const [pid, at] of lastSignaledAt) {
     if (now - at > SIGNAL_ENTRY_TTL_MS) lastSignaledAt.delete(pid);
+  }
+  for (const [key, at] of signaledItemAt) {
+    if (now - at > SIGNAL_ENTRY_TTL_MS) signaledItemAt.delete(key);
   }
 }
 

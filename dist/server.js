@@ -3,6 +3,7 @@ import { createApp } from "./app.js";
 import { cleanupStaleClients } from "./services/sse.js";
 import { startRealtimeBus } from "./services/realtime-bus.js";
 import { startProjectWatcher } from "./services/project-watcher.js";
+import { startMutationEventWatcher } from "./services/mutation-event-watcher.js";
 import { assertOidcConfiguration } from "./oidc.js";
 const PORT = parseInt(process.env.PORT || "4000", 10);
 const app = createApp();
@@ -22,6 +23,7 @@ initSchema()
     .then(async () => {
     const closeRealtimeBus = await startRealtimeBus();
     const stopProjectWatcher = startProjectWatcher();
+    const stopMutationEventWatcher = startMutationEventWatcher();
     // Express 5 invokes the listen callback WITH the error (it is installed
     // as the server's 'error' handler), so ignoring the argument turns
     // EADDRINUSE into a false "running" message and a process that idles
@@ -37,7 +39,7 @@ initSchema()
         console.error(`Server error on :${PORT}:`, err.message);
         process.exit(1);
     });
-    server.on("close", () => { stopProjectWatcher(); void closeRealtimeBus(); });
+    server.on("close", () => { stopProjectWatcher(); stopMutationEventWatcher(); void closeRealtimeBus(); });
     // Periodic cleanup of stale SSE clients
     setInterval(cleanupStaleClients, 5 * 60 * 1000);
 })
