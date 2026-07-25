@@ -2,13 +2,16 @@ id: pm-web-vwaq
 title: Realtime mutation-event subscription replaces filesystem polling as the primary out-of-band change detector
 description: "Add a per-project subscription to the pm SDK subscribeMutationEvents stream so out-of-band mutations from pm-gpt, pm-mcp, or CLI agents are surfaced within intervalMs instead of waiting for the coarse filesystem sweep. Demote the filesystem sweep to a safety net for non-pm writes (git merge, rsync restore, manual edits) by raising its default interval to 15s. Add per-item dedupe in sse.ts so this instance's own API broadcasts are skipped by the watcher without the coarse project-level window."
 type: Feature
-status: in_progress
+status: closed
 priority: 2
 tags: []
 created_at: "2026-07-25T07:39:44.591Z"
-updated_at: "2026-07-25T07:55:54.855Z"
-assignee: pi-agent
+updated_at: "2026-07-25T11:30:59.469Z"
+closed_at: "2026-07-25T11:30:59.468Z"
 author: pi-agent
+resolution: Implemented src/services/mutation-event-watcher.ts as the primary out-of-band change detector via the SDK subscribeMutationEvents async generator; demoted the filesystem sweep to a 15s safety net for non-pm writes; added NUL-keyed per-item dedupe in sse.ts wired automatically through broadcastProjectEvent.
+expected_result: "A mutation committed against the shared workspace by a separate process (pm-gpt, pm-mcp, or a CLI agent) is delivered to pm-web SSE clients within intervalMs (~250ms), carries the mutating item id, operation and author, and is not duplicated by this instance's own API broadcast."
+actual_result: "Verified end-to-end against a real pm workspace using the built dist and the real SDK subscription: pm update and pm notes issued from a separate OS process were each delivered as workspace-changed with data {source:mutation-events,itemId,operation,author} and an empty error list. Gates re-run by the orchestrator: typecheck clean, 143/143 tests pass."
 notes[6]{created_at,author,text}:
   "2026-07-25T07:39:54.698Z",pi-agent,"Created feature item and started it. Began implementation by exploring existing project-watcher.ts, sse.ts, and server.ts patterns. SDK subscribeMutationEvents API verified against installed 2026.7.25."
   "2026-07-25T07:55:53.594Z",codex,"Orchestrator verification (Claude). Reviewed the pi-authored implementation and found the source sound, but the accompanying test suite did NOT terminate: the fake subscribe generator busy-spun on setTimeout(0) whenever its queue was empty, saturating the event loop so node --test produced no output at all and could not even honour --test-timeout. Fixed by waiting out the SDK's intervalMs contract instead of a zero-delay re-check, and by unref'ing the wait timer so a subscription a test leaves running can never hold the process open. Removed the dead maybeWait/waitPromise/resolveWait scaffolding."
@@ -16,4 +19,5 @@ notes[6]{created_at,author,text}:
   "2026-07-25T07:55:54.235Z",codex,"Hardening: per-item dedupe key separator changed from a space to NUL so an itemId containing the separator can never collide across projects."
   "2026-07-25T07:55:54.539Z",codex,"Gates verified by orchestrator: npm run typecheck clean (server + frontend + sw + scripts); npm test 143/143 pass, 0 fail; the 12 new mutation-event-watcher tests pass in 619ms."
   "2026-07-25T07:55:54.855Z",codex,"END-TO-END PROOF against a real pm workspace using the BUILT dist and the REAL SDK subscription (not fakes): drove createMutationEventReconciler with intervalMs=100, then mutated the workspace from a completely separate OS process (pm update + pm notes). Both mutations were delivered as workspace-changed with data {source:mutation-events, itemId:pm-kwls, operation:update|note_add, author:harness:claude-code} and ERRORS=[]. This is exactly the pm-gpt / pm-mcp -> pm-web realtime path."
+close_reason: Implemented src/services/mutation-event-watcher.ts as the primary out-of-band change detector via the SDK subscribeMutationEvents async generator; demoted the filesystem sweep to a 15s safety net for non-pm writes; added NUL-keyed per-item dedupe in sse.ts wired automatically through broadcastProjectEvent.
 body: ""
