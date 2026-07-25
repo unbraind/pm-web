@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pool } from "../db.js";
 import { getItemAt, PmCliError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -53,6 +54,28 @@ const PM_GRAPH_EXTENSION_PATH = process.env.PM_GRAPH_EXTENSION_PATH ||
     path.join(process.cwd(), "extensions", "pm-graph");
 export function getProjectDir(userId, slug) {
     return path.join(projectsRoot(), userId, slug);
+}
+/**
+ * Resolve a project id to its on-disk directory, or `null` when the project row
+ * is genuinely absent.
+ *
+ * Shared by both out-of-band change detectors (the mutation-event subscription
+ * and the filesystem safety-net sweep), which each cache the result per active
+ * SSE session. It lives here because this module already owns the
+ * project-id → path mapping via {@link getProjectDir}.
+ *
+ * Database errors are deliberately **not** swallowed: a transient `pool.query`
+ * failure must reach the caller's per-project error handling so the lookup is
+ * retried. Returning `null` on failure would let a caller cache "no such
+ * project" for the whole session and permanently stop watching it. `null`
+ * therefore means "the row is absent", which is safe to cache.
+ */
+export async function resolveProjectDir(projectId) {
+    const res = await pool.query("SELECT user_id, slug FROM pm_projects WHERE id = $1", [projectId]);
+    const row = res.rows[0];
+    if (!row)
+        return null;
+    return getProjectDir(row.user_id, row.slug);
 }
 let cachedPmCommand;
 function pmCliCommand() {

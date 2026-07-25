@@ -9,6 +9,22 @@ export declare class Semaphore {
 }
 export declare function projectsRoot(): string;
 export declare function getProjectDir(userId: string, slug: string): string;
+/**
+ * Resolve a project id to its on-disk directory, or `null` when the project row
+ * is genuinely absent.
+ *
+ * Shared by both out-of-band change detectors (the mutation-event subscription
+ * and the filesystem safety-net sweep), which each cache the result per active
+ * SSE session. It lives here because this module already owns the
+ * project-id → path mapping via {@link getProjectDir}.
+ *
+ * Database errors are deliberately **not** swallowed: a transient `pool.query`
+ * failure must reach the caller's per-project error handling so the lookup is
+ * retried. Returning `null` on failure would let a caller cache "no such
+ * project" for the whole session and permanently stop watching it. `null`
+ * therefore means "the row is absent", which is safe to cache.
+ */
+export declare function resolveProjectDir(projectId: string): Promise<string | null>;
 export declare function initProject(userId: string, slug: string, prefix: string): Promise<void>;
 export declare function projectExists(userId: string, slug: string): boolean;
 export interface PmRunOptions {

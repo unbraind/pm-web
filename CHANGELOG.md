@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Realtime mutation-event subscription replaces filesystem polling as the primary out-of-band change detector ([pm-web-vwaq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-vwaq.toon))
+
 ## 2026.7.25 - 2026-07-25
 
 ### Other

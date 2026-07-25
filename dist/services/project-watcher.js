@@ -1,9 +1,14 @@
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { pool } from "../db.js";
-import { getProjectDir } from "./pm-runner.js";
+import { resolveProjectDir } from "./pm-runner.js";
 import { consumeSignaledMutation, deliverProjectEvent, getActiveProjectIds, wasSignaledWithin, } from "./sse.js";
-const DEFAULT_INTERVAL_MS = 2_000;
+// Safety-net filesystem sweep. The mutation-event stream
+// (src/services/mutation-event-watcher.ts) is now the PRIMARY out-of-band change
+// detector; this poll only catches raw non-pm writes that bypass the committed
+// history (git merge, rsync restore, manual edits). Slower default cadence keeps
+// per-tick stat I/O low since the primary path covers committed mutations at
+// ~250ms latency.
+const DEFAULT_INTERVAL_MS = 15_000;
 const MIN_INTERVAL_MS = 500;
 // Item-type directories that hold user-facing `.toon` items:
 const ITEM_DIRS = [
@@ -124,25 +129,13 @@ export async function stepWorkspaceSweep(dir, state, maxFilesPerTick) {
     }
     return { completed: false };
 }
-async function defaultResolveProjectDir(projectId) {
-    // Do NOT swallow DB errors here: a transient `pool.query` failure must reach
-    // the watcher's per-project try/catch (→ onError) so it is retried next tick.
-    // Swallowing it would cache `null` for the whole active SSE session and
-    // permanently stop watching this project. `null` is returned only when the
-    // row is genuinely absent (safe to cache — avoids re-querying every tick).
-    const res = await pool.query("SELECT user_id, slug FROM pm_projects WHERE id = $1", [projectId]);
-    const row = res.rows[0];
-    if (!row)
-        return null;
-    return getProjectDir(row.user_id, row.slug);
-}
 // Pure, testable cycle. Holds per-project baseline state across ticks.
 export function createProjectWatchCycle(deps = {}) {
     const intervalMs = Math.max(MIN_INTERVAL_MS, deps.intervalMs ?? positiveIntEnv("PM_WATCH_INTERVAL_MS", DEFAULT_INTERVAL_MS));
     const suppressWindowMs = deps.suppressWindowMs ?? intervalMs * 2 + 3_000;
     const maxFilesPerTick = Math.max(1, deps.maxFilesPerTick ?? DEFAULT_MAX_FILES_PER_TICK);
     const getIds = deps.getActiveProjectIds ?? getActiveProjectIds;
-    const resolveDir = deps.resolveProjectDir ?? defaultResolveProjectDir;
+    const resolveDir = deps.resolveProjectDir ?? resolveProjectDir;
     const signaled = deps.wasSignaledWithin ?? wasSignaledWithin;
     const consumeSignal = deps.consumeSignal ?? consumeSignaledMutation;
     const emit = deps.emit ?? deliverProjectEvent;

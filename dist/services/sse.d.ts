@@ -15,6 +15,8 @@ export interface PresenceUser {
     connectedAt: string;
 }
 export declare function noteSignaledMutation(projectId: string): void;
+export declare function noteSignaledItemMutation(projectId: string, itemId: string): void;
+export declare function consumeSignaledItemMutation(projectId: string, itemId: string): boolean;
 export declare function wasSignaledWithin(projectId: string, windowMs: number, now?: number): boolean;
 export declare function consumeSignaledMutation(projectId: string): void;
 export declare function getActiveProjectIds(): string[];

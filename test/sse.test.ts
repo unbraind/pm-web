@@ -6,6 +6,7 @@ import {
   addSSEClient,
   broadcastProjectEvent,
   configureProjectEventPublisher,
+  consumeSignaledItemMutation,
   getProjectPresence,
   getSSEClientCount,
   updateClientView,
@@ -105,4 +106,45 @@ test("project events and presence are isolated per project and clients are index
   // Unsubscribing removes clients from both indexes.
   assert.equal(getSSEClientCount(), 0);
   assert.equal(getProjectPresence(projectId).length, 0);
+});
+
+test("broadcastProjectEvent notes per-item signal when data has a string itemId", () => {
+  // A route broadcast with a granular itemId payload should register a per-item
+  // signal that the mutation-event watcher can consume to skip the duplicate.
+  broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "mutation-events", itemId: "item-xyz", operation: "update" } });
+  assert.equal(consumeSignaledItemMutation(projectId, "item-xyz"), true, "signal was noted by broadcast");
+  // Consume is destructive — second call returns false.
+  assert.equal(consumeSignaledItemMutation(projectId, "item-xyz"), false, "signal already consumed");
+});
+
+test("broadcastProjectEvent does not note per-item signal when data has no itemId", () => {
+  broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "filesystem" } });
+  assert.equal(consumeSignaledItemMutation(projectId, "anything"), false, "no item signal for itemId-less event");
+});
+
+test("broadcastProjectEvent does not note per-item signal for array data", () => {
+  broadcastProjectEvent(projectId, { type: "presence", data: [{ userId: "u1" }] });
+  assert.equal(consumeSignaledItemMutation(projectId, "u1"), false, "array data does not produce item signal");
+});
+
+test("broadcastProjectEvent does not note per-item signal for non-string itemId", () => {
+  broadcastProjectEvent(projectId, { type: "workspace-changed", data: { itemId: 12345 } });
+  assert.equal(consumeSignaledItemMutation(projectId, "12345"), false, "numeric itemId does not produce signal");
+});
+
+test("broadcastProjectEvent rejects over-long itemId (boundary at 256 chars)", () => {
+  const longId = "x".repeat(257);
+  broadcastProjectEvent(projectId, { type: "workspace-changed", data: { itemId: longId } });
+  assert.equal(consumeSignaledItemMutation(projectId, longId), false, "257-char itemId is not tracked");
+  // 256 chars is the boundary — should be tracked.
+  const maxId = "y".repeat(256);
+  broadcastProjectEvent(projectId, { type: "workspace-changed", data: { itemId: maxId } });
+  assert.equal(consumeSignaledItemMutation(projectId, maxId), true, "256-char itemId is tracked");
+});
+
+test("consumeSignaledItemMutation is isolated per project", () => {
+  broadcastProjectEvent(projectId, { type: "workspace-changed", data: { itemId: "shared-item" } });
+  // Same itemId on a different project should not be consumed.
+  assert.equal(consumeSignaledItemMutation(otherProjectId, "shared-item"), false, "different project has no signal");
+  assert.equal(consumeSignaledItemMutation(projectId, "shared-item"), true, "original project has the signal");
 });

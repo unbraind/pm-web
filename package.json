@@ -39,7 +39,7 @@
     "merge:install": "pm merge install"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "^2026.7.23",
+    "@unbrained/pm-cli": "^2026.7.25",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
