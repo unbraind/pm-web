@@ -1,12 +1,12 @@
 id: pm-web-wyum
-title: Replace pm spawnSync with in-process PmClient and cursor pagination
+title: Replace per-request pm processes with typed PmClient dispatch and cursor pagination
 description: Replace per-request pm binary spawns in pm-runner with in-process PmClient/SDK action dispatch; adopt sdk/query cursor pagination and search tuning for list/search; preserve HTTP response shapes; keep realtime convergence.
 type: Feature
 status: closed
 priority: 2
 tags: []
 created_at: "2026-07-26T12:06:25.745Z"
-updated_at: "2026-07-26T12:56:44.795Z"
+updated_at: "2026-07-26T13:21:20.410Z"
 closed_at: "2026-07-26T12:56:44.759Z"
 author: pi-agent
 estimated_minutes: 240
@@ -14,7 +14,9 @@ acceptance_criteria: "Latency-bounded native pm routes execute through typed PmC
 parent: pm-web-i98h
 resolution: "Implemented typed in-process PmClient dispatch for latency-bounded actions with complete CLI positional/flag translation, precise SDK error mapping, cursor/search tuning, client eviction, and bounded fallbacks for unsupported or long-running work."
 expected_result: pm-web uses the latest typed pm SDK without breaking CLI semantics or allowing long-running SDK work to block unrelated projects.
-actual_result: "Real temporary-workspace coverage proves init/create/comment/test/pagination/close/error behavior; all 145 tests, typechecks, builds, production audit, package dry-run, changelog check, and PM-linked release acceptance pass. Long-running search/update-many/upgrade remain bounded fallbacks pending pm-cli#742; linked-test sandbox defect filed as pm-cli#743."
+actual_result: "Real temporary-workspace coverage proves SDK init/create/update with leading-dash values/negated booleans/comment/test/pagination/close/error behavior plus exactly-once fallback for unsupported actions; all 146 tests, typechecks, builds, production audit, package dry-run, changelog check, and PM-linked release acceptance pass. Bounded fallback remains for long-running work pending pm-cli#742; sandbox defect is pm-cli#743; unsupported-action exit-code inconsistency is pm-cli#745."
+comments[1]{created_at,author,text}:
+  "2026-07-26T13:21:20.410Z",codex,"PR #65 CodeRabbit follow-up 2026-07-26: corrected inaccurate spawnSync terminology; derived boolean option arity from PM_TOOL_PARAMETERS_SCHEMA; preserved values beginning with -- and explicit --no-* semantics; added verified unsupported-action-only spawn fallback without retrying mutation errors; bounded the PmClient LRU cache; routed stdin/explicit-timeout calls to the cancellable process path; propagated CLI exit codes to consistent HTTP status mapping; validated base64url cursors and bounded search numbers; protected dash-prefixed search terms with the option terminator. Full release:check passes 146/146 with zero production vulnerabilities."
 notes[7]{created_at,author,text}:
   "2026-07-26T12:06:41.664Z",pi-agent,"FINDING: pm-runner uses async spawn (not spawnSync) for runPm; spawnSync only in src/index.ts (npm install + pm --version probe, not data path). Real defect is per-request spawn via runProcess."
   "2026-07-26T12:06:49.000Z",pi-agent,"FINDING: SDK PmClient.run(action,{options}) returns agent-compact shape, not CLI --json verbose envelope. list: SDK has query_summary vs CLI projection/sorting/now; items are superset (priority,parent,updated_at added). search/get/contracts/create/update/close shapes match CLI (additive only). Frontend only reads items/count/total/results -> compatible. Will pass SDK result through; differences are additive or in ignored envelope metadata."

@@ -40,11 +40,7 @@ export interface PmRunResult {
     stderr: string;
     ok: boolean;
     parsed?: unknown;
-    /**
-     * pm CLI exit code from a {@link PmCliError} when the in-process dispatcher
-     * translated an expected validation failure. Routes that want precise 4xx
-     * mapping can branch on this; the string `stderr` always carries the message.
-     */
+    /** pm CLI exit code from either the SDK dispatcher or spawned CLI fallback. */
     exitCode?: number;
 }
 export interface EnsureGraphExtensionResult {

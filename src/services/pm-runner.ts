@@ -4,6 +4,7 @@ import path from "node:path";
 import { pool } from "../db.js";
 import {
   getItemAt,
+  PM_TOOL_PARAMETERS_SCHEMA,
   PmClient,
   PmCliError,
   isPmCliExpectedError,
@@ -97,6 +98,7 @@ interface ProcessResult {
   stdout: string;
   stderr: string;
   ok: boolean;
+  exitCode?: number;
 }
 
 interface PmCommand {
@@ -190,6 +192,7 @@ async function runProcess(
         stdout: Buffer.concat(stdout).toString("utf8"),
         stderr: failure ? `${stderrText}${stderrText ? "\n" : ""}${failure}` : stderrText,
         ok: code === 0 && !failure,
+        exitCode: typeof code === "number" ? code : undefined,
       });
     });
 
@@ -279,11 +282,7 @@ export interface PmRunResult {
   stderr: string;
   ok: boolean;
   parsed?: unknown;
-  /**
-   * pm CLI exit code from a {@link PmCliError} when the in-process dispatcher
-   * translated an expected validation failure. Routes that want precise 4xx
-   * mapping can branch on this; the string `stderr` always carries the message.
-   */
+  /** pm CLI exit code from either the SDK dispatcher or spawned CLI fallback. */
   exitCode?: number;
 }
 
@@ -481,7 +480,9 @@ const POSITIONAL_KEYS: Readonly<Record<string, readonly string[]>> = {
   config: ["scope", "configAction", "key", "value"],
 };
 
-/** One cached `PmClient` configuration per workspace pm-root. */
+const PM_CLIENT_CACHE_MAX = positiveInteger(process.env.PM_WEB_PM_CLIENT_CACHE_MAX, 256);
+
+/** Bounded least-recently-used `PmClient` cache keyed by workspace pm-root. */
 const pmClientCache = new Map<string, PmClient>();
 
 /**
@@ -493,13 +494,20 @@ const pmClientCache = new Map<string, PmClient>();
  */
 export function getPmClient(pmRoot: string): PmClient {
   let client = pmClientCache.get(pmRoot);
-  if (!client) {
-    client = new PmClient({
-      pmRoot,
-      cwd: path.dirname(path.dirname(pmRoot)),
-    });
+  if (client) {
+    pmClientCache.delete(pmRoot);
     pmClientCache.set(pmRoot, client);
+    return client;
   }
+  if (pmClientCache.size >= PM_CLIENT_CACHE_MAX) {
+    const leastRecentlyUsed = pmClientCache.keys().next().value;
+    if (typeof leastRecentlyUsed === "string") pmClientCache.delete(leastRecentlyUsed);
+  }
+  client = new PmClient({
+    pmRoot,
+    cwd: path.dirname(path.dirname(pmRoot)),
+  });
+  pmClientCache.set(pmRoot, client);
   return client;
 }
 
@@ -541,6 +549,37 @@ interface ParsedArgs {
   positionals: string[];
 }
 
+type ToolSchemaProperty = {
+  const?: unknown;
+  type?: unknown;
+};
+
+type ToolSchemaBranch = {
+  properties?: Record<string, ToolSchemaProperty>;
+};
+
+/**
+ * Derive boolean option arity from the SDK's canonical action-scoped tool
+ * schema. This keeps the adapter aligned when pm adds an option and lets string
+ * values begin with `--` without being mistaken for another flag.
+ */
+function booleanOptionsByAction(): ReadonlyMap<string, ReadonlySet<string>> {
+  const result = new Map<string, ReadonlySet<string>>();
+  const branches = (PM_TOOL_PARAMETERS_SCHEMA as { oneOf?: ToolSchemaBranch[] }).oneOf ?? [];
+  for (const branch of branches) {
+    const properties = branch.properties ?? {};
+    const action = properties["action"]?.const;
+    if (typeof action !== "string") continue;
+    const keys = Object.entries(properties)
+      .filter(([, property]) => property.type === "boolean")
+      .map(([key]) => key);
+    result.set(action, new Set(keys));
+  }
+  return result;
+}
+
+const BOOLEAN_OPTIONS_BY_ACTION = booleanOptionsByAction();
+
 /**
  * Parse a CLI-style argv tail (without the leading `--json` injected by the
  * spawn path) into the action name, a camelCase options bag, and positionals.
@@ -548,6 +587,7 @@ interface ParsedArgs {
  */
 function parsePmArgs(args: readonly string[]): ParsedArgs {
   const action = args[0] ?? "";
+  const booleanOptions = BOOLEAN_OPTIONS_BY_ACTION.get(action) ?? new Set<string>();
   const options: Record<string, unknown> = {};
   const positionals: string[] = [];
   for (let i = 1; i < args.length; i++) {
@@ -557,13 +597,22 @@ function parsePmArgs(args: readonly string[]): ParsedArgs {
       while (++i < args.length) positionals.push(args[i]!);
       break;
     }
-    if (arg.startsWith("--no-") && (args[i + 1] === undefined || args[i + 1]!.startsWith("--"))) {
+    if (arg.startsWith("--no-")) {
       options[kebabToCamel(arg.slice(5))] = false;
     } else if (arg.startsWith("--")) {
-      const rawFlag = arg.slice(2);
+      const equalsIndex = arg.indexOf("=");
+      const rawFlag = arg.slice(2, equalsIndex === -1 ? undefined : equalsIndex);
       const key = kebabToCamel(rawFlag);
+      if (equalsIndex !== -1) {
+        options[key] = arg.slice(equalsIndex + 1);
+        continue;
+      }
+      if (booleanOptions.has(key)) {
+        options[key] = true;
+        continue;
+      }
       const next = args[i + 1];
-      if (next !== undefined && !next.startsWith("--")) {
+      if (next !== undefined) {
         options[key] = next;
         i++;
       } else {
@@ -596,7 +645,7 @@ function withPositionals(action: string, positionals: readonly string[], options
  * The result object is returned both as `parsed` (structured) and stringified
  * into `stdout`, so routes that read either field keep working.
  */
-async function runPmInProcess(opts: PmRunOptions, dir: string): Promise<PmRunResult> {
+async function runPmInProcess(opts: PmRunOptions, dir: string): Promise<PmRunResult | null> {
   const pmRoot = path.join(dir, ".agents", "pm");
   const client = getPmClient(pmRoot);
   const { action, options, positionals } = parsePmArgs(opts.args);
@@ -607,6 +656,12 @@ async function runPmInProcess(opts: PmRunOptions, dir: string): Promise<PmRunRes
     const stdout = JSON.stringify(result) ?? "";
     return { stdout, stderr: "", ok: true, parsed: result };
   } catch (err) {
+    if (
+      (err instanceof PmCliError || isPmCliExpectedError(err)) &&
+      err.message.startsWith("Unsupported native pm action:")
+    ) {
+      return null;
+    }
     if (err instanceof PmCliError || isPmCliExpectedError(err)) {
       return { stdout: "", stderr: err.message, ok: false, parsed: undefined, exitCode: err.exitCode };
     }
@@ -619,8 +674,13 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
   const action = opts.args[0] ?? "";
 
   // Supported actions run in-process through the cached PmClient — no spawn.
-  if (!SPAWN_FALLBACK_ACTIONS.has(action)) {
-    return runPmInProcess(opts, dir);
+  if (
+    !SPAWN_FALLBACK_ACTIONS.has(action) &&
+    opts.input === undefined &&
+    opts.timeoutMs === undefined
+  ) {
+    const sdkResult = await runPmInProcess(opts, dir);
+    if (sdkResult) return sdkResult;
   }
 
   // Fallback: spawn the pm binary for actions the SDK dispatcher cannot serve.
@@ -632,7 +692,7 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
     env: { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` },
   }));
 
-  const { stdout, stderr, ok } = result;
+  const { stdout, stderr, ok, exitCode } = result;
 
   let parsed: unknown;
   if (opts.jsonOutput && ok && stdout) {
@@ -643,7 +703,7 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
     }
   }
 
-  return { stdout, stderr, ok, parsed };
+  return { stdout, stderr, ok, parsed, exitCode };
 }
 
 /**

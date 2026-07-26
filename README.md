@@ -114,6 +114,7 @@ pm web doctor --json
 | `PM_WEB_STATE_DIR` | No | Directory for the `--detach` pidfile used by `pm web stop` (default: OS temp dir) |
 | `PROJECTS_ROOT` | No | Host-mounted root for persistent pm workspaces (default: `/app/projects`) |
 | `PM_WEB_PM_CONCURRENCY` | No | Maximum concurrent child processes for CLI-only fallback commands (default: `8`); fallback commands for one workspace always serialize |
+| `PM_WEB_PM_CLIENT_CACHE_MAX` | No | Maximum number of least-recently-used workspace `PmClient` instances retained per server process (default: `256`) |
 | `PM_CLI_BIN` | No | Explicit pm CLI executable path (default: packaged CLI, then `pm` from `PATH`) |
 | `PM_WEB_DB_POOL_MAX` | No | PostgreSQL pool size including one dedicated realtime listener (default: `20`, minimum: `2`) |
 | `NODE_ENV` | No | `production` enables caching |
@@ -142,7 +143,9 @@ extension-specific output, and potentially long-running search, bulk-update,
 upgrade, acceptance-test, validation, health, and garbage-collection operations
 retain an asynchronous child-process fallback with bounded concurrency;
 requests for the same workspace serialize on that fallback in addition to pm's
-storage locks. The current pm SDK serializes activation-backed `PmClient` calls
+storage locks. Calls that supply stdin or an explicit timeout also use this
+fallback because the SDK action contract has no cancellable stdin/timeout
+primitive. The current pm SDK serializes activation-backed `PmClient` calls
 within each Node process, so high-throughput installations should run multiple
 pm-web replicas behind a shared PostgreSQL realtime bus. Independent replicas
 converge through PostgreSQL notifications and the mutation-event watcher.

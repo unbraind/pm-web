@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { evictPmClient, EXIT_CODE, runPm, Semaphore } from "../dist/services/pm-runner.js";
+import { evictPmClient, EXIT_CODE, getPmClient, runPm, Semaphore } from "../dist/services/pm-runner.js";
 
 test("semaphore hands a released slot directly to the oldest waiter", async () => {
   const semaphore = new Semaphore(1);
@@ -116,6 +116,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
       jsonOutput: true,
     });
     assert.equal(initialized.ok, true, initialized.stderr);
+    assert.equal(getPmClient(pmRoot), getPmClient(pmRoot), "workspace clients should be reused");
 
     const first = await runPm({
       userId: "user",
@@ -140,6 +141,26 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     assert.equal(first.ok, true, first.stderr);
     const firstId = (first.parsed as { item?: { id?: unknown } }).item?.id;
     assert.equal(typeof firstId, "string");
+
+    const leadingFlagValue = await runPm({
+      userId: "user",
+      slug: "sdk",
+      args: ["update", String(firstId), "--description", "--not-a-flag"],
+      jsonOutput: true,
+    });
+    assert.equal(leadingFlagValue.ok, true, leadingFlagValue.stderr);
+    assert.equal(
+      (leadingFlagValue.parsed as { item?: { description?: string } }).item?.description,
+      "--not-a-flag",
+    );
+
+    const negatedBooleanBeforePositional = await runPm({
+      userId: "user",
+      slug: "sdk",
+      args: ["get", "--no-extensions", String(firstId)],
+      jsonOutput: true,
+    });
+    assert.equal(negatedBooleanBeforePositional.ok, true, negatedBooleanBeforePositional.stderr);
 
     const second = await runPm({
       userId: "user",
@@ -240,6 +261,43 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     evictPmClient(pmRoot);
     if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
     else process.env["PROJECTS_ROOT"] = previousRoot;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("an SDK-unsupported action falls back once to the original CLI argv", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "pm-web-unsupported-runner-"));
+  const fakePm = path.join(root, "fake-pm");
+  const previousRoot = process.env["PROJECTS_ROOT"];
+  const previousBin = process.env["PM_CLI_BIN"];
+
+  await writeFile(fakePm, `#!/usr/bin/env node
+process.stdout.write(JSON.stringify({ argv: process.argv.slice(2) }));
+`);
+  await chmod(fakePm, 0o755);
+  process.env["PROJECTS_ROOT"] = root;
+  process.env["PM_CLI_BIN"] = fakePm;
+
+  try {
+    const projectDir = path.join(root, "user", "future");
+    await mkdir(projectDir, { recursive: true });
+    const result = await runPm({
+      userId: "user",
+      slug: "future",
+      args: ["future-command", "--future-value", "--still-a-value"],
+      jsonOutput: true,
+    });
+    assert.equal(result.ok, true, result.stderr);
+    assert.deepEqual(
+      (result.parsed as { argv?: string[] }).argv,
+      ["--json", "future-command", "--future-value", "--still-a-value"],
+    );
+  } finally {
+    evictPmClient(path.join(root, "user", "future", ".agents", "pm"));
+    if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
+    else process.env["PROJECTS_ROOT"] = previousRoot;
+    if (previousBin === undefined) delete process.env["PM_CLI_BIN"];
+    else process.env["PM_CLI_BIN"] = previousBin;
     await rm(root, { recursive: true, force: true });
   }
 });

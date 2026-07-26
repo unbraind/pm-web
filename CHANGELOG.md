@@ -4,7 +4,7 @@
 
 ### Added
 
-- Replace pm spawnSync with in-process PmClient and cursor pagination ([pm-web-wyum](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-wyum.toon))
+- Replace per-request pm processes with typed PmClient dispatch and cursor pagination ([pm-web-wyum](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-wyum.toon))
 
 ### Other
 
