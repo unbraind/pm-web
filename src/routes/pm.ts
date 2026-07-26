@@ -1,6 +1,15 @@
 import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { ensureGraphExtension, runPm, runGetItemAt, projectExists, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
+import { ensureGraphExtension, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
+// The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
+// aggregate sdk barrel documents itself as re-exporting every supported export but
+// omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
+import {
+  resolveSearchMaxResults,
+  resolveSearchScoreThreshold,
+  resolveHybridSemanticWeight,
+} from "@unbrained/pm-cli/sdk/query";
+import { QUERY_CURSOR_CONTRACT } from "@unbrained/pm-cli/sdk";
 import { boardColumns, filterItemsByQuery } from "../board.js";
 import { buildIcsCalendar, type CalendarItem } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
@@ -31,6 +40,56 @@ function getNeo4jDriver(): ReturnType<typeof neo4j.driver> {
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+const BASE64URL_CURSOR_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Validate an incoming opaque pagination cursor. Returns the original cursor or
+ * `undefined` when none was supplied. Rejects cursors that exceed the SDK
+ * cursor contract's maximum length with a 400 so callers can map the failure
+ * to a proper client error instead of forwarding an oversized token to the SDK.
+ */
+function validateCursor(raw: unknown): { cursor?: string; error?: string } {
+  if (raw === undefined || raw === null || raw === "") return {};
+  const cursor = String(raw);
+  if (cursor.length > QUERY_CURSOR_CONTRACT.max_length) {
+    return {
+      error: `Pagination cursor exceeds the maximum length of ${QUERY_CURSOR_CONTRACT.max_length} characters.`,
+    };
+  }
+  if (!BASE64URL_CURSOR_PATTERN.test(cursor)) {
+    return { error: "Pagination cursor must be a valid base64url token." };
+  }
+  return { cursor };
+}
+
+/** Coerce an optional request number into a finite, bounded value. */
+function boundedNumber(
+  raw: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+  integer = false,
+): number {
+  const parsed = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  const bounded = Math.min(maximum, Math.max(minimum, parsed));
+  return integer ? Math.trunc(bounded) : bounded;
+}
+
+/**
+ * Map a {@link PmRunResult} failure to the correct HTTP status using the pm CLI
+ * exit code surfaced by the in-process dispatcher. Expected validation failures
+ * (USAGE) and not-found (NOT_FOUND) become 4xx; anything without a recognised
+ * exit code is an unexpected runtime error and becomes 500 so it is not
+ * silently swallowed as a client error.
+ */
+function pmErrorStatus(result: { exitCode?: number }): number {
+  if (result.exitCode === EXIT_CODE.NOT_FOUND) return 404;
+  if (result.exitCode === EXIT_CODE.USAGE) return 400;
+  if (result.exitCode === EXIT_CODE.CONFLICT) return 409;
+  if (result.exitCode === EXIT_CODE.DEPENDENCY_FAILED) return 424;
+  return 500;
+}
 
 type PmItem = {
   id: string;
@@ -462,7 +521,7 @@ router.get("/list", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { status, type, limit, priority, sprint, release, assignee } = req.query as Record<string, string>;
+  const { status, type, limit, priority, sprint, release, assignee, after } = req.query as Record<string, string>;
   const args = ["list"];
   if (status) args.push("--status", status);
   if (type) args.push("--type", type);
@@ -471,8 +530,18 @@ router.get("/list", async (req: AuthRequest, res) => {
   if (sprint) args.push("--sprint", sprint);
   if (release) args.push("--release", release);
   if (assignee) args.push("--assignee", assignee);
+  const cursorResult = validateCursor(after);
+  if (cursorResult.error) {
+    res.status(400).json({ error: cursorResult.error, items: [] });
+    return;
+  }
+  if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
+    res.status(400).json({ error: result.stderr, items: [] });
+    return;
+  }
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 
@@ -481,12 +550,22 @@ router.get("/list-all", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { type, limit } = req.query as Record<string, string>;
+  const { type, limit, after } = req.query as Record<string, string>;
   const args = ["list-all"];
   if (type) args.push("--type", type);
   if (limit) args.push("--limit", limit);
+  const cursorResult = validateCursor(after);
+  if (cursorResult.error) {
+    res.status(400).json({ error: cursorResult.error, items: [] });
+    return;
+  }
+  if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
+    res.status(400).json({ error: result.stderr, items: [] });
+    return;
+  }
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 
@@ -570,7 +649,7 @@ router.post("/create", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to create item" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to create item" });
     return;
   }
   // Broadcast SSE create event
@@ -679,7 +758,7 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to update item" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update item" });
     return;
   }
   // Broadcast SSE update event
@@ -706,7 +785,7 @@ router.post("/close/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to close item" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to close item" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -728,7 +807,7 @@ router.delete("/delete/:itemId", async (req: AuthRequest, res) => {
     slug: project.slug,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to delete item" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to delete item" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -754,7 +833,7 @@ router.post("/comments/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to add comment" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add comment" });
     return;
   }
   res.status(201).json(result.parsed || { ok: true });
@@ -802,7 +881,7 @@ router.post("/notes/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to add note" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add note" });
     return;
   }
   res.status(201).json(result.parsed || { ok: true });
@@ -872,20 +951,58 @@ router.post("/search", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const { query, mode } = req.body as { query?: string; mode?: string };
+  const body = req.body as Record<string, unknown>;
+  const query = typeof body["query"] === "string" ? body["query"] : "";
+  const mode = typeof body["mode"] === "string" ? body["mode"] : "";
   if (!query?.trim()) { res.status(400).json({ error: "Search query is required" }); return; }
 
   const validModes = ["keyword", "semantic", "hybrid"];
-  const safeMode = validModes.includes(mode || "") ? mode! : "hybrid";
+  const safeMode = validModes.includes(mode) ? mode : "hybrid";
+
+  // Adopt the sdk/query search-tuning resolvers: read the workspace settings and
+  // resolve the bounded max-results, score threshold, and hybrid semantic weight
+  // from the same defaults the pm CLI applies. Explicit per-request overrides
+  // (limit / minScore / semanticWeight) win over the workspace defaults so the
+  // browser can still narrow a page.
+  const settings = readPmSettings(project.ownerUserId, project.slug);
+  const resolvedLimit = boundedNumber(
+    body["limit"],
+    resolveSearchMaxResults(settings),
+    1,
+    500,
+    true,
+  );
+  const resolvedMinScore = boundedNumber(
+    body["minScore"],
+    resolveSearchScoreThreshold(settings),
+    0,
+    1_000_000,
+  );
+  const resolvedSemanticWeight = boundedNumber(
+    body["semanticWeight"],
+    resolveHybridSemanticWeight(settings),
+    0,
+    1,
+  );
+
+  const cursorResult = validateCursor(body["after"]);
+  if (cursorResult.error) {
+    res.status(400).json({ error: cursorResult.error, results: [] });
+    return;
+  }
+
+  const args = ["search", "--mode", safeMode, "--limit", String(resolvedLimit), "--min-score", String(resolvedMinScore), "--semantic-weight", String(resolvedSemanticWeight)];
+  if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
+  args.push("--", ...query.trim().split(/\s+/));
 
   const result = await runPm({
-    args: ["search", "--mode", safeMode, ...query.trim().split(/\s+/)],
+    args,
     userId: project.ownerUserId,
     slug: project.slug,
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({
+    res.status(pmErrorStatus(result)).json({
       error: result.stderr || "Search failed. Check that Ollama is reachable and the configured embedding model is available.",
       results: [],
     });
@@ -978,7 +1095,7 @@ router.post("/append/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to append" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to append" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-appended");
@@ -1029,7 +1146,7 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to add dependency" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add dependency" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "dependency-added");
@@ -1059,7 +1176,7 @@ router.delete("/deps/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to remove dependency" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to remove dependency" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "dependency-removed");
@@ -1090,7 +1207,7 @@ router.post("/rel", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to create relationship" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to create relationship" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "rel-created");
@@ -1122,7 +1239,7 @@ router.delete("/rel", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to remove relationship" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to remove relationship" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "rel-removed");
@@ -1239,7 +1356,7 @@ router.post("/graph/query", async (req: AuthRequest, res) => {
   });
 
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "pm-graph query failed — ensure Neo4j is configured and pm-graph extension is installed" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "pm-graph query failed — ensure Neo4j is configured and pm-graph extension is installed" });
     return;
   }
 
@@ -1280,7 +1397,7 @@ router.post("/learnings/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to add learning" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add learning" });
     return;
   }
   res.status(201).json(result.parsed || { ok: true });
@@ -1298,7 +1415,7 @@ router.post("/claim/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to claim item" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to claim item" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-claimed");
@@ -1317,7 +1434,7 @@ router.post("/release/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to release item" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to release item" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-released");
@@ -1336,7 +1453,7 @@ router.post("/start-task/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to start task" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to start task" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "task-started");
@@ -1355,7 +1472,7 @@ router.post("/pause-task/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to pause task" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to pause task" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "task-paused");
@@ -1394,7 +1511,7 @@ router.post("/tests/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to add test" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add test" });
     return;
   }
   res.status(201).json(result.parsed || { ok: true });
@@ -1439,7 +1556,7 @@ router.post("/restore/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to restore item" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to restore item" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-restored");
@@ -1461,7 +1578,7 @@ router.post("/close-task/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to close task" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to close task" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "task-closed");
@@ -1531,7 +1648,7 @@ router.post("/files/:itemId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to link file" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to link file" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "file-linked");
@@ -1774,7 +1891,7 @@ router.post("/update-many", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "update-many failed" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "update-many failed" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -1814,7 +1931,7 @@ router.post("/close-many", async (req: AuthRequest, res) => {
 
   const listResult = await runPm({ args: listArgs, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!listResult.ok) {
-    res.status(400).json({ error: listResult.stderr || "Failed to list items for close-many" });
+    res.status(pmErrorStatus(listResult)).json({ error: listResult.stderr || "Failed to list items for close-many" });
     return;
   }
 
@@ -1897,7 +2014,7 @@ router.post("/docs/:itemId", async (req: AuthRequest, res) => {
   }
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to update docs" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update docs" });
     return;
   }
   scheduleGraphSync(routeParam(req, "projectId"), project, "docs-updated");
@@ -1915,7 +2032,7 @@ router.post("/test-all", async (req: AuthRequest, res) => {
   if (body.timeout) args.push("--timeout", body.timeout);
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "test-all failed" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "test-all failed" });
     return;
   }
   res.json(result.parsed || {});
@@ -1994,7 +2111,7 @@ function buildListShortcutRoute(pmCommand: string) {
   return async (req: AuthRequest, res: Response) => {
     const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-    const { type, limit, offset, tag, priority, assignee, sprint, release } = req.query as Record<string, string>;
+    const { type, limit, offset, tag, priority, assignee, sprint, release, after } = req.query as Record<string, string>;
     const args = [pmCommand];
     if (type) args.push("--type", type);
     if (limit) args.push("--limit", limit);
@@ -2004,7 +2121,17 @@ function buildListShortcutRoute(pmCommand: string) {
     if (assignee) args.push("--assignee", assignee);
     if (sprint) args.push("--sprint", sprint);
     if (release) args.push("--release", release);
+    const cursorResult = validateCursor(after);
+    if (cursorResult.error) {
+      res.status(400).json({ error: cursorResult.error, items: [] });
+      return;
+    }
+    if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
     const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
+      res.status(400).json({ error: result.stderr, items: [] });
+      return;
+    }
     res.json(result.ok ? (result.parsed || {}) : { items: [] });
   };
 }
@@ -2039,7 +2166,7 @@ router.post("/plan", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to create plan" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to create plan" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2076,7 +2203,7 @@ router.patch("/plan/:planId", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to update plan" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update plan" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2098,7 +2225,7 @@ router.delete("/plan/:planId", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to delete plan" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to delete plan" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2122,7 +2249,7 @@ router.post("/plan/:planId/steps", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to add step" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add step" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2144,7 +2271,7 @@ router.patch("/plan/:planId/steps/:stepRef", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to update step" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update step" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2166,7 +2293,7 @@ router.post("/plan/:planId/steps/:stepRef/complete", async (req: AuthRequest, re
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to complete step" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to complete step" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2191,7 +2318,7 @@ router.post("/plan/:planId/steps/:stepRef/block", async (req: AuthRequest, res) 
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to block step" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to block step" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2213,7 +2340,7 @@ router.delete("/plan/:planId/steps/:stepRef", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to remove step" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to remove step" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2235,7 +2362,7 @@ router.post("/plan/:planId/approve", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to approve plan" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to approve plan" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2258,7 +2385,7 @@ router.post("/plan/:planId/materialize", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to materialize plan" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to materialize plan" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2286,7 +2413,7 @@ router.post("/plan/:planId/steps/:stepRef/reorder", async (req: AuthRequest, res
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to reorder step" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to reorder step" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2311,7 +2438,7 @@ router.post("/plan/:planId/link", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to link plan" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to link plan" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2334,7 +2461,7 @@ router.delete("/plan/:planId/link", async (req: AuthRequest, res) => {
 
   const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Failed to unlink plan" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to unlink plan" });
     return;
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -2373,7 +2500,7 @@ router.post("/upgrade", async (req: AuthRequest, res) => {
     jsonOutput: true,
   });
   if (!result.ok) {
-    res.status(400).json({ error: result.stderr || "Upgrade failed" });
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Upgrade failed" });
     return;
   }
   res.json(result.parsed || { ok: true });

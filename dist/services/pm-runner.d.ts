@@ -1,5 +1,5 @@
-import { PmCliError, EXIT_CODE, type GetItemAtResult } from "@unbrained/pm-cli/sdk";
-export { PmCliError, EXIT_CODE, type GetItemAtResult };
+import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult } from "@unbrained/pm-cli/sdk";
+export { PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult };
 export declare class Semaphore {
     private readonly limit;
     private active;
@@ -40,6 +40,8 @@ export interface PmRunResult {
     stderr: string;
     ok: boolean;
     parsed?: unknown;
+    /** pm CLI exit code from either the SDK dispatcher or spawned CLI fallback. */
+    exitCode?: number;
 }
 export interface EnsureGraphExtensionResult {
     ok: boolean;
@@ -48,6 +50,21 @@ export interface EnsureGraphExtensionResult {
     error?: string;
 }
 export declare function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult>;
+/**
+ * Return a cached {@link PmClient} for a workspace pm-root, creating one on
+ * first use. The SDK owns extension activation and serialization internally;
+ * caching avoids reconstructing the immutable workspace defaults while each
+ * call still receives the SDK's current extension snapshot. Author identity is
+ * resolved by the SDK's default detection, preserving prior CLI behaviour.
+ */
+export declare function getPmClient(pmRoot: string): PmClient;
+/** Drop a cached client when its workspace is deleted. */
+export declare function evictPmClient(pmRoot: string): void;
+/**
+ * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
+ * Returns `{}` when absent so resolvers fall back to their built-in defaults.
+ */
+export declare function readPmSettings(userId: string, slug: string): unknown;
 export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
 /**
  * Reconstruct a single item at a one-based version or ISO timestamp using the

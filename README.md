@@ -113,7 +113,8 @@ pm web doctor --json
 | `PORT` | No | Server port (default: 4000) |
 | `PM_WEB_STATE_DIR` | No | Directory for the `--detach` pidfile used by `pm web stop` (default: OS temp dir) |
 | `PROJECTS_ROOT` | No | Host-mounted root for persistent pm workspaces (default: `/app/projects`) |
-| `PM_WEB_PM_CONCURRENCY` | No | Maximum pm CLI child processes across independent workspaces (default: `8`); commands for one workspace always serialize |
+| `PM_WEB_PM_CONCURRENCY` | No | Maximum concurrent child processes for CLI-only fallback commands (default: `8`); fallback commands for one workspace always serialize |
+| `PM_WEB_PM_CLIENT_CACHE_MAX` | No | Maximum number of least-recently-used workspace `PmClient` instances retained per server process (default: `256`) |
 | `PM_CLI_BIN` | No | Explicit pm CLI executable path (default: packaged CLI, then `pm` from `PATH`) |
 | `PM_WEB_DB_POOL_MAX` | No | PostgreSQL pool size including one dedicated realtime listener (default: `20`, minimum: `2`) |
 | `NODE_ENV` | No | `production` enables caching |
@@ -135,11 +136,19 @@ New pm-web projects configure local Ollama search automatically and install the 
 
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
 
-pm CLI commands run asynchronously with bounded global concurrency. Requests for
-the same workspace are serialized in process (in addition to pm's own storage
-locks), while independent projects can make progress concurrently. This keeps
-HTTP responses, SSE delivery, and PostgreSQL realtime notifications responsive
-during command bursts without allowing unbounded child-process fan-out.
+Latency-bounded native pm operations run through the typed `PmClient` SDK in the
+server process, with SDK cursor contracts and search-tuning helpers used by the
+list/search API. Commands without an SDK action, maintenance commands,
+extension-specific output, and potentially long-running search, bulk-update,
+upgrade, acceptance-test, validation, health, and garbage-collection operations
+retain an asynchronous child-process fallback with bounded concurrency;
+requests for the same workspace serialize on that fallback in addition to pm's
+storage locks. Calls that supply stdin or an explicit timeout also use this
+fallback because the SDK action contract has no cancellable stdin/timeout
+primitive. The current pm SDK serializes activation-backed `PmClient` calls
+within each Node process, so high-throughput installations should run multiple
+pm-web replicas behind a shared PostgreSQL realtime bus. Independent replicas
+converge through PostgreSQL notifications and the mutation-event watcher.
 
 Optional OIDC uses Authorization Code flow with PKCE, provider discovery/JWKS,
 signed state cookies, and issuer/subject identity mapping. It is disabled when

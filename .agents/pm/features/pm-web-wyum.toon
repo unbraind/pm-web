@@ -1,0 +1,38 @@
+id: pm-web-wyum
+title: Replace per-request pm processes with typed PmClient dispatch and cursor pagination
+description: Replace per-request pm binary spawns in pm-runner with in-process PmClient/SDK action dispatch; adopt sdk/query cursor pagination and search tuning for list/search; preserve HTTP response shapes; keep realtime convergence.
+type: Feature
+status: closed
+priority: 2
+tags: []
+created_at: "2026-07-26T12:06:25.745Z"
+updated_at: "2026-07-26T13:21:20.410Z"
+closed_at: "2026-07-26T12:56:44.759Z"
+author: pi-agent
+estimated_minutes: 240
+acceptance_criteria: "Latency-bounded native pm routes execute through typed PmClient with CLI-compatible positional and flag semantics; Unsupported and potentially long-running search bulk-update upgrade maintenance and extension-output commands retain bounded non-blocking fallback execution; List and search endpoints accept bounded opaque cursors and workspace-derived SDK search tuning; Real temporary-workspace tests prove init create comments tests pagination close and expected-error mapping; npm run release:check passes with zero production vulnerabilities"
+parent: pm-web-i98h
+resolution: "Implemented typed in-process PmClient dispatch for latency-bounded actions with complete CLI positional/flag translation, precise SDK error mapping, cursor/search tuning, client eviction, and bounded fallbacks for unsupported or long-running work."
+expected_result: pm-web uses the latest typed pm SDK without breaking CLI semantics or allowing long-running SDK work to block unrelated projects.
+actual_result: "Real temporary-workspace coverage proves SDK init/create/update with leading-dash values/negated booleans/comment/test/pagination/close/error behavior plus exactly-once fallback for unsupported actions; all 146 tests, typechecks, builds, production audit, package dry-run, changelog check, and PM-linked release acceptance pass. Bounded fallback remains for long-running work pending pm-cli#742; sandbox defect is pm-cli#743; unsupported-action exit-code inconsistency is pm-cli#745."
+comments[1]{created_at,author,text}:
+  "2026-07-26T13:21:20.410Z",codex,"PR #65 CodeRabbit follow-up 2026-07-26: corrected inaccurate spawnSync terminology; derived boolean option arity from PM_TOOL_PARAMETERS_SCHEMA; preserved values beginning with -- and explicit --no-* semantics; added verified unsupported-action-only spawn fallback without retrying mutation errors; bounded the PmClient LRU cache; routed stdin/explicit-timeout calls to the cancellable process path; propagated CLI exit codes to consistent HTTP status mapping; validated base64url cursors and bounded search numbers; protected dash-prefixed search terms with the option terminator. Full release:check passes 146/146 with zero production vulnerabilities."
+notes[7]{created_at,author,text}:
+  "2026-07-26T12:06:41.664Z",pi-agent,"FINDING: pm-runner uses async spawn (not spawnSync) for runPm; spawnSync only in src/index.ts (npm install + pm --version probe, not data path). Real defect is per-request spawn via runProcess."
+  "2026-07-26T12:06:49.000Z",pi-agent,"FINDING: SDK PmClient.run(action,{options}) returns agent-compact shape, not CLI --json verbose envelope. list: SDK has query_summary vs CLI projection/sorting/now; items are superset (priority,parent,updated_at added). search/get/contracts/create/update/close shapes match CLI (additive only). Frontend only reads items/count/total/results -> compatible. Will pass SDK result through; differences are additive or in ignored envelope metadata."
+  "2026-07-26T12:06:49.532Z",pi-agent,"FINDING: run() accepts single-word kebab flags (status,limit,type) but SILENTLY IGNORES multi-word kebab flags (dry-run, include-body, filter-status). Must convert kebab->camel (includeBody, dryRun, filterStatus) or options are silently dropped (dry-run ignored => mutates!). Verified camel keys work."
+  "2026-07-26T12:06:53.247Z",pi-agent,"FINDING: Unsupported via PmClient.run (keep spawn fallback): guide, reindex, normalize, dedupe-audit, comments-audit, calendar, test-runs, templates. test action throws TypeError 'r.map is not a function' via run (SDK bug) -> keep spawn. plan: run('plan',{options:{subcommand,id}) does not accept plan id as option key (only typed planShow(id) etc.) -> keep spawn for plan routes (not hot path). pm-graph export/neighbors/query: routes JSON.parse raw extension stdout -> keep spawn."
+  "2026-07-26T12:47:14.034Z",codex,"Continuation verification 2026-07-26: the earlier claim that PmClient.run('test') throws r.map is not reproducible when the item id is mapped correctly; both test listing and positional add work in-process, so test was removed from the spawn fallback and covered by a real temporary-workspace test. Found and fixed adapter regressions before merge: init prefix, close/close-task reasons, and comment/note/learning/test text positionals were dropped; --no-* flags were mis-mapped; PmClient cwd differed from the CLI workspace; cached clients were not evicted on project deletion. Added cursor validation that returns HTTP 400 instead of falling through Express as 500. Upstream scalability issue filed: unbraind/pm-cli#742 (process-wide PmClient activation queue head-of-line blocks unrelated workspaces)."
+  "2026-07-26T12:53:28.380Z",codex,"SCALABILITY DECISION 2026-07-26: search, update-many, and upgrade remain on the bounded asynchronous process fallback because they can be long-running and the current SDK process-wide activation queue would otherwise head-of-line block unrelated workspaces. Typed SDK cursor contracts/search-tuning helpers still govern the HTTP query surface. This temporary boundary is tracked upstream in unbraind/pm-cli#742."
+  "2026-07-26T12:56:01.598Z",codex,"UPSTREAM 2026-07-26: latest local CLI 2026.7.26 reproduces linked-test schema sandbox failure when npm pack invokes prepare -> pm merge install. Filed unbraind/pm-cli#743 after duplicate search. Direct release gate passes; linked acceptance command now explicitly pins PM_PATH/PM_GLOBAL_PATH to this project because the gate is non-mutating and requires real Git/tracker identity."
+files[3]{path,scope,note}:
+  src/routes/pm.ts,project,cursor pagination search tuning and precise errors
+  src/services/pm-runner.ts,project,typed PmClient dispatcher and bounded fallback
+  test/pm-runner.test.ts,project,real workspace and concurrency coverage
+tests[2]{command,scope,timeout_seconds,note}:
+  PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm node --experimental-test-coverage --test-coverage-include=dist/services/pm-runner.js --test dist-test/*.js,project,600,honest pm-runner coverage measurement
+  "PM_PATH=.agents/pm PM_GLOBAL_PATH=.agents/pm npm run release:check",project,3600,non-mutating release gate requires real Git and tracker identity; upstream sandbox incompatibility pm-cli#743
+docs[1]{path,scope,note}:
+  README.md,project,runtime dispatch concurrency and replica guidance
+close_reason: All scoped acceptance criteria met; full release gate and PM-linked acceptance passed.
+body: ""
