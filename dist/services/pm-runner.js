@@ -327,6 +327,14 @@ const SPAWN_FALLBACK_ACTIONS = new Set([
     "update-many",
     // Dependency/schema upgrades are long-running maintenance operations.
     "upgrade",
+    // Linked acceptance suites execute arbitrary project commands and can run for
+    // minutes, so test-all must not occupy the process-wide SDK queue.
+    "test-all",
+    // Full validation, health diagnostics, and garbage collection scan workspace
+    // state and may invoke extension hooks or external checks.
+    "validate",
+    "health",
+    "gc",
     // `pm guide` is a static help renderer with no SDK action.
     "guide",
     // Search-index rebuild is a long-running maintenance command not exposed as an SDK action.

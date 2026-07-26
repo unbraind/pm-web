@@ -138,14 +138,14 @@ Saved GitHub personal access tokens are encrypted at rest before they are writte
 Latency-bounded native pm operations run through the typed `PmClient` SDK in the
 server process, with SDK cursor contracts and search-tuning helpers used by the
 list/search API. Commands without an SDK action, maintenance commands,
-extension-specific output, and potentially long-running search/bulk/upgrade
-operations retain an asynchronous child-process fallback with bounded
-concurrency; requests for the same workspace serialize on that fallback in
-addition to pm's storage locks. The current pm SDK serializes activation-backed
-`PmClient` calls within each Node process, so high-throughput installations
-should run multiple pm-web replicas behind a shared PostgreSQL realtime bus.
-Independent replicas converge through PostgreSQL notifications and the
-mutation-event watcher.
+extension-specific output, and potentially long-running search, bulk-update,
+upgrade, acceptance-test, validation, health, and garbage-collection operations
+retain an asynchronous child-process fallback with bounded concurrency;
+requests for the same workspace serialize on that fallback in addition to pm's
+storage locks. The current pm SDK serializes activation-backed `PmClient` calls
+within each Node process, so high-throughput installations should run multiple
+pm-web replicas behind a shared PostgreSQL realtime bus. Independent replicas
+converge through PostgreSQL notifications and the mutation-event watcher.
 
 Optional OIDC uses Authorization Code flow with PKCE, provider discovery/JWKS,
 signed state cookies, and issuer/subject identity mapping. It is disabled when
