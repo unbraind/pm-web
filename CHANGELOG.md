@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Move pm-web onto pm-cli 2026.7.26 and pm-changelog 2026.7.25 ([pm-web-orfk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-orfk.toon))
+
 ## 2026.7.26 - 2026-07-26
 
 ### Added
@@ -149,7 +155,6 @@
 ### Other
 
 - Keep pm-web published scoped as @unbrained/pm-web (not unscoped pm-web) ([pm-web-1qq4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-1qq4.toon))
-- Production-readiness audit 2026-05-28 ([pm-web-8u17](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8u17.toon))
 
 ## 2026.5.29-1 - 2026-05-29
 
@@ -161,6 +166,10 @@
 
 - Catalog npm link points to unpublished unscoped pm-web (404) ([pm-web-2wrz](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-2wrz.toon))
 - Server hangs/cryptic error when DATABASE_URL is unset ([pm-web-onv4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-onv4.toon))
+
+### Other
+
+- Production-readiness audit 2026-05-28 ([pm-web-8u17](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8u17.toon))
 
 ## 2026.5.29 - 2026-05-29
 

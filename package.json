@@ -1,7 +1,7 @@
 {
   "name": "@unbrained/pm-web",
   "version": "2026.7.26",
-  "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+  "description": "Full web UI for pm-cli \u2014 browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
     "dist/",
@@ -39,7 +39,7 @@
     "merge:install": "pm merge install"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "^2026.7.25",
+    "@unbrained/pm-cli": "^2026.7.26",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -56,7 +56,7 @@
     "@types/node": "^26.1.1",
     "@types/pg": "^8.11.11",
     "@types/uuid": "^11.0.0",
-    "pm-changelog": "^2026.7.24",
+    "pm-changelog": "^2026.7.25",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2"
   },
@@ -91,7 +91,7 @@
     "catalog": {
       "display_name": "pm Web UI",
       "category": "app",
-      "summary": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+      "summary": "Full web UI for pm-cli \u2014 browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
       "tags": [
         "web",
         "pwa",

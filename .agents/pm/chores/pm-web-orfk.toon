@@ -1,0 +1,17 @@
+id: pm-web-orfk
+title: Move pm-web onto pm-cli 2026.7.26 and pm-changelog 2026.7.25
+description: "Aligns pm-web with the fleet-wide dependency floor established by the 2026.7.26 typed-authoring rollout. pm-web carried no defineExtension any-shim so it was outside that rollout, but it should track the same CLI and changelog generator versions as the rest of the fleet. Supersedes the dependabot pm-changelog PR, which could not pass changelog:check on its own because the generated changelog needed regenerating against the 2026.07.26 release tag."
+type: Chore
+status: closed
+priority: 2
+tags: []
+created_at: "2026-07-26T08:27:35.638Z"
+updated_at: "2026-07-26T08:27:35.997Z"
+closed_at: "2026-07-26T08:27:35.996Z"
+author: codex
+acceptance_criteria: "pm-cli and pm-changelog ranges match the rest of the fleet; typecheck clean and the full suite passes; changelog:check passes against the current release tag"
+resolution: "Bumped @unbrained/pm-cli to ^2026.7.26 and pm-changelog to ^2026.7.25, and regenerated CHANGELOG.md against the 2026.07.26 release tag."
+expected_result: pm-web tracks the same dependency floor as the rest of the fleet with no behavior change.
+actual_result: "typecheck clean; 144/144 tests pass including the mutation-event watcher and realtime listener suites; changelog:check passes."
+close_reason: Implemented and verified
+body: ""
