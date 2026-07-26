@@ -2,10 +2,10 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { getItemAt, PmCliError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { getItemAt, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
-export { PmCliError, EXIT_CODE };
+export { PmCliError, isPmCliExpectedError, EXIT_CODE };
 const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
 function positiveInteger(value, fallback) {
@@ -301,8 +301,225 @@ export async function ensureGraphExtension(userId, slug) {
     }
     return { ok: true, installed: true, active: true };
 }
+// ---------------------------------------------------------------------------
+// In-process SDK dispatch
+// ---------------------------------------------------------------------------
+//
+// The per-request `pm` binary spawn was the single biggest scalability defect
+// in this package: every read/write of a workspace forked a node process, ran
+// the CLI bootstrap, and acquired file locks through the OS. The pm CLI SDK
+// (2026.7.26) exposes the same command runners the CLI uses as a typed,
+// in-process `PmClient`. We now dispatch latency-bounded actions through one
+// cached client configuration per workspace pm-root and retain the bounded
+// spawn path for unsupported or potentially long-running actions. The latter
+// prevents the SDK's process-wide activation queue from head-of-line blocking
+// unrelated workspaces (tracked upstream as unbraind/pm-cli#742).
+/**
+ * Actions that cannot be served by `PmClient.run` and must keep using the
+ * `pm` binary spawn. Each is documented with the concrete reason it is kept.
+ */
+const SPAWN_FALLBACK_ACTIONS = new Set([
+    // Semantic search can invoke remote providers. Keep it outside the SDK's
+    // process-wide activation queue until unbraind/pm-cli#742 is resolved.
+    "search",
+    // Bulk updates can touch many items and must not block unrelated workspaces
+    // behind the SDK's process-wide activation queue.
+    "update-many",
+    // Dependency/schema upgrades are long-running maintenance operations.
+    "upgrade",
+    // `pm guide` is a static help renderer with no SDK action.
+    "guide",
+    // Search-index rebuild is a long-running maintenance command not exposed as an SDK action.
+    "reindex",
+    // Workspace normalization is a maintenance command not exposed as an SDK action.
+    "normalize",
+    // Dedupe audit is a governance report not exposed as an SDK action.
+    "dedupe-audit",
+    // Comments audit is a governance report not exposed as an SDK action.
+    "comments-audit",
+    // Calendar rendering is a presentation command not exposed as an SDK action.
+    "calendar",
+    // Test-runs history is not exposed as an SDK action.
+    "test-runs",
+    // `pm templates list/show` is not a native SDK action.
+    "templates",
+    // `PmClient.run("plan", {options:{subcommand,id}})` does not accept the plan id
+    // as an option key (only the typed convenience methods `planShow(id)` /
+    // `planAddStep(id,...)` do). Converting all ~17 plan routes to typed methods is
+    // out of scope for the spawn-removal hot path; plan stays on the spawn fallback.
+    "plan",
+    // pm-graph is an extension that emits its own JSON to stdout, which the graph
+    // routes `JSON.parse` directly. Running it through `PmClient.run` would change
+    // the result shape the routes depend on, so it stays on the spawn path.
+    "pm-graph",
+]);
+/**
+ * Per-positional option key mapping for actions whose CLI form takes positional
+ * arguments (e.g. `pm get <id>`, `pm restore <id> <target>`). `PmClient.run`
+ * takes a single options bag, so positionals must be mapped onto named keys.
+ * Actions not listed here take options only (positionals are not expected).
+ */
+const POSITIONAL_KEYS = {
+    init: ["prefix"],
+    get: ["id"],
+    update: ["id"],
+    close: ["id", "reason"],
+    delete: ["id"],
+    comments: ["id", "add"],
+    notes: ["id", "add"],
+    learnings: ["id", "add"],
+    test: ["id", "add"],
+    files: ["id"],
+    docs: ["id"],
+    deps: ["id"],
+    append: ["id", "body"],
+    restore: ["id", "target"],
+    claim: ["id"],
+    release: ["id"],
+    copy: ["id"],
+    focus: ["id"],
+    "start-task": ["id"],
+    "pause-task": ["id"],
+    "close-task": ["id", "reason"],
+    history: ["id"],
+    config: ["scope", "configAction", "key", "value"],
+};
+/** One cached `PmClient` configuration per workspace pm-root. */
+const pmClientCache = new Map();
+/**
+ * Return a cached {@link PmClient} for a workspace pm-root, creating one on
+ * first use. The SDK owns extension activation and serialization internally;
+ * caching avoids reconstructing the immutable workspace defaults while each
+ * call still receives the SDK's current extension snapshot. Author identity is
+ * resolved by the SDK's default detection, preserving prior CLI behaviour.
+ */
+export function getPmClient(pmRoot) {
+    let client = pmClientCache.get(pmRoot);
+    if (!client) {
+        client = new PmClient({
+            pmRoot,
+            cwd: path.dirname(path.dirname(pmRoot)),
+        });
+        pmClientCache.set(pmRoot, client);
+    }
+    return client;
+}
+/** Drop a cached client when its workspace is deleted. */
+export function evictPmClient(pmRoot) {
+    pmClientCache.delete(pmRoot);
+}
+/**
+ * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
+ * Returns `{}` when absent so resolvers fall back to their built-in defaults.
+ */
+export function readPmSettings(userId, slug) {
+    const settingsPath = path.join(getProjectDir(userId, slug), ".agents", "pm", "settings.json");
+    try {
+        return JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    }
+    catch {
+        return {};
+    }
+}
+/**
+ * Convert a kebab-case CLI flag name to the camelCase SDK option key.
+ *
+ * `PmClient.run` accepts single-word flag names as-is but **silently ignores**
+ * multi-word kebab names (e.g. `dry-run`, `include-body`, `filter-status`),
+ * which is catastrophic for boolean guards like `--dry-run`. The SDK option
+ * contract is camelCase, so `--filter-deadline-before` must become
+ * `filterDeadlineBefore`. Single-word names pass through unchanged.
+ */
+function kebabToCamel(flag) {
+    if (!flag.includes("-"))
+        return flag;
+    return flag.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+}
+/**
+ * Parse a CLI-style argv tail (without the leading `--json` injected by the
+ * spawn path) into the action name, a camelCase options bag, and positionals.
+ * `--json` is dropped: the SDK returns structured objects, never JSON text.
+ */
+function parsePmArgs(args) {
+    const action = args[0] ?? "";
+    const options = {};
+    const positionals = [];
+    for (let i = 1; i < args.length; i++) {
+        const arg = args[i];
+        if (arg === "--json")
+            continue;
+        if (arg === "--") {
+            while (++i < args.length)
+                positionals.push(args[i]);
+            break;
+        }
+        if (arg.startsWith("--no-") && (args[i + 1] === undefined || args[i + 1].startsWith("--"))) {
+            options[kebabToCamel(arg.slice(5))] = false;
+        }
+        else if (arg.startsWith("--")) {
+            const rawFlag = arg.slice(2);
+            const key = kebabToCamel(rawFlag);
+            const next = args[i + 1];
+            if (next !== undefined && !next.startsWith("--")) {
+                options[key] = next;
+                i++;
+            }
+            else {
+                options[key] = true;
+            }
+        }
+        else {
+            positionals.push(arg);
+        }
+    }
+    return { action, options, positionals };
+}
+/** Merge mapped positionals onto the options bag for `PmClient.run`. */
+function withPositionals(action, positionals, options) {
+    const keys = POSITIONAL_KEYS[action];
+    if (!keys)
+        return options;
+    const merged = { ...options };
+    for (let i = 0; i < keys.length && i < positionals.length; i++) {
+        merged[keys[i]] = positionals[i];
+    }
+    return merged;
+}
+/**
+ * Dispatch a supported action in-process through {@link PmClient}.
+ *
+ * Supported actions go through the generic `client.run(action, {options})`
+ * dispatcher, which accepts native and extension-contributed actions alike.
+ *
+ * The result object is returned both as `parsed` (structured) and stringified
+ * into `stdout`, so routes that read either field keep working.
+ */
+async function runPmInProcess(opts, dir) {
+    const pmRoot = path.join(dir, ".agents", "pm");
+    const client = getPmClient(pmRoot);
+    const { action, options, positionals } = parsePmArgs(opts.args);
+    try {
+        const result = await client.run(action, {
+            options: withPositionals(action, positionals, options),
+        });
+        const stdout = JSON.stringify(result) ?? "";
+        return { stdout, stderr: "", ok: true, parsed: result };
+    }
+    catch (err) {
+        if (err instanceof PmCliError || isPmCliExpectedError(err)) {
+            return { stdout: "", stderr: err.message, ok: false, parsed: undefined, exitCode: err.exitCode };
+        }
+        return { stdout: "", stderr: err instanceof Error ? err.message : String(err), ok: false, parsed: undefined };
+    }
+}
 export async function runPm(opts) {
     const dir = getProjectDir(opts.userId, opts.slug);
+    const action = opts.args[0] ?? "";
+    // Supported actions run in-process through the cached PmClient — no spawn.
+    if (!SPAWN_FALLBACK_ACTIONS.has(action)) {
+        return runPmInProcess(opts, dir);
+    }
+    // Fallback: spawn the pm binary for actions the SDK dispatcher cannot serve.
     const args = opts.jsonOutput ? ["--json", ...opts.args] : opts.args;
     const result = await runSerialized(dir, () => runProcess(dir, args, {
         input: opts.input,
@@ -340,6 +557,7 @@ export async function runGetItemAt(userId, slug, itemId, ref) {
 }
 export function deleteProjectDir(userId, slug) {
     const dir = getProjectDir(userId, slug);
+    evictPmClient(path.join(dir, ".agents", "pm"));
     if (fs.existsSync(dir)) {
         fs.rmSync(dir, { recursive: true, force: true });
     }

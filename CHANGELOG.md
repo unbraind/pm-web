@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Replace pm spawnSync with in-process PmClient and cursor pagination ([pm-web-wyum](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-wyum.toon))
+
 ### Other
 
 - Move pm-web onto pm-cli 2026.7.26 and pm-changelog 2026.7.25 ([pm-web-orfk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-orfk.toon))

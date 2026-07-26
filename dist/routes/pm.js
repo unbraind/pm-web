@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { ensureGraphExtension, runPm, runGetItemAt, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
+import { ensureGraphExtension, runPm, runGetItemAt, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
+// The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
+// aggregate sdk barrel documents itself as re-exporting every supported export but
+// omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
+import { resolveSearchMaxResults, resolveSearchScoreThreshold, resolveHybridSemanticWeight, } from "@unbrained/pm-cli/sdk/query";
+import { QUERY_CURSOR_CONTRACT } from "@unbrained/pm-cli/sdk";
 import { boardColumns, filterItemsByQuery } from "../board.js";
 import { buildIcsCalendar } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
@@ -28,6 +33,41 @@ function getNeo4jDriver() {
 }
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+/**
+ * Validate an incoming opaque pagination cursor. Returns the original cursor or
+ * `undefined` when none was supplied. Rejects cursors that exceed the SDK
+ * cursor contract's maximum length with a 400 so callers can map the failure
+ * to a proper client error instead of forwarding an oversized token to the SDK.
+ */
+function validateCursor(raw) {
+    if (raw === undefined || raw === null || raw === "")
+        return {};
+    const cursor = String(raw);
+    if (cursor.length > QUERY_CURSOR_CONTRACT.max_length) {
+        return {
+            error: `Pagination cursor exceeds the maximum length of ${QUERY_CURSOR_CONTRACT.max_length} characters.`,
+        };
+    }
+    return { cursor };
+}
+/**
+ * Map a {@link PmRunResult} failure to the correct HTTP status using the pm CLI
+ * exit code surfaced by the in-process dispatcher. Expected validation failures
+ * (USAGE) and not-found (NOT_FOUND) become 4xx; anything without a recognised
+ * exit code is an unexpected runtime error and becomes 500 so it is not
+ * silently swallowed as a client error.
+ */
+function pmErrorStatus(result) {
+    if (result.exitCode === EXIT_CODE.NOT_FOUND)
+        return 404;
+    if (result.exitCode === EXIT_CODE.USAGE)
+        return 400;
+    if (result.exitCode === EXIT_CODE.CONFLICT)
+        return 409;
+    if (result.exitCode === EXIT_CODE.DEPENDENCY_FAILED)
+        return 424;
+    return 500;
+}
 const pendingGraphSyncs = new Map();
 router.use(async (req, res, next) => {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method) || (req.method === "PATCH" && req.path.startsWith("/presence/"))) {
@@ -360,7 +400,7 @@ router.get("/list", async (req, res) => {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const { status, type, limit, priority, sprint, release, assignee } = req.query;
+    const { status, type, limit, priority, sprint, release, assignee, after } = req.query;
     const args = ["list"];
     if (status)
         args.push("--status", status);
@@ -376,7 +416,18 @@ router.get("/list", async (req, res) => {
         args.push("--release", release);
     if (assignee)
         args.push("--assignee", assignee);
+    const cursorResult = validateCursor(after);
+    if (cursorResult.error) {
+        res.status(400).json({ error: cursorResult.error, items: [] });
+        return;
+    }
+    if (cursorResult.cursor)
+        args.push("--after", cursorResult.cursor);
     const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
+        res.status(400).json({ error: result.stderr, items: [] });
+        return;
+    }
     res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 // GET /api/projects/:projectId/pm/list-all
@@ -386,13 +437,24 @@ router.get("/list-all", async (req, res) => {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const { type, limit } = req.query;
+    const { type, limit, after } = req.query;
     const args = ["list-all"];
     if (type)
         args.push("--type", type);
     if (limit)
         args.push("--limit", limit);
+    const cursorResult = validateCursor(after);
+    if (cursorResult.error) {
+        res.status(400).json({ error: cursorResult.error, items: [] });
+        return;
+    }
+    if (cursorResult.cursor)
+        args.push("--after", cursorResult.cursor);
     const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
+        res.status(400).json({ error: result.stderr, items: [] });
+        return;
+    }
     res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 // GET /api/projects/:projectId/pm/board
@@ -511,7 +573,7 @@ router.post("/create", async (req, res) => {
         args.push("--definition-of-ready", definitionOfReady);
     const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to create item" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to create item" });
         return;
     }
     // Broadcast SSE create event
@@ -628,7 +690,7 @@ router.patch("/update/:itemId", async (req, res) => {
         args.push("--type", body.type);
     const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to update item" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update item" });
         return;
     }
     // Broadcast SSE update event
@@ -658,7 +720,7 @@ router.post("/close/:itemId", async (req, res) => {
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to close item" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to close item" });
         return;
     }
     broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -681,7 +743,7 @@ router.delete("/delete/:itemId", async (req, res) => {
         slug: project.slug,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to delete item" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to delete item" });
         return;
     }
     broadcastProjectEvent(routeParam(req, "projectId"), {
@@ -710,7 +772,7 @@ router.post("/comments/:itemId", async (req, res) => {
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to add comment" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add comment" });
         return;
     }
     res.status(201).json(result.parsed || { ok: true });
@@ -764,7 +826,7 @@ router.post("/notes/:itemId", async (req, res) => {
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to add note" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add note" });
         return;
     }
     res.status(201).json(result.parsed || { ok: true });
@@ -838,21 +900,47 @@ router.post("/search", async (req, res) => {
         res.status(404).json({ error: "Project not found" });
         return;
     }
-    const { query, mode } = req.body;
+    const body = req.body;
+    const query = typeof body["query"] === "string" ? body["query"] : "";
+    const mode = typeof body["mode"] === "string" ? body["mode"] : "";
     if (!query?.trim()) {
         res.status(400).json({ error: "Search query is required" });
         return;
     }
     const validModes = ["keyword", "semantic", "hybrid"];
-    const safeMode = validModes.includes(mode || "") ? mode : "hybrid";
+    const safeMode = validModes.includes(mode) ? mode : "hybrid";
+    // Adopt the sdk/query search-tuning resolvers: read the workspace settings and
+    // resolve the bounded max-results, score threshold, and hybrid semantic weight
+    // from the same defaults the pm CLI applies. Explicit per-request overrides
+    // (limit / minScore / semanticWeight) win over the workspace defaults so the
+    // browser can still narrow a page.
+    const settings = readPmSettings(project.ownerUserId, project.slug);
+    const resolvedLimit = body["limit"] === undefined
+        ? String(resolveSearchMaxResults(settings))
+        : String(body["limit"]);
+    const resolvedMinScore = body["minScore"] === undefined
+        ? String(resolveSearchScoreThreshold(settings))
+        : String(body["minScore"]);
+    const resolvedSemanticWeight = body["semanticWeight"] === undefined
+        ? String(resolveHybridSemanticWeight(settings))
+        : String(body["semanticWeight"]);
+    const cursorResult = validateCursor(body["after"]);
+    if (cursorResult.error) {
+        res.status(400).json({ error: cursorResult.error, results: [] });
+        return;
+    }
+    const args = ["search", "--mode", safeMode, "--limit", resolvedLimit, "--min-score", resolvedMinScore, "--semantic-weight", resolvedSemanticWeight];
+    if (cursorResult.cursor)
+        args.push("--after", cursorResult.cursor);
+    args.push(...query.trim().split(/\s+/));
     const result = await runPm({
-        args: ["search", "--mode", safeMode, ...query.trim().split(/\s+/)],
+        args,
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({
+        res.status(pmErrorStatus(result)).json({
             error: result.stderr || "Search failed. Check that Ollama is reachable and the configured embedding model is available.",
             results: [],
         });
@@ -951,7 +1039,7 @@ router.post("/append/:itemId", async (req, res) => {
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to append" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to append" });
         return;
     }
     scheduleGraphSync(routeParam(req, "projectId"), project, "item-appended");
@@ -1007,7 +1095,7 @@ router.post("/deps/:itemId", async (req, res) => {
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to add dependency" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add dependency" });
         return;
     }
     scheduleGraphSync(routeParam(req, "projectId"), project, "dependency-added");
@@ -1475,7 +1563,7 @@ router.post("/close-task/:itemId", async (req, res) => {
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to close task" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to close task" });
         return;
     }
     scheduleGraphSync(routeParam(req, "projectId"), project, "task-closed");
@@ -1954,7 +2042,7 @@ router.post("/docs/:itemId", async (req, res) => {
     }
     const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || "Failed to update docs" });
+        res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update docs" });
         return;
     }
     scheduleGraphSync(routeParam(req, "projectId"), project, "docs-updated");
@@ -2077,7 +2165,7 @@ function buildListShortcutRoute(pmCommand) {
             res.status(404).json({ error: "Project not found" });
             return;
         }
-        const { type, limit, offset, tag, priority, assignee, sprint, release } = req.query;
+        const { type, limit, offset, tag, priority, assignee, sprint, release, after } = req.query;
         const args = [pmCommand];
         if (type)
             args.push("--type", type);
@@ -2095,7 +2183,18 @@ function buildListShortcutRoute(pmCommand) {
             args.push("--sprint", sprint);
         if (release)
             args.push("--release", release);
+        const cursorResult = validateCursor(after);
+        if (cursorResult.error) {
+            res.status(400).json({ error: cursorResult.error, items: [] });
+            return;
+        }
+        if (cursorResult.cursor)
+            args.push("--after", cursorResult.cursor);
         const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+        if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
+            res.status(400).json({ error: result.stderr, items: [] });
+            return;
+        }
         res.json(result.ok ? (result.parsed || {}) : { items: [] });
     };
 }
