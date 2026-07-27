@@ -21,11 +21,15 @@
 - Full pm ecosystem production pass for pm-web ([pm-web-i98h](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-i98h.toon))
 - Realtime mutation-event subscription replaces filesystem polling as the primary out-of-band change detector ([pm-web-vwaq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-vwaq.toon))
 
+### Other
+
+- Enable governance duplicate-detection advisory mode and restore parent_reference=warn ([pm-web-0nc9](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-0nc9.toon))
+
 ## 2026.7.25 - 2026-07-25
 
 ### Other
 
-- Enable governance duplicate-detection advisory mode and restore parent_reference=warn ([pm-web-0nc9](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-0nc9.toon))
+- Adopt --respect-item-release in changelog scripts and bump pm-changelog to 2026.7.24 ([pm-web-hgx4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-hgx4.toon))
 - project-watcher: bounded round-robin scan for projects beyond MAX_FILES_PER_PROJECT (8000) ([pm-web-acwm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-acwm.toon))
 
 ## 2026.7.24 - 2026-07-24
@@ -37,10 +41,6 @@
 ### Fixed
 
 - Hosted build: pm-web was un-redeployable — dedupe @unbrained/pm-cli to deps + align bundled pm-graph TS to ^7.0.2 ([pm-web-1h5b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-1h5b.toon))
-
-### Other
-
-- Adopt --respect-item-release in changelog scripts and bump pm-changelog to 2026.7.24 ([pm-web-hgx4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-hgx4.toon))
 
 ## 2026.7.23 - 2026-07-23
 
@@ -54,15 +54,17 @@
 
 ## 2026.7.18 - 2026-07-18
 
+### Other
+
+- Harden release bun-verify so registry-mirror lag cannot block the GitHub release ([pm-web-rwsr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-rwsr.toon))
+
+## 2026.7.17-1 - 2026-07-17
+
 ### Added
 
 - Chinese (zh) locale for package-owned UI strings ([pm-web-t6v6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-t6v6.toon))
 - Spanish (es) locale for package-owned UI strings ([pm-web-2ut6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-2ut6.toon))
 - i18n plumbing + German locale for package-owned UI strings ([pm-web-y80b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-y80b.toon))
-
-### Other
-
-- Harden release bun-verify so registry-mirror lag cannot block the GitHub release ([pm-web-rwsr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-rwsr.toon))
 
 ## 2026.7.17 - 2026-07-16
 
@@ -158,7 +160,6 @@
 
 ### Added
 
-- Add kanban board + full-text search data endpoints (contracts-driven) ([pm-web-9sno](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-9sno.toon))
 - Do NOT add the 'services' extension capability to pm-web ([pm-web-vyfp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-vyfp.toon))
 - Deepen pm-web extension command surface (status/stop/doctor) + services-capability evaluation ([pm-web-7pxa](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7pxa.toon))
 - Add /healthz version + unit tests + README docs ([pm-web-edyj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-edyj.toon))
@@ -169,6 +170,12 @@
 - Implement 'pm web doctor' command ([pm-web-vyqb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-vyqb.toon))
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
 - Implement 'pm web status' command ([pm-web-8eqs](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8eqs.toon))
+
+## 2026.6.2 - 2026-06-02
+
+### Added
+
+- Add kanban board + full-text search data endpoints (contracts-driven) ([pm-web-9sno](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-9sno.toon))
 
 ## 2026.5.30 - 2026-05-30
 
