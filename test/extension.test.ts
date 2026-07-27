@@ -81,14 +81,14 @@ test("extension registers web, status, stop and doctor commands", async () => {
   });
   assertRegisteredCommandContract(activation.registrations, {
     command: "web status",
-    flags: ["--port", "--json"],
+    flags: ["--port"],
   });
   assertRegisteredCommandContract(activation.registrations, {
     command: "web stop",
-    flags: ["--port", "--json"],
+    flags: ["--port"],
   });
   assertRegisteredCommandContract(activation.registrations, {
     command: "web doctor",
-    flags: ["--port", "--json"],
+    flags: ["--port"],
   });
 });

@@ -176,7 +176,7 @@ function processAlive(pid) {
 }
 export default defineExtension({
     name: "pm-web",
-    version: "2026.7.26",
+    version: "2026.7.27",
     activate(api) {
         // -----------------------------------------------------------------------
         // Command: pm web [--port <port>] [--detach]
@@ -252,11 +252,12 @@ export default defineExtension({
             examples: ["pm web status", "pm web status --port 8080 --json"],
             flags: [
                 { long: "--port", value_name: "port", description: "Port to probe (default: 4000 or PORT env var)" },
-                { long: "--json", description: "Emit machine-readable JSON" },
             ],
             async run(ctx) {
                 const port = resolvePort(ctx.options);
-                const json = Boolean(ctx.options["json"]);
+                // `--json` is a host-owned global flag: extensions must not redeclare it
+                // (the host rejects the registration) and must read it from ctx.global.
+                const json = ctx.global?.json === true;
                 const probe = await probeHealthz(port);
                 const result = shapeStatusResult({
                     port,
@@ -287,11 +288,12 @@ export default defineExtension({
             examples: ["pm web stop", "pm web stop --port 8080"],
             flags: [
                 { long: "--port", value_name: "port", description: "Port of the detached server (default: 4000 or PORT env var)" },
-                { long: "--json", description: "Emit machine-readable JSON" },
             ],
             async run(ctx) {
                 const port = resolvePort(ctx.options);
-                const json = Boolean(ctx.options["json"]);
+                // `--json` is a host-owned global flag: extensions must not redeclare it
+                // (the host rejects the registration) and must read it from ctx.global.
+                const json = ctx.global?.json === true;
                 const pidfile = pidfilePath(port);
                 const emit = (result) => {
                     if (json) {
@@ -359,11 +361,12 @@ export default defineExtension({
             examples: ["pm web doctor", "pm web doctor --json"],
             flags: [
                 { long: "--port", value_name: "port", description: "Port to check availability for (default: 4000 or PORT env var)" },
-                { long: "--json", description: "Emit machine-readable JSON" },
             ],
             async run(ctx) {
                 const port = resolvePort(ctx.options);
-                const json = Boolean(ctx.options["json"]);
+                // `--json` is a host-owned global flag: extensions must not redeclare it
+                // (the host rejects the registration) and must read it from ctx.global.
+                const json = ctx.global?.json === true;
                 const depsInstalled = runtimeDependenciesInstalled();
                 const portFree = await isPortFree(Number(port));
                 const pmAvailable = pmOnPath();
