@@ -6,6 +6,10 @@
 
 - Replace per-request pm processes with typed PmClient dispatch and cursor pagination ([pm-web-wyum](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-wyum.toon))
 
+### Fixed
+
+- web status/stop/doctor shadow the host-owned --json global and fail to register on pm-cli 2026.7.27 ([pm-web-snn2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-snn2.toon))
+
 ### Other
 
 - Move pm-web onto pm-cli 2026.7.26 and pm-changelog 2026.7.25 ([pm-web-orfk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-orfk.toon))
@@ -14,12 +18,18 @@
 
 ### Added
 
+- Full pm ecosystem production pass for pm-web ([pm-web-i98h](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-i98h.toon))
 - Realtime mutation-event subscription replaces filesystem polling as the primary out-of-band change detector ([pm-web-vwaq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-vwaq.toon))
+
+### Other
+
+- Enable governance duplicate-detection advisory mode and restore parent_reference=warn ([pm-web-0nc9](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-0nc9.toon))
 
 ## 2026.7.25 - 2026-07-25
 
 ### Other
 
+- Adopt --respect-item-release in changelog scripts and bump pm-changelog to 2026.7.24 ([pm-web-hgx4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-hgx4.toon))
 - project-watcher: bounded round-robin scan for projects beyond MAX_FILES_PER_PROJECT (8000) ([pm-web-acwm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-acwm.toon))
 
 ## 2026.7.24 - 2026-07-24
@@ -47,6 +57,14 @@
 ### Other
 
 - Harden release bun-verify so registry-mirror lag cannot block the GitHub release ([pm-web-rwsr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-rwsr.toon))
+
+## 2026.7.17-1 - 2026-07-17
+
+### Added
+
+- Chinese (zh) locale for package-owned UI strings ([pm-web-t6v6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-t6v6.toon))
+- Spanish (es) locale for package-owned UI strings ([pm-web-2ut6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-2ut6.toon))
+- i18n plumbing + German locale for package-owned UI strings ([pm-web-y80b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-y80b.toon))
 
 ## 2026.7.17 - 2026-07-16
 
@@ -84,6 +102,7 @@
 
 ### Other
 
+- Ecosystem release readiness pass 2026-07-06 ([pm-web-f9r8](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-f9r8.toon))
 - Align Node engine with pm CLI runtime ([pm-web-ndeb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ndeb.toon))
 - Generate pm-web package declarations and refresh bundled graph toolchain ([pm-web-1xkj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-1xkj.toon))
 - Regenerate CHANGELOG after pm close item ([pm-web-0ww0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-0ww0.toon))
@@ -112,6 +131,8 @@
 
 ### Other
 
+- Full-cycle hardening wave: pm-web ([pm-web-3x0r](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-3x0r.toon))
+- Align pm-web with pm CLI 2026.6.12 release readiness ([pm-web-gtdz](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-gtdz.toon))
 - Restore self-hosted daily release automation ([pm-web-hgjp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-hgjp.toon))
 
 ## 2026.6.9 - 2026-06-09
@@ -149,6 +170,12 @@
 - Implement 'pm web doctor' command ([pm-web-vyqb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-vyqb.toon))
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
 - Implement 'pm web status' command ([pm-web-8eqs](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-8eqs.toon))
+
+## 2026.6.2 - 2026-06-02
+
+### Added
+
+- Add kanban board + full-text search data endpoints (contracts-driven) ([pm-web-9sno](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-9sno.toon))
 
 ## 2026.5.30 - 2026-05-30
 
