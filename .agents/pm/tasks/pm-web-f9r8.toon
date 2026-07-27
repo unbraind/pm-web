@@ -2,14 +2,19 @@ id: pm-web-f9r8
 title: Ecosystem release readiness pass 2026-07-06
 description: "July 6, 2026 fleet readiness pass for the pm package ecosystem."
 type: Task
-status: in_progress
+status: closed
 priority: 1
 tags[4]: agent-audit,context-management,ecosystem,release-readiness
 created_at: "2026-07-06T15:33:35.399Z"
-updated_at: "2026-07-10T04:38:21.984Z"
-assignee: codex
+updated_at: "2026-07-27T23:04:15.922Z"
+closed_at: "2026-07-27T23:04:15.921Z"
 author: codex
 acceptance_criteria: Package uses current pm CLI/SDK and pm-changelog; release/check scripts pass; pm items capture decisions; no tracked secrets/private data are introduced; GitHub PR/release state is reviewed.
+release: 2026.7.10
+resolution: Work completed and released in 2026.7.10. Release attribution set explicitly so pm-changelog --respect-item-release files the entry under 2026.7.10 instead of the current release notes.
+expected_result: "A closed item whose changelog entry appears under the 2026.7.10 heading it actually shipped in, leaving the current release notes untouched."
+actual_result: "Item remained in_progress with no activity after its work shipped, so the delivery was absent from the changelog while still counting as open work in every fleet audit."
 comments[1]{created_at,author,text}:
   "2026-07-10T04:38:21.982Z",codex,"Functional review found a real defect: src/server.ts never mounted createApp() — legal routes/308 aliases existed only in the tested app factory while the running server kept its own duplicated route stack (catch-all SPA served 200 for every path, /impressum did not redirect). Fixed by rewriting server.ts to consume createApp() and keep only DB init + listen + SSE cleanup. Verified live against throwaway Postgres: /legal-notice serves standalone page, /impressum 308->/legal-notice, healthz + SPA fallback + cookie-consent.js intact. 46/46 tests, changelog:check green, npm audit 0 vulns."
+close_reason: "Retired as shipped: the ecosystem release readiness pass of 2026-07-06 was completed and released in 2026.7.10, but the item was never closed and sat in progress ever since, inflating every fleet audit."
 body: "Track the July 6, 2026 fleet pass: align package metadata with latest pm CLI/SDK and pm-changelog, verify daily release automation, run build/test/audit/package checks with real workspace data where practical, inspect GitHub state, and record privacy/history findings without changing pm-cli itself."

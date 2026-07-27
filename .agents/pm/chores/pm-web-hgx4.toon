@@ -2,14 +2,19 @@ id: pm-web-hgx4
 title: Adopt --respect-item-release in changelog scripts and bump pm-changelog to 2026.7.24
 description: "pm-changelog 2026.7.24 adds --respect-item-release, which makes the single-window generation path (--since-previous-tag --until-release-tag, changelog:check, release notes) honour an item's declared release field instead of trusting closed_at. Without it, closing a tracker whose fix shipped in an earlier release dates months-old work as new, which is why shipped-but-unclosed trackers accumulate: closing them corrupts the changelog. Adopting the flag fleet-wide makes late tracker closure safe and keeps every package's generation path in agreement with --all-release-tags."
 type: Chore
-status: in_progress
+status: closed
 priority: 2
 tags[3]: changelog,fleet-consistency,release-hygiene
 created_at: "2026-07-24T21:31:32.053Z"
-updated_at: "2026-07-24T21:31:32.858Z"
-assignee: claude
+updated_at: "2026-07-27T23:04:18.551Z"
+closed_at: "2026-07-27T23:04:18.550Z"
 author: claude
 acceptance_criteria: "changelog, changelog:full, changelog:check and release:notes all pass --respect-item-release; pm-changelog devDependency is ^2026.7.24; npm run changelog:check is green; CHANGELOG.md content is unchanged by the flag for this repo (no item declares a release yet)"
+release: 2026.7.24
+resolution: Work completed and released in 2026.7.24. Release attribution set explicitly so pm-changelog --respect-item-release files the entry under 2026.7.24 instead of the current release notes.
+expected_result: "A closed item whose changelog entry appears under the 2026.7.24 heading it actually shipped in, leaving the current release notes untouched."
+actual_result: "Item remained in_progress with no activity after its work shipped, so the delivery was absent from the changelog while still counting as open work in every fleet audit."
 notes[1]{created_at,author,text}:
   "2026-07-24T21:31:32.857Z",claude,"Verified in this repo: pm-changelog 2026.7.24 installed; npm run changelog:full regenerated CHANGELOG.md with the flag active and produced a ZERO-line diff, confirming the flag is a safe no-op until an item declares a release; npm run changelog:check exits 0."
+close_reason: "Retired as shipped: adopting --respect-item-release in the changelog scripts was completed and released in 2026.7.24, but the item was never closed and sat in progress ever since, inflating every fleet audit."
 body: ""

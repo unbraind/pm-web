@@ -2,14 +2,19 @@ id: pm-web-t6v6
 title: Chinese (zh) locale for package-owned UI strings
 description: "Add a Chinese (zh) locale catalog for the package-owned SPA UI strings (auth, nav, banners, settings, consent, dialog, error mapping). Register zh in locale resolution and the settings language selector (English/Deutsch/Espanol/中文). Legal pages remain an operator concern and are not translated by this package."
 type: Feature
-status: in_progress
+status: closed
 priority: 2
 tags[4]: i18n,locale,settings,zh
 created_at: "2026-07-17T07:15:41.024Z"
-updated_at: "2026-07-17T07:28:05.239Z"
-assignee: pi-agent
+updated_at: "2026-07-27T23:04:17.923Z"
+closed_at: "2026-07-27T23:04:17.923Z"
 author: pi-agent
 acceptance_criteria: zh.json catalog exists with all en keys translated to natural Simplified Chinese (您 formal register); zh registered in SUPPORTED_LOCALES and resolveLocale (zh and zh-CN prefix match); settings language selector offers English/Deutsch/Espanol/中文; npm run typecheck && npm run build && npm test green; catalog-parity test covers zh automatically
+release: 2026.7.18
+resolution: Work completed and released in 2026.7.18. Release attribution set explicitly so pm-changelog --respect-item-release files the entry under 2026.7.18 instead of the current release notes.
+expected_result: "A closed item whose changelog entry appears under the 2026.7.18 heading it actually shipped in, leaving the current release notes untouched."
+actual_result: "Item remained in_progress with no activity after its work shipped, so the delivery was absent from the changelog while still counting as open work in every fleet audit."
 comments[1]{created_at,author,text}:
   "2026-07-17T07:28:05.239Z",pi-agent,"Review feedback addressed on feat/i18n-zh-locale (PR #45):\n\n1. public/index.html first-paint inline script: replaced hardcoded \\|\\| locale chain and nested if/else with a supported-locales array + indexOf check (array-driven).\n2. public/src/i18n.ts localeDate(): replaced nested ternary locale→BCP47-tag mapping with a compile-time-complete `Record<SupportedLocale,string>` lookup (LOCALE_TAGS).\n3. public/src/views/settings.ts language selector: replaced chained ternary label selection with a `Record<SupportedLocale,string>` lookup (LOCALE_LABEL_KEYS) — eliminates the mislabel-future-locale-as-Chinese risk from the default branch.\n\nVerification: npm run typecheck green; npm run build green; npm test 106/106 pass."
+close_reason: "Retired as shipped: the Chinese locale, shipped as public/src/i18n/zh.json was completed and released in 2026.7.18, but the item was never closed and sat in progress ever since, inflating every fleet audit."
 body: ""

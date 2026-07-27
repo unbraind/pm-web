@@ -2,13 +2,18 @@ id: pm-web-0nc9
 title: Enable governance duplicate-detection advisory mode and restore parent_reference=warn
 description: ""
 type: Chore
-status: in_progress
+status: closed
 priority: 2
 tags[3]: duplicates,fleet,governance
 created_at: "2026-07-25T23:12:05.439Z"
-updated_at: "2026-07-25T23:12:30.138Z"
-assignee: claude-code
+updated_at: "2026-07-27T23:04:19.214Z"
+closed_at: "2026-07-27T23:04:19.213Z"
 author: claude-code
+release: 2026.7.25
+resolution: Work completed and released in 2026.7.25. Release attribution set explicitly so pm-changelog --respect-item-release files the entry under 2026.7.25 instead of the current release notes.
+expected_result: "A closed item whose changelog entry appears under the 2026.7.25 heading it actually shipped in, leaving the current release notes untouched."
+actual_result: "Item remained in_progress with no activity after its work shipped, so the delivery was absent from the changelog while still counting as open work in every fleet audit."
 notes[1]{created_at,author,text}:
   "2026-07-25T23:12:15.673Z",claude-code,"Closes the gap in fleet rollout pm-cli-website-rlws, whose title says 'all 18 pm package trackers' but whose completion note lists only 16 — pm-brief and pm-web were skipped without a stated reason. Verified live on a throwaway copy of this repo's real settings.json: creating an item whose title matches an existing one returns warnings=[likely_duplicates:pm-web-i98h] and still succeeds (advisory, never blocking). Also reproduced upstream pm-cli#710 in the process: 'pm config set governance_duplicate_detection_mode advisory' silently re-derived validation.parent_reference from the named 'default' preset and flipped warn -> strict_error with no stderr notice. Pinned back with 'pm config set parent_reference_policy warn', which promotes governance.preset to 'custom' and materialises this repo's own preset values explicitly. warn is required here because agents on parallel branches legitimately reference a parent that only exists on another branch until the merge lands; under strict_error 'pm create --parent' hard-fails. Verified after the fix: creating an item with a nonexistent parent returns warnings=[validation_warning:parent_reference_missing] and exit 0."
+close_reason: "Retired as shipped: enabling governance duplicate-detection advisory mode was completed and released in 2026.7.25, but the item was never closed and sat in progress ever since, inflating every fleet audit."
 body: ""
