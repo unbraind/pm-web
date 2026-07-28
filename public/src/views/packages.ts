@@ -21,13 +21,20 @@ import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { t, applyTranslations } from '../i18n.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/**
+ * The package row shape returned by GET /api/projects/:projectId/extensions.
+ * Mirrors the server-side `PackageCatalogRow` (which spreads the catalog
+ * entry and adds live per-project state) plus the `category` field that lets
+ * the UI badge authoring reference templates apart from product extensions.
+ */
 interface PackageRow {
   name: string;
   npmSpec: string;
   title: string;
   description: string;
   capabilities: string[];
+  /** "extension" (product) or "template" (authoring reference scaffold). */
+  category: 'extension' | 'template';
   requiresService?: { name: string; optional?: boolean };
   requiresCredentials?: Array<{ label: string; envVars: string[]; optional?: boolean }>;
   installed: boolean;
@@ -109,6 +116,13 @@ function renderPackageCard(row: PackageRow): string {
     ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
     : `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.notInstalled'))}</span>`;
 
+  // Badge authoring reference templates so a user can tell a learning
+  // scaffold from a product extension. Templates register real commands but
+  // exist to be read and copied; the badge makes that purpose explicit.
+  const templateBadge = row.category === 'template'
+    ? `<span style="font-size:11px;color:var(--text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:4px" data-i18n="packages.templateBadge">${escHtml(t('packages.templateBadge'))}</span>`
+    : '';
+
   // Honest gating explanations — the UI must not promise a one-click install
   // for a package that needs a Neo4j instance or an API token.
   const serviceNote = row.requiresService
@@ -149,7 +163,10 @@ function renderPackageCard(row: PackageRow): string {
   return `
     <div class="card" style="cursor:default">
       <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div class="card-title">${escHtml(row.title)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="card-title">${escHtml(row.title)}</div>
+          ${templateBadge}
+        </div>
         ${statusChip}
       </div>
       <div class="card-body" style="padding-top:0">

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// PACKAGE CATALOG — the typed, immutable list of every user-facing pm package
+// PACKAGE CATALOG — the typed, immutable list of every installable pm package
 // ═══════════════════════════════════════════════════════════════
 //
 // pm-web used to ship exactly one pm package — a vendored copy of pm-graph
@@ -9,6 +9,16 @@
 // here, and every `:name` route parameter is validated against it BEFORE a
 // pm command is ever spawned. A user-supplied name can never reach an install
 // target — a catalog lookup miss must 400 before any process spawn.
+//
+// The catalog is exhaustive over every published pm package except `pm-web`
+// itself (this package IS the host, so it cannot install itself). The
+// `category` field distinguishes user-facing product extensions
+// (`"extension"`) from authoring reference templates (`"template"`): the
+// starters are real, published npm packages that ship `manifest.json` +
+// `dist/` and call `registerCommand`, so installing them genuinely registers
+// working commands — they exist to be read and copied as reference
+// implementations covering every capability type, and the UI badges them so a
+// user can tell a learning scaffold from a product extension.
 //
 // Truthfulness contract: the catalog mirrors each package's real
 // `manifest.json` (name, capabilities) and README (gating). Do NOT invent
@@ -28,6 +38,23 @@
  * would reject a future package that uses a capability we have not enumerated.
  */
 export type PackageCapability = string;
+
+/**
+ * Catalog grouping: user-facing product extensions vs. authoring reference
+ * templates.
+ *
+ * - `"extension"` — a product extension a user installs for its functionality
+ *   (e.g. pm-graph, pm-jira). This is the default and the only category the
+ *   catalog originally carried.
+ * - `"template"` — a reference/scaffold extension that a user installs to
+ *   learn the extension API. It registers real commands (it ships
+ *   `manifest.json` + `dist/` and calls `registerCommand`), so installing it
+ *   is a genuine operation, but its purpose is to be read and copied — it is
+ *   the reference implementation covering every capability type. The UI
+ *   badges template entries so a user can tell a learning scaffold from a
+ *   product extension.
+ */
+export type PackageCategory = "extension" | "template";
 
 /**
  * Honest gating metadata so the UI can tell a user what they must configure
@@ -77,6 +104,13 @@ export interface PackageCatalogEntry {
   readonly description: string;
   /** Capabilities declared in the package manifest. */
   readonly capabilities: readonly PackageCapability[];
+  /**
+   * Whether this is a user-facing product extension (`"extension"`) or an
+   * authoring reference template (`"template"`). The UI badges template
+   * entries so a user can distinguish a learning scaffold from a product
+   * extension. See {@link PackageCategory}.
+   */
+  readonly category: PackageCategory;
   /** Backing service the package needs (optional). */
   readonly requiresService?: ServiceRequirement;
   /** Credentials the user must configure (optional). */
@@ -85,10 +119,11 @@ export interface PackageCatalogEntry {
 
 /**
  * The catalog. Order is the display order in the UI. The list is exhaustive
- * over user-facing pm packages: every package in the fleet that is not an
- * authoring template (`pm-starter`/`pm-ts-starter`) and not pm-web itself is
- * here. `pm-starter`/`pm-ts-starter` are authoring templates, not user-facing
- * packages; `pm-web` is this package.
+ * over every published pm package except `pm-web` itself (it is the host and
+ * cannot install itself). The {@link PackageCategory} field on each entry
+ * distinguishes user-facing product extensions from authoring reference
+ * templates; the two starter packages sort last so product extensions appear
+ * first.
  */
 export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   {
@@ -98,6 +133,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "Knowledge graph and dependency graph extension for pm CLI workspaces, with optional Neo4j sync.",
     capabilities: ["commands", "importers", "services"],
+    category: "extension",
     requiresService: { name: "Neo4j", optional: true },
   },
   {
@@ -107,6 +143,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "Beads JSONL importer/exporter. Import work items from the Beads JSONL format into pm and export pm items back to Beads JSONL, preserving ids and dependency edges.",
     capabilities: ["commands", "schema", "importers"],
+    category: "extension",
   },
   {
     name: "pm-brief",
@@ -115,6 +152,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "Token-budgeted agent briefs and next-work plans for pm workspaces",
     capabilities: ["commands", "renderers", "schema"],
+    category: "extension",
   },
   {
     name: "pm-changelog",
@@ -122,6 +160,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     title: "Changelog",
     description: "Generate CHANGELOG.md release notes from pm-cli items",
     capabilities: ["commands", "schema", "importers", "renderers"],
+    category: "extension",
   },
   {
     name: "pm-context",
@@ -130,6 +169,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "Generate deterministic pm context packs for agent handoffs, reviews, and status briefs",
     capabilities: ["commands", "renderers", "schema"],
+    category: "extension",
   },
   {
     name: "pm-csv",
@@ -137,6 +177,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     title: "CSV",
     description: "CSV importer and exporter for pm-cli",
     capabilities: ["commands", "importers", "schema"],
+    category: "extension",
   },
   {
     name: "pm-gantt-chart",
@@ -145,6 +186,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "ASCII Gantt chart renderer + multi-format exporter for pm-cli",
     capabilities: ["commands", "schema", "importers", "preflight"],
+    category: "extension",
   },
   {
     name: "pm-github",
@@ -153,6 +195,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "GitHub Issues + Projects v2 integration. Imports issues as pm items (`pm github import`), exports pm items as GitHub issues, syncs issue state, and bidirectionally syncs pm items with a GitHub Projects v2 board (`pm github project import/sync/list/fields`) — mapping pm status to the board Status column with idempotent, no-data-loss provenance.",
     capabilities: ["commands", "importers", "schema", "hooks", "preflight", "search"],
+    category: "extension",
     requiresCredentials: [
       {
         label: "GitHub token (for private repos, 5000 req/hr, and export/push)",
@@ -167,6 +210,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     title: "Jira",
     description: "Jira issue sync for pm-cli",
     capabilities: ["commands", "schema", "importers", "hooks", "preflight"],
+    category: "extension",
     requiresCredentials: [
       {
         label: "Jira API credentials (for live sync, import, and export --push)",
@@ -180,6 +224,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     title: "Linear",
     description: "Linear.app issue sync for pm-cli",
     capabilities: ["commands", "schema", "importers", "preflight"],
+    category: "extension",
     requiresCredentials: [
       {
         label: "Linear API key (for live import/export and validate --check-network)",
@@ -193,6 +238,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     title: "Ops",
     description: "Multi-repo fleet operations for pm-cli",
     capabilities: ["commands", "renderers", "schema", "parser"],
+    category: "extension",
   },
   {
     name: "pm-presets",
@@ -201,6 +247,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "All 7 official pm-cli workspace presets in one package: bug-triage, indie-dev, open-source, software-sprint, startup-roadmap, kanban, agent-workflow",
     capabilities: ["commands", "schema"],
+    category: "extension",
   },
   {
     name: "pm-slack",
@@ -208,6 +255,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     title: "Slack",
     description: "Slack notifications for pm item lifecycle events",
     capabilities: ["commands", "hooks", "schema", "preflight"],
+    category: "extension",
     requiresCredentials: [
       {
         label: "Slack webhook (for posting notifications)",
@@ -221,6 +269,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     title: "Slack Standup",
     description: "Post pm context as a Slack standup message",
     capabilities: ["commands", "schema", "importers", "preflight", "services"],
+    category: "extension",
     requiresCredentials: [
       {
         label: "Slack webhook (for posting the standup)",
@@ -235,6 +284,45 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     description:
       "TODO round-trip. Import/export/sync markdown checkboxes, todo.txt, jsonl, checkbox, and pi coding-agent todo JSON as pm items.",
     capabilities: ["commands", "schema", "importers", "preflight"],
+    category: "extension",
+  },
+  {
+    name: "pm-starter",
+    npmSpec: "npm:pm-starter",
+    title: "Starter",
+    description:
+      "Complete starter/scaffold extension for pm-cli showing all capability types",
+    capabilities: [
+      "commands",
+      "renderers",
+      "hooks",
+      "schema",
+      "importers",
+      "search",
+      "parser",
+      "preflight",
+      "services",
+    ],
+    category: "template",
+  },
+  {
+    name: "pm-ts-starter",
+    npmSpec: "npm:pm-ts-starter",
+    title: "TypeScript Starter",
+    description:
+      "TypeScript reference extension for pm-cli covering all capability types",
+    capabilities: [
+      "commands",
+      "renderers",
+      "hooks",
+      "schema",
+      "importers",
+      "search",
+      "parser",
+      "preflight",
+      "services",
+    ],
+    category: "template",
   },
 ];
 

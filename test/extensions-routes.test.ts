@@ -322,3 +322,66 @@ test("the realtime extensions-changed event fires on a successful install mutati
     await harness.restore();
   }
 });
+
+test("the GET list includes the category field so the UI can group extensions vs templates", async () => {
+  const harness = await setupHarness();
+  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
+  const app = createApp();
+  try {
+    const { status, body } = await request(
+      app,
+      "GET",
+      `/api/projects/${PROJECT_ID}/extensions`,
+      OWNER_USER_ID,
+    );
+    assert.equal(status, 200);
+    const packages = (body as { packages?: Array<{ name: string; category: string }> }).packages ?? [];
+    assert.ok(packages.length > 0, "the catalog list must not be empty");
+    // Every row must carry a category field.
+    for (const row of packages) {
+      assert.ok(row.category === "extension" || row.category === "template",
+        `row ${row.name} must have category "extension" or "template", got ${row.category}`);
+    }
+    // The two template entries must be present with category "template".
+    const byName = new Map(packages.map((r) => [r.name, r.category]));
+    assert.equal(byName.get("pm-starter"), "template",
+      "pm-starter must be listed as a template");
+    assert.equal(byName.get("pm-ts-starter"), "template",
+      "pm-ts-starter must be listed as a template");
+    // pm-graph must be an extension.
+    assert.equal(byName.get("pm-graph"), "extension",
+      "pm-graph must be listed as an extension");
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});
+
+test("a request for a non-catalog package name is rejected 400 before any spawn", async () => {
+  const harness = await setupHarness();
+  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
+  const app = createApp();
+  try {
+    // Names that are valid npm package names but NOT in the catalog must be
+    // rejected before any pm process is spawned.
+    const nonCatalog = ["../../evil", "pm-web", "lodash"];
+    for (const name of nonCatalog) {
+      const { status, body } = await request(
+        app,
+        "POST",
+        `/api/projects/${PROJECT_ID}/extensions/${encodeURIComponent(name)}/install`,
+        OWNER_USER_ID,
+      );
+      assert.equal(status, 400,
+        `non-catalog name ${name} must be 400, got ${status}: ${JSON.stringify(body)}`);
+      assert.match(String((body as { error?: string }).error ?? ""), /Unknown package/i);
+    }
+    // No pm command must have been spawned for any rejected name.
+    const log = await readFile(harness.logPath, "utf8").catch(() => "");
+    assert.equal(log, "",
+      "a non-catalog name must never reach a pm process spawn");
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});

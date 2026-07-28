@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Catalog every installable pm package including the authoring templates ([pm-web-xe0u](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-xe0u.toon))
+
 ## 2026.7.28 - 2026-07-28
 
 ### Added

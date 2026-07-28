@@ -136,5 +136,6 @@
   "packages.actionFailed": "{action} failed: {error}",
   "packages.confirmUninstall": "Uninstall {name} from this project?",
   "packages.noProject": "No project selected",
-  "packages.changedByOther": "Package {name} {operation} by another user"
+  "packages.changedByOther": "Package {name} {operation} by another user",
+  "packages.templateBadge": "Template"
 }

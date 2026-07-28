@@ -7,6 +7,22 @@
  */
 export type PackageCapability = string;
 /**
+ * Catalog grouping: user-facing product extensions vs. authoring reference
+ * templates.
+ *
+ * - `"extension"` — a product extension a user installs for its functionality
+ *   (e.g. pm-graph, pm-jira). This is the default and the only category the
+ *   catalog originally carried.
+ * - `"template"` — a reference/scaffold extension that a user installs to
+ *   learn the extension API. It registers real commands (it ships
+ *   `manifest.json` + `dist/` and calls `registerCommand`), so installing it
+ *   is a genuine operation, but its purpose is to be read and copied — it is
+ *   the reference implementation covering every capability type. The UI
+ *   badges template entries so a user can tell a learning scaffold from a
+ *   product extension.
+ */
+export type PackageCategory = "extension" | "template";
+/**
  * Honest gating metadata so the UI can tell a user what they must configure
  * before a package is useful. Both fields are OPTIONAL — most packages work
  * with no external setup.
@@ -52,6 +68,13 @@ export interface PackageCatalogEntry {
     readonly description: string;
     /** Capabilities declared in the package manifest. */
     readonly capabilities: readonly PackageCapability[];
+    /**
+     * Whether this is a user-facing product extension (`"extension"`) or an
+     * authoring reference template (`"template"`). The UI badges template
+     * entries so a user can distinguish a learning scaffold from a product
+     * extension. See {@link PackageCategory}.
+     */
+    readonly category: PackageCategory;
     /** Backing service the package needs (optional). */
     readonly requiresService?: ServiceRequirement;
     /** Credentials the user must configure (optional). */
@@ -59,10 +82,11 @@ export interface PackageCatalogEntry {
 }
 /**
  * The catalog. Order is the display order in the UI. The list is exhaustive
- * over user-facing pm packages: every package in the fleet that is not an
- * authoring template (`pm-starter`/`pm-ts-starter`) and not pm-web itself is
- * here. `pm-starter`/`pm-ts-starter` are authoring templates, not user-facing
- * packages; `pm-web` is this package.
+ * over every published pm package except `pm-web` itself (it is the host and
+ * cannot install itself). The {@link PackageCategory} field on each entry
+ * distinguishes user-facing product extensions from authoring reference
+ * templates; the two starter packages sort last so product extensions appear
+ * first.
  */
 export declare const PACKAGE_CATALOG: readonly PackageCatalogEntry[];
 /**
