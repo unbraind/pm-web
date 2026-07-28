@@ -19,4 +19,7 @@ public/cookie-consent.js
 # pm-cli:runtime-cache:start
 .agents/pm/runtime/
 .agents/pm/search/
+.agents/pm/locks/
+.agents/pm/transactions/
+.agents/pm/checkpoints/
 # pm-cli:runtime-cache:end

@@ -37,10 +37,26 @@ function renderIssueRow(issue: HealthIssue, projectId: string): string {
 export async function repairItemHistory(projectId: string, itemId: string, dryRun: boolean): Promise<void> {
   try {
     const data = await api<HistoryRepairResponse>('POST', `/projects/${projectId}/pm/items/${encodeURIComponent(itemId)}/history-repair`, { dryRun });
+    // `pm history-repair --json` carries no prose field, so summarise the counts
+    // it does return rather than dumping the whole payload into the toast.
+    const h = data.history;
+    const parts = [
+      `${h?.entries_scanned ?? 0} scanned`,
+      ...(h?.entries_rehashed ? [`${h.entries_rehashed} rehashed`] : []),
+      ...(h?.entries_patch_repaired ? [`${h.entries_patch_repaired} patched`] : []),
+      ...(h?.reconciled_with_item ? ['reconciled with item'] : []),
+    ];
     if (dryRun) {
-      toast(`Dry run for ${itemId}: ${data.message || JSON.stringify(data)}`, 'info');
+      toast(
+        data.changed
+          ? `Dry run for ${itemId}: drift found — ${parts.join(', ')}`
+          : `Dry run for ${itemId}: no drift (${parts.join(', ')})`,
+        'info',
+      );
+    } else if (h?.verify_ok === false) {
+      toast(`History repaired for ${itemId} but verification failed: ${(h.verify_errors ?? []).join('; ') || 'unknown error'}`, 'error');
     } else {
-      toast(`History repaired for ${itemId}`, 'success');
+      toast(`History repaired for ${itemId} — ${parts.join(', ')}`, 'success');
     }
   } catch(err: unknown) {
     toast(`Repair failed: ${err instanceof Error ? err.message : String(err)}`, 'error');

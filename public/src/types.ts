@@ -248,7 +248,8 @@ export interface AdminGroup {
   name: string;
   description?: string;
   owner_email: string;
-  member_count: number;
+  /** See `GroupSummary.member_count` in api-types.ts — a string, not a number. */
+  member_count: string;
   created_at: string;
 }
 

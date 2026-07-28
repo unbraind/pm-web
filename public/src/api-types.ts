@@ -102,8 +102,15 @@ export interface GroupListRow {
   owner_id?: string;
   name: string;
   description?: string;
-  /** COUNT(*) of members, aliased `member_count` by the server. */
-  member_count: number;
+  /**
+   * Member count as reported by the server.
+   *
+   * A **string**, not a number: the list query aliases a Postgres `COUNT(*)`
+   * (`int8`), which node-postgres serialises as a string to avoid precision
+   * loss, and the create path in src/routes/groups.ts returns the literal `"1"`.
+   * Coerce with `Number(...)` before any arithmetic or sorting.
+   */
+  member_count: string;
   role?: string;
   created_at?: string;
   updated_at?: string;
@@ -118,7 +125,7 @@ export interface GroupsResponse {
 export interface GroupMemberRow {
   id?: string;
   user_id?: string;
- userId?: string;
+  userId?: string;
   role?: string;
   invited_at?: string;
   email?: string;
@@ -365,16 +372,7 @@ export interface CalendarEvent {
  * the plain `Item` shape used by the `items` fallback so both code paths share
  * one optional-everything type.
  */
-export interface CalendarListItem {
-  id?: string;
-  itemId?: string;
-  type?: string;
-  title?: string;
-  name?: string;
-  date?: string;
-  dueDate?: string;
-  timestamp?: string;
-}
+export type CalendarListItem = CalendarEvent;
 
 /** Response from `GET /api/projects/:id/pm/calendar` — see src/routes/pm.ts. */
 export interface CalendarResponse {
@@ -587,11 +585,34 @@ export interface PlanStepPayload {
 }
 
 /**
- * Response from `POST /api/projects/:id/pm/items/:itemId/history-repair` — see
+ * Response from `POST /api/projects/:id/pm/items/:itemId/history-repair`.
+ *
+ * Mirrors `pm history-repair --json`, verified against pm-cli 2026.7.28. The
+ * payload carries no `message` field, so summarise `history` rather than looking
+ * for prose. Original note:
  * src/routes/pm.ts. NOTE: no such route is currently mounted on the server, so
  * the call rejects at runtime; the type models the `message` field the dry-run
  * toast reads so the (unreachable) success branch stays type-clean.
  */
 export interface HistoryRepairResponse {
-  message?: string;
+  id?: string;
+  dry_run?: boolean;
+  /** Whether the repair changed (or would change) the history chain. */
+  changed?: boolean;
+  history?: {
+    path?: string;
+    entries_scanned?: number;
+    chain_drift_before?: boolean;
+    entries_rehashed?: number;
+    entries_patch_repaired?: number;
+    converted_replace_to_add?: number;
+    skipped_ops?: number;
+    reconciled_with_item?: boolean;
+    audit_entry_added?: boolean;
+    verify_ok?: boolean;
+    verify_errors?: string[];
+  };
+  warnings?: string[];
+  generated_at?: string;
+  error?: string;
 }

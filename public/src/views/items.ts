@@ -705,7 +705,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="item-detail-title">${escHtml(item.title)}</div>
         <div class="item-detail-meta">
           ${statusBadge(item.status||'draft')}
-          <div class="meta-chip">${priorityDot(item.priority??4)} <strong>P${item.priority}</strong> ${item.priority !== undefined ? (PRIORITY_LABELS[item.priority]||'') : ''}</div>
+          <div class="meta-chip">${priorityDot(item.priority??4)} <strong>P${item.priority ?? '—'}</strong> ${item.priority !== undefined ? (PRIORITY_LABELS[item.priority]||'') : ''}</div>
           ${item.created_at ? `<div class="meta-chip">Created <strong>${fmtDate(item.created_at)}</strong></div>` : ''}
           ${item.updated_at ? `<div class="meta-chip">Updated <strong>${relTime(item.updated_at)}</strong></div>` : ''}
           ${item.parent ? `<div class="meta-chip">Parent <strong class="mono">${escHtml(item.parent)}</strong></div>` : ''}
