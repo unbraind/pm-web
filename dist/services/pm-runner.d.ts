@@ -49,6 +49,71 @@ export interface EnsureGraphExtensionResult {
     active: boolean;
     error?: string;
 }
+/**
+ * The per-extension state shape emitted by `pm extension --json`. Only the
+ * fields consumers read are typed; the command emits far more (triage, policy,
+ * diagnostics) which is deliberately dropped.
+ */
+export interface ExtensionState {
+    name: string;
+    version?: string;
+    active?: boolean;
+    enabled?: boolean;
+    runtime_active?: boolean;
+    activation_status?: string;
+    managed?: boolean;
+    source?: {
+        kind?: string;
+        input?: string;
+    };
+}
+/**
+ * Outcome of reading per-project extension state.
+ *
+ * `ok` distinguishes "the command ran and this is the state" from "the command
+ * failed, so we know nothing" — a distinction both previous copies of this
+ * parser collapsed, reporting a failed `pm extension --json` identically to a
+ * project with nothing installed.
+ */
+export interface ExtensionStatesResult {
+    ok: boolean;
+    states: Map<string, ExtensionState>;
+    error?: string;
+}
+/**
+ * Read the per-project extension state from `pm extension --json`, returning a
+ * map keyed by extension name. Used both by {@link ensureGraphExtension} and
+ * the extensions routes' catalog join.
+ */
+export declare function readProjectExtensionStates(projectDir: string): Promise<ExtensionStatesResult>;
+/**
+ * Timeout for package installs, which resolve and download from the npm
+ * registry rather than only touching local state.
+ *
+ * The 30s default is sized for local commands and leaves too thin a margin
+ * here. Measured on this host: a warm-cache install is ~2s, and a cold-cache
+ * install of the heaviest catalog package (pm-graph, which pulls
+ * `neo4j-driver`) is ~10s. That is only a 3x margin on a fast connection,
+ * before accounting for a container sharing bandwidth or a slow registry —
+ * and the failure mode is a project create or package install that dies
+ * mid-download. A hung install still terminates, just later.
+ */
+export declare const INSTALL_COMMAND_TIMEOUT_MS = 180000;
+/**
+ * Ensure the pm-graph package is installed and active for a project.
+ *
+ * This used to install a *vendored* copy of pm-graph from
+ * `extensions/pm-graph/` (a stale fork pinned to pm-cli `^2026.7.5`). The
+ * vendored fork is gone; pm-graph is now installed from npm through the same
+ * generic catalog path as every other pm package
+ * (src/services/package-catalog.ts). The npm spec is resolved from the catalog
+ * — never built from a user-supplied string — so the install target is always
+ * the verified `npm:pm-graph` constant.
+ *
+ * The graph routes in src/routes/pm.ts call this before `pm pm-graph export`,
+ * and {@link initProject} calls it on project creation, so the user-facing
+ * graph behaviour is unchanged.
+ */
 export declare function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult>;
 /**
  * Return a cached {@link PmClient} for a workspace pm-root, creating one on

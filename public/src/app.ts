@@ -36,6 +36,7 @@ import { renderExportView, exportData, importData } from './views/export.js';
 import { renderNormalizeView, applyNormalize } from './views/normalize.js';
 import { renderSharedView } from './views/shared.js';
 import { renderTemplatesView, createFromTemplate } from './views/templates.js';
+import { renderPackagesView, refreshPackagesOnSSE } from './views/packages.js';
 import { renderCommentsAuditView } from './views/comments-audit.js';
 import { renderConfigView, configAddArrayItem, configRemoveArrayItem, configSaveArray, configSaveSimple, configSaveObject, addSchemaType } from './views/config.js';
 import { renderGuideView } from './views/guide.js';
@@ -114,6 +115,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
       { view: 'projects', title: 'All Projects', desc: 'Switch or create a workspace.', icon: '⊞' },
       { view: 'context', title: 'Context', desc: 'Generate agent-ready project context.', icon: '⚙', requiresProject: true },
       { view: 'config', title: 'Config', desc: 'Edit project settings.', icon: '⚒', requiresProject: true },
+      { view: 'packages', title: 'Packages', desc: 'Install and manage pm packages.', icon: '📦', requiresProject: true },
       { view: 'export', title: 'Export / Import', desc: 'Download or upload project data.', icon: '↕', requiresProject: true },
       { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '📖', requiresProject: true },
       { view: 'settings', title: 'Account Settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
@@ -225,6 +227,7 @@ let deferredPrompt: any = null;
   renderNormalizeView,
   renderSharedView,
   renderTemplatesView,
+  renderPackagesView,
   renderCommentsAuditView,
   renderConfigView,
   renderGuideView,
@@ -612,6 +615,11 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('graph_sync_failed', graphSyncFailed);
     source.addEventListener('update', refreshView);
     source.addEventListener('workspace-changed', refreshGraphData);
+
+    // Extensions catalog mutations (installs/activates/deactivates/uninstalls)
+    // refresh the Packages view live for every collaborator.
+    source.addEventListener('extensions-changed', refreshPackagesOnSSE);
+    source.addEventListener('extensions_changed', refreshPackagesOnSSE);
 
     source.onerror = () => {
       setSseStatus('reconnecting');

@@ -7,10 +7,6 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 # Copy server source and build
 COPY tsconfig.json ./
 COPY src/ ./src/
-COPY extensions/ ./extensions/
-WORKDIR /app/extensions/pm-graph
-RUN npm ci --ignore-scripts --no-audit --no-fund
-WORKDIR /app
 # Copy entire public directory for frontend build
 COPY public/ ./public/
 # Build both server and frontend
@@ -24,7 +20,6 @@ RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/extensions ./extensions
 
 RUN mkdir -p /app/projects && chown node:node /app/projects
 

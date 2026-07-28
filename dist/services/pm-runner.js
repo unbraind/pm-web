@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
 import { getItemAt, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
 export { PmCliError, isPmCliExpectedError, EXIT_CODE };
@@ -50,8 +51,6 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ||
 const OLLAMA_EMBEDDING_MODEL = process.env.PM_OLLAMA_MODEL ||
     "qwen3-embedding:0.6b";
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
-const PM_GRAPH_EXTENSION_PATH = process.env.PM_GRAPH_EXTENSION_PATH ||
-    path.join(process.cwd(), "extensions", "pm-graph");
 export function getProjectDir(userId, slug) {
     return path.join(projectsRoot(), userId, slug);
 }
@@ -224,81 +223,101 @@ export function projectExists(userId, slug) {
     const dir = getProjectDir(userId, slug);
     return fs.existsSync(path.join(dir, ".agents", "pm", "settings.json"));
 }
-function readJsonFile(filePath) {
-    try {
-        return JSON.parse(fs.readFileSync(filePath, "utf8"));
+/**
+ * Read the per-project extension state from `pm extension --json`, returning a
+ * map keyed by extension name. Used both by {@link ensureGraphExtension} and
+ * the extensions routes' catalog join.
+ */
+export async function readProjectExtensionStates(projectDir) {
+    const result = await runSerialized(projectDir, () => runProcess(projectDir, ["extension", "--json"], { timeoutMs: 15_000 }));
+    const states = new Map();
+    if (!result.ok || !result.stdout) {
+        return { ok: false, states, error: result.stderr || "pm extension --json failed" };
     }
-    catch {
-        return null;
-    }
-}
-function bundledGraphExtensionManifest() {
-    const manifestPath = path.join(PM_GRAPH_EXTENSION_PATH, "manifest.json");
-    if (!fs.existsSync(manifestPath))
-        return null;
-    return readJsonFile(manifestPath);
-}
-function projectGraphExtensionManifest(projectDir) {
-    return readJsonFile(path.join(projectDir, ".agents", "pm", "extensions", "pm-graph", "manifest.json"));
-}
-async function graphExtensionIsActive(projectDir) {
-    const result = await runSerialized(projectDir, () => runProcess(projectDir, ["extension", "explore", "--project", "--json"], { timeoutMs: 15_000 }));
-    if (!result.ok || !result.stdout)
-        return false;
     try {
         const parsed = JSON.parse(result.stdout);
-        return Boolean(parsed.details?.extensions?.some((extension) => extension.name === "pm-graph" && extension.active && extension.enabled));
+        const extensions = parsed.details?.extensions;
+        if (!Array.isArray(extensions)) {
+            return { ok: false, states, error: "pm extension --json returned no extension list" };
+        }
+        for (const ext of extensions) {
+            if (ext && typeof ext.name === "string")
+                states.set(ext.name, ext);
+        }
     }
     catch {
-        return false;
+        return { ok: false, states, error: "pm extension --json returned malformed JSON" };
     }
+    return { ok: true, states };
 }
-async function runExtensionCommand(projectDir, args) {
-    return runSerialized(projectDir, () => runProcess(projectDir, args));
+/**
+ * Timeout for package installs, which resolve and download from the npm
+ * registry rather than only touching local state.
+ *
+ * The 30s default is sized for local commands and leaves too thin a margin
+ * here. Measured on this host: a warm-cache install is ~2s, and a cold-cache
+ * install of the heaviest catalog package (pm-graph, which pulls
+ * `neo4j-driver`) is ~10s. That is only a 3x margin on a fast connection,
+ * before accounting for a container sharing bandwidth or a slow registry —
+ * and the failure mode is a project create or package install that dies
+ * mid-download. A hung install still terminates, just later.
+ */
+export const INSTALL_COMMAND_TIMEOUT_MS = 180_000;
+async function runExtensionCommand(projectDir, args, timeoutMs) {
+    return runSerialized(projectDir, () => runProcess(projectDir, args, { timeoutMs }));
 }
+/**
+ * Ensure the pm-graph package is installed and active for a project.
+ *
+ * This used to install a *vendored* copy of pm-graph from
+ * `extensions/pm-graph/` (a stale fork pinned to pm-cli `^2026.7.5`). The
+ * vendored fork is gone; pm-graph is now installed from npm through the same
+ * generic catalog path as every other pm package
+ * (src/services/package-catalog.ts). The npm spec is resolved from the catalog
+ * — never built from a user-supplied string — so the install target is always
+ * the verified `npm:pm-graph` constant.
+ *
+ * The graph routes in src/routes/pm.ts call this before `pm pm-graph export`,
+ * and {@link initProject} calls it on project creation, so the user-facing
+ * graph behaviour is unchanged.
+ */
 export async function ensureGraphExtension(userId, slug) {
     const dir = getProjectDir(userId, slug);
-    const bundledManifest = bundledGraphExtensionManifest();
-    if (!bundledManifest) {
+    // Resolve the verified npm install spec from the catalog — never a raw path.
+    const npmSpec = resolveNpmSpec("pm-graph");
+    if (!npmSpec) {
         return {
             ok: false,
             installed: false,
             active: false,
-            error: `Bundled pm-graph extension not found at ${PM_GRAPH_EXTENSION_PATH}`,
+            error: "pm-graph is not present in the package catalog.",
         };
     }
-    const projectManifest = projectGraphExtensionManifest(dir);
-    const needsInstall = !projectManifest || projectManifest.version !== bundledManifest.version;
-    if (needsInstall) {
-        const install = await runExtensionCommand(dir, ["install", PM_GRAPH_EXTENSION_PATH, "--project"]);
+    const { states } = await readProjectExtensionStates(dir);
+    const graphState = states.get("pm-graph");
+    const installed = Boolean(graphState);
+    const active = Boolean(graphState?.active && graphState?.enabled);
+    if (!installed) {
+        const install = await runExtensionCommand(dir, ["install", npmSpec, "--project"], INSTALL_COMMAND_TIMEOUT_MS);
         if (!install.ok) {
             return {
                 ok: false,
-                installed: Boolean(projectManifest),
+                installed: false,
                 active: false,
-                error: install.stderr || install.stdout || "Failed to install bundled pm-graph extension.",
+                error: install.stderr || install.stdout || "Failed to install pm-graph from npm.",
             };
         }
     }
-    if (!(await graphExtensionIsActive(dir))) {
+    if (!active) {
         const activate = await runExtensionCommand(dir, ["extension", "activate", "pm-graph", "--project"]);
         if (!activate.ok) {
             return {
                 ok: false,
                 installed: true,
                 active: false,
-                error: activate.stderr || activate.stdout || "Failed to activate bundled pm-graph extension.",
+                error: activate.stderr || activate.stdout || "Failed to activate pm-graph.",
             };
         }
-    }
-    const ping = await runExtensionCommand(dir, ["pm-graph", "ping", "--json"]);
-    if (!ping.ok) {
-        return {
-            ok: false,
-            installed: true,
-            active: false,
-            error: ping.stderr || ping.stdout || "Bundled pm-graph extension is installed but did not activate at runtime.",
-        };
     }
     return { ok: true, installed: true, active: true };
 }
@@ -352,6 +371,16 @@ const SPAWN_FALLBACK_ACTIONS = new Set([
     "test-runs",
     // `pm templates list/show` is not a native SDK action.
     "templates",
+    // Extension management (`pm install <source> --project`, `pm extension
+    // activate|deactivate|uninstall <name> --project`) takes a positional source
+    // or subcommand that `PmClient.run(action, {options})` drops — the SDK's
+    // `client.run("install", ...)` raises "requires extension source input" and
+    // `client.run("extension", ...)` only performs the default explore, ignoring
+    // activate/deactivate/uninstall. The per-project package catalog routes depend
+    // on these positionals, so install + extension stay on the spawn fallback (the
+    // verified `pm install npm:<pkg> --project` mechanism).
+    "install",
+    "extension",
     // `PmClient.run("plan", {options:{subcommand,id}})` does not accept the plan id
     // as an option key (only the typed convenience methods `planShow(id)` /
     // `planAddStep(id,...)` do). Converting all ~17 plan routes to typed methods is

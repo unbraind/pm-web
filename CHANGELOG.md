@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Per-project package catalog so every pm package is installable from the web UI ([pm-web-28aw](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-28aw.toon))
+
+### Fixed
+
+- Require edit permission for package catalog mutations in pm-web ([pm-web-rknk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-rknk.toon))
+
 ## 2026.7.27 - 2026-07-27
 
 ### Added

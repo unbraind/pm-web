@@ -123,7 +123,6 @@ pm web doctor --json
 | `NEO4J_URI` | No | Neo4j Bolt URI for graph sync |
 | `NEO4J_USER` / `NEO4J_USERNAME` | No | Neo4j username |
 | `NEO4J_PASSWORD` | No | Neo4j password |
-| `PM_GRAPH_EXTENSION_PATH` | No | Bundled pm-graph extension path, default `extensions/pm-graph` |
 | `PM_WEB_LEGAL_DIR` | Production | Absolute path to a complete, private, operator-reviewed legal-page overlay; see `docs/LEGAL_DEPLOYMENT_BOUNDARY.md` |
 | `OIDC_ISSUER` | No | Provider issuer URL; setting any OIDC variable enables strict configuration validation |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | With OIDC | OIDC confidential client credentials |
@@ -132,7 +131,7 @@ pm web doctor --json
 | `OIDC_SCOPES` | No | Requested scopes (default: `openid profile email`) |
 | `OIDC_REQUIRE_VERIFIED_EMAIL` | No | Reject identities without a provider-verified email when `true` |
 
-New pm-web projects configure local Ollama search automatically and install the bundled `pm-graph` extension into the project workspace. Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
+New pm-web projects configure local Ollama search automatically and install the `pm-graph` package into the project workspace (from npm, via the per-project package catalog). Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
 
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
 

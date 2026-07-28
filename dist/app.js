@@ -7,6 +7,7 @@ import { authRouter } from "./routes/auth.js";
 import { oidcRouter } from "./routes/oidc.js";
 import { projectsRouter } from "./routes/projects.js";
 import { pmRouter } from "./routes/pm.js";
+import { extensionsRouter } from "./routes/extensions.js";
 import { groupsRouter } from "./routes/groups.js";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.js";
 import { githubRouter } from "./routes/github.js";
@@ -134,6 +135,7 @@ export function createApp() {
     app.use("/api/auth", authRouter);
     app.use("/api/projects", projectsRouter);
     app.use("/api/projects/:projectId/pm", pmRouter);
+    app.use("/api/projects/:projectId/extensions", extensionsRouter);
     app.use("/api/groups", groupsRouter);
     app.use("/api/projects/:id/shares", sharesRouter);
     app.use("/api/shared", sharedWithMeRouter);

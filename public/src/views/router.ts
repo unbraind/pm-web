@@ -23,6 +23,7 @@ import { renderExportView } from './export.js';
 import { renderNormalizeView } from './normalize.js';
 import { renderSharedView } from './shared.js';
 import { renderTemplatesView } from './templates.js';
+import { renderPackagesView } from './packages.js';
 import { renderCommentsAuditView } from './comments-audit.js';
 import { renderConfigView } from './config.js';
 import { renderGuideView } from './guide.js';
@@ -51,6 +52,7 @@ const VIEW_TO_PATH: Record<string, string> = {
   'normalize': '/normalize',
   'shared': '/shared',
   'templates': '/templates',
+  'packages': '/packages',
   'comments-audit': '/comments-audit',
   'config': '/config',
   'guide': '/guide',
@@ -138,6 +140,7 @@ export function showView(view: string, pushState = true): void {
     case 'normalize': renderNormalizeView(); break;
     case 'shared': renderSharedView(); break;
     case 'templates': renderTemplatesView(); break;
+    case 'packages': renderPackagesView(); break;
     case 'comments-audit': renderCommentsAuditView(); break;
     case 'config': renderConfigView(); break;
     case 'guide': renderGuideView(); break;
