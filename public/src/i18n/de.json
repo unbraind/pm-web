@@ -136,5 +136,6 @@
   "packages.actionFailed": "{action} fehlgeschlagen: {error}",
   "packages.confirmUninstall": "{name} aus diesem Projekt deinstallieren?",
   "packages.noProject": "Kein Projekt ausgewählt",
-  "packages.changedByOther": "Paket {name} von einem anderen Benutzer {operation}"
+  "packages.changedByOther": "Paket {name} von einem anderen Benutzer {operation}",
+  "packages.templateBadge": "Vorlage"
 }

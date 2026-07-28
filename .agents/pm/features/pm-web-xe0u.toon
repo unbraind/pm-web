@@ -1,0 +1,17 @@
+id: pm-web-xe0u
+title: Catalog every installable pm package including the authoring templates
+description: Add pm-starter and pm-ts-starter to the package catalog so the web UI offers ALL available pm packages. Introduce a category field (extension vs template) to distinguish product extensions from authoring reference scaffolds. Surface the category in the API and UI with i18n support.
+type: Feature
+status: closed
+priority: 1
+tags: []
+created_at: "2026-07-28T11:05:07.543Z"
+updated_at: "2026-07-28T11:05:24.700Z"
+closed_at: "2026-07-28T11:05:24.699Z"
+claim_principal: pi-agent
+author: pi-agent
+acceptance_criteria: "The package catalog contains 17 entries (15 extensions plus pm-starter and pm-ts-starter). pm-web itself is absent. Each entry has a category field. Template entries are badged in the UI. All four i18n locales have the template badge label. The full gate (typecheck, build, test, audit, pack) is green."
+notes[1]{created_at,author,text}:
+  "2026-07-28T11:05:20.736Z",pi-agent,"Added PackageCategory type (extension/template) and category field to PackageCatalogEntry. Set category=extension on all 15 existing entries. Appended pm-starter (title Starter) and pm-ts-starter (title TypeScript Starter) as template entries, with descriptions taken verbatim from their package.json and capabilities read from their manifest.json (both have all 9: commands, renderers, hooks, schema, importers, search, parser, preflight, services). Rewrote the PACKAGE_CATALOG doc comment to state the catalog is exhaustive over every published pm package except pm-web itself. Surfaced category in the API GET list (via spread in toRow). Badged template entries in the UI packages view. Added packages.templateBadge i18n key to all four locales (en, de, es, zh). Extended catalog.test.ts with exhaustiveness, category partition, and template capability assertions. Added route-level tests for category in GET list and non-catalog name rejection. Full gate green: typecheck, build, 160 tests pass, audit 0 vulnerabilities, pack dry-run OK."
+close_reason: All acceptance criteria met. The catalog now has 17 entries with pm-web absent. The category field distinguishes extensions from templates. Template entries are badged in the UI with i18n support in all four locales. The full gate is green.
+body: ""
