@@ -1,0 +1,16 @@
+id: pm-web-g7ed
+title: Adopt pm-cli 2026.7.28 in the hosted web UI package
+description: "pm-web was the last package still declaring pm-cli 2026.7.27, having shipped the package-catalog work against the older pin. Bump the package version and the @unbrained/pm-cli dependency to 2026.7.28.\n\nThis matters more here than in an extension package, because pm-web dispatches pm commands in-process through the SDK PmClient for latency-bounded actions and spawns the pm binary for the rest. Running the hosted service against a different CLI version than the fleet publishes would make its behaviour diverge from what every other package is tested against.\n\n2026.7.28 also carries the fix for GH-776, the 2026.7.27 output_format override regression that corrupted all command output for overriding extensions - directly relevant to a service whose entire job is rendering pm command output."
+type: Chore
+status: closed
+priority: 2
+tags: []
+created_at: "2026-07-28T05:30:53.056Z"
+updated_at: "2026-07-28T05:31:04.674Z"
+closed_at: "2026-07-28T05:31:04.673Z"
+author: codex
+resolution: fixed
+expected_result: pm-web declares and resolves pm-cli 2026.7.28 and its full test suite passes.
+actual_result: "package.json version and the @unbrained/pm-cli dependency both report 2026.7.28, the installed CLI resolves to 2026.7.28, and 156 tests pass."
+close_reason: Bumped pm-web and its pm-cli dependency to 2026.7.28; 156 tests pass and the installed CLI resolves to 2026.7.28.
+body: ""
