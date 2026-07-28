@@ -134,5 +134,7 @@
   "packages.envVars": "环境变量",
   "packages.loadError": "加载软件包失败：{error}",
   "packages.actionFailed": "{action} 失败：{error}",
-  "packages.confirmUninstall": "是否从该项目卸载 {name}？"
+  "packages.confirmUninstall": "是否从该项目卸载 {name}？",
+  "packages.noProject": "未选择项目",
+  "packages.changedByOther": "软件包 {name} 已被其他用户{operation}"
 }

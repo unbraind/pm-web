@@ -134,5 +134,7 @@
   "packages.envVars": "Environment variables",
   "packages.loadError": "Failed to load packages: {error}",
   "packages.actionFailed": "{action} failed: {error}",
-  "packages.confirmUninstall": "Uninstall {name} from this project?"
+  "packages.confirmUninstall": "Uninstall {name} from this project?",
+  "packages.noProject": "No project selected",
+  "packages.changedByOther": "Package {name} {operation} by another user"
 }

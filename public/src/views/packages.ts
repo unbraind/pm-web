@@ -47,7 +47,7 @@ export async function renderPackagesView(): Promise<void> {
   const el = document.getElementById('content-packages');
   if (!el) return;
   if (!state.currentProject) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>';
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-text">${escHtml(t('packages.noProject'))}</div></div>`;
     return;
   }
   el.innerHTML = `
@@ -103,7 +103,7 @@ function renderPackageCard(row: PackageRow): string {
   const credNotes = (row.requiresCredentials ?? []).map((c) => {
     const label = c.optional ? t('packages.requiresCredentialsOptional') : t('packages.requiresCredentials');
     const envs = c.envVars.map((e) => `<code style="font-family:var(--font-mono);background:var(--bg-input);padding:1px 4px;border-radius:3px">${escHtml(e)}</code>`).join(' ');
-    return `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:4px">🔑 ${escHtml(label)} — ${escHtml(c.label)}<br><span style="color:var(--text-muted)">${t('packages.envVars')}: ${envs}</span></div>`;
+    return `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:4px">🔑 ${escHtml(label)} — ${escHtml(c.label)}<br><span style="color:var(--text-muted)">${escHtml(t('packages.envVars'))}: ${envs}</span></div>`;
   }).join('');
 
   const caps = row.capabilities.length
@@ -215,7 +215,7 @@ export function refreshPackagesOnSSE(evt: MessageEvent): void {
     const myUserId = state.user?.id;
     if (payload.userId && payload.userId !== myUserId) {
       const op = payload.operation ?? 'updated';
-      toast(`Package ${payload.name ?? ''} ${op} by another user`, 'info');
+      toast(t('packages.changedByOther', { name: payload.name ?? '', operation: op }), 'info');
     }
   } catch { /* ignore parse errors */ }
   void fetchAndRenderPackages();

@@ -134,5 +134,7 @@
   "packages.envVars": "Variables de entorno",
   "packages.loadError": "Error al cargar paquetes: {error}",
   "packages.actionFailed": "{action} falló: {error}",
-  "packages.confirmUninstall": "¿Desinstalar {name} de este proyecto?"
+  "packages.confirmUninstall": "¿Desinstalar {name} de este proyecto?",
+  "packages.noProject": "Ningún proyecto seleccionado",
+  "packages.changedByOther": "Paquete {name} {operation} por otro usuario"
 }
