@@ -27,7 +27,7 @@ import { Router, type Response } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
 import { routeParam } from "./route-params.js";
-import { runPm } from "../services/pm-runner.js";
+import { INSTALL_COMMAND_TIMEOUT_MS, runPm } from "../services/pm-runner.js";
 import {
   PACKAGE_CATALOG,
   findCatalogEntry,
@@ -196,6 +196,9 @@ router.post("/:name/install", async (req: AuthRequest, res) => {
     userId: project.ownerUserId,
     slug: project.slug,
     jsonOutput: true,
+    // Installs resolve and download from the npm registry; the 30s default is
+    // sized for local commands and leaves too thin a margin for a cold cache.
+    timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
   });
   if (!result.ok) {
     res.status(400).json({ error: result.stderr || `Failed to install ${entry.name}` });

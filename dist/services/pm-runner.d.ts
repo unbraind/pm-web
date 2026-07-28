@@ -50,6 +50,19 @@ export interface EnsureGraphExtensionResult {
     error?: string;
 }
 /**
+ * Timeout for package installs, which resolve and download from the npm
+ * registry rather than only touching local state.
+ *
+ * The 30s default is sized for local commands and leaves too thin a margin
+ * here. Measured on this host: a warm-cache install is ~2s, and a cold-cache
+ * install of the heaviest catalog package (pm-graph, which pulls
+ * `neo4j-driver`) is ~10s. That is only a 3x margin on a fast connection,
+ * before accounting for a container sharing bandwidth or a slow registry —
+ * and the failure mode is a project create or package install that dies
+ * mid-download. A hung install still terminates, just later.
+ */
+export declare const INSTALL_COMMAND_TIMEOUT_MS = 180000;
+/**
  * Ensure the pm-graph package is installed and active for a project.
  *
  * This used to install a *vendored* copy of pm-graph from
