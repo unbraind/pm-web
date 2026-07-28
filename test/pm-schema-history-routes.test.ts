@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -240,6 +241,54 @@ test("both routes reject flag-like input with 400 so it can never be parsed as a
     // become that flag.
     const repair = await request(app, "POST", `/api/projects/${PROJECT_ID}/pm/items/${encodeURIComponent("--all")}/history-repair`, OWNER_USER_ID, {});
     assert.equal(repair.status, 400, "a '--all' item id must not become a bulk repair of every stream");
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});
+
+test("schema/add-type refuses a traversal folder, which would otherwise write items outside the workspace", async () => {
+  const harness = await setupHarness();
+  const restorePool = stubPool();
+  const app = createApp();
+  try {
+    // The CLI honours `..` in --folder: a subsequent `pm create` of the type
+    // writes the item .toon above the pm root. In this layout
+    // (PROJECTS_ROOT/<ownerUserId>/<slug>/.agents/pm) that reaches other tenants.
+    const traversals = [
+      "../escape",
+      "../../esc-target",
+      "../../../../../../tmp/pm-deep-escape",
+      "spikes/../../escape",
+      "nested/./../..",
+      "/absolute",
+      "C:\\windows",
+      "..\\backslash",
+    ];
+    for (const folder of traversals) {
+      const { status, body } = await request(app, "POST", `/api/projects/${PROJECT_ID}/pm/schema/add-type`, OWNER_USER_ID, {
+        name: `T${traversals.indexOf(folder)}`,
+        folder,
+      });
+      assert.equal(status, 400, `folder ${JSON.stringify(folder)} must be refused, got ${status}: ${JSON.stringify(body)}`);
+    }
+
+    // A plain nested folder is still allowed — the guard must not be a blanket ban.
+    const ok = await request(app, "POST", `/api/projects/${PROJECT_ID}/pm/schema/add-type`, OWNER_USER_ID, {
+      name: "Nested",
+      folder: "custom/spikes",
+    });
+    assert.equal(ok.status, 200, `a plain nested folder must be accepted: ${JSON.stringify(ok.body)}`);
+
+    // Nothing may have been written outside the pm root by the refused attempts.
+    const projectDir = path.join(harness.root, OWNER_USER_ID, PROJECT_SLUG);
+    for (const stray of ["escape", "esc-target"]) {
+      assert.equal(
+        existsSync(path.join(projectDir, stray)),
+        false,
+        `a refused traversal must not create ${stray} in the project dir`,
+      );
+    }
   } finally {
     restorePool();
     await harness.restore();

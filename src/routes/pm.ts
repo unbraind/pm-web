@@ -529,6 +529,29 @@ function isFlagLike(value: string): boolean {
 }
 
 /**
+ * Whether a custom item type's storage folder is a safe relative subpath.
+ *
+ * This is a **tenant boundary**, not a style check. `pm schema add-type --folder`
+ * is not path-validated by the CLI: a `..` segment is honoured, so a subsequent
+ * `pm create` of that type writes the item's `.toon` outside the pm root.
+ * Verified against pm-cli 2026.7.28 — `--folder ../../../../../../tmp/x` placed
+ * the item six levels above the workspace, while the history file stayed inside.
+ * (Absolute paths are safe: the CLI strips the leading separator and treats them
+ * as relative to the pm root.)
+ *
+ * Project workspaces here live at `PROJECTS_ROOT/<ownerUserId>/<slug>/.agents/pm`,
+ * so an unchecked `..` would let one tenant write into another tenant's project.
+ * Only plain nested segments are accepted.
+ */
+function isSafeTypeFolder(folder: string): boolean {
+  if (folder.startsWith("/") || folder.startsWith("\\")) return false;
+  // Reject drive-letter and UNC forms so behaviour does not depend on the host OS.
+  if (/^[a-zA-Z]:/.test(folder)) return false;
+  const segments = folder.split(/[/\\]/);
+  return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
+/**
  * POST /api/projects/:projectId/pm/schema/add-type
  *
  * Registers a custom item type via `pm schema add-type <name>`. The config view
@@ -547,11 +570,19 @@ router.post("/schema/add-type", async (req: AuthRequest, res) => {
   if (!name) { res.status(400).json({ error: "name is required" }); return; }
   if (isFlagLike(name)) { res.status(400).json({ error: "name must not start with '-'" }); return; }
 
+  // `--folder` escapes the workspace if it contains `..` (see isSafeTypeFolder),
+  // which in this multi-tenant layout would reach another user's project.
+  const folder = typeof body.folder === "string" ? body.folder.trim() : "";
+  if (folder !== "" && !isSafeTypeFolder(folder)) {
+    res.status(400).json({ error: "folder must be a relative path without '..' segments" });
+    return;
+  }
+
   const args = ["schema", "add-type", name];
   const stringFlags: Array<[unknown, string]> = [
     [body.description, "--description"],
     [body.defaultStatus, "--default-status"],
-    [body.folder, "--folder"],
+    [folder, "--folder"],
   ];
   for (const [raw, flag] of stringFlags) {
     if (typeof raw === "string" && raw.trim() !== "") args.push(flag, raw.trim());
