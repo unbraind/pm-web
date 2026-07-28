@@ -211,6 +211,78 @@ test("route authorization: a user cannot install into a project they do not own"
   }
 });
 
+/**
+ * Stub the pool so `projectId` is shared with `viewerUserId` at the given
+ * permission, and owned by nobody the test will authenticate as. Mirrors the
+ * two-query shape of `verifyProjectAccess`: direct-ownership lookup first
+ * (miss), then the share lookup (hit, carrying `permission`).
+ */
+function stubSharedPool(
+  viewerUserId: string,
+  projectId: string,
+  slug: string,
+  permission: string,
+): () => void {
+  const realQuery = pool.query.bind(pool) as Pool["query"];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (pool as any).query = async (text: string, params?: unknown[]) => {
+    const sql = String(text);
+    const row = {
+      id: projectId,
+      name: "Test",
+      slug,
+      description: "",
+      prefix: "pkg",
+      owner_user_id: OWNER_USER_ID,
+      permission,
+    };
+    const matches = Array.isArray(params) && params[0] === projectId && params[1] === viewerUserId;
+    if (sql.includes("pm_project_shares") && matches) {
+      return { rows: [row], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  };
+  return () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (pool as any).query = realQuery;
+  };
+}
+
+test("a view-only collaborator cannot mutate packages but can still list them", async () => {
+  // Regression: installing a package changes the workspace for EVERY
+  // collaborator, so it is an edit-level action. The mutating routes originally
+  // only checked that access existed, not that it was writable, which let a
+  // view-only share install and uninstall packages on someone else's project.
+  const harness = await setupHarness();
+  const restorePool = stubSharedPool(OTHER_USER_ID, PROJECT_ID, PROJECT_SLUG, "view");
+  const app = createApp();
+  try {
+    for (const [method, url] of [
+      ["POST", `/api/projects/${PROJECT_ID}/extensions/pm-graph/install`],
+      ["POST", `/api/projects/${PROJECT_ID}/extensions/pm-graph/activate`],
+      ["POST", `/api/projects/${PROJECT_ID}/extensions/pm-graph/deactivate`],
+      ["DELETE", `/api/projects/${PROJECT_ID}/extensions/pm-graph`],
+    ] as const) {
+      const { status } = await request(app, method, url, OTHER_USER_ID);
+      assert.equal(status, 403, `${method} ${url} must be refused for a view-only share`);
+    }
+    const log = await readFile(harness.logPath, "utf8").catch(() => "");
+    assert.equal(log, "", "a view-only request must never spawn a pm command");
+
+    // Reading the catalog stays allowed: a viewer may see what a project uses.
+    const { status } = await request(
+      app,
+      "GET",
+      `/api/projects/${PROJECT_ID}/extensions`,
+      OTHER_USER_ID,
+    );
+    assert.equal(status, 200, "a view-only collaborator must still be able to list packages");
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});
+
 test("the realtime extensions-changed event fires on a successful install mutation", async () => {
   const harness = await setupHarness();
   const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);

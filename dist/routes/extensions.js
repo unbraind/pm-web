@@ -11,9 +11,9 @@
 // SECURITY-CRITICAL: every `:name` route parameter is validated against the
 // catalog BEFORE it is passed to any pm command. A catalog lookup miss must
 // 400 before any process spawn — a user-supplied string can never be
-// interpolated into an install target. The catalog's `resolveNpmSpec` returns
-// the verified `npm:<name>` spec, so the spawn argument is always a constant
-// derived from the catalog, never the raw request string.
+// interpolated into an install target. The install target is the matched
+// entry's own `npmSpec` constant, so the spawn argument always comes from the
+// catalog, never from the raw request string.
 //
 // The router is mounted under the same project-scoped path as the pm router
 // (`/api/projects/:projectId/extensions`), so `:projectId` is available via
@@ -27,7 +27,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
 import { routeParam } from "./route-params.js";
 import { runPm } from "../services/pm-runner.js";
-import { PACKAGE_CATALOG, findCatalogEntry, resolveNpmSpec, } from "../services/package-catalog.js";
+import { PACKAGE_CATALOG, findCatalogEntry, } from "../services/package-catalog.js";
 import { broadcastProjectEvent } from "../services/sse.js";
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
@@ -38,7 +38,36 @@ async function verifyProject(userId, projectId) {
     const access = await verifyProjectAccess(userId, projectId);
     if (!access)
         return null;
-    return { slug: access.slug, prefix: access.prefix, ownerUserId: access.ownerUserId };
+    return {
+        slug: access.slug,
+        prefix: access.prefix,
+        ownerUserId: access.ownerUserId,
+        permission: access.permission,
+    };
+}
+/**
+ * Resolve the project for a mutating request, enforcing edit permission.
+ *
+ * Installing, activating, or removing a package changes the workspace for
+ * *every* collaborator, so it is an edit-level action. Sharing grants either
+ * `"view"` or `"edit"`; without this check a view-only collaborator could
+ * install or uninstall packages on someone else's project. Mirrors the
+ * guard `routes/pm.ts` applies to item mutations.
+ *
+ * Responds and returns `null` when access is denied, so callers `return`
+ * immediately on a null result.
+ */
+async function requireEditableProject(req, res) {
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return null;
+    }
+    if (project.permission !== "edit") {
+        res.status(403).json({ error: "This project is shared as view-only." });
+        return null;
+    }
+    return project;
 }
 /** Run `pm extension --json` for a project and parse the extension states. */
 async function readExtensionStates(project) {
@@ -84,6 +113,8 @@ function broadcastExtensionsChanged(projectId, userId, name, operation) {
 // GET /api/projects/:projectId/extensions
 // Catalog joined with live `pm extension --json` state.
 router.get("/", async (req, res) => {
+    // Read-only: a view-only collaborator may see which packages a project uses,
+    // they just cannot change them.
     const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
     if (!project) {
         res.status(404).json({ error: "Project not found" });
@@ -95,11 +126,9 @@ router.get("/", async (req, res) => {
 });
 // POST /api/projects/:projectId/extensions/:name/install
 router.post("/:name/install", async (req, res) => {
-    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
-    if (!project) {
-        res.status(404).json({ error: "Project not found" });
+    const project = await requireEditableProject(req, res);
+    if (!project)
         return;
-    }
     // SECURITY GATE: validate the name against the catalog before any spawn.
     const name = routeParam(req, "name");
     const entry = findCatalogEntry(name);
@@ -107,9 +136,9 @@ router.post("/:name/install", async (req, res) => {
         res.status(400).json({ error: `Unknown package: ${name}` });
         return;
     }
-    const npmSpec = resolveNpmSpec(entry.name);
     const result = await runPm({
-        args: ["install", npmSpec, "--project"],
+        // entry.npmSpec is a catalog constant, never the request string.
+        args: ["install", entry.npmSpec, "--project"],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -123,11 +152,9 @@ router.post("/:name/install", async (req, res) => {
 });
 // POST /api/projects/:projectId/extensions/:name/activate
 router.post("/:name/activate", async (req, res) => {
-    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
-    if (!project) {
-        res.status(404).json({ error: "Project not found" });
+    const project = await requireEditableProject(req, res);
+    if (!project)
         return;
-    }
     const name = routeParam(req, "name");
     const entry = findCatalogEntry(name);
     if (!entry) {
@@ -149,11 +176,9 @@ router.post("/:name/activate", async (req, res) => {
 });
 // POST /api/projects/:projectId/extensions/:name/deactivate
 router.post("/:name/deactivate", async (req, res) => {
-    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
-    if (!project) {
-        res.status(404).json({ error: "Project not found" });
+    const project = await requireEditableProject(req, res);
+    if (!project)
         return;
-    }
     const name = routeParam(req, "name");
     const entry = findCatalogEntry(name);
     if (!entry) {
@@ -175,11 +200,9 @@ router.post("/:name/deactivate", async (req, res) => {
 });
 // DELETE /api/projects/:projectId/extensions/:name
 router.delete("/:name", async (req, res) => {
-    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
-    if (!project) {
-        res.status(404).json({ error: "Project not found" });
+    const project = await requireEditableProject(req, res);
+    if (!project)
         return;
-    }
     const name = routeParam(req, "name");
     const entry = findCatalogEntry(name);
     if (!entry) {
