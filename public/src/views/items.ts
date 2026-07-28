@@ -21,7 +21,7 @@ import type {
   ItemResponse,
   LearningsResponse,
   ListResponse,
-  MatchedItem,
+  ItemPlan,
   NotesResponse,
   TestsResponse,
   UpdateManyResponse,
@@ -246,8 +246,8 @@ export async function previewBulkUpdate(): Promise<void> {
 
   try {
     const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, payload);
-    const matched: MatchedItem[] = data.item_plans || data.items || data.matched || [];
-    const count = data.matched_count ?? data.count ?? data.total ?? matched.length;
+    const matched: ItemPlan[] = data.item_plans ?? [];
+    const count = data.matched_count ?? matched.length;
     const applyBtn = document.getElementById('bu-apply-btn') as HTMLButtonElement | null;
     if (previewEl) {
       const updateParts: string[] = [];
@@ -266,7 +266,7 @@ export async function previewBulkUpdate(): Promise<void> {
         previewEl.innerHTML = `
           <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will update <strong>${displayCount}</strong> item${displayCount!==1?'s':''}: ${updateDesc}</div>
-            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id||'')} ${escHtml(it.title||'')}</div>`).join('')}
+            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
             ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
           </div>`;
         if (applyBtn) applyBtn.disabled = false;
@@ -290,7 +290,7 @@ export async function applyBulkUpdate(): Promise<void> {
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying…'; }
   try {
     const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, payload);
-    const updated = data.updated_count ?? data.updated ?? data.count ?? data.total ?? 'some';
+    const updated = data.updated_count ?? 'some';
     const failed = data.failed_count ?? 0;
     if (failed > 0) {
       toast(`Updated ${updated} item${updated!==1?'s':''} (${failed} failed)`, 'info');
@@ -397,8 +397,8 @@ export async function previewBulkClose(): Promise<void> {
     if (fSprint) previewPayload.filterSprint = fSprint;
     if (fAssignee) previewPayload.filterAssignee = fAssignee;
     const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, previewPayload);
-    const matched: MatchedItem[] = data.item_plans || data.items || data.matched || [];
-    const count = data.matched_count ?? data.count ?? data.total ?? matched.length;
+    const matched: ItemPlan[] = data.item_plans ?? [];
+    const count = data.matched_count ?? matched.length;
     const applyBtn = document.getElementById('bc-apply-btn') as HTMLButtonElement | null;
     if (previewEl) {
       if (count === 0 && matched.length === 0) {
@@ -409,7 +409,7 @@ export async function previewBulkClose(): Promise<void> {
         previewEl.innerHTML = `
           <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will <strong>${targetStatus}</strong> <strong>${displayCount}</strong> item${displayCount!==1?'s':''}. Reason: <em>${escHtml(reason)}</em></div>
-            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id||'')} ${escHtml(it.title||'')}</div>`).join('')}
+            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
             ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
           </div>`;
         if (applyBtn) {

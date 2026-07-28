@@ -22,8 +22,7 @@ async function openGraphAt(nodeId: string): Promise<void> {
   setTimeout(async () => {
     await renderGraphView();
     // Select the node via the graph canvas
-    const appw = window as unknown as { __graphSelectNode?: (id: string) => void };
-    appw.__graphSelectNode?.(nodeId);
+    window.__graphSelectNode?.(nodeId);
   }, 50);
 }
 import { renderSharingView, openShareModal, submitShare, removeShare } from './views/sharing.js';
@@ -420,6 +419,13 @@ declare global {
     __app?: AppBridge;
     installPwa?: () => void;
     dismissInstallBanner?: () => void;
+    /**
+     * Graph view's keydown handler, parked on `window` so the view can detach
+     * the exact same function reference when it tears down.
+     */
+    __graphKeyHandler?: (e: KeyboardEvent) => void;
+    /** Set by the graph view so other views can focus a node by item id. */
+    __graphSelectNode?: (id: string) => void;
   }
   interface WindowEventMap {
     beforeinstallprompt: BeforeInstallPromptEvent;

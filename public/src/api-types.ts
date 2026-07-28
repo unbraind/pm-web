@@ -213,23 +213,73 @@ export interface DepsResponse {
   error?: string;
 }
 
-/** A matched item from `pm update-many` (`item_plans`/`items`/`matched`). */
-export interface MatchedItem {
-  id?: string;
-  title?: string;
+/** One field-level change a dry-run plans for an item. */
+export interface ItemPlanChange {
+  field: string;
+  before: unknown;
+  after: unknown;
 }
 
-/** Response from `POST /api/projects/:id/pm/update-many` — see src/routes/pm.ts. */
+/**
+ * A planned item from a `pm update-many --dry-run` response (`item_plans[]`).
+ *
+ * Carries `id` and the per-field `changes` only — the CLI does **not** include
+ * the item title here, so callers must render `changes` rather than reaching
+ * for a title that never arrives.
+ */
+export interface ItemPlan {
+  id: string;
+  changes: ItemPlanChange[];
+}
+
+/** One per-item outcome row from an applied `pm update-many` (`rows[]`). */
+export interface UpdateManyRow {
+  id: string;
+  status: string;
+  changed_fields: string[];
+  warnings: string[];
+}
+
+/** Rollback checkpoint recorded by an applied `pm update-many`. */
+export interface UpdateManyCheckpoint {
+  id: string;
+  created_at: string;
+  path: string;
+  rollback_command: string;
+}
+
+/**
+ * Response from `POST /api/projects/:id/pm/update-many`.
+ *
+ * The express handler is a pass-through (`res.json(result.parsed || {})` in
+ * src/routes/pm.ts), so the authority for this shape is `pm update-many --json`
+ * itself, not the route. Verified against pm-cli 2026.7.28 by running both
+ * modes and enumerating the top-level keys:
+ *
+ * - `--dry-run` -> `mode, matched_count, dry_run, filters,
+ *   planned_update_options, item_plans, ids`
+ * - apply       -> the same minus `item_plans`, plus `checkpoint, updated_count,
+ *   skipped_count, failed_count, rows`
+ *
+ * Fields present in only one mode are optional here. Note that `count`,
+ * `total`, `updated`, `items`, and `matched` are **not** emitted in either mode;
+ * earlier client code read them as fallbacks, which could never resolve.
+ */
 export interface UpdateManyResponse {
-  item_plans?: MatchedItem[];
-  items?: MatchedItem[];
-  matched?: MatchedItem[];
+  mode?: string;
+  dry_run?: boolean;
   matched_count?: number;
-  count?: number;
-  total?: number;
+  filters?: Record<string, unknown>;
+  planned_update_options?: Record<string, unknown>;
+  ids?: string[];
+  /** Dry-run only. */
+  item_plans?: ItemPlan[];
+  /** Apply only. */
+  checkpoint?: UpdateManyCheckpoint;
   updated_count?: number;
-  updated?: number;
+  skipped_count?: number;
   failed_count?: number;
+  rows?: UpdateManyRow[];
   error?: string;
 }
 

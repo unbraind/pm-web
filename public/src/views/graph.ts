@@ -97,7 +97,7 @@ function showCtxMenu(nodeId: string, x: number, y: number): void {
   };
 
   if (isItem) {
-    menu.appendChild(btn('⊡', 'Open Item', () => (window as unknown as { __app: { openItemDetail(id: string): void } }).__app.openItemDetail(nodeId)));
+    menu.appendChild(btn('⊡', 'Open Item', () => window.__app?.openItemDetail(nodeId)));
     const sep1 = document.createElement('div'); sep1.className = 'graph-ctx-sep'; menu.appendChild(sep1);
   }
   menu.appendChild(btn('⊙', 'Select & Focus', () => {
@@ -1025,7 +1025,7 @@ function initCanvas(): void {
       else selectedItemCache = null;
     },
     onOpenNode(id) {
-      (window as unknown as { __app: { openItemDetail(id: string): void } }).__app.openItemDetail(id);
+      window.__app?.openItemDetail(id);
     },
     onContextMenu(id, x, y) { showCtxMenu(id, x, y); },
   });
@@ -1152,7 +1152,7 @@ function updateLegend(): void {
 
 function bindInfoPanelEvents(): void {
   document.getElementById('graph-open-selected')?.addEventListener('click', () => {
-    if (selectedNodeId) (window as unknown as { __app: { openItemDetail(id: string): void } }).__app.openItemDetail(selectedNodeId);
+    if (selectedNodeId) window.__app?.openItemDetail(selectedNodeId);
   });
   document.getElementById('graph-clear-selected')?.addEventListener('click', () => {
     selectedNodeId = '';
@@ -1211,9 +1211,9 @@ function bindHudEvents(): void {
   document.getElementById('graph-back-btn')?.addEventListener('click', () => {
     removeCtxMenu();
     // Remove graph keyboard handler
-    const kh = (window as unknown as { __graphKeyHandler?: (e: KeyboardEvent) => void }).__graphKeyHandler;
-    if (kh) { document.removeEventListener('keydown', kh); delete (window as unknown as { __graphKeyHandler?: unknown }).__graphKeyHandler; }
-    (window as unknown as { __app: { showView(v: string): void } }).__app.showView('items');
+    const kh = window.__graphKeyHandler;
+    if (kh) { document.removeEventListener('keydown', kh); delete window.__graphKeyHandler; }
+    window.__app?.showView('items');
   });
 
   const runGraphSync = async (): Promise<void> => {
@@ -1538,7 +1538,7 @@ function bindHudEvents(): void {
   };
   document.addEventListener('keydown', graphKeyHandler);
   // Store for cleanup on graph exit
-  (window as unknown as { __graphKeyHandler?: (e: KeyboardEvent) => void }).__graphKeyHandler = graphKeyHandler;
+  window.__graphKeyHandler = graphKeyHandler;
 }
 
 // ── URL routing (pushState) ─────────────────────────────────
@@ -1661,7 +1661,7 @@ function showRemoveDependencyModal(): void {
   }).join('');
 
   if (!depRels.length) {
-    (window as unknown as { __app: { toast(msg: string, type: string): void } }).__app.toast('No dependencies to remove', 'info');
+    window.__app?.toast('No dependencies to remove', 'info');
     return;
   }
 
@@ -1852,14 +1852,12 @@ export async function renderLocalGraph(
       if (id !== nodeId) {
         const n = nodes.find((nd) => nd.id === id);
         if (n && isItemNode(n)) {
-          const appw = window as unknown as { __app?: { openItemDetail(id: string): void } };
-          appw.__app?.openItemDetail(id);
+          window.__app?.openItemDetail(id);
         }
       }
     },
     onOpenNode(id) {
-      const appw = window as unknown as { __app?: { openItemDetail(id: string): void } };
-      appw.__app?.openItemDetail(id);
+      window.__app?.openItemDetail(id);
     },
     onContextMenu() { /* no context menu in local graph */ },
   });
