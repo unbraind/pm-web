@@ -12,6 +12,36 @@ import { loadItemsBadge } from './projects.js';
 import { renderLocalGraph, destroyLocalGraph } from './graph.js';
 import { EMPTY_FILTERS, filtersToQueryString, filtersFromSearchParams, hasActiveFilters } from '../filters.js';
 import type { Item } from '../types.js';
+import type {
+  CloseManyResponse,
+  CommentsResponse,
+  DepsResponse,
+  FilesResponse,
+  HistoryResponse,
+  ItemResponse,
+  LearningsResponse,
+  ListResponse,
+  ItemPlan,
+  NotesResponse,
+  TestsResponse,
+  UpdateManyResponse,
+} from '../api-types.js';
+
+// Stash the bulk-update / bulk-close payloads on the apply buttons without
+// mutating the DOM nodes. A module-scoped WeakMap per modal keeps the payload
+// alive across the Preview → Apply call pair and is GC-friendly.
+const bulkUpdatePayloads = new WeakMap<HTMLElement, Record<string, string>>();
+const bulkClosePayloads = new WeakMap<HTMLElement, BulkClosePayload>();
+
+/** Payload stashed for `applyBulkClose` by `previewBulkClose`. */
+interface BulkClosePayload {
+  fStatus: string;
+  fType: string;
+  fSprint: string;
+  fAssignee: string;
+  targetStatus: string;
+  reason: string;
+}
 
 // Mirror the active item filters into the URL query string (on the /items
 // path) so a filtered view is shareable and bookmarkable. Replaces the current
@@ -215,9 +245,9 @@ export async function previewBulkUpdate(): Promise<void> {
   payload.dryRun = 'true';
 
   try {
-    const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
-    const matched: any[] = (data as any).item_plans || (data as any).items || (data as any).matched || [];
-    const count = (data as any).matched_count ?? (data as any).count ?? (data as any).total ?? matched.length;
+    const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, payload);
+    const matched: ItemPlan[] = data.item_plans ?? [];
+    const count = data.matched_count ?? matched.length;
     const applyBtn = document.getElementById('bu-apply-btn') as HTMLButtonElement | null;
     if (previewEl) {
       const updateParts: string[] = [];
@@ -236,14 +266,14 @@ export async function previewBulkUpdate(): Promise<void> {
         previewEl.innerHTML = `
           <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will update <strong>${displayCount}</strong> item${displayCount!==1?'s':''}: ${updateDesc}</div>
-            ${matched.slice(0,8).map((it: any)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id||'')} ${escHtml(it.title||'')}</div>`).join('')}
+            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
             ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
           </div>`;
         if (applyBtn) applyBtn.disabled = false;
         // Store payload for apply (without dryRun)
         const applyPayload = { ...payload };
         delete applyPayload.dryRun;
-        (applyBtn as any)._bulkPayload = applyPayload;
+        if (applyBtn) bulkUpdatePayloads.set(applyBtn, applyPayload);
       }
     }
   } catch(err: unknown) {
@@ -255,13 +285,13 @@ export async function applyBulkUpdate(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
   const applyBtn = document.getElementById('bu-apply-btn') as HTMLButtonElement | null;
-  const payload = (applyBtn as any)?._bulkPayload;
+  const payload = applyBtn ? bulkUpdatePayloads.get(applyBtn) : undefined;
   if (!payload) { toast('Run Preview first', 'info'); return; }
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying…'; }
   try {
-    const data = await api('POST', `/projects/${pid}/pm/update-many`, payload);
-    const updated = (data as any).updated_count ?? (data as any).updated ?? (data as any).count ?? (data as any).total ?? 'some';
-    const failed = (data as any).failed_count ?? 0;
+    const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, payload);
+    const updated = data.updated_count ?? 'some';
+    const failed = data.failed_count ?? 0;
     if (failed > 0) {
       toast(`Updated ${updated} item${updated!==1?'s':''} (${failed} failed)`, 'info');
     } else {
@@ -366,9 +396,9 @@ export async function previewBulkClose(): Promise<void> {
     if (fType) previewPayload.filterType = fType;
     if (fSprint) previewPayload.filterSprint = fSprint;
     if (fAssignee) previewPayload.filterAssignee = fAssignee;
-    const data = await api('POST', `/projects/${pid}/pm/update-many`, previewPayload);
-    const matched: any[] = (data as any).item_plans || (data as any).items || (data as any).matched || [];
-    const count = (data as any).matched_count ?? (data as any).count ?? (data as any).total ?? matched.length;
+    const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, previewPayload);
+    const matched: ItemPlan[] = data.item_plans ?? [];
+    const count = data.matched_count ?? matched.length;
     const applyBtn = document.getElementById('bc-apply-btn') as HTMLButtonElement | null;
     if (previewEl) {
       if (count === 0 && matched.length === 0) {
@@ -379,12 +409,12 @@ export async function previewBulkClose(): Promise<void> {
         previewEl.innerHTML = `
           <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will <strong>${targetStatus}</strong> <strong>${displayCount}</strong> item${displayCount!==1?'s':''}. Reason: <em>${escHtml(reason)}</em></div>
-            ${matched.slice(0,8).map((it: any)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id||'')} ${escHtml(it.title||'')}</div>`).join('')}
+            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
             ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
           </div>`;
         if (applyBtn) {
           applyBtn.disabled = false;
-          (applyBtn as any)._bulkClosePayload = { fStatus, fType, fSprint, fAssignee, targetStatus, reason };
+          bulkClosePayloads.set(applyBtn, { fStatus, fType, fSprint, fAssignee, targetStatus, reason });
         }
       }
     }
@@ -397,7 +427,7 @@ export async function applyBulkClose(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
   const applyBtn = document.getElementById('bc-apply-btn') as HTMLButtonElement | null;
-  const bulkClosePayload = (applyBtn as any)?._bulkClosePayload as Record<string, string> | undefined;
+  const bulkClosePayload = applyBtn ? bulkClosePayloads.get(applyBtn) : undefined;
   if (!bulkClosePayload) { toast('Run Preview first', 'info'); return; }
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Closing…'; }
 
@@ -413,9 +443,9 @@ export async function applyBulkClose(): Promise<void> {
   if (bulkClosePayload.fAssignee) payload.filterAssignee = bulkClosePayload.fAssignee;
 
   try {
-    const data = await api('POST', `/projects/${pid}/pm/close-many`, payload);
-    const closed = (data as any).closed_count ?? 'some';
-    const failed = (data as any).failed_count ?? 0;
+    const data = await api<CloseManyResponse>('POST', `/projects/${pid}/pm/close-many`, payload);
+    const closed = data.closed_count ?? 'some';
+    const failed = data.failed_count ?? 0;
     if (failed > 0) {
       toast(`Closed ${closed} item${closed!==1?'s':''} (${failed} failed)`, 'info');
     } else {
@@ -497,7 +527,7 @@ export async function fetchAndRenderItems(): Promise<void> {
   const endpoint = f.status ? `list?${params}` : `list-all?${params}`;
 
   try {
-    const data = await api('GET',`/projects/${pid}/pm/${endpoint}`);
+    const data = await api<ListResponse>('GET',`/projects/${pid}/pm/${endpoint}`);
     let items: Item[] = data.items || [];
     // Tag is filtered client-side (pm list has no --tag flag): match items
     // whose tag list contains the requested tag (case-insensitive).
@@ -603,17 +633,17 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
   try {
     const [itemData, commentsData, historyData, depsData, learningsData, notesData, testsData, filesData] = await Promise.all([
-      api('GET',`/projects/${pid}/pm/get/${itemId}`),
-      api('GET',`/projects/${pid}/pm/comments/${itemId}`).catch(()=>({comments:[]})),
-      api('GET',`/projects/${pid}/pm/history/${itemId}`).catch(()=>({history:[]})),
-      api('GET',`/projects/${pid}/pm/deps/${itemId}`).catch(()=>({deps:[]})),
-      api('GET',`/projects/${pid}/pm/learnings/${itemId}`).catch(()=>({learnings:[]})),
-      api('GET',`/projects/${pid}/pm/notes/${itemId}`).catch(()=>({notes:[]})),
-      api('GET',`/projects/${pid}/pm/tests/${itemId}`).catch(()=>({tests:[]})),
-      api('GET',`/projects/${pid}/pm/files/${itemId}`).catch(()=>({files:[]})),
+      api<ItemResponse>('GET',`/projects/${pid}/pm/get/${itemId}`),
+      api<CommentsResponse>('GET',`/projects/${pid}/pm/comments/${itemId}`).catch(()=>({comments:[]})),
+      api<HistoryResponse>('GET',`/projects/${pid}/pm/history/${itemId}`).catch(()=>({history:[]})),
+      api<DepsResponse>('GET',`/projects/${pid}/pm/deps/${itemId}`).catch(()=>({deps:[]} as DepsResponse)),
+      api<LearningsResponse>('GET',`/projects/${pid}/pm/learnings/${itemId}`).catch(()=>({learnings:[]})),
+      api<NotesResponse>('GET',`/projects/${pid}/pm/notes/${itemId}`).catch(()=>({notes:[]})),
+      api<TestsResponse>('GET',`/projects/${pid}/pm/tests/${itemId}`).catch(()=>({tests:[]})),
+      api<FilesResponse>('GET',`/projects/${pid}/pm/files/${itemId}`).catch(()=>({files:[]})),
     ]);
 
-    const item = itemData.item || itemData;
+    const item: Item = itemData.item || (itemData as Item);
     const comments = commentsData.comments || [];
     const history = historyData.history || [];
     const deps = depsData.deps || depsData.dependencies || [];
@@ -632,7 +662,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
     const notesHtml = notes.length === 0
       ? '<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No notes yet</div>'
-      : notes.map((n: any)=>`
+      : notes.map((n)=>`
           <div class="notes-item">
             <div class="notes-item-meta">${relTime(n.timestamp||n.created_at||'')}</div>
             <div class="notes-item-text">${escHtml(n.text||n.content||JSON.stringify(n))}</div>
@@ -640,7 +670,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
     const testsHtml = tests.length === 0
       ? '<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No tests defined</div>'
-      : tests.map((t: any)=>`
+      : tests.map((t)=>`
           <div class="test-item">
             <div style="flex:1">
               <div class="test-item-cmd">${escHtml(t.command||t.cmd||JSON.stringify(t))}</div>
@@ -650,7 +680,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
     const commentsHtml = comments.length === 0
       ? '<div style="color:var(--text-muted);font-size:13px">No comments yet</div>'
-      : comments.map((c: any)=>`
+      : comments.map((c)=>`
           <div class="comment-item">
             <div class="comment-avatar">💬</div>
             <div class="comment-body">
@@ -661,7 +691,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
     const historyHtml = history.length === 0
       ? '<div style="color:var(--text-muted);font-size:13px">No history</div>'
-      : history.slice(0,10).map((h: any)=>`
+      : history.slice(0,10).map((h)=>`
           <div class="history-item">
             <div class="history-dot"></div>
             <div><div class="history-text">${escHtml(h.message||h.action||JSON.stringify(h))}</div><div class="history-time">${relTime(h.timestamp||h.created_at)}</div></div>
@@ -675,7 +705,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="item-detail-title">${escHtml(item.title)}</div>
         <div class="item-detail-meta">
           ${statusBadge(item.status||'draft')}
-          <div class="meta-chip">${priorityDot(item.priority??4)} <strong>P${item.priority}</strong> ${PRIORITY_LABELS[item.priority]||''}</div>
+          <div class="meta-chip">${priorityDot(item.priority??4)} <strong>P${item.priority ?? '—'}</strong> ${item.priority !== undefined ? (PRIORITY_LABELS[item.priority]||'') : ''}</div>
           ${item.created_at ? `<div class="meta-chip">Created <strong>${fmtDate(item.created_at)}</strong></div>` : ''}
           ${item.updated_at ? `<div class="meta-chip">Updated <strong>${relTime(item.updated_at)}</strong></div>` : ''}
           ${item.parent ? `<div class="meta-chip">Parent <strong class="mono">${escHtml(item.parent)}</strong></div>` : ''}
@@ -854,7 +884,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div style="margin-bottom:16px">
           ${learnings.length === 0
             ? `<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No learnings recorded</div>`
-            : learnings.map((l: any)=>`<div class="learning-row">
+            : learnings.map((l)=>`<div class="learning-row">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">${relTime(l.timestamp||l.created_at||'')}</div>
                 ${escHtml(l.text||l.content||JSON.stringify(l))}
               </div>`).join('')
@@ -900,7 +930,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div style="margin-bottom:16px">
           ${files.length === 0
             ? '<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No files linked</div>'
-            : files.map((f: any) => `
+            : files.map((f) => `
                 <div class="file-row">
                   <span style="color:var(--text-muted)">📄</span>
                   <span class="file-path">${escHtml(f.path || f.name || JSON.stringify(f))}</span>

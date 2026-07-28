@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { skeletonCards } from '../utils.js';
+import type { SharedProject, SharedProjectsResponse } from '../api-types.js';
 
 export async function renderSharedView(): Promise<void> {
   const el = document.getElementById('content-shared');
@@ -16,8 +17,8 @@ export async function renderSharedView(): Promise<void> {
     </div>
     <div id="shared-content">${skeletonCards(3)}</div>`;
   try {
-    const data = await api('GET', '/shared');
-    const projects = (data as any).projects || [];
+    const data = await api<SharedProjectsResponse>('GET', '/shared');
+    const projects: SharedProject[] = data.projects || [];
     const el2 = document.getElementById('shared-content');
     if (!el2) return;
     if (projects.length === 0) {
@@ -31,7 +32,7 @@ export async function renderSharedView(): Promise<void> {
     }
     el2.innerHTML = `
       <div class="projects-grid">
-        ${projects.map((p: any) => `
+        ${projects.map((p) => `
           <div class="project-card" onclick="window.__app.selectProject('${p.id}')">
             <div class="project-card-name">${escHtml(p.name)}</div>
             <div class="project-card-slug mono">${escHtml(p.slug)}</div>

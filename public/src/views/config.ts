@@ -193,8 +193,8 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
     </div>
   `;
 
-  // Store the current keys in DOM for mutation use
-  (el as any).__configKeys = keys;
+  // Store the current keys in DOM for mutation use (typed extension).
+  (el as HTMLElement & { __configKeys?: ConfigKey[] }).__configKeys = keys;
 }
 
 // ─── Array field helpers ───────────────────────────────────────

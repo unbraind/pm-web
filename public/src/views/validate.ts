@@ -4,6 +4,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
+import type { ValidateIssue, ValidateResponse } from '../api-types.js';
 
 export async function renderValidateView(): Promise<void> {
   const el = document.getElementById('content-validate');
@@ -16,19 +17,19 @@ export async function renderValidateView(): Promise<void> {
     </div>
     <div id="validate-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
   try {
-    const data = await api('GET', `/projects/${state.currentProject.id}/pm/validate`) as any;
-    const issues = data.issues || data.errors || data.violations || [];
-    const warnings = data.warnings || [];
+    const data = await api<ValidateResponse>('GET', `/projects/${state.currentProject.id}/pm/validate`);
+    const issues: ValidateIssue[] = data.issues || data.errors || data.violations || [];
+    const warnings: ValidateIssue[] = data.warnings || [];
     const el2 = document.getElementById('validate-content');
     if (!el2) return;
-    const allIssues = [...issues.map((i: any)=>({...i,level:'error'})), ...warnings.map((w: any)=>({...w,level:'warning'}))];
+    const allIssues = [...issues.map((i)=>({...i,level:'error'})), ...warnings.map((w)=>({...w,level:'warning'}))];
     el2.innerHTML = `
       <div class="card" style="margin-bottom:12px">
         <div class="card-header"><div class="card-title">Validation Results</div></div>
         <div class="card-body">
           ${allIssues.length === 0
             ? '<div style="color:var(--status-closed);font-size:13px">✓ All checks passed — no issues found!</div>'
-            : allIssues.map((i: any)=>`
+            : allIssues.map((i)=>`
               <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
                 <span style="color:${i.level==='error'?'var(--status-blocked)':'var(--priority-3)'};flex-shrink:0">${i.level==='error'?'✗':'⚠'}</span>
                 <div>

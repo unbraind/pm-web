@@ -405,6 +405,131 @@ router.get("/schema", async (req, res) => {
         canceledStatus: typeof rt?.["canceled_status"] === "string" ? rt["canceled_status"] : "canceled",
     });
 });
+/**
+ * Reject a user-supplied value that would be parsed as a CLI flag.
+ *
+ * `runPm` passes an argv array rather than a shell string, so there is no shell
+ * injection here — but a value beginning with `-` would still be consumed by
+ * commander as an option instead of the positional it is meant to be. Item ids
+ * and schema names are never legitimately `-`-prefixed.
+ */
+function isFlagLike(value) {
+    return value.startsWith("-");
+}
+/**
+ * Whether a custom item type's storage folder is a safe relative subpath.
+ *
+ * This is a **tenant boundary**, not a style check. `pm schema add-type --folder`
+ * is not path-validated by the CLI: a `..` segment is honoured, so a subsequent
+ * `pm create` of that type writes the item's `.toon` outside the pm root.
+ * Verified against pm-cli 2026.7.28 — `--folder ../../../../../../tmp/x` placed
+ * the item six levels above the workspace, while the history file stayed inside.
+ * (Absolute paths are safe: the CLI strips the leading separator and treats them
+ * as relative to the pm root.)
+ *
+ * Project workspaces here live at `PROJECTS_ROOT/<ownerUserId>/<slug>/.agents/pm`,
+ * so an unchecked `..` would let one tenant write into another tenant's project.
+ * Only plain nested segments are accepted.
+ */
+function isSafeTypeFolder(folder) {
+    if (folder.startsWith("/") || folder.startsWith("\\"))
+        return false;
+    // Reject drive-letter and UNC forms so behaviour does not depend on the host OS.
+    if (/^[a-zA-Z]:/.test(folder))
+        return false;
+    const segments = folder.split(/[/\\]/);
+    return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+/**
+ * POST /api/projects/:projectId/pm/schema/add-type
+ *
+ * Registers a custom item type via `pm schema add-type <name>`. The config view
+ * has offered this control since it shipped, but the route was never mounted, so
+ * the button failed for every user; see pm-web#71.
+ *
+ * Mutating, so the router-level guard above has already rejected view-only
+ * collaborators with 403 before this handler runs.
+ */
+router.post("/schema/add-type", async (req, res) => {
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const body = req.body;
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+        res.status(400).json({ error: "name is required" });
+        return;
+    }
+    if (isFlagLike(name)) {
+        res.status(400).json({ error: "name must not start with '-'" });
+        return;
+    }
+    // `--folder` escapes the workspace if it contains `..` (see isSafeTypeFolder),
+    // which in this multi-tenant layout would reach another user's project.
+    const folder = typeof body.folder === "string" ? body.folder.trim() : "";
+    if (folder !== "" && !isSafeTypeFolder(folder)) {
+        res.status(400).json({ error: "folder must be a relative path without '..' segments" });
+        return;
+    }
+    const args = ["schema", "add-type", name];
+    const stringFlags = [
+        [body.description, "--description"],
+        [body.defaultStatus, "--default-status"],
+        [folder, "--folder"],
+    ];
+    for (const [raw, flag] of stringFlags) {
+        if (typeof raw === "string" && raw.trim() !== "")
+            args.push(flag, raw.trim());
+    }
+    // `--alias` is repeatable; the client sends the parsed array.
+    if (Array.isArray(body.aliases)) {
+        for (const alias of body.aliases) {
+            if (typeof alias === "string" && alias.trim() !== "")
+                args.push("--alias", alias.trim());
+        }
+    }
+    const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "pm schema add-type failed" });
+        return;
+    }
+    res.json(result.parsed || { ok: true, name });
+});
+/**
+ * POST /api/projects/:projectId/pm/items/:itemId/history-repair
+ *
+ * Re-anchors a drifted item history chain via `pm history-repair <id>`, with
+ * `{ dryRun: true }` mapping to `--dry-run` so the health view can preview the
+ * impact before writing. Like add-type above, the health view rendered Repair and
+ * Dry Run controls against a route that was never mounted.
+ */
+router.post("/items/:itemId/history-repair", async (req, res) => {
+    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
+    if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+    }
+    const itemId = routeParam(req, "itemId").trim();
+    if (!itemId) {
+        res.status(400).json({ error: "itemId is required" });
+        return;
+    }
+    if (isFlagLike(itemId)) {
+        res.status(400).json({ error: "itemId must not start with '-'" });
+        return;
+    }
+    const args = ["history-repair", itemId];
+    if (req.body?.dryRun === true)
+        args.push("--dry-run");
+    const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+    if (!result.ok) {
+        res.status(400).json({ error: result.stderr || "pm history-repair failed" });
+        return;
+    }
+    res.json(result.parsed || { ok: true, id: itemId });
+});
 // GET /api/projects/:projectId/pm/list
 router.get("/list", async (req, res) => {
     const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));

@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { renderItemRow } from './items.js';
+import type { SearchResponse } from '../api-types.js';
 
 let searchTimer: ReturnType<typeof setTimeout>;
 
@@ -77,8 +78,8 @@ export async function doSearch(): Promise<void> {
   const resultsEl = document.getElementById('search-results');
   if (resultsEl) resultsEl.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   try {
-    const data = await api('POST',`/projects/${state.currentProject.id}/pm/search`,{query,mode:state.searchMode});
-    state.searchResults = (data as any).results || (data as any).items || [];
+    const data = await api<SearchResponse>('POST',`/projects/${state.currentProject.id}/pm/search`,{query,mode:state.searchMode});
+    state.searchResults = data.results || data.items || [];
     if (resultsEl) resultsEl.innerHTML = state.searchResults.length === 0
       ? `<div class="empty-state"><div class="empty-state-text">No results for "${escHtml(query)}"</div></div>`
       : renderSearchResults();

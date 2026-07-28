@@ -4,6 +4,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml, statusBadge, typeIcon } from '../utils.js';
+import type { HealthResponse, StatsResponse } from '../api-types.js';
 
 export async function renderStatsView(): Promise<void> {
   const el = document.getElementById('content-stats');
@@ -18,13 +19,13 @@ export async function renderStatsView(): Promise<void> {
 
   try {
     const [statsData, aggData, healthData] = await Promise.all([
-      api('GET',`/projects/${state.currentProject.id}/pm/stats`),
+      api<StatsResponse>('GET',`/projects/${state.currentProject.id}/pm/stats`),
       api('GET',`/projects/${state.currentProject.id}/pm/aggregate`).catch(()=>({})),
-      api('GET',`/projects/${state.currentProject.id}/pm/health`).catch(()=>({})),
+      api<HealthResponse>('GET',`/projects/${state.currentProject.id}/pm/health`).catch(()=>({} as HealthResponse)),
     ]);
 
-    const s = (statsData as any).stats || statsData;
-    const health = (healthData as any).health || healthData;
+    const s = statsData.stats || statsData;
+    const health = healthData.health || healthData;
     const byStatus = s.byStatus || {};
     const byType = s.byType || {};
     const total = s.total || (Object.values(byStatus) as number[]).reduce((a,b)=>a+b,0) || 0;
@@ -68,17 +69,17 @@ export async function renderStatsView(): Promise<void> {
           </div>
         </div>
       </div>
-      ${health && ((health as any).issues||(health as any).score!==undefined) ? `
+      ${health && (health.issues||health.score!==undefined) ? `
         <div class="card" style="margin-top:16px">
           <div class="card-header">
             <div class="card-title">Project Health</div>
-            ${(health as any).score !== undefined ? `<div class="health-indicator">
-              <div class="health-dot ${(health as any).score>=80?'health-good':(health as any).score>=50?'health-warn':'health-bad'}"></div>
-              <span style="font-size:13px;color:var(--text-secondary)">${(health as any).score}/100</span>
+            ${health.score !== undefined ? `<div class="health-indicator">
+              <div class="health-dot ${health.score>=80?'health-good':health.score>=50?'health-warn':'health-bad'}"></div>
+              <span style="font-size:13px;color:var(--text-secondary)">${health.score}/100</span>
             </div>` : ''}
           </div>
           <div class="card-body">
-            ${((health as any).issues||[]).map((i: any)=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-secondary)">⚠ ${escHtml(i.message||i)}</div>`).join('') || '<div style="color:var(--status-closed);font-size:13px">✓ No issues found</div>'}
+            ${(health.issues||[]).map((i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-secondary)">⚠ ${escHtml(i.message||String(i))}</div>`).join('') || '<div style="color:var(--status-closed);font-size:13px">✓ No issues found</div>'}
           </div>
         </div>` : ''}`;
   } catch(err: unknown) {

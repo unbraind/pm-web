@@ -7,6 +7,8 @@ import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { confirmDialog } from '../components/modals.js';
 import { t, translateError, localeDate, getLocale, SUPPORTED_LOCALES, type SupportedLocale } from '../i18n.js';
+import type { GithubTokenResponse, ProfileResponse } from '../api-types.js';
+import type { User } from '../types.js';
 
 function avatarInitial(name: string): string {
   return (name.trim()[0] || '?').toUpperCase();
@@ -30,7 +32,7 @@ const LOCALE_LABEL_KEYS: Record<SupportedLocale, string> = {
 export function renderSettingsView(): void {
   const el = document.getElementById('content-settings');
   if (!el) return;
-  const u = state.user || ({} as any);
+  const u = state.user || ({} as User);
   const createdInfo = u.created_at
     ? `<span style="display:block;margin-top:4px;font-size:12px;color:var(--text-muted)">${escHtml(t('settings.accountCreated', { date: localeDate(u.created_at, { year: 'numeric', month: 'long', day: 'numeric' }) }))}</span>`
     : '';
@@ -135,9 +137,9 @@ export async function saveProfile(): Promise<void> {
   if (errEl) errEl.style.display = 'none';
   if (btn) { btn.disabled = true; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.saving'); }
   try {
-    const data = await api('PATCH','/auth/profile',{displayName});
-    if ((data as any).user) {
-      state.user = { ...state.user!, ...(data as any).user };
+    const data = await api<ProfileResponse>('PATCH','/auth/profile',{displayName});
+    if (data.user) {
+      state.user = { ...state.user!, ...data.user };
     } else {
       state.user!.display_name = displayName;
     }
@@ -191,8 +193,8 @@ export async function saveGitHubToken(): Promise<void> {
   if (errEl) errEl.style.display = 'none';
   if (btn) { btn.disabled = true; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.saving'); }
   try {
-    const data = await api('PATCH','/auth/github-token',{token});
-    state.user!.has_github_token = (data as any).hasToken !== undefined ? (data as any).hasToken : true;
+    const data = await api<GithubTokenResponse>('PATCH','/auth/github-token',{token});
+    state.user!.has_github_token = data.hasToken !== undefined ? data.hasToken : true;
     toast(t('settings.tokenSaved'),'success');
     renderSettingsView();
   } catch(err: unknown) {

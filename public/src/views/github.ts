@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
+import type { GitHubImportResponse, GitHubIssuesResponse, GitHubIssueRow, GitHubPushResponse, GitHubRepoResponse, ListResponse } from '../api-types.js';
 
 export async function renderGitHubView(): Promise<void> {
   const el = document.getElementById('content-github');
@@ -37,15 +38,15 @@ export async function renderGitHubView(): Promise<void> {
   }
 
   try {
-    const data = await api('GET',`/projects/${state.currentProject.id}/github`);
-    renderGitHubContent(data as any);
+    const data = await api<GitHubRepoResponse>('GET',`/projects/${state.currentProject.id}/github`);
+    renderGitHubContent(data);
   } catch(err: unknown) {
     const contentEl = document.getElementById('github-content');
     if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
   }
 }
 
-function renderGitHubContent(data: any): void {
+function renderGitHubContent(data: GitHubRepoResponse): void {
   const linked = data.linked;
   const owner = data.owner || '';
   const repo = data.repo || '';
@@ -151,8 +152,8 @@ export async function loadGitHubIssues(): Promise<void> {
   if (!el) return;
   el.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   try {
-    const data = await api('GET',`/projects/${state.currentProject!.id}/github/issues`);
-    const issues = (data as any).issues || [];
+    const data = await api<GitHubIssuesResponse>('GET',`/projects/${state.currentProject!.id}/github/issues`);
+    const issues: GitHubIssueRow[] = data.issues || [];
     if (issues.length === 0) {
       el.innerHTML = '<div style="color:var(--text-muted);font-size:13px">No open issues found in this repository.</div>';
       return;
@@ -166,12 +167,12 @@ export async function loadGitHubIssues(): Promise<void> {
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;margin-bottom:12px">
-        ${issues.map((i: any)=>`
+        ${issues.map((i)=>`
           <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:var(--transition)" onmouseover="this.style.borderColor='var(--border-light)'" onmouseout="this.style.borderColor='var(--border)'">
             <input type="checkbox" class="gh-issue-cb" data-number="${escHtml(String(i.number))}" style="margin-top:2px;accent-color:var(--accent)">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:500">${escHtml(i.title||'')}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">#${escHtml(String(i.number))}${i.labels?.length?` · ${i.labels.map((l: any)=>escHtml(l.name||l)).join(', ')}`:''}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">#${escHtml(String(i.number))}${i.labels?.length?` · ${i.labels.map((l)=>escHtml(l.name)).join(', ')}`:''}</div>
             </div>
           </label>`).join('')}
       </div>
@@ -191,7 +192,7 @@ export async function loadItemsForPush(): Promise<void> {
   el.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   try {
     const [itemsData, linksData] = await Promise.all([
-      api('GET', `/projects/${state.currentProject!.id}/pm/list-all?limit=200`) as Promise<{ items?: any[] }>,
+      api<ListResponse>('GET', `/projects/${state.currentProject!.id}/pm/list-all?limit=200`),
       api('GET', `/projects/${state.currentProject!.id}/github/links`) as Promise<{ links?: Array<{ pm_item_id: string; issue_number: number; issue_url: string }> }>,
     ]);
     const items = itemsData.items || [];
@@ -211,7 +212,7 @@ export async function loadItemsForPush(): Promise<void> {
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;margin-bottom:12px">
-        ${items.map((i: any) => {
+        ${items.map((i) => {
           const link = linkMap.get(i.id);
           const linkedBadge = link ? `<a href="${escHtml(link.issue_url)}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);margin-top:2px;display:block">#${link.issue_number} ↗</a>` : '';
           const updateBtn = link ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="window.__app.updateGitHubIssue('${escHtml(i.id)}')">Update</button>` : '';
@@ -245,7 +246,7 @@ export async function pushItemsToGitHub(): Promise<void> {
   const resultEl = document.getElementById('github-push-result');
   if (resultEl) resultEl.style.display = 'none';
   try {
-    const data = await api('POST', `/projects/${state.currentProject!.id}/github/push`, { itemIds }) as { pushed?: any[]; errors?: any[]; total?: number };
+    const data = await api<GitHubPushResponse>('POST', `/projects/${state.currentProject!.id}/github/push`, { itemIds });
     const pushed = data.pushed || [];
     const errors = data.errors || [];
     toast(`Pushed ${pushed.length} item${pushed.length!==1?'s':''}${errors.length?' ('+errors.length+' error'+( errors.length!==1?'s':'')+')':''}`, errors.length ? 'info' : 'success');
@@ -254,8 +255,8 @@ export async function pushItemsToGitHub(): Promise<void> {
       resultEl.innerHTML = `
         <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
           <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Push Results</div>
-          ${pushed.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Pushed ${pushed.length}: ${pushed.map((p: any)=>`<a href="${escHtml(p.issueUrl)}" target="_blank" style="color:var(--accent)">#${p.issueNumber}</a>`).join(', ')}</div>` : ''}
-          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} failed: ${errors.map((e: any)=>escHtml(String(e))).join('; ')}</div>` : ''}
+          ${pushed.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Pushed ${pushed.length}: ${pushed.map((p)=>`<a href="${escHtml(p.issueUrl)}" target="_blank" style="color:var(--accent)">#${p.issueNumber}</a>`).join(', ')}</div>` : ''}
+          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} failed: ${errors.map((e)=>escHtml(String(e))).join('; ')}</div>` : ''}
         </div>`;
     }
     loadItemsForPush();
@@ -285,21 +286,22 @@ export async function importGitHubIssues(): Promise<void> {
   const resultEl = document.getElementById('github-import-result');
   if (resultEl) resultEl.style.display = 'none';
   try {
-    const data = await api('POST',`/projects/${state.currentProject!.id}/github/import`,{issueNumbers});
-    const created = (data as any).created || [];
-    const errors = (data as any).errors || [];
+    const data = await api<GitHubImportResponse>('POST',`/projects/${state.currentProject!.id}/github/import`,{issueNumbers});
+    const created = data.created || [];
+    const errors = data.errors || [];
     toast(`Imported ${created.length} issue${created.length!==1?'s':''}${errors.length?' ('+errors.length+' error'+( errors.length!==1?'s':'')+')':''}`, errors.length ? 'info' : 'success');
     if (resultEl) {
       resultEl.style.display = '';
       resultEl.innerHTML = `
         <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
           <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Import Results</div>
-          ${created.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Created ${created.length} item${created.length!==1?'s':''}: ${created.map((id: any)=>`<span class="mono" style="font-size:11px">${escHtml(String(id))}</span>`).join(', ')}</div>` : ''}
-          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} error${errors.length!==1?'s':''}: ${errors.map((e: any)=>escHtml(String(e.message||e))).join('; ')}</div>` : ''}
+          ${created.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Created ${created.length} item${created.length!==1?'s':''}: ${created.map((id)=>`<span class="mono" style="font-size:11px">${escHtml(String(id))}</span>`).join(', ')}</div>` : ''}
+          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} error${errors.length!==1?'s':''}: ${errors.map((e)=>escHtml(String(e))).join('; ')}</div>` : ''}
         </div>`;
     }
     // loadItemsBadge is in projects.ts, import via app bridge
-    if ((window as any).__app?.loadItemsBadge) (window as any).__app.loadItemsBadge();
+    const loadBadge = window.__app?.loadItemsBadge;
+    if (loadBadge) loadBadge();
   } catch(err: unknown) {
     toast(`Import failed: ${err instanceof Error ? err.message : String(err)}`,'error');
   } finally {

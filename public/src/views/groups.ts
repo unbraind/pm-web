@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
+import type { GroupDetailResponse, GroupMemberRow, GroupsResponse, GroupListRow } from '../api-types.js';
 
 export async function renderGroupsView(): Promise<void> {
   const el = document.getElementById('content-groups');
@@ -26,8 +27,8 @@ async function loadGroups(): Promise<void> {
   const el = document.getElementById('groups-list');
   if (!el) return;
   try {
-    const data = await api('GET','/groups');
-    const groups = (data as any).groups || [];
+    const data = await api<GroupsResponse>('GET','/groups');
+    const groups: GroupListRow[] = data.groups || [];
     if (groups.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
@@ -38,7 +39,7 @@ async function loadGroups(): Promise<void> {
       return;
     }
     el.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">
-      ${groups.map((g: any)=>`
+      ${groups.map((g)=>`
         <div class="group-row" onclick="window.__app.openGroupDetail('${escHtml(g.id)}','${escHtml(g.name)}')">
           <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--accent);flex-shrink:0">
             ${escHtml((g.name||'?').slice(0,2).toUpperCase())}
@@ -47,7 +48,7 @@ async function loadGroups(): Promise<void> {
             <div class="group-name">${escHtml(g.name)}</div>
             ${g.description ? `<div class="group-desc">${escHtml(g.description)}</div>` : ''}
           </div>
-          <span class="sidebar-badge">${g.memberCount||g.members?.length||0} members</span>
+          <span class="sidebar-badge">${g.member_count||0} members</span>
           <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();window.__app.deleteGroup('${escHtml(g.id)}','${escHtml(g.name)}')">Delete</button>
         </div>`).join('')}
     </div>`;
@@ -105,14 +106,14 @@ export async function openGroupDetail(groupId: string, _groupName: string): Prom
   showModal('group-detail-modal');
 
   try {
-    const data = await api('GET',`/groups/${groupId}`);
-    const group = (data as any).group || {id:groupId,name:_groupName,members:[]};
-    const members = group.members || [];
+    const data = await api<GroupDetailResponse>('GET',`/groups/${groupId}`);
+    const group = data.group || {id:groupId,name:_groupName,members:[]};
+    const members: GroupMemberRow[] = group.members || [];
     const groupName = group.name || _groupName || 'Group';
 
     const membersHtml = members.length === 0
       ? `<div style="color:var(--text-muted);font-size:13px">No members yet</div>`
-      : members.map((m: any)=>`
+      : members.map((m)=>`
           <div class="member-row">
             <div class="member-avatar">${escHtml((m.display_name||m.displayName||m.email||'?').slice(0,2).toUpperCase())}</div>
             <div style="flex:1">

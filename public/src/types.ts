@@ -171,9 +171,17 @@ export interface Stats {
   byType?: Record<string, number>;
 }
 
+/** A single project-health issue from `pm health`. */
+export interface HealthIssue {
+  message?: string;
+  description?: string;
+  /** Issue kind reported by `pm health` (e.g. `history_drift`). */
+  type?: string;
+}
+
 export interface HealthData {
   score?: number;
-  issues?: Array<{ message?: string; description?: string }>;
+  issues?: HealthIssue[];
   summary?: string;
 }
 
@@ -240,7 +248,8 @@ export interface AdminGroup {
   name: string;
   description?: string;
   owner_email: string;
-  member_count: number;
+  /** See `GroupSummary.member_count` in api-types.ts — a string, not a number. */
+  member_count: string;
   created_at: string;
 }
 

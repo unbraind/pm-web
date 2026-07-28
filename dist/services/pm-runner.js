@@ -420,6 +420,13 @@ const POSITIONAL_KEYS = {
     "pause-task": ["id"],
     "close-task": ["id", "reason"],
     history: ["id"],
+    // `pm schema [subcommand] [name]` — e.g. `schema add-type Spike`. Without this
+    // mapping both positionals are dropped and the SDK rejects the call with
+    // "Missing required argument: subcommand".
+    schema: ["subcommand", "name"],
+    // `pm history-repair [id]` — omitted only when `--all` is passed, which the
+    // per-item route never does.
+    "history-repair": ["id"],
     config: ["scope", "configAction", "key", "value"],
 };
 const PM_CLIENT_CACHE_MAX = positiveInteger(process.env.PM_WEB_PM_CLIENT_CACHE_MAX, 256);

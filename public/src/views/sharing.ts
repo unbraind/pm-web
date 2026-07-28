@@ -6,8 +6,9 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
+import type { ShareRow, SharesResponse } from '../api-types.js';
 
-function shareDisplay(share: any): { name: string; detail: string; avatar: string; isGroup: boolean } {
+function shareDisplay(share: ShareRow): { name: string; detail: string; avatar: string; isGroup: boolean } {
   const isGroup = Boolean(share.group_id || share.groupId);
   const name = isGroup
     ? (share.group_name || share.groupName || 'Unknown group')
@@ -41,8 +42,8 @@ async function loadShares(): Promise<void> {
   const el = document.getElementById('shares-list');
   if (!el) return;
   try {
-    const data = await api('GET',`/projects/${state.currentProject!.id}/shares`);
-    const shares = (data as any).shares || [];
+    const data = await api<SharesResponse>('GET',`/projects/${state.currentProject!.id}/shares`);
+    const shares: ShareRow[] = data.shares || [];
     if (shares.length === 0) {
       el.innerHTML = `
         <div class="card">
@@ -60,7 +61,7 @@ async function loadShares(): Promise<void> {
       <div class="card">
         <div class="card-header"><div class="card-title">Shared with</div></div>
         <div class="card-body">
-          ${shares.map((s: any)=>`
+          ${shares.map((s)=>`
             ${(() => {
               const display = shareDisplay(s);
               return `

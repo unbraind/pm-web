@@ -7,6 +7,8 @@ import { escHtml, typeIcon, statusBadge } from '../utils.js';
 import { skeletonRows } from '../utils.js';
 import { showModal, createModal } from '../components/modals.js';
 import { renderItemRow } from './items.js';
+import type { CalendarListItem, CalendarResponse, ListResponse } from '../api-types.js';
+import type { Item } from '../types.js';
 
 export async function renderCalendarView(): Promise<void> {
   const el = document.getElementById('content-calendar');
@@ -27,11 +29,11 @@ export async function renderCalendarView(): Promise<void> {
 
   try {
     const [itemsData, calData] = await Promise.all([
-      api('GET',`/projects/${state.currentProject.id}/pm/list-all?limit=9999`),
-      api('GET',`/projects/${state.currentProject.id}/pm/calendar`).catch(()=>({events:[]})),
+      api<ListResponse>('GET',`/projects/${state.currentProject.id}/pm/list-all?limit=9999`),
+      api<CalendarResponse>('GET',`/projects/${state.currentProject.id}/pm/calendar`).catch(()=>({events:[]} as CalendarResponse)),
     ]);
-    const allItems = ((itemsData as any).items || []).filter((i: any) => i.deadline || i.type === 'Event' || i.type === 'Meeting' || i.type === 'Reminder');
-    const calEvents = (calData as any).events || (calData as any).items || [];
+    const allItems = (itemsData.items || []).filter((i) => i.deadline || i.type === 'Event' || i.type === 'Meeting' || i.type === 'Reminder');
+    const calEvents: CalendarListItem[] = calData.events || calData.items || [];
 
     state.calOffset = state.calOffset || 0;
     const now = new Date();
@@ -47,8 +49,8 @@ export async function renderCalendarView(): Promise<void> {
     const daysInPrev = new Date(year, month, 0).getDate();
     const today = new Date();
 
-    const dateMap: Record<string, any[]> = {};
-    allItems.forEach((item: any) => {
+    const dateMap: Record<string, Item[]> = {};
+    allItems.forEach((item) => {
       if (item.deadline) {
         const d = new Date(item.deadline).toISOString().slice(0, 10);
         if (!dateMap[d]) dateMap[d] = [];
@@ -69,7 +71,7 @@ export async function renderCalendarView(): Promise<void> {
       const dayItems = dateMap[dateStr] || [];
       gridHtml += `<div class="cal-day${isToday?' today':''}" onclick="window.__app.showDayItems('${dateStr}')">`;
       gridHtml += `<div class="cal-day-num">${d}</div>`;
-      dayItems.slice(0, 3).forEach((item: any) => {
+      dayItems.slice(0, 3).forEach((item) => {
         gridHtml += `<div class="cal-event-dot status-${item.status}" title="${escHtml(item.title)}" onclick="event.stopPropagation();window.__app.openItemDetail('${escHtml(item.id)}')">${escHtml(item.title.slice(0,12))}</div>`;
       });
       if (dayItems.length > 3) {
@@ -87,7 +89,7 @@ export async function renderCalendarView(): Promise<void> {
     let upcomingHtml = '';
     if (calEvents.length > 0) {
       upcomingHtml = '<div class="card" style="margin-top:16px"><div class="card-header"><div class="card-title">Upcoming Events</div></div><div class="card-body">';
-      calEvents.slice(0, 10).forEach((ev: any) => {
+      calEvents.slice(0, 10).forEach((ev) => {
         upcomingHtml += `<div class="calendar-event" onclick="window.__app.openItemDetail('${escHtml(ev.id||ev.itemId||'')}')">
           <div class="calendar-event-id">${typeIcon(ev.type||'')} ${escHtml(ev.id||'')}</div>
           <div class="calendar-event-title">${escHtml(ev.title||ev.name||'')}</div>
@@ -114,15 +116,15 @@ export function showDayItems(dateStr: string): void {
   if (!state.currentProject) return;
   createModal('day-items-modal', `Items due ${dateStr}`, '<div class="loading-state"><div class="loading-spinner"></div></div>', '', true);
   showModal('day-items-modal');
-  api('GET', `/projects/${state.currentProject.id}/pm/list-all?limit=9999`).then(data => {
-    const items = ((data as any).items || []).filter((i: any) => {
+  api<ListResponse>('GET', `/projects/${state.currentProject.id}/pm/list-all?limit=9999`).then((data: ListResponse) => {
+    const items = (data.items || []).filter((i) => {
       if (!i.deadline) return false;
       return new Date(i.deadline).toISOString().slice(0,10) === dateStr;
     });
     const bodyEl = document.getElementById('day-items-modal')?.querySelector('.modal-body');
     if (bodyEl) bodyEl.innerHTML = items.length === 0
       ? '<div style="color:var(--text-muted);font-size:13px">No items due on this date</div>'
-      : `<div class="item-list">${items.map((item: any) => renderItemRow(item)).join('')}</div>`;
+      : `<div class="item-list">${items.map((item) => renderItemRow(item)).join('')}</div>`;
   }).catch((err: unknown) => {
     const bodyEl = document.getElementById('day-items-modal')?.querySelector('.modal-body');
     if (bodyEl) bodyEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
