@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026.7.28 - 2026-07-28
 
 ### Added
 
@@ -9,6 +9,10 @@
 ### Fixed
 
 - Require edit permission for package catalog mutations in pm-web ([pm-web-rknk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-rknk.toon))
+
+### Other
+
+- Adopt pm-cli 2026.7.28 in the hosted web UI package ([pm-web-g7ed](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-g7ed.toon))
 
 ## 2026.7.27 - 2026-07-27
 
