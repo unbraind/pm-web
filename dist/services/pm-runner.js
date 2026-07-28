@@ -228,26 +228,27 @@ export function projectExists(userId, slug) {
  * map keyed by extension name. Used both by {@link ensureGraphExtension} and
  * the extensions routes' catalog join.
  */
-async function readProjectExtensionStates(projectDir) {
+export async function readProjectExtensionStates(projectDir) {
     const result = await runSerialized(projectDir, () => runProcess(projectDir, ["extension", "--json"], { timeoutMs: 15_000 }));
     const states = new Map();
-    if (!result.ok || !result.stdout)
-        return states;
+    if (!result.ok || !result.stdout) {
+        return { ok: false, states, error: result.stderr || "pm extension --json failed" };
+    }
     try {
         const parsed = JSON.parse(result.stdout);
         const extensions = parsed.details?.extensions;
-        if (!Array.isArray(extensions))
-            return states;
+        if (!Array.isArray(extensions)) {
+            return { ok: false, states, error: "pm extension --json returned no extension list" };
+        }
         for (const ext of extensions) {
-            if (ext && typeof ext.name === "string") {
-                states.set(ext.name, { active: ext.active, enabled: ext.enabled, version: ext.version });
-            }
+            if (ext && typeof ext.name === "string")
+                states.set(ext.name, ext);
         }
     }
     catch {
-        // malformed explore output — treat as no known state
+        return { ok: false, states, error: "pm extension --json returned malformed JSON" };
     }
-    return states;
+    return { ok: true, states };
 }
 /**
  * Timeout for package installs, which resolve and download from the npm
@@ -292,7 +293,7 @@ export async function ensureGraphExtension(userId, slug) {
             error: "pm-graph is not present in the package catalog.",
         };
     }
-    const states = await readProjectExtensionStates(dir);
+    const { states } = await readProjectExtensionStates(dir);
     const graphState = states.get("pm-graph");
     const installed = Boolean(graphState);
     const active = Boolean(graphState?.active && graphState?.enabled);

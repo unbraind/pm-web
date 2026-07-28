@@ -50,6 +50,43 @@ export interface EnsureGraphExtensionResult {
     error?: string;
 }
 /**
+ * The per-extension state shape emitted by `pm extension --json`. Only the
+ * fields consumers read are typed; the command emits far more (triage, policy,
+ * diagnostics) which is deliberately dropped.
+ */
+export interface ExtensionState {
+    name: string;
+    version?: string;
+    active?: boolean;
+    enabled?: boolean;
+    runtime_active?: boolean;
+    activation_status?: string;
+    managed?: boolean;
+    source?: {
+        kind?: string;
+        input?: string;
+    };
+}
+/**
+ * Outcome of reading per-project extension state.
+ *
+ * `ok` distinguishes "the command ran and this is the state" from "the command
+ * failed, so we know nothing" — a distinction both previous copies of this
+ * parser collapsed, reporting a failed `pm extension --json` identically to a
+ * project with nothing installed.
+ */
+export interface ExtensionStatesResult {
+    ok: boolean;
+    states: Map<string, ExtensionState>;
+    error?: string;
+}
+/**
+ * Read the per-project extension state from `pm extension --json`, returning a
+ * map keyed by extension name. Used both by {@link ensureGraphExtension} and
+ * the extensions routes' catalog join.
+ */
+export declare function readProjectExtensionStates(projectDir: string): Promise<ExtensionStatesResult>;
+/**
  * Timeout for package installs, which resolve and download from the npm
  * registry rather than only touching local state.
  *

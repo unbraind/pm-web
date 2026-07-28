@@ -42,6 +42,17 @@ interface PackageRow {
 
 let currentPackages: PackageRow[] = [];
 
+/**
+ * Monotonic token for in-flight package fetches.
+ *
+ * A fetch started for one project can resolve *after* the user switches
+ * project or after a newer refresh, and would then paint stale cards into the
+ * new container — cards whose action buttons submit against the *current*
+ * project id. Each fetch captures the token it started with and discards its
+ * own response if a newer fetch has begun since.
+ */
+let packagesFetchToken = 0;
+
 export async function renderPackagesView(): Promise<void> {
   ensureActionsWired();
   const el = document.getElementById('content-packages');
@@ -69,8 +80,12 @@ async function fetchAndRenderPackages(): Promise<void> {
   if (!pid) return;
   const target = document.getElementById('packages-content');
   if (!target) return;
+  const token = ++packagesFetchToken;
+  /** True when a newer fetch started, or the project changed, while awaiting. */
+  const superseded = (): boolean => token !== packagesFetchToken || state.currentProject?.id !== pid;
   try {
     const data = await api('GET', `/projects/${pid}/extensions`);
+    if (superseded()) return;
     const rows: PackageRow[] = (data as { packages?: PackageRow[] }).packages ?? [];
     currentPackages = rows;
     if (rows.length === 0) {
@@ -83,6 +98,7 @@ async function fetchAndRenderPackages(): Promise<void> {
       </div>`;
     applyTranslations(target);
   } catch (err: unknown) {
+    if (superseded()) return;
     const msg = err instanceof Error ? err.message : String(err);
     target.innerHTML = `<div class="empty-state"><div class="empty-state-text">${escHtml(t('packages.loadError', { error: msg }))}</div></div>`;
   }

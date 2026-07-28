@@ -27,7 +27,13 @@ import { Router, type Response } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
 import { routeParam } from "./route-params.js";
-import { INSTALL_COMMAND_TIMEOUT_MS, runPm } from "../services/pm-runner.js";
+import {
+  INSTALL_COMMAND_TIMEOUT_MS,
+  readProjectExtensionStates,
+  runPm,
+  getProjectDir,
+  type ExtensionState,
+} from "../services/pm-runner.js";
 import {
   PACKAGE_CATALOG,
   findCatalogEntry,
@@ -37,6 +43,33 @@ import { broadcastProjectEvent } from "../services/sse.js";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+
+/**
+ * Resolve and validate `:name` against the catalog exactly once per request.
+ *
+ * SECURITY GATE. Express runs a `router.param` callback before any matching
+ * route handler, so a mutation route physically cannot run without the
+ * validated entry — the previous per-handler lookup relied on every future
+ * route remembering to repeat it, and a route that forgot would pass an
+ * unvalidated string toward a process spawn.
+ *
+ * The resolved entry is stashed on the response so handlers read a catalog
+ * constant rather than the request string.
+ */
+router.param("name", (req, res, next, value: string) => {
+  const entry = findCatalogEntry(value);
+  if (!entry) {
+    res.status(400).json({ error: `Unknown package: ${value}` });
+    return;
+  }
+  res.locals.catalogEntry = entry;
+  next();
+});
+
+/** The catalog entry resolved by the `:name` param gate above. */
+function catalogEntry(res: Response): PackageCatalogEntry {
+  return res.locals.catalogEntry as PackageCatalogEntry;
+}
 
 /** The realtime event type broadcast on every successful extension mutation. */
 export const EXTENSIONS_CHANGED_EVENT = "extensions-changed";
@@ -92,47 +125,6 @@ async function requireEditableProject(
   return project;
 }
 
-/**
- * The live per-project state shape returned by `pm extension --json`. Only the
- * fields the catalog join consumes are typed; the command emits far more
- * (triage, policy, diagnostics) which we deliberately drop.
- */
-interface ExtensionState {
-  name: string;
-  version?: string;
-  active?: boolean;
-  enabled?: boolean;
-  runtime_active?: boolean;
-  activation_status?: string;
-  managed?: boolean;
-  source?: { kind?: string; input?: string };
-}
-
-interface ExtensionExploreResult {
-  details?: { extensions?: ExtensionState[] };
-}
-
-/** Run `pm extension --json` for a project and parse the extension states. */
-async function readExtensionStates(
-  project: ProjectRef,
-): Promise<Map<string, ExtensionState>> {
-  const result = await runPm({
-    args: ["extension", "--json"],
-    userId: project.ownerUserId,
-    slug: project.slug,
-    jsonOutput: true,
-  });
-  const states = new Map<string, ExtensionState>();
-  if (!result.ok || !result.parsed) return states;
-  const parsed = result.parsed as ExtensionExploreResult;
-  const extensions = parsed.details?.extensions;
-  if (!Array.isArray(extensions)) return states;
-  for (const ext of extensions) {
-    if (ext && typeof ext.name === "string") states.set(ext.name, ext);
-  }
-  return states;
-}
-
 /** The catalog entry joined with its live per-project state, for the GET list. */
 export interface PackageCatalogRow extends PackageCatalogEntry {
   installed: boolean;
@@ -177,19 +169,20 @@ router.get("/", async (req: AuthRequest, res) => {
   // they just cannot change them.
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  const states = await readExtensionStates(project);
+  const { ok, states, error } = await readProjectExtensionStates(
+    getProjectDir(project.ownerUserId, project.slug),
+  );
   const rows = PACKAGE_CATALOG.map((entry) => toRow(entry, states.get(entry.name)));
-  res.json({ packages: rows });
+  // Surface a failed read rather than rendering every package as "not
+  // installed", which is indistinguishable from a healthy empty project.
+  res.json(ok ? { packages: rows } : { packages: rows, stateError: error });
 });
 
 // POST /api/projects/:projectId/extensions/:name/install
 router.post("/:name/install", async (req: AuthRequest, res) => {
   const project = await requireEditableProject(req, res);
   if (!project) return;
-  // SECURITY GATE: validate the name against the catalog before any spawn.
-  const name = routeParam(req, "name");
-  const entry = findCatalogEntry(name);
-  if (!entry) { res.status(400).json({ error: `Unknown package: ${name}` }); return; }
+  const entry = catalogEntry(res);
   const result = await runPm({
     // entry.npmSpec is a catalog constant, never the request string.
     args: ["install", entry.npmSpec, "--project"],
@@ -212,9 +205,7 @@ router.post("/:name/install", async (req: AuthRequest, res) => {
 router.post("/:name/activate", async (req: AuthRequest, res) => {
   const project = await requireEditableProject(req, res);
   if (!project) return;
-  const name = routeParam(req, "name");
-  const entry = findCatalogEntry(name);
-  if (!entry) { res.status(400).json({ error: `Unknown package: ${name}` }); return; }
+  const entry = catalogEntry(res);
   const result = await runPm({
     args: ["extension", "activate", entry.name, "--project"],
     userId: project.ownerUserId,
@@ -233,9 +224,7 @@ router.post("/:name/activate", async (req: AuthRequest, res) => {
 router.post("/:name/deactivate", async (req: AuthRequest, res) => {
   const project = await requireEditableProject(req, res);
   if (!project) return;
-  const name = routeParam(req, "name");
-  const entry = findCatalogEntry(name);
-  if (!entry) { res.status(400).json({ error: `Unknown package: ${name}` }); return; }
+  const entry = catalogEntry(res);
   const result = await runPm({
     args: ["extension", "deactivate", entry.name, "--project"],
     userId: project.ownerUserId,
@@ -254,9 +243,7 @@ router.post("/:name/deactivate", async (req: AuthRequest, res) => {
 router.delete("/:name", async (req: AuthRequest, res) => {
   const project = await requireEditableProject(req, res);
   if (!project) return;
-  const name = routeParam(req, "name");
-  const entry = findCatalogEntry(name);
-  if (!entry) { res.status(400).json({ error: `Unknown package: ${name}` }); return; }
+  const entry = catalogEntry(res);
   const result = await runPm({
     args: ["extension", "uninstall", entry.name, "--project"],
     userId: project.ownerUserId,

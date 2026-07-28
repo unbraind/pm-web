@@ -291,8 +291,38 @@ export interface EnsureGraphExtensionResult {
   error?: string;
 }
 
+/**
+ * The per-extension state shape emitted by `pm extension --json`. Only the
+ * fields consumers read are typed; the command emits far more (triage, policy,
+ * diagnostics) which is deliberately dropped.
+ */
+export interface ExtensionState {
+  name: string;
+  version?: string;
+  active?: boolean;
+  enabled?: boolean;
+  runtime_active?: boolean;
+  activation_status?: string;
+  managed?: boolean;
+  source?: { kind?: string; input?: string };
+}
+
 interface ExtensionExploreResult {
-  details?: { extensions?: Array<{ name?: string; active?: boolean; enabled?: boolean; version?: string }> };
+  details?: { extensions?: ExtensionState[] };
+}
+
+/**
+ * Outcome of reading per-project extension state.
+ *
+ * `ok` distinguishes "the command ran and this is the state" from "the command
+ * failed, so we know nothing" — a distinction both previous copies of this
+ * parser collapsed, reporting a failed `pm extension --json` identically to a
+ * project with nothing installed.
+ */
+export interface ExtensionStatesResult {
+  ok: boolean;
+  states: Map<string, ExtensionState>;
+  error?: string;
 }
 
 /**
@@ -300,25 +330,27 @@ interface ExtensionExploreResult {
  * map keyed by extension name. Used both by {@link ensureGraphExtension} and
  * the extensions routes' catalog join.
  */
-async function readProjectExtensionStates(projectDir: string): Promise<Map<string, { active?: boolean; enabled?: boolean; version?: string }>> {
+export async function readProjectExtensionStates(projectDir: string): Promise<ExtensionStatesResult> {
   const result = await runSerialized(projectDir, () =>
     runProcess(projectDir, ["extension", "--json"], { timeoutMs: 15_000 }),
   );
-  const states = new Map<string, { active?: boolean; enabled?: boolean; version?: string }>();
-  if (!result.ok || !result.stdout) return states;
+  const states = new Map<string, ExtensionState>();
+  if (!result.ok || !result.stdout) {
+    return { ok: false, states, error: result.stderr || "pm extension --json failed" };
+  }
   try {
     const parsed = JSON.parse(result.stdout) as ExtensionExploreResult;
     const extensions = parsed.details?.extensions;
-    if (!Array.isArray(extensions)) return states;
+    if (!Array.isArray(extensions)) {
+      return { ok: false, states, error: "pm extension --json returned no extension list" };
+    }
     for (const ext of extensions) {
-      if (ext && typeof ext.name === "string") {
-        states.set(ext.name, { active: ext.active, enabled: ext.enabled, version: ext.version });
-      }
+      if (ext && typeof ext.name === "string") states.set(ext.name, ext);
     }
   } catch {
-    // malformed explore output — treat as no known state
+    return { ok: false, states, error: "pm extension --json returned malformed JSON" };
   }
-  return states;
+  return { ok: true, states };
 }
 
 /**
@@ -371,7 +403,7 @@ export async function ensureGraphExtension(userId: string, slug: string): Promis
     };
   }
 
-  const states = await readProjectExtensionStates(dir);
+  const { states } = await readProjectExtensionStates(dir);
   const graphState = states.get("pm-graph");
   const installed = Boolean(graphState);
   const active = Boolean(graphState?.active && graphState?.enabled);
