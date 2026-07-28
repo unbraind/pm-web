@@ -1,0 +1,32 @@
+id: pm-web-28aw
+title: Per-project package catalog so every pm package is installable from the web UI
+description: "Replace the single vendored pm-graph fork with a typed catalog of all user-facing pm packages. Users pick from the catalog and install, activate, deactivate, and uninstall pm packages per project from a Packages view. Every mutation publishes on the existing realtime bus so collaborators see changes live. Catalog is validated server-side so a user-supplied package name can never be interpolated into an install target."
+type: Feature
+status: closed
+priority: 2
+tags[1]: packages
+created_at: "2026-07-28T03:39:10.905Z"
+updated_at: "2026-07-28T03:58:28.495Z"
+closed_at: "2026-07-28T03:58:15.404Z"
+author: pi-agent
+resolution: "Implemented the per-project package catalog: a typed, immutable catalog of all 15 user-facing pm packages (src/services/package-catalog.ts), extensions routes with a catalog-validation security gate that 400s on an unknown :name before any pm spawn (src/routes/extensions.ts), realtime extensions-changed broadcasts, removal of the vendored pm-graph fork (ensureGraphExtension now installs npm:pm-graph through the same generic catalog path), and a per-project Packages view wired into the SPA and i18n. Tests cover catalog integrity vs fleet manifests, route authorization, catalog validation (400 before spawn), and the realtime event; 155/155 pass."
+expected_result: "Users pick from a catalog of ALL pm packages and install/enable/disable them per project from the web UI, with the change visible in real time to every collaborator. A user-supplied package name can never be interpolated into an install target."
+actual_result: "All 15 pm packages are installable per project from the Packages view; the vendored pm-graph fork is gone; the graph routes keep working via npm:pm-graph; mutations broadcast extensions-changed on the existing realtime bus; catalog validation rejects unknown/injected names with 400 before any spawn; route authorization denies non-owners. Full suite 155/155 pass; typecheck, build, and audit:prod are clean."
+notes[5]{created_at,author,text}:
+  "2026-07-28T03:56:42.790Z",pi-agent,"Implemented on branch feat/project-package-catalog. New typed catalog src/services/package-catalog.ts declares all 15 user-facing pm packages (pm-graph, pm-beads, pm-brief, pm-changelog, pm-context, pm-csv, pm-gantt-chart, pm-github, pm-jira, pm-linear, pm-ops, pm-presets, pm-slack, pm-slack-standup, pm-todos) with honest gating metadata (requiresService for pm-graph's optional Neo4j; requiresCredentials for the jira/linear/slack/slack-standup/github integrations). Each entry mirrors its real fleet manifest.json (name, capabilities, description)."
+  "2026-07-28T03:56:54.280Z",pi-agent,"New routes src/routes/extensions.ts mounted at /api/projects/:projectId/extensions (GET list, POST install/activate/deactivate, DELETE uninstall). SECURITY: every :name is validated against the catalog via findCatalogEntry/resolveNpmSpec BEFORE any pm command is spawned -- a catalog miss 400s before spawn, so a user-supplied string can never be interpolated into an install target. Mutations broadcast on the existing realtime bus (broadcastProjectEvent) as extensions-changed so collaborators see changes live. install + extension actions are now SPAWN_FALLBACK (the SDK in-process dispatcher drops the positional source/subcommand for these meta-commands)."
+  "2026-07-28T03:56:54.636Z",pi-agent,"Retired the vendored fork: deleted extensions/pm-graph/ (10 tracked files), removed build:graph/typecheck:graph from package.json, removed the COPY extensions step from the Dockerfile, and rewrote ensureGraphExtension() to install npm:pm-graph through the same generic catalog path (resolveNpmSpec). The graph routes in src/routes/pm.ts are unchanged from the user's point of view."
+  "2026-07-28T03:57:01.021Z",pi-agent,"New per-project Packages view public/src/views/packages.ts (TypeScript, compiled by esbuild/tsc) wired into the router, sidebar, mobile command sheet, and sw.ts precache. Lists catalog entries with install/enable/disable controls, current version, and clear explanations for packages needing credentials or a backing service. User-facing strings are wired into the i18n system (packages.* keys added to all four locale catalogs en/de/es/zh). Live SSE refresh via extensions-changed/extensions_changed listeners in app.ts."
+  "2026-07-28T03:57:01.646Z",pi-agent,"Tests: test/catalog.test.ts (catalog integrity vs fleet manifests, structural invariants, catalog validation rejecting injected names, gating metadata) and test/extensions-routes.test.ts (route authorization -- non-owner 404 before spawn; catalog validation -- unknown :name 400 before spawn with empty pm log; realtime extensions-changed event fires on a successful install, verified via a real ephemeral HTTP server + stubbed pg pool + fake pm bin). Full suite 155/155 pass; typecheck + build + audit:prod clean."
+files[7]{path,scope,note}:
+  src/services/package-catalog.ts,project,Typed immutable package catalog
+  src/routes/extensions.ts,project,Per-project extensions routes with catalog-validation security gate
+  src/services/pm-runner.ts,project,"ensureGraphExtension installs npm:pm-graph via catalog; install/extension moved to SPAWN_FALLBACK"
+  public/src/views/packages.ts,project,Per-project Packages view with install/enable/disable controls and gating explanations
+  src/app.ts,project,Mount extensions router under project auth
+  test/catalog.test.ts,project,Catalog integrity vs fleet manifests plus structural invariants
+  test/extensions-routes.test.ts,project,Route authorization plus catalog validation plus realtime event tests
+tests[1]{command,scope,timeout_seconds,note}:
+  npm test,project,600,Catalog integrity plus route authorization plus realtime event plus full regression suite
+close_reason: "Implemented and verified: typed catalog of all 15 user-facing pm packages, per-project extensions routes with catalog-validation security gate, realtime extensions-changed broadcasts, vendored pm-graph fork removed (ensureGraphExtension now installs npm:pm-graph via the generic catalog path), Packages view wired into the SPA and i18n. New tests for catalog integrity, route authorization, catalog validation (400 before spawn), and the realtime event; full suite 155/155 pass, typecheck/build/audit clean. PR open on feat/project-package-catalog."
+body: ""

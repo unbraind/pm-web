@@ -49,6 +49,21 @@ export interface EnsureGraphExtensionResult {
     active: boolean;
     error?: string;
 }
+/**
+ * Ensure the pm-graph package is installed and active for a project.
+ *
+ * This used to install a *vendored* copy of pm-graph from
+ * `extensions/pm-graph/` (a stale fork pinned to pm-cli `^2026.7.5`). The
+ * vendored fork is gone; pm-graph is now installed from npm through the same
+ * generic catalog path as every other pm package
+ * (src/services/package-catalog.ts). The npm spec is resolved from the catalog
+ * — never built from a user-supplied string — so the install target is always
+ * the verified `npm:pm-graph` constant.
+ *
+ * The graph routes in src/routes/pm.ts call this before `pm pm-graph export`,
+ * and {@link initProject} calls it on project creation, so the user-facing
+ * graph behaviour is unchanged.
+ */
 export declare function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult>;
 /**
  * Return a cached {@link PmClient} for a workspace pm-root, creating one on
