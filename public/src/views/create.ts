@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
+import type { CreateItemResponse } from '../api-types.js';
 import { getTypes, TYPE_ICONS, PRIORITY_LABELS } from '../constants.js';
 import { showView } from './router.js';
 import { loadItemsBadge } from './projects.js';
@@ -222,8 +223,8 @@ export async function submitCreateItem(e: Event, openAfter = false): Promise<voi
     if (reproSteps) bodyData['repro-steps'] = reproSteps;
     if (expectedResult) bodyData['expected-result'] = expectedResult;
     if (blockedReason) bodyData['blocked-reason'] = blockedReason;
-    const data = await api('POST',`/projects/${state.currentProject!.id}/pm/create`,bodyData);
-    const newId: string = (data as any).item?.id || (data as any).id || '';
+    const data = await api<CreateItemResponse>('POST',`/projects/${state.currentProject!.id}/pm/create`,bodyData);
+    const newId: string = data.item?.id || data.id || '';
     toast(`Created ${newId || 'item'}!`,'success');
     const form = document.getElementById('create-item-form') as HTMLFormElement | null;
     if (form) form.reset();

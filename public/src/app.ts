@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from './state.js';
 import { api } from './api.js';
+import type { AuthMeResponse, SearchResponse } from './api-types.js';
 import { showView, setOnViewChange } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
 import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, copyFilterLink, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
@@ -183,12 +184,12 @@ async function doGlobalSearch(): Promise<void> {
   const resultsEl = document.getElementById('global-search-results');
   if (resultsEl) resultsEl.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
   try {
-    const data = await api('POST',`/projects/${state.currentProject.id}/pm/search`,{query});
-    const results = (data as any).results || (data as any).items || [];
+    const data = await api<SearchResponse>('POST',`/projects/${state.currentProject.id}/pm/search`,{query});
+    const results = data.results || data.items || [];
     const { escHtml, typeIcon, priorityDot, statusBadge } = await import('./utils.js');
     if (resultsEl) resultsEl.innerHTML = results.length === 0
       ? `<div class="empty-state" style="padding:24px"><div class="empty-state-text">No results for "${escHtml(query)}"</div></div>`
-      : `<div class="item-list">${results.map((item: any)=>`
+      : `<div class="item-list">${results.map((item) =>`
           <div class="item-row" onclick="window.__app.hideModal('global-search-modal');window.__app.openItemDetail('${escHtml(item.id)}')">
             ${typeIcon(item.type||'')}
             <span class="item-id">${escHtml(item.id)}</span>
@@ -201,10 +202,18 @@ async function doGlobalSearch(): Promise<void> {
 }
 
 // PWA install
-let deferredPrompt: any = null;
+// The DOM lib has no `BeforeInstallPromptEvent` type, so model the two members
+// the install flow actually uses (`prompt()` and `userChoice`).
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
 // Expose everything needed by inline onclick handlers via window.__app
-(window as any).__app = {
+const __app = {
+  // Views
   // Views
   showView,
   renderProjectsView,
@@ -398,6 +407,26 @@ let deferredPrompt: any = null;
   submitEditPlan,
   planDeletePrompt,
 };
+
+/** The shape of the `window.__app` bridge — every function the inline onclick
+ * handlers reach through `window.__app` is enumerated here via `typeof __app`. */
+export type AppBridge = typeof __app;
+
+// Global augmentation: type the `window.__app` bridge plus the two PWA install
+// helpers assigned below. `beforeinstallprompt` is augmented on WindowEventMap
+// so the listener receives our `BeforeInstallPromptEvent`.
+declare global {
+  interface Window {
+    __app?: AppBridge;
+    installPwa?: () => void;
+    dismissInstallBanner?: () => void;
+  }
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
+
+window.__app = __app;
 
 // ═══════════════════════════════════════════════════════════════
 // SSE REAL-TIME SYNC
@@ -785,8 +814,8 @@ window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => 
 async function init(): Promise<void> {
   await initI18n();
   try {
-    const data = await api('GET','/auth/me');
-    state.user = (data as any).user;
+    const data = await api<AuthMeResponse>('GET','/auth/me');
+    state.user = data.user;
     await bootApp();
   } catch(_) {
     showAuth();
@@ -881,10 +910,10 @@ window.addEventListener('appinstalled', () => {
   toast('pm-web installed!', 'success');
 });
 
-(window as any).installPwa = function(): void {
+window.installPwa = function(): void {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
-  deferredPrompt.userChoice.then((result: { outcome: string }) => {
+  deferredPrompt.userChoice.then((result) => {
     if (result.outcome === 'accepted') {
       toast('Installing pm-web...', 'success');
     }
@@ -894,7 +923,7 @@ window.addEventListener('appinstalled', () => {
   });
 };
 
-(window as any).dismissInstallBanner = function(): void {
+window.dismissInstallBanner = function(): void {
   localStorage.setItem('pm-web-install-dismissed', '1');
   const banner = document.getElementById('install-banner');
   if (banner) banner.classList.remove('visible');

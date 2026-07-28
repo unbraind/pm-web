@@ -32,6 +32,7 @@ const STATIC_ASSETS: readonly string[] = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/src/api.js',
+  '/src/api-types.js',
   '/src/app.js',
   '/src/components/modals.js',
   '/src/components/toast.js',

@@ -1748,7 +1748,7 @@ export async function renderGraphView(): Promise<void> {
 
     // Restore selected node after canvas init
     if (selectedNodeId) {
-      (canvasRef.current as any)?.setSelected(selectedNodeId);
+      (canvasRef.current as GraphCanvas | null)?.setSelected(selectedNodeId);
       updateInfoPanel();
       syncCanvas();
       // Auto-open info drawer when node is restored from URL

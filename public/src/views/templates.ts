@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml, typeIcon } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { showView } from './router.js';
+import type { TemplateEntry, TemplatesResponse } from '../api-types.js';
 
 export async function renderTemplatesView(): Promise<void> {
   const el = document.getElementById('content-templates');
@@ -32,8 +33,8 @@ async function fetchAndRenderTemplates(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
   try {
-    const data = await api('GET', `/projects/${pid}/pm/templates`);
-    const templates: any[] = (data as any).templates || [];
+    const data = await api<TemplatesResponse>('GET', `/projects/${pid}/pm/templates`);
+    const templates: TemplateEntry[] = data.templates || [];
     const el = document.getElementById('templates-content');
     if (!el) return;
     if (templates.length === 0) {
@@ -52,7 +53,7 @@ async function fetchAndRenderTemplates(): Promise<void> {
     }
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
-        ${templates.map((t: any) => renderTemplateCard(t)).join('')}
+        ${templates.map((t) => renderTemplateCard(t)).join('')}
       </div>`;
   } catch(err: unknown) {
     const el = document.getElementById('templates-content');
@@ -60,7 +61,7 @@ async function fetchAndRenderTemplates(): Promise<void> {
   }
 }
 
-function renderTemplateCard(t: any): string {
+function renderTemplateCard(t: TemplateEntry): string {
   const name = t.name || t.id || 'Unnamed';
   const type = t.type || t.defaults?.type || '';
   const priority = t.priority || t.defaults?.priority || '';
@@ -86,7 +87,7 @@ function renderTemplateCard(t: any): string {
     </div>`;
 }
 
-export function createFromTemplate(name: string, template: any): void {
+export function createFromTemplate(name: string, template: TemplateEntry): void {
   // Navigate to create view and pre-fill from template
   showView('create');
   // Give the create view time to render, then fill fields

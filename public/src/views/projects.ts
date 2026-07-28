@@ -6,10 +6,11 @@ import { api } from '../api.js';
 import { escHtml, fmtDate } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
+import type { CreateProjectResponse, ListResponse, ProjectsResponse, SchemaResponse } from '../api-types.js';
 import { showView } from '../views/router.js';
 
 export async function loadProjects(): Promise<void> {
-  const data = await api('GET','/projects');
+  const data = await api<ProjectsResponse>('GET','/projects');
   state.projects = data.projects || [];
   renderProjectSelector();
 }
@@ -24,9 +25,9 @@ export function renderProjectSelector(): void {
 
 async function fetchProjectSchema(projectId: string): Promise<void> {
   try {
-    const schema = await api('GET', `/projects/${projectId}/pm/schema`);
+    const schema = await api<SchemaResponse>('GET', `/projects/${projectId}/pm/schema`);
     if (schema && Array.isArray(schema.types) && schema.types.length) {
-      state.schema = schema as import('../types.js').ProjectSchema;
+      state.schema = schema;
     }
   } catch (_) { /* fallback to constants */ }
 }
@@ -35,7 +36,7 @@ export async function onProjectSelect(id: string): Promise<void> {
   if (!id) {
     state.currentProject = null;
     state.schema = null;
-    (window as any).__app?.disconnectSSE?.();
+    window.__app?.disconnectSSE?.();
     const pmSection = document.getElementById('sidebar-pm-section');
     if (pmSection) pmSection.style.display = 'none';
     showView('projects');
@@ -48,7 +49,7 @@ export async function onProjectSelect(id: string): Promise<void> {
   if (pmSection) pmSection.style.display = '';
   const projName = document.getElementById('sidebar-project-name');
   if (projName) projName.textContent = proj.name;
-  (window as any).__app?.connectSSE?.(proj.id);
+  window.__app?.connectSSE?.(proj.id);
   // Fetch schema in background — views use fallback until it resolves
   fetchProjectSchema(proj.id);
   showView('items');
@@ -58,7 +59,7 @@ export async function onProjectSelect(id: string): Promise<void> {
 export async function loadItemsBadge(): Promise<void> {
   if (!state.currentProject) return;
   try {
-    const data = await api('GET',`/projects/${state.currentProject.id}/pm/list?status=open&limit=200`);
+    const data = await api<ListResponse>('GET',`/projects/${state.currentProject.id}/pm/list?status=open&limit=200`);
     const count = (data.items||[]).length;
     const badge = document.getElementById('badge-items');
     if (badge) badge.textContent = count ? String(count) : '';
@@ -177,7 +178,7 @@ async function submitCreateProject2(): Promise<void> {
   errEl.style.display = 'none';
   if (!name || !prefix) { errEl.textContent = 'Name and prefix are required.'; errEl.style.display = 'block'; return; }
   try {
-    const data = await api('POST','/projects',{name,prefix,description:desc});
+    const data = await api<CreateProjectResponse>('POST','/projects',{name,prefix,description:desc});
     state.projects.unshift(data.project);
     renderProjectSelector();
     hideModal('create-project-modal');

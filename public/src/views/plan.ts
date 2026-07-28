@@ -7,6 +7,7 @@ import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { buildPlanExecutionSnapshot, buildPlanAgentBrief, buildNextStepPrompt, type AnalyzedPlanStep, type PlanExecutionSnapshot } from './plan-execution.js';
+import type { ListResponse, PlanResponse } from '../api-types.js';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -222,8 +223,7 @@ async function loadPlanList(): Promise<void> {
   listEl.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await api('GET', `/projects/${state.currentProject.id}/pm/list-all?type=Plan`) as any;
+    const data = await api<ListResponse>('GET', `/projects/${state.currentProject.id}/pm/list-all?type=Plan`);
     const items = (data.items || []) as PlanData[];
     if (subEl) subEl.textContent = state.currentProject.name;
 
@@ -265,8 +265,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
   detailEl.innerHTML = '<div class="loading-state"><div class="loading-spinner"></div></div>';
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await api('GET', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}`) as any;
+    const data = await api<PlanResponse>('GET', `/projects/${state.currentProject.id}/pm/plan/${encodeURIComponent(planId)}`);
     const plan = (data.plan || data) as PlanData;
     const steps = plan.steps || [];
     const snapshot = buildPlanExecutionSnapshot(steps);
@@ -631,7 +630,7 @@ export async function submitMaterializePlan(planId: string): Promise<void> {
     hideModal('materialize-plan-modal');
     toast('Plan materialized — items created. Switching to Items view.', 'success');
     // Navigate to items view so user can see the created items
-    setTimeout(() => (window as any).__app?.showView('items'), 1200);
+    setTimeout(() => window.__app?.showView('items'), 1200);
   } catch(err: unknown) {
     toast(err instanceof Error ? err.message : 'Failed to materialize plan', 'error');
   }
@@ -710,7 +709,7 @@ export function planEditPrompt(planId: string, currentTitle: string): void {
      <button class="btn btn-ghost" onclick="window.__app.hideModal('edit-plan-modal')">Cancel</button>`);
   showModal('edit-plan-modal');
   // Populate description async after modal shows
-  api('GET', `/projects/${state.currentProject!.id}/pm/plan/${encodeURIComponent(planId)}`).then((data: any) => {
+  api<PlanResponse>('GET', `/projects/${state.currentProject!.id}/pm/plan/${encodeURIComponent(planId)}`).then((data) => {
     const desc = data?.plan?.description || data?.description || '';
     const el = document.getElementById('edit-plan-desc') as HTMLTextAreaElement | null;
     if (el) el.value = desc;

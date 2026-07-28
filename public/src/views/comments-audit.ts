@@ -4,6 +4,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml, statusBadge, typeIcon } from '../utils.js';
+import type { CommentsAuditResponse, CommentsAuditItem, CommentsAuditSummary, CommentsAuditTypeRow } from '../api-types.js';
 
 export async function renderCommentsAuditView(): Promise<void> {
   const el = document.getElementById('content-comments-audit');
@@ -24,12 +25,12 @@ export async function renderCommentsAuditView(): Promise<void> {
     </div>
     <div id="comments-audit-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
   try {
-    const data = await api('GET', `/projects/${state.currentProject.id}/pm/comments-audit`);
-    const items: any[] = (data as any).items || [];
-    const summary: any = (data as any).summary || {};
+    const data = await api<CommentsAuditResponse>('GET', `/projects/${state.currentProject.id}/pm/comments-audit`);
+    const items: CommentsAuditItem[] = data.items || [];
+    const summary: CommentsAuditSummary = data.summary || {};
     const totals = summary.totals || {};
     const coverage = summary.coverage || {};
-    const byType: any[] = summary.by_type || [];
+    const byType: CommentsAuditTypeRow[] = summary.by_type || [];
 
     const el2 = document.getElementById('comments-audit-content');
     if (!el2) return;
@@ -70,7 +71,7 @@ export async function renderCommentsAuditView(): Promise<void> {
                 </tr>
               </thead>
               <tbody>
-                ${byType.map((row: any) => `
+                ${byType.map((row) => `
                   <tr style="border-bottom:1px solid var(--border-subtle)">
                     <td style="padding:8px 14px">${typeIcon(row.type || '')} ${escHtml(row.type || '')}</td>
                     <td style="padding:8px 14px;text-align:right">${row.items_scanned || 0}</td>
@@ -88,7 +89,7 @@ export async function renderCommentsAuditView(): Promise<void> {
           ${items.length === 0
             ? '<div style="padding:20px;color:var(--text-muted);font-size:13px;text-align:center">No items found</div>'
             : `<div class="item-list" style="border-radius:0">
-                ${items.map((item: any) => `
+                ${items.map((item) => `
                   <div class="item-row" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
                     ${typeIcon(item.type || '')}
                     <span class="item-id">${escHtml(item.id)}</span>

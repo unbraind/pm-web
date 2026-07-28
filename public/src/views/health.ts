@@ -5,6 +5,8 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
+import type { HealthResponse, HistoryRepairResponse } from '../api-types.js';
+import type { HealthIssue } from '../types.js';
 
 // Detect item IDs mentioned in a history-drift issue message.
 function extractItemIdFromIssue(msg: string): string | null {
@@ -13,12 +15,12 @@ function extractItemIdFromIssue(msg: string): string | null {
   return match ? match[1] : null;
 }
 
-function isHistoryDriftIssue(issue: any): boolean {
+function isHistoryDriftIssue(issue: HealthIssue): boolean {
   const msg: string = (issue.message || issue.description || issue.type || '').toLowerCase();
   return msg.includes('history') && (msg.includes('drift') || msg.includes('repair') || msg.includes('mismatch'));
 }
 
-function renderIssueRow(issue: any, projectId: string): string {
+function renderIssueRow(issue: HealthIssue, projectId: string): string {
   const msg = escHtml(issue.message || issue.description || String(issue));
   if (isHistoryDriftIssue(issue)) {
     const itemId = extractItemIdFromIssue(issue.message || issue.description || '');
@@ -34,9 +36,9 @@ function renderIssueRow(issue: any, projectId: string): string {
 
 export async function repairItemHistory(projectId: string, itemId: string, dryRun: boolean): Promise<void> {
   try {
-    const data = await api('POST', `/projects/${projectId}/pm/items/${encodeURIComponent(itemId)}/history-repair`, { dryRun });
+    const data = await api<HistoryRepairResponse>('POST', `/projects/${projectId}/pm/items/${encodeURIComponent(itemId)}/history-repair`, { dryRun });
     if (dryRun) {
-      toast(`Dry run for ${itemId}: ${(data as any).message || JSON.stringify(data)}`, 'info');
+      toast(`Dry run for ${itemId}: ${data.message || JSON.stringify(data)}`, 'info');
     } else {
       toast(`History repaired for ${itemId}`, 'success');
     }
@@ -58,8 +60,8 @@ export async function renderHealthView(): Promise<void> {
     <div id="health-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
 
   try {
-    const data = await api('GET',`/projects/${projectId}/pm/health`);
-    const health = (data as any).health || data;
+    const data = await api<HealthResponse>('GET',`/projects/${projectId}/pm/health`);
+    const health = data.health || data;
     const score = health.score !== undefined ? health.score : null;
     const issues = health.issues || [];
 
@@ -86,7 +88,7 @@ export async function renderHealthView(): Promise<void> {
         <div class="card-body">
           ${issues.length === 0
             ? '<div style="color:var(--status-closed);font-size:13px">✓ No issues found — project looks healthy!</div>'
-            : issues.map((i: any) => renderIssueRow(i, projectId)).join('')
+            : issues.map((i) => renderIssueRow(i, projectId)).join('')
           }
         </div>
       </div>

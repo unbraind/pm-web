@@ -1,0 +1,16 @@
+id: pm-web-cvh5
+title: Type the browser client against the server routes so public/src carries zero any
+description: "The browser client (public/src) was the only untyped part of the pm fleet: the fetch wrapper in api.ts returned Promise<any>, so every call site degraded to any and laundered fields via (data as any).field. This chore derives real response interfaces from the server routes (src/routes/*) and types each call site against them, removing all 112 any occurrences. A new public/src/api-types.ts centralises the response shapes, reusing the domain interfaces in public/src/types.ts. The window.__app bridge, the PWA install prompt (BeforeInstallPromptEvent), and the bulk-update/close DOM-stash pattern (moved to module-scoped WeakMaps) are typed properly too."
+type: Chore
+status: closed
+priority: 2
+tags: []
+created_at: "2026-07-28T15:57:06.540Z"
+updated_at: "2026-07-28T15:57:21.093Z"
+closed_at: "2026-07-28T15:57:21.092Z"
+author: pi-agent
+acceptance_criteria: "grep for ': any|<any>|as any|any[]' in public/src returns zero matches; npm run typecheck (server + 3 frontend tsconfigs) passes; npm run build emits; npm test (160 tests) passes; npm run audit:prod passes; npm run changelog:check passes; no runtime behaviour change except the two WeakMap conversions and the groups member_count field-name fix; response interfaces live in public/src/api-types.ts with TSDoc."
+notes[1]{created_at,author,text}:
+  "2026-07-28T15:57:14.899Z",pi-agent,"Derived response types by reading every res.json handler in src/routes/pm.ts, projects.ts, github.ts, groups.ts, sharing.ts, auth.ts, admin.ts, extensions.ts. Made api() generic (api<T=unknown>). Added global Window augmentation (AppBridge = typeof __app) plus BeforeInstallPromptEvent on WindowEventMap. Converted items.ts _bulkPayload/_bulkClosePayload DOM stashes to module-scoped WeakMaps. Server mismatch found + fixed: groups list reads g.memberCount but server sends member_count (snake) — badge always showed 0; fixed to g.member_count. Two client endpoints have NO server route: POST /pm/items/:id/history-repair (health.ts) and POST /pm/schema/add-type (config.ts) — both reject at runtime today; typed minimally and called out. sw.ts STATIC_ASSETS extended with /src/api-types.js so the precache test stays green."
+close_reason: "All 112 any removed from public/src. typecheck (server + frontend sw/scripts), build, 160 tests, and audit:prod all pass. Response interfaces centralised in public/src/api-types.ts with TSDoc referencing each server route. window.__app bridge and BeforeInstallPromptEvent typed via global augmentation. Bulk payloads moved to WeakMaps. groups member_count field-name mismatch fixed; two missing server endpoints (history-repair, schema/add-type) documented."
+body: ""

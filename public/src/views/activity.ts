@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml, relTime } from '../utils.js';
 import { TYPE_ICONS } from '../constants.js';
+import type { ActivityEntry, ActivityResponse } from '../api-types.js';
 
 export async function renderActivityView(): Promise<void> {
   const el = document.getElementById('content-activity');
@@ -18,17 +19,17 @@ export async function renderActivityView(): Promise<void> {
     <div class="card"><div class="card-body" id="activity-list"><div class="loading-state"><div class="loading-spinner"></div></div></div></div>`;
 
   try {
-    const data = await api('GET',`/projects/${state.currentProject.id}/pm/activity?limit=50`);
-    const items = (data as any).activity || (data as any).items || [];
+    const data = await api<ActivityResponse>('GET',`/projects/${state.currentProject.id}/pm/activity?limit=50`);
+    const items: ActivityEntry[] = data.activity || data.items || [];
     const listEl = document.getElementById('activity-list');
     if (!listEl) return;
     if (items.length === 0) {
       listEl.innerHTML = `<div class="empty-state"><div class="empty-state-icon">◎</div><div class="empty-state-text">No activity yet</div></div>`;
       return;
     }
-    listEl.innerHTML = items.map((a: any)=>`
+    listEl.innerHTML = items.map((a)=>`
       <div class="activity-item">
-        <div class="activity-icon">${TYPE_ICONS[a.type]||'◎'}</div>
+        <div class="activity-icon">${TYPE_ICONS[a.type||'']||'◎'}</div>
         <div class="activity-body">
           <div class="activity-desc">${escHtml(a.message||a.title||a.action||JSON.stringify(a))}</div>
           <div class="activity-time">${relTime(a.timestamp||a.created_at)} ${a.id?`· <span class="mono" style="font-size:11px">${escHtml(a.id)}</span>`:''}</div>

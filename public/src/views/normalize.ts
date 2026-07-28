@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
+import type { NormalizeChange, NormalizePlan, NormalizeResponse } from '../api-types.js';
 
 export async function renderNormalizeView(): Promise<void> {
   const el = document.getElementById('content-normalize');
@@ -17,9 +18,9 @@ export async function renderNormalizeView(): Promise<void> {
     </div>
     <div id="normalize-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
   try {
-    const data = await api('POST', `/projects/${state.currentProject.id}/pm/normalize`);
-    const plan = (data as any).plan || (data as any).normalization || data;
-    const items = plan.items || plan.changes || [];
+    const data = await api<NormalizeResponse>('POST', `/projects/${state.currentProject.id}/pm/normalize`);
+    const plan: NormalizePlan = data.plan || data.normalization || data;
+    const items: NormalizeChange[] = plan.items || plan.changes || [];
     const el2 = document.getElementById('normalize-content');
     if (!el2) return;
     if (Array.isArray(items) && items.length === 0) {
@@ -29,7 +30,7 @@ export async function renderNormalizeView(): Promise<void> {
         <div class="card">
           <div class="card-header"><div class="card-title">Suggested Changes (${items.length})</div></div>
           <div class="card-body">
-            ${items.map((i: any) => `
+            ${items.map((i) => `
               <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
                 <span style="color:var(--priority-3);flex-shrink:0">⚡</span>
                 <div style="flex:1">

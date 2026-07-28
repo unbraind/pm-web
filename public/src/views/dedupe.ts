@@ -4,6 +4,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml, typeIcon, statusBadge } from '../utils.js';
+import type { DedupeResponse, DedupeGroup } from '../api-types.js';
 
 export async function renderDedupeAuditView(): Promise<void> {
   const el = document.getElementById('content-dedupe');
@@ -16,22 +17,22 @@ export async function renderDedupeAuditView(): Promise<void> {
     </div>
     <div id="dedupe-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
   try {
-    const data = await api('GET', `/projects/${state.currentProject.id}/pm/dedupe-audit`);
-    const groups = (data as any).groups || (data as any).duplicates || [];
+    const data = await api<DedupeResponse>('GET', `/projects/${state.currentProject.id}/pm/dedupe-audit`);
+    const groups: DedupeGroup[] = data.groups || data.duplicates || [];
     const el2 = document.getElementById('dedupe-content');
     if (!el2) return;
     if (groups.length === 0) {
       el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--status-closed);font-size:13px">✓ No potential duplicates found — project looks clean!</div></div></div>`;
     } else {
-      el2.innerHTML = groups.map((g: any, i: number) => `
+      el2.innerHTML = groups.map((g, i: number) => `
         <div class="card" style="margin-bottom:12px">
           <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
           <div class="card-body">
-            ${(g.items||[]).map((item: any)=>`
-              <div class="item-row" onclick="window.__app.openItemDetail('${escHtml(item.id||item)}')" style="cursor:pointer">
-                ${typeIcon(item.type||'')} <span class="item-id">${escHtml(item.id||item)}</span>
-                <span class="item-title">${escHtml(item.title||'')}</span>
-                <div class="item-meta">${statusBadge(item.status||'draft')}</div>
+            ${(g.items||[]).map((raw)=>`
+              <div class="item-row" onclick="window.__app.openItemDetail('${escHtml(typeof raw === 'string' ? raw : (raw.id||''))}')" style="cursor:pointer">
+                ${typeIcon(typeof raw === 'object' ? (raw.type||'') : '')} <span class="item-id">${escHtml(typeof raw === 'string' ? raw : (raw.id||''))}</span>
+                <span class="item-title">${escHtml(typeof raw === 'object' ? (raw.title||'') : '')}</span>
+                <div class="item-meta">${statusBadge(typeof raw === 'object' ? (raw.status||'draft') : 'draft')}</div>
               </div>`).join('')}
           </div>
         </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
