@@ -1,0 +1,16 @@
+id: pm-web-tvj1
+title: Adopt pm-cli 2026.7.29
+description: "Bump @unbrained/pm-cli dependency to 2026.7.29, audit for removed --all flag and newly-fixed upstream workarounds, pass all quality gates."
+type: Chore
+status: closed
+priority: 2
+tags: []
+created_at: "2026-07-29T04:30:14.292Z"
+updated_at: "2026-07-29T04:32:21.783Z"
+closed_at: "2026-07-29T04:32:21.764Z"
+completed_at: "2026-07-29T04:32:21.764Z"
+author: pi-agent
+comments[1]{created_at,author,text}:
+  "2026-07-29T04:31:43.310Z",pi-agent,"Audit complete. --all flag: no hits found in source, docs, README, or CI. Workaround audit: GH-651 (activity bare windows) - activity route does not use --from, no signed-window workaround; GH-672 (context low_level rows) - context route is a pass-through to pm context --depth, no low_level workaround; GH-676 (list --tag CSV) - --tag passed through directly, no CSV workaround; GH-785/GH-792 (health runtime/ dir, --warn-only) - health route calls pm health with no --warn-only, no CI scaffolding or pre-creation of runtime/ dirs; GH-794 (output_format service override) - pm-web deliberately registers no service overrides (documented no-op). None applicable to remove."
+close_reason: "Bumped @unbrained/pm-cli dependency to 2026.7.29. No peerDependency on pm-cli (left as-is). Audited for removed --all flag (no hits). Audited for GH-651/672/676/785/792/794 workarounds (none applicable to remove). All quality gates green: 169 tests pass, coverage lines 49.54% branches 80.65% functions 44.83% thresholds met, audit:prod 0 vulnerabilities, changelog:check up to date."
+body: ""

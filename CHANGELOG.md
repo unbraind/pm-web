@@ -9,6 +9,7 @@
 
 ### Other
 
+- Adopt pm-cli 2026.7.29 ([pm-web-tvj1](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-tvj1.toon))
 - Type the browser client against the server routes so public/src carries zero any ([pm-web-cvh5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-cvh5.toon))
 
 ## 2026.7.28 - 2026-07-28
