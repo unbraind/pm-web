@@ -363,4 +363,18 @@ test("groups: a malformed identifier is rejected with 400 on member routes", asy
     method: "DELETE",
   });
   assert.equal(remove.status, 400);
+
+  // A malformed :id short-circuits on the first guard, so the :userId guard is
+  // only genuinely exercised when everything before it is valid. Without this
+  // case the userId guard could be wired to the wrong parameter name and the
+  // assertions above would still pass.
+  const group = await seedGroup(owner.id);
+  const badMember = await authedFetch(
+    server,
+    owner,
+    `/api/groups/${group.id}/members/not-a-uuid`,
+    { method: "DELETE" },
+  );
+  assert.equal(badMember.status, 400);
+  assert.equal(((await badMember.json()) as { error: string }).error, "Invalid userId");
 });

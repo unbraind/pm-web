@@ -325,4 +325,17 @@ test("sharing: a malformed identifier is rejected with 400 on mutating routes", 
     method: "DELETE",
   });
   assert.equal(del.status, 400);
+
+  // The mount-path project id is validated first, so :shareId is only genuinely
+  // exercised behind a valid project id. Asserting the error body proves it is
+  // the shareId guard answering and not the project guard again.
+  const project = await seedProject(owner.id);
+  const badShare = await authedFetch(
+    server,
+    owner,
+    `/api/projects/${project.id}/shares/not-a-uuid`,
+    { method: "DELETE" },
+  );
+  assert.equal(badShare.status, 400);
+  assert.equal(((await badShare.json()) as { error: string }).error, "Invalid shareId");
 });
