@@ -56,7 +56,11 @@ test("server entrypoint exits non-zero without DATABASE_URL", () => {
   try {
     execFileSync(process.execPath, ["src/server.ts"], {
       cwd: process.cwd(),
-      env: { ...process.env, DATABASE_URL: "" },
+      // src/db.ts accepts POSTGRES_HOST + POSTGRES_DB as an alternative to
+      // DATABASE_URL, so clearing only the latter would leave the server
+      // configured on any machine that sets the discrete vars — the test would
+      // then fail for an environmental reason rather than assert anything.
+      env: { ...process.env, DATABASE_URL: "", POSTGRES_HOST: "", POSTGRES_DB: "" },
       encoding: "utf-8",
       timeout: 10000,
     });
