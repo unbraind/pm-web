@@ -1,10 +1,16 @@
 import { Router } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { routeParam } from "./route-params.ts";
+import { routeParam, requireUuidParams, uuidParamGuard } from "./route-params.ts";
 
 const sharesRouter = Router({ mergeParams: true });
 sharesRouter.use(requireAuth);
+
+// The project id arrives from the mount path (/api/projects/:id/shares) and is
+// visible to router-level middleware because this router sets mergeParams;
+// :shareId is this router's own parameter, so it needs the param hook instead.
+sharesRouter.use(requireUuidParams("id", "projectId"));
+sharesRouter.param("shareId", uuidParamGuard("shareId"));
 
 // Helper: verify project ownership for sharing operations
 async function verifyProjectOwner(

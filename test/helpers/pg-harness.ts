@@ -210,12 +210,16 @@ export async function seedProject(
  * @param ownerId  UUID of the owning `pm_users` row.
  * @param name     Group name. Omit to get a globally-unique one.
  */
-export async function seedGroup(ownerId: string, name?: string): Promise<SeedGroup> {
+export async function seedGroup(
+  ownerId: string,
+  name?: string,
+  description = "",
+): Promise<SeedGroup> {
   const resolvedName = name ?? uniqueSlug("group");
   const groupResult = await pool.query<GroupRow>(
     `INSERT INTO pm_groups (owner_id, name, description)
-     VALUES ($1, $2, '') RETURNING id`,
-    [ownerId, resolvedName],
+     VALUES ($1, $2, $3) RETURNING id`,
+    [ownerId, resolvedName, description],
   );
   const row = groupResult.rows[0] as GroupRow;
   await pool.query(
@@ -303,6 +307,10 @@ export async function authedFetch(
   init?: RequestInit,
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
-  headers.set("cookie", authCookie(user));
+  // Only supply the session cookie when the caller has not set one. Overwriting
+  // unconditionally would silently discard a deliberate override, making the
+  // documented unauthenticated and alternate-session cases impossible to express
+  // and quietly turning such a test into another authenticated request.
+  if (!headers.has("cookie")) headers.set("cookie", authCookie(user));
   return fetch(server.url(path), { ...init, headers });
 }

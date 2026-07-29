@@ -32,8 +32,9 @@ test("groups: create, list, get, update, and delete as owner", async (t) => {
     body: JSON.stringify({ name: "My Group", description: "initial" }),
   });
   assert.equal(created.status, 201);
-  const createdBody = (await created.json() as { group: { id: string; name: string; role: string; member_count: string } });
+  const createdBody = (await created.json() as { group: { id: string; name: string; description: string; role: string; member_count: string } });
   assert.equal(createdBody.group.name, "My Group");
+  assert.equal(createdBody.group.description, "initial", "the submitted description must be persisted");
   assert.equal(createdBody.group.role, "owner");
   assert.equal(createdBody.group.member_count, "1");
   const groupId = createdBody.group.id;
@@ -60,7 +61,9 @@ test("groups: create, list, get, update, and delete as owner", async (t) => {
     body: JSON.stringify({ name: "Renamed", description: "updated" }),
   });
   assert.equal(updated.status, 200);
-  assert.equal((await updated.json() as { group: { name: string; description: string } }).group.name, "Renamed");
+  const updatedGroup = (await updated.json() as { group: { name: string; description: string } }).group;
+  assert.equal(updatedGroup.name, "Renamed");
+  assert.equal(updatedGroup.description, "updated", "the submitted description must be persisted");
 
   // Delete the group.
   const deleted = await authedFetch(server, owner, `/api/groups/${groupId}`, { method: "DELETE" });
@@ -282,14 +285,18 @@ test("groups: patch with only a name leaves the description untouched", async (t
   t.after(() => server.close());
 
   const owner = await seedUser(uniqueEmail("owner"));
-  const group = await seedGroup(owner.id);
+  // Seed a non-empty description: with an empty one the assertion below could
+  // not distinguish "preserved" from "wiped".
+  const group = await seedGroup(owner.id, undefined, "keep me");
   const res = await authedFetch(server, owner, `/api/groups/${group.id}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name: "OnlyName" }),
   });
   assert.equal(res.status, 200);
-  assert.equal((await res.json() as { group: { name: string } }).group.name, "OnlyName");
+  const patched = (await res.json() as { group: { name: string; description: string } }).group;
+  assert.equal(patched.name, "OnlyName");
+  assert.equal(patched.description, "keep me", "a name-only PATCH must not clear the description");
 });
 
 test("groups: inviting with role 'owner' stores the owner role", async (t) => {
@@ -309,19 +316,20 @@ test("groups: inviting with role 'owner' stores the owner role", async (t) => {
   assert.equal((await res.json() as { member: { role: string } }).member.role, "owner");
 });
 
-test("groups: a malformed group identifier fails closed with 500", async (t) => {
+test("groups: a malformed group identifier is rejected with 400 before reaching SQL", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
 
   const owner = await seedUser(uniqueEmail("owner"));
   // A non-UUID id makes the membership-check query throw a syntax error, which
-  // the route catches and surfaces as 500 — it must not leak the group's state.
+  // the uuidParamGuard rejects first, so the client gets an accurate 400 and the
+  // group's state is never consulted.
   const res = await authedFetch(server, owner, "/api/groups/not-a-uuid");
-  assert.equal(res.status, 500);
+  assert.equal(res.status, 400);
 });
 
-test("groups: a malformed identifier fails closed with 500 on mutating routes", async (t) => {
+test("groups: a malformed identifier is rejected with 400 on mutating routes", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
@@ -332,13 +340,13 @@ test("groups: a malformed identifier fails closed with 500 on mutating routes", 
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name: "X" }),
   });
-  assert.equal(patch.status, 500);
+  assert.equal(patch.status, 400);
 
   const del = await authedFetch(server, owner, "/api/groups/not-a-uuid", { method: "DELETE" });
-  assert.equal(del.status, 500);
+  assert.equal(del.status, 400);
 });
 
-test("groups: a malformed identifier fails closed with 500 on member routes", async (t) => {
+test("groups: a malformed identifier is rejected with 400 on member routes", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
@@ -349,10 +357,10 @@ test("groups: a malformed identifier fails closed with 500 on member routes", as
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: "x@y.test" }),
   });
-  assert.equal(invite.status, 500);
+  assert.equal(invite.status, 400);
 
   const remove = await authedFetch(server, owner, "/api/groups/not-a-uuid/members/not-a-uuid-either", {
     method: "DELETE",
   });
-  assert.equal(remove.status, 500);
+  assert.equal(remove.status, 400);
 });

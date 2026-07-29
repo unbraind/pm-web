@@ -221,6 +221,25 @@ test("auth: PATCH /profile updates display name", async (t) => {
   assert.equal((await res.json() as { user: { display_name: string } }).user.display_name, "Updated Name");
 });
 
+test("auth: PATCH /profile with an empty display name clears it", async (t) => {
+  await ensureSchema();
+  const server = await startApp();
+  t.after(() => server.close());
+
+  // Seed a non-empty name so the assertion can distinguish "cleared" from
+  // "already null".
+  const user = await seedUser(uniqueEmail("profile-clear"), { displayName: "Keepfirst" });
+  const res = await fetch(server.url("/api/auth/profile"), {
+    method: "PATCH",
+    headers: { "content-type": "application/json", cookie: authCookie(user) },
+    // An empty display name must resolve to null in the route (`name?.trim() || null`)
+    // and clear the column, rather than storing a blank string.
+    body: JSON.stringify({ displayName: "   " }),
+  });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json() as { user: { display_name: string | null } }).user.display_name, null);
+});
+
 test("auth: change-password verifies the current password and replaces it", async (t) => {
   await ensureSchema();
   const server = await startApp();

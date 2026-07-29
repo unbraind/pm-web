@@ -273,20 +273,21 @@ test("admin: deleting a group writes an audit row and rejects a non-admin", asyn
   assert.equal(again.status, 404);
 });
 
-test("admin: a malformed user identifier fails closed with 500", async (t) => {
+test("admin: a malformed user identifier is rejected with 400 before reaching SQL", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
 
   const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
   // A non-UUID target id makes isUserAdmin's query throw; the route catches it
-  // and surfaces 500 rather than leaking user state.
+  // The uuidParamGuard rejects the malformed id before any query runs, so the
+  // client learns its request was bad instead of being told the server failed.
   const res = await authedFetch(server, admin, "/api/admin/users/not-a-uuid", {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ isAdmin: false }),
   });
-  assert.equal(res.status, 500);
+  assert.equal(res.status, 400);
 });
 
 test("admin: creating a group with a description preserves it and audits", async (t) => {
@@ -304,20 +305,21 @@ test("admin: creating a group with a description preserves it and audits", async
   assert.equal((await res.json() as { group: { description: string } }).group.description, "a description");
 });
 
-test("admin: a malformed identifier fails closed with 500 on every mutating route", async (t) => {
+test("admin: a malformed identifier is rejected with 400 on every mutating route", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
 
   const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
   // A non-UUID id makes each route's first query throw; the route catches it
-  // and surfaces 500 rather than leaking whether the record exists.
+  // Rejected up front on every mutating route, so no cast error reaches the log
+  // and nothing leaks about whether the record exists.
   const delUser = await authedFetch(server, admin, "/api/admin/users/not-a-uuid", { method: "DELETE" });
-  assert.equal(delUser.status, 500);
+  assert.equal(delUser.status, 400);
 
   const delProject = await authedFetch(server, admin, "/api/admin/projects/not-a-uuid", { method: "DELETE" });
-  assert.equal(delProject.status, 500);
+  assert.equal(delProject.status, 400);
 
   const delGroup = await authedFetch(server, admin, "/api/admin/groups/not-a-uuid", { method: "DELETE" });
-  assert.equal(delGroup.status, 500);
+  assert.equal(delGroup.status, 400);
 });

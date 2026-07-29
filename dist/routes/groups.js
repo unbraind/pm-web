@@ -1,9 +1,13 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
-import { routeParam } from "./route-params.js";
+import { routeParam, uuidParamGuard } from "./route-params.js";
 const router = Router();
 router.use(requireAuth);
+// Both group ids and the member :userId are UUIDs; a malformed one is a bad
+// request, not a server failure.
+router.param("id", uuidParamGuard("id"));
+router.param("userId", uuidParamGuard("userId"));
 // GET /api/groups - list groups I own or am a member of
 router.get("/", async (req, res) => {
     try {

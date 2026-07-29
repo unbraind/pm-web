@@ -38,10 +38,48 @@ const URL = `postgres://postgres:test@127.0.0.1:${PORT}/${DB}`;
  * @returns The completed spawn result, including `status` and captured streams.
  */
 function docker(args: readonly string[], inherit = false): SpawnSyncReturns<string> {
-  return spawnSync("docker", [...args], {
+  const result = spawnSync("docker", [...args], {
     stdio: inherit ? "inherit" : "pipe",
     encoding: "utf8",
   });
+  // When the Docker CLI is missing entirely, spawnSync reports `error` and
+  // leaves the captured streams null. Callers read `.stdout.trim()`, so without
+  // this the script would die with an opaque "cannot read properties of null"
+  // instead of saying what is actually wrong.
+  if (result.error) {
+    console.error(
+      `db-up: could not run the Docker CLI: ${result.error.message}\n` +
+        "  Is Docker installed and running? A reachable PostgreSQL is required;\n" +
+        "  alternatively point DATABASE_URL at an existing database and skip db:up.",
+    );
+    process.exit(1);
+  }
+  return result;
+}
+
+/**
+ * Poll the container's health status until it reports healthy.
+ *
+ * Both the create and the restart path need this: `docker run` and `docker
+ * start` return as soon as the container is *running*, which is before initdb
+ * or crash recovery has finished. Printing the URL at that point invites the
+ * caller's very next command to fail with "the database system is starting up".
+ *
+ * @param reason Word describing what happened, used in the failure message.
+ */
+function waitUntilHealthy(reason: string): never {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (docker(["inspect", "--format", "{{.State.Health.Status}}", CONTAINER]).stdout.trim() === "healthy") {
+      process.stdout.write(`${URL}\n`);
+      process.exit(0);
+    }
+    sleepSeconds(1);
+  }
+  console.error(
+    `db-up: the container ${reason} but never reported healthy.\n` +
+      `  Inspect it with: docker logs ${CONTAINER}`,
+  );
+  process.exit(1);
 }
 
 /**
@@ -63,11 +101,13 @@ if (docker(["ps", "-q", "-f", `name=^${CONTAINER}$`]).stdout.trim()) {
   process.exit(0);
 }
 
-// Exists but stopped? Restart it and keep the existing volume.
+// Exists but stopped? Restart it, keeping the existing volume, and wait for the
+// health check exactly as the create path does — `docker start` returns while
+// Postgres is still coming up, so printing the URL here would hand back an
+// address that is not yet accepting connections.
 if (docker(["inspect", "--format", "{{.State.Running}}", CONTAINER]).status === 0) {
   docker(["start", CONTAINER], true);
-  process.stdout.write(`${URL}\n`);
-  process.exit(0);
+  waitUntilHealthy("restarted");
 }
 
 const created = docker([
@@ -88,16 +128,4 @@ if (created.status !== 0) {
 
 // initdb takes a second or two; connecting before it finishes yields a confusing
 // "the database system is starting up" error, so wait for the health check.
-for (let attempt = 0; attempt < 40; attempt += 1) {
-  if (docker(["inspect", "--format", "{{.State.Health.Status}}", CONTAINER]).stdout.trim() === "healthy") {
-    process.stdout.write(`${URL}\n`);
-    process.exit(0);
-  }
-  sleepSeconds(1);
-}
-
-console.error(
-  "db-up: the container started but never reported healthy.\n" +
-    `  Inspect it with: docker logs ${CONTAINER}`,
-);
-process.exit(1);
+waitUntilHealthy("started");

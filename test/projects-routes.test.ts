@@ -291,17 +291,46 @@ test("projects: patch with only a name leaves the description untouched", async 
   t.after(() => server.close());
 
   const owner = await seedUser(uniqueEmail("owner"));
-  const project = await seedProject(owner.id);
+  // Seed a non-empty description: with an empty one the assertion below could
+  // not distinguish "preserved" from "wiped".
+  const project = await seedProject(owner.id, undefined, { description: "keep me" });
   const res = await authedFetch(server, owner, `/api/projects/${project.id}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name: "OnlyName" }),
   });
   assert.equal(res.status, 200);
-  assert.equal((await res.json() as { project: { name: string } }).project.name, "OnlyName");
+  const patched = (await res.json() as { project: { name: string; description: string } }).project;
+  assert.equal(patched.name, "OnlyName");
+  assert.equal(patched.description, "keep me", "a name-only PATCH must not clear the description");
 });
 
-test("projects: a malformed project identifier fails closed with 500", async (t) => {
+test("projects: patching only the description preserves the name (partial update)", async (t) => {
+  await ensureSchema();
+  const fs = await setupFsHarness();
+  t.after(() => fs.restore());
+  const server = await startApp();
+  t.after(() => server.close());
+
+  const owner = await seedUser(uniqueEmail("owner"));
+  // Seed a non-empty name: with the default ("P") the assertion could not tell
+  // "preserved" from "reset to default".
+  const project = await seedProject(owner.id, undefined, { name: "OriginalName", description: "old" });
+  const res = await authedFetch(server, owner, `/api/projects/${project.id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    // A description-only PATCH must omit name, so the route's
+  // `name?.trim() || null` resolves to null and COALESCE keeps the existing
+  // name — the partial-update contract clients rely on.
+    body: JSON.stringify({ description: "refreshed" }),
+  });
+  assert.equal(res.status, 200);
+  const patched = (await res.json() as { project: { name: string; description: string } }).project;
+  assert.equal(patched.description, "refreshed");
+  assert.equal(patched.name, "OriginalName", "omitting name must leave it untouched");
+});
+
+test("projects: a malformed project identifier is rejected with 400 before reaching SQL", async (t) => {
   await ensureSchema();
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
@@ -310,9 +339,10 @@ test("projects: a malformed project identifier fails closed with 500", async (t)
 
   const owner = await seedUser(uniqueEmail("owner"));
   // A non-UUID id makes verifyProjectAccess's ownership query throw, which the
-  // route catches and surfaces as 500 rather than leaking the project's state.
+  // The uuidParamGuard rejects first, so the client gets an accurate 400 and the
+  // project's state is never consulted.
   const res = await authedFetch(server, owner, "/api/projects/not-a-uuid");
-  assert.equal(res.status, 500);
+  assert.equal(res.status, 400);
 });
 
 test("projects: create with a description preserves it", async (t) => {
@@ -334,7 +364,7 @@ test("projects: create with a description preserves it", async (t) => {
   assert.equal((await got.json() as { project: { description: string } }).project.description, "a description");
 });
 
-test("projects: a malformed identifier fails closed with 500 on mutating routes", async (t) => {
+test("projects: a malformed identifier is rejected with 400 on mutating routes", async (t) => {
   await ensureSchema();
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
@@ -347,8 +377,8 @@ test("projects: a malformed identifier fails closed with 500 on mutating routes"
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name: "X" }),
   });
-  assert.equal(patch.status, 500);
+  assert.equal(patch.status, 400);
 
   const del = await authedFetch(server, owner, "/api/projects/not-a-uuid", { method: "DELETE" });
-  assert.equal(del.status, 500);
+  assert.equal(del.status, 400);
 });

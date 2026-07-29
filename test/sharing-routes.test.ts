@@ -295,19 +295,20 @@ test("sharing: shared-with-me lists user and group shares, excludes the unshared
   assert.ok(unshared.id);
 });
 
-test("sharing: a malformed project identifier fails closed with 500", async (t) => {
+test("sharing: a malformed project identifier is rejected with 400 before reaching SQL", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
 
   const owner = await seedUser(uniqueEmail("owner"));
   // A non-UUID id makes the ownership-check query throw a syntax error; the
-  // route catches it and surfaces 500, never leaking the project's existence.
+  // requireUuidParams rejects the mount-path id first, so the client gets an
+  // accurate 400 and the project's existence is never consulted.
   const res = await authedFetch(server, owner, "/api/projects/not-a-uuid/shares");
-  assert.equal(res.status, 500);
+  assert.equal(res.status, 400);
 });
 
-test("sharing: a malformed identifier fails closed with 500 on mutating routes", async (t) => {
+test("sharing: a malformed identifier is rejected with 400 on mutating routes", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
@@ -318,10 +319,10 @@ test("sharing: a malformed identifier fails closed with 500 on mutating routes",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: "x@y.test" }),
   });
-  assert.equal(post.status, 500);
+  assert.equal(post.status, 400);
 
   const del = await authedFetch(server, owner, "/api/projects/not-a-uuid/shares/some-id", {
     method: "DELETE",
   });
-  assert.equal(del.status, 500);
+  assert.equal(del.status, 400);
 });
