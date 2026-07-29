@@ -2,11 +2,11 @@ id: pm-web-dlbe
 title: Build the real-Postgres route harness and cover the pm-web access-control surface
 description: "Stage 1 of pm-web-9ulj. Replace the ad-hoc 'as any' pool.query stubs with a reusable harness that starts the real Express app from createApp() on an ephemeral port, points the module-level pg pool at a throwaway PostgreSQL via DATABASE_URL supplied by the test runner (the pool is constructed at import time, so the runner must set it, not the test body), and seeds state through the shipped idempotent initSchema(). Cover the security-critical routers: sharing.ts (201 lines, 0% functions), groups.ts (232, 0%), admin.ts (229, 0%), auth.ts (171, 0%), projects.ts (193, 16.67%) and oidc.ts (199, 22.22%). Every ownership and permission branch needs both its allow and its deny assertion, because the deny path is the one that regressed before."
 type: Task
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-07-29T17:26:29.928Z"
-updated_at: "2026-07-29T17:26:29.928Z"
+updated_at: "2026-07-29T17:30:25.962Z"
 author: codex
 acceptance_criteria: "The harness sets no pool.query stub and introduces no 'as any'; sharing, groups, admin, auth, projects and oidc routers each reach full function coverage with allow-and-deny assertions per ownership branch; tests fail loudly rather than skipping when the database is unreachable; npm run check passes"
 parent: pm-web-9ulj

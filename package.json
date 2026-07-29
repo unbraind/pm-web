@@ -31,11 +31,14 @@
     "release:check": "npm run check && npm run coverage && npm run audit:prod && npm run pack:dry-run && npm run changelog:check",
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
-    "test": "npm run build && npm run build:test && node --test test/*.test.ts",
+    "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test test/*.test.ts",
     "prepublishOnly": "npm run release:check",
     "prepare": "node scripts/prepare-merge-driver.mjs",
     "merge:install": "pm merge install",
-    "coverage": "npm run build && npm run build:test && node scripts/coverage-gate.ts"
+    "coverage": "npm run build && npm run build:test && node scripts/with-test-db.ts node scripts/coverage-gate.ts",
+    "db:up": "node scripts/db-up.ts",
+    "db:down": "node scripts/db-down.ts",
+    "db:check": "node scripts/ensure-test-db.ts"
   },
   "dependencies": {
     "@unbrained/pm-cli": "^2026.7.29",
@@ -121,9 +124,9 @@
       "test/*.test.ts"
     ],
     "thresholds": {
-      "lines": 49,
+      "lines": 60,
       "branches": 80,
-      "functions": 44
+      "functions": 56
     },
     "ignore": []
   }
