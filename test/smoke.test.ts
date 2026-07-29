@@ -46,6 +46,13 @@ test("pm-web registers web, status, stop and doctor commands", async () => {
 test("server entrypoint exits non-zero without DATABASE_URL", () => {
   // Spawns src/server.ts directly so the entrypoint contributes coverage.
   // Without a database the server must fail fast rather than hang.
+  // The outcome is captured rather than asserted inside the try: an
+  // `assert.fail()` there would be caught by this handler and then satisfy a
+  // loose `status !== 0` check, so a server that started cleanly — or a run
+  // that timed out, where `status` is undefined — would read as the expected
+  // failure and the test could never fail.
+  let status: number | undefined;
+  let startedCleanly = false;
   try {
     execFileSync(process.execPath, ["src/server.ts"], {
       cwd: process.cwd(),
@@ -53,11 +60,18 @@ test("server entrypoint exits non-zero without DATABASE_URL", () => {
       encoding: "utf-8",
       timeout: 10000,
     });
-    assert.fail("expected server to exit non-zero without DATABASE_URL");
+    startedCleanly = true;
   } catch (err) {
-    const e = err as { status?: number };
-    assert.ok(e.status !== 0, `expected non-zero exit, got ${e.status}`);
+    status = (err as { status?: number }).status;
   }
+
+  assert.equal(startedCleanly, false, "server started without DATABASE_URL; it must fail fast instead");
+  assert.equal(
+    typeof status,
+    "number",
+    `expected the child to report an exit code; got ${status} (a killed or timed-out child reports none)`,
+  );
+  assert.notEqual(status, 0, "expected a non-zero exit code");
 });
 
 test("no command redeclares a host-owned global flag", async () => {
