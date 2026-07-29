@@ -1,0 +1,13 @@
+id: pm-web-ulgy
+title: Cover the routes/pm.ts command surface and the index/server bootstrap in pm-web
+description: "Stage 2 of pm-web-9ulj, tracked separately because routes/pm.ts is 2704 lines at 7.08% function coverage and is far larger than the rest of the route layer combined. It proxies the pm CLI for every item operation, and memory of this codebase records two traps that only real-workspace tests can catch: runPm serves most actions in-process via the SDK, so unmapped positionals are silently dropped unless added to POSITIONAL_KEYS and a fake-pm-binary harness cannot observe it at all; and the --folder parameter honours '..', which without the isSafeTypeFolder guard writes items outside the pm root and is cross-tenant on the hosted deployment. Also covers src/index.ts (42.83% lines, 26.32% functions) and src/server.ts (42.31%, 0% functions). Depends on the stage 1 harness landing first."
+type: Task
+status: open
+priority: 2
+tags: []
+created_at: "2026-07-29T17:26:40.207Z"
+updated_at: "2026-07-29T17:26:40.207Z"
+author: codex
+acceptance_criteria: routes/pm.ts is exercised against a real pm workspace rather than a fake pm binary so in-process SDK dispatch is observable; a regression test asserts that a '..' folder traversal is rejected and that items never land outside the pm root; POSITIONAL_KEYS coverage proves no positional is silently dropped; index.ts and server.ts bootstrap paths are covered; thresholds ratchet again
+parent: pm-web-9ulj
+body: ""

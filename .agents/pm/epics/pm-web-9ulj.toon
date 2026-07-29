@@ -1,0 +1,12 @@
+id: pm-web-9ulj
+title: Bring the pm-web HTTP route layer under real-Postgres integration coverage
+description: "pm-web is the canonical hosted data source (pm-web.unbrained.dev) and holds real multi-tenant user data, yet its entire Express route layer is effectively unexercised: sharing.ts, admin.ts, auth.ts, github.ts and groups.ts all report 0.00% function coverage, and routes/pm.ts reports 7.08%. Package totals are 49.54% lines / 80.65% branches / 44.83% functions, which the coverage gate currently accepts because the ratchet floor was set from the measured CI floor rather than from the 100% mandate. The untested surface is precisely the access-control surface: project ownership checks, share grants, group membership and admin actions. A view-only-collaborator privilege bug has already shipped once in this layer, which is direct evidence the gap is load-bearing rather than theoretical. Existing route tests stub pool.query ad-hoc via 'as any', so they assert against a hand-rolled fake instead of real SQL semantics and cannot catch a wrong JOIN or a missing ownership predicate. This epic replaces that with a real throwaway PostgreSQL instance driven through the real Express app over an ephemeral HTTP server, seeded via the shipped idempotent initSchema(), and adds a postgres service container to CI so the gate runs the same way there."
+type: Epic
+status: open
+priority: 2
+tags: []
+created_at: "2026-07-29T17:26:16.033Z"
+updated_at: "2026-07-29T17:26:16.033Z"
+author: codex
+acceptance_criteria: "A reusable real-Postgres integration harness exists that boots the real Express app via createApp() over an ephemeral HTTP server and seeds through the shipped initSchema(), with no pool.query stubbing and no 'as any'; the access-control route surface (sharing, groups, admin, projects, auth, oidc) is covered by tests that assert both the allow and the deny path for every ownership and permission branch; CI provides a postgres service container so the coverage gate runs against a real database on both Node 22 and 26; the coverageGate thresholds are ratcheted up to the newly measured floor so the gain cannot silently regress; the tests must fail loudly rather than skip when no database is reachable, so the gate is not cheatable by omission; npm run coverage and npm run check both pass locally and in CI"
+body: ""
