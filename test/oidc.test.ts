@@ -16,10 +16,11 @@ import {
   resolveExternalIdentity,
   resolveOidcSettings,
   validateOidcClaims,
-  type PmUserRow,
   type ValidatedOidcIdentity,
 } from "../src/oidc.ts";
 import { providerAuthorizationError } from "../src/routes/oidc.ts";
+import { pool } from "../src/db.ts";
+import { ensureSchema, uniqueEmail, uniqueSlug } from "./helpers/pg-harness.ts";
 
 const cookieSecret = "cookie-secret-that-is-at-least-thirty-two-bytes";
 
@@ -216,130 +217,121 @@ test("verified email can be required for every OIDC identity", () => {
     (error: unknown) => error instanceof OidcFlowError && error.code === "verified_email_required",
   );
 });
+/**
+ * Real-Postgres coverage for `resolveExternalIdentity` in `src/oidc.ts`.
+ *
+ * These tests replace the former in-memory `FakeOidcDb` double with the live
+ * `pg.Pool`: `resolveExternalIdentity` runs its own `BEGIN`/`COMMIT`/`ROLLBACK`
+ * and `pg_advisory_xact_lock` against a real database, so a wrong JOIN or a
+ * missing uniqueness guard fails the test instead of being masked by a
+ * hand-rolled fake. Each test mints a globally-unique issuer/subject/email so
+ * concurrent test files sharing the database never collide.
+ */
 
-interface FakeIdentityRow {
-  issuer: string;
-  subject: string;
-  userId: string;
-  email: string | null;
-}
-
-class FakeOidcDb {
-  users: PmUserRow[] = [];
-  identities: FakeIdentityRow[] = [];
-  passwordMarkers: string[] = [];
-  private nextId = 1;
-
-  seedUser(email: string): PmUserRow {
-    const user: PmUserRow = {
-      id: `00000000-0000-0000-0000-${String(this.nextId++).padStart(12, "0")}`,
-      email,
-      display_name: "Existing User",
-      is_admin: false,
-      created_at: "2026-01-01T00:00:00.000Z",
-    };
-    this.users.push(user);
-    return user;
-  }
-
-  async query(sql: string, values: unknown[] = []): Promise<{ rows: any[] }> {
-    const normalized = sql.replace(/\s+/g, " ").trim();
-    if (["BEGIN", "COMMIT", "ROLLBACK"].includes(normalized)) return { rows: [] };
-    if (normalized.startsWith("SELECT pg_advisory_xact_lock")) return { rows: [] };
-
-    if (normalized.includes("FROM pm_external_identities i")) {
-      const mapping = this.identities.find(
-        (row) => row.issuer === values[0] && row.subject === values[1],
-      );
-      return { rows: mapping ? [this.users.find((user) => user.id === mapping.userId)!] : [] };
-    }
-    if (normalized.startsWith("UPDATE pm_external_identities")) {
-      const mapping = this.identities.find(
-        (row) => row.issuer === values[0] && row.subject === values[1],
-      );
-      if (mapping) mapping.email = values[2] as string | null;
-      return { rows: [] };
-    }
-    if (normalized.includes("FROM pm_users WHERE email = $1")) {
-      const email = String(values[0]);
-      const user = this.users.find((candidate) => candidate.email === email);
-      return { rows: user ? [user] : [] };
-    }
-    if (normalized.startsWith("INSERT INTO pm_users")) {
-      const email = String(values[0]);
-      if (this.users.some((candidate) => candidate.email.toLowerCase() === email.toLowerCase())) {
-        throw Object.assign(new Error("duplicate email"), { code: "23505" });
-      }
-      this.passwordMarkers.push(String(values[1]));
-      const user = this.seedUser(email);
-      user.display_name = values[2] as string;
-      return { rows: [user] };
-    }
-    if (normalized.startsWith("INSERT INTO pm_external_identities")) {
-      if (this.identities.some((row) =>
-        (row.issuer === values[0] && row.subject === values[1]) ||
-        (row.issuer === values[0] && row.userId === values[2])
-      )) {
-        throw Object.assign(new Error("duplicate identity"), { code: "23505" });
-      }
-      this.identities.push({
-        issuer: values[0] as string,
-        subject: values[1] as string,
-        userId: values[2] as string,
-        email: values[3] as string | null,
-      });
-      return { rows: [] };
-    }
-    throw new Error(`Unexpected SQL in OIDC test double: ${normalized}`);
-  }
-}
-
-function identity(overrides: Partial<ValidatedOidcIdentity> = {}): ValidatedOidcIdentity {
+function makeIdentity(): ValidatedOidcIdentity {
   return {
     issuer: "https://identity.example/",
-    subject: "subject-1",
-    email: "user@example.test",
+    subject: uniqueSlug("subject"),
+    email: uniqueEmail("oidcuser"),
     emailVerified: true,
     displayName: "OIDC User",
-    ...overrides,
   };
 }
 
 test("external identity resolution auto-provisions once and is idempotent", async () => {
-  const db = new FakeOidcDb();
-  const first = await resolveExternalIdentity(db as any, identity());
-  const second = await resolveExternalIdentity(db as any, identity({ displayName: "Changed Claim" }));
-  assert.equal(second.id, first.id);
-  assert.equal(db.users.length, 1);
-  assert.equal(db.identities.length, 1);
-  assert.equal(db.passwordMarkers.length, 1);
-  assert.match(db.passwordMarkers[0], /^!oidc:/);
-  assert.equal(db.passwordMarkers[0].startsWith("$2"), false);
-  assert.equal(await bcrypt.compare("any-password", db.passwordMarkers[0]), false);
+  await ensureSchema();
+  const base = makeIdentity();
+  const client = await pool.connect();
+  try {
+    const first = await resolveExternalIdentity(client, base);
+    const second = await resolveExternalIdentity(client, { ...base, displayName: "Changed Claim" });
+    assert.equal(second.id, first.id);
+
+    const users = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM pm_users WHERE email = $1`,
+      [base.email],
+    );
+    assert.equal((users.rows[0] as { count: number }).count, 1);
+
+    const identities = await pool.query(
+      `SELECT user_id FROM pm_external_identities WHERE issuer = $1 AND subject = $2`,
+      [base.issuer, base.subject],
+    );
+    assert.equal(identities.rows.length, 1);
+    assert.equal((identities.rows[0] as { user_id: string }).user_id, first.id);
+
+    const stored = await pool.query<{ password_hash: string }>(
+      `SELECT password_hash FROM pm_users WHERE id = $1`,
+      [first.id],
+    );
+    const marker = (stored.rows[0] as { password_hash: string }).password_hash;
+    assert.match(marker, /^!oidc:/);
+    assert.equal(marker.startsWith("$2"), false);
+    assert.equal(await bcrypt.compare("any-password", marker), false);
+  } finally {
+    client.release();
+  }
 });
 
 test("verified same-email identity links an existing account", async () => {
-  const db = new FakeOidcDb();
-  const existing = db.seedUser("user@example.test");
-  const resolved = await resolveExternalIdentity(db as any, identity());
-  assert.equal(resolved.id, existing.id);
-  assert.equal(db.users.length, 1);
-  assert.equal(db.identities[0].userId, existing.id);
+  await ensureSchema();
+  const base = makeIdentity();
+  // Pre-create a local account with the same (verified) email.
+  const existing = await pool.query<{ id: string }>(
+    `INSERT INTO pm_users (email, password_hash) VALUES ($1, 'x') RETURNING id`,
+    [base.email],
+  );
+  const existingId = (existing.rows[0] as { id: string }).id;
+
+  const client = await pool.connect();
+  try {
+    const resolved = await resolveExternalIdentity(client, base);
+    assert.equal(resolved.id, existingId);
+
+    const identities = await pool.query(
+      `SELECT user_id FROM pm_external_identities WHERE issuer = $1 AND subject = $2`,
+      [base.issuer, base.subject],
+    );
+    assert.equal(identities.rows.length, 1);
+    assert.equal((identities.rows[0] as { user_id: string }).user_id, existingId);
+  } finally {
+    client.release();
+  }
 });
 
 test("unverified same-email collision is rejected", async () => {
-  const db = new FakeOidcDb();
-  db.seedUser("user@example.test");
-  await assert.rejects(
-    () => resolveExternalIdentity(db as any, identity({ emailVerified: false })),
-    (error: unknown) => error instanceof OidcFlowError && error.code === "unverified_email_collision",
+  await ensureSchema();
+  const base = makeIdentity();
+  await pool.query(
+    `INSERT INTO pm_users (email, password_hash) VALUES ($1, 'x')`,
+    [base.email],
   );
-  assert.equal(db.identities.length, 0);
+
+  const client = await pool.connect();
+  try {
+    await assert.rejects(
+      () => resolveExternalIdentity(client, { ...base, emailVerified: false }),
+      (error: unknown) => error instanceof OidcFlowError && error.code === "unverified_email_collision",
+    );
+    const identities = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM pm_external_identities WHERE issuer = $1 AND subject = $2`,
+      [base.issuer, base.subject],
+    );
+    assert.equal((identities.rows[0] as { count: number }).count, 0);
+  } finally {
+    client.release();
+  }
 });
 
 test("OIDC identity without email receives a stable-domain synthetic local email", async () => {
-  const db = new FakeOidcDb();
-  const user = await resolveExternalIdentity(db as any, identity({ email: null, emailVerified: false }));
-  assert.match(user.email, /^oidc-[a-f0-9]{32}@users\.invalid$/);
-  assert.equal(user.display_name, "OIDC User");
+  await ensureSchema();
+  const base = makeIdentity();
+  const client = await pool.connect();
+  try {
+    const user = await resolveExternalIdentity(client, { ...base, email: null, emailVerified: false });
+    assert.match(user.email, /^oidc-[a-f0-9]{32}@users\.invalid$/);
+    assert.equal(user.display_name, "OIDC User");
+  } finally {
+    client.release();
+  }
 });

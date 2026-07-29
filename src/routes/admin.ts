@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Response } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { routeParam } from "./route-params.ts";
+import { routeParam, uuidParamGuard } from "./route-params.ts";
 
 const router = Router();
 
@@ -32,6 +32,10 @@ async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction)
 }
 
 router.use(requireAdmin);
+
+// /users/:id, /projects/:id and /groups/:id are all UUIDs; reject a malformed
+// one with 400 rather than letting PostgreSQL raise a cast error behind a 500.
+router.param("id", uuidParamGuard("id"));
 
 router.get("/overview", async (_req, res) => {
   try {

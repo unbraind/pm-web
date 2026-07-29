@@ -2,9 +2,11 @@ import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { initProject, deleteProjectDir } from "../services/pm-runner.js";
-import { routeParam } from "./route-params.js";
+import { routeParam, uuidParamGuard } from "./route-params.js";
 const router = Router();
 router.use(requireAuth);
+// :id is a project UUID; reject a malformed one with 400 before it reaches SQL.
+router.param("id", uuidParamGuard("id"));
 /**
  * Check if a user has access to a project (either as owner or via share).
  * Returns the project row with an additional `ownerUserId` field indicating

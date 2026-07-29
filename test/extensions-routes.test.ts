@@ -49,20 +49,55 @@ interface Harness {
   restore: () => Promise<void>;
 }
 
-async function setupHarness(): Promise<Harness> {
+/** Options selecting which fake pm behaviour the harness installs. */
+interface HarnessOptions {
+  /**
+   * Install a fake pm that exits non-zero with a stderr message, so a mutation
+   * route sees `runPm` fail and exercises its `if (!result.ok)` 400 branch.
+   * Defaults to the success binary used by the happy-path tests.
+   */
+  fail?: boolean;
+  /**
+   * Install a fake pm whose `extension --json` output is a valid (empty)
+   * extension list, so the GET route takes its healthy `ok` arm and omits the
+   * `stateError` degradation field. Defaults to the success binary.
+   */
+  healthy?: boolean;
+}
+
+async function setupHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-ext-routes-"));
   const fakePm = path.join(root, "fake-pm");
   const logPath = path.join(root, "commands.log");
 
-  // The fake pm binary records every invocation and returns success JSON. If
-  // the catalog gate ever lets an unknown name through, this log proves a
-  // spawn happened (it must stay empty for the 400-before-spawn test).
-  await writeFile(fakePm, `#!/usr/bin/env node
+  // The fake pm binary records every invocation. The success variant returns
+  // JSON on stdout (the happy path); the fail variant writes to stderr and
+  // exits non-zero so `runPm` reports `ok: false` and the route surfaces a
+  // 400; the healthy variant returns a valid extension list so the GET route's
+  // healthy arm runs. Either way the log proves a spawn happened — it must
+  // stay empty for the 400-before-spawn test.
+  const script = opts.fail
+    ? `#!/usr/bin/env node
+const fs = require("node:fs");
+const log = process.env.FAKE_PM_LOG;
+if (log) fs.appendFileSync(log, process.argv.slice(2).join(" ") + "\\n");
+process.stderr.write("fake-pm: rejected");
+process.exit(1);
+`
+    : opts.healthy
+    ? `#!/usr/bin/env node
+const fs = require("node:fs");
+const log = process.env.FAKE_PM_LOG;
+if (log) fs.appendFileSync(log, process.argv.slice(2).join(" ") + "\\n");
+process.stdout.write(JSON.stringify({ details: { extensions: [] } }));
+`
+    : `#!/usr/bin/env node
 const fs = require("node:fs");
 const log = process.env.FAKE_PM_LOG;
 if (log) fs.appendFileSync(log, process.argv.slice(2).join(" ") + "\\n");
 process.stdout.write(JSON.stringify({ ok: true, action: process.argv[3], source: "npm" }));
-`);
+`;
+  await writeFile(fakePm, script);
   await chmod(fakePm, 0o755);
 
   // The spawn cwd is PROJECTS_ROOT/<ownerUserId>/<slug>; it must exist or the
@@ -380,6 +415,65 @@ test("a request for a non-catalog package name is rejected 400 before any spawn"
     const log = await readFile(harness.logPath, "utf8").catch(() => "");
     assert.equal(log, "",
       "a non-catalog name must never reach a pm process spawn");
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});
+
+test("an install that pm rejects is surfaced as 400 carrying pm's stderr", async () => {
+  // The install handler's `if (!result.ok)` branch must hand the caller a 400
+  // carrying pm's own stderr, so a failed registry resolution reads as a
+  // client error rather than a silent 201 or a 500. The install route sets a
+  // timeout, so runPm spawns the fake pm rather than serving it in-process.
+  const harness = await setupHarness({ fail: true });
+  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
+  const app = createApp();
+  try {
+    const { status, body } = await request(
+      app,
+      "POST",
+      `/api/projects/${PROJECT_ID}/extensions/pm-graph/install`,
+      OWNER_USER_ID,
+    );
+    assert.equal(status, 400, `a rejected install must be 400, got ${status}`);
+    assert.match(
+      String((body as { error?: string }).error ?? ""),
+      /fake-pm: rejected/i,
+      "the 400 must carry pm's stderr so the caller sees why it failed",
+    );
+    // The catalog-verified npm spec must still have reached pm — the rejection
+    // happened inside pm, not before the spawn.
+    const log = await readFile(harness.logPath, "utf8");
+    assert.match(log, /install npm:pm-graph --project/);
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});
+
+test("a healthy extension read lists packages without a stateError field", async () => {
+  // When `pm extension --json` returns a valid list the GET route takes its
+  // healthy `ok` arm and omits `stateError`, so a healthy project is
+  // distinguishable from one whose state read failed. The degraded arm is
+  // covered by the other GET tests (the success fake returns non-list JSON);
+  // this one pins the healthy contract.
+  const harness = await setupHarness({ healthy: true });
+  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
+  const app = createApp();
+  try {
+    const { status, body } = await request(
+      app,
+      "GET",
+      `/api/projects/${PROJECT_ID}/extensions`,
+      OWNER_USER_ID,
+    );
+    assert.equal(status, 200);
+    const payload = body as { packages?: unknown[]; stateError?: string };
+    assert.ok(Array.isArray(payload.packages) && payload.packages.length > 0,
+      "the catalog list must still render");
+    assert.equal(payload.stateError, undefined,
+      "a healthy read must not surface a stateError");
   } finally {
     restorePool();
     await harness.restore();

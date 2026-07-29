@@ -18,6 +18,34 @@ jobs:
         # 22 is the floor declared in `engines` and the first line that strips
         # TypeScript without a flag; 26 is what the fleet develops against.
         node-version: [22, 26]
+
+    # pm-web requires PostgreSQL by design, and the route-coverage suite talks to
+    # a real database rather than stubbing `pool.query`. The gate therefore needs
+    # a live server here: `scripts/ensure-test-db.ts` fails the run outright when
+    # none is reachable, because a suite that skipped its own database tests would
+    # let the coverage ratchet be satisfied by omission.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: pmwebtest
+        ports:
+          - 55433:5432
+        # Without the health check the first step can connect before Postgres is
+        # accepting connections; the initdb bootstrap takes a second or two.
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # Matches the default in scripts/with-test-db.ts, which is also what the
+      # local `npm run db:up` container listens on, so local and CI runs agree.
+      DATABASE_URL: postgres://postgres:test@127.0.0.1:55433/pmwebtest
+      JWT_SECRET: pm-web-test-jwt-secret-at-least-32-bytes
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
-import { routeParam } from "./route-params.js";
+import { routeParam, uuidParamGuard } from "./route-params.js";
 const router = Router();
 router.use(requireAuth);
 async function getAdminCount() {
@@ -27,6 +27,9 @@ async function requireAdmin(req, res, next) {
     }
 }
 router.use(requireAdmin);
+// /users/:id, /projects/:id and /groups/:id are all UUIDs; reject a malformed
+// one with 400 rather than letting PostgreSQL raise a cast error behind a 500.
+router.param("id", uuidParamGuard("id"));
 router.get("/overview", async (_req, res) => {
     try {
         const [users, projects, shares, groups] = await Promise.all([

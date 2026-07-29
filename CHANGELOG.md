@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Build the real-Postgres route harness and cover the pm-web access-control surface ([pm-web-dlbe](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-dlbe.toon))
+
 ## 2026.7.29 - 2026-07-29
 
 ### Added
