@@ -95,10 +95,13 @@ function sleepSeconds(seconds: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1_000);
 }
 
-// Already running? Nothing to do.
+// Already running? Still wait for healthy before handing back the URL. Running
+// is not the same as ready: `docker ps` lists the container as soon as its
+// process is up, which can precede Postgres accepting connections during crash
+// recovery, or when a concurrent `db:up` created it moments earlier. All three
+// paths here therefore end in waitUntilHealthy rather than assuming readiness.
 if (docker(["ps", "-q", "-f", `name=^${CONTAINER}$`]).stdout.trim()) {
-  process.stdout.write(`${URL}\n`);
-  process.exit(0);
+  waitUntilHealthy("was already running");
 }
 
 // Exists but stopped? Restart it, keeping the existing volume, and wait for the
