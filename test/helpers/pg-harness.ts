@@ -120,12 +120,51 @@ export function uniqueSlug(stem: string): string {
 }
 
 /**
- * Ensures the full pm-web schema exists. `initSchema` is idempotent, so this
- * is safe to call from every test file that imports the harness; it creates
- * every table the route handlers touch.
+ * Arbitrary but fixed key identifying the schema-creation advisory lock.
+ *
+ * Any constant works as long as every worker agrees on it; it only has to avoid
+ * colliding with another advisory lock in the same database, and this test
+ * database has no other users.
+ */
+const SCHEMA_LOCK_KEY = 0x706d7765;
+
+/**
+ * Ensures the full pm-web schema exists, serialising concurrent creators.
+ *
+ * `initSchema` is idempotent in the single-writer sense — it is built from
+ * `CREATE TABLE IF NOT EXISTS` and friends — but that is **not** the same as
+ * being safe under concurrency. `CREATE TABLE IF NOT EXISTS` is not atomic
+ * against a concurrent identical CREATE: two `node --test` worker processes can
+ * both pass the existence check and then collide inside PostgreSQL's own
+ * catalog, failing with `duplicate key value violates unique constraint
+ * "pg_class_relname_nsp_index"` (or `pg_type_typname_nsp_index`). The same race
+ * applies to `CREATE INDEX IF NOT EXISTS`.
+ *
+ * This is easy to miss because it is timing-dependent: it passed locally and on
+ * one CI Node version while failing on another, purely on scheduling. A session
+ * advisory lock makes the whole create-or-skip sequence mutually exclusive, so
+ * exactly one worker performs the DDL and the rest wait and then find the tables
+ * already present.
+ *
+ * The lock is taken on a dedicated client rather than through `pool.query`,
+ * because advisory locks are scoped to a *session*: issued through the pool, the
+ * lock and its release could land on two different connections, releasing
+ * nothing and holding a lock forever. `initSchema` itself still runs against the
+ * pool, which is correct — mutual exclusion comes from every worker having to
+ * hold this lock before it may call `initSchema` at all.
  */
 export async function ensureSchema(): Promise<void> {
-  await initSchema();
+  const client = await pool.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [SCHEMA_LOCK_KEY]);
+    try {
+      await initSchema();
+    } finally {
+      await client.query("SELECT pg_advisory_unlock($1)", [SCHEMA_LOCK_KEY]);
+    }
+  } finally {
+    client.release();
+  }
 }
 
 /**
