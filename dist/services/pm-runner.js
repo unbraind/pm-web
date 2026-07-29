@@ -14,9 +14,9 @@ function positiveInteger(value, fallback) {
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 export class Semaphore {
-    limit;
     active = 0;
     waiting = [];
+    limit;
     constructor(limit) {
         this.limit = limit;
     }

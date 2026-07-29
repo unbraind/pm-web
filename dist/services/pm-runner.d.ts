@@ -1,9 +1,9 @@
 import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult } from "@unbrained/pm-cli/sdk";
 export { PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult };
 export declare class Semaphore {
-    private readonly limit;
     private active;
     private readonly waiting;
+    private readonly limit;
     constructor(limit: number);
     acquire(): Promise<() => void>;
 }

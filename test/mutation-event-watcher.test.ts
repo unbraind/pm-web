@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMutationEventReconciler, startMutationEventWatcher } from "../dist/services/mutation-event-watcher.js";
+import { createMutationEventReconciler, startMutationEventWatcher } from "../src/services/mutation-event-watcher.ts";
 import type { MutationEvent } from "@unbrained/pm-cli/sdk";
-import type { SSEEvent } from "../dist/services/sse.js";
+import type { SSEEvent } from "../src/services/sse.ts";
 
 const PID_A = "11111111-1111-4111-8111-111111111111";
 const PID_B = "22222222-2222-4221-8222-222222222222";

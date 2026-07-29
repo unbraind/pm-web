@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createApp, LEGAL_PAGES, resolveLegalPagesDir } from "../dist/app.js";
+import { createApp, LEGAL_PAGES, resolveLegalPagesDir } from "../src/app.ts";
 
 const app = createApp();
 

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { evictPmClient, EXIT_CODE, getPmClient, runPm, Semaphore } from "../dist/services/pm-runner.js";
+import { evictPmClient, EXIT_CODE, getPmClient, runPm, Semaphore } from "../src/services/pm-runner.ts";
 
 test("semaphore hands a released slot directly to the oldest waiter", async () => {
   const semaphore = new Semaphore(1);

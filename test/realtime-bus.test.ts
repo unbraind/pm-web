@@ -5,8 +5,8 @@ import {
   buildEnvelope,
   handleIncomingEnvelope,
   parseEnvelope,
-} from "../dist/services/realtime-bus.js";
-import type { SSEEvent } from "../dist/services/sse.js";
+} from "../src/services/realtime-bus.ts";
+import type { SSEEvent } from "../src/services/sse.ts";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 

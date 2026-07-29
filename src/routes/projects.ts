@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { pool } from "../db.js";
-import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { initProject, projectExists, deleteProjectDir } from "../services/pm-runner.js";
-import { routeParam } from "./route-params.js";
+import { pool } from "../db.ts";
+import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
+import { initProject, projectExists, deleteProjectDir } from "../services/pm-runner.ts";
+import { routeParam } from "./route-params.ts";
 
 const router = Router();
 router.use(requireAuth);

@@ -79,12 +79,16 @@ export class OidcConfigurationError extends Error {
 }
 
 export class OidcFlowError extends Error {
+  readonly code: string;
+  readonly status: number;
   constructor(
-    public readonly code: string,
+    code: string,
     message: string,
-    public readonly status = 400,
+    status = 400,
   ) {
     super(message);
+    this.code = code;
+    this.status = status;
     this.name = "OidcFlowError";
   }
 }

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 
 import { createExtensionTestHarness } from "@unbrained/pm-cli/sdk/testing";
 
-import extension from "../dist/index.js";
+import extension from "../src/index.ts";
 
 /**
  * Activate pm-web through pm's real host engine with the manifest's declared
@@ -40,6 +41,41 @@ test("pm-web registers web, status, stop and doctor commands", async () => {
   ext.assertCommandContract({ name: "web doctor", flags: ["--port"] });
 
   await ext.deactivate();
+});
+
+test("server entrypoint exits non-zero without DATABASE_URL", () => {
+  // Spawns src/server.ts directly so the entrypoint contributes coverage.
+  // Without a database the server must fail fast rather than hang.
+  // The outcome is captured rather than asserted inside the try: an
+  // `assert.fail()` there would be caught by this handler and then satisfy a
+  // loose `status !== 0` check, so a server that started cleanly — or a run
+  // that timed out, where `status` is undefined — would read as the expected
+  // failure and the test could never fail.
+  let status: number | undefined;
+  let startedCleanly = false;
+  try {
+    execFileSync(process.execPath, ["src/server.ts"], {
+      cwd: process.cwd(),
+      // src/db.ts accepts POSTGRES_HOST + POSTGRES_DB as an alternative to
+      // DATABASE_URL, so clearing only the latter would leave the server
+      // configured on any machine that sets the discrete vars — the test would
+      // then fail for an environmental reason rather than assert anything.
+      env: { ...process.env, DATABASE_URL: "", POSTGRES_HOST: "", POSTGRES_DB: "" },
+      encoding: "utf-8",
+      timeout: 10000,
+    });
+    startedCleanly = true;
+  } catch (err) {
+    status = (err as { status?: number }).status;
+  }
+
+  assert.equal(startedCleanly, false, "server started without DATABASE_URL; it must fail fast instead");
+  assert.equal(
+    typeof status,
+    "number",
+    `expected the child to report an exit code; got ${status} (a killed or timed-out child reports none)`,
+  );
+  assert.notEqual(status, 0, "expected a non-zero exit code");
 });
 
 test("no command redeclares a host-owned global flag", async () => {

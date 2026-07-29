@@ -1,9 +1,9 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { pool } from "../db.js";
-import { setSessionCookie } from "../auth.js";
-import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { encryptSecret } from "../crypto.js";
+import { pool } from "../db.ts";
+import { setSessionCookie } from "../auth.ts";
+import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
+import { encryptSecret } from "../crypto.ts";
 
 const router = Router();
 const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "")

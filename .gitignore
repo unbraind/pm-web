@@ -23,3 +23,4 @@ public/cookie-consent.js
 .agents/pm/transactions/
 .agents/pm/checkpoints/
 # pm-cli:runtime-cache:end
+coverage/

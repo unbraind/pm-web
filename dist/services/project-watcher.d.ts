@@ -1,4 +1,4 @@
-import { type SSEEvent } from "./sse.js";
+import { type SSEEvent } from "./sse.ts";
 export declare function computeWorkspaceSignature(dir: string): Promise<string>;
 export interface WorkspaceSweepState {
     cursor: number;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { boardColumns, filterItemsByQuery } from "../dist/board.js";
+import { boardColumns, filterItemsByQuery } from "../src/board.ts";
 
 const items = [
   { id: "pm-1", title: "Fix login", status: "open", tags: ["auth"], body: "token bug" },

@@ -55,7 +55,7 @@ interface LocaleStorage {
 }
 
 interface I18nModule {
-  resolveLocale(opts?: { storage?: LocaleStorage | null; navLang?: string }): string;
+  resolveLocale(opts?: { storage?: LocaleStorage | null; navLang?: string | null }): string;
   translate(
     catalog: Record<string, string>,
     fallback: Record<string, string>,

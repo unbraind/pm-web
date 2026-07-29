@@ -43,7 +43,7 @@ const DEFAULT_LOCALE: SupportedLocale = 'en';
  */
 export function resolveLocale(opts?: {
   storage?: Storage | null;
-  navLang?: string;
+  navLang?: string | null;
 }): SupportedLocale {
   // A property that is present (even if `null`) means the caller explicitly
   // wants that value: `null` skips the step. A property that is absent falls

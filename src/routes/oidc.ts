@@ -8,8 +8,8 @@ import {
   Configuration,
   discovery,
 } from "openid-client";
-import { pool } from "../db.js";
-import { setSessionCookie } from "../auth.js";
+import { pool } from "../db.ts";
+import { setSessionCookie } from "../auth.ts";
 import {
   createOidcState,
   decodeOidcStateCookie,
@@ -23,7 +23,7 @@ import {
   resolveOidcSettings,
   validateOidcClaims,
   type OidcSettings,
-} from "../oidc.js";
+} from "../oidc.ts";
 
 const router = Router();
 

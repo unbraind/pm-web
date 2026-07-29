@@ -4,6 +4,7 @@
 
 ### Added
 
+- Run the test suite against TypeScript sources behind an uncheatable coverage gate ([pm-web-g6ac](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-g6ac.toon))
 - Catalog every installable pm package including the authoring templates ([pm-web-xe0u](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-xe0u.toon))
 
 ### Other

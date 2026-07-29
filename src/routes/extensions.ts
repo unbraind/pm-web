@@ -24,22 +24,22 @@
 // live — consistent with how item mutations already broadcast.
 
 import { Router, type Response } from "express";
-import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { verifyProjectAccess } from "./projects.js";
-import { routeParam } from "./route-params.js";
+import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
+import { verifyProjectAccess } from "./projects.ts";
+import { routeParam } from "./route-params.ts";
 import {
   INSTALL_COMMAND_TIMEOUT_MS,
   readProjectExtensionStates,
   runPm,
   getProjectDir,
   type ExtensionState,
-} from "../services/pm-runner.js";
+} from "../services/pm-runner.ts";
 import {
   PACKAGE_CATALOG,
   findCatalogEntry,
   type PackageCatalogEntry,
-} from "../services/package-catalog.js";
-import { broadcastProjectEvent } from "../services/sse.js";
+} from "../services/package-catalog.ts";
+import { broadcastProjectEvent } from "../services/sse.ts";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);

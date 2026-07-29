@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { pool } from "../db.js";
-import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { routeParam } from "./route-params.js";
+import { pool } from "../db.ts";
+import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
+import { routeParam } from "./route-params.ts";
 
 const router = Router();
 router.use(requireAuth);

@@ -18,8 +18,8 @@ import {
   validateOidcClaims,
   type PmUserRow,
   type ValidatedOidcIdentity,
-} from "../dist/oidc.js";
-import { providerAuthorizationError } from "../dist/routes/oidc.js";
+} from "../src/oidc.ts";
+import { providerAuthorizationError } from "../src/routes/oidc.ts";
 
 const cookieSecret = "cookie-secret-that-is-at-least-thirty-two-bytes";
 
