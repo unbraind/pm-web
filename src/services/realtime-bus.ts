@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import { pool } from "../db.js";
+import { pool } from "../db.ts";
 import {
   configureProjectEventPublisher,
   deliverProjectEvent,
   type SSEEvent,
-} from "./sse.js";
+} from "./sse.ts";
 
 const CHANNEL = "pm_workspace_events";
 const INSTANCE_ID = randomUUID();

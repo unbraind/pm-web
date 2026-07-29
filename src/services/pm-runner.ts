@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { pool } from "../db.js";
+import { pool } from "../db.ts";
 import {
   getItemAt,
   PM_TOOL_PARAMETERS_SCHEMA,
@@ -11,7 +11,7 @@ import {
   EXIT_CODE,
   type GetItemAtResult,
 } from "@unbrained/pm-cli/sdk";
-import { resolveNpmSpec } from "./package-catalog.js";
+import { resolveNpmSpec } from "./package-catalog.ts";
 
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -28,8 +28,11 @@ function positiveInteger(value: string | undefined, fallback: number): number {
 export class Semaphore {
   private active = 0;
   private readonly waiting: Array<() => void> = [];
+  private readonly limit: number;
 
-  constructor(private readonly limit: number) {}
+  constructor(limit: number) {
+    this.limit = limit;
+  }
 
   async acquire(): Promise<() => void> {
     if (this.active >= this.limit) {

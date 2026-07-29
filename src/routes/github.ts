@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { pool } from "../db.js";
-import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { verifyProjectAccess } from "./projects.js";
-import { runPm } from "../services/pm-runner.js";
-import { decryptSecret } from "../crypto.js";
-import { routeParam } from "./route-params.js";
+import { pool } from "../db.ts";
+import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
+import { verifyProjectAccess } from "./projects.ts";
+import { runPm } from "../services/pm-runner.ts";
+import { decryptSecret } from "../crypto.ts";
+import { routeParam } from "./route-params.ts";
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);

@@ -9,7 +9,7 @@ import {
   catalogNames,
   findCatalogEntry,
   resolveNpmSpec,
-} from "../dist/services/package-catalog.js";
+} from "../src/services/package-catalog.ts";
 
 // Package root: test/ compiles to dist-test/, so go up one level from there.
 const packageRoot = path.resolve(

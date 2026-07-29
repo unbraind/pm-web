@@ -9,7 +9,7 @@ import {
   runGetItemAt,
   PmCliError,
   EXIT_CODE,
-} from "../dist/services/pm-runner.js";
+} from "../src/services/pm-runner.ts";
 
 /**
  * End-to-end coverage for the point-in-time item read surface that backs the

@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createProjectWatchCycle, computeWorkspaceSignature, stepWorkspaceSweep, newSweepState } from "../dist/services/project-watcher.js";
-import type { SSEEvent } from "../dist/services/sse.js";
+import { createProjectWatchCycle, computeWorkspaceSignature, stepWorkspaceSweep, newSweepState } from "../src/services/project-watcher.ts";
+import type { SSEEvent } from "../src/services/sse.ts";
 
 interface EmitRecord {
   projectId: string;

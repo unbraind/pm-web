@@ -1,14 +1,14 @@
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { resolveProjectDir } from "./pm-runner.js";
+import { resolveProjectDir } from "./pm-runner.ts";
 import {
   consumeSignaledMutation,
   deliverProjectEvent,
   getActiveProjectIds,
   wasSignaledWithin,
   type SSEEvent,
-} from "./sse.js";
+} from "./sse.ts";
 
 // Safety-net filesystem sweep. The mutation-event stream
 // (src/services/mutation-event-watcher.ts) is now the PRIMARY out-of-band change

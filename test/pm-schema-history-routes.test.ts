@@ -7,9 +7,9 @@ import path from "node:path";
 import http from "node:http";
 import test from "node:test";
 
-import { createApp } from "../dist/app.js";
-import { signToken } from "../dist/auth.js";
-import { pool } from "../dist/db.js";
+import { createApp } from "../src/app.ts";
+import { signToken } from "../src/auth.ts";
+import { pool } from "../src/db.ts";
 import type { Pool } from "pg";
 
 const OWNER_USER_ID = "44444444-4444-4441-8444-444444444444";

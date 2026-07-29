@@ -8,7 +8,7 @@ import {
   foldLine,
   formatUtcTimestamp,
   formatDateValue,
-} from "../dist/ical.js";
+} from "../src/ical.ts";
 
 const NOW = new Date("2026-06-04T12:00:00Z");
 

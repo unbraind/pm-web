@@ -7,7 +7,7 @@ import {
   assertRegisteredCommandContract,
 } from "@unbrained/pm-cli/sdk/testing";
 
-import { resolvePort, pidfilePath, shapeStatusResult, nodeVersionMeetsRequirement } from "../dist/index.js";
+import extensionDefault, { resolvePort, pidfilePath, shapeStatusResult, nodeVersionMeetsRequirement } from "../src/index.ts";
 
 test("resolvePort prefers the --port flag", () => {
   assert.strictEqual(resolvePort({ port: "8080" }, { PORT: "4000" }), "8080");
@@ -68,7 +68,7 @@ test("shapeStatusResult tolerates a body without a version field", () => {
 });
 
 test("extension registers web, status, stop and doctor commands", async () => {
-  const { default: extension } = await import("../dist/index.js");
+  const extension = extensionDefault;
   const activation = await activateExtensionForTest(extension, {
     name: "pm-web",
     capabilities: ["commands", "schema"],

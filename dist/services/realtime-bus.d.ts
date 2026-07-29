@@ -1,4 +1,4 @@
-import { type SSEEvent } from "./sse.js";
+import { type SSEEvent } from "./sse.ts";
 interface RealtimeEnvelope {
     projectId: string;
     type: string;

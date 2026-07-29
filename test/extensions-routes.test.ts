@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 import http from "node:http";
 import test from "node:test";
 
-import { createApp } from "../dist/app.js";
-import { signToken } from "../dist/auth.js";
-import { pool } from "../dist/db.js";
-import { addSSEClient, type SSEClient } from "../dist/services/sse.js";
+import { createApp } from "../src/app.ts";
+import { signToken } from "../src/auth.ts";
+import { pool } from "../src/db.ts";
+import { addSSEClient, type SSEClient } from "../src/services/sse.ts";
 import type { Pool } from "pg";
 
 // Package root: test/ compiles to dist-test/, so go up one level from there.

@@ -1,10 +1,10 @@
-import { initSchema, assertDbConfigured } from "./db.js";
-import { createApp } from "./app.js";
-import { cleanupStaleClients } from "./services/sse.js";
-import { startRealtimeBus } from "./services/realtime-bus.js";
-import { startProjectWatcher } from "./services/project-watcher.js";
-import { startMutationEventWatcher } from "./services/mutation-event-watcher.js";
-import { assertOidcConfiguration } from "./oidc.js";
+import { initSchema, assertDbConfigured } from "./db.ts";
+import { createApp } from "./app.ts";
+import { cleanupStaleClients } from "./services/sse.ts";
+import { startRealtimeBus } from "./services/realtime-bus.ts";
+import { startProjectWatcher } from "./services/project-watcher.ts";
+import { startMutationEventWatcher } from "./services/mutation-event-watcher.ts";
+import { assertOidcConfiguration } from "./oidc.ts";
 
 const PORT = parseInt(process.env.PORT || "4000", 10);
 

@@ -3,8 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "outDir": "./dist-test",
-    "rootDir": "./test",
+    "rootDir": ".",
     "strict": false,
     "noImplicitAny": false,
     "esModuleInterop": true,
@@ -12,9 +11,20 @@
     "forceConsistentCasingInFileNames": true,
     "allowJs": false,
     "declaration": false,
-    "sourceMap": true,
-    "types": ["node"]
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "types": [
+      "node"
+    ]
   },
-  "include": ["test/**/*.ts"],
-  "exclude": ["node_modules", "dist", "dist-test"]
+  "include": [
+    "test/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-test"
+  ]
 }

@@ -19,13 +19,13 @@
 
 import path from "node:path";
 import { subscribeMutationEvents, type MutationEvent } from "@unbrained/pm-cli/sdk";
-import { resolveProjectDir } from "./pm-runner.js";
+import { resolveProjectDir } from "./pm-runner.ts";
 import {
   consumeSignaledItemMutation,
   deliverProjectEvent,
   getActiveProjectIds,
   type SSEEvent,
-} from "./sse.js";
+} from "./sse.ts";
 
 const DEFAULT_INTERVAL_MS = 250;
 const MIN_INTERVAL_MS = 10;

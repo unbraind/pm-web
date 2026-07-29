@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireAuth, type AuthRequest } from "../middleware/auth.js";
-import { ensureGraphExtension, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
+import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
+import { ensureGraphExtension, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.ts";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
 // aggregate sdk barrel documents itself as re-exporting every supported export but
 // omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
@@ -10,14 +10,14 @@ import {
   resolveHybridSemanticWeight,
 } from "@unbrained/pm-cli/sdk/query";
 import { QUERY_CURSOR_CONTRACT } from "@unbrained/pm-cli/sdk";
-import { boardColumns, filterItemsByQuery } from "../board.js";
-import { buildIcsCalendar, type CalendarItem } from "../ical.js";
-import { verifyProjectAccess } from "./projects.js";
-import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, type SSEEvent } from "../services/sse.js";
+import { boardColumns, filterItemsByQuery } from "../board.ts";
+import { buildIcsCalendar, type CalendarItem } from "../ical.ts";
+import { verifyProjectAccess } from "./projects.ts";
+import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, type SSEEvent } from "../services/sse.ts";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
-import { routeParam } from "./route-params.js";
-import { pool } from "../db.js";
+import { routeParam } from "./route-params.ts";
+import { pool } from "../db.ts";
 
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
 let _neo4jDriver: ReturnType<typeof neo4j.driver> | null = null;

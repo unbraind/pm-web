@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 
 import { createExtensionTestHarness } from "@unbrained/pm-cli/sdk/testing";
 
-import extension from "../dist/index.js";
+import extension from "../src/index.ts";
 
 /**
  * Activate pm-web through pm's real host engine with the manifest's declared
@@ -40,6 +41,23 @@ test("pm-web registers web, status, stop and doctor commands", async () => {
   ext.assertCommandContract({ name: "web doctor", flags: ["--port"] });
 
   await ext.deactivate();
+});
+
+test("server entrypoint exits non-zero without DATABASE_URL", () => {
+  // Spawns src/server.ts directly so the entrypoint contributes coverage.
+  // Without a database the server must fail fast rather than hang.
+  try {
+    execFileSync(process.execPath, ["src/server.ts"], {
+      cwd: process.cwd(),
+      env: { ...process.env, DATABASE_URL: "" },
+      encoding: "utf-8",
+      timeout: 10000,
+    });
+    assert.fail("expected server to exit non-zero without DATABASE_URL");
+  } catch (err) {
+    const e = err as { status?: number };
+    assert.ok(e.status !== 0, `expected non-zero exit, got ${e.status}`);
+  }
 });
 
 test("no command redeclares a host-owned global flag", async () => {

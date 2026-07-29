@@ -1,5 +1,5 @@
 import { type MutationEvent } from "@unbrained/pm-cli/sdk";
-import { type SSEEvent } from "./sse.js";
+import { type SSEEvent } from "./sse.ts";
 /** Options for the async generator subscription seam. Mirrors the SDK's `SubscribeMutationEventsOptions`. */
 export interface SubscribeOptions {
     /** Tracker root path (`.agents/pm` under the project directory). */
