@@ -152,6 +152,37 @@ function expectedConnection(): {
   };
 }
 
+/**
+ * Script names npm (and bun) accept without an explicit `run`.
+ *
+ * `npm test` is exactly `npm run test`, and this package's `test` script is
+ * database-backed, so a job written that way needs the service just as much as
+ * one written `npm run test`. Matching only the explicit form would leave that
+ * job silently outside the guard.
+ */
+const RUNNER_SHORTHAND_SCRIPTS = new Set(["test", "start", "stop", "restart"]);
+
+/**
+ * Builds a pattern matching the ways a workflow step can invoke one npm script.
+ *
+ * Covers the runners this fleet uses (`npm`, `bun`, and the `pnpm`/`yarn` forms
+ * for completeness), the `run` and `run-script` spellings, flags between the
+ * subcommand and the script name (`npm run --silent coverage`), and npm's
+ * built-in shorthands. The trailing lookahead stops `coverage` from matching
+ * `coverage:report`, which is a different script.
+ *
+ * @param script - Script name from package.json.
+ * @returns A pattern that matches any accepted invocation of that script.
+ */
+function invocationPattern(script: string): RegExp {
+  const name = script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const flags = "(?:-{1,2}[A-Za-z0-9][\\w-]*(?:=\\S+)?\\s+)*";
+  const runner = "(?:npm|pnpm|yarn|bun)";
+  const forms = [`${runner}\\s+run(?:-script)?\\s+${flags}${name}`];
+  if (RUNNER_SHORTHAND_SCRIPTS.has(script)) forms.push(`${runner}\\s+${flags}${name}`);
+  return new RegExp(`(?:${forms.join("|")})(?![\\w:.-])`);
+}
+
 /** Every `<workflow file, job name, job lines>` triple across the workflows. */
 function allJobs(): { file: string; name: string; lines: string[] }[] {
   const files = readdirSync(workflowDir).filter((name) => /\.ya?ml$/.test(name));
@@ -175,6 +206,38 @@ test("the parser used by this guard reads a job's nested structure", () => {
   assert.equal(blockAt(build, 4, "services"), undefined);
 });
 
+test("the invocation scanner recognises every way a step can run a script", () => {
+  // Each of these would run the database-backed `coverage` script, so each has
+  // to be seen by the scanner. `npm run coverage` alone was the original gap.
+  for (const step of [
+    "run: npm run coverage",
+    "run: npm run-script coverage",
+    "run: npm run --silent coverage",
+    "run: bun run coverage",
+    "run: |\n  npm ci\n  npm run coverage",
+  ]) {
+    assert.ok(invocationPattern("coverage").test(step), `should match: ${step}`);
+  }
+
+  // `npm test` is npm's shorthand for `npm run test`, and this package's `test`
+  // script is database-backed, so the shorthand must be recognised too.
+  assert.ok(invocationPattern("test").test("run: npm test"), "should match the npm test shorthand");
+  assert.ok(invocationPattern("test").test("run: bun test"), "should match the bun test shorthand");
+
+  // A script with no shorthand must not match a bare mention of its name, or
+  // every prose reference in a step would read as an invocation.
+  assert.ok(!invocationPattern("coverage").test("run: echo coverage"), "bare name is not a run");
+  // A longer script name that merely starts with this one is a different script.
+  assert.ok(
+    !invocationPattern("coverage").test("run: npm run coverage:report"),
+    "coverage:report is a different script",
+  );
+  assert.ok(
+    !invocationPattern("check").test("run: npm run changelog:check"),
+    "changelog:check is a different script",
+  );
+});
+
 test("every workflow job that runs a database-backed script provides the database", () => {
   const required = databaseBackedScripts();
   const connection = expectedConnection();
@@ -182,9 +245,7 @@ test("every workflow job that runs a database-backed script provides the databas
 
   for (const job of allJobs()) {
     const steps = (blockAt(job.lines, 4, "steps") ?? []).join("\n");
-    const invoked = [...required].filter((script) =>
-      new RegExp(`npm run ${script.replace(/[:]/g, "[:]")}(?![A-Za-z0-9:_-])`).test(steps),
-    );
+    const invoked = [...required].filter((script) => invocationPattern(script).test(steps));
     if (invoked.length === 0) continue;
     const where = `${job.file}:${job.name} (runs ${invoked.join(", ")})`;
     covered.push(where);
