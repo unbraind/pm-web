@@ -153,7 +153,7 @@ function expectedConnection(): {
 }
 
 /**
- * Script names npm (and bun) accept without an explicit `run`.
+ * Script names that run without an explicit `run` subcommand.
  *
  * `npm test` is exactly `npm run test`, and this package's `test` script is
  * database-backed, so a job written that way needs the service just as much as
@@ -162,14 +162,28 @@ function expectedConnection(): {
  */
 const RUNNER_SHORTHAND_SCRIPTS = new Set(["test", "start", "stop", "restart"]);
 
+/** Runners that execute a package script when given an explicit `run`. */
+const RUN_SUBCOMMAND_RUNNERS = "(?:npm|pnpm|yarn|bun)";
+
+/**
+ * Runners whose bare `<runner> <script>` form executes the package script.
+ *
+ * **`bun` is deliberately excluded.** `bun test` invokes Bun's own built-in test
+ * runner and does *not* execute the `package.json` `test` script — only
+ * `bun run test` does. Treating `bun test` as a shorthand would require a job
+ * using Bun's native runner to declare a PostgreSQL service it has no use for,
+ * which is a false positive in the opposite direction from the one this guard
+ * exists to catch.
+ */
+const SHORTHAND_RUNNERS = "(?:npm|pnpm|yarn)";
+
 /**
  * Builds a pattern matching the ways a workflow step can invoke one npm script.
  *
- * Covers the runners this fleet uses (`npm`, `bun`, and the `pnpm`/`yarn` forms
- * for completeness), the `run` and `run-script` spellings, flags between the
- * subcommand and the script name (`npm run --silent coverage`), and npm's
- * built-in shorthands. The trailing lookahead stops `coverage` from matching
- * `coverage:report`, which is a different script.
+ * Covers the runners this fleet uses, the `run` and `run-script` spellings, flags
+ * between the subcommand and the script name (`npm run --silent coverage`), and
+ * the shorthand forms of the runners that actually support them. The trailing
+ * lookahead stops `coverage` from matching `coverage:report`, a different script.
  *
  * @param script - Script name from package.json.
  * @returns A pattern that matches any accepted invocation of that script.
@@ -177,9 +191,10 @@ const RUNNER_SHORTHAND_SCRIPTS = new Set(["test", "start", "stop", "restart"]);
 function invocationPattern(script: string): RegExp {
   const name = script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const flags = "(?:-{1,2}[A-Za-z0-9][\\w-]*(?:=\\S+)?\\s+)*";
-  const runner = "(?:npm|pnpm|yarn|bun)";
-  const forms = [`${runner}\\s+run(?:-script)?\\s+${flags}${name}`];
-  if (RUNNER_SHORTHAND_SCRIPTS.has(script)) forms.push(`${runner}\\s+${flags}${name}`);
+  const forms = [`${RUN_SUBCOMMAND_RUNNERS}\\s+run(?:-script)?\\s+${flags}${name}`];
+  if (RUNNER_SHORTHAND_SCRIPTS.has(script)) {
+    forms.push(`${SHORTHAND_RUNNERS}\\s+${flags}${name}`);
+  }
   return new RegExp(`(?:${forms.join("|")})(?![\\w:.-])`);
 }
 
@@ -222,7 +237,20 @@ test("the invocation scanner recognises every way a step can run a script", () =
   // `npm test` is npm's shorthand for `npm run test`, and this package's `test`
   // script is database-backed, so the shorthand must be recognised too.
   assert.ok(invocationPattern("test").test("run: npm test"), "should match the npm test shorthand");
-  assert.ok(invocationPattern("test").test("run: bun test"), "should match the bun test shorthand");
+  assert.ok(invocationPattern("test").test("run: yarn test"), "yarn test runs the script");
+  assert.ok(invocationPattern("test").test("run: pnpm test"), "pnpm test runs the script");
+
+  // `bun test` is NOT a shorthand: it invokes Bun's own test runner and never
+  // executes the package's `test` script. Treating it as one would demand a
+  // PostgreSQL service from a job that has no use for it.
+  assert.ok(
+    !invocationPattern("test").test("run: bun test"),
+    "bun test runs Bun's built-in runner, not the package script",
+  );
+  assert.ok(
+    invocationPattern("test").test("run: bun run test"),
+    "bun run test does execute the package script",
+  );
 
   // A script with no shorthand must not match a bare mention of its name, or
   // every prose reference in a step would read as an invocation.
