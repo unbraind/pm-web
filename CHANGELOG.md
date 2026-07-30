@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Daily release failed: the release workflow ran the real-Postgres coverage gate with no database service ([pm-web-sqg5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-sqg5.toon))
+
 ### Other
 
 - Build the real-Postgres route harness and cover the pm-web access-control surface ([pm-web-dlbe](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-dlbe.toon))

@@ -1,0 +1,27 @@
+id: pm-web-sqg5
+title: "Daily release failed: the release workflow ran the real-Postgres coverage gate with no database service"
+description: "The 2026-07-30 scheduled release died in 'Run release checks' before reaching any real check. release:check runs coverage, whose route suite requires a reachable PostgreSQL and deliberately never skips, but only ci.yml declared the postgres service container."
+type: Issue
+status: closed
+priority: 1
+tags[4]: "area:ci",postgres,regression,release
+created_at: "2026-07-30T09:56:40.489Z"
+updated_at: "2026-07-30T09:57:47.274Z"
+closed_at: "2026-07-30T09:57:16.362Z"
+completed_at: "2026-07-30T09:57:16.362Z"
+author: codex
+acceptance_criteria: "release.yml declares the same postgres service, health check and DATABASE_URL/JWT_SECRET env as ci.yml; a guard test derives the database-backed npm scripts from package.json and fails when any workflow job that runs one of them omits the service; the guard is proven to fail against the broken workflow and pass against the fixed one; npm run coverage passes locally against a real database"
+risk: medium
+confidence: high
+resolution: "Fixed: release.yml gained the postgres service container, health-check options and the DATABASE_URL/JWT_SECRET job env that ci.yml already declared, plus a guard test that derives the requirement from package.json's script graph."
+expected_result: "The scheduled Daily Release runs release:check to completion and publishes when there are changes since the last tag."
+actual_result: "Before the fix the release job exited 1 in 'Run release checks' after 25s, with the with-test-db preflight reporting no reachable PostgreSQL; the new guard test reproduced it locally by failing against the unfixed workflow. After the fix the guard passes and npm run coverage completes against a real database (26 source files reported, thresholds met)."
+notes[1]{created_at,author,text}:
+  "2026-07-30T09:57:06.812Z",codex,"Diagnosis, from the failed run's own log (run 30518821135, job 90794506794): the job reached 'Run release checks', which is release:check -> coverage -> scripts/with-test-db.ts, and the wrapper's connectivity preflight printed 'The route-coverage suite requires a reachable PostgreSQL database and never skips.' before exiting 1. The refusal to skip is correct and deliberate (see scripts/ensure-test-db.ts); the defect is that release.yml never supplied the database that ci.yml supplies. PR #74 added the real-Postgres route suite to the gate on 2026-07-29 and wired the service into ci.yml only, so the very next scheduled release was the first thing to run the gate without a database."
+learnings[1]{created_at,author,text}:
+  "2026-07-30T09:57:07.219Z",codex,"A test-infrastructure requirement added to a gate has to be wired into every workflow that runs that gate, not just the one being edited at the time. CI and release run overlapping-but-not-identical script sets, so a service container added to ci.yml alone produces a green PR and a red scheduled release hours later, with nothing in the PR diff hinting at it. The durable fix is not the missing service block but the guard that derives the requirement from package.json's script graph and re-checks every workflow job against it, so the next such requirement cannot be half-wired."
+files[2]{path,scope,note}:
+  .github/workflows/release.yml,project,"Gained the postgres service, health check and DATABASE_URL/JWT_SECRET env that ci.yml already had"
+  test/workflow-db-service.test.ts,project,"New guard: derives database-backed npm scripts from package.json and asserts every workflow job that runs one declares the service"
+close_reason: "release.yml now declares the same postgres service, health check and DATABASE_URL/JWT_SECRET env as ci.yml, and test/workflow-db-service.test.ts guards the invariant by deriving the database-backed script set from package.json and checking every workflow job that runs one. Guard verified failing against the broken workflow ('release.yml:release (runs release:check) must declare a services block for its database') and passing against the fixed one; npm run coverage passes locally against a real database with 26 source files reported."
+body: ""
