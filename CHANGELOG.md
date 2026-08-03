@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Absorb pm-cli 2026.8.3: realign in-process dispatch with the CLI envelope ([pm-web-3mn5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-3mn5.toon))
+
 ### Other
 
 - Resolve pm-changelog to the release that derives release dates in UTC ([pm-web-l6y1](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-l6y1.toon))
