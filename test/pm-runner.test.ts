@@ -99,6 +99,99 @@ setTimeout(() => {
   }
 });
 
+// The per-workspace serialization guarantee, exercised through the IN-PROCESS
+// path specifically.
+//
+// The sibling spawn-fallback test proves the guarantee only for actions that
+// shell out: it drives a fake `pm` via PM_CLI_BIN and uses `calendar`, a
+// spawn-fallback action, so it never reaches the SDK dispatch this fix changed.
+// `runPmInProcess` used to be invoked OUTSIDE `runSerialized`, so an in-process
+// action ignored the workspace queue entirely.
+//
+// Note on what does NOT work as a test here: asserting that N concurrent
+// same-workspace creates all survive passes either way, because the SDK keeps
+// its own process-wide queue that already prevents lost writes. Durability
+// therefore cannot discriminate — only *mutual exclusion* can.
+//
+// Both paths share one queue per workspace (`workspaceTails`), so the
+// discriminator is an interleave: a slow SPAWN action submitted first must hold
+// the workspace, and an in-process action submitted second must not complete
+// until the spawn has finished. If the in-process path bypasses the queue it
+// returns almost immediately, inverting the order — a difference of the full
+// spawn delay, not a timing tolerance.
+test("in-process dispatch waits behind the same workspace queue as the spawn path", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "pm-web-sdk-concurrency-"));
+  const fakePm = path.join(root, "fake-pm");
+  const previousRoot = process.env["PROJECTS_ROOT"];
+  const previousBin = process.env["PM_CLI_BIN"];
+  process.env["PROJECTS_ROOT"] = root;
+
+  const SPAWN_DELAY_MS = 400;
+
+  try {
+    await Promise.all([
+      mkdir(path.join(root, "user", "busy"), { recursive: true }),
+      mkdir(path.join(root, "user", "idle"), { recursive: true }),
+    ]);
+    // Initialize with the REAL pm before PM_CLI_BIN is redirected, so the
+    // in-process SDK has a genuine workspace to write into.
+    for (const slug of ["busy", "idle"]) {
+      const init = await runPm({ userId: "user", slug, args: ["init", "web"], jsonOutput: true });
+      assert.equal(init.ok, true, init.stderr);
+    }
+
+    await writeFile(fakePm, `#!/usr/bin/env node
+setTimeout(() => process.stdout.write("done"), ${SPAWN_DELAY_MS});
+`);
+    await chmod(fakePm, 0o755);
+    process.env["PM_CLI_BIN"] = fakePm;
+
+    const order: string[] = [];
+    const createIn = (slug: string, title: string) =>
+      runPm({
+        userId: "user",
+        slug,
+        args: ["create", "--type", "Task", "--title", title, "--status", "open"],
+        jsonOutput: true,
+      });
+
+    // `calendar` is a spawn-fallback action, so this one shells out to the slow
+    // fake binary and holds the `busy` workspace for SPAWN_DELAY_MS.
+    const slowSpawn = runPm({ userId: "user", slug: "busy", args: ["calendar", "1", "slow"] })
+      .then((r) => { order.push("spawn:busy"); return r; });
+    const queuedInProcess = createIn("busy", "queued behind the spawn")
+      .then((r) => { order.push("in-process:busy"); return r; });
+    // A different workspace must NOT be blocked by the busy one.
+    const independent = createIn("idle", "independent workspace")
+      .then((r) => { order.push("in-process:idle"); return r; });
+
+    const [spawnResult, queuedResult, independentResult] = await Promise.all([
+      slowSpawn,
+      queuedInProcess,
+      independent,
+    ]);
+
+    assert.equal(spawnResult.ok, true, spawnResult.stderr);
+    assert.equal(queuedResult.ok, true, queuedResult.stderr);
+    assert.equal(independentResult.ok, true, independentResult.stderr);
+
+    assert.ok(
+      order.indexOf("spawn:busy") < order.indexOf("in-process:busy"),
+      `an in-process action must wait behind the spawn holding its workspace, observed ${order.join(" -> ")}`,
+    );
+    assert.ok(
+      order.indexOf("in-process:idle") < order.indexOf("spawn:busy"),
+      `an independent workspace must not be blocked, observed ${order.join(" -> ")}`,
+    );
+  } finally {
+    if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
+    else process.env["PROJECTS_ROOT"] = previousRoot;
+    if (previousBin === undefined) delete process.env["PM_CLI_BIN"];
+    else process.env["PM_CLI_BIN"] = previousBin;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("in-process SDK dispatch preserves positionals, camel-case flags, pagination, and expected errors", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-sdk-runner-"));
   const previousRoot = process.env["PROJECTS_ROOT"];
