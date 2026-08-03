@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Resolve pm-changelog to the release that derives release dates in UTC ([pm-web-l6y1](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-l6y1.toon))
+
 ## 2026.7.31 - 2026-07-31
 
 ### Fixed
