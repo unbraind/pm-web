@@ -117,10 +117,13 @@ export declare const INSTALL_COMMAND_TIMEOUT_MS = 180000;
 export declare function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult>;
 /**
  * Return a cached {@link PmClient} for a workspace pm-root, creating one on
- * first use. The SDK owns extension activation and serialization internally;
- * caching avoids reconstructing the immutable workspace defaults while each
- * call still receives the SDK's current extension snapshot. Author identity is
- * resolved by the SDK's default detection, preserving prior CLI behaviour.
+ * first use. The SDK owns extension activation internally; per-workspace
+ * serialization of mutating calls is enforced by {@link runPm}'s
+ * {@link runSerialized} wrapper (the SDK's own queue is process-wide, not
+ * per-workspace). Caching avoids reconstructing the immutable workspace
+ * defaults while each call still receives the SDK's current extension
+ * snapshot. Author identity is resolved by the SDK's default detection,
+ * preserving prior CLI behaviour.
  */
 export declare function getPmClient(pmRoot: string): PmClient;
 /** Drop a cached client when its workspace is deleted. */

@@ -41,7 +41,7 @@
     "db:check": "node scripts/ensure-test-db.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "^2026.7.29",
+    "@unbrained/pm-cli": "^2026.8.3",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",

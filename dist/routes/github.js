@@ -158,8 +158,10 @@ router.post("/import", async (req, res) => {
                 args.push("--assignee", issue.assignee.login);
             const result = await runPm({ args, userId: access.ownerUserId, slug: access.slug, jsonOutput: true });
             if (result.ok && result.parsed) {
+                // `pm create --json` (and the in-process SDK dispatcher) return the flat
+                // envelope { id, status, changed_field_count } — no `item` wrapper.
                 const parsed = result.parsed;
-                created.push(parsed.item?.id || `#${num}`);
+                created.push(parsed.id || `#${num}`);
             }
             else {
                 errors.push(`#${num}: ${result.stderr || "create failed"}`);

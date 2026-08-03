@@ -139,7 +139,9 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
       jsonOutput: true,
     });
     assert.equal(first.ok, true, first.stderr);
-    const firstId = (first.parsed as { item?: { id?: unknown } }).item?.id;
+    // `pm create --json` and the in-process SDK dispatcher both return the
+    // flat CLI envelope { id, status, changed_field_count } — no `item` wrapper.
+    const firstId = (first.parsed as { id?: unknown }).id;
     assert.equal(typeof firstId, "string");
 
     const leadingFlagValue = await runPm({
@@ -149,8 +151,19 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
       jsonOutput: true,
     });
     assert.equal(leadingFlagValue.ok, true, leadingFlagValue.stderr);
+    // The `pm update` JSON envelope is the flat { id, status,
+    // changed_field_count } contract — it does not echo the full item — so verify
+    // the description landed by reading the item back. `pm get --json` returns
+    // { item: { ... } }, the wrapper shape that read commands keep.
+    const afterUpdate = await runPm({
+      userId: "user",
+      slug: "sdk",
+      args: ["get", String(firstId)],
+      jsonOutput: true,
+    });
+    assert.equal(afterUpdate.ok, true, afterUpdate.stderr);
     assert.equal(
-      (leadingFlagValue.parsed as { item?: { description?: string } }).item?.description,
+      (afterUpdate.parsed as { item?: { description?: string } }).item?.description,
       "--not-a-flag",
     );
 

@@ -1944,8 +1944,10 @@ router.post("/import", async (req: AuthRequest, res) => {
 
     const result = await runPm({ args, userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
     if (result.ok && result.parsed) {
-      const parsed = result.parsed as { item?: { id: string } };
-      created.push(parsed.item?.id || `item[${i}]`);
+      // `pm create --json` (and the in-process SDK dispatcher) return the flat
+      // envelope { id, status, changed_field_count } — no `item` wrapper.
+      const parsed = result.parsed as { id?: string };
+      created.push(parsed.id || `item[${i}]`);
     } else {
       errors.push(`item[${i}]: ${result.stderr || "create failed"}`);
     }

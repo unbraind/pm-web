@@ -560,10 +560,13 @@ const pmClientCache = new Map<string, PmClient>();
 
 /**
  * Return a cached {@link PmClient} for a workspace pm-root, creating one on
- * first use. The SDK owns extension activation and serialization internally;
- * caching avoids reconstructing the immutable workspace defaults while each
- * call still receives the SDK's current extension snapshot. Author identity is
- * resolved by the SDK's default detection, preserving prior CLI behaviour.
+ * first use. The SDK owns extension activation internally; per-workspace
+ * serialization of mutating calls is enforced by {@link runPm}'s
+ * {@link runSerialized} wrapper (the SDK's own queue is process-wide, not
+ * per-workspace). Caching avoids reconstructing the immutable workspace
+ * defaults while each call still receives the SDK's current extension
+ * snapshot. Author identity is resolved by the SDK's default detection,
+ * preserving prior CLI behaviour.
  */
 export function getPmClient(pmRoot: string): PmClient {
   let client = pmClientCache.get(pmRoot);
@@ -747,36 +750,48 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
   const action = opts.args[0] ?? "";
 
   // Supported actions run in-process through the cached PmClient — no spawn.
-  if (
+  const useInProcess =
     !SPAWN_FALLBACK_ACTIONS.has(action) &&
     opts.input === undefined &&
-    opts.timeoutMs === undefined
-  ) {
-    const sdkResult = await runPmInProcess(opts, dir);
-    if (sdkResult) return sdkResult;
-  }
+    opts.timeoutMs === undefined;
 
-  // Fallback: spawn the pm binary for actions the SDK dispatcher cannot serve.
-  const args = opts.jsonOutput ? ["--json", ...opts.args] : opts.args;
-
-  const result = await runSerialized(dir, () => runProcess(dir, args, {
-    input: opts.input,
-    timeoutMs: opts.timeoutMs,
-    env: { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` },
-  }));
-
-  const { stdout, stderr, ok, exitCode } = result;
-
-  let parsed: unknown;
-  if (opts.jsonOutput && ok && stdout) {
-    try {
-      parsed = JSON.parse(stdout);
-    } catch {
-      parsed = { raw: stdout };
+  // Both the in-process SDK dispatch and the spawn fallback must honour the
+  // per-workspace serialization guarantee: calls against the SAME workspace
+  // run one at a time, while calls against INDEPENDENT workspaces overlap
+  // (bounded by the global command slot semaphore). The in-process path used
+  // to be dispatched outside `runSerialized`, which let concurrent
+  // same-workspace mutations race (the SDK's own queue is process-wide, not
+  // per-workspace). Wrapping the whole dispatch — in-process attempt plus the
+  // spawn fallback — in a single `runSerialized` restores the guarantee for
+  // every action regardless of which path serves it.
+  return runSerialized(dir, async (): Promise<PmRunResult> => {
+    if (useInProcess) {
+      const sdkResult = await runPmInProcess(opts, dir);
+      if (sdkResult) return sdkResult;
     }
-  }
 
-  return { stdout, stderr, ok, parsed, exitCode };
+    // Fallback: spawn the pm binary for actions the SDK dispatcher cannot serve.
+    const args = opts.jsonOutput ? ["--json", ...opts.args] : opts.args;
+
+    const result = await runProcess(dir, args, {
+      input: opts.input,
+      timeoutMs: opts.timeoutMs,
+      env: { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` },
+    });
+
+    const { stdout, stderr, ok, exitCode } = result;
+
+    let parsed: unknown;
+    if (opts.jsonOutput && ok && stdout) {
+      try {
+        parsed = JSON.parse(stdout);
+      } catch {
+        parsed = { raw: stdout };
+      }
+    }
+
+    return { stdout, stderr, ok, parsed, exitCode };
+  });
 }
 
 /**

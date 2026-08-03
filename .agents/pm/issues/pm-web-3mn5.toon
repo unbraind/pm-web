@@ -1,0 +1,15 @@
+id: pm-web-3mn5
+title: "Absorb pm-cli 2026.8.3: realign in-process dispatch with the CLI envelope"
+description: ""
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-08-03T23:12:52.571Z"
+updated_at: "2026-08-03T23:20:02.986Z"
+author: pi-agent
+acceptance_criteria: "Both failing tests pass against 2026.8.3 with the genuine defect fixed rather than the assertion weakened; the per-workspace serialization guarantee is preserved; the isSafeTypeFolder traversal guard remains intact; package.json, package-lock.json and node_modules all agree on 2026.8.3."
+notes[2]{created_at,author,text}:
+  "2026-08-03T23:12:59.706Z",pi-agent,"Diagnosis: (1) Envelope shape — PmClient.run('create'/'update'/'close',...) now returns the flat CLI JSON envelope {id,status,changed_field_count} (byte-identical to the spawned 'pm create --json' output), not the old typed CreateResult/UpdateResult {item,...}. pm-web's runPmInProcess is a pass-through, so the in-process path already agrees with the subprocess path (both flat). The stale consumers are: test/pm-runner.test.ts (reads parsed.item.id / parsed.item.description) and src/routes/{pm,github}.ts import routes (read parsed.item?.id for create, falling back to item[i]/#num and losing the real id). (2) Concurrency — runPmInProcess is dispatched OUTSIDE runSerialized, so in-process actions (create/update/get/...) never acquire the per-workspace tail mutex; same-workspace calls overlap and cross-workspace calls are unbounded. The spawn fallback path is the only one that serializes. Fix: wrap the whole dispatch (in-process attempt + spawn fallback) in a single runSerialized(dir,...) so both paths honor per-workspace serialization with cross-workspace overlap."
+  "2026-08-03T23:20:02.986Z",pi-agent,"Fix applied: (1) src/services/pm-runner.ts runPm now wraps the entire dispatch (in-process SDK attempt + spawn fallback) in runSerialized(dir,...) so per-workspace serialization holds for BOTH paths; same-workspace calls serialize, independent workspaces overlap (bounded by the command-slot semaphore). Updated the getPmClient doc comment that wrongly claimed the SDK serializes per-workspace. (2) Corrected stale -wrapper consumers to read the flat CLI envelope: test/pm-runner.test.ts (create -> parsed.id; the update description is now verified via a follow-up , which keeps the {item} shape read commands use); src/routes/pm.ts import route and src/routes/github.ts github-import route now read parsed.id instead of parsed.item?.id (the old fallback silently dropped real item ids). isSafeTypeFolder untouched. Gates: typecheck, build, 259/259 tests, coverage thresholds met, audit, pack dry-run, changelog:check all green. package.json/lock/node_modules all on 2026.8.3."
+body: ""
