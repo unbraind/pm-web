@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Gate CI on pm health so a silently discarded peer edit cannot merge ([pm-web-yiym](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-yiym.toon))
+
 ## 2026.8.4 - 2026-08-04
 
 ### Fixed
