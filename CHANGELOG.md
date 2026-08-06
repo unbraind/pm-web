@@ -4,7 +4,7 @@
 
 ### Other
 
-- Gate CI on pm health so a silently discarded peer edit cannot merge ([pm-web-yiym](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-yiym.toon))
+- Gate CI on pm health for tracker integrity (does not cover discarded peer edits, see pm-cli 922) ([pm-web-yiym](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-yiym.toon))
 
 ## 2026.8.4 - 2026-08-04
 
