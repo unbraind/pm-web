@@ -129,6 +129,13 @@ export function uniqueSlug(stem: string): string {
 const SCHEMA_LOCK_KEY = 0x706d7765;
 
 /**
+ * Whether the parent test wrapper completed schema initialization before this
+ * worker was spawned. The local transition also prevents repeated DDL within a
+ * directly-invoked test process that does not use the wrapper.
+ */
+let schemaReady = process.env.PM_WEB_TEST_SCHEMA_READY === "true";
+
+/**
  * Ensures the full pm-web schema exists, serialising concurrent creators.
  *
  * `initSchema` is idempotent in the single-writer sense — it is built from
@@ -154,11 +161,13 @@ const SCHEMA_LOCK_KEY = 0x706d7765;
  * hold this lock before it may call `initSchema` at all.
  */
 export async function ensureSchema(): Promise<void> {
+  if (schemaReady) return;
   const client = await pool.connect();
   try {
     await client.query("SELECT pg_advisory_lock($1)", [SCHEMA_LOCK_KEY]);
     try {
       await initSchema();
+      schemaReady = true;
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [SCHEMA_LOCK_KEY]);
     }

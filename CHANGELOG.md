@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- Serialize pm-web test schema bootstrap before parallel route suites ([pm-web-3u1v](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-3u1v.toon))
+
 ### Other
 
-- Gate CI on pm health so a silently discarded peer edit cannot merge ([pm-web-yiym](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-yiym.toon))
+- Gate CI on strict tracked pm project health ([pm-web-yiym](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-yiym.toon))
 
 ## 2026.8.4 - 2026-08-04
 
