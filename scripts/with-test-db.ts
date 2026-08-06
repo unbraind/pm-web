@@ -41,6 +41,16 @@ const preflight = spawnSync(process.execPath, ["scripts/ensure-test-db.ts"], {
 });
 if (preflight.status !== 0) process.exit(preflight.status ?? 1);
 
+// Complete every production DDL statement before node:test fans out into
+// worker processes. Idempotent DDL is not concurrency-safe with live DML: a
+// redundant ALTER still asks PostgreSQL for an access-exclusive table lock.
+const schema = spawnSync(process.execPath, ["scripts/init-test-schema.ts"], {
+  stdio: "inherit",
+  env: process.env,
+});
+if (schema.status !== 0) process.exit(schema.status ?? 1);
+process.env.PM_WEB_TEST_SCHEMA_READY = "true";
+
 const command = process.argv.slice(2);
 if (command.length === 0) {
   console.error(
