@@ -3,8 +3,15 @@
 // ═══════════════════════════════════════════════════════════════
 import { PRIORITY_LABELS, TYPE_ICONS } from './constants.js';
 
-/** Escape characters with HTML entity meaning so a value can be inserted into
- * markup without injection. Falsy input yields an empty string. */
+/** Escape `&`, `<`, `>` and `"` so a value can be inserted into HTML text or a
+ * double-quoted attribute. Falsy input yields an empty string.
+ *
+ * NOT sufficient for a JavaScript context. It does not escape `'`, and even if
+ * it did, the browser HTML-decodes an attribute value before the JS parser sees
+ * it, so an entity cannot keep a quote from terminating a string literal. A
+ * value interpolated into an inline handler — `onclick="fn('${escHtml(x)}')"` —
+ * is therefore still injectable. Pass such values through a `data-*` attribute
+ * and bind with `addEventListener` instead. */
 export function escHtml(s: string | undefined | null): string {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -28,7 +35,7 @@ export function priorityDot(p: number): string {
 /** Render an item-type glyph span using the TYPE_ICONS map, falling back to
  * the middle-dot character when the type has no assigned icon. */
 export function typeIcon(t: string): string {
-  return `<span class="item-type-icon" title="${t}">${TYPE_ICONS[t]||'·'}</span>`;
+  return `<span class="item-type-icon" title="${escHtml(t)}">${TYPE_ICONS[t]||'·'}</span>`;
 }
 
 /** Format a timestamp as a short relative phrase ("just now", "5m ago",

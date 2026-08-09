@@ -12,6 +12,7 @@ import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
+import { createHash } from "node:crypto";
 import { routeParam } from "./route-params.js";
 import { pool } from "../db.js";
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
@@ -21,15 +22,22 @@ let _neo4jDriverKey = "";
  * Return the process-wide Neo4j driver, recreating it when the connection key changes.
  *
  * Reads `NEO4J_URI`/`NEO4J_USER` (`NEO4J_USERNAME`)/`NEO4J_PASSWORD` and caches a
- * single driver keyed by `uri:user`; if that key changes the previous driver is
- * closed (best-effort) and a new one created, so graph syncs never hold a stale
+ * single driver. When the key changes the previous driver is closed
+ * (best-effort) and a new one created, so graph syncs never hold a stale
  * connection after an operator edits the Neo4j environment.
+ *
+ * The key covers the password as well as the URI and user, because the driver
+ * is constructed with all three: keying on `uri:user` alone would keep serving
+ * a driver holding the OLD credentials after a password rotation, and every
+ * sync would keep failing to authenticate until the process restarted. The
+ * password enters the key as a SHA-256 digest rather than in clear text, so a
+ * credential cannot leak through a value held for the lifetime of the process.
  */
 function getNeo4jDriver() {
     const uri = process.env.NEO4J_URI ?? "";
     const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME ?? "";
     const password = process.env.NEO4J_PASSWORD ?? "";
-    const key = `${uri}:${user}`;
+    const key = `${uri}:${user}:${createHash("sha256").update(password).digest("hex")}`;
     if (!_neo4jDriver || _neo4jDriverKey !== key) {
         if (_neo4jDriver) {
             void _neo4jDriver.close().catch(() => undefined);
