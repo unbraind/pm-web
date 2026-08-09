@@ -13,15 +13,15 @@ export declare class Semaphore {
     private readonly limit;
     constructor(limit: number);
     /**
-         * Reserve a slot, waiting when the limit is reached, and return a release fn.
-         *
-         * When fewer than `limit` slots are active, this increments the count
-         * immediately; otherwise it awaits until a prior release wakes this caller.
-         * The returned function releases exactly once (subsequent calls are no-ops):
-         * if a waiter exists it is resumed, otherwise the active count is decremented.
-         *
-         * @returns A function that releases the acquired slot.
-         */
+     * Reserve a slot, waiting when the limit is reached, and return a release fn.
+     *
+     * When fewer than `limit` slots are active, this increments the count
+     * immediately; otherwise it awaits until a prior release wakes this caller.
+     * The returned function releases exactly once (subsequent calls are no-ops):
+     * if a waiter exists it is resumed, otherwise the active count is decremented.
+     *
+     * @returns A function that releases the acquired slot.
+     */
     acquire(): Promise<() => void>;
 }
 /**

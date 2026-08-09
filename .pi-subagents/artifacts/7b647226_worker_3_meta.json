@@ -1,0 +1,202 @@
+{
+  "runId": "7b647226",
+  "agent": "worker",
+  "task": "[Read from: /tmp/pi-worktree-7b647226-3/context.md, /tmp/pi-worktree-7b647226-3/plan.md]\n\nAdd accurate JSDoc docstrings to TypeScript files in the pm-web repo (a PUBLIC package — NEVER add tokens, secrets, domains, or hosted data). You are in an isolated git worktree; the repo already has a docstring gate wired up. Your sole job: bring your ASSIGNED FILES to ZERO docstring-gate violations by adding accurate docstrings. Do NOT change logic, signatures, imports, or any non-comment code — purely additive `/** */` documentation.\n\nWORKFLOW:\n1. `npm install` (installs pm-ops so the gate runs). Ignore any .gitattributes/package-lock churn it causes; do not commit those.\n2. `npm run docstring` exits 1 and prints ~326 violations across public/ (src/ and scripts/ already pass — do not touch them). Filter to YOUR files. NOTE: only fix violations whose path starts with `public/src/views/` — src/auth.ts and src/middleware/auth.ts already pass, do not touch them.\n3. For each violation `file:line symbol - reason` in YOUR files: read the declaration AND its body, then write an accurate `/** ... */` JSDoc block immediately above it (directly above the `export` keyword for exported decls; above the declaration otherwise).\n4. Re-run `npm run docstring` and confirm ZERO violations for your files (other files' violations are NOT yours — leave them).\n5. `git add public/src/views/github.ts public/src/views/projects.ts public/src/views/sharing.ts public/src/views/groups.ts public/src/views/router.ts public/src/views/auth.ts` then commit (do NOT `git add -A`). Message: \"Document github/projects/sharing/groups/router/auth views for docstring gate\". Print `git rev-parse HEAD` and `git diff --stat HEAD~1`.\n\nGATE RULES (lexer-backed, not regex — cannot be tricked):\n- Every EXPORTED declaration (function/class/interface/type/const/let/var) needs a JSDoc directly above the `export`.\n- Every non-private/non-protected/non-`#` member of an EXPORTED class needs a JSDoc.\n- Every NON-exported function whose body is >4 lines needs a JSDoc.\n- The JSDoc needs >=4 meaningful words AND >=2 words NOT already in the symbol name. \"Gets the name.\" on `getName` FAILS; \"Returns the user's display name from the cached profile.\" passes.\n\nACCURACY IS THE CRITICAL PART — false docstrings get rejected. READ THE BODY of every symbol and describe what it ACTUALLY does. FORBIDDEN failure modes (caught before):\n- Do NOT describe validation as transformation. If the body calls trim()/parseInt()/Number() only to TEST a value but RETURNS THE ORIGINAL, do NOT write \"returns the trimmed/parsed value\". Say what it actually returns.\n- Do NOT claim ordering/uniqueness/immutability the code does not provide. (Map preserves insertion order; Object.fromEntries does NOT for integer-like keys; a Set is unique; a plain array push is not.)\n- Do NOT document params or return values that do not exist.\nFor each function: real purpose, real @param (only when params are worth naming), real @returns (only when it returns something), real throws/edge cases. Prefer a short TRUE docstring over a long speculative one. For UI render/DOM/event-handler functions, say what they render or do.\n\nQUIRK (do not \"fix\" it): an exported interface/type alias WITHOUT a trailing semicolon makes the analyzer skip some following declarations in that file. Only document symbols the gate REPORTS for your files; never restructure code.\n\nCONSTRAINTS: no `any`; no dynamic `await import()`; erasable TypeScript only; no wrapper helpers; do not modify logic; keep docstrings valid JSDoc.\n\nREPORT at the end: commit SHA, files changed, number of docstrings added, and the exact `npm run docstring` output line proving your files are at 0.\n\nASSIGNED FILES (touch ONLY these): public/src/views/github.ts, public/src/views/projects.ts, public/src/views/sharing.ts, public/src/views/groups.ts, public/src/views/router.ts, public/src/views/auth.ts",
+  "exitCode": 0,
+  "usage": {
+    "input": 38605,
+    "output": 15182,
+    "cacheRead": 537344,
+    "cacheWrite": 0,
+    "cost": 0,
+    "turns": 23
+  },
+  "model": "zai/glm-5.1:high",
+  "attemptedModels": [
+    "zai/glm-5.1:high"
+  ],
+  "modelAttempts": [
+    {
+      "model": "zai/glm-5.1:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 38605,
+        "output": 15182,
+        "cacheRead": 537344,
+        "cacheWrite": 0,
+        "cost": 0,
+        "turns": 23
+      }
+    }
+  ],
+  "durationMs": 238707,
+  "toolCount": 29,
+  "launchContractDigest": "650accad2ec810b213ecdd75eaed9b50c01b12cef044e0ff23e33b5cfd28773e",
+  "launchResolvedExtensions": {
+    "version": 1,
+    "source": "launch-resolved",
+    "disableAmbientExtensions": false,
+    "runtime": [
+      "sha256:eba829ee0f9a98b8"
+    ],
+    "configured": [],
+    "effective": [
+      "sha256:eba829ee0f9a98b8"
+    ],
+    "omitted": {
+      "runtime": 0,
+      "configured": 0,
+      "effective": 0
+    }
+  },
+  "acceptance": {
+    "status": "checked",
+    "evidenceStatus": "checked",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "checked",
+      "explicit": false,
+      "inferredReason": [
+        "write-capable worker/task"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Implement the requested change without widening scope",
+          "evidence": [
+            "changed-files",
+            "tests-added",
+            "commands-run",
+            "residual-risks",
+            "no-staged-files"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "changed-files",
+        "tests-added",
+        "commands-run",
+        "residual-risks",
+        "no-staged-files"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "write-capable worker/task"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Implement the requested change without widening scope",
+        "evidence": [
+          "changed-files",
+          "tests-added",
+          "commands-run",
+          "residual-risks",
+          "no-staged-files"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "criterion:criterion-1",
+        "status": "passed",
+        "message": "Required criterion 'criterion-1' satisfied."
+      },
+      {
+        "id": "evidence:changed-files",
+        "status": "passed",
+        "message": "changed-files evidence present."
+      },
+      {
+        "id": "evidence:tests-added",
+        "status": "not-applicable",
+        "message": "tests-added evidence explicitly reported as not applicable."
+      },
+      {
+        "id": "evidence:commands-run",
+        "status": "passed",
+        "message": "commands-run evidence present."
+      },
+      {
+        "id": "evidence:residual-risks",
+        "status": "passed",
+        "message": "residual-risks evidence present."
+      },
+      {
+        "id": "evidence:no-staged-files",
+        "status": "passed",
+        "message": "no-staged-files evidence present."
+      },
+      {
+        "id": "no-staged-files",
+        "status": "passed",
+        "message": "No staged files detected."
+      }
+    ],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Only the 6 assigned files were touched; all 48 changes are purely additive /** */ JSDoc blocks (269 insertions, 0 deletions). No logic, signatures, or imports changed."
+        }
+      ],
+      "changedFiles": [
+        "public/src/views/auth.ts",
+        "public/src/views/github.ts",
+        "public/src/views/groups.ts",
+        "public/src/views/projects.ts",
+        "public/src/views/router.ts",
+        "public/src/views/sharing.ts"
+      ],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "npm run docstring",
+          "result": "passed",
+          "summary": "Assigned files report 0 violations post-edit (grep over the 6 paths returns nothing); other files' violations left untouched as instructed."
+        },
+        {
+          "command": "cd public && npx tsc --noEmit",
+          "result": "passed",
+          "summary": "Frontend typecheck exits 0, confirming docstrings are erasable TS comments and no code was altered."
+        },
+        {
+          "command": "git add <6 files> && git commit -m '...'",
+          "result": "passed",
+          "summary": "Committed as f935679; only the 6 assigned files staged (node_modules symlink left untracked)."
+        }
+      ],
+      "validationOutput": [
+        "npm run docstring | grep assigned paths => ZERO violations for assigned files",
+        "git rev-parse HEAD => f935679c322f4b2c5fbaec1513804b8004e9ebb4",
+        "git diff --stat HEAD~1 => 6 files changed, 269 insertions(+)",
+        "cd public && tsc --noEmit => exit 0"
+      ],
+      "residualRisks": [
+        "none"
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Added 48 accurate /** */ JSDoc blocks (6+11+8+11+6+6) directly above the corresponding declarations across the 6 assigned view files; zero non-comment edits.",
+      "reviewFindings": [
+        "no blockers"
+      ],
+      "manualNotes": "Remaining gate violations (~270) are in other public/src/views files outside this assignment and were intentionally left untouched."
+    }
+  },
+  "effects": {
+    "fileMutation": {
+      "status": "observed",
+      "expected": true,
+      "attempted": true
+    }
+  },
+  "transcriptPath": "/home/steve/container/pm-cli/fleet/pm-web/.pi-subagents/artifacts/7b647226_worker_3_transcript.jsonl",
+  "timestamp": 1786307281792
+}

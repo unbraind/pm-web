@@ -197,7 +197,7 @@ export function createMutationEventReconciler(deps: MutationEventWatcherDeps = {
             if (existing.done) {
               startLoop(projectId, dir, existing.cursor);
             }
-            // Otherwise the loop is still running — leave it alone.
+          // Otherwise the loop is still running — leave it alone.
           } else {
             // Newly-active project: start at the tail (no history replay).
             startLoop(projectId, dir, new Date().toISOString());

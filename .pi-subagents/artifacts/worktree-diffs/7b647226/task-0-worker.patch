@@ -1,0 +1,490 @@
+diff --git a/.gitattributes b/.gitattributes
+index 4755b62..fe696ab 100644
+--- a/.gitattributes
++++ b/.gitattributes
+@@ -27,6 +27,4 @@
+ ".agents/pm/history/*.jsonl" merge=pm-history
+ ".agents/pm/settings.json" merge=pm-json
+ ".agents/pm/**/*.json" merge=pm-json
+-".agents/pm/extensions/**" -merge
+-".agents/pm/extensions/.managed-extensions.json" merge=pm-json
+ # pm-cli:merge-drivers:end
+diff --git a/public/src/views/graph-canvas.ts b/public/src/views/graph-canvas.ts
+index 15e07ed..e248dcc 100644
+--- a/public/src/views/graph-canvas.ts
++++ b/public/src/views/graph-canvas.ts
+@@ -6,6 +6,7 @@
+ //           spatial partitioning, edge bundling, hierarchical layout
+ // ═══════════════════════════════════════════════════════════════
+ 
++/** Display model for a single node rendered on the graph canvas: the id and label plus type, status, lane, degree, and optional tags, priority, and assignee used for sizing and coloring. */
+ export interface CanvasNode {
+   id: string;
+   label: string;
+@@ -26,6 +27,7 @@ export interface CanvasEdge {
+ 
+ export type LayoutMode = 'force' | 'hierarchical';
+ 
++/** Configuration passed to the GraphCanvas constructor: selection, open, and context-menu callbacks plus optional layout, edge-bundling, and PNG export hooks. */
+ export interface GraphCanvasOptions {
+   onSelectNode(id: string | null): void;
+   onOpenNode(id: string): void;
+@@ -161,6 +163,7 @@ function truncate(text: string, maxLen: number): string {
+   return text.length > maxLen ? text.slice(0, maxLen - 1) + '…' : text;
+ }
+ 
++/** Parses a six-digit `#rrggbb` hex color string into red, green, and blue byte values, returning null when the input does not match that format. */
+ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+   const m = /^#([0-9a-f]{6})$/i.exec(hex);
+   if (!m) return null;
+@@ -174,6 +177,7 @@ function hexAlpha(hex: string, a: number): string {
+   return `rgba(${c.r},${c.g},${c.b},${a})`;
+ }
+ 
++/** Computes starting positions for the given nodes arranged along a golden-angle (sunflower) spiral so the force simulation begins evenly spread. */
+ function initialPositions(nodes: CanvasNode[]): Array<{ x: number; y: number }> {
+   const golden = 2.399963;
+   return nodes.map((_, i) => {
+@@ -217,6 +221,7 @@ function convexHull(pts: Array<{ x: number; y: number }>): Array<{ x: number; y:
+ }
+ 
+ // escHtml is imported from utils.ts in graph.ts — canvas uses its own for DOM tooltip only
++/** Escapes the four HTML-significant characters (ampersand, angle brackets, and double quote) so a string can be safely interpolated into DOM markup such as the canvas tooltip. */
+ function escHtml(s: string): string {
+   return s
+     .replace(/&/g, '&amp;')
+@@ -228,6 +233,7 @@ function escHtml(s: string): string {
+ // ═══════════════════════════════════════════════════════════════
+ // GraphCanvas class
+ // ═══════════════════════════════════════════════════════════════
++/** Canvas 2D renderer and force-directed physics simulation for the knowledge graph: draws nodes, edges, particles, minimap, and HUD, and handles pan, zoom, drag, select, and keyboard interaction. */
+ export class GraphCanvas {
+   private canvas: HTMLCanvasElement;
+   private ctx: CanvasRenderingContext2D;
+@@ -365,6 +371,7 @@ export class GraphCanvas {
+ 
+   // ── Public API ─────────────────────────────────────────────
+ 
++  /** Loads the given nodes and edges into the simulation, preserving prior node positions where possible, precomputing bidirectional edge pairs, recoloring nodes, scheduling the initial zoom-to-fit, and applying the hierarchical layout when selected. */
+   setData(nodes: CanvasNode[], edges: CanvasEdge[]): void {
+     const prevPos = new Map(this.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+     const initPos = initialPositions(nodes);
+@@ -425,6 +432,7 @@ export class GraphCanvas {
+     this.hideTooltip();
+   }
+ 
++  /** Merges a partial filter into the current filter, rebuilding keyboard-navigation order, resetting flow particles when the selection changes, and recoloring nodes when the color mode or tag changes. */
+   setFilter(filter: Partial<CanvasFilter>): void {
+     const prevMode = this.filter.colorMode;
+     const prevTag  = this.filter.colorTag;
+@@ -440,9 +448,11 @@ export class GraphCanvas {
+     else if (filter.colorTag !== undefined && filter.colorTag !== prevTag) this.recolorNodes();
+   }
+ 
++  /** Returns the current tag-to-color map used when coloring nodes by tag. */
+   getTagColorMap(): Map<string, string> { return this.tagColorMap; }
+ 
+   // Live physics control — used by the physics sliders panel
++  /** Updates one or more live physics constants (repulsion, link distance, center gravity, link strength) and reheats the simulation so the new values take effect. */
+   setPhysicsParams(params: {
+     repulsion?: number;
+     linkDistance?: number;
+@@ -456,10 +466,12 @@ export class GraphCanvas {
+     this.reheat();
+   }
+ 
++  /** Returns the current physics constants (repulsion, link distance, center force, and link strength) so external sliders can reflect them. */
+   getPhysicsParams(): { repulsion: number; linkDistance: number; centerForce: number; linkStrength: number } {
+     return { repulsion: this.REPULSE, linkDistance: this.REST_LEN, centerForce: this.CENTER, linkStrength: this.SPRING };
+   }
+ 
++  /** Sets the selected node id, resets flow particles, and flies the camera to the node when an id is given. */
+   setSelected(id: string | null): void {
+     this.filter = { ...this.filter, selectedId: id };
+     this.particles = [];
+@@ -470,11 +482,13 @@ export class GraphCanvas {
+     }
+   }
+ 
++  /** Flies the camera to center on the node with the given id, if it exists. */
+   jumpToNode(id: string): void {
+     const node = this.nodeMap.get(id);
+     if (node) this.flyTo(node);
+   }
+ 
++  /** Animates the camera to frame all visible nodes with padding by setting a fly-to target computed from their bounding box. */
+   fitView(): void {
+     if (!this.nodes.length) return;
+     const vis = this.filter.visibleNodeIds;
+@@ -499,17 +513,20 @@ export class GraphCanvas {
+     };
+   }
+ 
++  /** Pauses or resumes the physics simulation and returns the new paused state; resuming also bumps the simulation alpha. */
+   togglePhysics(): boolean {
+     this.paused = !this.paused;
+     if (!this.paused) this.alpha = Math.max(this.alpha, 0.05);
+     return this.paused;
+   }
+ 
++  /** Resumes the simulation and raises the alpha to 0.3 so nodes re-settle into a new layout. */
+   reheat(): void {
+     this.alpha  = 0.3;
+     this.paused = false;
+   }
+ 
++  /** Switches to the given layout, applying the topological hierarchical layout or, for force mode, jittering node positions and reheating the simulation. */
+   setLayout(layout: LayoutMode): void {
+     if (this.layout === layout) return;
+     this.layout = layout;
+@@ -525,10 +542,12 @@ export class GraphCanvas {
+     }
+   }
+ 
++  /** Enables or disables edge bundling, which routes many same-type edges through a shared centroid. */
+   setEdgeBundling(enabled: boolean): void {
+     this.edgeBundling = enabled;
+   }
+ 
++  /** Exports the canvas as a PNG, delegating to the configured callback if provided, otherwise triggering a browser download of the canvas image data. */
+   exportPng(): void {
+     if (this.onExportPng) {
+       this.onExportPng(this.canvas);
+@@ -783,6 +802,7 @@ export class GraphCanvas {
+     return best;
+   }
+ 
++  /** Tears down the canvas: stops the animation loop and initial-fit timer, aborts bound event listeners, disconnects the ResizeObserver, and removes the canvas and its tooltip from the DOM. */
+   destroy(): void {
+     this.destroyed = true;
+     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+diff --git a/public/src/views/graph.ts b/public/src/views/graph.ts
+index 4febcc3..cc87196 100644
+--- a/public/src/views/graph.ts
++++ b/public/src/views/graph.ts
+@@ -75,6 +75,7 @@ function removeCtxMenu(): void {
+   if (ctxMenuEl) { ctxMenuEl.remove(); ctxMenuEl = null; }
+ }
+ 
++/** Builds and shows the right-click context menu for a graph node, with actions to open the item, select and focus, show its neighborhood, expand two hops, and copy its id. */
+ function showCtxMenu(nodeId: string, x: number, y: number): void {
+   removeCtxMenu();
+   const graph = currentGraph?.graph || {};
+@@ -149,6 +150,7 @@ function nodeTitle(node: GraphNode): string {
+   return String(node.properties?.title || node.id);
+ }
+ 
++/** Returns a display type for a node, preferring the `kind` property, then `type`, then a non-core label, defaulting to 'Item'. */
+ function nodeType(node: GraphNode): string {
+   return String(
+     node.properties?.kind
+@@ -176,6 +178,7 @@ function nodeLane(node: GraphNode): CanvasNode['lane'] {
+   return 'item';
+ }
+ 
++/** Extracts a short user-facing error message from a raw error string (JSON detail, title, or code, otherwise the trimmed raw text), returning an empty string when the error is just the missing pm-graph extension. */
+ function compactError(raw: string | undefined): string {
+   if (!raw) return '';
+   try {
+@@ -190,6 +193,7 @@ function compactError(raw: string | undefined): string {
+ 
+ // ── Graph data processing ─────────────────────────────────────
+ 
++/** Returns the set of ids directly connected to the given node (plus the node itself) across the provided relationships. */
+ function directNeighborIds(nodeId: string, rels: GraphRelationship[]): Set<string> {
+   const ids = new Set<string>([nodeId]);
+   for (const r of rels) {
+@@ -199,6 +203,7 @@ function directNeighborIds(nodeId: string, rels: GraphRelationship[]): Set<strin
+   return ids;
+ }
+ 
++/** Returns the neighbor id(s) on the other end of a relationship relative to a node, filtered by traversal direction (incoming, outgoing, or connected). */
+ function walkDirectionMatch(rel: GraphRelationship, nodeId: string, dir: GraphFilter['direction']): string[] {
+   if (dir === 'incoming') {
+     return rel.to === nodeId ? [rel.from] : [];
+@@ -209,6 +214,7 @@ function walkDirectionMatch(rel: GraphRelationship, nodeId: string, dir: GraphFi
+   return rel.to === nodeId ? [rel.from] : rel.from === nodeId ? [rel.to] : [];
+ }
+ 
++/** Performs a bounded breadth-first traversal out to `depth` hops from a node, returning all reachable ids (including the node itself) while respecting the traversal direction. */
+ function expandedNeighborIds(nodeId: string, rels: GraphRelationship[], depth: number, direction: GraphFilter['direction']): Set<string> {
+   const ids = new Set<string>([nodeId]);
+   let frontier = new Set<string>([nodeId]);
+@@ -229,6 +235,7 @@ function expandedNeighborIds(nodeId: string, rels: GraphRelationship[], depth: n
+   return ids;
+ }
+ 
++/** Counts both endpoints of every relationship, returning a map of node id to its total edge degree (incrementing the count for both `from` and `to`). */
+ function degreeMap(rels: GraphRelationship[]): Map<string, number> {
+   const m = new Map<string, number>();
+   for (const r of rels) {
+@@ -248,6 +255,7 @@ function blockingPair(rel: GraphRelationship): { blocked: string; blocker: strin
+   return null;
+ }
+ 
++/** Maps a relationship type to a human-readable dependency label (for example 'Depends on'), falling back to the lowercased type with underscores replaced by spaces. */
+ function dependencyLabel(rel: GraphRelationship): string {
+   const labels: Record<string, string> = {
+     DEPENDS_ON: 'Depends on',
+@@ -263,6 +271,7 @@ function dependencyLabel(rel: GraphRelationship): string {
+   return labels[rel.type] ?? rel.type.replace(/_/g, ' ').toLowerCase();
+ }
+ 
++/** Computes the critical (longest) dependency path through the given relationships and returns its node ids as a set, or an empty set when there is no multi-step chain. */
+ function computeCriticalPath(rels: GraphRelationship[]): Set<string> {
+   const depRels = rels.filter(isDependencyRel);
+   if (!depRels.length) return new Set();
+@@ -279,6 +288,7 @@ function computeCriticalPath(rels: GraphRelationship[]): Set<string> {
+   }
+ 
+   const memo = new Map<string, string[]>();
++  /** Memoized depth-first search returning the longest chain of blockers starting from the given id, guarding against cycles with a visited set. */
+   function longestPathFrom(id: string, seen = new Set<string>()): string[] {
+     if (memo.has(id)) return memo.get(id)!;
+     if (seen.has(id)) return [id];
+@@ -303,6 +313,7 @@ function computeCriticalPath(rels: GraphRelationship[]): Set<string> {
+   return longest.length < 2 ? new Set() : new Set(longest);
+ }
+ 
++/** Builds per-node dependency stats from blocking relationships, mapping each node id to the sets of items that block it and that it blocks. */
+ function blockerStats(rels: GraphRelationship[]): Map<string, { blockers: Set<string>; blocked: Set<string> }> {
+   const stats = new Map<string, { blockers: Set<string>; blocked: Set<string> }>();
+   const entry = (id: string) => {
+@@ -318,6 +329,7 @@ function blockerStats(rels: GraphRelationship[]): Map<string, { blockers: Set<st
+   return stats;
+ }
+ 
++/** Applies the current filters (dep mode, focus neighborhood, node kind, status, text query, relationship type, and direction) to a graph, returning the surviving nodes, relationships, and the set of all connected node ids. */
+ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRelationship[]; connected: Set<string> } {
+   const nodes = graph.nodes || [];
+   let rels     = graph.relationships || [];
+@@ -369,6 +381,7 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRel
+ 
+ // ── Canvas data conversion ────────────────────────────────────
+ 
++/** Converts graph nodes into canvas display nodes, attaching each node's edge degree (computed from the relationships) so the renderer can size them. */
+ function toCanvasNodes(nodes: GraphNode[], rels: GraphRelationship[]): CanvasNode[] {
+   const deg = degreeMap(rels);
+   return nodes.map((n) => ({
+@@ -392,6 +405,7 @@ function toCanvasEdges(rels: GraphRelationship[]): CanvasEdge[] {
+ 
+ // ── Info panel rendering ──────────────────────────────────────
+ 
++/** Renders the graph-coverage HTML: a linked-item percentage bar, the external cross-project reference count, and the top relationship type with its edge count. */
+ function renderCoverage(
+   itemNodes: GraphNode[],
+   rels: GraphRelationship[],
+@@ -429,6 +443,7 @@ function renderCoverage(
+     </div>`;
+ }
+ 
++/** Renders the selected-node HTML panel, including metadata, action buttons, blocker counts, the property grid, tags, an optional description, and its direct relationships. */
+ function renderSelectedNode(
+   node: GraphNode | undefined,
+   rels: GraphRelationship[],
+@@ -502,6 +517,7 @@ function renderSelectedNode(
+     </div>`;
+ }
+ 
++/** Renders the neighborhood HTML for the selected node, showing clickable one-hop and two-hop neighbor chips. */
+ function renderPaths(
+   node: GraphNode | undefined,
+   rels: GraphRelationship[],
+@@ -525,6 +541,7 @@ function renderPaths(
+     <div class="graph-path-section"><div class="graph-path-label">Two hops (${twoHop.size})</div><div class="graph-path-chips">${chips(twoHop) || '<span>None.</span>'}</div></div>`;
+ }
+ 
++/** Renders the item-hubs HTML, listing the top eight most-connected items by degree with their outgoing and incoming edge counts. */
+ function renderHubs(nodes: GraphNode[], rels: GraphRelationship[]): string {
+   const deg = degreeMap(rels);
+   const hubs = nodes.filter(isItemNode)
+@@ -541,6 +558,7 @@ function renderHubs(nodes: GraphNode[], rels: GraphRelationship[]): string {
+     </button>`).join('');
+ }
+ 
++/** Renders the dependency-blocker HTML, listing the top eight items that block or are blocked by the most other items and flagging those on the critical path. */
+ function renderBlockingInsights(nodes: GraphNode[], rels: GraphRelationship[]): string {
+   const byId = new Map(nodes.map((n) => [n.id, n]));
+   const stats = blockerStats(rels);
+@@ -558,6 +576,7 @@ function renderBlockingInsights(nodes: GraphNode[], rels: GraphRelationship[]):
+     </button>`).join('');
+ }
+ 
++/** Renders the dependency-chains HTML: the longest dependency chains, potential cycle warnings, and root blockers, with critical-path highlighting. */
+ function renderDependencyChains(nodes: GraphNode[], rels: GraphRelationship[]): string {
+   const byId = new Map(nodes.map((n) => [n.id, n]));
+   const depRels = rels.filter(isDependencyRel);
+@@ -581,6 +600,7 @@ function renderDependencyChains(nodes: GraphNode[], rels: GraphRelationship[]):
+     .sort((a, b) => b.blocked - a.blocked || nodeTitle(byId.get(a.id) || { id: a.id }).localeCompare(nodeTitle(byId.get(b.id) || { id: b.id })))
+     .slice(0, 4);
+ 
++  /** Depth-first trace of a dependency chain from the given id, recording detected cycle starts and returning the longest chain of blockers found. */
+   function traceFrom(id: string, seen = new Set<string>()): string[] {
+     if (seen.has(id)) {
+       cycleStarts.add(id);
+@@ -631,6 +651,7 @@ function renderDependencyChains(nodes: GraphNode[], rels: GraphRelationship[]):
+     </div>`;
+ }
+ 
++/** Renders the full graph-analysis info panel HTML by composing the coverage, selected node, neighborhood, hubs, blockers, dependency-chain, and node/relationship count sections. */
+ function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>): string {
+   const graph     = data.graph || {};
+   const nodes     = graph.nodes || [];
+@@ -670,6 +691,7 @@ function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>
+ 
+ // ── Rel list (inside bottom drawer) ──────────────────────────
+ 
++/** Renders the relationship list shown in the bottom drawer: add/remove dependency buttons and up to 100 filtered relationship rows, each linking its two endpoints. */
+ function renderRelList(data: GraphResponse): string {
+   const graph = data.graph || {};
+   const nodes = graph.nodes || [];
+@@ -708,6 +730,7 @@ function renderRelList(data: GraphResponse): string {
+ 
+ // ── Immersive shell ───────────────────────────────────────────
+ 
++/** Returns whether the given preset id (knowledge, dependency, unlinked, metadata, critical, or tags) matches the current filter configuration. */
+ function graphPresetActive(id: string): boolean {
+   if (id === 'knowledge') {
+     return !filter.depMode && (filter.kind === 'items' || filter.kind === 'all') && filter.rel === 'all' && filter.scope === 'all' && filter.colorMode === 'status';
+@@ -720,6 +743,7 @@ function graphPresetActive(id: string): boolean {
+   return false;
+ }
+ 
++/** Renders the preset rail toolbar HTML, with one button per view preset (Knowledge, Dependencies, Unlinked, Tags, Metadata, Critical) showing live counts and active state. */
+ function renderGraphPresets(depRels: GraphRelationship[], isolatedCount: number): string {
+   const allNodes = currentGraph?.graph?.nodes ?? [];
+   const tagSet = new Set<string>();
+@@ -745,6 +769,7 @@ function renderGraphPresets(depRels: GraphRelationship[], isolatedCount: number)
+     </div>`;
+ }
+ 
++/** Renders the full immersive graph shell HTML: the canvas host, the top HUD bar with search and presets, physics controls, filter overlay, legend, info drawer, and relationship drawer. */
+ function renderGraphShell(data: GraphResponse): string {
+   const graph      = data.graph || {};
+   const nodes      = graph.nodes || [];
+@@ -945,6 +970,7 @@ function renderGraphShell(data: GraphResponse): string {
+ 
+ // ── Canvas init / update ──────────────────────────────────────
+ 
++/** Fetches the full item record for the selected item-lane node and re-renders the info panel with its description; clears the cached item for non-item nodes or on failure. */
+ async function fetchAndUpdateSelectedItem(nodeId: string): Promise<void> {
+   if (!state.currentProject || !nodeId) return;
+   // Only fetch for item-lane nodes (not facets)
+@@ -968,6 +994,7 @@ async function fetchAndUpdateSelectedItem(nodeId: string): Promise<void> {
+   }
+ }
+ 
++/** Pushes the current filters and selection onto the canvas and, when searching with no node selected, jumps the camera to the first matching node. */
+ function syncCanvas(): void {
+   if (!canvasRef.current || !currentGraph) return;
+   const graph   = currentGraph.graph || {};
+@@ -994,6 +1021,7 @@ function syncCanvas(): void {
+   }
+ }
+ 
++/** Creates the GraphCanvas instance for the current graph, wires its selection, open, and context-menu callbacks, computes the critical path, loads the data, and applies the initial filter. */
+ function initCanvas(): void {
+   const host = document.getElementById('graph-canvas-host') as HTMLElement | null;
+   if (!host || !currentGraph) return;
+@@ -1036,6 +1064,7 @@ function initCanvas(): void {
+ 
+ // ── Panel / drawer updates ────────────────────────────────────
+ 
++/** Re-renders the info panel and relationship list into the DOM from the current graph (and cached selected item) and re-binds their event handlers. */
+ function updateInfoPanel(): void {
+   if (!currentGraph) return;
+   const panel = document.getElementById('graph-info-panel');
+@@ -1045,6 +1074,7 @@ function updateInfoPanel(): void {
+   bindInfoPanelEvents();
+ }
+ 
++/** Synchronizes the filter toolbar DOM (direction select enabled state, depth slider and label, scope button text, and preset active states) with the current selection and filter. */
+ function updateFilterToolbarState(): void {
+   const dirSel    = document.getElementById('graph-filter-direction') as HTMLSelectElement | null;
+   const depthSldr = document.getElementById('graph-filter-depth') as HTMLInputElement | null;
+@@ -1067,6 +1097,7 @@ const TYPE_COLORS_MAP: Record<string, string> = {
+ };
+ const TAG_PALETTE_JS = ['#2dd4bf','#60a5fa','#a78bfa','#f87171','#fbbf24','#34d399','#fb923c','#e879f9'];
+ 
++/** Computes a tag-to-color map by ranking tags by how often they appear across the nodes and assigning each of the most frequent ones a palette color. */
+ function computeTagColorMap(nodes: GraphNode[]): Map<string, string> {
+   const freq = new Map<string, number>();
+   for (const n of nodes) {
+@@ -1077,6 +1108,7 @@ function computeTagColorMap(nodes: GraphNode[]): Map<string, string> {
+   return new Map(top.map((t, i) => [t, TAG_PALETTE_JS[i]]));
+ }
+ 
++/** Rebuilds the legend HUD HTML to match the current color mode (status, type, or tag) or dependency mode, including clickable tag chips when coloring by tag. */
+ function updateLegend(): void {
+   const legend = document.getElementById('graph-legend-hud');
+   if (!legend) return;
+@@ -1150,6 +1182,7 @@ function updateLegend(): void {
+ 
+ // ── Event bindings ────────────────────────────────────────────
+ 
++/** Binds click handlers for the info-panel controls (open and clear the selected item, add and remove dependency) and for neighbor, tag, and relationship rows so they update the selection and canvas. */
+ function bindInfoPanelEvents(): void {
+   document.getElementById('graph-open-selected')?.addEventListener('click', () => {
+     if (selectedNodeId) window.__app?.openItemDetail(selectedNodeId);
+@@ -1206,6 +1239,7 @@ function bindInfoPanelEvents(): void {
+   });
+ }
+ 
++/** Binds all HUD control handlers for the graph view: back/refresh/sync/fit buttons, presets, physics toggles and sliders, filter selects, search input, drawer toggles, color mode, and global keyboard shortcuts. */
+ function bindHudEvents(): void {
+   // Back button
+   document.getElementById('graph-back-btn')?.addEventListener('click', () => {
+@@ -1543,6 +1577,7 @@ function bindHudEvents(): void {
+ 
+ // ── URL routing (pushState) ─────────────────────────────────
+ 
++/** Serializes the current selection and filter into URL query parameters and replaces the browser history entry so the view can be restored or shared. */
+ function pushGraphState(): void {
+   if (!state.currentProject) return;
+   const params = new URLSearchParams();
+@@ -1561,6 +1596,7 @@ function pushGraphState(): void {
+ 
+ let urlStateRestored = false;
+ 
++/** Reads graph view parameters from the current URL query string and applies them to the selection and filter, marking state as restored. */
+ function restoreGraphState(): void {
+   const params = new URLSearchParams(window.location.search);
+   if (!params.has('graph')) return;
+@@ -1575,6 +1611,7 @@ function restoreGraphState(): void {
+ 
+ // ── Dependency editing modals ────────────────────────────────
+ 
++/** Shows the add-dependency modal listing item nodes as source and target selects plus a relationship type, and POSTs the new dependency then refreshes the graph on submit. */
+ function showAddDependencyModal(): void {
+   if (!state.currentProject || !currentGraph) return;
+   const graph = currentGraph.graph || {};
+@@ -1647,6 +1684,7 @@ function showAddDependencyModal(): void {
+   });
+ }
+ 
++/** Shows the remove-dependency modal listing existing dependency relationships and DELETEs the chosen one on submit, then refreshes the graph. */
+ function showRemoveDependencyModal(): void {
+   if (!state.currentProject || !currentGraph) return;
+   const graph = currentGraph.graph || {};
+@@ -1713,6 +1751,7 @@ function showRemoveDependencyModal(): void {
+ 
+ // ── Main entry point ──────────────────────────────────────────
+ 
++/** Renders the full graph view into the `content-graph` element: clears any prior canvas, restores URL state, fetches the project graph, computes the critical path, renders the shell, binds events, and initializes the canvas. */
+ export async function renderGraphView(): Promise<void> {
+   const el = document.getElementById('content-graph');
+   if (!el) return;
+@@ -1794,11 +1833,13 @@ export async function refreshGraphData(): Promise<void> {
+ // Registry of active local graph canvases so they can be cleaned up
+ const localGraphRegistry = new Map<string, GraphCanvas>();
+ 
++/** Destroys and unregisters the local mini-graph canvas previously created for the given container id, if any. */
+ export function destroyLocalGraph(containerId: string): void {
+   const existing = localGraphRegistry.get(containerId);
+   if (existing) { existing.destroy(); localGraphRegistry.delete(containerId); }
+ }
+ 
++/** Renders an embedded mini-graph for a single item showing its neighborhood out to the given depth, with neighbor-node clicks navigating to that item's detail view. */
+ export async function renderLocalGraph(
+   containerId: string,
+   nodeId: string,

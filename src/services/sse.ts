@@ -318,7 +318,7 @@ export function deliverProjectEvent(projectId: string, event: SSEEvent): void {
     try {
       client.res.write(payload);
     } catch {
-      // Client disconnected; will be cleaned up on next heartbeat
+    // Client disconnected; will be cleaned up on next heartbeat
     }
   }
 }
@@ -340,7 +340,7 @@ export function broadcastPresence(projectId: string): void {
     try {
       client.res.write(payload);
     } catch {
-      // Client disconnected
+    // Client disconnected
     }
   }
 }
@@ -409,7 +409,7 @@ export function cleanupStaleClients(): void {
       try {
         client.res.end();
       } catch {
-        // Already closed
+      // Already closed
       }
       removeClient(client);
       staleProjectIds.add(client.projectId);

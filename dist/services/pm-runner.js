@@ -28,15 +28,15 @@ export class Semaphore {
         this.limit = limit;
     }
     /**
-         * Reserve a slot, waiting when the limit is reached, and return a release fn.
-         *
-         * When fewer than `limit` slots are active, this increments the count
-         * immediately; otherwise it awaits until a prior release wakes this caller.
-         * The returned function releases exactly once (subsequent calls are no-ops):
-         * if a waiter exists it is resumed, otherwise the active count is decremented.
-         *
-         * @returns A function that releases the acquired slot.
-         */
+     * Reserve a slot, waiting when the limit is reached, and return a release fn.
+     *
+     * When fewer than `limit` slots are active, this increments the count
+     * immediately; otherwise it awaits until a prior release wakes this caller.
+     * The returned function releases exactly once (subsequent calls are no-ops):
+     * if a waiter exists it is resumed, otherwise the active count is decremented.
+     *
+     * @returns A function that releases the acquired slot.
+     */
     async acquire() {
         if (this.active >= this.limit) {
             await new Promise((resolve) => this.waiting.push(resolve));

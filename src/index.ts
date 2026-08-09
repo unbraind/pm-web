@@ -568,7 +568,7 @@ export default defineExtension({
     // documents the deliberate no-op; the "services" capability is therefore
     // NOT declared in manifest.json.
     if (typeof api.registerService === "function") {
-      // Deliberately register no service overrides — see comment above.
+    // Deliberately register no service overrides — see comment above.
     }
   },
 });

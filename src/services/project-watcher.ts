@@ -149,7 +149,7 @@ export async function computeWorkspaceSignature(dir: string): Promise<string> {
       xorAcc ^= h;
       sumAcc = (sumAcc + h) >>> 0; // wraps mod 2^32 — order-independent
     } catch {
-      // file vanished between readdir and stat — ignore
+    // file vanished between readdir and stat — ignore
     }
   }
   return `${count}:${xorAcc >>> 0}:${sumAcc}`;
@@ -198,7 +198,7 @@ export async function stepWorkspaceSweep(
       state.xor ^= h;
       state.sum = (state.sum + h) >>> 0;
     } catch {
-      // file vanished between readdir and stat — ignore
+    // file vanished between readdir and stat — ignore
     }
   }
   state.cursor = end;

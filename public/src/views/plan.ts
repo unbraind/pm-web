@@ -753,7 +753,7 @@ async function copyTextWithFallback(modalTitle: string, text: string, successMes
       toast(successMessage, 'success');
       return;
     } catch {
-      // Fall through to manual-copy modal.
+    // Fall through to manual-copy modal.
     }
   }
 

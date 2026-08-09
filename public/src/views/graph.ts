@@ -1824,7 +1824,7 @@ export async function refreshGraphData(): Promise<void> {
     updateInfoPanel();
     syncCanvas();
   } catch {
-    // Silently ignore — user can hit Refresh manually
+  // Silently ignore — user can hit Refresh manually
   }
 }
 

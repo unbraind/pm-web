@@ -1,0 +1,586 @@
+diff --git a/public/src/app.ts b/public/src/app.ts
+index 083f4e6..1c1bfab 100644
+--- a/public/src/app.ts
++++ b/public/src/app.ts
+@@ -15,7 +15,8 @@ import { renderCalendarView, calNav, showDayItems } from './views/calendar.js';
+ import { renderContextView } from './views/context.js';
+ import { renderGraphView } from './views/graph.js';
+ 
+-// Open graph view focused on a specific node
++/** Switch to the graph view, wait for it to mount, render it, then focus the
++ * node with the given id by invoking the graph view's select-node hook. */
+ async function openGraphAt(nodeId: string): Promise<void> {
+   showView('graph');
+   // Give the graph view time to mount, then set selected node
+@@ -56,6 +57,9 @@ initTheme();
+ // Global search modal
+ let globalSearchTimer: ReturnType<typeof setTimeout>;
+ 
++/** Build (without showing) the global-search modal: a search input wired to
++ * the debounced search handler and a results container with an initial
++ * prompt. */
+ function buildSearchModal(): void {
+   createModal('global-search-modal','Search',`
+     <div class="search-box-wrap" style="margin-bottom:12px">
+@@ -124,6 +128,9 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
+   },
+ ];
+ 
++/** Build (without showing) the mobile command-sheet modal listing every
++ * navigation command grouped by section, disabling project-scoped commands
++ * when no project is selected and hiding the admin command for non-admins. */
+ function buildMobileCommandSheet(): void {
+   const hasProject = !!state.currentProject;
+   const projectName = state.currentProject?.name || 'No project selected';
+@@ -177,6 +184,9 @@ function globalSearchDebounced(): void {
+   globalSearchTimer = setTimeout(doGlobalSearch, 300);
+ }
+ 
++/** Read the global-search input, POST the query to the project search
++ * endpoint, and render matching items into the results pane (or an
++ * empty/error state). No-op when the query or current project is missing. */
+ async function doGlobalSearch(): Promise<void> {
+   const query = (document.getElementById('global-search-input') as HTMLInputElement | null)?.value?.trim();
+   if (!query || !state.currentProject) return;
+@@ -453,6 +463,8 @@ interface PresenceUser {
+   connectedAt: string;
+ }
+ 
++/** Derive up to two uppercase initials from a display name by splitting on
++ * common delimiters and taking the first character of the leading tokens. */
+ function userInitials(displayName: string): string {
+   return displayName
+     .split(/[\s@._-]+/)
+@@ -462,6 +474,9 @@ function userInitials(displayName: string): string {
+     .join('');
+ }
+ 
++/** Render the presence bar showing up to five other currently-viewing users
++ * as colored initial chips (plus an overflow count), or hide the bar when only
++ * the current user is present. */
+ function renderPresenceBar(users: PresenceUser[]): void {
+   const bar = document.getElementById('presence-bar');
+   if (!bar) return;
+@@ -493,6 +508,9 @@ function renderPresenceBar(users: PresenceUser[]): void {
+   bar.innerHTML = `<span class="presence-label">Viewing:</span>${chips}${extraChip}`;
+ }
+ 
++/** Update the real-time-sync indicator element to reflect `connected`,
++ * `reconnecting`, or `disconnected` state, and clear the presence bar on
++ * disconnect. */
+ function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): void {
+   const el = document.getElementById('sse-indicator');
+   if (!el) return;
+@@ -511,6 +529,9 @@ function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): vo
+   }
+ }
+ 
++/** Tear down the current SSE connection: cancel pending reconnect and refresh
++ * timers, close the event source, clear the tracked project/client ids, and
++ * mark sync as disconnected. */
+ function disconnectSSE(): void {
+   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null; }
+   if (sseRefreshTimer) { clearTimeout(sseRefreshTimer); sseRefreshTimer = null; }
+@@ -520,6 +541,9 @@ function disconnectSSE(): void {
+   setSseStatus('disconnected');
+ }
+ 
++/** Fire-and-forget PATCH to the server updating which view the current client
++ * is looking at, so other users see accurate presence. No-op when not
++ * connected. */
+ function notifyPresenceView(view: string): void {
+   if (!sseClientId || !sseCurrentProjectId) return;
+   // Fire-and-forget: update current view on server
+@@ -530,6 +554,10 @@ function notifyPresenceView(view: string): void {
+   }).catch(() => undefined);
+ }
+ 
++/** Open an SSE stream for the given project (reusing an existing connection
++ * when already live), wire handlers for connection, presence, item, graph,
++ * and package events that refresh the active view, and reconnect with
++ * exponential backoff on error. */
+ function connectSSE(projectId: string, attempt = 0): void {
+   if (sseCurrentProjectId === projectId && sseSource && sseSource.readyState !== EventSource.CLOSED) return;
+   disconnectSSE();
+@@ -674,6 +702,9 @@ export { connectSSE, disconnectSSE, notifyPresenceView };
+ // ═══════════════════════════════════════════════════════════════
+ // BOOT
+ // ═══════════════════════════════════════════════════════════════
++/** Reveal the main app shell, populate the signed-in user's avatar/name and
++ * admin-gated controls, build the project/search/mobile modals, register the
++ * presence view-change hook, then load projects and run the launch action. */
+ export async function bootApp(): Promise<void> {
+   const authScreen = document.getElementById('auth-screen');
+   const mainApp = document.getElementById('main-app');
+@@ -701,6 +732,9 @@ export async function bootApp(): Promise<void> {
+   await handleLaunchAction();
+ }
+ 
++/** Act on the `?action=` query param or URL path to deep-link into a view
++ * (new-project, new-item, search, or a restored bookmarked view), selecting a
++ * default project and showing toasts when a required project is missing. */
+ async function handleLaunchAction(): Promise<void> {
+   const action = new URLSearchParams(window.location.search).get('action');
+ 
+@@ -756,6 +790,9 @@ async function handleLaunchAction(): Promise<void> {
+ // ═══════════════════════════════════════════════════════════════
+ // GLOBAL ERROR BOUNDARY
+ // ═══════════════════════════════════════════════════════════════
++/** Replace the app shell with a full-screen error screen showing the message
++ * and (when available) a collapsible stack trace, with reload, login, and
++ * copy-details actions. Hides the auth and main screens. */
+ function showGlobalError(errorMsg: string, error?: unknown): void {
+   const appEl = document.getElementById('app');
+   if (!appEl) return;
+@@ -817,6 +854,8 @@ window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) =>
+ // Apply the persisted locale + catalog BEFORE the auth screen or main app
+ // is shown so package-owned strings render in the right language on first
+ // paint (after the inline <html lang> hint in index.html).
++/** Entry point: initialize i18n, probe the session via `/auth/me`, and either
++ * boot the app on success or show the auth screen on failure. */
+ async function init(): Promise<void> {
+   await initI18n();
+   try {
+@@ -842,6 +881,8 @@ async function changeLanguage(locale: string): Promise<void> {
+ let lastKeyTime = 0;
+ let lastKey = '';
+ 
++/** Build and show the keyboard-shortcuts reference modal as a two-column
++ * key/description table. */
+ function openShortcutsHelp(): void {
+   createModal('shortcuts-help-modal', 'Keyboard Shortcuts', `
+     <table style="width:100%;border-collapse:collapse;font-size:13px">
+@@ -938,6 +979,8 @@ window.dismissInstallBanner = function(): void {
+ // ═══════════════════════════════════════════════════════════════
+ // OFFLINE / ONLINE STATUS BANNER
+ // ═══════════════════════════════════════════════════════════════
++/** Toggle the offline status banner's visibility to match the browser's
++ * current connectivity (`navigator.onLine`). */
+ function updateOfflineBanner(): void {
+   const banner = document.getElementById('offline-banner');
+   if (!banner) return;
+diff --git a/public/src/components/modals.ts b/public/src/components/modals.ts
+index e824337..aa3c5e2 100644
+--- a/public/src/components/modals.ts
++++ b/public/src/components/modals.ts
+@@ -3,22 +3,29 @@
+ // ═══════════════════════════════════════════════════════════════
+ import { escHtml } from '../utils.js';
+ 
++/** Display the modal with the given id by setting its display style to flex. */
+ export function showModal(id: string): void {
+   const modal = document.getElementById(id);
+   if (modal) modal.style.display = 'flex';
+ }
+ 
++/** Hide the modal with the given id by setting its display style to none. */
+ export function hideModal(id: string): void {
+   const modal = document.getElementById(id);
+   if (modal) modal.style.display = 'none';
+ }
+ 
++/** Hide every modal backdrop element in the document by setting each to
++ * display none. */
+ export function closeAllModals(): void {
+   document.querySelectorAll('.modal-backdrop').forEach(m => {
+     (m as HTMLElement).style.display = 'none';
+   });
+ }
+ 
++/** Build (or rebuild) a modal element with the given id, title, body, and
++ * optional footer markup, append it under `#modal-container`, and wire its
++ * backdrop-click-to-close behavior. Returns the created modal element. */
+ export function createModal(
+   id: string,
+   title: string,
+@@ -47,6 +54,10 @@ export function createModal(
+   return el;
+ }
+ 
++/** Open a confirmation modal with a title and description; when the user
++ * clicks the confirm button the modal closes and `onConfirm` runs. The
++ * `danger` flag switches the styling and default labels to a destructive
++ * action, and `labels` overrides the button text. */
+ export function confirmDialog(
+   title: string,
+   desc: string,
+diff --git a/public/src/components/toast.ts b/public/src/components/toast.ts
+index c763908..f06d0dc 100644
+--- a/public/src/components/toast.ts
++++ b/public/src/components/toast.ts
+@@ -3,6 +3,8 @@
+ // ═══════════════════════════════════════════════════════════════
+ import type { ToastType } from '../types.js';
+ 
++/** Show a transient toast notification of the given type, appending it to the
++ * toast container and removing it after 3.5 seconds. */
+ export function toast(msg: string, type: ToastType = 'info'): void {
+   const el = document.createElement('div');
+   el.className = `toast toast-${type}`;
+diff --git a/public/src/constants.ts b/public/src/constants.ts
+index 1a4112e..fac0a32 100644
+--- a/public/src/constants.ts
++++ b/public/src/constants.ts
+@@ -3,36 +3,53 @@
+ // ═══════════════════════════════════════════════════════════════
+ import type { ProjectSchema } from './types.js';
+ 
+-// Fallback values — kept in sync with pm CLI builtins for offline resilience.
+-// The live schema is fetched from /api/projects/:id/pm/schema per project
+-// and injected via state.schema; use getTypes()/getStatuses() everywhere.
++/** Item-type names kept in sync with the pm CLI builtins, used as the
++ * offline fallback when the live project schema is unavailable. Prefer
++ * `getTypes()` everywhere so the fetched schema wins when present. */
+ export const FALLBACK_TYPES = [
+   'Task','Feature','Issue','Epic','Milestone','Decision','Chore','Event','Meeting','Reminder','Plan'
+ ] as const;
+ 
++/** Lifecycle status names kept in sync with the pm CLI builtins, used as the
++ * offline fallback when the live project schema is unavailable. Prefer
++ * `getStatuses()` everywhere so the fetched schema wins when present. */
+ export const FALLBACK_STATUSES = ['draft','open','in_progress','blocked','closed','canceled'] as const;
+ 
+-// Back-compat aliases (avoid widespread refactors, prefer getTypes/getStatuses)
++/** Back-compat alias for `FALLBACK_TYPES`, retained to avoid a widespread
++ * refactor; new code should call `getTypes()` instead. */
+ export const TYPES = FALLBACK_TYPES;
++/** Back-compat alias for `FALLBACK_STATUSES`, retained to avoid a widespread
++ * refactor; new code should call `getStatuses()` instead. */
+ export const STATUSES = FALLBACK_STATUSES;
+ 
++/** Return the item types for a project, preferring the live `schema.types`
++ * when non-empty and falling back to the built-in `FALLBACK_TYPES`. */
+ export function getTypes(schema?: ProjectSchema | null): string[] {
+   return schema?.types?.length ? schema.types : [...FALLBACK_TYPES];
+ }
+ 
++/** Return the lifecycle statuses for a project, preferring the live
++ * `schema.statuses` when non-empty and falling back to the built-in
++ * `FALLBACK_STATUSES`. */
+ export function getStatuses(schema?: ProjectSchema | null): string[] {
+   return schema?.statuses?.length ? schema.statuses : [...FALLBACK_STATUSES];
+ }
+ 
++/** Map of item-type name to the single-character glyph shown in the UI for
++ * that type. */
+ export const TYPE_ICONS: Record<string, string> = {
+   Task:'✓', Feature:'★', Issue:'⚠', Epic:'◈',
+   Milestone:'⚑', Decision:'⚖', Chore:'⚙', Event:'◷', Meeting:'◉', Reminder:'◉', Plan:'◧'
+ };
+ 
++/** Map of numeric priority (0–4) to its human-readable label, used for
++ * tooltips and accessibility text on priority indicators. */
+ export const PRIORITY_LABELS: Record<number, string> = {
+   0:'Critical', 1:'High', 2:'Medium', 3:'Low', 4:'Minimal'
+ };
+ 
++/** Fixed list of navigation view identifiers in display order; mirrors the
++ * routing keys accepted by the SPA router. */
+ export const VIEW_NAMES = [
+   'projects','items','create','activity','search','stats','calendar',
+   'context','graph','sharing','groups','health','dedupe','validate','settings',
+diff --git a/public/src/filters.ts b/public/src/filters.ts
+index 78a74bc..9a85e94 100644
+--- a/public/src/filters.ts
++++ b/public/src/filters.ts
+@@ -8,6 +8,8 @@
+ // free so they can be unit-tested without a DOM.
+ import type { ItemFilters } from './types.js';
+ 
++/** Item filter state with every dimension empty, used as the base value when
++ * resetting or parsing filters. */
+ export const EMPTY_FILTERS: ItemFilters = {
+   status: '', type: '', priority: '', sprint: '', release: '', assignee: '', tag: '',
+ };
+@@ -17,8 +19,8 @@ const FILTER_KEYS: (keyof ItemFilters)[] = [
+   'status', 'type', 'priority', 'sprint', 'release', 'assignee', 'tag',
+ ];
+ 
+-// Serialize active (non-empty) filters into a URLSearchParams. Empty values are
+-// omitted so the URL stays clean.
++/** Serialize the active (non-empty) filter dimensions into a `URLSearchParams`
++ * in a stable key order, omitting empty values so generated URLs stay clean. */
+ export function filtersToSearchParams(f: ItemFilters): URLSearchParams {
+   const params = new URLSearchParams();
+   for (const key of FILTER_KEYS) {
+@@ -28,14 +30,14 @@ export function filtersToSearchParams(f: ItemFilters): URLSearchParams {
+   return params;
+ }
+ 
+-// Serialize filters to a query string (without the leading "?"), or "" when no
+-// filters are active.
++/** Serialize filters to a URL query string without the leading `?`, returning
++ * an empty string when no dimensions are active. */
+ export function filtersToQueryString(f: ItemFilters): string {
+   return filtersToSearchParams(f).toString();
+ }
+ 
+-// Parse filters back out of a URLSearchParams (or query string). Unknown keys
+-// are ignored; missing keys default to empty.
++/** Parse filter dimensions back out of a `URLSearchParams` or query string,
++ * defaulting unknown/missing keys to empty strings. */
+ export function filtersFromSearchParams(input: URLSearchParams | string): ItemFilters {
+   const params = typeof input === 'string' ? new URLSearchParams(input) : input;
+   const result: ItemFilters = { ...EMPTY_FILTERS };
+@@ -46,7 +48,8 @@ export function filtersFromSearchParams(input: URLSearchParams | string): ItemFi
+   return result;
+ }
+ 
+-// True when at least one dimension is set.
++/** Return true when at least one filter dimension has a non-empty trimmed
++ * value. */
+ export function hasActiveFilters(f: ItemFilters): boolean {
+   return FILTER_KEYS.some((key) => (f[key] ?? '').trim() !== '');
+ }
+diff --git a/public/src/i18n.ts b/public/src/i18n.ts
+index 33f437e..a9c3a4d 100644
+--- a/public/src/i18n.ts
++++ b/public/src/i18n.ts
+@@ -24,6 +24,8 @@ export const LOCALE_STORAGE_KEY = 'pmLocale';
+ 
+ /** Locales shipped by this package. The first entry is the default/fallback. */
+ export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'zh'] as const;
++/** String literal union of every locale code this package ships a catalog
++ * for, derived from `SUPPORTED_LOCALES`. */
+ export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+ 
+ const DEFAULT_LOCALE: SupportedLocale = 'en';
+@@ -166,7 +168,8 @@ export async function initI18n(): Promise<void> {
+   applyTranslations();
+ }
+ 
+-/** Current active locale. */
++/** Return the locale currently selected for the session, set by `initI18n` or
++ * `setLocale`. Defaults to the English fallback before initialization. */
+ export function getLocale(): SupportedLocale {
+   return currentLocale;
+ }
+@@ -232,6 +235,10 @@ export function applyTranslations(root?: ParentNode): void {
+   bindAttr(scope, '[data-i18n-aria]', 'data-i18n-aria', (el, v) => { el.setAttribute('aria-label', v); });
+ }
+ 
++/** For every element in `scope` matching `selector`, read its `attr` data
++ * key, resolve the translation (with optional `data-i18n-params`
++ * substitutions), and pass the result to `setter`. Used to bind each
++ * `data-i18n*` flavor. */
+ function bindAttr(
+   scope: ParentNode,
+   selector: string,
+@@ -247,6 +254,8 @@ function bindAttr(
+   });
+ }
+ 
++/** Parse a `data-i18n-params` JSON string into a parameter object, returning
++ * `undefined` when the JSON is missing, malformed, or not a plain object. */
+ function safeParseParams(json: string): Record<string, string | number> | undefined {
+   try {
+     const parsed = JSON.parse(json) as unknown;
+@@ -274,6 +283,9 @@ export function translateError(message: string): string {
+ // Lazy reverse map: English error text → catalog key. Built from enCatalog
+ // so it tracks the catalog without a hand-maintained second table.
+ let cachedErrorReverse: Map<string, string> | null = null;
++/** Build and cache a reverse lookup from English error text to its catalog
++ * key (covering only `error.*` entries), so server error strings can be
++ * mapped back to translatable keys at the display layer. */
+ function errorReverseMap(): Map<string, string> {
+   if (cachedErrorReverse) return cachedErrorReverse;
+   const map = new Map<string, string>();
+diff --git a/public/src/state.ts b/public/src/state.ts
+index d3f01af..2d15980 100644
+--- a/public/src/state.ts
++++ b/public/src/state.ts
+@@ -3,6 +3,9 @@
+ // ═══════════════════════════════════════════════════════════════
+ import type { AppState } from './types.js';
+ 
++/** Mutable singleton holding the SPA's global application state: the signed-in
++ * user, loaded projects, the active project and view, item list and filters,
++ * and search state. Views read and mutate this directly. */
+ export const state: AppState = {
+   user: null,
+   projects: [],
+diff --git a/public/src/sw.ts b/public/src/sw.ts
+index 99dc4d4..a2f196c 100644
+--- a/public/src/sw.ts
++++ b/public/src/sw.ts
+@@ -127,6 +127,9 @@ interface SyncEvent extends ExtendableEvent {
+   readonly tag: string;
+ }
+ 
++/** Open (creating on first run) the IndexedDB database backing the offline
++ * mutation queue, ensuring the `mutations` object store and its timestamp
++ * index exist. Resolves with the ready database handle. */
+ function openMutationDB(): Promise<IDBDatabase> {
+   return new Promise((resolve, reject) => {
+     const request = indexedDB.open(MUTATION_DB, 1);
+@@ -185,6 +188,9 @@ async function queueMutation(method: string, path: string, body: unknown): Promi
+   }
+ }
+ 
++/** Read every queued mutation out of IndexedDB in insertion order, returning
++ * an empty array on any storage failure so callers can treat the queue as
++ * drained. */
+ async function getQueuedMutations(): Promise<QueuedMutation[]> {
+   try {
+     const db = await openMutationDB();
+@@ -218,6 +224,9 @@ async function clearMutation(id: number): Promise<boolean> {
+   }
+ }
+ 
++/** Replay queued mutations to the API in order, removing each on success and
++ * stopping at the first failure so it can retry later, then post-message the
++ * connected clients with how many were replayed or remain. */
+ async function flushMutationQueue(): Promise<void> {
+   const mutations = await getQueuedMutations();
+   if (mutations.length === 0) return;
+diff --git a/public/src/theme.ts b/public/src/theme.ts
+index 6634559..1860813 100644
+--- a/public/src/theme.ts
++++ b/public/src/theme.ts
+@@ -8,6 +8,8 @@
+ // preference) is "auto", matching the data-theme="auto" attribute in the HTML
+ // shell so there is no flash of the wrong theme on load.
+ 
++/** The user-selectable theme modes: an explicit `dark` or `light`, or `auto`
++ * which follows the OS `prefers-color-scheme` setting. */
+ export type Theme = 'dark' | 'light' | 'auto';
+ 
+ const STORAGE_KEY = 'pm-web-theme';
+@@ -26,6 +28,9 @@ const LABEL: Record<Theme, string> = {
+   dark: 'Theme: dark',
+ };
+ 
++/** Read the persisted theme choice from localStorage, defaulting to `auto`
++ * when no preference is stored or when localStorage is unavailable (e.g.
++ * private browsing). */
+ export function getStoredTheme(): Theme {
+   try {
+     const v = localStorage.getItem(STORAGE_KEY);
+@@ -34,6 +39,9 @@ export function getStoredTheme(): Theme {
+   return 'auto';
+ }
+ 
++/** Apply a theme to the page: set `data-theme` on `<html>`, update the toggle
++ * button's glyph/title, and sync the `<meta name="theme-color">` tag so the
++ * mobile browser chrome matches the chosen palette. */
+ export function applyTheme(theme: Theme): void {
+   document.documentElement.setAttribute('data-theme', theme);
+   const btn = document.getElementById('theme-toggle');
+@@ -54,18 +62,24 @@ export function applyTheme(theme: Theme): void {
+   }
+ }
+ 
++/** Persist a theme choice to localStorage and immediately apply it to the
++ * document. */
+ export function setTheme(theme: Theme): void {
+   try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* ignore */ }
+   applyTheme(theme);
+ }
+ 
++/** Advance to the next theme in the auto → light → dark order (wrapping
++ * around) and persist plus apply the new selection. */
+ export function cycleTheme(): void {
+   const current = getStoredTheme();
+   const next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
+   setTheme(next);
+ }
+ 
+-// Apply the persisted (or default) theme as early as possible.
++/** Apply the persisted (or default) theme early to avoid a flash of the wrong
++ * palette, then register a listener so `auto` mode tracks live OS theme
++ * changes. */
+ export function initTheme(): void {
+   applyTheme(getStoredTheme());
+   // When in auto mode, react to live OS theme changes.
+diff --git a/public/src/types.ts b/public/src/types.ts
+index 2e7d8cb..1225685 100644
+--- a/public/src/types.ts
++++ b/public/src/types.ts
+@@ -2,6 +2,7 @@
+ // TYPES
+ // ═══════════════════════════════════════════════════════════════
+ 
++/** The signed-in application user, as returned by the auth/session endpoints. */
+ export interface User {
+   id: string;
+   email: string;
+@@ -255,6 +256,7 @@ export interface AdminGroup {
+ 
+ export type ToastType = 'info' | 'success' | 'error';
+ 
++/** Union of every navigation view key the SPA router can display. */
+ export type ViewName =
+   | 'projects' | 'items' | 'create' | 'activity' | 'search'
+   | 'stats' | 'calendar' | 'context' | 'graph' | 'sharing' | 'groups'
+diff --git a/public/src/utils.ts b/public/src/utils.ts
+index 7af7639..1d2cf0d 100644
+--- a/public/src/utils.ts
++++ b/public/src/utils.ts
+@@ -3,11 +3,15 @@
+ // ═══════════════════════════════════════════════════════════════
+ import { PRIORITY_LABELS, TYPE_ICONS } from './constants.js';
+ 
++/** Escape characters with HTML entity meaning so a value can be inserted into
++ * markup without injection. Falsy input yields an empty string. */
+ export function escHtml(s: string | undefined | null): string {
+   if (!s) return '';
+   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+ }
+ 
++/** Build a colored status-badge span for an item status, mapping the
++ * `in_progress` code to "In Progress" and CSS-classifying the rest by slug. */
+ export function statusBadge(s: string): string {
+   const labels: Record<string, string> = { in_progress: 'In Progress' };
+   const status = String(s || 'unknown');
+@@ -15,14 +19,21 @@ export function statusBadge(s: string): string {
+   return `<span class="status-badge status-${classSuffix}">${escHtml(labels[status] || status)}</span>`;
+ }
+ 
++/** Render a priority indicator span (P0–P4) whose color class and tooltip
++ * label come from the PRIORITY_LABELS lookup table. */
+ export function priorityDot(p: number): string {
+   return `<span class="priority-dot priority-${p}" title="P${p}: ${PRIORITY_LABELS[p]||''}"></span>`;
+ }
+ 
++/** Render an item-type glyph span using the TYPE_ICONS map, falling back to
++ * the middle-dot character when the type has no assigned icon. */
+ export function typeIcon(t: string): string {
+   return `<span class="item-type-icon" title="${t}">${TYPE_ICONS[t]||'·'}</span>`;
+ }
+ 
++/** Format a timestamp as a short relative phrase ("just now", "5m ago",
++ * "3h ago", "2d ago") or, past a week, a localized calendar date. Falsy or
++ * unparseable input returns an empty string. */
+ export function relTime(ts: string | undefined | null): string {
+   if (!ts) return '';
+   const d = new Date(ts);
+@@ -35,11 +46,16 @@ export function relTime(ts: string | undefined | null): string {
+   return d.toLocaleDateString();
+ }
+ 
++/** Format a timestamp as a US-style short date (e.g. "Jan 5, 2026"). Falsy
++ * input returns an empty string. */
+ export function fmtDate(ts: string | undefined | null): string {
+   if (!ts) return '';
+   return new Date(ts).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+ }
+ 
++/** Toggle a button's disabled state and, when `text` is supplied, update the
++ * button label — replacing the first inner span when present, otherwise the
++ * whole text content. */
+ export function setLoading(btn: HTMLButtonElement, yes: boolean, text?: string): void {
+   btn.disabled = yes;
+   if (text) {
+@@ -49,10 +65,12 @@ export function setLoading(btn: HTMLButtonElement, yes: boolean, text?: string):
+   }
+ }
+ 
++/** Build an HTML string of `n` placeholder skeleton rows for loading states. */
+ export function skeletonRows(n = 5): string {
+   return Array.from({length: n}, () => '<div class="skeleton skeleton-row"></div>').join('');
+ }
+ 
++/** Build an HTML string of `n` placeholder skeleton cards for loading states. */
+ export function skeletonCards(n = 3): string {
+   return Array.from({length: n}, () => '<div class="skeleton skeleton-card"></div>').join('');
+ }

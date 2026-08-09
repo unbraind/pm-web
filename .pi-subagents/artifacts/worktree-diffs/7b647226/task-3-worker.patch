@@ -1,0 +1,610 @@
+diff --git a/public/src/views/auth.ts b/public/src/views/auth.ts
+index 4e4ea4a..752d53d 100644
+--- a/public/src/views/auth.ts
++++ b/public/src/views/auth.ts
+@@ -7,6 +7,11 @@ import { bootApp } from '../app.js';
+ import { t, translateError } from '../i18n.js';
+ import type { User } from '../types.js';
+ 
++/**
++ * Fetches the OIDC provider configuration and shows or hides the single
++ * sign-on login button and divider based on whether it is enabled. Both
++ * elements are hidden when the config request fails.
++ */
+ async function configureOidcLogin(): Promise<void> {
+   const button = document.getElementById('oidc-login') as HTMLButtonElement | null;
+   const divider = document.getElementById('oidc-divider') as HTMLElement | null;
+@@ -22,10 +27,21 @@ async function configureOidcLogin(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Redirects the browser to the server endpoint that begins the single
++ * sign-on authentication flow.
++ */
+ export function startOidcLogin(): void {
+   window.location.assign('/api/auth/oidc/start');
+ }
+ 
++/**
++ * Switches the authentication panel between login and register modes,
++ * updating tab highlighting, the visible name field, and the translated
++ * title, subtitle, and button labels.
++ *
++ * @param tab - 'login' or 'register'.
++ */
+ export function switchAuthTab(tab: 'login' | 'register'): void {
+   state.authTab = tab;
+   document.getElementById('tab-login')?.classList.toggle('active', tab==='login');
+@@ -42,6 +58,13 @@ export function switchAuthTab(tab: 'login' | 'register'): void {
+   if (authError) authError.style.display = 'none';
+ }
+ 
++/**
++ * Handles the form submission: posts the entered credentials to either the
++ * login or register endpoint depending on the active tab, stores the returned
++ * user, and boots the application. Shows a translated error message on failure.
++ *
++ * @param e - form submit event.
++ */
+ export async function submitAuth(e: Event): Promise<void> {
+   e.preventDefault();
+   const btn = document.getElementById('auth-submit') as HTMLButtonElement | null;
+@@ -78,6 +101,10 @@ export async function submitAuth(e: Event): Promise<void> {
+   }
+ }
+ 
++/**
++ * Signs the current user out by calling the logout endpoint, clears local
++ * state, and returns to the login screen.
++ */
+ export async function logout(): Promise<void> {
+   try { await api('POST','/auth/logout',{}); } catch(_) { /* ignore */ }
+   state.user = null;
+@@ -86,6 +113,10 @@ export async function logout(): Promise<void> {
+   showAuth();
+ }
+ 
++/**
++ * Displays the authentication screen, hides the main application view, and
++ * refreshes the single sign-on button state.
++ */
+ export function showAuth(): void {
+   const authScreen = document.getElementById('auth-screen');
+   const mainApp = document.getElementById('main-app');
+diff --git a/public/src/views/github.ts b/public/src/views/github.ts
+index 14b9b74..37f8c44 100644
+--- a/public/src/views/github.ts
++++ b/public/src/views/github.ts
+@@ -8,6 +8,11 @@ import { confirmDialog } from '../components/modals.js';
+ import { toast } from '../components/toast.js';
+ import type { GitHubImportResponse, GitHubIssuesResponse, GitHubIssueRow, GitHubPushResponse, GitHubRepoResponse, ListResponse } from '../api-types.js';
+ 
++/**
++ * Renders the GitHub integration page for the current project: a header, a
++ * token-required prompt when the user has no GitHub token, and otherwise the
++ * linked-repository content fetched from the API.
++ */
+ export async function renderGitHubView(): Promise<void> {
+   const el = document.getElementById('content-github');
+   if (!el) return;
+@@ -46,6 +51,14 @@ export async function renderGitHubView(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Builds the HTML for the integration page from the repository response: a
++ * link panel with owner and repo inputs (plus an unlink control when linked),
++ * and import/export panels shown only while a repository is linked.
++ *
++ * @param data - repository link response describing the current integration
++ *   state.
++ */
+ function renderGitHubContent(data: GitHubRepoResponse): void {
+   const linked = data.linked;
+   const owner = data.owner || '';
+@@ -119,6 +132,11 @@ function renderGitHubContent(data: GitHubRepoResponse): void {
+   if (contentEl) contentEl.innerHTML = linkPanel + syncPanels;
+ }
+ 
++/**
++ * Reads the owner and repo inputs, validates both, and PATCHes them onto the
++ * current project's link, then refreshes the view. Surfaces validation and
++ * server errors inline.
++ */
+ export async function linkGitHubRepo(): Promise<void> {
+   const owner = (document.getElementById('gh-owner') as HTMLInputElement | null)?.value?.trim() || '';
+   const repo = (document.getElementById('gh-repo') as HTMLInputElement | null)?.value?.trim() || '';
+@@ -137,6 +155,10 @@ export async function linkGitHubRepo(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Confirms, then disables the integration for the current project by
++ * clearing the linked owner and repo, and refreshes the view.
++ */
+ export function unlinkGitHubRepo(): void {
+   confirmDialog('Unlink Repository?', 'GitHub integration will be disabled for this project.', async () => {
+     try {
+@@ -147,6 +169,11 @@ export function unlinkGitHubRepo(): void {
+   });
+ }
+ 
++/**
++ * Fetches the repository's open issues and renders them as selectable
++ * checkboxes with select-all and import controls, or an empty message when
++ * none are found.
++ */
+ export async function loadGitHubIssues(): Promise<void> {
+   const el = document.getElementById('github-issues-list');
+   if (!el) return;
+@@ -182,10 +209,20 @@ export async function loadGitHubIssues(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Checks or unchecks every issue checkbox in the import list.
++ *
++ * @param checked - whether to check or clear the boxes.
++ */
+ export function selectAllIssues(checked: boolean): void {
+   document.querySelectorAll('.gh-issue-cb').forEach(cb => { (cb as HTMLInputElement).checked = checked; });
+ }
+ 
++/**
++ * Fetches the project's items and their existing issue links, then renders
++ * each item as a selectable checkbox annotated with a link to any
++ * already-pushed issue and a per-row update control.
++ */
+ export async function loadItemsForPush(): Promise<void> {
+   const el = document.getElementById('github-push-list');
+   if (!el) return;
+@@ -233,10 +270,20 @@ export async function loadItemsForPush(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Checks or unchecks every push-candidate item checkbox in the export list.
++ *
++ * @param checked - whether to check or clear the boxes.
++ */
+ export function selectAllPushItems(checked: boolean): void {
+   document.querySelectorAll('.gh-push-cb').forEach(cb => { (cb as HTMLInputElement).checked = checked; });
+ }
+ 
++/**
++ * Pushes the checked items to GitHub as issues, toasts the count of created
++ * and failed items, renders a results summary, and reloads the push list;
++ * re-enables the button afterwards.
++ */
+ export async function pushItemsToGitHub(): Promise<void> {
+   const checked = Array.from(document.querySelectorAll('.gh-push-cb:checked'));
+   if (checked.length === 0) { toast('Select at least one item to push', 'info'); return; }
+@@ -267,6 +314,12 @@ export async function pushItemsToGitHub(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Re-pushes a single item to its linked issue to refresh it, toasts the
++ * result, and reloads the push list.
++ *
++ * @param itemId - identifier of the pm item to refresh on GitHub.
++ */
+ export async function updateGitHubIssue(itemId: string): Promise<void> {
+   try {
+     const data = await api('PATCH', `/projects/${state.currentProject!.id}/github/push/${encodeURIComponent(itemId)}`) as { ok?: boolean; issueNumber?: number; issueUrl?: string };
+@@ -277,6 +330,11 @@ export async function updateGitHubIssue(itemId: string): Promise<void> {
+   }
+ }
+ 
++/**
++ * Imports the checked issues as new pm items, toasts the count of created and
++ * failed imports, renders a results summary, refreshes the items badge, and
++ * re-enables the button.
++ */
+ export async function importGitHubIssues(): Promise<void> {
+   const checked = Array.from(document.querySelectorAll('.gh-issue-cb:checked'));
+   if (checked.length === 0) { toast('Select at least one issue to import','info'); return; }
+diff --git a/public/src/views/groups.ts b/public/src/views/groups.ts
+index c4d2625..ba721f2 100644
+--- a/public/src/views/groups.ts
++++ b/public/src/views/groups.ts
+@@ -8,6 +8,10 @@ import { showModal, hideModal, createModal, confirmDialog } from '../components/
+ import { toast } from '../components/toast.js';
+ import type { GroupDetailResponse, GroupMemberRow, GroupsResponse, GroupListRow } from '../api-types.js';
+ 
++/**
++ * Renders the groups page header and a loading placeholder, then fetches and
++ * displays the list of teams.
++ */
+ export async function renderGroupsView(): Promise<void> {
+   const el = document.getElementById('content-groups');
+   if (!el) return;
+@@ -23,6 +27,11 @@ export async function renderGroupsView(): Promise<void> {
+   await loadGroups();
+ }
+ 
++/**
++ * Fetches the user's teams from the API and renders each as a clickable row
++ * showing avatar initials, name, description, and member count, or an empty
++ * state when none exist.
++ */
+ async function loadGroups(): Promise<void> {
+   const el = document.getElementById('groups-list');
+   if (!el) return;
+@@ -57,6 +66,10 @@ async function loadGroups(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Builds and displays the modal form for creating a new team, with name and
++ * description inputs and a validation slot.
++ */
+ export function openCreateGroupModal(): void {
+   createModal('create-group-modal','New Group',`
+     <div class="form-group">
+@@ -74,6 +87,10 @@ export function openCreateGroupModal(): void {
+   showModal('create-group-modal');
+ }
+ 
++/**
++ * Reads the create-team form, requires a name, posts the new team, and
++ * reloads the list on success, surfacing validation and server errors inline.
++ */
+ export async function submitCreateGroup(): Promise<void> {
+   const name = (document.getElementById('cg-name') as HTMLInputElement | null)?.value?.trim() || '';
+   const description = (document.getElementById('cg-desc') as HTMLInputElement | null)?.value?.trim() || '';
+@@ -90,6 +107,13 @@ export async function submitCreateGroup(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Confirms and permanently deletes the named team, then refreshes the list,
++ * showing any errors as toasts.
++ *
++ * @param groupId - identifier of the team to delete.
++ * @param name - display name shown in the confirmation prompt.
++ */
+ export function deleteGroup(groupId: string, name: string): void {
+   confirmDialog('Delete Group?', `Delete group "${name}"? This cannot be undone.`, async () => {
+     try {
+@@ -100,6 +124,14 @@ export function deleteGroup(groupId: string, name: string): void {
+   }, true);
+ }
+ 
++/**
++ * Opens a modal showing a team's members with an invite-by-email field,
++ * fetching the membership from the API and replacing the loading placeholder
++ * with the rendered list.
++ *
++ * @param groupId - identifier of the team to display.
++ * @param _groupName - fallback title used before the API response resolves.
++ */
+ export async function openGroupDetail(groupId: string, _groupName: string): Promise<void> {
+   createModal('group-detail-modal', _groupName,
+     `<div class="loading-state"><div class="loading-spinner"></div></div>`, '', true);
+@@ -150,6 +182,12 @@ export async function openGroupDetail(groupId: string, _groupName: string): Prom
+   }
+ }
+ 
++/**
++ * Reads the invite field for the given team, requires an email, adds the
++ * member through the API, and reopens the team detail on success.
++ *
++ * @param groupId - identifier of the team to invite into.
++ */
+ export async function inviteMember(groupId: string): Promise<void> {
+   const emailEl = document.getElementById(`invite-email-${groupId}`) as HTMLInputElement | null;
+   const email = emailEl?.value?.trim() || '';
+@@ -162,6 +200,13 @@ export async function inviteMember(groupId: string): Promise<void> {
+   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+ }
+ 
++/**
++ * Confirms and removes a member from the specified team, then reopens the
++ * team detail and surfaces errors as toasts.
++ *
++ * @param groupId - identifier of the team to modify.
++ * @param userId - identifier of the member to remove.
++ */
+ export function removeMember(groupId: string, userId: string): void {
+   confirmDialog('Remove Member?', 'Remove this member from the group?', async () => {
+     try {
+diff --git a/public/src/views/projects.ts b/public/src/views/projects.ts
+index b89c3e8..3eeb802 100644
+--- a/public/src/views/projects.ts
++++ b/public/src/views/projects.ts
+@@ -9,12 +9,20 @@ import { toast } from '../components/toast.js';
+ import type { CreateProjectResponse, ListResponse, ProjectsResponse, SchemaResponse } from '../api-types.js';
+ import { showView } from '../views/router.js';
+ 
++/**
++ * Fetches the user's workspaces from the API, stores them on shared state,
++ * and rebuilds the selector dropdown.
++ */
+ export async function loadProjects(): Promise<void> {
+   const data = await api<ProjectsResponse>('GET','/projects');
+   state.projects = data.projects || [];
+   renderProjectSelector();
+ }
+ 
++/**
++ * Rebuilds the selector dropdown options from shared state, preserving the
++ * previously selected value.
++ */
+ export function renderProjectSelector(): void {
+   const sel = document.getElementById('project-selector') as HTMLSelectElement | null;
+   if (!sel) return;
+@@ -23,6 +31,13 @@ export function renderProjectSelector(): void {
+     state.projects.map(p=>`<option value="${p.id}"${p.id===cur?' selected':''}>${escHtml(p.name)}</option>`).join('');
+ }
+ 
++/**
++ * Loads a project's pm schema from the API and stores it on shared state when
++ * it contains at least one type; failures are ignored so views keep using
++ * fallback types.
++ *
++ * @param projectId - identifier of the project whose schema to load.
++ */
+ async function fetchProjectSchema(projectId: string): Promise<void> {
+   try {
+     const schema = await api<SchemaResponse>('GET', `/projects/${projectId}/pm/schema`);
+@@ -32,6 +47,13 @@ async function fetchProjectSchema(projectId: string): Promise<void> {
+   } catch (_) { /* fallback to constants */ }
+ }
+ 
++/**
++ * Handles a selection: clears state and returns to the projects view when
++ * deselected, otherwise activates the chosen project, wires the SSE stream,
++ * fetches its schema, opens the items view, and refreshes the items badge.
++ *
++ * @param id - identifier of the selected project, or empty string for none.
++ */
+ export async function onProjectSelect(id: string): Promise<void> {
+   if (!id) {
+     state.currentProject = null;
+@@ -56,6 +78,10 @@ export async function onProjectSelect(id: string): Promise<void> {
+   loadItemsBadge();
+ }
+ 
++/**
++ * Fetches the open items count for the current project and updates the
++ * sidebar items badge, ignoring errors.
++ */
+ export async function loadItemsBadge(): Promise<void> {
+   if (!state.currentProject) return;
+   try {
+@@ -66,6 +92,11 @@ export async function loadItemsBadge(): Promise<void> {
+   } catch(_) { /* ignore */ }
+ }
+ 
++/**
++ * Renders the projects landing page: a welcome prompt when no workspaces
++ * exist, otherwise a grid of cards each showing name, slug, description,
++ * prefix, and creation date.
++ */
+ export function renderProjectsView(): void {
+   const el = document.getElementById('content-projects');
+   if (!el) return;
+@@ -103,12 +134,25 @@ export function renderProjectsView(): void {
+     </div>`;
+ }
+ 
++/**
++ * Sets the selector to the given id and triggers the standard selection
++ * handler.
++ *
++ * @param id - identifier of the project to select.
++ */
+ export function selectProject(id: string): void {
+   const sel = document.getElementById('project-selector') as HTMLSelectElement | null;
+   if (sel) sel.value = id;
+   onProjectSelect(id);
+ }
+ 
++/**
++ * Confirms and permanently deletes a project, clears it from state if
++ * active, reloads the list, and re-renders the projects view when visible.
++ *
++ * @param id - identifier of the project to delete.
++ * @param name - display name shown in the confirmation prompt.
++ */
+ export function deleteProject(id: string, name: string): void {
+   confirmDialog('Delete Project?', `Delete project "${name}"? This cannot be undone.`, async () => {
+     try {
+@@ -127,6 +171,11 @@ export function deleteProject(id: string, name: string): void {
+   }, true);
+ }
+ 
++/**
++ * Constructs the create-project modal form with name, ID prefix, and
++ * description fields, and wires the name input to auto-suggest a lowercase
++ * prefix until the user edits it.
++ */
+ export function buildCreateProjectModal(): void {
+   createModal('create-project-modal','New Project',`
+     <form id="create-project-form" onsubmit="window.__app.submitCreateProject(event)">
+@@ -160,11 +209,22 @@ export function buildCreateProjectModal(): void {
+   }
+ }
+ 
++/**
++ * Form-submit entry point that prevents default and delegates to the shared
++ * create handler.
++ *
++ * @param e - optional submit event.
++ */
+ export async function submitCreateProject(e?: Event): Promise<void> {
+   e?.preventDefault();
+   await submitCreateProject2();
+ }
+ 
++/**
++ * Reads and validates the create-project form, posts a new project, prepends
++ * it to state, rebuilds the selector, closes the modal, and re-renders the
++ * projects view; shows inline errors on failure.
++ */
+ async function submitCreateProject2(): Promise<void> {
+   const nameEl = document.getElementById('cp-name') as HTMLInputElement | null;
+   const prefixEl = document.getElementById('cp-prefix') as HTMLInputElement | null;
+diff --git a/public/src/views/router.ts b/public/src/views/router.ts
+index ed1c62b..c821468 100644
+--- a/public/src/views/router.ts
++++ b/public/src/views/router.ts
+@@ -71,14 +71,35 @@ let navigatingInternally = false;
+ 
+ // Callback invoked when the view changes — used to notify presence service
+ let onViewChange: ((view: string) => void) | null = null;
++/**
++ * Stores the callback invoked after each view switch, used to notify an
++ * external service (for example presence) of the active view.
++ *
++ * @param cb - function called with the new view name.
++ */
+ export function setOnViewChange(cb: (view: string) => void): void {
+   onViewChange = cb;
+ }
+ 
++/**
++ * Returns the URL path registered for a view name, defaulting to the root
++ * path when the view is unmapped.
++ *
++ * @param view - view name to look up.
++ * @returns the matching path, or '/' when none is registered.
++ */
+ export function getPathForView(view: string): string {
+   return VIEW_TO_PATH[view] || '/';
+ }
+ 
++/**
++ * Returns the view name for a URL path, matching the full normalized path
++ * first, then the first path segment for deeper routes (such as an item
++ * detail), and finally falling back to projects.
++ *
++ * @param path - URL pathname to resolve.
++ * @returns the resolved view name.
++ */
+ export function getViewForPath(path: string): string {
+   // Normalize: remove trailing slash except for root
+   const normalized = path.replace(/\/$/, '') || '/';
+@@ -89,6 +110,15 @@ export function getViewForPath(path: string): string {
+   return PATH_TO_VIEW[firstSegment] || 'projects';
+ }
+ 
++/**
++ * Activates a named view: updates the URL via history pushState (unless
++ * suppressed), toggles content containers and sidebar highlighting for the
++ * new view, calls the matching render function, refreshes the mobile nav,
++ * notifies the presence callback, and moves focus into the view.
++ *
++ * @param view - name of the view to display.
++ * @param pushState - whether to push a new history entry (false on popstate).
++ */
+ export function showView(view: string, pushState = true): void {
+   if (view === 'admin' && !state.user?.is_admin) {
+     history.replaceState({ view: 'projects' }, '', '/');
+@@ -164,6 +194,12 @@ export function showView(view: string, pushState = true): void {
+   }
+ }
+ 
++/**
++ * Highlights the matching bottom-nav button for the active view and shows or
++ * hides the mobile navigation bar depending on whether a project is selected.
++ *
++ * @param view - currently active view name.
++ */
+ function updateMobileNav(view: string): void {
+   document.querySelectorAll('.mobile-bottom-nav-item').forEach(el => {
+     (el as HTMLElement).classList.toggle('active', (el as HTMLElement).dataset.mobview === view);
+@@ -175,6 +211,13 @@ function updateMobileNav(view: string): void {
+ }
+ 
+ // Handle browser back/forward
++/**
++ * Handles browser back/forward navigation, ignoring popstate events caused
++ * by this router's own pushState, then activates the view recorded in the
++ * history state.
++ *
++ * @param e - popstate event from the browser.
++ */
+ function onPopState(e: PopStateEvent): void {
+   // Ignore if we just pushed state (some browsers fire popstate after pushState)
+   if (navigatingInternally) {
+diff --git a/public/src/views/sharing.ts b/public/src/views/sharing.ts
+index 6e8005f..540c883 100644
+--- a/public/src/views/sharing.ts
++++ b/public/src/views/sharing.ts
+@@ -8,6 +8,14 @@ import { showModal, hideModal, createModal, confirmDialog } from '../components/
+ import { toast } from '../components/toast.js';
+ import type { ShareRow, SharesResponse } from '../api-types.js';
+ 
++/**
++ * Derives a display record (name, detail line, two-letter avatar, and group
++ * flag) for a single share row, preferring group fields when the row
++ * references a group and falling back through user fields otherwise.
++ *
++ * @param share - the share row to summarize.
++ * @returns display fields for rendering a member row.
++ */
+ function shareDisplay(share: ShareRow): { name: string; detail: string; avatar: string; isGroup: boolean } {
+   const isGroup = Boolean(share.group_id || share.groupId);
+   const name = isGroup
+@@ -19,6 +27,10 @@ function shareDisplay(share: ShareRow): { name: string; detail: string; avatar:
+   return { name, detail, avatar: name.slice(0, 2).toUpperCase(), isGroup };
+ }
+ 
++/**
++ * Renders the project sharing page header and a placeholder, then loads the
++ * current list of shares. Shows an empty state when no project is selected.
++ */
+ export async function renderSharingView(): Promise<void> {
+   const el = document.getElementById('content-sharing');
+   if (!el) return;
+@@ -38,6 +50,11 @@ export async function renderSharingView(): Promise<void> {
+   await loadShares();
+ }
+ 
++/**
++ * Fetches the shares for the current project and renders each one as a
++ * member row with its permission and a remove control, or an empty state
++ * when nobody has been invited yet.
++ */
+ async function loadShares(): Promise<void> {
+   const el = document.getElementById('shares-list');
+   if (!el) return;
+@@ -82,6 +99,10 @@ async function loadShares(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Builds and displays the invite dialog for sharing the current project,
++ * collecting an email or group id and a permission level.
++ */
+ export function openShareModal(): void {
+   createModal('share-modal','Invite to Project',`
+     <div class="form-group">
+@@ -106,6 +127,11 @@ export function openShareModal(): void {
+   showModal('share-modal');
+ }
+ 
++/**
++ * Reads the invite form fields and posts a new share for the current project
++ * using the entered email or group id and selected permission. Surfaces
++ * validation and server errors inline and refreshes the list on success.
++ */
+ export async function submitShare(): Promise<void> {
+   const email = (document.getElementById('share-email') as HTMLInputElement | null)?.value?.trim() || '';
+   const groupId = (document.getElementById('share-group-id') as HTMLInputElement | null)?.value?.trim() || '';
+@@ -129,6 +155,12 @@ export async function submitShare(): Promise<void> {
+   }
+ }
+ 
++/**
++ * Asks for confirmation then deletes the given share from the current
++ * project, refreshing the list and showing errors as toasts.
++ *
++ * @param shareId - identifier of the share to revoke.
++ */
+ export function removeShare(shareId: string): void {
+   confirmDialog('Remove Access?', 'The user will lose access to this project.', async () => {
+     try {
