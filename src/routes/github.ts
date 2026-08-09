@@ -25,6 +25,19 @@ async function getGitHubToken(userId: string): Promise<string | null> {
   return decryptSecret(result.rows[0]?.github_token || null);
 }
 
+/**
+ * `fetch` wrapper that authenticates to the GitHub REST API.
+ *
+ * Merges the caller's request options with the headers pm-web must send on
+ * every GitHub call: a `Bearer` token, the JSON-plus preview `Accept`, the
+ * pinned API version, and a `User-Agent`. Returns the raw `Response` so the
+ * caller can inspect status and body.
+ *
+ * @param url - The GitHub API endpoint URL.
+ * @param token - The user's decrypted GitHub access token.
+ * @param opts - Extra `fetch` options; caller headers are preserved.
+ * @returns The GitHub API response.
+ */
 async function ghFetch(url: string, token: string, opts: RequestInit = {}): Promise<Response> {
   return fetch(url, {
     ...opts,

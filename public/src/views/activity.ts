@@ -7,6 +7,7 @@ import { escHtml, relTime } from '../utils.js';
 import { TYPE_ICONS } from '../constants.js';
 import type { ActivityEntry, ActivityResponse } from '../api-types.js';
 
+/** Renders the activity feed for the current project, listing recent changes with their type icon, a description or fallback, and a relative timestamp. */
 export async function renderActivityView(): Promise<void> {
   const el = document.getElementById('content-activity');
   if (!el) return;

@@ -127,6 +127,9 @@ interface SyncEvent extends ExtendableEvent {
   readonly tag: string;
 }
 
+/** Open (creating on first run) the IndexedDB database backing the offline
+ * mutation queue, ensuring the `mutations` object store and its timestamp
+ * index exist. Resolves with the ready database handle. */
 function openMutationDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(MUTATION_DB, 1);
@@ -185,6 +188,9 @@ async function queueMutation(method: string, path: string, body: unknown): Promi
   }
 }
 
+/** Read every queued mutation out of IndexedDB in insertion order, returning
+ * an empty array on any storage failure so callers can treat the queue as
+ * drained. */
 async function getQueuedMutations(): Promise<QueuedMutation[]> {
   try {
     const db = await openMutationDB();
@@ -218,6 +224,9 @@ async function clearMutation(id: number): Promise<boolean> {
   }
 }
 
+/** Replay queued mutations to the API in order, removing each on success and
+ * stopping at the first failure so it can retry later, then post-message the
+ * connected clients with how many were replayed or remain. */
 async function flushMutationQueue(): Promise<void> {
   const mutations = await getQueuedMutations();
   if (mutations.length === 0) return;

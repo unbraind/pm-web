@@ -7,6 +7,7 @@ import { escHtml, relTime, typeIcon, statusBadge } from '../utils.js';
 import { TYPE_ICONS } from '../constants.js';
 import type { ContextResponse } from '../api-types.js';
 
+/** Renders the project context snapshot for the current project, delegating the body markup to renderContextData after loading the context from its endpoint. */
 export async function renderContextView(): Promise<void> {
   const el = document.getElementById('content-context');
   if (!el) return;
@@ -29,6 +30,7 @@ export async function renderContextView(): Promise<void> {
   }
 }
 
+/** Builds the context view body HTML for a loaded context object, emitting summary, active-item, blocked-item, and recent-activity sections (capped at ten activities), and falling back to pretty-printed JSON when none apply. */
 function renderContextData(ctx: ContextResponse): string {
   if (!ctx || typeof ctx !== 'object') {
     return `<div class="card"><div class="card-body"><div class="context-block">${escHtml(JSON.stringify(ctx,null,2))}</div></div></div>`;

@@ -20,6 +20,7 @@ function isHistoryDriftIssue(issue: HealthIssue): boolean {
   return msg.includes('history') && (msg.includes('drift') || msg.includes('repair') || msg.includes('mismatch'));
 }
 
+/** Renders the markup for one health issue, appending Repair and Dry Run buttons when the issue is history drift and a project item id is detected in the message. */
 function renderIssueRow(issue: HealthIssue, projectId: string): string {
   const msg = escHtml(issue.message || issue.description || String(issue));
   if (isHistoryDriftIssue(issue)) {
@@ -34,6 +35,7 @@ function renderIssueRow(issue: HealthIssue, projectId: string): string {
   return `<div class="health-issue-item">⚠ ${msg}</div>`;
 }
 
+/** Runs item history repair (or a dry-run preview) via the project's history-repair endpoint and toasts a summary of entries scanned, rehashed, and patched, including verification failures. */
 export async function repairItemHistory(projectId: string, itemId: string, dryRun: boolean): Promise<void> {
   try {
     const data = await api<HistoryRepairResponse>('POST', `/projects/${projectId}/pm/items/${encodeURIComponent(itemId)}/history-repair`, { dryRun });
@@ -63,6 +65,7 @@ export async function repairItemHistory(projectId: string, itemId: string, dryRu
   }
 }
 
+/** Renders the project health view: a numeric health score card colored by threshold and a list of issues (each rendered with repair actions when applicable), plus an optional summary. */
 export async function renderHealthView(): Promise<void> {
   const el = document.getElementById('content-health');
   if (!el) return;

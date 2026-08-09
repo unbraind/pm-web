@@ -8,6 +8,7 @@ import { toast } from '../components/toast.js';
 import { showView } from './router.js';
 import type { TemplateEntry, TemplatesResponse } from '../api-types.js';
 
+/** Renders the templates view header for the current project, then fetches and renders the available item templates. */
 export async function renderTemplatesView(): Promise<void> {
   const el = document.getElementById('content-templates');
   if (!el) return;
@@ -29,6 +30,7 @@ export async function renderTemplatesView(): Promise<void> {
   await fetchAndRenderTemplates();
 }
 
+/** Loads item templates for the current project from the templates endpoint and renders either an empty-state hint or a responsive grid of template cards. */
 async function fetchAndRenderTemplates(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -61,6 +63,7 @@ async function fetchAndRenderTemplates(): Promise<void> {
   }
 }
 
+/** Renders a single template card showing its name, type icon, priority badge, tags, and description, with a button to create a new item from it. */
 function renderTemplateCard(t: TemplateEntry): string {
   const name = t.name || t.id || 'Unnamed';
   const type = t.type || t.defaults?.type || '';
@@ -87,6 +90,7 @@ function renderTemplateCard(t: TemplateEntry): string {
     </div>`;
 }
 
+/** Navigates to the create-item view and pre-fills its fields (type, priority, tags, description, sprint, release, assignee, acceptance criteria) from the selected template. */
 export function createFromTemplate(name: string, template: TemplateEntry): void {
   // Navigate to create view and pre-fill from template
   showView('create');

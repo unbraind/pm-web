@@ -1,4 +1,9 @@
 import type { Request, Response } from "express";
+/**
+ * Claims encoded into a pm-web session JWT: the authenticated user's stable id
+ * and email, both set by the OIDC login flow and later restored by
+ * `verifyToken`.
+ */
 export interface JwtPayload {
     userId: string;
     email: string;

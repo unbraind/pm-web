@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import type { ValidateIssue, ValidateResponse } from '../api-types.js';
 
+/** Renders metadata and lifecycle validation results for the current project: a combined list of error and warning issues with item links, an optional summary, and an overall pass/fail status. */
 export async function renderValidateView(): Promise<void> {
   const el = document.getElementById('content-validate');
   if (!el) return;

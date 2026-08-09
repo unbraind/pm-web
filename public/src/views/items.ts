@@ -43,9 +43,11 @@ interface BulkClosePayload {
   reason: string;
 }
 
-// Mirror the active item filters into the URL query string (on the /items
-// path) so a filtered view is shareable and bookmarkable. Replaces the current
-// history entry to avoid polluting back/forward with every keystroke.
+/**
+ * Mirrors the current item filters into the page URL query string when the
+ * items view is active, using history.replaceState so the filtered view is
+ * shareable without adding back/forward entries. Does nothing on other views.
+ */
 function syncFiltersToUrl(): void {
   if (state.currentView !== 'items') return;
   const qs = filtersToQueryString(state.itemFilters);
@@ -53,8 +55,12 @@ function syncFiltersToUrl(): void {
   try { history.replaceState(history.state, '', url); } catch { /* ignore */ }
 }
 
-// Read filters from the current URL's query string into state. Called when the
-// Items view is opened so a shared link applies its filters.
+/**
+ * Reads item filters from the current URL query string into state. Only
+ * replaces the in-memory filters when the URL actually carries filter
+ * parameters, so navigating to /items without a query string preserves the
+ * existing filters.
+ */
 export function loadFiltersFromUrl(): void {
   const params = new URLSearchParams(window.location.search);
   // Only override when the URL actually carries filter params, so navigating
@@ -86,6 +92,12 @@ const DEP_REL_OPTIONS = [
   { value: 'related', label: 'Related' },
 ] as const;
 
+/**
+ * Normalizes a raw dependency relationship label to a canonical value by
+ * trimming, lowercasing, and converting dashes to underscores, then applying a
+ * known-alias map (e.g. blockedby → blocked_by). Returns the alias when one
+ * exists, otherwise the normalized input unchanged.
+ */
 function normalizeDepRelation(raw?: string): string {
   const aliases: Record<string, string> = {
     blockedby: 'blocked_by',
@@ -107,6 +119,11 @@ function normalizeDepRelation(raw?: string): string {
   return aliases[normalized] ?? normalized;
 }
 
+/**
+ * Builds the HTML <option> elements for a dependency relationship dropdown from
+ * the fixed DEP_REL_OPTIONS list, marking the option that matches the
+ * normalized selected value as selected.
+ */
 function renderDependencyOptions(selected?: string): string {
   const current = normalizeDepRelation(selected);
   return DEP_REL_OPTIONS
@@ -114,6 +131,11 @@ function renderDependencyOptions(selected?: string): string {
     .join('');
 }
 
+/**
+ * Returns a human-readable display label for a dependency relationship by
+ * looking up its normalized value in a fixed label map, falling back to the
+ * original relationship string when no label is defined.
+ */
 function depLabel(rel: string): string {
   const labels: Record<string, string> = {
     blocked_by: 'Blocked by',
@@ -136,6 +158,11 @@ function depRelation(dep: RawDependency): string {
 // ═══════════════════════════════════════════════════════════════
 // BULK UPDATE
 // ═══════════════════════════════════════════════════════════════
+/**
+ * Opens the Bulk Update Items modal, which lets the user filter items and
+ * choose fields to change across many items at once. Shows an info toast and
+ * returns early when no project is currently selected.
+ */
 export function showBulkUpdateModal(): void {
   if (!state.currentProject) { toast('Select a project first', 'info'); return; }
   createModal('bulk-update-modal', 'Bulk Update Items', `
@@ -208,6 +235,12 @@ export function showBulkUpdateModal(): void {
   showModal('bulk-update-modal');
 }
 
+/**
+ * Runs a dry-run bulk update and renders a preview of the matched items and
+ * their field changes inside the modal. Requires at least one field to update,
+ * and stashes the actual (non-dry-run) payload on the Apply button so
+ * applyBulkUpdate can run without re-reading the form.
+ */
 export async function previewBulkUpdate(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -281,6 +314,12 @@ export async function previewBulkUpdate(): Promise<void> {
   }
 }
 
+/**
+ * Applies the bulk update payload stashed on the Apply button by
+ * previewBulkUpdate, posting to the update-many endpoint. Reports the updated
+ * and failed counts via toast, closes the bulk update modal, and refreshes the
+ * items list and project badge.
+ */
 export async function applyBulkUpdate(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -309,6 +348,11 @@ export async function applyBulkUpdate(): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 // BULK CLOSE
 // ═══════════════════════════════════════════════════════════════
+/**
+ * Opens the Bulk Close Items modal, which lets the user filter items and close
+ * or cancel many of them at once with a required reason. Shows an info toast
+ * and returns early when no project is currently selected.
+ */
 export function showBulkCloseModal(): void {
   if (!state.currentProject) { toast('Select a project first', 'info'); return; }
   createModal('bulk-close-modal', 'Bulk Close Items', `
@@ -364,6 +408,12 @@ export function showBulkCloseModal(): void {
   showModal('bulk-close-modal');
 }
 
+/**
+ * Previews the items that would be closed or canceled by running an
+ * update-many dry-run, and renders the matched count and first few items
+ * inside the modal. Requires a close reason, and stashes the close payload on
+ * the Apply button for applyBulkClose to use.
+ */
 export async function previewBulkClose(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -423,6 +473,13 @@ export async function previewBulkClose(): Promise<void> {
   }
 }
 
+/**
+ * Applies the bulk close payload stashed on the Apply button by
+ * previewBulkClose, posting to the close-many endpoint which closes or cancels
+ * each matched item with the chosen reason. Reports the closed and failed
+ * counts via toast, closes the modal, and refreshes the items list and project
+ * badge.
+ */
 export async function applyBulkClose(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -460,6 +517,12 @@ export async function applyBulkClose(): Promise<void> {
   }
 }
 
+/**
+ * Renders the Items view into the page: a header with refresh and bulk
+ * actions, the status filter tabs, the multi-field filter bar, and a loading
+ * list placeholder, then fetches and renders the items. Shows an empty state
+ * and returns when no project is selected.
+ */
 export async function renderItemsView(): Promise<void> {
   const el = document.getElementById('content-items');
   if (!el) return;
@@ -512,6 +575,12 @@ export async function renderItemsView(): Promise<void> {
   await fetchAndRenderItems();
 }
 
+/**
+ * Fetches items for the current project using the active filters (capped at
+ * 200, with tags filtered client-side because the list endpoint has no tag
+ * flag), stores them in state, updates the count subtitle, and renders the
+ * list. Shows an error state in the list element if the request fails.
+ */
 export async function fetchAndRenderItems(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -545,6 +614,10 @@ export async function fetchAndRenderItems(): Promise<void> {
   }
 }
 
+/**
+ * Renders the items list element from state.items, showing an empty-state
+ * placeholder when there are no items or the mapped item rows otherwise.
+ */
 function renderItemsList(): void {
   const el = document.getElementById('items-list');
   if (!el) return;
@@ -559,6 +632,11 @@ function renderItemsList(): void {
   el.innerHTML = `<div class="item-list">${state.items.map(item => renderItemRow(item)).join('')}</div>`;
 }
 
+/**
+ * Returns the HTML markup for a single items-list row: a clickable card
+ * showing the item's type icon, id, title, tags, priority dot, and status
+ * badge that opens the item detail modal when clicked.
+ */
 export function renderItemRow(item: Item): string {
   const tags = (item.tags||[]).map(t=>`<span class="tag">${escHtml(t)}</span>`).join('');
   return `<div class="item-row" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
@@ -573,6 +651,11 @@ export function renderItemRow(item: Item): string {
   </div>`;
 }
 
+/**
+ * Reads the current values from every items filter-bar control into
+ * state.itemFilters, mirrors them to the URL, and re-fetches and renders the
+ * list.
+ */
 export function applyItemFilters(): void {
   const fs = document.getElementById('filter-status') as HTMLSelectElement | null;
   const ft = document.getElementById('filter-type') as HTMLSelectElement | null;
@@ -592,6 +675,10 @@ export function applyItemFilters(): void {
   fetchAndRenderItems();
 }
 
+/**
+ * Resets the item filters to empty, clears every filter-bar control in the
+ * DOM, mirrors the cleared filters to the URL, and re-renders the items list.
+ */
 export function clearFilters(): void {
   state.itemFilters = { ...EMPTY_FILTERS };
   const ids = ['filter-status','filter-type','filter-priority','filter-sprint','filter-release','filter-assignee','filter-tag'];
@@ -603,7 +690,11 @@ export function clearFilters(): void {
   fetchAndRenderItems();
 }
 
-// Copy a shareable URL for the current filtered Items view to the clipboard.
+/**
+ * Builds a shareable URL for the current filtered items view and copies it to
+ * the clipboard, toasting success or, if the clipboard write fails, toasting
+ * the URL itself for manual copy.
+ */
 export async function copyFilterLink(): Promise<void> {
   const qs = filtersToQueryString(state.itemFilters);
   const url = `${window.location.origin}/items${qs ? `?${qs}` : ''}`;
@@ -615,6 +706,10 @@ export async function copyFilterLink(): Promise<void> {
   }
 }
 
+/**
+ * Sets the status filter to the provided value, mirrors it to the URL, and
+ * re-renders the entire items view.
+ */
 export function setStatusFilter(status: string): void {
   state.itemFilters.status = status;
   syncFiltersToUrl();
@@ -624,6 +719,12 @@ export function setStatusFilter(status: string): void {
 // ═══════════════════════════════════════════════════════════════
 // ITEM DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════
+/**
+ * Opens the item detail modal and renders it. Fetches the item together with
+ * its comments, history, dependencies, learnings, notes, tests, and linked
+ * files in parallel (each detail call falls back to empty on failure) and
+ * builds the full tabbed detail view.
+ */
 export async function openItemDetail(itemId: string): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -966,6 +1067,11 @@ export async function openItemDetail(itemId: string): Promise<void> {
   }
 }
 
+/**
+ * Formats a timestamp as a human-readable relative age string (just now,
+ * Nm/Nh/Nd ago) for recent times, or a localized date for anything older than
+ * a week. Returns an empty string when the timestamp is missing.
+ */
 function relTime(ts: string | undefined | null): string {
   if (!ts) return '';
   const d = new Date(ts);
@@ -983,6 +1089,12 @@ function fmtDate(ts: string | undefined | null): string {
   return new Date(ts).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
 }
 
+/**
+ * Switches the item detail modal to the selected tab: toggles the active class
+ * on the tabs, shows the target tab panel while hiding the others, tears down
+ * the local graph when leaving the graph tab, and initializes the graph along
+ * with its depth-slider listener when entering the graph tab with a nodeId.
+ */
 export function switchDetailTab(tabEl: HTMLElement, targetId: string, nodeId?: string): void {
   const allTabs = tabEl.parentElement?.querySelectorAll('.tab');
   allTabs?.forEach(t => t.classList.remove('active'));
@@ -1008,6 +1120,11 @@ export function switchDetailTab(tabEl: HTMLElement, targetId: string, nodeId?: s
   }
 }
 
+/**
+ * Posts the comment typed into the detail modal's comment box to the item,
+ * requiring non-empty text. On success it clears the box, toasts confirmation,
+ * and reopens the item detail to refresh the comments tab.
+ */
 export async function addComment(itemId: string): Promise<void> {
   const el = document.getElementById('new-comment') as HTMLTextAreaElement | null;
   if (!el) return;
@@ -1021,6 +1138,10 @@ export async function addComment(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Posts the note typed into the detail modal's note box to the item, requiring
+ * non-empty text. On success it clears the box and toasts confirmation.
+ */
 export async function addNote(itemId: string): Promise<void> {
   const el = document.getElementById('new-note') as HTMLTextAreaElement | null;
   if (!el) return;
@@ -1033,6 +1154,11 @@ export async function addNote(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Appends the text from the detail modal's append box to the item's
+ * description, requiring non-empty text. On success it clears the box and
+ * toasts confirmation.
+ */
 export async function appendItem(itemId: string): Promise<void> {
   const el = document.getElementById('new-append') as HTMLTextAreaElement | null;
   if (!el) return;
@@ -1045,6 +1171,11 @@ export async function appendItem(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Saves the item detail's Update form: reads every edit field, requires a
+ * title, and PATCHes the changed fields to the backend. On success it reopens
+ * the item detail and refreshes the items list and project badge.
+ */
 export async function updateItem(itemId: string): Promise<void> {
   const titleEl = document.getElementById('edit-title') as HTMLInputElement | null;
   const statusEl = document.getElementById('edit-status') as HTMLSelectElement | null;
@@ -1093,6 +1224,12 @@ export async function updateItem(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Closes or cancels the item with a required reason. For canceled it first
+ * sets the status to canceled via the update endpoint before posting the close
+ * reason; for closed it posts the close reason directly. Reports the outcome,
+ * hides the detail modal, and refreshes the items list and project badge.
+ */
 export async function closeItem(itemId: string, targetStatus: string): Promise<void> {
   const reasonEl = document.getElementById('close-reason') as HTMLTextAreaElement | null;
   const reason = reasonEl?.value?.trim();
@@ -1111,6 +1248,10 @@ export async function closeItem(itemId: string, targetStatus: string): Promise<v
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Shows a confirmation dialog and, on confirm, DELETEs the item, hides the
+ * detail modal, and refreshes the items list and project badge.
+ */
 export function confirmDeleteItem(itemId: string): void {
   confirmDialog('Delete Item?', 'This action cannot be undone. The item and all its data will be permanently removed.', async () => {
     try {
@@ -1126,6 +1267,12 @@ export function confirmDeleteItem(itemId: string): void {
 // ═══════════════════════════════════════════════════════════════
 // CLAIM / RELEASE / START / PAUSE
 // ═══════════════════════════════════════════════════════════════
+/**
+ * Claims the item for the current user via the claim endpoint, dimming the
+ * matching list row optimistically. On success it reopens the detail and
+ * refreshes the list; on failure it restores the row opacity and toasts the
+ * error.
+ */
 export async function claimItem(itemId: string): Promise<void> {
   const row = document.querySelector(`.item-row[onclick*="${itemId}"]`) as HTMLElement | null;
   if (row) row.style.opacity = '0.6';
@@ -1137,6 +1284,10 @@ export async function claimItem(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); if (row) row.style.opacity = ''; }
 }
 
+/**
+ * Releases the current user's claim on the item via the release endpoint, then
+ * reopens the detail and refreshes the items list.
+ */
 export async function releaseItem(itemId: string): Promise<void> {
   try {
     await api('POST',`/projects/${state.currentProject!.id}/pm/release/${itemId}`,{});
@@ -1146,6 +1297,10 @@ export async function releaseItem(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Starts the item (moving it into in_progress) via the start-task endpoint,
+ * then reopens the detail and refreshes the items list and project badge.
+ */
 export async function startItem(itemId: string): Promise<void> {
   try {
     await api('POST',`/projects/${state.currentProject!.id}/pm/start-task/${itemId}`,{});
@@ -1156,6 +1311,10 @@ export async function startItem(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Pauses the in-progress item via the pause-task endpoint, then reopens the
+ * detail and refreshes the items list and project badge.
+ */
 export async function pauseItem(itemId: string): Promise<void> {
   try {
     await api('POST',`/projects/${state.currentProject!.id}/pm/pause-task/${itemId}`,{});
@@ -1169,6 +1328,12 @@ export async function pauseItem(itemId: string): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 // DEPS / LEARNINGS / TESTS / FILES
 // ═══════════════════════════════════════════════════════════════
+/**
+ * Adds a dependency to the item from the detail modal's dependency inputs:
+ * reads and normalizes the target id and relationship, rejects an empty or
+ * self-referential target, and posts to the deps endpoint. On success it
+ * reopens the item detail.
+ */
 export async function addDep(itemId: string): Promise<void> {
   const targetIdEl = document.getElementById('dep-target-id') as HTMLInputElement | null;
   const relEl = document.getElementById('dep-rel') as HTMLSelectElement | null;
@@ -1186,6 +1351,11 @@ export async function addDep(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Removes a dependency from the item after confirming with the user. Normalizes
+ * the relationship, requires a target id, and DELETEs the dependency from the
+ * deps endpoint; on success it reopens the item detail.
+ */
 export async function removeDep(itemId: string, targetId: string, relation: string): Promise<void> {
   const rel = normalizeDepRelation(relation);
   if (!targetId) { toast('Target item ID is required','error'); return; }
@@ -1203,6 +1373,11 @@ export async function removeDep(itemId: string, targetId: string, relation: stri
   );
 }
 
+/**
+ * Records a learning typed into the detail modal on the item, requiring
+ * non-empty text. On success it toasts confirmation and reopens the item
+ * detail.
+ */
 export async function addLearning(itemId: string): Promise<void> {
   const el = document.getElementById('new-learning') as HTMLTextAreaElement | null;
   const text = el?.value?.trim() || '';
@@ -1214,6 +1389,11 @@ export async function addLearning(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Adds a test command (required) with an optional description to the item via
+ * the tests endpoint. On success it toasts confirmation and reopens the item
+ * detail.
+ */
 export async function addTest(itemId: string): Promise<void> {
   const cmdEl = document.getElementById('new-test-cmd') as HTMLInputElement | null;
   const descEl = document.getElementById('new-test-desc') as HTMLInputElement | null;
@@ -1227,6 +1407,10 @@ export async function addTest(itemId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Links a file path (required) to the item via the files endpoint. On success
+ * it toasts confirmation and reopens the item detail.
+ */
 export async function addFileLink(itemId: string): Promise<void> {
   const el = document.getElementById('file-path-input') as HTMLInputElement | null;
   const filePath = el?.value?.trim() || '';
@@ -1241,6 +1425,12 @@ export async function addFileLink(itemId: string): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 // USE ITEM AS TEMPLATE
 // ═══════════════════════════════════════════════════════════════
+/**
+ * Closes the item detail modal and opens the create view pre-filled from the
+ * given item's fields, prefixing the title with "Copy of" and focusing and
+ * selecting it so the user can immediately edit. The form is filled after a
+ * short delay to let the create view render.
+ */
 export function useItemAsTemplate(item: Record<string, unknown>): void {
   // Close the item detail modal and navigate to create view
   hideModal('item-detail-modal');

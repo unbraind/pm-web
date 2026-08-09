@@ -24,6 +24,17 @@ const DEFAULT_INTERVAL_MS = 250;
 const MIN_INTERVAL_MS = 10;
 const DEFAULT_RECONCILE_MS = 2_000;
 const MIN_RECONCILE_MS = 500;
+/**
+ * Read a positive-integer environment variable, with a fallback.
+ *
+ * Returns the parsed integer when the variable is set and parses to a finite,
+ * positive value; otherwise returns `fallback`. Non-numeric or non-positive
+ * values fall back rather than throwing.
+ *
+ * @param name - The environment variable name.
+ * @param fallback - Value used when unset or invalid.
+ * @returns The parsed positive integer, or the fallback.
+ */
 function positiveIntEnv(name, fallback) {
     const raw = process.env[name];
     if (!raw)

@@ -8,6 +8,11 @@ import { confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
 import type { GitHubImportResponse, GitHubIssuesResponse, GitHubIssueRow, GitHubPushResponse, GitHubRepoResponse, ListResponse } from '../api-types.js';
 
+/**
+ * Renders the GitHub integration page for the current project: a header, a
+ * token-required prompt when the user has no GitHub token, and otherwise the
+ * linked-repository content fetched from the API.
+ */
 export async function renderGitHubView(): Promise<void> {
   const el = document.getElementById('content-github');
   if (!el) return;
@@ -46,6 +51,14 @@ export async function renderGitHubView(): Promise<void> {
   }
 }
 
+/**
+ * Builds the HTML for the integration page from the repository response: a
+ * link panel with owner and repo inputs (plus an unlink control when linked),
+ * and import/export panels shown only while a repository is linked.
+ *
+ * @param data - repository link response describing the current integration
+ *   state.
+ */
 function renderGitHubContent(data: GitHubRepoResponse): void {
   const linked = data.linked;
   const owner = data.owner || '';
@@ -119,6 +132,11 @@ function renderGitHubContent(data: GitHubRepoResponse): void {
   if (contentEl) contentEl.innerHTML = linkPanel + syncPanels;
 }
 
+/**
+ * Reads the owner and repo inputs, validates both, and PATCHes them onto the
+ * current project's link, then refreshes the view. Surfaces validation and
+ * server errors inline.
+ */
 export async function linkGitHubRepo(): Promise<void> {
   const owner = (document.getElementById('gh-owner') as HTMLInputElement | null)?.value?.trim() || '';
   const repo = (document.getElementById('gh-repo') as HTMLInputElement | null)?.value?.trim() || '';
@@ -137,6 +155,10 @@ export async function linkGitHubRepo(): Promise<void> {
   }
 }
 
+/**
+ * Confirms, then disables the integration for the current project by
+ * clearing the linked owner and repo, and refreshes the view.
+ */
 export function unlinkGitHubRepo(): void {
   confirmDialog('Unlink Repository?', 'GitHub integration will be disabled for this project.', async () => {
     try {
@@ -147,6 +169,11 @@ export function unlinkGitHubRepo(): void {
   });
 }
 
+/**
+ * Fetches the repository's open issues and renders them as selectable
+ * checkboxes with select-all and import controls, or an empty message when
+ * none are found.
+ */
 export async function loadGitHubIssues(): Promise<void> {
   const el = document.getElementById('github-issues-list');
   if (!el) return;
@@ -182,10 +209,20 @@ export async function loadGitHubIssues(): Promise<void> {
   }
 }
 
+/**
+ * Checks or unchecks every issue checkbox in the import list.
+ *
+ * @param checked - whether to check or clear the boxes.
+ */
 export function selectAllIssues(checked: boolean): void {
   document.querySelectorAll('.gh-issue-cb').forEach(cb => { (cb as HTMLInputElement).checked = checked; });
 }
 
+/**
+ * Fetches the project's items and their existing issue links, then renders
+ * each item as a selectable checkbox annotated with a link to any
+ * already-pushed issue and a per-row update control.
+ */
 export async function loadItemsForPush(): Promise<void> {
   const el = document.getElementById('github-push-list');
   if (!el) return;
@@ -233,10 +270,20 @@ export async function loadItemsForPush(): Promise<void> {
   }
 }
 
+/**
+ * Checks or unchecks every push-candidate item checkbox in the export list.
+ *
+ * @param checked - whether to check or clear the boxes.
+ */
 export function selectAllPushItems(checked: boolean): void {
   document.querySelectorAll('.gh-push-cb').forEach(cb => { (cb as HTMLInputElement).checked = checked; });
 }
 
+/**
+ * Pushes the checked items to GitHub as issues, toasts the count of created
+ * and failed items, renders a results summary, and reloads the push list;
+ * re-enables the button afterwards.
+ */
 export async function pushItemsToGitHub(): Promise<void> {
   const checked = Array.from(document.querySelectorAll('.gh-push-cb:checked'));
   if (checked.length === 0) { toast('Select at least one item to push', 'info'); return; }
@@ -267,6 +314,12 @@ export async function pushItemsToGitHub(): Promise<void> {
   }
 }
 
+/**
+ * Re-pushes a single item to its linked issue to refresh it, toasts the
+ * result, and reloads the push list.
+ *
+ * @param itemId - identifier of the pm item to refresh on GitHub.
+ */
 export async function updateGitHubIssue(itemId: string): Promise<void> {
   try {
     const data = await api('PATCH', `/projects/${state.currentProject!.id}/github/push/${encodeURIComponent(itemId)}`) as { ok?: boolean; issueNumber?: number; issueUrl?: string };
@@ -277,6 +330,11 @@ export async function updateGitHubIssue(itemId: string): Promise<void> {
   }
 }
 
+/**
+ * Imports the checked issues as new pm items, toasts the count of created and
+ * failed imports, renders a results summary, refreshes the items badge, and
+ * re-enables the button.
+ */
 export async function importGitHubIssues(): Promise<void> {
   const checked = Array.from(document.querySelectorAll('.gh-issue-cb:checked'));
   if (checked.length === 0) { toast('Select at least one issue to import','info'); return; }

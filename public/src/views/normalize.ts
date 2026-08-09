@@ -7,6 +7,7 @@ import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import type { NormalizeChange, NormalizePlan, NormalizeResponse } from '../api-types.js';
 
+/** Renders a dry-run preview of lifecycle metadata normalization for the current project, listing each suggested change with an item link and an apply button that only advises using the CLI. */
 export async function renderNormalizeView(): Promise<void> {
   const el = document.getElementById('content-normalize');
   if (!el) return;
@@ -53,6 +54,7 @@ export async function renderNormalizeView(): Promise<void> {
   }
 }
 
+/** Notifies the user that normalization in the web UI is a dry-run and that applying changes requires the CLI with the --apply flag. */
 export function applyNormalize(): void {
   if (!state.currentProject) return;
   toast('Normalization applied (dry-run — use CLI with --apply to make changes)', 'info');

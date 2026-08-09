@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Adopt canonical pm-ops docstring gate and reach 100% docstring coverage ([pm-web-mglt](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-mglt.toon))
+
 ## 2026.8.7 - 2026-08-07
 
 ### Fixed

@@ -10,6 +10,7 @@ import type { SearchResponse } from '../api-types.js';
 
 let searchTimer: ReturnType<typeof setTimeout>;
 
+/** Renders the search view for the current project: a hybrid/semantic/keyword mode toggle, a reindex button, the query input, and the current result list. */
 export function renderSearchView(): void {
   const el = document.getElementById('content-search');
   if (!el) return;
@@ -40,6 +41,7 @@ export function renderSearchView(): void {
   setTimeout(()=>document.getElementById('search-query')?.focus(),50);
 }
 
+/** Sets the active search mode, clears existing results, re-renders the search view, and re-runs the search when a query is already present. */
 export function setSearchMode(mode: string): void {
   state.searchMode = mode;
   state.searchResults = [];
@@ -47,6 +49,7 @@ export function setSearchMode(mode: string): void {
   if (state.searchQuery) doSearch();
 }
 
+/** Requests a project reindex for the current search mode via the reindex endpoint, disabling the button while in flight and toasting success or failure. */
 export async function reindexProject(): Promise<void> {
   if (!state.currentProject) return;
   const btn = document.getElementById('reindex-btn') as HTMLButtonElement | null;
@@ -65,12 +68,14 @@ export async function reindexProject(): Promise<void> {
   }
 }
 
+/** Debounced input handler that stores the current query and schedules a search after a 350ms idle delay. */
 export function debouncedSearch(): void {
   clearTimeout(searchTimer);
   state.searchQuery = (document.getElementById('search-query') as HTMLInputElement | null)?.value || '';
   searchTimer = setTimeout(doSearch, 350);
 }
 
+/** Runs a search against the project search endpoint with the current query and mode, storing and rendering the results or a no-results/error state. */
 export async function doSearch(): Promise<void> {
   const query = ((document.getElementById('search-query') as HTMLInputElement | null)?.value || '').trim();
   if (!query || !state.currentProject) return;

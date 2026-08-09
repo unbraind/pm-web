@@ -25,6 +25,13 @@ function positiveInteger(value: string | undefined, fallback: number): number {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/**
+ * Async semaphore bounding concurrent work to a fixed `limit`.
+ *
+ * Used to cap how many pm commands run at once: callers {@link Semaphore.acquire}
+ * before work and invoke the returned release function after, so at most `limit`
+ * critical sections execute concurrently.
+ */
 export class Semaphore {
   private active = 0;
   private readonly waiting: Array<() => void> = [];
@@ -34,7 +41,17 @@ export class Semaphore {
     this.limit = limit;
   }
 
-  async acquire(): Promise<() => void> {
+/**
+     * Reserve a slot, waiting when the limit is reached, and return a release fn.
+     *
+     * When fewer than `limit` slots are active, this increments the count
+     * immediately; otherwise it awaits until a prior release wakes this caller.
+     * The returned function releases exactly once (subsequent calls are no-ops):
+     * if a waiter exists it is resumed, otherwise the active count is decremented.
+     *
+     * @returns A function that releases the acquired slot.
+     */
+    async acquire(): Promise<() => void> {
     if (this.active >= this.limit) {
       await new Promise<void>((resolve) => this.waiting.push(resolve));
     } else {
@@ -54,6 +71,14 @@ export class Semaphore {
 const commandSlots = new Semaphore(positiveInteger(process.env.PM_WEB_PM_CONCURRENCY, 8));
 const workspaceTails = new Map<string, Promise<void>>();
 
+/**
+ * Resolve the filesystem root under which every project workspace lives.
+ *
+ * Reads `PROJECTS_ROOT`, defaulting to `/app/projects` (the in-container
+ * location). Each project is stored at `<root>/<userId>/<slug>`.
+ *
+ * @returns The projects root directory.
+ */
 export function projectsRoot(): string {
   return process.env.PROJECTS_ROOT || "/app/projects";
 }
@@ -66,6 +91,13 @@ const OLLAMA_EMBEDDING_MODEL =
   "qwen3-embedding:0.6b";
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
 
+/**
+ * Resolve the on-disk directory for one project workspace.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ * @returns `<projectsRoot>/<userId>/<slug>`.
+ */
 export function getProjectDir(userId: string, slug: string): string {
   return path.join(projectsRoot(), userId, slug);
 }
@@ -109,6 +141,17 @@ interface PmCommand {
 
 let cachedPmCommand: PmCommand | undefined;
 
+/**
+ * Resolve how to invoke the pm CLI binary, memoizing the result.
+ *
+ * `PM_CLI_BIN` always wins (returned verbatim). Otherwise, on Windows the
+ * packaged `node_modules/@unbrained/pm-cli/dist/cli.js` is run with `node` when
+ * present, else bare `pm`; elsewhere the local `node_modules/.bin/pm` is used
+ * when present, else bare `pm`. The non-`PM_CLI_BIN` result is cached for the
+ * process.
+ *
+ * @returns The command and any prefix args to pass before pm arguments.
+ */
 function pmCliCommand(): PmCommand {
   if (process.env.PM_CLI_BIN) return { command: process.env.PM_CLI_BIN, prefixArgs: [] };
   if (cachedPmCommand) return cachedPmCommand;
@@ -128,6 +171,20 @@ function pmCliCommand(): PmCommand {
   return cachedPmCommand;
 }
 
+/**
+ * Spawn the pm CLI in a directory and collect its output, bounded and timed.
+ *
+ * Runs pm with `HOME=/tmp`, `NO_COLOR=1`, and any extra env, streaming stdout
+ * and stderr into buffers. Output beyond {@link MAX_OUTPUT_BYTES} or runtime
+ * beyond `timeoutMs` terminates the child (SIGTERM then SIGKILL after 1 s) and
+ * records the reason in stderr. Never throws: spawn failures and captured
+ * output are returned in the {@link ProcessResult}.
+ *
+ * @param cwd - Directory to run pm in.
+ * @param args - pm arguments.
+ * @param options - Optional stdin input, timeout, and extra env.
+ * @returns The collected stdout/stderr, success flag, and exit code.
+ */
 async function runProcess(
   cwd: string,
   args: string[],
@@ -202,6 +259,15 @@ async function runProcess(
   });
 }
 
+/**
+ * Run async work for one workspace after all prior work there finishes.
+ *
+ * Chains `work` onto the workspace's tail promise so calls against the SAME
+ * workspace run one at a time, while also acquiring a global command slot so
+ * calls across independent workspaces overlap only up to the concurrency limit.
+ * Returns whatever `work` resolves to, and prunes the workspace's tail once the
+ * chain settles.
+ */
 async function runSerialized<T>(workspace: string, work: () => Promise<T>): Promise<T> {
   const previous = workspaceTails.get(workspace) ?? Promise.resolve();
   let releaseWorkspace!: () => void;
@@ -222,6 +288,17 @@ async function runSerialized<T>(workspace: string, work: () => Promise<T>): Prom
   }
 }
 
+/**
+ * Create and initialize a project workspace on disk.
+ *
+ * Makes the project directory, runs `pm init <prefix>` serialized against the
+ * workspace, configures local Ollama search, and ensures the graph extension is
+ * installed. Throws when `pm init` fails.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ * @param prefix - The pm item-id prefix for the workspace.
+ */
 export async function initProject(userId: string, slug: string, prefix: string): Promise<void> {
   const dir = getProjectDir(userId, slug);
   fs.mkdirSync(dir, { recursive: true });
@@ -231,6 +308,16 @@ export async function initProject(userId: string, slug: string, prefix: string):
   await ensureGraphExtension(userId, slug);
 }
 
+/**
+ * Write local Ollama search settings into a project's `settings.json`.
+ *
+ * A no-op when the settings file does not yet exist. Otherwise merges in the
+ * configured embedding model (`PM_OLLAMA_MODEL`), Ollama base URL, and the
+ * LanceDB vector-store path, preserving any existing keys, and writes the file
+ * back pretty-printed.
+ *
+ * @param projectDir - The project workspace directory.
+ */
 function configureLocalOllamaSearch(projectDir: string): void {
   const settingsPath = path.join(projectDir, ".agents", "pm", "settings.json");
   if (!fs.existsSync(settingsPath)) return;
@@ -264,11 +351,26 @@ function configureLocalOllamaSearch(projectDir: string): void {
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
+/**
+ * Report whether a project workspace is already initialized on disk.
+ *
+ * True when the workspace's `.agents/pm/settings.json` exists, the marker `pm
+ * init` writes. Used to decide whether to init before use.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ * @returns True when the workspace appears initialized.
+ */
 export function projectExists(userId: string, slug: string): boolean {
   const dir = getProjectDir(userId, slug);
   return fs.existsSync(path.join(dir, ".agents", "pm", "settings.json"));
 }
 
+/**
+ * Options for {@link runPm}: the pm arguments to run, the project owner/slug
+ * that locate the workspace, optional stdin, a JSON-output request, and an
+ * optional per-call timeout.
+ */
 export interface PmRunOptions {
   args: string[];
   userId: string;
@@ -745,6 +847,20 @@ async function runPmInProcess(opts: PmRunOptions, dir: string): Promise<PmRunRes
   }
 }
 
+/**
+ * Run a pm command against a project workspace.
+ *
+ * Resolves the workspace directory and dispatches supported actions in-process
+ * through the cached SDK client (no spawn) when there is no stdin input or
+ * custom timeout; otherwise spawns the pm binary as a fallback. Both paths run
+ * inside {@link runSerialized}, so same-workspace calls never overlap. When
+ * `jsonOutput` is set and the command succeeds with stdout, the output is parsed
+ * as JSON (a parse failure yields `{ raw: stdout }`). Never throws: errors are
+ * returned in the {@link PmRunResult}.
+ *
+ * @param opts - The command, project, and I/O options.
+ * @returns The stdout/stderr, success flag, parsed JSON (when requested), and exit code.
+ */
 export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
   const dir = getProjectDir(opts.userId, opts.slug);
   const action = opts.args[0] ?? "";
@@ -817,6 +933,16 @@ export async function runGetItemAt(
   return await getItemAt(itemId, ref, { pmRoot });
 }
 
+/**
+ * Delete a project workspace from disk.
+ *
+ * Evicts the cached SDK client for the project's pm root first (so no stale
+ * client outlives the deletion), then removes the whole workspace directory
+ * recursively. A missing directory is not an error.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ */
 export function deleteProjectDir(userId: string, slug: string): void {
   const dir = getProjectDir(userId, slug);
   evictPmClient(path.join(dir, ".agents", "pm"));

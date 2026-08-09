@@ -28,6 +28,17 @@ const ITEM_DIRS = [
 // stepWorkspaceSweep); overridable via PM_WATCH_MAX_FILES_PER_TICK.
 const DEFAULT_MAX_FILES_PER_TICK = 8_000;
 
+/**
+ * Read a positive-integer environment variable, with a fallback.
+ *
+ * Returns the parsed integer when the variable is set and parses to a finite,
+ * positive value; otherwise returns `fallback`. Non-numeric or non-positive
+ * values fall back rather than throwing.
+ *
+ * @param name - The environment variable name.
+ * @param fallback - Value used when unset or invalid.
+ * @returns The parsed positive integer, or the fallback.
+ */
 function positiveIntEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -38,6 +49,17 @@ function positiveIntEnv(name: string, fallback: number): number {
 // FNV-1a (32-bit), computed over UTF-8 bytes via `Math.imul` — fast, no BigInt
 // per byte and no allocation. Used to bind each file's path to its mtime so the
 // aggregate fingerprint below can't be aliased by rearranging raw mtimes.
+/**
+ * Compute a 32-bit FNV-1a hash of a string.
+ *
+ * Folds each character code (via `charCodeAt`) into the running hash with the
+ * FNV prime `0x01000193` using `Math.imul`, and returns the unsigned 32-bit
+ * result (`>>> 0`). Used to bind a file path to its mtime so the aggregate
+ * workspace fingerprint cannot be aliased by rearranging raw mtimes.
+ *
+ * @param str - The string to hash.
+ * @returns The unsigned 32-bit FNV-1a hash.
+ */
 function fnv1a32(str: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i += 1) {
@@ -59,6 +81,18 @@ function fileFingerprint(subdir: string, name: string, mtimeMs: number): number 
 // cheap regardless of project size: one `readdir` syscall per subdir, names
 // only — it performs NO `stat` calls. The expensive per-file `stat` work is what
 // the round-robin sweep below bounds per tick.
+/**
+ * List every eligible item file under a pm workspace, deterministically.
+ *
+ * Reads each item-type directory in {@link ITEM_DIRS} for `.toon` files and
+ * the `history` directory for `.jsonl` files, names sorted within each, and
+ * returns them in that fixed order. Performs only `readdir` calls (no `stat`),
+ * so it is cheap regardless of project size; directories that do not exist are
+ * silently skipped.
+ *
+ * @param pmDir - The `.agents/pm` directory of a project.
+ * @returns The eligible files as `{ subdir, name }` pairs.
+ */
 async function enumerateEligibleFiles(pmDir: string): Promise<Array<{ subdir: string; name: string }>> {
   const files: Array<{ subdir: string; name: string }> = [];
   const collect = async (subdir: string, ext: string): Promise<void> => {
@@ -79,6 +113,19 @@ async function enumerateEligibleFiles(pmDir: string): Promise<Array<{ subdir: st
   return files;
 }
 
+/**
+ * Compute a one-shot change-detection signature for a whole workspace.
+ *
+ * Enumerates every eligible file, `stat`s each one, and folds a per-file
+ * fingerprint (path bound to mtime) into a `count`, an XOR accumulator, and a
+ * sum (wrapping mod 2^32) so distinct file/mtime arrangements produce distinct
+ * `count:xor:sum` strings. Files that vanish between `readdir` and `stat` are
+ * ignored. This stats every file in one pass; the live watcher uses the bounded
+ * {@link stepWorkspaceSweep} variant instead.
+ *
+ * @param dir - A project root (`<PROJECTS_ROOT>/<userId>/<slug>`).
+ * @returns The workspace signature string.
+ */
 export async function computeWorkspaceSignature(dir: string): Promise<string> {
   // dir is a project root: <PROJECTS_ROOT>/<userId>/<slug>.
   // Detect out-of-band changes without recursive inotify or per-file memory.
@@ -114,6 +161,14 @@ export async function computeWorkspaceSignature(dir: string): Promise<string> {
 // completes does the watcher produce a full-workspace signature comparable to
 // the previous sweep's — so detection latency for a >cap project is bounded by
 // ceil(totalFiles / maxFilesPerTick) ticks while per-tick stat I/O stays capped.
+/**
+ * Accumulators and cursor for one project's round-robin filesystem sweep.
+ *
+ * A sweep folds every eligible file's fingerprint into `count`/`xor`/`sum` over
+ * as many ticks as needed, statting at most `maxFilesPerTick` files per tick.
+ * `cursor` is the index into the eligible-file list reached so far; a complete
+ * sweep produces a `count:xor:sum` signature comparable to the previous one.
+ */
 export interface WorkspaceSweepState {
   cursor: number;
   count: number;

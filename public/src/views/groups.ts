@@ -8,6 +8,10 @@ import { showModal, hideModal, createModal, confirmDialog } from '../components/
 import { toast } from '../components/toast.js';
 import type { GroupDetailResponse, GroupMemberRow, GroupsResponse, GroupListRow } from '../api-types.js';
 
+/**
+ * Renders the groups page header and a loading placeholder, then fetches and
+ * displays the list of teams.
+ */
 export async function renderGroupsView(): Promise<void> {
   const el = document.getElementById('content-groups');
   if (!el) return;
@@ -23,6 +27,11 @@ export async function renderGroupsView(): Promise<void> {
   await loadGroups();
 }
 
+/**
+ * Fetches the user's teams from the API and renders each as a clickable row
+ * showing avatar initials, name, description, and member count, or an empty
+ * state when none exist.
+ */
 async function loadGroups(): Promise<void> {
   const el = document.getElementById('groups-list');
   if (!el) return;
@@ -57,6 +66,10 @@ async function loadGroups(): Promise<void> {
   }
 }
 
+/**
+ * Builds and displays the modal form for creating a new team, with name and
+ * description inputs and a validation slot.
+ */
 export function openCreateGroupModal(): void {
   createModal('create-group-modal','New Group',`
     <div class="form-group">
@@ -74,6 +87,10 @@ export function openCreateGroupModal(): void {
   showModal('create-group-modal');
 }
 
+/**
+ * Reads the create-team form, requires a name, posts the new team, and
+ * reloads the list on success, surfacing validation and server errors inline.
+ */
 export async function submitCreateGroup(): Promise<void> {
   const name = (document.getElementById('cg-name') as HTMLInputElement | null)?.value?.trim() || '';
   const description = (document.getElementById('cg-desc') as HTMLInputElement | null)?.value?.trim() || '';
@@ -90,6 +107,13 @@ export async function submitCreateGroup(): Promise<void> {
   }
 }
 
+/**
+ * Confirms and permanently deletes the named team, then refreshes the list,
+ * showing any errors as toasts.
+ *
+ * @param groupId - identifier of the team to delete.
+ * @param name - display name shown in the confirmation prompt.
+ */
 export function deleteGroup(groupId: string, name: string): void {
   confirmDialog('Delete Group?', `Delete group "${name}"? This cannot be undone.`, async () => {
     try {
@@ -100,6 +124,14 @@ export function deleteGroup(groupId: string, name: string): void {
   }, true);
 }
 
+/**
+ * Opens a modal showing a team's members with an invite-by-email field,
+ * fetching the membership from the API and replacing the loading placeholder
+ * with the rendered list.
+ *
+ * @param groupId - identifier of the team to display.
+ * @param _groupName - fallback title used before the API response resolves.
+ */
 export async function openGroupDetail(groupId: string, _groupName: string): Promise<void> {
   createModal('group-detail-modal', _groupName,
     `<div class="loading-state"><div class="loading-spinner"></div></div>`, '', true);
@@ -150,6 +182,12 @@ export async function openGroupDetail(groupId: string, _groupName: string): Prom
   }
 }
 
+/**
+ * Reads the invite field for the given team, requires an email, adds the
+ * member through the API, and reopens the team detail on success.
+ *
+ * @param groupId - identifier of the team to invite into.
+ */
 export async function inviteMember(groupId: string): Promise<void> {
   const emailEl = document.getElementById(`invite-email-${groupId}`) as HTMLInputElement | null;
   const email = emailEl?.value?.trim() || '';
@@ -162,6 +200,13 @@ export async function inviteMember(groupId: string): Promise<void> {
   } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
 }
 
+/**
+ * Confirms and removes a member from the specified team, then reopens the
+ * team detail and surfaces errors as toasts.
+ *
+ * @param groupId - identifier of the team to modify.
+ * @param userId - identifier of the member to remove.
+ */
 export function removeMember(groupId: string, userId: string): void {
   confirmDialog('Remove Member?', 'Remove this member from the group?', async () => {
     try {

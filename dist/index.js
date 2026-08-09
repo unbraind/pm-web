@@ -52,6 +52,17 @@ export function pidfilePath(port, env = process.env, tmpDir = os.tmpdir()) {
         : tmpDir;
     return path.join(baseDir, `pm-web-${String(port)}.pid`);
 }
+/**
+ * Report whether a Node version string satisfies the `>=22.18.0` requirement.
+ *
+ * Parses the leading `major.minor.patch` and compares element-wise against
+ * `[22, 18, 0]`: a higher component at the first differing index passes, a
+ * lower one fails, and an exact match through all three passes. A string with
+ * no parseable leading version returns `false`.
+ *
+ * @param version - The version to check; defaults to the running Node version.
+ * @returns True when the version is at least 22.18.0.
+ */
 export function nodeVersionMeetsRequirement(version = process.versions.node) {
     const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version);
     if (!match)
@@ -89,6 +100,15 @@ function runtimeDependenciesInstalled() {
     const expressPackage = path.join(packageRoot, "node_modules", "express", "package.json");
     return fs.existsSync(expressPackage);
 }
+/**
+ * Ensure pm-web's runtime dependencies are installed before launch.
+ *
+ * A no-op when `node_modules/express` is present (the proxy for "deps
+ * installed"); otherwise runs `npm install --omit=dev` in the package root
+ * with `NODE_ENV=production` and throws a {@link CommandError} (or the spawn
+ * error) if the install fails. Called at the start of `pm web` so a freshly
+ * copied package self-bootstraps.
+ */
 function ensureRuntimeDependencies() {
     if (runtimeDependenciesInstalled())
         return;
@@ -143,6 +163,18 @@ function pmOnPath() {
     const probe = spawnSync("pm", ["--version"], { stdio: "ignore" });
     return !probe.error && probe.status === 0;
 }
+/**
+ * Heuristic for whether a directory is an initialized pm workspace.
+ *
+ * An empty path, or one that does not exist on disk, returns `false`.
+ * Otherwise the directory is treated as a workspace when it contains a
+ * `settings.json`, a `schema` directory, or a `tasks` directory — matching the
+ * markers pm writes across versions, so `pm web doctor` reports readiness
+ * robustly.
+ *
+ * @param pmRoot - The candidate workspace root.
+ * @returns True when the directory looks like an initialized pm workspace.
+ */
 function workspaceInitialized(pmRoot) {
     if (!pmRoot)
         return false;
@@ -155,6 +187,15 @@ function workspaceInitialized(pmRoot) {
         fs.existsSync(path.join(pmRoot, "schema")) ||
         fs.existsSync(path.join(pmRoot, "tasks")));
 }
+/**
+ * Read this package's version from its `package.json`.
+ *
+ * Returns the `version` field, or `"unknown"` if the file is missing or fails
+ * to parse, so `pm web doctor` never crashes reporting a version it could not
+ * read.
+ *
+ * @returns The package version string, or `"unknown"`.
+ */
 function readPackageVersion() {
     try {
         const pkg = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
@@ -164,6 +205,16 @@ function readPackageVersion() {
         return "unknown";
     }
 }
+/**
+ * Report whether a process with the given PID is currently alive.
+ *
+ * Sends signal 0 (no signal) to the PID: success means alive. An `EPERM`
+ * (process exists but is not ours) is also reported as alive; only `ESRCH`
+ * (no such process) returns `false`.
+ *
+ * @param pid - The process id to probe.
+ * @returns True when a process with that PID exists.
+ */
 function processAlive(pid) {
     try {
         process.kill(pid, 0);

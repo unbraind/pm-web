@@ -15,7 +15,8 @@ import { renderCalendarView, calNav, showDayItems } from './views/calendar.js';
 import { renderContextView } from './views/context.js';
 import { renderGraphView } from './views/graph.js';
 
-// Open graph view focused on a specific node
+/** Switch to the graph view, wait for it to mount, render it, then focus the
+ * node with the given id by invoking the graph view's select-node hook. */
 async function openGraphAt(nodeId: string): Promise<void> {
   showView('graph');
   // Give the graph view time to mount, then set selected node
@@ -56,6 +57,9 @@ initTheme();
 // Global search modal
 let globalSearchTimer: ReturnType<typeof setTimeout>;
 
+/** Build (without showing) the global-search modal: a search input wired to
+ * the debounced search handler and a results container with an initial
+ * prompt. */
 function buildSearchModal(): void {
   createModal('global-search-modal','Search',`
     <div class="search-box-wrap" style="margin-bottom:12px">
@@ -124,6 +128,9 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
   },
 ];
 
+/** Build (without showing) the mobile command-sheet modal listing every
+ * navigation command grouped by section, disabling project-scoped commands
+ * when no project is selected and hiding the admin command for non-admins. */
 function buildMobileCommandSheet(): void {
   const hasProject = !!state.currentProject;
   const projectName = state.currentProject?.name || 'No project selected';
@@ -177,6 +184,9 @@ function globalSearchDebounced(): void {
   globalSearchTimer = setTimeout(doGlobalSearch, 300);
 }
 
+/** Read the global-search input, POST the query to the project search
+ * endpoint, and render matching items into the results pane (or an
+ * empty/error state). No-op when the query or current project is missing. */
 async function doGlobalSearch(): Promise<void> {
   const query = (document.getElementById('global-search-input') as HTMLInputElement | null)?.value?.trim();
   if (!query || !state.currentProject) return;
@@ -453,6 +463,8 @@ interface PresenceUser {
   connectedAt: string;
 }
 
+/** Derive up to two uppercase initials from a display name by splitting on
+ * common delimiters and taking the first character of the leading tokens. */
 function userInitials(displayName: string): string {
   return displayName
     .split(/[\s@._-]+/)
@@ -462,6 +474,9 @@ function userInitials(displayName: string): string {
     .join('');
 }
 
+/** Render the presence bar showing up to five other currently-viewing users
+ * as colored initial chips (plus an overflow count), or hide the bar when only
+ * the current user is present. */
 function renderPresenceBar(users: PresenceUser[]): void {
   const bar = document.getElementById('presence-bar');
   if (!bar) return;
@@ -493,6 +508,9 @@ function renderPresenceBar(users: PresenceUser[]): void {
   bar.innerHTML = `<span class="presence-label">Viewing:</span>${chips}${extraChip}`;
 }
 
+/** Update the real-time-sync indicator element to reflect `connected`,
+ * `reconnecting`, or `disconnected` state, and clear the presence bar on
+ * disconnect. */
 function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): void {
   const el = document.getElementById('sse-indicator');
   if (!el) return;
@@ -511,6 +529,9 @@ function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): vo
   }
 }
 
+/** Tear down the current SSE connection: cancel pending reconnect and refresh
+ * timers, close the event source, clear the tracked project/client ids, and
+ * mark sync as disconnected. */
 function disconnectSSE(): void {
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null; }
   if (sseRefreshTimer) { clearTimeout(sseRefreshTimer); sseRefreshTimer = null; }
@@ -520,6 +541,9 @@ function disconnectSSE(): void {
   setSseStatus('disconnected');
 }
 
+/** Fire-and-forget PATCH to the server updating which view the current client
+ * is looking at, so other users see accurate presence. No-op when not
+ * connected. */
 function notifyPresenceView(view: string): void {
   if (!sseClientId || !sseCurrentProjectId) return;
   // Fire-and-forget: update current view on server
@@ -530,6 +554,10 @@ function notifyPresenceView(view: string): void {
   }).catch(() => undefined);
 }
 
+/** Open an SSE stream for the given project (reusing an existing connection
+ * when already live), wire handlers for connection, presence, item, graph,
+ * and package events that refresh the active view, and reconnect with
+ * exponential backoff on error. */
 function connectSSE(projectId: string, attempt = 0): void {
   if (sseCurrentProjectId === projectId && sseSource && sseSource.readyState !== EventSource.CLOSED) return;
   disconnectSSE();
@@ -674,6 +702,9 @@ export { connectSSE, disconnectSSE, notifyPresenceView };
 // ═══════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════
+/** Reveal the main app shell, populate the signed-in user's avatar/name and
+ * admin-gated controls, build the project/search/mobile modals, register the
+ * presence view-change hook, then load projects and run the launch action. */
 export async function bootApp(): Promise<void> {
   const authScreen = document.getElementById('auth-screen');
   const mainApp = document.getElementById('main-app');
@@ -701,6 +732,9 @@ export async function bootApp(): Promise<void> {
   await handleLaunchAction();
 }
 
+/** Act on the `?action=` query param or URL path to deep-link into a view
+ * (new-project, new-item, search, or a restored bookmarked view), selecting a
+ * default project and showing toasts when a required project is missing. */
 async function handleLaunchAction(): Promise<void> {
   const action = new URLSearchParams(window.location.search).get('action');
 
@@ -756,6 +790,9 @@ async function handleLaunchAction(): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL ERROR BOUNDARY
 // ═══════════════════════════════════════════════════════════════
+/** Replace the app shell with a full-screen error screen showing the message
+ * and (when available) a collapsible stack trace, with reload, login, and
+ * copy-details actions. Hides the auth and main screens. */
 function showGlobalError(errorMsg: string, error?: unknown): void {
   const appEl = document.getElementById('app');
   if (!appEl) return;
@@ -817,6 +854,8 @@ window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => 
 // Apply the persisted locale + catalog BEFORE the auth screen or main app
 // is shown so package-owned strings render in the right language on first
 // paint (after the inline <html lang> hint in index.html).
+/** Entry point: initialize i18n, probe the session via `/auth/me`, and either
+ * boot the app on success or show the auth screen on failure. */
 async function init(): Promise<void> {
   await initI18n();
   try {
@@ -842,6 +881,8 @@ async function changeLanguage(locale: string): Promise<void> {
 let lastKeyTime = 0;
 let lastKey = '';
 
+/** Build and show the keyboard-shortcuts reference modal as a two-column
+ * key/description table. */
 function openShortcutsHelp(): void {
   createModal('shortcuts-help-modal', 'Keyboard Shortcuts', `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -938,6 +979,8 @@ window.dismissInstallBanner = function(): void {
 // ═══════════════════════════════════════════════════════════════
 // OFFLINE / ONLINE STATUS BANNER
 // ═══════════════════════════════════════════════════════════════
+/** Toggle the offline status banner's visibility to match the browser's
+ * current connectivity (`navigator.onLine`). */
 function updateOfflineBanner(): void {
   const banner = document.getElementById('offline-banner');
   if (!banner) return;

@@ -50,6 +50,11 @@ function stepRef(step: PlanStep): string {
   return step.ref || step.id || '';
 }
 
+/**
+ * Returns a small colored HTML status badge for a plan step, mapping the step
+ * status (defaulting to pending) to a fixed color by lowercasing the status
+ * text.
+ */
 function stepStatusBadge(status?: string): string {
   const s = (status || 'pending').toLowerCase();
   const colors: Record<string, string> = {
@@ -64,6 +69,10 @@ function stepStatusBadge(status?: string): string {
   return `<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:color-mix(in srgb,${color} 18%,transparent);color:${color};font-weight:600;letter-spacing:.3px">${escHtml(s)}</span>`;
 }
 
+/**
+ * Returns an HTML metric badge card showing an uppercase label and a colored
+ * value, used for the plan execution summary counts.
+ */
 function metricBadge(label: string, value: string, color: string): string {
   return `
     <div style="padding:8px 10px;border-radius:8px;background:color-mix(in srgb,${color} 14%, var(--bg-card));border:1px solid color-mix(in srgb,${color} 28%, var(--border));min-width:95px">
@@ -72,6 +81,12 @@ function metricBadge(label: string, value: string, color: string): string {
     </div>`;
 }
 
+/**
+ * Returns inline HTML describing a step's dependency state: an empty string
+ * when the step has no dependencies, is done, or is blocked; a 'Dependencies
+ * complete' note when all are finished; or a 'Waiting on' note listing the
+ * incomplete and unresolved (missing) dependencies.
+ */
 function renderDependencyHint(analyzed?: AnalyzedPlanStep): string {
   if (!analyzed || analyzed.dependsOn.length === 0 || analyzed.isDone || analyzed.isBlocked) return '';
 
@@ -86,6 +101,12 @@ function renderDependencyHint(analyzed?: AnalyzedPlanStep): string {
   return `<div style="font-size:12px;color:var(--warning,#f59e0b);margin-top:3px">Waiting on: ${escHtml(blockers.join(', '))}</div>`;
 }
 
+/**
+ * Renders the Execution Focus card for a plan: a dependency-aware summary with
+ * copy buttons for the agent brief and next-step prompt, metric badges for the
+ * completed/ready/waiting/blocked counts, the next ready step, and previews of
+ * the waiting and blocked steps.
+ */
 function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): string {
   const next = snapshot.nextReadyStep;
   const waitingPreview = snapshot.waitingSteps.slice(0, 2).map(step => {
@@ -144,6 +165,12 @@ function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): 
     </div>`;
 }
 
+/**
+ * Returns the HTML for a single plan step row: the step ref, title (struck
+ * through when done), status badge, description, dependency hint, and blocked
+ * reason, plus conditional action buttons to copy the step prompt, mark
+ * complete, block, or remove the step.
+ */
 function renderStepRow(step: PlanStep, planId: string, analyzed?: AnalyzedPlanStep): string {
   const ref = stepRef(step);
   const isDone = ['done', 'completed'].includes((step.status || '').toLowerCase());
@@ -177,6 +204,11 @@ function renderStepRow(step: PlanStep, planId: string, analyzed?: AnalyzedPlanSt
 
 // ─── Render ──────────────────────────────────────────────────
 
+/**
+ * Returns the top-level HTML markup for the Plans view: a page header with New
+ * Plan and Refresh buttons and a two-panel layout holding the plan list and
+ * detail panels.
+ */
 export function renderPlanView(): string {
   return `
     <div class="page-header">
@@ -201,6 +233,11 @@ export function renderPlanView(): string {
     </div>`;
 }
 
+/**
+ * Initializes the Plans view into the page and resets the currently selected
+ * plan state. Shows a no-project empty state and returns when no project is
+ * selected; otherwise renders the view and loads the plan list.
+ */
 export async function initPlanView(): Promise<void> {
   const el = document.getElementById('content-plan');
   if (!el) return;
@@ -215,6 +252,12 @@ export async function initPlanView(): Promise<void> {
   await loadPlanList();
 }
 
+/**
+ * Fetches all plans for the current project and renders them as clickable
+ * sidebar entries in the plan list panel, updating the subtitle to the project
+ * name. Clears the current plan when there are none, and shows an error state
+ * if the request fails.
+ */
 async function loadPlanList(): Promise<void> {
   const listEl = document.getElementById('plan-list-panel');
   const subEl = document.getElementById('plan-subtitle');
@@ -252,6 +295,13 @@ async function loadPlanList(): Promise<void> {
   }
 }
 
+/**
+ * Loads a plan into the detail panel by id, highlighting it in the list and
+ * building a dependency-aware execution snapshot. Renders a card with
+ * approve/materialize/edit/delete actions, the description and scope, the
+ * execution focus summary, and the list of step rows with an add-step button.
+ * Shows an error state if the fetch fails.
+ */
 export async function openPlanDetail(planId: string): Promise<void> {
   currentPlanId = planId;
 
@@ -412,6 +462,11 @@ export async function openPlanDetail(planId: string): Promise<void> {
 
 // ─── Modal builders ──────────────────────────────────────────
 
+/**
+ * Opens the New Plan modal with fields for title, description, scope, tags, and
+ * priority. Shows an info toast and returns early when no project is currently
+ * selected.
+ */
 export function openCreatePlanModal(): void {
   if (!state.currentProject) { toast('Select a project first', 'info'); return; }
   createModal('create-plan-modal', 'New Plan', `
@@ -449,6 +504,11 @@ export function openCreatePlanModal(): void {
   showModal('create-plan-modal');
 }
 
+/**
+ * Submits the New Plan form, requiring a title, and posts the plan fields to
+ * the plan endpoint. On success it closes the modal, toasts confirmation, and
+ * reloads the plan list.
+ */
 export async function submitCreatePlan(): Promise<void> {
   if (!state.currentProject) return;
   const title = (document.getElementById('plan-title') as HTMLInputElement | null)?.value?.trim();
@@ -475,6 +535,11 @@ export async function submitCreatePlan(): Promise<void> {
   }
 }
 
+/**
+ * Opens the Add Step modal for the given plan with title, description, and
+ * depends-on fields, wiring its submit button to submitAddStep with the plan
+ * id.
+ */
 export function openAddStepModal(planId: string): void {
   createModal('add-step-modal', 'Add Step', `
     <div class="form-group">
@@ -494,6 +559,11 @@ export function openAddStepModal(planId: string): void {
   showModal('add-step-modal');
 }
 
+/**
+ * Submits the Add Step form for a plan, requiring a title, and posts the step
+ * fields to the plan's steps endpoint. On success it closes the modal, toasts
+ * confirmation, and reopens the plan detail to show the new step.
+ */
 export async function submitAddStep(planId: string): Promise<void> {
   if (!state.currentProject) return;
   const title = (document.getElementById('step-title') as HTMLInputElement | null)?.value?.trim();
@@ -516,6 +586,10 @@ export async function submitAddStep(planId: string): Promise<void> {
   }
 }
 
+/**
+ * Marks the given plan step complete by posting to the step's complete
+ * endpoint, then toasts confirmation and reopens the plan detail.
+ */
 export async function planCompleteStep(planId: string, stepRef: string): Promise<void> {
   if (!state.currentProject) return;
   try {
@@ -527,6 +601,11 @@ export async function planCompleteStep(planId: string, stepRef: string): Promise
   }
 }
 
+/**
+ * Opens the Block Step modal for the given plan step, collecting a required
+ * reason and wiring its submit button to submitBlockStep with the plan id and
+ * step ref.
+ */
 export function planBlockStepPrompt(planId: string, stepRef: string): void {
   createModal('block-step-modal', 'Block Step', `
     <div class="form-group">
@@ -538,6 +617,11 @@ export function planBlockStepPrompt(planId: string, stepRef: string): void {
   showModal('block-step-modal');
 }
 
+/**
+ * Submits the Block Step form, requiring a reason, and posts it to the step's
+ * block endpoint. On success it closes the modal, toasts confirmation, and
+ * reopens the plan detail.
+ */
 export async function submitBlockStep(planId: string, stepRef: string): Promise<void> {
   if (!state.currentProject) return;
   const reason = (document.getElementById('block-reason') as HTMLInputElement | null)?.value?.trim();
@@ -553,6 +637,11 @@ export async function submitBlockStep(planId: string, stepRef: string): Promise<
   }
 }
 
+/**
+ * Removes a plan step after confirming with the user, DELETEing it from the
+ * plan's steps endpoint. On success it toasts confirmation and reopens the plan
+ * detail.
+ */
 export function planRemoveStep(planId: string, stepRef: string): void {
   confirmDialog(
     'Remove step',
@@ -571,6 +660,10 @@ export function planRemoveStep(planId: string, stepRef: string): void {
   );
 }
 
+/**
+ * Approves a plan after confirming with the user by posting to the plan's
+ * approve endpoint, then toasts confirmation and reopens the plan detail.
+ */
 export function planApprove(planId: string): void {
   confirmDialog(
     'Approve plan',
@@ -588,6 +681,11 @@ export function planApprove(planId: string): void {
   );
 }
 
+/**
+ * Opens the Materialize Plan modal for the given plan, offering fields for item
+ * type, a parent item id, and which steps to materialize, wiring its submit
+ * button to submitMaterializePlan with the plan id.
+ */
 export function planMaterializePrompt(planId: string): void {
   createModal('materialize-plan-modal', 'Materialize Plan', `
     <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Materializing creates real project items from plan steps.</p>
@@ -614,6 +712,12 @@ export function planMaterializePrompt(planId: string): void {
   showModal('materialize-plan-modal');
 }
 
+/**
+ * Submits the Materialize Plan form, posting the chosen item type, parent item,
+ * and steps to the plan's materialize endpoint to create real items. On success
+ * it closes the modal, toasts confirmation, and switches to the Items view
+ * after a short delay.
+ */
 export async function submitMaterializePlan(planId: string): Promise<void> {
   if (!state.currentProject) return;
   const materializeType = (document.getElementById('mat-type') as HTMLSelectElement | null)?.value || '';
@@ -636,6 +740,12 @@ export async function submitMaterializePlan(planId: string): Promise<void> {
   }
 }
 
+/**
+ * Copies text to the clipboard and toasts the success message when the
+ * Clipboard API is available. When clipboard access is unavailable or blocked,
+ * opens a modal with a prefilled, selected textarea for manual copy and toasts
+ * an info notice instead.
+ */
 async function copyTextWithFallback(modalTitle: string, text: string, successMessage: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     try {
@@ -662,6 +772,11 @@ async function copyTextWithFallback(modalTitle: string, text: string, successMes
   toast('Clipboard blocked. Opened manual copy panel.', 'info');
 }
 
+/**
+ * Returns the currently open plan and its execution snapshot when the requested
+ * plan id matches the active plan; otherwise toasts an info notice and returns
+ * null so prompt generators bail out.
+ */
 function getCurrentPlanContext(planId: string): { plan: PlanData; snapshot: PlanExecutionSnapshot } | null {
   const activeId = currentPlanData?.id || currentPlanId;
   if (!currentPlanData || !currentExecutionSnapshot || activeId !== planId) {
@@ -671,6 +786,11 @@ function getCurrentPlanContext(planId: string): { plan: PlanData; snapshot: Plan
   return { plan: currentPlanData, snapshot: currentExecutionSnapshot };
 }
 
+/**
+ * Builds the dependency-aware agent brief for the currently open plan and
+ * copies it via copyTextWithFallback, first confirming the plan is open using
+ * its id.
+ */
 export async function copyPlanAgentBrief(planId: string): Promise<void> {
   const ctx = getCurrentPlanContext(planId);
   if (!ctx) return;
@@ -678,6 +798,12 @@ export async function copyPlanAgentBrief(planId: string): Promise<void> {
   await copyTextWithFallback('Plan Agent Brief', brief, 'Agent brief copied');
 }
 
+/**
+ * Builds and copies an execution prompt for a specific plan step, or for the
+ * next ready step when no ref is given. Validates that the requested step
+ * exists (or that a ready step exists), then copies the prompt via
+ * copyTextWithFallback.
+ */
 export async function copyPlanNextStepPrompt(planId: string, stepRef?: string): Promise<void> {
   const ctx = getCurrentPlanContext(planId);
   if (!ctx) return;
@@ -695,6 +821,11 @@ export async function copyPlanNextStepPrompt(planId: string, stepRef?: string): 
   await copyTextWithFallback('Next Step Prompt', prompt, 'Next-step prompt copied');
 }
 
+/**
+ * Opens the Edit Plan modal with the title pre-filled, asynchronously
+ * populates the description by re-fetching the plan, and wires the submit
+ * button to submitEditPlan with the plan id.
+ */
 export function planEditPrompt(planId: string, currentTitle: string): void {
   createModal('edit-plan-modal', 'Edit Plan', `
     <div class="form-group">
@@ -716,6 +847,11 @@ export function planEditPrompt(planId: string, currentTitle: string): void {
   }).catch(() => {});
 }
 
+/**
+ * Submits the Edit Plan form, requiring a title, and PATCHes the title and
+ * description to the plan endpoint. On success it closes the modal, toasts
+ * confirmation, and reloads both the plan list and the plan detail.
+ */
 export async function submitEditPlan(planId: string): Promise<void> {
   if (!state.currentProject) return;
   const title = (document.getElementById('edit-plan-title') as HTMLInputElement | null)?.value?.trim();
@@ -732,6 +868,11 @@ export async function submitEditPlan(planId: string): Promise<void> {
   }
 }
 
+/**
+ * Deletes a plan after confirming with the user by DELETEing it from the plan
+ * endpoint. On success it toasts confirmation, clears the active plan state and
+ * detail panel, and reloads the plan list.
+ */
 export function planDeletePrompt(planId: string): void {
   confirmDialog(
     'Delete plan',
@@ -756,4 +897,8 @@ export function planDeletePrompt(planId: string): void {
 }
 
 // Expose currentPlanId for potential external use
+/**
+ * Returns the id of the currently selected plan, or null when no plan is
+ * selected.
+ */
 export function getCurrentPlanId(): string | null { return currentPlanId; }
