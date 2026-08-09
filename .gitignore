@@ -24,3 +24,6 @@ public/cookie-consent.js
 .agents/pm/checkpoints/
 # pm-cli:runtime-cache:end
 coverage/
+
+# Scratch artifacts from delegated agent runs; never part of the package.
+.pi-subagents/
