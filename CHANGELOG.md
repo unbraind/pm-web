@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- SW mutation queue: IndexedDB read failure indistinguishable from empty queue ([pm-web-zz37](https://github.com/unbraind/pm-web/blob/main/.agents/pm/bugs/pm-web-zz37.toon))
+
+### Other
+
+- Adopt canonical pm-ops docstring gate and reach 100% docstring coverage ([pm-web-mglt](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-mglt.toon))
+
 ## 2026.8.7 - 2026-08-07
 
 ### Fixed

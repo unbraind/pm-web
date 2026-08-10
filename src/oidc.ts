@@ -9,10 +9,19 @@ const OIDC_REQUIRED_ENV = [
   "OIDC_COOKIE_SECRET",
 ] as const;
 
+/** Name of the browser cookie that carries the signed OIDC login state. */
 export const OIDC_STATE_COOKIE = "pm_oidc_state";
+/** Maximum age (ms) an OIDC login state cookie is considered valid: ten minutes. */
 export const OIDC_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const CLOCK_SKEW_SECONDS = 60;
 
+/**
+ * Fully validated, enabled OpenID Connect configuration resolved from the
+ * environment: provider endpoints and credentials, requested scopes, the
+ * cookie-signing secret, and whether a verified email is required. Only
+ * present (as the `enabled: true` variant of {@link ResolvedOidcSettings})
+ * when every required variable is set and valid.
+ */
 export interface OidcSettings {
   enabled: true;
   issuer: string;
@@ -31,6 +40,11 @@ export interface OidcDisabledSettings {
 
 export type ResolvedOidcSettings = OidcSettings | OidcDisabledSettings;
 
+/**
+ * The state held in the signed OIDC cookie across the authorization-code
+ * redirect: the random `state`/`nonce`/`codeVerifier` (PKCE) generated at
+ * login start, and the `createdAt` timestamp used to expire the request.
+ */
 export interface OidcStatePayload {
   state: string;
   nonce: string;
@@ -71,6 +85,11 @@ export interface PmUserRow {
 
 type TransactionClient = Pick<PoolClient, "query">;
 
+/**
+ * Error raised when OpenID Connect is misconfigured (missing or invalid
+ * environment variables). In production {@link resolveOidcSettings} throws it
+ * at startup; in development the bad config is instead reported as disabled.
+ */
 export class OidcConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -78,8 +97,15 @@ export class OidcConfigurationError extends Error {
   }
 }
 
+/**
+ * Error raised for a recoverable failure during an OpenID Connect login flow.
+ * Carries a machine-readable `code` (surfaced to the client) and an HTTP
+ * `status`, so the route layer can map it directly to a JSON error response.
+ */
 export class OidcFlowError extends Error {
+  /** Machine-readable error code returned to the browser, e.g. `state_mismatch`. */
   readonly code: string;
+  /** HTTP status code to use when rendering this error as a response. */
   readonly status: number;
   constructor(
     code: string,
@@ -93,6 +119,18 @@ export class OidcFlowError extends Error {
   }
 }
 
+/**
+ * Parse an environment variable as a boolean, used for OIDC toggle flags.
+ *
+ * An unset or blank value returns `false`; `1/true/yes` (case-insensitive)
+ * returns `true` and `0/false/no` returns `false`. Any other value throws an
+ * {@link OidcConfigurationError}, so a typo is caught at startup rather than
+ * silently behaving as `false`.
+ *
+ * @param value - The raw environment string, or `undefined`.
+ * @param name - Variable name, used in the thrown message.
+ * @returns The parsed boolean.
+ */
 function parseBoolean(value: string | undefined, name: string): boolean {
   if (value === undefined || value.trim() === "") return false;
   if (["1", "true", "yes"].includes(value.trim().toLowerCase())) return true;
@@ -100,6 +138,21 @@ function parseBoolean(value: string | undefined, name: string): boolean {
   throw new OidcConfigurationError(`${name} must be true or false when set.`);
 }
 
+/**
+ * Validate and canonicalize an HTTPS (or, outside production, HTTP) URL.
+ *
+ * Throws an {@link OidcConfigurationError} when the value is not an absolute
+ * URL, or carries credentials, a query, or a fragment. HTTPS is required in
+ * production; HTTP is allowed only in development. A URL whose path is just
+ * `/` is canonicalized to its origin (so issuer and verified `iss` agree even
+ * for providers like Google that publish a slash-less issuer); any other path
+ * is preserved verbatim.
+ *
+ * @param raw - The raw URL string from configuration.
+ * @param name - Setting name, used in thrown messages.
+ * @param production - Whether the HTTPS requirement is enforced.
+ * @returns The canonicalized URL string.
+ */
 function validateHttpsUrl(raw: string, name: string, production: boolean): string {
   let url: URL;
   try {
@@ -185,6 +238,15 @@ export function assertOidcConfiguration(env: NodeJS.ProcessEnv = process.env): v
   void resolveOidcSettings(env);
 }
 
+/**
+ * Build the public, non-sensitive OIDC status object for the login UI.
+ *
+ * Reports only whether OIDC login is enabled (resolved from the environment)
+ * and its display label; no credentials, issuer, or secret are exposed.
+ *
+ * @param env - Environment to read; defaults to `process.env`.
+ * @returns Whether OIDC is enabled and its UI label.
+ */
 export function oidcPublicConfig(env: NodeJS.ProcessEnv = process.env): {
   enabled: boolean;
   label: "OpenID Connect";
@@ -196,11 +258,36 @@ function sign(value: string, secret: string): string {
   return crypto.createHmac("sha256", secret).update(value).digest("base64url");
 }
 
+/**
+ * Serialize and HMAC-sign an OIDC state payload into a cookie value.
+ *
+ * Base64url-encodes the JSON payload and appends a `.`-separated HMAC-SHA256
+ * signature over it, so {@link decodeOidcStateCookie} can both authenticate
+ * and expiry-check the cookie on the callback.
+ *
+ * @param payload - The state to carry across the redirect.
+ * @param secret - The cookie-signing secret (`OIDC_COOKIE_SECRET`).
+ * @returns The `value.signature` cookie string.
+ */
 export function encodeOidcStateCookie(payload: OidcStatePayload, secret: string): string {
   const value = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   return `${value}.${sign(value, secret)}`;
 }
 
+/**
+ * Authenticate, decode, and expiry-check a signed OIDC state cookie.
+ *
+ * Rejects (with {@link OidcFlowError}) a missing, malformed, bad-signature,
+ * structurally invalid, or expired cookie — the signature is compared with
+ * {@link crypto.timingSafeEqual} and `createdAt` must be within
+ * {@link OIDC_STATE_MAX_AGE_MS} of `now` (with a small future skew allowance).
+ * Returns the recovered payload on success.
+ *
+ * @param cookie - The raw cookie value, or `undefined`.
+ * @param secret - The cookie-signing secret.
+ * @param now - Current time in ms; defaults to `Date.now()` (injectable for tests).
+ * @returns The verified state payload.
+ */
 export function decodeOidcStateCookie(
   cookie: string | undefined,
   secret: string,
@@ -245,10 +332,27 @@ export function decodeOidcStateCookie(
   return candidate as OidcStatePayload;
 }
 
+/**
+ * Compute the RFC 7636 S256 PKCE code challenge for a verifier.
+ *
+ * @param codeVerifier - The random PKCE code verifier.
+ * @returns The base64url-encoded SHA-256 challenge sent as `code_challenge`.
+ */
 export function pkceChallenge(codeVerifier: string): string {
   return crypto.createHash("sha256").update(codeVerifier).digest("base64url");
 }
 
+/**
+ * Generate a fresh, single-use OIDC login state.
+ *
+ * Produces cryptographically random `state`, `nonce`, and PKCE `codeVerifier`
+ * (each 32 random bytes, base64url), the matching S256 `codeChallenge`, and a
+ * `createdAt` timestamp. The caller sends the challenge/nonce to the provider
+ * and stores the verifier in the signed cookie.
+ *
+ * @param now - Creation time in ms; defaults to `Date.now()` (injectable for tests).
+ * @returns The state payload plus the derived code challenge.
+ */
 export function createOidcState(now = Date.now()): OidcStatePayload & { codeChallenge: string } {
   const codeVerifier = crypto.randomBytes(32).toString("base64url");
   return {
@@ -260,6 +364,16 @@ export function createOidcState(now = Date.now()): OidcStatePayload & { codeChal
   };
 }
 
+/**
+ * Derive the openid-client grant checks for a stored login state.
+ *
+ * Bundles the PKCE code verifier, the expected `state` and `nonce`, and the
+ * flag requiring an ID token, in the shape `authorizationCodeGrant` consumes
+ * on the callback.
+ *
+ * @param flow - The verified state payload from the cookie.
+ * @returns The grant-check inputs for the authorization-code exchange.
+ */
 export function oidcGrantChecks(flow: OidcStatePayload): {
   pkceCodeVerifier: string;
   expectedState: string;
@@ -274,6 +388,17 @@ export function oidcGrantChecks(flow: OidcStatePayload): {
   };
 }
 
+/**
+ * Require a non-empty string claim from an ID token.
+ *
+ * Returns the value unchanged when it is a non-empty string; otherwise throws
+ * an {@link OidcFlowError} naming the claim, so a missing or wrong-typed
+ * `iss`/`sub`/`nonce` fails the login with a precise error.
+ *
+ * @param value - The raw claim value from the token.
+ * @param claim - The claim name, used in the thrown message.
+ * @returns The claim value, guaranteed to be a non-empty string.
+ */
 function requiredString(value: unknown, claim: string): string {
   if (typeof value !== "string" || !value) {
     throw new OidcFlowError("invalid_id_token", `ID token ${claim} claim is invalid.`);

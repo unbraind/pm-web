@@ -1,0 +1,30 @@
+id: pm-web-mglt
+title: Adopt canonical pm-ops docstring gate and reach 100% docstring coverage
+description: ""
+type: Task
+status: closed
+priority: 2
+tags: []
+created_at: "2026-08-09T20:03:27.317Z"
+updated_at: "2026-08-10T07:44:42.730Z"
+closed_at: "2026-08-09T20:42:00.417Z"
+completed_at: "2026-08-09T20:42:00.417Z"
+claim_principal: pi-agent
+author: pi-agent
+resolution: done
+expected_result: "npm run docstring exits 0; build, check, test, changelog:check pass"
+actual_result: "docstring 435->0 (77 files, 518 declarations); build/check/test all exit 0"
+notes[5]{created_at,author,text}:
+  "2026-08-09T20:03:37.974Z",pi-agent,"Branch adopt-canonical-docstring-gate. Added pm-ops@2026.8.8 (exact pin) devDep, docstring script (thin launcher importing pm-ops/docstrings), and required docstring CI step after Type check. Baseline: 435 violations across 77 files (434 no-docstring + 1 thin). scripts/ already passes; work is in src/ (115) + public/ (320)."
+  "2026-08-09T20:42:00.038Z",pi-agent,"Complete. Gate: 435 -> 0 violations (77 files, 518 declarations). All gates green: build, check (server+frontend+sw+scripts), 260 tests pass, docstring exit 0. Frontend docstrings written across 6 disjoint file sets; a fresh-context reviewer audited the two largest logic-heavy files (graph.ts/items.ts) and found 0 accuracy problems. dist/ rebuilt to match."
+  "2026-08-09T23:47:48.800Z",claude,"author=claude,created_at=now,text=The fifteen split into roughly nine docstring-accuracy corrections in filters, graph-canvas, board, crypto, routes/pm, project-watcher, realtime-bus and sse, and six pre-existing code defects the documentation pass exposed: a service worker treating an IndexedDB failure as a drained queue, mutation replay that is not idempotent before retrying accepted requests, a pidfile shutdown not bound to process identity, filesystem errors other than ENOENT being swallowed, and a sweep file list that can change under a multi-tick sweep"
+  "2026-08-09T23:47:48.800Z",claude,"The completed CodeRabbit review returned 18 findings. Three are addressed in commit a40a792: escHtml no longer claims general injection safety,typeIcon escapes its argument before writing it into a title attribute,and the Neo4j driver cache key now covers a SHA-256 digest of the password so a rotation cannot leave the cached driver holding old credentials. Fifteen remain open on the pull request"
+  "2026-08-10T07:44:42.730Z",pi-agent,"The previous symlink test (isMainInvocation resolves a symlinked entry path to the real module URL) passed argv[1] as the link and moduleUrl as the REAL path, which the old one-sided comparison pathToFileURL(realpathSync(entry)).href === moduleUrl also satisfied — it could not distinguish the fixed implementation from the broken one. Applied the missing canonicalization fix (both sides through realpathSync) and added a new test (canonicalizes a symlinked moduleUrl, as --preserve-symlinks produces) that puts the symlink in moduleUrl (pathToFileURL(link).href), which is what Node records in import.meta.url under --preserve-symlinks. Verified by measurement: reverting to the old one-sided comparison makes the new test fail (fail 1), restoring the canonicalization makes it pass (fail 0). The existing symlink test is retained because argv[1] arriving through an npm bin shim is a separate real case. Note: this repo's gate was on the old broken implementation (branch adopt-canonical-docstring-gate); the canonicalization fix was applied as part of this change."
+learnings[1]{created_at,author,text}:
+  "2026-08-09T23:47:48.800Z",claude,"Writing an accurate docstring forces a reading of the body that ordinary review skips,so a documentation pass is an unusually effective bug-finding exercise. The defects it surfaced here were pre-existing and included two security issues,which argues for documenting untouched code rather than only new code"
+files[3]{path,scope}:
+  .github/workflows/ci.yml,project
+  package.json,project
+  scripts/docstring-gate.ts,project
+close_reason: "Adopted canonical pm-ops docstring gate (thin launcher importing pm-ops/docstrings, pm-ops@2026.8.8 exact pin, required CI step) and documented every reported declaration across src/ and public/ to reach 100% gate coverage."
+body: ""

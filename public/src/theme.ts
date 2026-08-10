@@ -8,6 +8,8 @@
 // preference) is "auto", matching the data-theme="auto" attribute in the HTML
 // shell so there is no flash of the wrong theme on load.
 
+/** The user-selectable theme modes: an explicit `dark` or `light`, or `auto`
+ * which follows the OS `prefers-color-scheme` setting. */
 export type Theme = 'dark' | 'light' | 'auto';
 
 const STORAGE_KEY = 'pm-web-theme';
@@ -26,6 +28,9 @@ const LABEL: Record<Theme, string> = {
   dark: 'Theme: dark',
 };
 
+/** Read the persisted theme choice from localStorage, defaulting to `auto`
+ * when no preference is stored or when localStorage is unavailable (e.g.
+ * private browsing). */
 export function getStoredTheme(): Theme {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
@@ -34,6 +39,9 @@ export function getStoredTheme(): Theme {
   return 'auto';
 }
 
+/** Apply a theme to the page: set `data-theme` on `<html>`, update the toggle
+ * button's glyph/title, and sync the `<meta name="theme-color">` tag so the
+ * mobile browser chrome matches the chosen palette. */
 export function applyTheme(theme: Theme): void {
   document.documentElement.setAttribute('data-theme', theme);
   const btn = document.getElementById('theme-toggle');
@@ -54,18 +62,24 @@ export function applyTheme(theme: Theme): void {
   }
 }
 
+/** Persist a theme choice to localStorage and immediately apply it to the
+ * document. */
 export function setTheme(theme: Theme): void {
   try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* ignore */ }
   applyTheme(theme);
 }
 
+/** Advance to the next theme in the auto → light → dark order (wrapping
+ * around) and persist plus apply the new selection. */
 export function cycleTheme(): void {
   const current = getStoredTheme();
   const next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
   setTheme(next);
 }
 
-// Apply the persisted (or default) theme as early as possible.
+/** Apply the persisted (or default) theme early to avoid a flash of the wrong
+ * palette, then register a listener so `auto` mode tracks live OS theme
+ * changes. */
 export function initTheme(): void {
   applyTheme(getStoredTheme());
   // When in auto mode, react to live OS theme changes.

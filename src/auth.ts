@@ -10,6 +10,11 @@ if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is required when running pm-web in production.");
 }
 
+/**
+ * Claims encoded into a pm-web session JWT: the authenticated user's stable id
+ * and email, both set by the OIDC login flow and later restored by
+ * `verifyToken`.
+ */
 export interface JwtPayload {
   userId: string;
   email: string;

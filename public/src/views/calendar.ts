@@ -10,6 +10,7 @@ import { renderItemRow } from './items.js';
 import type { CalendarListItem, CalendarResponse, ListResponse } from '../api-types.js';
 import type { Item } from '../types.js';
 
+/** Renders the calendar view for the current project: a month grid (offset by state.calOffset) of items with deadlines, prev/next/today navigation, an iCalendar export link, and an upcoming-events list. */
 export async function renderCalendarView(): Promise<void> {
   const el = document.getElementById('content-calendar');
   if (!el) return;
@@ -107,11 +108,13 @@ export async function renderCalendarView(): Promise<void> {
   }
 }
 
+/** Shifts the calendar's month offset by the given direction (-1 back, +1 forward) and re-renders the calendar view. */
 export function calNav(dir: number): void {
   state.calOffset = (state.calOffset || 0) + dir;
   renderCalendarView();
 }
 
+/** Opens a modal listing every project item whose deadline falls on the given ISO date string, fetched fresh from the list endpoint. */
 export function showDayItems(dateStr: string): void {
   if (!state.currentProject) return;
   createModal('day-items-modal', `Items due ${dateStr}`, '<div class="loading-state"><div class="loading-spinner"></div></div>', '', true);

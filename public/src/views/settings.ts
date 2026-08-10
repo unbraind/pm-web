@@ -14,6 +14,12 @@ function avatarInitial(name: string): string {
   return (name.trim()[0] || '?').toUpperCase();
 }
 
+/**
+ * Computes a deterministic avatar background color for a seed string by
+ * hashing its characters into an HSL hue.
+ * @param seed - The string used to derive the color (e.g. email or name).
+ * @returns An `hsl(...)` CSS color string.
+ */
 function avatarBg(seed: string): string {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) { hash = (hash * 31 + seed.charCodeAt(i)) >>> 0; }
@@ -29,6 +35,12 @@ const LOCALE_LABEL_KEYS: Record<SupportedLocale, string> = {
   zh: 'settings.languageZh',
 };
 
+/**
+ * Renders the settings view into the #content-settings element: the language
+ * selector, profile card with a generated avatar, password change card, and
+ * GitHub token card. Reads user-facing strings via i18n and the current user
+ * from shared state.
+ */
 export function renderSettingsView(): void {
   const el = document.getElementById('content-settings');
   if (!el) return;
@@ -129,6 +141,13 @@ export function renderSettingsView(): void {
     </div>`;
 }
 
+/**
+ * Saves the display name entered in the profile form. Validates the name is
+ * non-empty, PATCHes it to the profile endpoint, merges the returned user
+ * into state, updates the header avatar and name, and re-renders the view.
+ * Reports errors via the inline error element and restores the button on
+ * completion.
+ */
 export async function saveProfile(): Promise<void> {
   const displayName = (document.getElementById('settings-display-name') as HTMLInputElement | null)?.value?.trim() || '';
   const errEl = document.getElementById('settings-profile-error') as HTMLElement | null;
@@ -158,6 +177,12 @@ export async function saveProfile(): Promise<void> {
   }
 }
 
+/**
+ * Submits the password change form. Validates that all fields are filled, the
+ * new and confirm passwords match, and the new password meets the minimum
+ * length, then POSTs the change to the auth endpoint and clears the fields on
+ * success. Reports errors via the inline error element.
+ */
 export async function changePassword(): Promise<void> {
   const currentPassword = (document.getElementById('settings-current-pw') as HTMLInputElement | null)?.value || '';
   const newPassword = (document.getElementById('settings-new-pw') as HTMLInputElement | null)?.value || '';
@@ -185,6 +210,12 @@ export async function changePassword(): Promise<void> {
   }
 }
 
+/**
+ * Saves the GitHub token entered in the token field. Validates the token is
+ * non-empty, PATCHes it to the GitHub token endpoint, updates the user's
+ * token flag in state from the response, and re-renders the view. Reports
+ * errors via the inline error element.
+ */
 export async function saveGitHubToken(): Promise<void> {
   const token = (document.getElementById('settings-github-token') as HTMLInputElement | null)?.value?.trim() || '';
   const errEl = document.getElementById('settings-github-error') as HTMLElement | null;
@@ -204,6 +235,11 @@ export async function saveGitHubToken(): Promise<void> {
   }
 }
 
+/**
+ * Prompts for confirmation, then clears the stored GitHub token by PATCHing
+ * an empty token to the token endpoint, resets the user's token flag in
+ * state, and re-renders the view, reporting any failure via a toast.
+ */
 export function clearGitHubToken(): void {
   confirmDialog(t('settings.clearTokenTitle'), t('settings.clearTokenBody'), async () => {
     try {

@@ -71,14 +71,35 @@ let navigatingInternally = false;
 
 // Callback invoked when the view changes — used to notify presence service
 let onViewChange: ((view: string) => void) | null = null;
+/**
+ * Stores the callback invoked after each view switch, used to notify an
+ * external service (for example presence) of the active view.
+ *
+ * @param cb - function called with the new view name.
+ */
 export function setOnViewChange(cb: (view: string) => void): void {
   onViewChange = cb;
 }
 
+/**
+ * Returns the URL path registered for a view name, defaulting to the root
+ * path when the view is unmapped.
+ *
+ * @param view - view name to look up.
+ * @returns the matching path, or '/' when none is registered.
+ */
 export function getPathForView(view: string): string {
   return VIEW_TO_PATH[view] || '/';
 }
 
+/**
+ * Returns the view name for a URL path, matching the full normalized path
+ * first, then the first path segment for deeper routes (such as an item
+ * detail), and finally falling back to projects.
+ *
+ * @param path - URL pathname to resolve.
+ * @returns the resolved view name.
+ */
 export function getViewForPath(path: string): string {
   // Normalize: remove trailing slash except for root
   const normalized = path.replace(/\/$/, '') || '/';
@@ -89,6 +110,15 @@ export function getViewForPath(path: string): string {
   return PATH_TO_VIEW[firstSegment] || 'projects';
 }
 
+/**
+ * Activates a named view: updates the URL via history pushState (unless
+ * suppressed), toggles content containers and sidebar highlighting for the
+ * new view, calls the matching render function, refreshes the mobile nav,
+ * notifies the presence callback, and moves focus into the view.
+ *
+ * @param view - name of the view to display.
+ * @param pushState - whether to push a new history entry (false on popstate).
+ */
 export function showView(view: string, pushState = true): void {
   if (view === 'admin' && !state.user?.is_admin) {
     history.replaceState({ view: 'projects' }, '', '/');
@@ -164,6 +194,12 @@ export function showView(view: string, pushState = true): void {
   }
 }
 
+/**
+ * Highlights the matching bottom-nav button for the active view and shows or
+ * hides the mobile navigation bar depending on whether a project is selected.
+ *
+ * @param view - currently active view name.
+ */
 function updateMobileNav(view: string): void {
   document.querySelectorAll('.mobile-bottom-nav-item').forEach(el => {
     (el as HTMLElement).classList.toggle('active', (el as HTMLElement).dataset.mobview === view);
@@ -175,6 +211,13 @@ function updateMobileNav(view: string): void {
 }
 
 // Handle browser back/forward
+/**
+ * Handles browser back/forward navigation, ignoring popstate events caused
+ * by this router's own pushState, then activates the view recorded in the
+ * history state.
+ *
+ * @param e - popstate event from the browser.
+ */
 function onPopState(e: PopStateEvent): void {
   // Ignore if we just pushed state (some browsers fire popstate after pushState)
   if (navigatingInternally) {

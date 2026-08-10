@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml, statusBadge, typeIcon } from '../utils.js';
 import type { HealthResponse, StatsResponse } from '../api-types.js';
 
+/** Renders project statistics — total, open, closed, blocked, and completion cards, plus by-status and by-type breakdown bars and any project health issues — fetched in parallel from the stats, aggregate, and health endpoints. */
 export async function renderStatsView(): Promise<void> {
   const el = document.getElementById('content-stats');
   if (!el) return;

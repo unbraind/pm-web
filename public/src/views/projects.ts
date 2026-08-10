@@ -9,12 +9,20 @@ import { toast } from '../components/toast.js';
 import type { CreateProjectResponse, ListResponse, ProjectsResponse, SchemaResponse } from '../api-types.js';
 import { showView } from '../views/router.js';
 
+/**
+ * Fetches the user's workspaces from the API, stores them on shared state,
+ * and rebuilds the selector dropdown.
+ */
 export async function loadProjects(): Promise<void> {
   const data = await api<ProjectsResponse>('GET','/projects');
   state.projects = data.projects || [];
   renderProjectSelector();
 }
 
+/**
+ * Rebuilds the selector dropdown options from shared state, preserving the
+ * previously selected value.
+ */
 export function renderProjectSelector(): void {
   const sel = document.getElementById('project-selector') as HTMLSelectElement | null;
   if (!sel) return;
@@ -23,6 +31,13 @@ export function renderProjectSelector(): void {
     state.projects.map(p=>`<option value="${p.id}"${p.id===cur?' selected':''}>${escHtml(p.name)}</option>`).join('');
 }
 
+/**
+ * Loads a project's pm schema from the API and stores it on shared state when
+ * it contains at least one type; failures are ignored so views keep using
+ * fallback types.
+ *
+ * @param projectId - identifier of the project whose schema to load.
+ */
 async function fetchProjectSchema(projectId: string): Promise<void> {
   try {
     const schema = await api<SchemaResponse>('GET', `/projects/${projectId}/pm/schema`);
@@ -32,6 +47,13 @@ async function fetchProjectSchema(projectId: string): Promise<void> {
   } catch (_) { /* fallback to constants */ }
 }
 
+/**
+ * Handles a selection: clears state and returns to the projects view when
+ * deselected, otherwise activates the chosen project, wires the SSE stream,
+ * fetches its schema, opens the items view, and refreshes the items badge.
+ *
+ * @param id - identifier of the selected project, or empty string for none.
+ */
 export async function onProjectSelect(id: string): Promise<void> {
   if (!id) {
     state.currentProject = null;
@@ -56,6 +78,10 @@ export async function onProjectSelect(id: string): Promise<void> {
   loadItemsBadge();
 }
 
+/**
+ * Fetches the open items count for the current project and updates the
+ * sidebar items badge, ignoring errors.
+ */
 export async function loadItemsBadge(): Promise<void> {
   if (!state.currentProject) return;
   try {
@@ -66,6 +92,11 @@ export async function loadItemsBadge(): Promise<void> {
   } catch(_) { /* ignore */ }
 }
 
+/**
+ * Renders the projects landing page: a welcome prompt when no workspaces
+ * exist, otherwise a grid of cards each showing name, slug, description,
+ * prefix, and creation date.
+ */
 export function renderProjectsView(): void {
   const el = document.getElementById('content-projects');
   if (!el) return;
@@ -103,12 +134,25 @@ export function renderProjectsView(): void {
     </div>`;
 }
 
+/**
+ * Sets the selector to the given id and triggers the standard selection
+ * handler.
+ *
+ * @param id - identifier of the project to select.
+ */
 export function selectProject(id: string): void {
   const sel = document.getElementById('project-selector') as HTMLSelectElement | null;
   if (sel) sel.value = id;
   onProjectSelect(id);
 }
 
+/**
+ * Confirms and permanently deletes a project, clears it from state if
+ * active, reloads the list, and re-renders the projects view when visible.
+ *
+ * @param id - identifier of the project to delete.
+ * @param name - display name shown in the confirmation prompt.
+ */
 export function deleteProject(id: string, name: string): void {
   confirmDialog('Delete Project?', `Delete project "${name}"? This cannot be undone.`, async () => {
     try {
@@ -127,6 +171,11 @@ export function deleteProject(id: string, name: string): void {
   }, true);
 }
 
+/**
+ * Constructs the create-project modal form with name, ID prefix, and
+ * description fields, and wires the name input to auto-suggest a lowercase
+ * prefix until the user edits it.
+ */
 export function buildCreateProjectModal(): void {
   createModal('create-project-modal','New Project',`
     <form id="create-project-form" onsubmit="window.__app.submitCreateProject(event)">
@@ -160,11 +209,22 @@ export function buildCreateProjectModal(): void {
   }
 }
 
+/**
+ * Form-submit entry point that prevents default and delegates to the shared
+ * create handler.
+ *
+ * @param e - optional submit event.
+ */
 export async function submitCreateProject(e?: Event): Promise<void> {
   e?.preventDefault();
   await submitCreateProject2();
 }
 
+/**
+ * Reads and validates the create-project form, posts a new project, prepends
+ * it to state, rebuilds the selector, closes the modal, and re-renders the
+ * projects view; shows inline errors on failure.
+ */
 async function submitCreateProject2(): Promise<void> {
   const nameEl = document.getElementById('cp-name') as HTMLInputElement | null;
   const prefixEl = document.getElementById('cp-prefix') as HTMLInputElement | null;

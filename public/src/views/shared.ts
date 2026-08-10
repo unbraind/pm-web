@@ -7,6 +7,7 @@ import { escHtml } from '../utils.js';
 import { skeletonCards } from '../utils.js';
 import type { SharedProject, SharedProjectsResponse } from '../api-types.js';
 
+/** Renders the grid of projects other users have shared with the current user, showing each project's name, slug, description, permission level, and owner. */
 export async function renderSharedView(): Promise<void> {
   const el = document.getElementById('content-shared');
   if (!el) return;

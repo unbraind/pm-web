@@ -55,6 +55,12 @@ function getAuditActor(entry: AuditEntry): string {
   return entry.actor_name || entry.actor_email || entry.userId || entry.userEmail || '—';
 }
 
+/**
+ * Maps raw audit-log API entries into the AuditEntry shape used by the admin
+ * view, copying only the fields the UI consumes and dropping the rest.
+ * @param entries - Raw entries returned by GET /admin/audit.
+ * @returns Normalized audit entries for rendering.
+ */
 function normalizeAuditEntries(entries: AuditApiEntry[]): AuditEntry[] {
   return entries.map((entry) => ({
     id: entry.id,
@@ -66,6 +72,13 @@ function normalizeAuditEntries(entries: AuditApiEntry[]): AuditEntry[] {
   }));
 }
 
+/**
+ * Resolves a human-readable description for one audit entry, preferring the
+ * explicit description, then "{action} by {userId}", then the bare action,
+ * falling back to an em-dash when nothing is available.
+ * @param entry - The audit entry to describe.
+ * @returns The best available description string.
+ */
 function getAuditDescription(entry: AuditEntry): string {
   if (entry.description) return entry.description;
   if (entry.userId && entry.action) return `${entry.action} by ${entry.userId}`;
@@ -83,6 +96,13 @@ let currentPage = 1;
 const PAGE_SIZE = 20;
 let adminAuditTotal = 0;
 
+/**
+ * Loads one page of audit-log entries from the admin API into module state
+ * (a no-op unless the current user is an admin). Computes the offset from the
+ * page number, normalizes the returned entries, and records the total count
+ * and current page.
+ * @param page - 1-based page index; clamped to a minimum of 1.
+ */
 async function loadAuditData(page = 1): Promise<void> {
   if (!state.user?.is_admin) return;
   const safePage = Math.max(1, page);
@@ -98,6 +118,14 @@ function paginate<T>(items: T[], page: number): T[] {
   return items.slice(start, start + PAGE_SIZE);
 }
 
+/**
+ * Builds the HTML for the prev/next pagination controls for a result set,
+ * showing the current page out of the total and the item count. Returns an
+ * empty string when there is only a single page so callers render nothing.
+ * @param totalItems - Total number of items being paginated.
+ * @param currentPg - The page currently in view.
+ * @returns Pagination markup, or an empty string for a single page.
+ */
 function renderPagination(totalItems: number, currentPg: number, hook: string): string {
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   if (totalPages <= 1) return '';
@@ -111,6 +139,13 @@ function renderPagination(totalItems: number, currentPg: number, hook: string): 
     </div>`;
 }
 
+/**
+ * Renders one admin user as an HTML table row, showing the display name and
+ * email, an admin/user role pill, GitHub connection status, the creation
+ * date, and buttons to toggle the admin role and delete the user.
+ * @param user - The user record to render.
+ * @returns A `<tr>` markup string.
+ */
 function renderUserRow(user: AdminUser): string {
   return `
     <tr>
@@ -134,6 +169,13 @@ function renderUserRow(user: AdminUser): string {
     </tr>`;
 }
 
+/**
+ * Renders one admin project as an HTML table row, showing the name, slug and
+ * prefix, the owner, the linked GitHub repo (or "Not linked"), sync status,
+ * the creation date, and a delete button.
+ * @param project - The project record to render.
+ * @returns A `<tr>` markup string.
+ */
 function renderProjectRow(project: AdminProject): string {
   const repo = project.github_owner && project.github_repo ? `${project.github_owner}/${project.github_repo}` : 'Not linked';
   return `
@@ -154,6 +196,13 @@ function renderProjectRow(project: AdminProject): string {
     </tr>`;
 }
 
+/**
+ * Renders one audit-log entry as an HTML table row, showing the resolved
+ * actor, an action pill, the target, a truncated details string, and a
+ * localized timestamp.
+ * @param entry - The audit entry to render.
+ * @returns A `<tr>` markup string.
+ */
 function renderAuditRow(entry: AuditEntry): string {
   const actor = getAuditActor(entry);
   const details = getAuditDescription(entry);
@@ -167,6 +216,12 @@ function renderAuditRow(entry: AuditEntry): string {
     </tr>`;
 }
 
+/**
+ * Renders one admin group as an HTML card, showing the group name, owner
+ * email and member count, an optional description, and a delete button.
+ * @param group - The group record to render.
+ * @returns A card markup string.
+ */
 function renderGroupCard(group: AdminGroup): string {
   return `
     <div class="admin-group-card">
@@ -179,6 +234,13 @@ function renderGroupCard(group: AdminGroup): string {
     </div>`;
 }
 
+/**
+ * Formats a duration given in seconds into a compact uptime string expressed
+ * in hours and minutes (e.g. "3h 12m"), or minutes only (e.g. "5m") when
+ * under an hour.
+ * @param seconds - Elapsed seconds to format.
+ * @returns The formatted uptime string.
+ */
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -186,6 +248,14 @@ function formatUptime(seconds: number): string {
   return `${m}m`;
 }
 
+/**
+ * Renders the full admin view markup from the overview data, applying the
+ * current user/project/audit search filters and paging the active tab's list.
+ * Includes the header, stat cards, tab bar, and the section for the active
+ * tab (users, projects, groups, or audit).
+ * @param data - The admin overview (users, projects, groups, and stats).
+ * @returns The admin view HTML string.
+ */
 function renderAdmin(data: AdminOverview): string {
   // Filter users
   const filteredUsers = data.users.filter(u =>
@@ -312,6 +382,12 @@ function renderAdmin(data: AdminOverview): string {
     </section>` : ''}`;
 }
 
+/**
+ * Mounts the admin view into the #content-admin element. Shows an
+ * access-denied state for non-admins, otherwise a loading spinner while it
+ * fetches the overview (and the current audit page when on the audit tab) and
+ * renders it, surfacing fetch failures in an empty-state block.
+ */
 export async function renderAdminView(): Promise<void> {
   const el = document.getElementById('content-admin');
   if (!el) return;
@@ -331,6 +407,12 @@ export async function renderAdminView(): Promise<void> {
   }
 }
 
+/**
+ * Toggles a user's admin flag via the admin API, shows a success or error
+ * toast, and re-renders the admin view.
+ * @param userId - The id of the user to update.
+ * @param isAdmin - The desired admin flag.
+ */
 export async function setAdminRole(userId: string, isAdmin: boolean): Promise<void> {
   try {
     await api('PATCH', `/admin/users/${encodeURIComponent(userId)}`, { isAdmin });
@@ -341,6 +423,12 @@ export async function setAdminRole(userId: string, isAdmin: boolean): Promise<vo
   }
 }
 
+/**
+ * Switches the active admin tab and resets to the first page. For the audit
+ * tab it reloads the first audit page before re-rendering; for other tabs it
+ * re-renders from the cached overview.
+ * @param tab - The tab to activate.
+ */
 export function adminSwitchTab(tab: 'users' | 'projects' | 'groups' | 'audit'): void {
   adminTab = tab;
   currentPage = 1;
@@ -360,6 +448,11 @@ export function adminSwitchTab(tab: 'users' | 'projects' | 'groups' | 'audit'): 
   }
 }
 
+/**
+ * Updates the user search filter from the filter input, resets to the first
+ * page, and re-renders the cached admin view.
+ * @param filter - Case-insensitive substring matched against user fields.
+ */
 export function adminFilterUsers(filter: string): void {
   userFilter = filter;
   currentPage = 1;
@@ -369,6 +462,11 @@ export function adminFilterUsers(filter: string): void {
   }
 }
 
+/**
+ * Updates the project search filter from the filter input, resets to the
+ * first page, and re-renders the cached admin view.
+ * @param filter - Case-insensitive substring matched against project fields.
+ */
 export function adminFilterProjects(filter: string): void {
   projectFilter = filter;
   currentPage = 1;
@@ -378,6 +476,12 @@ export function adminFilterProjects(filter: string): void {
   }
 }
 
+/**
+ * Updates the audit-log search filter from the filter input, resets to the
+ * first page, and reloads the first audit page before re-rendering when the
+ * audit tab is active.
+ * @param filter - Case-insensitive substring matched against audit fields.
+ */
 export function adminFilterAudit(filter: string): void {
   auditFilter = filter;
   currentPage = 1;
@@ -395,6 +499,13 @@ export function adminFilterAudit(filter: string): void {
   }
 }
 
+/**
+ * Navigates the active tab to the given page. Does nothing for negative pages
+ * or when no overview is cached. For the audit tab it loads the requested
+ * audit page; otherwise it clamps the page to the filtered total and
+ * re-renders.
+ * @param page - The 1-based page to navigate to.
+ */
 export async function adminSetPage(page: number): Promise<void> {
   if (page < 1) return;
   if (!adminData) return;
@@ -422,6 +533,12 @@ export async function adminSetPage(page: number): Promise<void> {
   if (el) el.innerHTML = renderAdmin(adminData);
 }
 
+/**
+ * Prompts for confirmation, then deletes the user via the admin API, shows a
+ * toast, and re-renders the admin view.
+ * @param userId - The id of the user to delete.
+ * @param userName - Display name used in the confirmation prompt.
+ */
 export async function adminDeleteUser(userId: string, userName: string): Promise<void> {
   confirmDialog(
     `Delete user "${userName}"?`,
@@ -439,6 +556,12 @@ export async function adminDeleteUser(userId: string, userName: string): Promise
   );
 }
 
+/**
+ * Prompts for confirmation, then deletes the project and its items via the
+ * admin API, shows a toast, and re-renders the admin view.
+ * @param projectId - The id of the project to delete.
+ * @param projectName - Display name used in the confirmation prompt.
+ */
 export async function adminDeleteProject(projectId: string, projectName: string): Promise<void> {
   confirmDialog(
     `Delete project "${projectName}"?`,
@@ -456,6 +579,12 @@ export async function adminDeleteProject(projectId: string, projectName: string)
   );
 }
 
+/**
+ * Prompts for confirmation, then deletes the group and its memberships via
+ * the admin API, shows a toast, and re-renders the admin view.
+ * @param groupId - The id of the group to delete.
+ * @param groupName - Display name used in the confirmation prompt.
+ */
 export async function adminDeleteGroup(groupId: string, groupName: string): Promise<void> {
   confirmDialog(
     `Delete group "${groupName}"?`,
@@ -473,6 +602,11 @@ export async function adminDeleteGroup(groupId: string, groupName: string): Prom
   );
 }
 
+/**
+ * Opens a modal form to create a new group. On submit it validates that a name
+ * was entered, POSTs the group to the admin API, shows a toast, closes the
+ * modal, and re-renders the admin view.
+ */
 export function adminCreateGroup(): void {
   const id = 'admin-create-group-' + Date.now();
   createModal(id, 'Create Group', `

@@ -23,6 +23,12 @@ interface ConfigResponse {
   changed?: boolean;
 }
 
+/**
+ * Mounts the project config view into the #content-config element. Shows an
+ * empty state when no project is selected, otherwise a loading spinner while
+ * it fetches the project's pm config and renders the editor, surfacing fetch
+ * failures in an empty-state block.
+ */
 export async function renderConfigView(): Promise<void> {
   const el = document.getElementById('content-config');
   if (!el) return;
@@ -61,6 +67,13 @@ export async function renderConfigView(): Promise<void> {
   }
 }
 
+/**
+ * Renders the config editor into the given element, grouping the config keys
+ * by kind (list, simple, object) into their sections plus a custom schema
+ * type form, and caches the keys on the element for the mutation helpers.
+ * @param el - The container element to populate.
+ * @param data - The config response from the API.
+ */
 function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
   const { keys } = data;
 
@@ -69,6 +82,12 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
   const arrayKeys = keys.filter(k => k.value_kind === 'string_array');
   const objectKeys = keys.filter(k => k.value_kind === 'object');
 
+  /**
+   * Renders a list-valued (string_array) config key as a card with one
+   * editable row per item, plus add and save controls.
+   * @param k - The array config key to render.
+   * @returns The card markup string.
+   */
   function renderArrayField(k: ConfigKey): string {
     const arr = Array.isArray(k.value) ? k.value as string[] : [];
     const items = arr.map((item, i) => `
@@ -94,6 +113,12 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
       </div>`;
   }
 
+  /**
+   * Renders a scalar (string or enum) config key as a labeled text input
+   * with an inline save button.
+   * @param k - The scalar config key to render.
+   * @returns The form-group markup string.
+   */
   function renderSimpleField(k: ConfigKey): string {
     const val = k.value !== null && k.value !== undefined ? String(k.value) : '';
     return `
@@ -109,6 +134,12 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
       </div>`;
   }
 
+  /**
+   * Renders an object-valued config key as a monospace textarea pre-filled
+   * with pretty-printed JSON and a save button.
+   * @param k - The object config key to render.
+   * @returns The form-group markup string.
+   */
   function renderObjectField(k: ConfigKey): string {
     const val = k.value !== null && k.value !== undefined ? JSON.stringify(k.value, null, 2) : '{}';
     return `
@@ -199,6 +230,13 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
 
 // ─── Array field helpers ───────────────────────────────────────
 
+/**
+ * Adds a new editable row to a list config field from the "Add item" input.
+ * Reads and trims the input value, appends a row to the field's container,
+ * and clears the input. Does nothing when the input is empty or the container
+ * is missing.
+ * @param key - The config key of the list field being edited.
+ */
 export function configAddArrayItem(key: string): void {
   const inputEl = document.getElementById(`config-arr-${key}-new`) as HTMLInputElement | null;
   const val = inputEl?.value?.trim();
@@ -227,6 +265,12 @@ export function configAddArrayItem(key: string): void {
   if (inputEl) inputEl.value = '';
 }
 
+/**
+ * Removes the row at the given index from a list config field's container and
+ * restores the "No items yet" placeholder when the list becomes empty.
+ * @param key - The config key of the list field being edited.
+ * @param idx - The zero-based index of the row to remove.
+ */
 export function configRemoveArrayItem(key: string, idx: number): void {
   const container = document.getElementById(`config-arr-${key}-container`);
   if (!container) return;
@@ -242,6 +286,12 @@ export function configRemoveArrayItem(key: string, idx: number): void {
   }
 }
 
+/**
+ * Saves a list config field by collecting the trimmed, non-empty values from
+ * its rows and PATCHing them to the project config API, showing a success or
+ * error toast.
+ * @param key - The config key of the list field being saved.
+ */
 export async function configSaveArray(key: string): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -260,6 +310,11 @@ export async function configSaveArray(key: string): Promise<void> {
   }
 }
 
+/**
+ * Saves a scalar config field by PATCHing its trimmed input value to the
+ * project config API, showing a success or error toast.
+ * @param key - The config key of the scalar field being saved.
+ */
 export async function configSaveSimple(key: string): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -275,6 +330,12 @@ export async function configSaveSimple(key: string): Promise<void> {
   }
 }
 
+/**
+ * Submits the custom schema type form. Validates that a name was entered,
+ * collects the optional description, default status, folder, and aliases,
+ * POSTs them to the schema add-type endpoint, clears the form on success, and
+ * reports the result via toast and the inline error element.
+ */
 export async function addSchemaType(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -320,6 +381,12 @@ export async function addSchemaType(): Promise<void> {
   }
 }
 
+/**
+ * Saves an object config field by parsing its textarea as JSON (reporting an
+ * error toast on invalid JSON) and PATCHing the parsed value to the project
+ * config API, showing a success or error toast.
+ * @param key - The config key of the object field being saved.
+ */
 export async function configSaveObject(key: string): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;

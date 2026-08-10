@@ -2,6 +2,7 @@
 // TYPES
 // ═══════════════════════════════════════════════════════════════
 
+/** The signed-in application user, as returned by the auth/session endpoints. */
 export interface User {
   id: string;
   email: string;
@@ -255,6 +256,7 @@ export interface AdminGroup {
 
 export type ToastType = 'info' | 'success' | 'error';
 
+/** Union of every navigation view key the SPA router can display. */
 export type ViewName =
   | 'projects' | 'items' | 'create' | 'activity' | 'search'
   | 'stats' | 'calendar' | 'context' | 'graph' | 'sharing' | 'groups'

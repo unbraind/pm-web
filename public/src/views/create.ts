@@ -11,6 +11,7 @@ import { showView } from './router.js';
 import { loadItemsBadge } from './projects.js';
 import { openItemDetail } from './items.js';
 
+/** Renders the create-item form for the current project, including core fields and a collapsible Advanced fields section covering body, reporter, component, severity, risk, and more. */
 export function renderCreateView(): void {
   const el = document.getElementById('content-create');
   if (!el) return;
@@ -161,11 +162,13 @@ export function renderCreateView(): void {
     </div>`;
 }
 
+/** Form submit handler that creates the item via submitCreateItem and then opens the newly created item's detail view. */
 export async function submitCreateItemAndOpen(e: Event): Promise<void> {
   e.preventDefault();
   await submitCreateItem(e, true);
 }
 
+/** Form submit handler that reads every field from the create form, requires a title, POSTs the item to the create endpoint, toasts the result, resets the form, and refreshes the items badge; opens the new item's detail view when openAfter is set and an id is returned. */
 export async function submitCreateItem(e: Event, openAfter = false): Promise<void> {
   e.preventDefault();
   const val = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value?.trim() || '';

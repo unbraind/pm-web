@@ -21,6 +21,7 @@ function topicIcon(id: string): string {
   return TOPIC_ICONS[id] ?? '📖';
 }
 
+/** Renders the grid of clickable guide topic cards, each showing its icon, title, and summary or intent. */
 function renderTopicCards(topics: Array<{id: string; title: string; summary?: string; intent?: string}>): string {
   if (topics.length === 0) {
     return '<div class="empty-state"><div class="empty-state-text">No guide topics found.</div></div>';
@@ -35,6 +36,7 @@ function renderTopicCards(topics: Array<{id: string; title: string; summary?: st
     </div>`).join('')}</div>`;
 }
 
+/** Renders the detail markup for a single guide topic: a back link, title and intent, summary, quick commands with copy buttons, workflows, and related-topic links. */
 function renderTopicDetail(topic: {
   id: string;
   title: string;
@@ -108,6 +110,7 @@ function renderTopicDetail(topic: {
       </div>` : ''}`;
 }
 
+/** Renders the guide view for the current project: a list of topic cards when no topic id is given, or a single topic's detail (fetched from the guide topic endpoint) when one is. */
 export async function renderGuideView(topicId?: string): Promise<void> {
   const el = document.getElementById('content-guide');
   if (!el) return;

@@ -60,6 +60,12 @@ let currentPackages: PackageRow[] = [];
  */
 let packagesFetchToken = 0;
 
+/**
+ * Mounts the packages view into the #content-packages element. Wires the
+ * action handler, shows an empty state when no project is selected, otherwise
+ * renders the header and a loading placeholder, then fetches and renders the
+ * package cards.
+ */
 export async function renderPackagesView(): Promise<void> {
   ensureActionsWired();
   const el = document.getElementById('content-packages');
@@ -82,6 +88,12 @@ export async function renderPackagesView(): Promise<void> {
   await fetchAndRenderPackages();
 }
 
+/**
+ * Fetches the project's package catalog from the extensions endpoint and
+ * renders the package cards into the content container, or an empty/error
+ * state. Uses a fetch token to discard stale responses that resolve after a
+ * project switch or a newer refresh.
+ */
 async function fetchAndRenderPackages(): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -111,6 +123,14 @@ async function fetchAndRenderPackages(): Promise<void> {
   }
 }
 
+/**
+ * Renders one package as a card showing its title, install status and
+ * version, a template badge for authoring scaffolds, honest gating notes for
+ * required services or credentials, its capabilities, and action buttons
+ * appropriate to its installed/active state.
+ * @param row - The package catalog row to render.
+ * @returns The card markup string.
+ */
 function renderPackageCard(row: PackageRow): string {
   const statusChip = row.installed
     ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
@@ -180,6 +200,13 @@ function renderPackageCard(row: PackageRow): string {
 // Delegate clicks on package action buttons so each card stays simple and the
 // handler resolves the action + name from data attributes, then calls the
 // server-validated extensions route.
+/**
+ * Installs a delegated click handler on the given container that routes
+ * package action button clicks (install/activate/deactivate/uninstall) to the
+ * package action handler, reading the action and package name from data
+ * attributes.
+ * @param root - The container element capturing the clicks.
+ */
 function wirePackageActions(root: HTMLElement): void {
   root.addEventListener('click', (ev: MouseEvent) => {
     const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-pkg-action]');
@@ -191,6 +218,16 @@ function wirePackageActions(root: HTMLElement): void {
   });
 }
 
+/**
+ * Performs a package action against the extensions route for the current
+ * project. Disables and marks the clicked button while in flight, confirms
+ * before uninstalling, picks the HTTP method and URL suffix from the action,
+ * toasts the result, and re-renders the package list. Restores the button on
+ * failure.
+ * @param name - The catalog name of the target package.
+ * @param action - One of install, activate, deactivate, or uninstall.
+ * @param btn - The button element that triggered the action.
+ */
 async function handlePackageAction(name: string, action: string, btn: HTMLButtonElement): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
@@ -226,6 +263,10 @@ async function handlePackageAction(name: string, action: string, btn: HTMLButton
 
 // Wire the delegated action handler once the view container exists.
 let actionsWired = false;
+/**
+ * Wires the delegated package action handler onto the #content-packages
+ * container exactly once, guarded by the actionsWired flag.
+ */
 function ensureActionsWired(): void {
   if (actionsWired) return;
   const root = document.getElementById('content-packages');

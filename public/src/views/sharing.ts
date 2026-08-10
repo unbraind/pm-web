@@ -8,6 +8,14 @@ import { showModal, hideModal, createModal, confirmDialog } from '../components/
 import { toast } from '../components/toast.js';
 import type { ShareRow, SharesResponse } from '../api-types.js';
 
+/**
+ * Derives a display record (name, detail line, two-letter avatar, and group
+ * flag) for a single share row, preferring group fields when the row
+ * references a group and falling back through user fields otherwise.
+ *
+ * @param share - the share row to summarize.
+ * @returns display fields for rendering a member row.
+ */
 function shareDisplay(share: ShareRow): { name: string; detail: string; avatar: string; isGroup: boolean } {
   const isGroup = Boolean(share.group_id || share.groupId);
   const name = isGroup
@@ -19,6 +27,10 @@ function shareDisplay(share: ShareRow): { name: string; detail: string; avatar: 
   return { name, detail, avatar: name.slice(0, 2).toUpperCase(), isGroup };
 }
 
+/**
+ * Renders the project sharing page header and a placeholder, then loads the
+ * current list of shares. Shows an empty state when no project is selected.
+ */
 export async function renderSharingView(): Promise<void> {
   const el = document.getElementById('content-sharing');
   if (!el) return;
@@ -38,6 +50,11 @@ export async function renderSharingView(): Promise<void> {
   await loadShares();
 }
 
+/**
+ * Fetches the shares for the current project and renders each one as a
+ * member row with its permission and a remove control, or an empty state
+ * when nobody has been invited yet.
+ */
 async function loadShares(): Promise<void> {
   const el = document.getElementById('shares-list');
   if (!el) return;
@@ -82,6 +99,10 @@ async function loadShares(): Promise<void> {
   }
 }
 
+/**
+ * Builds and displays the invite dialog for sharing the current project,
+ * collecting an email or group id and a permission level.
+ */
 export function openShareModal(): void {
   createModal('share-modal','Invite to Project',`
     <div class="form-group">
@@ -106,6 +127,11 @@ export function openShareModal(): void {
   showModal('share-modal');
 }
 
+/**
+ * Reads the invite form fields and posts a new share for the current project
+ * using the entered email or group id and selected permission. Surfaces
+ * validation and server errors inline and refreshes the list on success.
+ */
 export async function submitShare(): Promise<void> {
   const email = (document.getElementById('share-email') as HTMLInputElement | null)?.value?.trim() || '';
   const groupId = (document.getElementById('share-group-id') as HTMLInputElement | null)?.value?.trim() || '';
@@ -129,6 +155,12 @@ export async function submitShare(): Promise<void> {
   }
 }
 
+/**
+ * Asks for confirmation then deletes the given share from the current
+ * project, refreshing the list and showing errors as toasts.
+ *
+ * @param shareId - identifier of the share to revoke.
+ */
 export function removeShare(shareId: string): void {
   confirmDialog('Remove Access?', 'The user will lose access to this project.', async () => {
     try {

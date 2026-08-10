@@ -12,16 +12,32 @@ import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence } from "../services/sse.js";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
+import { createHash } from "node:crypto";
 import { routeParam } from "./route-params.js";
 import { pool } from "../db.js";
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
 let _neo4jDriver = null;
 let _neo4jDriverKey = "";
+/**
+ * Return the process-wide Neo4j driver, recreating it when the connection key changes.
+ *
+ * Reads `NEO4J_URI`/`NEO4J_USER` (`NEO4J_USERNAME`)/`NEO4J_PASSWORD` and caches a
+ * single driver. When the key changes the previous driver is closed
+ * (best-effort) and a new one created, so graph syncs never hold a stale
+ * connection after an operator edits the Neo4j environment.
+ *
+ * The key covers the password as well as the URI and user, because the driver
+ * is constructed with all three: keying on `uri:user` alone would keep serving
+ * a driver holding the OLD credentials after a password rotation, and every
+ * sync would keep failing to authenticate until the process restarted. The
+ * password enters the key as a SHA-256 digest rather than in clear text, so a
+ * credential cannot leak through a value held for the lifetime of the process.
+ */
 function getNeo4jDriver() {
     const uri = process.env.NEO4J_URI ?? "";
     const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME ?? "";
     const password = process.env.NEO4J_PASSWORD ?? "";
-    const key = `${uri}:${user}`;
+    const key = `${uri}:${user}:${createHash("sha256").update(password).digest("hex")}`;
     if (!_neo4jDriver || _neo4jDriverKey !== key) {
         if (_neo4jDriver) {
             void _neo4jDriver.close().catch(() => undefined);
@@ -115,6 +131,17 @@ function graphRelationshipType(rawType) {
     const text = typeof rawType === "string" && rawType.trim().length > 0 ? rawType : "relates-to";
     return text.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 }
+/**
+ * Extract the target item id from a dependency record.
+ *
+ * Checks a list of likely keys (`id`, `target`, `target_id`, `targetId`,
+ * `item`, `item_id`, `itemId`) in order and returns the first non-empty trimmed
+ * string value, so dependency rows shaped by different pm versions/extensions
+ * all resolve. Returns `null` when no usable id is present.
+ *
+ * @param dep - One dependency record from item deps or a graph extension.
+ * @returns The target id, trimmed, or `null`.
+ */
 function dependencyTarget(dep) {
     for (const key of ["id", "target", "target_id", "targetId", "item", "item_id", "itemId"]) {
         const value = dep[key];
@@ -123,6 +150,17 @@ function dependencyTarget(dep) {
     }
     return null;
 }
+/**
+ * Coerce a raw value into a list of dependency records.
+ *
+ * An array is filtered to its object entries. An object is searched for an
+ * array under `deps`, `dependencies`, `items`, or `relationships` and that
+ * array's object entries are returned. Anything else yields an empty array,
+ * so callers always receive a uniform list regardless of the source shape.
+ *
+ * @param raw - The raw dependency payload from a pm item or extension export.
+ * @returns The dependency records found, as an array of objects.
+ */
 function dependencyRows(raw) {
     if (Array.isArray(raw))
         return raw.filter((entry) => Boolean(entry) && typeof entry === "object");
@@ -137,6 +175,18 @@ function dependencyRows(raw) {
     }
     return [];
 }
+/**
+ * Normalize a dependency-kind label to a canonical lowercased form.
+ *
+ * Defaults to `blocked_by`, lowercases, and replaces hyphens with underscores,
+ * then maps common aliases to their canonical kind (for example `depends_on`,
+ * `dependency`, `blocked`, and `blockedby` all become `blocked_by`; `parent_of`
+ * becomes `parent`; `relates_to`/`related_to` become `related`). Returns the
+ * mapped value as-is.
+ *
+ * @param input - The raw kind string, or `undefined`.
+ * @returns The canonicalized kind string.
+ */
 function normalizeDependencyKind(input) {
     const raw = (input ?? "blocked_by").trim().toLowerCase().replace(/-/g, "_");
     const aliases = {
@@ -157,6 +207,21 @@ function normalizeDependencyKind(input) {
     const allowed = new Set(["parent", "child", "blocks", "blocked_by", "related"]);
     return allowed.has(normalized) ? normalized : normalized;
 }
+/**
+ * Build a project graph (nodes + relationships) from pm items.
+ *
+ * Creates one `PmItem` node per item plus `PmFacet` nodes for type, status,
+ * assignee, sprint, release, and each tag, deduplicating nodes by id (first one
+ * wins). Adds `CHILD_OF`/`BLOCKED_BY` edges from item fields and typed edges
+ * from embedded/extension dependencies, synthesizing `ExternalPmItem` nodes for
+ * targets not in the item set. Relationships are deduplicated by
+ * `(from, to, type)`, keeping the first occurrence. The result is tagged
+ * `source: "pm-web"`.
+ *
+ * @param items - The pm items.
+ * @param depsByItem - Extra per-item dependency records (e.g. from an extension).
+ * @returns The assembled project graph.
+ */
 function graphFromItems(items, depsByItem) {
     const nodesById = new Map();
     const relationships = [];
@@ -260,6 +325,18 @@ function graphFromItems(items, depsByItem) {
 function graphProjectKey(project) {
     return `${project.ownerUserId}:${project.slug}`;
 }
+/**
+ * Replace a project's Neo4j subgraph with the given graph.
+ *
+ * Requires `NEO4J_URI`/`NEO4J_USER`/`NEO4J_PASSWORD` (throws otherwise). In one
+ * session it `DETACH DELETE`s the existing `PmGraphNode` set for the project key,
+ * then `MERGE`s every node and relationship from the graph (tagged with the
+ * project key). Returns the node and relationship counts of the supplied graph.
+ *
+ * @param graph - The graph to write.
+ * @param projectKey - The stable key scoping this project's nodes.
+ * @returns The number of nodes and relationships written from the graph.
+ */
 async function syncGraphToNeo4j(graph, projectKey) {
     const uri = process.env.NEO4J_URI;
     const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME;
@@ -289,6 +366,18 @@ async function syncProjectGraph(project) {
     const graph = extensionGraph.graph ?? await fallbackGraphForProject(project.ownerUserId, project.slug);
     return syncGraphToNeo4j(graph, graphProjectKey(project));
 }
+/**
+ * Debounce and run a graph sync for one project.
+ *
+ * Replaces any pending sync for the project with a new 750 ms timer, so a burst
+ * of mutations triggers one sync rather than many. When the timer fires it runs
+ * the sync and broadcasts `graph-synced` on success, or `graph-sync-failed` (and
+ * the legacy `graph_sync_failed`) with the error message on failure.
+ *
+ * @param projectId - The database project id (for the broadcast).
+ * @param project - The owner/slug/prefix reference used to build the graph.
+ * @param reason - Free-text cause included in the broadcast event.
+ */
 function scheduleGraphSync(projectId, project, reason) {
     const existing = pendingGraphSyncs.get(projectId);
     if (existing)
@@ -315,6 +404,14 @@ function scheduleGraphSync(projectId, project, reason) {
         });
     }, 750));
 }
+/**
+ * Announce a dependency change to a project's SSE clients.
+ *
+ * Emits two events for one change: the specific `dependency-added`/
+ * `dependency-removed` event, and a generic `item-updated` carrying
+ * `itemId`/`change`/`target`/`rel`/`userId` (not the same `from`/`to` fields as
+ * the specific event), so views keyed on either event type stay in sync.
+ */
 function broadcastDependencyEvent(projectId, kind, data) {
     broadcastProjectEvent(projectId, {
         type: kind,
@@ -334,6 +431,17 @@ function broadcastDependencyEvent(projectId, kind, data) {
 function itemsFromListAll(parsed) {
     return ((parsed?.items) ?? []);
 }
+/**
+ * Build a project graph from `pm list-all` when no graph extension is available.
+ *
+ * Runs `list-all` as the project owner and assembles the graph from the returned
+ * items using their embedded `deps`/`dependencies` (no per-item subprocess calls),
+ * avoiding an N+1 fan-out. Throws when the items cannot be loaded.
+ *
+ * @param ownerUserId - The project owner's user id.
+ * @param slug - The project slug.
+ * @returns A pm-web-sourced project graph.
+ */
 async function fallbackGraphForProject(ownerUserId, slug) {
     const itemsResult = await runPm({
         args: ["list-all"],
@@ -348,6 +456,17 @@ async function fallbackGraphForProject(ownerUserId, slug) {
     // Avoid N+1 subprocess calls by using only the embedded data.
     return graphFromItems(items, new Map());
 }
+/**
+ * Fetch a project graph from the `pm-graph` extension, when installed.
+ *
+ * Ensures the extension is provisioned for the project (returning `{ error }`
+ * if that fails), runs `pm-graph export --json`, and parses its output. Returns
+ * `{ graph }` when the extension produced valid JSON with a graph, otherwise an
+ * `{ error }` so the caller can fall back to a pm-web-built graph.
+ *
+ * @param project - The owner/slug/prefix reference.
+ * @returns The extension graph, or an error reason.
+ */
 async function pmGraphExtensionGraphForProject(project) {
     const provision = await ensureGraphExtension(project.ownerUserId, project.slug);
     if (!provision.ok) {
@@ -2291,6 +2410,18 @@ router.patch("/config/:key", async (req, res) => {
 });
 // ─── List status shortcut routes ───
 // These wrap pm list-draft, list-open, etc.
+/**
+ * Build an Express handler for a fixed list-shortcut command (e.g. `list-open`).
+ *
+ * Returns a route that verifies the project, forwards the supported list query
+ * filters (`type`, `limit`, `offset`, `tag`, `priority`, `assignee`, `sprint`,
+ * `release`) and the validated `after` cursor to `pm <pmCommand> --json`, and
+ * responds with the parsed result. A USAGE failure becomes a 400; any other
+ * failure yields an empty `items` array rather than an error.
+ *
+ * @param pmCommand - The pm list subcommand to invoke.
+ * @returns An async Express route handler.
+ */
 function buildListShortcutRoute(pmCommand) {
     return async (req, res) => {
         const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));

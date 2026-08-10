@@ -32,6 +32,19 @@ const MIN_INTERVAL_MS = 10;
 const DEFAULT_RECONCILE_MS = 2_000;
 const MIN_RECONCILE_MS = 500;
 
+/**
+ * Read a positive-integer environment variable, with a fallback.
+ *
+ * Returns the parsed integer when the variable is set and the raw value parses
+ * as a positive integer via `Number.parseInt`; otherwise returns `fallback`.
+ * Because `parseInt` parses a leading integer prefix, values like `"500ms"`
+ * parse as `500` and `"1.5"` truncates to `1`. Non-numeric, zero, or negative
+ * values fall back rather than throwing.
+ *
+ * @param name - The environment variable name.
+ * @param fallback - Value used when unset or invalid.
+ * @returns The parsed positive integer, or the fallback.
+ */
 function positiveIntEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -186,7 +199,7 @@ export function createMutationEventReconciler(deps: MutationEventWatcherDeps = {
             if (existing.done) {
               startLoop(projectId, dir, existing.cursor);
             }
-            // Otherwise the loop is still running — leave it alone.
+          // Otherwise the loop is still running — leave it alone.
           } else {
             // Newly-active project: start at the tail (no history replay).
             startLoop(projectId, dir, new Date().toISOString());

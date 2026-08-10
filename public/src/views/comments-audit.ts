@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml, statusBadge, typeIcon } from '../utils.js';
 import type { CommentsAuditResponse, CommentsAuditItem, CommentsAuditSummary, CommentsAuditTypeRow } from '../api-types.js';
 
+/** Renders the comments audit for the current project: coverage summary cards, a per-type comment breakdown table, and a list of items with their comment counts. */
 export async function renderCommentsAuditView(): Promise<void> {
   const el = document.getElementById('content-comments-audit');
   if (!el) return;

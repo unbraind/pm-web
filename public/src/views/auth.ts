@@ -7,6 +7,11 @@ import { bootApp } from '../app.js';
 import { t, translateError } from '../i18n.js';
 import type { User } from '../types.js';
 
+/**
+ * Fetches the OIDC provider configuration and shows or hides the single
+ * sign-on login button and divider based on whether it is enabled. Both
+ * elements are hidden when the config request fails.
+ */
 async function configureOidcLogin(): Promise<void> {
   const button = document.getElementById('oidc-login') as HTMLButtonElement | null;
   const divider = document.getElementById('oidc-divider') as HTMLElement | null;
@@ -22,10 +27,21 @@ async function configureOidcLogin(): Promise<void> {
   }
 }
 
+/**
+ * Redirects the browser to the server endpoint that begins the single
+ * sign-on authentication flow.
+ */
 export function startOidcLogin(): void {
   window.location.assign('/api/auth/oidc/start');
 }
 
+/**
+ * Switches the authentication panel between login and register modes,
+ * updating tab highlighting, the visible name field, and the translated
+ * title, subtitle, and button labels.
+ *
+ * @param tab - 'login' or 'register'.
+ */
 export function switchAuthTab(tab: 'login' | 'register'): void {
   state.authTab = tab;
   document.getElementById('tab-login')?.classList.toggle('active', tab==='login');
@@ -42,6 +58,13 @@ export function switchAuthTab(tab: 'login' | 'register'): void {
   if (authError) authError.style.display = 'none';
 }
 
+/**
+ * Handles the form submission: posts the entered credentials to either the
+ * login or register endpoint depending on the active tab, stores the returned
+ * user, and boots the application. Shows a translated error message on failure.
+ *
+ * @param e - form submit event.
+ */
 export async function submitAuth(e: Event): Promise<void> {
   e.preventDefault();
   const btn = document.getElementById('auth-submit') as HTMLButtonElement | null;
@@ -78,6 +101,10 @@ export async function submitAuth(e: Event): Promise<void> {
   }
 }
 
+/**
+ * Signs the current user out by calling the logout endpoint, clears local
+ * state, and returns to the login screen.
+ */
 export async function logout(): Promise<void> {
   try { await api('POST','/auth/logout',{}); } catch(_) { /* ignore */ }
   state.user = null;
@@ -86,6 +113,10 @@ export async function logout(): Promise<void> {
   showAuth();
 }
 
+/**
+ * Displays the authentication screen, hides the main application view, and
+ * refreshes the single sign-on button state.
+ */
 export function showAuth(): void {
   const authScreen = document.getElementById('auth-screen');
   const mainApp = document.getElementById('main-app');

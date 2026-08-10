@@ -19,6 +19,19 @@ const ITEM_DIRS = [
 // files are swept round-robin across ticks so I/O stays bounded (see
 // stepWorkspaceSweep); overridable via PM_WATCH_MAX_FILES_PER_TICK.
 const DEFAULT_MAX_FILES_PER_TICK = 8_000;
+/**
+ * Read a positive-integer environment variable, with a fallback.
+ *
+ * Returns the parsed integer when the variable is set and the raw value parses
+ * as a positive integer via `Number.parseInt`; otherwise returns `fallback`.
+ * Because `parseInt` parses a leading integer prefix, values like `"500ms"`
+ * parse as `500` and `"1.5"` truncates to `1`. Non-numeric, zero, or negative
+ * values fall back rather than throwing.
+ *
+ * @param name - The environment variable name.
+ * @param fallback - Value used when unset or invalid.
+ * @returns The parsed positive integer, or the fallback.
+ */
 function positiveIntEnv(name, fallback) {
     const raw = process.env[name];
     if (!raw)
@@ -29,6 +42,18 @@ function positiveIntEnv(name, fallback) {
 // FNV-1a (32-bit), computed over UTF-8 bytes via `Math.imul` — fast, no BigInt
 // per byte and no allocation. Used to bind each file's path to its mtime so the
 // aggregate fingerprint below can't be aliased by rearranging raw mtimes.
+/**
+ * Compute a 32-bit FNV-1a hash of a string.
+ *
+ * Folds each character code (via `charCodeAt`) into the running hash with the
+ * FNV prime `0x01000193` using `Math.imul`, and returns the unsigned 32-bit
+ * result (`>>> 0`). Used to bind a file path to its mtime so the aggregate
+ * workspace fingerprint resists aliasing by rearranging raw mtimes, though the
+ * 32-bit hash cannot guarantee collision freedom.
+ *
+ * @param str - The string to hash.
+ * @returns The unsigned 32-bit FNV-1a hash.
+ */
 function fnv1a32(str) {
     let h = 0x811c9dc5;
     for (let i = 0; i < str.length; i += 1) {
@@ -48,6 +73,18 @@ function fileFingerprint(subdir, name, mtimeMs) {
 // cheap regardless of project size: one `readdir` syscall per subdir, names
 // only — it performs NO `stat` calls. The expensive per-file `stat` work is what
 // the round-robin sweep below bounds per tick.
+/**
+ * List every eligible item file under a pm workspace, deterministically.
+ *
+ * Reads each item-type directory in {@link ITEM_DIRS} for `.toon` files and
+ * the `history` directory for `.jsonl` files, names sorted within each, and
+ * returns them in that fixed order. Performs only `readdir` calls (no `stat`),
+ * so it is cheap regardless of project size; directories that do not exist are
+ * silently skipped.
+ *
+ * @param pmDir - The `.agents/pm` directory of a project.
+ * @returns The eligible files as `{ subdir, name }` pairs.
+ */
 async function enumerateEligibleFiles(pmDir) {
     const files = [];
     const collect = async (subdir, ext) => {
@@ -70,6 +107,20 @@ async function enumerateEligibleFiles(pmDir) {
     await collect("history", ".jsonl");
     return files;
 }
+/**
+ * Compute a one-shot change-detection signature for a whole workspace.
+ *
+ * Enumerates every eligible file, `stat`s each one, and folds a per-file
+ * fingerprint (path bound to mtime) into a `count`, an XOR accumulator, and a
+ * sum (wrapping mod 2^32) so distinct file/mtime arrangements are unlikely to
+ * share the same `count:xor:sum` string (though the 32-bit fingerprint cannot
+ * guarantee collision freedom). Files that vanish between `readdir` and
+ * `stat` are ignored. This stats every file in one pass; the live watcher uses
+ * the bounded {@link stepWorkspaceSweep} variant instead.
+ *
+ * @param dir - A project root (`<PROJECTS_ROOT>/<userId>/<slug>`).
+ * @returns The workspace signature string.
+ */
 export async function computeWorkspaceSignature(dir) {
     // dir is a project root: <PROJECTS_ROOT>/<userId>/<slug>.
     // Detect out-of-band changes without recursive inotify or per-file memory.

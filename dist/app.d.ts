@@ -17,6 +17,22 @@ import { type Express } from "express";
 export declare const LEGAL_PAGES: readonly ["legal-notice", "privacy-policy", "terms", "cookie-settings"];
 /** German short-path aliases that 308-redirect to the canonical legal pages. */
 export declare const LEGAL_REDIRECTS: Record<string, string>;
+/**
+ * Resolve the directory that serves the standalone legal-page HTML.
+ *
+ * With no `PM_WEB_LEGAL_DIR` configured (or a blank value) the bundled
+ * `public/` directory is returned, whose placeholder templates are English.
+ * When an operator overlay is set it is validated strictly before use: the path
+ * must be absolute, must `realpath`-resolve to a real directory, and every one
+ * of the {@link LEGAL_PAGES} must exist there as a regular (non-symlink) file
+ * whose real path stays inside the overlay root and is readable. Any failure
+ * throws with a specific message, so a half-configured overlay never silently
+ * falls back to the placeholders.
+ *
+ * @param env - Environment to read `PM_WEB_LEGAL_DIR` from; defaults to
+ *   `process.env` so callers (and tests) can inject a controlled environment.
+ * @returns The real, resolved directory path holding the legal HTML files.
+ */
 export declare function resolveLegalPagesDir(env?: NodeJS.ProcessEnv): string;
 /**
  * Build the Express application with all middleware, static assets, legal

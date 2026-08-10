@@ -10,6 +10,14 @@ sharesRouter.use(requireAuth);
 sharesRouter.use(requireUuidParams("id", "projectId"));
 sharesRouter.param("shareId", uuidParamGuard("shareId"));
 // Helper: verify project ownership for sharing operations
+/**
+ * Report whether the given user owns the given project.
+ *
+ * Sharing and share-management operations are owner-only, so this checks that
+ * a `pm_projects` row exists with both the project id and the user id. Returns
+ * a boolean (callers turn a `false` into a 404 rather than revealing that the
+ * project exists but is not theirs).
+ */
 async function verifyProjectOwner(userId, projectId) {
     const result = await pool.query(`SELECT id FROM pm_projects WHERE id = $1 AND user_id = $2`, [projectId, userId]);
     return result.rows.length > 0;

@@ -12,6 +12,13 @@ const stateCookieOptions = {
     path: "/api/auth/oidc",
 };
 let cachedDiscovery = null;
+/**
+ * Return the enabled OIDC settings or throw a 404 flow error.
+ *
+ * Resolves configuration from the environment and, when OIDC is not enabled,
+ * throws {@link OidcFlowError} (`oidc_disabled`, 404) so the route can render
+ * the error; otherwise returns the validated {@link OidcSettings}.
+ */
 function enabledSettings() {
     const settings = resolveOidcSettings();
     if (!settings.enabled) {
@@ -19,6 +26,17 @@ function enabledSettings() {
     }
     return settings;
 }
+/**
+ * Resolve and memoize the openid-client discovery configuration.
+ *
+ * Caches by a fingerprint of issuer/client id/client secret so a config change
+ * triggers a fresh discovery; a failed discovery clears the cached entry for
+ * that fingerprint so the next attempt retries. Returns the shared promise so
+ * concurrent login starts share one discovery round-trip.
+ *
+ * @param settings - The enabled OIDC settings.
+ * @returns A promise resolving to the provider configuration.
+ */
 function discoveryConfiguration(settings) {
     const fingerprint = crypto
         .createHash("sha256")
@@ -34,6 +52,17 @@ function discoveryConfiguration(settings) {
     }
     return cachedDiscovery.promise;
 }
+/**
+ * Perform OIDC discovery and adapt the token auth method when needed.
+ *
+ * Runs `openid-client` discovery against the issuer; when the provider
+ * supports `client_secret_basic` but not `client_secret_post`, rebuilds the
+ * configuration to send the basic-auth header. Returns the resulting
+ * configuration for {@link discoveryConfiguration} to cache.
+ *
+ * @param settings - The enabled OIDC settings.
+ * @returns The resolved provider configuration.
+ */
 async function discoverProvider(settings) {
     const issuer = new URL(settings.issuer);
     const initial = await discovery(issuer, settings.clientId, settings.clientSecret);
@@ -45,6 +74,16 @@ async function discoverProvider(settings) {
     }
     return initial;
 }
+/**
+ * Map a provider-returned `error` query value to an {@link OidcFlowError}.
+ *
+ * `access_denied` becomes a 403 "login canceled/denied" error; any other
+ * non-empty string becomes a generic provider error. An empty/non-string
+ * value returns `null`, meaning "no provider error to report".
+ *
+ * @param value - The raw `error` query parameter from the callback.
+ * @returns A flow error to throw, or `null` when there is none.
+ */
 export function providerAuthorizationError(value) {
     if (typeof value !== "string" || !value)
         return null;
@@ -53,6 +92,18 @@ export function providerAuthorizationError(value) {
     }
     return new OidcFlowError("provider_error", "The OpenID Connect provider could not complete login.");
 }
+/**
+ * Build the exact callback URL to hand to the token exchange.
+ *
+ * Uses the configured redirect URI's origin/path and copies the incoming
+ * request's query string onto it, because the provider echoes the authorization
+ * response as query params on that URL and openid-client validates the full
+ * callback URL.
+ *
+ * @param req - The callback request.
+ * @param configuredRedirectUri - The configured `OIDC_REDIRECT_URI`.
+ * @returns The callback URL with the provider's query string applied.
+ */
 function callbackUrl(req, configuredRedirectUri) {
     const url = new URL(configuredRedirectUri);
     const incoming = new URL(req.originalUrl, "http://localhost");

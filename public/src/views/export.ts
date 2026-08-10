@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 
+/** Renders the export and import panel for the current project: JSON/CSV/YAML export buttons and a file picker for importing a JSON or YAML file. */
 export async function renderExportView(): Promise<void> {
   const el = document.getElementById('content-export');
   if (!el) return;
@@ -55,6 +56,7 @@ export async function renderExportView(): Promise<void> {
     </div>`;
 }
 
+/** Exports the current project's items in the given format ("csv" via the server export endpoint, "json" or "yaml" assembled client-side from the full list), then triggers a browser download and reports the count. */
 export async function exportData(format: string): Promise<void> {
   const statusEl = document.getElementById('export-status');
   if (!state.currentProject || !statusEl) return;
@@ -142,6 +144,7 @@ export async function exportData(format: string): Promise<void> {
   }
 }
 
+/** Triggers a browser download of the given text content as a Blob with the supplied filename and MIME type. */
 function downloadFile(content: string, filename: string, mime: string): void {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -154,6 +157,7 @@ function downloadFile(content: string, filename: string, mime: string): void {
 
 // Parse a minimal YAML items list into an array of objects
 // Handles the pm-web export YAML format (flat key: value under "- " list items)
+/** Parses the pm-web YAML export format into an array of item records, recognizing only the flat `key: value` entries under an `items:` list. */
 function parseYamlItems(text: string): Record<string, unknown>[] {
   const items: Record<string, unknown>[] = [];
   // Strip comment lines and find items block
@@ -201,6 +205,7 @@ function parseYamlItems(text: string): Record<string, unknown>[] {
   return items;
 }
 
+/** Converts a single YAML scalar string into its JavaScript value, handling null, booleans, numbers, quoted strings, and inline `[a, b]` lists. */
 function parseYamlValue(v: string): unknown {
   if (!v || v === 'null') return null;
   if (v === 'true') return true;
@@ -217,6 +222,7 @@ function parseYamlValue(v: string): unknown {
   return v;
 }
 
+/** Reads a JSON or YAML file, parses up to 500 item records, maps recognized fields, POSTs them to the project import endpoint, and reports how many were created versus failed. */
 export async function importData(file: File): Promise<void> {
   if (!file || !state.currentProject) return;
   const statusEl = document.getElementById('export-status');

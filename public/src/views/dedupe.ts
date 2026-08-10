@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml, typeIcon, statusBadge } from '../utils.js';
 import type { DedupeResponse, DedupeGroup } from '../api-types.js';
 
+/** Renders the dedupe audit for the current project, showing each group of potential duplicate items with a similarity score and clickable member rows. */
 export async function renderDedupeAuditView(): Promise<void> {
   const el = document.getElementById('content-dedupe');
   if (!el) return;

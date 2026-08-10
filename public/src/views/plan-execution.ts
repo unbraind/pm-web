@@ -18,6 +18,7 @@ type PlanInput = {
   status?: string;
 };
 
+/** A normalized plan step carrying its status and dependency refs plus derived readiness, including the done/blocked flags and the lists of dependencies that are missing or still incomplete. */
 export type AnalyzedPlanStep = {
   ref: string;
   title: string;
@@ -32,6 +33,7 @@ export type AnalyzedPlanStep = {
   original: PlanStepInput;
 };
 
+/** Aggregated execution state for a plan: step counts, the waiting/ready/blocked/all step lists, a ref-to-step lookup map, completion percentage, and the next ready step (if any). */
 export type PlanExecutionSnapshot = {
   totalSteps: number;
   completedSteps: number;
@@ -58,6 +60,7 @@ function normalizeStepRef(step: PlanStepInput, index: number): string {
   return candidate || `step-${index + 1}`;
 }
 
+/** Returns the de-duplicated, trimmed dependency refs declared on a step, accepting either the camelCase or snake_case dependency field. */
 function normalizeDependsOn(step: PlanStepInput): string[] {
   const raw = Array.isArray(step.dependsOn)
     ? step.dependsOn
@@ -74,6 +77,7 @@ function formatStepLine(step: AnalyzedPlanStep): string {
   return `- [${step.ref}] ${step.title}`;
 }
 
+/** Returns a human-readable reason a step is waiting — joining its incomplete dependencies and unresolved (missing) ones — or the literal "waiting" when there are none. */
 function formatWaitReason(step: AnalyzedPlanStep): string {
   const blockers = [
     ...step.incompleteDependencies,
@@ -83,6 +87,7 @@ function formatWaitReason(step: AnalyzedPlanStep): string {
   return `waiting on ${blockers.join(', ')}`;
 }
 
+/** Returns the combined list of a step's incomplete dependencies and its unresolved (missing) dependencies, with each missing ref suffixed by " (missing)". */
 function stepDependencyBlockers(step: AnalyzedPlanStep): string[] {
   return [
     ...step.incompleteDependencies,
@@ -90,6 +95,7 @@ function stepDependencyBlockers(step: AnalyzedPlanStep): string[] {
   ];
 }
 
+/** Builds an execution snapshot from raw plan steps: normalizes each step, resolves dependencies against completed steps, and partitions the not-done steps into ready, waiting, and blocked buckets along with completion percentage and the next ready step. */
 export function buildPlanExecutionSnapshot(steps: PlanStepInput[]): PlanExecutionSnapshot {
   const normalized: AnalyzedPlanStep[] = steps.map((step, index) => {
     const status = normalizeStatus(step.status);
@@ -162,6 +168,7 @@ export function buildPlanExecutionSnapshot(steps: PlanStepInput[]): PlanExecutio
   };
 }
 
+/** Builds a markdown agent brief for a plan, summarizing plan metadata and the ready, waiting, and blocked steps from the execution snapshot, closing with a single execution instruction. */
 export function buildPlanAgentBrief(plan: PlanInput, snapshot: PlanExecutionSnapshot): string {
   const title = (plan.title || plan.id || '(untitled)').trim();
   const lines: string[] = [
@@ -213,6 +220,7 @@ export function buildPlanAgentBrief(plan: PlanInput, snapshot: PlanExecutionSnap
   return lines.join('\n');
 }
 
+/** Builds a markdown prompt for executing the next ready step (or the step matching stepRef), including its readiness, satisfied or pending dependencies, and execution requirements; returns a no-ready-step message when none applies. */
 export function buildNextStepPrompt(
   plan: PlanInput,
   snapshot: PlanExecutionSnapshot,

@@ -127,6 +127,9 @@ interface SyncEvent extends ExtendableEvent {
   readonly tag: string;
 }
 
+/** Open (creating on first run) the IndexedDB database backing the offline
+ * mutation queue, ensuring the `mutations` object store and its timestamp
+ * index exist. Resolves with the ready database handle. */
 function openMutationDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(MUTATION_DB, 1);
@@ -185,18 +188,32 @@ async function queueMutation(method: string, path: string, body: unknown): Promi
   }
 }
 
-async function getQueuedMutations(): Promise<QueuedMutation[]> {
+/** The outcome of reading the mutation queue: either the mutations were read
+ * successfully, or the read failed and the queue state is unknown. The
+ * discriminator lets callers distinguish an empty queue from an unreadable
+ * one instead of collapsing both into `[]`. */
+type QueueReadResult =
+  | { ok: true; mutations: QueuedMutation[] }
+  | { ok: false; error: unknown };
+
+/** Read every queued mutation out of IndexedDB in insertion order. Returns
+ * `{ ok: true, mutations }` on success (including an empty array when the
+ * queue is genuinely empty) or `{ ok: false, error }` on storage failure so
+ * callers can distinguish an empty queue from an unreadable one instead of
+ * treating both as drained. */
+async function getQueuedMutations(): Promise<QueueReadResult> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readonly');
     const store = tx.objectStore(MUTATION_STORE);
-    return await new Promise<QueuedMutation[]>((resolve, reject) => {
+    const mutations = await new Promise<QueuedMutation[]>((resolve, reject) => {
       const request = store.getAll();
       request.onsuccess = () => resolve(request.result as QueuedMutation[]);
       request.onerror = () => reject(request.error);
     });
-  } catch {
-    return [];
+    return { ok: true, mutations };
+  } catch (error) {
+    return { ok: false, error };
   }
 }
 
@@ -218,10 +235,22 @@ async function clearMutation(id: number): Promise<boolean> {
   }
 }
 
+/** Replay queued mutations to the API in order, removing each on success and
+ * stopping at the first failure so it can retry later, then post-message the
+ * connected clients with how many were replayed or remain. A storage read
+ * failure is never treated as a drained queue: the initial read failure
+ * aborts the flush, and a final read failure reports a partial result rather
+ * than claiming all mutations were replayed. */
 async function flushMutationQueue(): Promise<void> {
-  const mutations = await getQueuedMutations();
+  const read = await getQueuedMutations();
+  if (!read.ok) {
+    console.warn('Failed to read mutation queue:', read.error);
+    return;
+  }
+  const mutations = read.mutations;
   if (mutations.length === 0) return;
 
+  let replayed = 0;
   for (const mut of mutations) {
     try {
       const opts: RequestInit = {
@@ -238,6 +267,7 @@ async function flushMutationQueue(): Promise<void> {
           // avoid duplicate replays on the next flush; it will retry later.
           break;
         }
+        replayed++;
       } else {
         console.warn('Offline mutation failed:', mut.method, mut.path, res.status);
         // Stop processing on first failure — try again later
@@ -250,8 +280,25 @@ async function flushMutationQueue(): Promise<void> {
   }
 
   // Notify clients about replayed mutations
-  const remaining = await getQueuedMutations();
+  const remainingRead = await getQueuedMutations();
   const clients = await sw.clients.matchAll();
+  if (!remainingRead.ok) {
+    // Could not re-read the queue — do NOT claim all mutations were replayed.
+    // Report a partial result with the known replayed count so unreplayed
+    // mutations are not treated as drained.
+    console.warn('Failed to re-read mutation queue after replay:', remainingRead.error);
+    if (mutations.length > 0) {
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'MUTATIONS_PARTIAL',
+          replayed,
+          remaining: mutations.length - replayed,
+        });
+      });
+    }
+    return;
+  }
+  const remaining = remainingRead.mutations;
   if (remaining.length === 0 && mutations.length > 0) {
     clients.forEach((client) => {
       client.postMessage({ type: 'MUTATIONS_REPLAYED', count: mutations.length });
@@ -446,3 +493,20 @@ sw.addEventListener('sync', (event: Event) => {
 sw.addEventListener('online', () => {
   void flushMutationQueue();
 });
+
+// ── Test-only: expose queue internals ──
+// app.ts registers this file as a CLASSIC worker (`register('/sw.js', ...)`
+// with no `type: 'module'`), so it cannot use `export` — a module-mode script
+// fails to load under a classic registration, which would take offline support
+// down. That leaves a global as the only seam a test can reach.
+//
+// It is inert in the browser because a classic service worker is the only
+// script that ever runs in its own global scope: no page script, extension or
+// import shares it, so nothing exists that could set the flag before this line
+// executes. That invariant is the registration mode, not the flag name — if
+// app.ts ever registers with `type: 'module'`, replace this with real exports
+// rather than keeping both.
+const __testGlobals = globalThis as unknown as Record<string, unknown>;
+if (__testGlobals.__swTestHarness) {
+  __testGlobals.__swInternals = { getQueuedMutations, flushMutationQueue, queueMutation, clearMutation };
+}

@@ -1,13 +1,45 @@
 import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult } from "@unbrained/pm-cli/sdk";
 export { PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult };
+/**
+ * Async semaphore bounding concurrent work to a fixed `limit`.
+ *
+ * Used to cap how many pm commands run at once: callers {@link Semaphore.acquire}
+ * before work and invoke the returned release function after, so at most `limit`
+ * critical sections execute concurrently.
+ */
 export declare class Semaphore {
     private active;
     private readonly waiting;
     private readonly limit;
     constructor(limit: number);
+    /**
+     * Reserve a slot, waiting when the limit is reached, and return a release fn.
+     *
+     * When fewer than `limit` slots are active, this increments the count
+     * immediately; otherwise it awaits until a prior release wakes this caller.
+     * The returned function releases exactly once (subsequent calls are no-ops):
+     * if a waiter exists it is resumed, otherwise the active count is decremented.
+     *
+     * @returns A function that releases the acquired slot.
+     */
     acquire(): Promise<() => void>;
 }
+/**
+ * Resolve the filesystem root under which every project workspace lives.
+ *
+ * Reads `PROJECTS_ROOT`, defaulting to `/app/projects` (the in-container
+ * location). Each project is stored at `<root>/<userId>/<slug>`.
+ *
+ * @returns The projects root directory.
+ */
 export declare function projectsRoot(): string;
+/**
+ * Resolve the on-disk directory for one project workspace.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ * @returns `<projectsRoot>/<userId>/<slug>`.
+ */
 export declare function getProjectDir(userId: string, slug: string): string;
 /**
  * Resolve a project id to its on-disk directory, or `null` when the project row
@@ -25,8 +57,34 @@ export declare function getProjectDir(userId: string, slug: string): string;
  * therefore means "the row is absent", which is safe to cache.
  */
 export declare function resolveProjectDir(projectId: string): Promise<string | null>;
+/**
+ * Create and initialize a project workspace on disk.
+ *
+ * Makes the project directory, runs `pm init <prefix>` serialized against the
+ * workspace, configures local Ollama search, and ensures the graph extension is
+ * installed. Throws when `pm init` fails.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ * @param prefix - The pm item-id prefix for the workspace.
+ */
 export declare function initProject(userId: string, slug: string, prefix: string): Promise<void>;
+/**
+ * Report whether a project workspace is already initialized on disk.
+ *
+ * True when the workspace's `.agents/pm/settings.json` exists, the marker `pm
+ * init` writes. Used to decide whether to init before use.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ * @returns True when the workspace appears initialized.
+ */
 export declare function projectExists(userId: string, slug: string): boolean;
+/**
+ * Options for {@link runPm}: the pm arguments to run, the project owner/slug
+ * that locate the workspace, optional stdin, a JSON-output request, and an
+ * optional per-call timeout.
+ */
 export interface PmRunOptions {
     args: string[];
     userId: string;
@@ -133,6 +191,20 @@ export declare function evictPmClient(pmRoot: string): void;
  * Returns `{}` when absent so resolvers fall back to their built-in defaults.
  */
 export declare function readPmSettings(userId: string, slug: string): unknown;
+/**
+ * Run a pm command against a project workspace.
+ *
+ * Resolves the workspace directory and dispatches supported actions in-process
+ * through the cached SDK client (no spawn) when there is no stdin input or
+ * custom timeout; otherwise spawns the pm binary as a fallback. Both paths run
+ * inside {@link runSerialized}, so same-workspace calls never overlap. When
+ * `jsonOutput` is set and the command succeeds with stdout, the output is parsed
+ * as JSON (a parse failure yields `{ raw: stdout }`). Never throws: errors are
+ * returned in the {@link PmRunResult}.
+ *
+ * @param opts - The command, project, and I/O options.
+ * @returns The stdout/stderr, success flag, parsed JSON (when requested), and exit code.
+ */
 export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
 /**
  * Reconstruct a single item at a one-based version or ISO timestamp using the
@@ -148,4 +220,14 @@ export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
  *   invalid ref or a version/timestamp outside the available history range.
  */
 export declare function runGetItemAt(userId: string, slug: string, itemId: string, ref: string): Promise<GetItemAtResult>;
+/**
+ * Delete a project workspace from disk.
+ *
+ * Evicts the cached SDK client for the project's pm root first (so no stale
+ * client outlives the deletion), then removes the whole workspace directory
+ * recursively. A missing directory is not an error.
+ *
+ * @param userId - The owning user's id.
+ * @param slug - The project slug.
+ */
 export declare function deleteProjectDir(userId: string, slug: string): void;

@@ -6,6 +6,7 @@
 //           spatial partitioning, edge bundling, hierarchical layout
 // ═══════════════════════════════════════════════════════════════
 
+/** Display model for a single node rendered on the graph canvas: the id and label plus type, status, lane, degree, and optional tags, priority, and assignee used for sizing and coloring. */
 export interface CanvasNode {
   id: string;
   label: string;
@@ -26,6 +27,7 @@ export interface CanvasEdge {
 
 export type LayoutMode = 'force' | 'hierarchical';
 
+/** Configuration passed to the GraphCanvas constructor: selection, open, and context-menu callbacks plus optional layout, edge-bundling, and PNG export hooks. */
 export interface GraphCanvasOptions {
   onSelectNode(id: string | null): void;
   onOpenNode(id: string): void;
@@ -161,6 +163,7 @@ function truncate(text: string, maxLen: number): string {
   return text.length > maxLen ? text.slice(0, maxLen - 1) + '…' : text;
 }
 
+/** Parses a six-digit `#rrggbb` hex color string into red, green, and blue byte values, returning null when the input does not match that format. */
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!m) return null;
@@ -174,6 +177,7 @@ function hexAlpha(hex: string, a: number): string {
   return `rgba(${c.r},${c.g},${c.b},${a})`;
 }
 
+/** Computes starting positions for the given nodes arranged along a golden-angle (sunflower) spiral so the force simulation begins evenly spread. */
 function initialPositions(nodes: CanvasNode[]): Array<{ x: number; y: number }> {
   const golden = 2.399963;
   return nodes.map((_, i) => {
@@ -217,6 +221,7 @@ function convexHull(pts: Array<{ x: number; y: number }>): Array<{ x: number; y:
 }
 
 // escHtml is imported from utils.ts in graph.ts — canvas uses its own for DOM tooltip only
+/** Escapes the four HTML-significant characters (ampersand, angle brackets, and double quote) so a string can be safely interpolated into DOM markup such as the canvas tooltip. */
 function escHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -228,6 +233,7 @@ function escHtml(s: string): string {
 // ═══════════════════════════════════════════════════════════════
 // GraphCanvas class
 // ═══════════════════════════════════════════════════════════════
+/** Canvas 2D renderer and force-directed physics simulation for the knowledge graph: draws nodes, edges, particles, minimap, and HUD, and handles pan, zoom, drag, select, and keyboard interaction. */
 export class GraphCanvas {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -365,6 +371,7 @@ export class GraphCanvas {
 
   // ── Public API ─────────────────────────────────────────────
 
+  /** Loads the given nodes and edges into the simulation, preserving prior node positions where possible, precomputing bidirectional edge pairs, recoloring nodes, scheduling the initial zoom-to-fit, and applying the hierarchical layout when selected. */
   setData(nodes: CanvasNode[], edges: CanvasEdge[]): void {
     const prevPos = new Map(this.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
     const initPos = initialPositions(nodes);
@@ -425,6 +432,7 @@ export class GraphCanvas {
     this.hideTooltip();
   }
 
+  /** Merges a partial filter into the current filter, rebuilding keyboard-navigation order, resetting flow particles when the selection changes, and recoloring nodes when the color mode or tag changes. */
   setFilter(filter: Partial<CanvasFilter>): void {
     const prevMode = this.filter.colorMode;
     const prevTag  = this.filter.colorTag;
@@ -440,9 +448,11 @@ export class GraphCanvas {
     else if (filter.colorTag !== undefined && filter.colorTag !== prevTag) this.recolorNodes();
   }
 
+  /** Returns the current tag-to-color map used when coloring nodes by tag. */
   getTagColorMap(): Map<string, string> { return this.tagColorMap; }
 
   // Live physics control — used by the physics sliders panel
+  /** Updates one or more live physics constants (repulsion, link distance, center gravity, link strength) and reheats the simulation so the new values take effect. */
   setPhysicsParams(params: {
     repulsion?: number;
     linkDistance?: number;
@@ -456,10 +466,12 @@ export class GraphCanvas {
     this.reheat();
   }
 
+  /** Returns the current physics constants (repulsion, link distance, center force, and link strength) so external sliders can reflect them. */
   getPhysicsParams(): { repulsion: number; linkDistance: number; centerForce: number; linkStrength: number } {
     return { repulsion: this.REPULSE, linkDistance: this.REST_LEN, centerForce: this.CENTER, linkStrength: this.SPRING };
   }
 
+  /** Sets the selected node id, resets flow particles, and flies the camera to the node when an id is given. */
   setSelected(id: string | null): void {
     this.filter = { ...this.filter, selectedId: id };
     this.particles = [];
@@ -470,11 +482,13 @@ export class GraphCanvas {
     }
   }
 
+  /** Flies the camera to center on the node with the given id, if it exists. */
   jumpToNode(id: string): void {
     const node = this.nodeMap.get(id);
     if (node) this.flyTo(node);
   }
 
+  /** Animates the camera to frame all visible nodes with padding by setting a fly-to target computed from their bounding box. */
   fitView(): void {
     if (!this.nodes.length) return;
     const vis = this.filter.visibleNodeIds;
@@ -499,17 +513,20 @@ export class GraphCanvas {
     };
   }
 
+  /** Pauses or resumes the physics simulation and returns the new paused state; resuming also bumps the simulation alpha. */
   togglePhysics(): boolean {
     this.paused = !this.paused;
     if (!this.paused) this.alpha = Math.max(this.alpha, 0.05);
     return this.paused;
   }
 
+  /** Resumes the simulation and sets the alpha to 0.3 so nodes re-settle into a new layout. */
   reheat(): void {
     this.alpha  = 0.3;
     this.paused = false;
   }
 
+  /** Switches to the given layout, applying the topological hierarchical layout or, for force mode, jittering node positions and reheating the simulation. */
   setLayout(layout: LayoutMode): void {
     if (this.layout === layout) return;
     this.layout = layout;
@@ -525,10 +542,12 @@ export class GraphCanvas {
     }
   }
 
+  /** Enables or disables edge bundling, which routes many same-type edges with control points biased toward a shared centroid. */
   setEdgeBundling(enabled: boolean): void {
     this.edgeBundling = enabled;
   }
 
+  /** Exports the canvas as a PNG, delegating to the configured callback if provided, otherwise triggering a browser download of the canvas image data. */
   exportPng(): void {
     if (this.onExportPng) {
       this.onExportPng(this.canvas);
@@ -783,6 +802,7 @@ export class GraphCanvas {
     return best;
   }
 
+  /** Tears down the canvas: stops the animation loop and initial-fit timer, aborts bound event listeners, disconnects the ResizeObserver, and removes the canvas and its tooltip from the DOM. */
   destroy(): void {
     this.destroyed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);

@@ -17,6 +17,14 @@ async function isUserAdmin(userId: string): Promise<boolean> {
   return result.rows[0]?.is_admin === true;
 }
 
+/**
+ * Express middleware that admits only admin users.
+ *
+ * Requires prior {@link requireAuth}; reads the authenticated user's id, looks
+ * up `is_admin`, and calls `next()` when true. Non-admins get a 403 JSON error;
+ * a database failure is logged and returned as a 500 rather than leaking the
+ * error or letting the request through.
+ */
 async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await pool.query(`SELECT is_admin FROM pm_users WHERE id = $1`, [req.user!.userId]);
@@ -219,6 +227,13 @@ router.get("/audit", async (req: AuthRequest, res) => {
   }
 });
 
+/**
+ * Append one row to the admin audit log, best-effort.
+ *
+ * Inserts `actor_id`, `action`, and `description` into `pm_admin_audit`. A
+ * write failure is only logged, never thrown, so an audit-log problem cannot
+ * fail a user-facing admin action that already succeeded.
+ */
 async function logAudit(actorId: string, action: string, description: string): Promise<void> {
   try {
     await pool.query(

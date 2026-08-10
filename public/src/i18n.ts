@@ -24,6 +24,8 @@ export const LOCALE_STORAGE_KEY = 'pmLocale';
 
 /** Locales shipped by this package. The first entry is the default/fallback. */
 export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'zh'] as const;
+/** String literal union of every locale code this package ships a catalog
+ * for, derived from `SUPPORTED_LOCALES`. */
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 const DEFAULT_LOCALE: SupportedLocale = 'en';
@@ -166,7 +168,8 @@ export async function initI18n(): Promise<void> {
   applyTranslations();
 }
 
-/** Current active locale. */
+/** Return the locale currently selected for the session, set by `initI18n` or
+ * `setLocale`. Defaults to the English fallback before initialization. */
 export function getLocale(): SupportedLocale {
   return currentLocale;
 }
@@ -232,6 +235,10 @@ export function applyTranslations(root?: ParentNode): void {
   bindAttr(scope, '[data-i18n-aria]', 'data-i18n-aria', (el, v) => { el.setAttribute('aria-label', v); });
 }
 
+/** For every element in `scope` matching `selector`, read its `attr` data
+ * key, resolve the translation (with optional `data-i18n-params`
+ * substitutions), and pass the result to `setter`. Used to bind each
+ * `data-i18n*` flavor. */
 function bindAttr(
   scope: ParentNode,
   selector: string,
@@ -247,6 +254,8 @@ function bindAttr(
   });
 }
 
+/** Parse a `data-i18n-params` JSON string into a parameter object, returning
+ * `undefined` when the JSON is missing, malformed, or not a plain object. */
 function safeParseParams(json: string): Record<string, string | number> | undefined {
   try {
     const parsed = JSON.parse(json) as unknown;
@@ -274,6 +283,9 @@ export function translateError(message: string): string {
 // Lazy reverse map: English error text → catalog key. Built from enCatalog
 // so it tracks the catalog without a hand-maintained second table.
 let cachedErrorReverse: Map<string, string> | null = null;
+/** Build and cache a reverse lookup from English error text to its catalog
+ * key (covering only `error.*` entries), so server error strings can be
+ * mapped back to translatable keys at the display layer. */
 function errorReverseMap(): Map<string, string> {
   if (cachedErrorReverse) return cachedErrorReverse;
   const map = new Map<string, string>();
