@@ -165,43 +165,52 @@ test("sw queue: an empty queue flush is a no-op — the two outcomes do not coll
   assert.equal(postedMessages.length, 0, "empty queue flush must not post any messages");
 });
 
-test("sw queue: a final read failure after replay does not claim all mutations were replayed", async () => {
-  // First read succeeds with one mutation; the replay loop is skipped because
-  // fetch is not mocked to succeed, so the loop breaks on the first fetch
-  // failure. The second read (remainingRead) fails, so the flush must NOT
-  // post MUTATIONS_REPLAYED.
+test("sw queue: a final read failure after replay reports the known replayed count, not a full drain", async () => {
+  // The mutation must actually replay before the final read fails, otherwise
+  // `replayed` is 0 for the trivial reason that the loop never ran and the
+  // test cannot distinguish a correct count from a hardcoded zero. So fetch
+  // succeeds here: one of the two queued mutations is sent and cleared, then
+  // the second read (remainingRead) fails. The flush must report
+  // MUTATIONS_PARTIAL carrying that count rather than MUTATIONS_REPLAYED.
   openShouldFail = false;
-  getAllResult = [{ id: 1, method: "POST", path: "/items", body: null, timestamp: 0 }];
+  getAllResult = [
+    { id: 1, method: "POST", path: "/items", body: null, timestamp: 0 },
+    { id: 2, method: "POST", path: "/items", body: null, timestamp: 0 },
+  ];
   getAllShouldFail = false;
   postedMessages.length = 0;
 
-  // Override fetch to throw so the replay loop breaks immediately.
   const originalFetch = globalThis.fetch;
-  (globalThis as unknown as Record<string, unknown>).fetch = async () => { throw new Error("network"); };
+  let sent = 0;
+  (globalThis as unknown as Record<string, unknown>).fetch = async () => {
+    sent++;
+    return new Response(null, { status: 204 });
+  };
 
+  const originalGetAll = mockStore.getAll;
   try {
-    // Make the second getQueuedMutations call fail by toggling openShouldFail
-    // after the first call. We use a call counter.
     let callCount = 0;
-    const originalGetAll = mockStore.getAll;
-  (mockStore as unknown as Record<string, unknown>).getAll = () => {
+    (mockStore as unknown as Record<string, unknown>).getAll = () => {
       callCount++;
-      if (callCount === 2) {
-        // Second read — simulate failure at the getAll level
-        return mockRequest([], true);
-      }
-      return mockRequest(getAllResult, false);
+      // The second read is the post-replay re-read; fail only that one.
+      return callCount === 2 ? mockRequest([], true) : mockRequest(getAllResult, false);
     };
 
     await internals.flushMutationQueue();
-
-    (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
   } finally {
+    (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
     (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
   }
 
-  // The flush must not post MUTATIONS_REPLAYED on a final read failure.
-  for (const msg of postedMessages) {
-    assert.notEqual(msg.type, "MUTATIONS_REPLAYED", "final read failure must not claim all replayed");
-  }
+  assert.equal(sent, 2, "both queued mutations must be replayed before the final read fails");
+
+  const partial = postedMessages.find((msg) => msg.type === "MUTATIONS_PARTIAL");
+  assert.ok(partial, "a final read failure must still report a partial result");
+  assert.equal(partial.replayed, 2, "the known replayed count must be reported, not zero");
+  assert.equal(partial.remaining, 0, "remaining is what the failed read could not confirm");
+  assert.equal(
+    postedMessages.filter((msg) => msg.type === "MUTATIONS_REPLAYED").length,
+    0,
+    "a final read failure must never claim the queue drained",
+  );
 });

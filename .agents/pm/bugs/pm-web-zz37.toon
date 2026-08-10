@@ -2,13 +2,21 @@ id: pm-web-zz37
 title: "SW mutation queue: IndexedDB read failure indistinguishable from empty queue"
 description: "getQueuedMutations returned [] on storage failure, making flushMutationQueue treat an unreadable queue as drained — real data-loss bug. Fixed with a discriminated QueueReadResult type so callers can branch on read failure vs empty queue."
 type: Bug
-status: open
-priority: 2
-tags: []
+status: closed
+priority: 1
+tags[4]: data-integrity,offline,regression,service-worker
 created_at: "2026-08-10T05:51:10.714Z"
-updated_at: "2026-08-10T05:51:44.414Z"
+updated_at: "2026-08-10T06:23:18.457Z"
+closed_at: "2026-08-10T06:23:06.119Z"
+completed_at: "2026-08-10T06:23:06.119Z"
 author: pi-agent
-notes[2]{created_at,author,text}:
+resolution: fixed
+expected_result: A failed IndexedDB read is reported as a failure so queued mutations are never treated as drained or replayed
+actual_result: getQueuedMutations returns a discriminated QueueReadResult; the initial read failure aborts the flush and a post-replay read failure posts MUTATIONS_PARTIAL carrying the known replayed count. Reverting the fix fails 2 of the 6 sw-queue tests
+notes[4]{created_at,author,text}:
   "2026-08-10T05:51:39.662Z",pi-agent,"Root cause: getQueuedMutations caught all errors and returned [], collapsing storage failure and empty queue. flushMutationQueue then treated [] as drained. Fix: introduced QueueReadResult discriminated type. flushMutationQueue now detects !ok on initial read (aborts) and final read (reports MUTATIONS_PARTIAL, never MUTATIONS_REPLAYED)."
   "2026-08-10T05:51:44.414Z",pi-agent,"Files changed: public/src/sw.ts (QueueReadResult type, getQueuedMutations, flushMutationQueue). Tests: test/sw-queue.test.ts (6 tests proving read failure != drained, no mutation loss, empty queue != failure, final read failure != all replayed)."
+  "2026-08-10T06:23:17.927Z",claude,"CodeRabbit caught that the item described itself as fixed while its status stayed open, and separately that the partial-replay test could not verify the replayed count because fetch rejected so nothing ever replayed. The second was the substantive one: the test asserted MUTATIONS_PARTIAL but replayed was always zero, and its only assertion was a loop over posted messages that would also have passed had no message been posted at all."
+  "2026-08-10T06:23:18.457Z",claude,"Regression coverage verified by reverting getQueuedMutations to return an ok empty result on failure. Two of the six sw-queue tests fail with the fix reverted and all six pass with it restored, so the tests bind the behaviour rather than merely describing it."
+close_reason: The discriminated QueueReadResult landed with regression tests that fail when it is reverted
 body: ""
