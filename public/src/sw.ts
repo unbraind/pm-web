@@ -495,9 +495,17 @@ sw.addEventListener('online', () => {
 });
 
 // ── Test-only: expose queue internals ──
-// The service worker has no module system, so this is the only way to access
-// these functions from a test harness. The flag is never set in a browser, so
-// this code is inert in production.
+// app.ts registers this file as a CLASSIC worker (`register('/sw.js', ...)`
+// with no `type: 'module'`), so it cannot use `export` — a module-mode script
+// fails to load under a classic registration, which would take offline support
+// down. That leaves a global as the only seam a test can reach.
+//
+// It is inert in the browser because a classic service worker is the only
+// script that ever runs in its own global scope: no page script, extension or
+// import shares it, so nothing exists that could set the flag before this line
+// executes. That invariant is the registration mode, not the flag name — if
+// app.ts ever registers with `type: 'module'`, replace this with real exports
+// rather than keeping both.
 const __testGlobals = globalThis as unknown as Record<string, unknown>;
 if (__testGlobals.__swTestHarness) {
   __testGlobals.__swInternals = { getQueuedMutations, flushMutationQueue, queueMutation, clearMutation };
