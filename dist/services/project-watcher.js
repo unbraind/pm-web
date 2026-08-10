@@ -22,8 +22,10 @@ const DEFAULT_MAX_FILES_PER_TICK = 8_000;
 /**
  * Read a positive-integer environment variable, with a fallback.
  *
- * Returns the parsed integer when the variable is set and parses to a finite,
- * positive value; otherwise returns `fallback`. Non-numeric or non-positive
+ * Returns the parsed integer when the variable is set and the raw value parses
+ * as a positive integer via `Number.parseInt`; otherwise returns `fallback`.
+ * Because `parseInt` parses a leading integer prefix, values like `"500ms"`
+ * parse as `500` and `"1.5"` truncates to `1`. Non-numeric, zero, or negative
  * values fall back rather than throwing.
  *
  * @param name - The environment variable name.
@@ -46,7 +48,8 @@ function positiveIntEnv(name, fallback) {
  * Folds each character code (via `charCodeAt`) into the running hash with the
  * FNV prime `0x01000193` using `Math.imul`, and returns the unsigned 32-bit
  * result (`>>> 0`). Used to bind a file path to its mtime so the aggregate
- * workspace fingerprint cannot be aliased by rearranging raw mtimes.
+ * workspace fingerprint resists aliasing by rearranging raw mtimes, though the
+ * 32-bit hash cannot guarantee collision freedom.
  *
  * @param str - The string to hash.
  * @returns The unsigned 32-bit FNV-1a hash.
@@ -109,10 +112,11 @@ async function enumerateEligibleFiles(pmDir) {
  *
  * Enumerates every eligible file, `stat`s each one, and folds a per-file
  * fingerprint (path bound to mtime) into a `count`, an XOR accumulator, and a
- * sum (wrapping mod 2^32) so distinct file/mtime arrangements produce distinct
- * `count:xor:sum` strings. Files that vanish between `readdir` and `stat` are
- * ignored. This stats every file in one pass; the live watcher uses the bounded
- * {@link stepWorkspaceSweep} variant instead.
+ * sum (wrapping mod 2^32) so distinct file/mtime arrangements are unlikely to
+ * share the same `count:xor:sum` string (though the 32-bit fingerprint cannot
+ * guarantee collision freedom). Files that vanish between `readdir` and
+ * `stat` are ignored. This stats every file in one pass; the live watcher uses
+ * the bounded {@link stepWorkspaceSweep} variant instead.
  *
  * @param dir - A project root (`<PROJECTS_ROOT>/<userId>/<slug>`).
  * @returns The workspace signature string.

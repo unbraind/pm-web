@@ -503,8 +503,9 @@ type DependencyEventKind = "dependency-added" | "dependency-removed";
  * Announce a dependency change to a project's SSE clients.
  *
  * Emits two events for one change: the specific `dependency-added`/
- * `dependency-removed` event, and a generic `item-updated` carrying the same
- * `from`/`to`/`rel`/`userId`, so views keyed on either event type stay in sync.
+ * `dependency-removed` event, and a generic `item-updated` carrying
+ * `itemId`/`change`/`target`/`rel`/`userId` (not the same `from`/`to` fields as
+ * the specific event), so views keyed on either event type stay in sync.
  */
 function broadcastDependencyEvent(
   projectId: string,

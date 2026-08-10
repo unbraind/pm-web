@@ -1,0 +1,14 @@
+id: pm-web-zz37
+title: "SW mutation queue: IndexedDB read failure indistinguishable from empty queue"
+description: "getQueuedMutations returned [] on storage failure, making flushMutationQueue treat an unreadable queue as drained — real data-loss bug. Fixed with a discriminated QueueReadResult type so callers can branch on read failure vs empty queue."
+type: Bug
+status: open
+priority: 2
+tags: []
+created_at: "2026-08-10T05:51:10.714Z"
+updated_at: "2026-08-10T05:51:44.414Z"
+author: pi-agent
+notes[2]{created_at,author,text}:
+  "2026-08-10T05:51:39.662Z",pi-agent,"Root cause: getQueuedMutations caught all errors and returned [], collapsing storage failure and empty queue. flushMutationQueue then treated [] as drained. Fix: introduced QueueReadResult discriminated type. flushMutationQueue now detects !ok on initial read (aborts) and final read (reports MUTATIONS_PARTIAL, never MUTATIONS_REPLAYED)."
+  "2026-08-10T05:51:44.414Z",pi-agent,"Files changed: public/src/sw.ts (QueueReadResult type, getQueuedMutations, flushMutationQueue). Tests: test/sw-queue.test.ts (6 tests proving read failure != drained, no mutation loss, empty queue != failure, final read failure != all replayed)."
+body: ""

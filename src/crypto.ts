@@ -28,8 +28,9 @@ function encryptionKey(): Buffer {
  *
  * Uses AES-256-GCM with a random 12-byte IV and a key derived as SHA-256 of
  * {@link secretMaterial}. Returns a single self-describing string
- * `pmweb:v1:<iv>:<authTag>:<ciphertext>` with every component base64url-encoded,
- * so the prefix tags the format for {@link decryptSecret}.
+ * `pmweb:v1:<iv>:<authTag>:<ciphertext>`; the IV, auth tag, and ciphertext
+ * are base64url-encoded, while `pmweb:v1` remains a literal prefix that tags
+ * the format for {@link decryptSecret}.
  *
  * @param plainText - The plaintext secret to encrypt.
  * @returns The prefixed, colon-separated token string.

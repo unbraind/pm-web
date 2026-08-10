@@ -37,7 +37,7 @@ export function filtersToQueryString(f: ItemFilters): string {
 }
 
 /** Parse filter dimensions back out of a `URLSearchParams` or query string,
- * defaulting unknown/missing keys to empty strings. */
+ * defaulting missing known keys to empty strings and ignoring unknown keys. */
 export function filtersFromSearchParams(input: URLSearchParams | string): ItemFilters {
   const params = typeof input === 'string' ? new URLSearchParams(input) : input;
   const result: ItemFilters = { ...EMPTY_FILTERS };

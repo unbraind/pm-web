@@ -520,7 +520,7 @@ export class GraphCanvas {
     return this.paused;
   }
 
-  /** Resumes the simulation and raises the alpha to 0.3 so nodes re-settle into a new layout. */
+  /** Resumes the simulation and sets the alpha to 0.3 so nodes re-settle into a new layout. */
   reheat(): void {
     this.alpha  = 0.3;
     this.paused = false;
@@ -542,7 +542,7 @@ export class GraphCanvas {
     }
   }
 
-  /** Enables or disables edge bundling, which routes many same-type edges through a shared centroid. */
+  /** Enables or disables edge bundling, which routes many same-type edges with control points biased toward a shared centroid. */
   setEdgeBundling(enabled: boolean): void {
     this.edgeBundling = enabled;
   }

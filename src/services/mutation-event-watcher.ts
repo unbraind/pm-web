@@ -35,8 +35,10 @@ const MIN_RECONCILE_MS = 500;
 /**
  * Read a positive-integer environment variable, with a fallback.
  *
- * Returns the parsed integer when the variable is set and parses to a finite,
- * positive value; otherwise returns `fallback`. Non-numeric or non-positive
+ * Returns the parsed integer when the variable is set and the raw value parses
+ * as a positive integer via `Number.parseInt`; otherwise returns `fallback`.
+ * Because `parseInt` parses a leading integer prefix, values like `"500ms"`
+ * parse as `500` and `"1.5"` truncates to `1`. Non-numeric, zero, or negative
  * values fall back rather than throwing.
  *
  * @param name - The environment variable name.

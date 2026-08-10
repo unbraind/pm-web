@@ -62,11 +62,11 @@ export function normalizeItemTags(value: unknown): string[] {
  * {@link normalizeStatusKey}, so items land in the intended column regardless of
  * capitalization. Items whose status matches no known column are collected into
  * a trailing `(other)` column so nothing is silently dropped. Columns are
- * returned in the order their status was first encountered.
+ * returned in declared-status order, with `(other)` appended when first needed.
  *
  * @param items - Items to distribute.
  * @param statuses - The workspace's declared status labels.
- * @returns Columns in first-seen order, each carrying its items.
+ * @returns Columns in declared-status order, each carrying its items.
  */
 export function boardColumns<T extends BoardItem>(
   items: T[],

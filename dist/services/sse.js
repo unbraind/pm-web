@@ -263,8 +263,9 @@ export function broadcastProjectEvent(projectId, event) {
  *
  * Records a project-level signal, then writes the SSE-formatted payload to every
  * client in the project's set; a write to a disconnected client is swallowed
- * (cleanup happens on the next heartbeat). A no-op when the project has no
- * clients.
+ * (cleanup happens on the next heartbeat). The project-level signal is recorded
+ * even when the project has no clients, so a no-client call is not a complete
+ * no-op.
  *
  * @param projectId - The project to deliver to.
  * @param event - The SSE event.

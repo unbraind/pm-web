@@ -4,10 +4,11 @@ import { type SSEEvent } from "./sse.ts";
  *
  * Enumerates every eligible file, `stat`s each one, and folds a per-file
  * fingerprint (path bound to mtime) into a `count`, an XOR accumulator, and a
- * sum (wrapping mod 2^32) so distinct file/mtime arrangements produce distinct
- * `count:xor:sum` strings. Files that vanish between `readdir` and `stat` are
- * ignored. This stats every file in one pass; the live watcher uses the bounded
- * {@link stepWorkspaceSweep} variant instead.
+ * sum (wrapping mod 2^32) so distinct file/mtime arrangements are unlikely to
+ * share the same `count:xor:sum` string (though the 32-bit fingerprint cannot
+ * guarantee collision freedom). Files that vanish between `readdir` and
+ * `stat` are ignored. This stats every file in one pass; the live watcher uses
+ * the bounded {@link stepWorkspaceSweep} variant instead.
  *
  * @param dir - A project root (`<PROJECTS_ROOT>/<userId>/<slug>`).
  * @returns The workspace signature string.
