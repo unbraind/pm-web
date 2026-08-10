@@ -166,12 +166,14 @@ test("sw queue: an empty queue flush is a no-op — the two outcomes do not coll
 });
 
 test("sw queue: a final read failure after replay reports the known replayed count, not a full drain", async () => {
-  // The mutation must actually replay before the final read fails, otherwise
+  // The mutations must actually replay before the final read fails, otherwise
   // `replayed` is 0 for the trivial reason that the loop never ran and the
   // test cannot distinguish a correct count from a hardcoded zero. So fetch
-  // succeeds here: one of the two queued mutations is sent and cleared, then
-  // the second read (remainingRead) fails. The flush must report
-  // MUTATIONS_PARTIAL carrying that count rather than MUTATIONS_REPLAYED.
+  // succeeds here: both queued mutations are sent and cleared, then the second
+  // read (remainingRead) fails. Two rather than one so the reported count is
+  // non-trivial - a test asserting `replayed: 1` cannot tell a real count from
+  // an off-by-one. The flush must report MUTATIONS_PARTIAL carrying that count
+  // rather than MUTATIONS_REPLAYED.
   openShouldFail = false;
   getAllResult = [
     { id: 1, method: "POST", path: "/items", body: null, timestamp: 0 },
