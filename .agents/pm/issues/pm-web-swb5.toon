@@ -1,0 +1,25 @@
+id: pm-web-swb5
+title: The pm CLI dependency was an unpinned range in a package whose production image installs without dev dependencies
+description: "This package declared @unbrained/pm-cli in dependencies at a caret range. The initial reading was that this matched the extension-only defect in pm-beads, pm-brief and pm-slack-standup, where a runtime dependency alongside a peer range let npm resolve a second nested CLI copy. Review showed that reading is wrong for this package: it is dual mode. It is a pm extension, but npm start runs node dist/server.js and the Dockerfile installs its runtime layer with npm ci --omit=dev, so no host CLI exists to satisfy a peer range. dist/services/pm-runner.js both imports the SDK and executes the packaged CLI directly. Moving the declaration to devDependencies would omit it from the production image and the server would fail on its first SDK import. The CLI therefore stays a runtime dependency here and the correction is limited to pinning it exactly."
+type: Issue
+status: closed
+priority: 1
+tags[2]: correctness,packaging
+created_at: "2026-08-13T22:37:36.867Z"
+updated_at: "2026-08-13T23:05:22.886Z"
+closed_at: "2026-08-13T22:37:41.355Z"
+completed_at: "2026-08-13T22:37:41.355Z"
+author: codex
+resolution: "Kept @unbrained/pm-cli in dependencies because the standalone server needs it under npm ci --omit=dev, pinned it exactly to 2026.8.13, and guarded the placement with a test that fails if it is moved to devDependencies."
+expected_result: Installing this extension alongside any CLI version its declared peer range admits yields exactly one resolvable @unbrained/pm-cli.
+actual_result: "Moving the declaration to devDependencies fails the new guard with two assertions, which is the regression the production image would otherwise have hit. With the declaration kept and pinned, the lockfile resolves a single copy at 2026.8.13 and typecheck passes across the server and all three frontend projects."
+files[2]{path,scope,note}:
+  package.json,project,pm CLI moved from dependencies to a peer range and the dev pin made exact
+  test/packaging.test.ts,project,manifest guard proven to fail against the previous shape
+tests[2]{command,path,scope}:
+  "name=the host CLI is declared as a peer dependency and never as a runtime dependency,result=pass",test/packaging.test.ts,project
+  "name=the host CLI dev dependency is pinned to an exact version at or above the declared peer floor,result=pass",test/packaging.test.ts,project
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-cli/issues/1003",project,upstream request for host-side detection of two resolvable CLI copies
+close_reason: "Moved @unbrained/pm-cli out of dependencies and declared it as a peer at >=2026.8.6, matching the range this package previously depended on, and pinned the dev declaration exactly to 2026.8.13. Typecheck passes against the pinned version across the server and all three frontend projects."
+body: ""

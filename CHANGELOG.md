@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The pm CLI dependency was an unpinned range in a package whose production image installs without dev dependencies ([pm-web-swb5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-swb5.toon))
+
 ## 2026.8.10 - 2026-08-10
 
 ### Fixed
