@@ -3,11 +3,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 /**
- * Shape of the fields this suite asserts on. Only the three dependency maps
- * matter here; the rest of the manifest is deliberately not modelled so an
- * unrelated field addition cannot fail this suite.
+ * Shape of the fields this suite asserts on. Only the dependency maps matter
+ * here; the rest of the manifest is deliberately not modelled so an unrelated
+ * field addition cannot fail this suite.
  */
 interface DependencyManifest {
+  readonly scripts?: Readonly<Record<string, string>>;
   readonly dependencies?: Readonly<Record<string, string>>;
   readonly devDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
@@ -28,95 +29,60 @@ const HOST_CLI = "@unbrained/pm-cli";
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
 
 /**
- * A peer range stating a concrete lower bound, as `>=X.Y.Z` or `^X.Y.Z`.
+ * This package is dual-mode, and that is what decides the CLI's placement.
  *
- * The point is to exclude `*` and `x`, which declare a peer while promising
- * nothing: they would satisfy a bare presence check while telling a consumer
- * that any CLI version whatsoever will do.
+ * It is a pm extension — it ships a manifest, calls `defineExtension`, and the
+ * host can load it — but it is ALSO a standalone server: `npm start` runs
+ * `node dist/server.js`, and the Docker image installs its runtime layer with
+ * `npm ci --omit=dev`. In that mode no host CLI is present to satisfy a peer
+ * range, and `dist/services/pm-runner.js` both imports the SDK and executes the
+ * packaged `node_modules/@unbrained/pm-cli/dist/cli.js` directly.
+ *
+ * So the CLI is a genuine runtime dependency here, unlike the extension-only
+ * siblings (pm-beads, pm-brief, pm-slack-standup) where declaring it as a
+ * dependency let npm resolve a second nested copy alongside the host's. Moving
+ * it to devDependencies in this package would omit it from the production image
+ * and the server would fail to start on its first SDK import.
+ *
+ * It must not ALSO be a peer: two separately satisfiable ranges are exactly what
+ * lets npm install one copy at the tree root and a different one underneath.
  */
-const CONCRETE_PEER_RANGE = /^(>=|\^)(\d+)\.(\d+)\.(\d+)$/;
-
-/**
- * Order two dotted versions, returning a negative number when `left` precedes
- * `right`, zero when they are equal, and a positive number otherwise.
- *
- * Compares part by part and stops at the first difference, because comparing
- * the parts independently would rank `1.0.5` above `2.0.0` on the strength of
- * its final segment.
- */
-function compareVersions(left: string, right: string): number {
-  const leftParts = left.split(".").map((part) => Number.parseInt(part, 10));
-  const rightParts = right.split(".").map((part) => Number.parseInt(part, 10));
-  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
-    const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
-    if (difference !== 0) return difference;
-  }
-  return 0;
-}
-
-/**
- * This package is a pure extension: the host CLI loads it, so the CLI must be
- * a peer the host satisfies, never a dependency npm installs underneath us.
- *
- * Declaring it in `dependencies` alongside the peer range let npm satisfy the
- * two independently: a consumer whose host pin sits below the dependency range
- * — while still inside the peer range this package declares — got their copy at
- * the tree root and a second, newer copy nested under this package. npm dedupes
- * only when the two ranges happen to overlap, so the tree was clean for some
- * host pins and skewed for others, which is why this survived review for as
- * long as it did.
- *
- * Skew is not cosmetic in this ecosystem: consecutive CLI releases have
- * disagreed about whether identical history bytes are fatal, a warning, or
- * invisible, so which copy loads can decide whether a workspace passes its own
- * gates.
- */
-test("the host CLI is declared as a peer dependency and never as a runtime dependency", () => {
-  assert.equal(
+test("the host CLI is a runtime dependency because the server runs standalone, and is never also a peer", () => {
+  assert.ok(
     manifest.dependencies?.[HOST_CLI],
-    undefined,
-    `${HOST_CLI} must not appear in dependencies: npm would install a second copy underneath this package whenever the consumer's host pin does not match this range`,
+    `${HOST_CLI} must stay in dependencies: the Docker runtime installs with --omit=dev and dist/server.js resolves the SDK at startup`,
   );
-  const peer = manifest.peerDependencies?.[HOST_CLI];
-  assert.ok(peer, `${HOST_CLI} must be declared as a peer dependency so the host's copy is the one that loads`);
+  assert.equal(
+    manifest.peerDependencies?.[HOST_CLI],
+    undefined,
+    `${HOST_CLI} must not be a peer as well as a dependency: two separately satisfiable ranges let npm resolve one copy at the tree root and a different one nested under this package`,
+  );
   assert.match(
-    peer,
-    CONCRETE_PEER_RANGE,
-    `${HOST_CLI} must declare a concrete peer floor, not the permissive range "${peer}": a wildcard declares a peer while promising a consumer nothing about which CLI versions actually work`,
+    String(manifest.scripts?.start),
+    /dist\/server\.js/,
+    "the standalone server entry point is the reason the CLI is a runtime dependency; if this changes, revisit the placement above",
   );
 });
 
 /**
- * The dev declaration is what CI installs to run `pm health --strict-exit` and
- * the rest of `release:check`, so it decides the verdict those gates report.
+ * The pinned version is what both CI and the production image install, so it
+ * decides the verdict the gates report and the code the server actually runs.
  *
  * A caret range is not a pin: it admits any later release, and three
  * consecutive CLI releases disagreed about whether the same bytes on disk are
- * fatal, a warning, or invisible. Pinning exactly keeps the gate reproducible.
+ * fatal, a warning, or invisible. Pinning exactly keeps the gate reproducible
+ * and the deployed runtime predictable.
  *
- * The assertion is deliberately on the *shape* rather than on today's literal
- * version. Hardcoding the number would turn every Dependabot bump into a test
- * failure needing a second, lockstep edit, without buying any safety: what
- * matters is that the pin is exact and consistent with what this package tells
- * consumers it needs, not that it equals the version current when this test was
- * written.
+ * The assertion is on the shape rather than today's literal version: hardcoding
+ * the number would turn every Dependabot bump into a test failure needing a
+ * second, lockstep edit, without buying any safety.
  */
-test("the host CLI dev dependency is pinned to an exact version at or above the declared peer floor", () => {
-  const declared = manifest.devDependencies?.[HOST_CLI];
-  assert.ok(declared, `${HOST_CLI} must be a devDependency so the gates have a CLI to run`);
+test("the host CLI is pinned to an exact version rather than a range", () => {
+  const declared = manifest.dependencies?.[HOST_CLI];
+  assert.ok(declared, `${HOST_CLI} must be declared for the server to resolve the SDK`);
   assert.match(
     declared,
     EXACT_VERSION,
-    `${HOST_CLI} must be pinned exactly, not declared as the range "${declared}": the gate verdict depends on which CLI version runs it`,
-  );
-
-  // A pin below this package's own advertised floor would mean the gates ran
-  // against a CLI the package tells consumers is too old to use.
-  const floor = CONCRETE_PEER_RANGE.exec(manifest.peerDependencies?.[HOST_CLI] ?? "");
-  assert.ok(floor, "the peer range must be concrete for the dev pin to be checked against it");
-  const minimum = `${floor[2]}.${floor[3]}.${floor[4]}`;
-  assert.ok(
-    compareVersions(declared, minimum) >= 0,
-    `${HOST_CLI} is pinned at ${declared}, below the peer floor of ${minimum} this package declares: the gates would run against a CLI consumers are told is too old`,
+    `${HOST_CLI} must be pinned exactly, not declared as the range "${declared}": both the gate verdict and the deployed server depend on which CLI version resolves`,
   );
 });
