@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The pm CLI was a runtime dependency of the web extension, so a consumer could resolve a second copy alongside the host ([pm-web-swb5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-swb5.toon))
+
 ## 2026.8.10 - 2026-08-10
 
 ### Fixed
