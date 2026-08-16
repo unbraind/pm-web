@@ -157,7 +157,10 @@ function renderPackageCard(row: PackageRow): string {
   const unreleasedBadge = unreleased
     ? `<span style="font-size:11px;color:var(--text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:4px" data-i18n="packages.unreleasedBadge">${escHtml(t('packages.unreleasedBadge'))}</span>`
     : '';
-  const unreleasedNote = unreleased
+  // The explanation is about not being installable, so it only applies while
+  // the package is not installed. Showing it beside an installed package would
+  // contradict the card's own status chip.
+  const unreleasedNote = unreleased && !row.installed
     ? `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:6px">🚧 ${escHtml(t('packages.unreleased'))}</div>`
     : '';
 
@@ -182,8 +185,12 @@ function renderPackageCard(row: PackageRow): string {
   // a raw DOM string — and the server validates it against the catalog again
   // before any pm command is spawned.
   let actions = '';
-  if (unreleased) {
-    // No action at all: there is nothing to install, activate or remove.
+  if (unreleased && !row.installed) {
+    // Nothing to install: there is no published version to install from. An
+    // unreleased package that IS installed — from a local path or a
+    // preexisting install — keeps its full management controls below, because
+    // the server supports deactivating and removing it and hiding those would
+    // strand the user with a package they cannot get rid of.
     actions = '';
   } else if (!row.installed) {
     actions = `<button class="btn btn-primary btn-sm" style="width:100%" data-pkg-action="install" data-pkg-name="${escHtml(row.name)}">${escHtml(t('packages.install'))}</button>`;
@@ -208,7 +215,7 @@ function renderPackageCard(row: PackageRow): string {
           <div class="card-title">${escHtml(row.title)}</div>
           ${templateBadge}${unreleasedBadge}
         </div>
-        ${unreleased ? '' : statusChip}
+        ${unreleased && !row.installed ? '' : statusChip}
       </div>
       <div class="card-body" style="padding-top:0">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${escHtml(row.description)}</div>

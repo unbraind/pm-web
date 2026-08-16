@@ -101,10 +101,24 @@ function fleetExtensionNames(): readonly string[] {
 }
 
 const FLEET_EXTENSIONS = fleetExtensionNames();
-// Where the siblings are unavailable, the derivation cannot be the oracle, and
-// asserting the catalog against an empty set would fail every standalone
-// checkout. The structural invariants still run in that environment; only the
-// membership comparison degrades to a self-check.
+
+// An operator who sets PM_FLEET_ROOT has asserted where the fleet is. If that
+// path resolves no pm extensions they have configured it wrongly, and silently
+// degrading to a self-check would hide the misconfiguration behind a green
+// suite — the failure this whole file exists to prevent. Only the IMPLICIT
+// default (a sibling directory that happens not to hold the fleet) is allowed
+// to fall back.
+if (process.env.PM_FLEET_ROOT && FLEET_EXTENSIONS.length === 0) {
+  throw new Error(
+    `PM_FLEET_ROOT is set to ${FLEET_ROOT} but no pm extension was found there. ` +
+      "Point it at the fleet root, or unset it to run the structural invariants alone.",
+  );
+}
+
+// Where the siblings are genuinely unavailable, the derivation cannot be the
+// oracle: asserting the catalog against an empty set would fail every
+// standalone checkout. The structural invariants still run there; only the
+// membership comparison degrades to a self-check, and it says so.
 const EXPECTED_NAMES: readonly string[] =
   FLEET_EXTENSIONS.length > 0 ? FLEET_EXTENSIONS : catalogNames();
 
@@ -341,5 +355,43 @@ test("gating metadata is declared for packages that need a service or credential
       `${name} (template) must not declare a service requirement`);
     assert.equal(entry.requiresCredentials, undefined,
       `${name} (template) must not declare credential requirements`);
+  }
+});
+test("an unreleased package that is already installed keeps its management actions", () => {
+  // Regression: suppressing every action for an unreleased package stranded a
+  // user who had one installed from a local path or a preexisting install —
+  // the server supports deactivating and removing it, but the card offered no
+  // control to do so. Only the INSTALL action may be suppressed, and only
+  // while the package is not installed.
+  //
+  // The card renderer lives in the browser bundle, so the invariant is checked
+  // where it is decided: an unreleased entry must still be an ordinary catalog
+  // entry in every respect except that no install spec resolves for it.
+  const unreleased = PACKAGE_CATALOG.filter((entry) => entry.availability === "unreleased");
+  assert.ok(unreleased.length > 0, "this test needs at least one unreleased entry to be meaningful");
+
+  for (const entry of unreleased) {
+    assert.equal(
+      resolveNpmSpec(entry.name),
+      null,
+      `${entry.name}: no install spec may resolve while it is unreleased`,
+    );
+    // Everything an installed package's management controls read must still be
+    // present, or the card cannot render deactivate/uninstall for it.
+    assert.ok(entry.title, `${entry.name}: an unreleased entry still needs a title`);
+    assert.ok(entry.description, `${entry.name}: an unreleased entry still needs a description`);
+    assert.ok(
+      entry.capabilities.length > 0,
+      `${entry.name}: an unreleased entry still declares its capabilities`,
+    );
+    assert.equal(
+      entry.category,
+      "extension",
+      `${entry.name}: an unreleased entry is still categorised, not special-cased out of the catalog`,
+    );
+    assert.ok(
+      findCatalogEntry(entry.name),
+      `${entry.name}: must remain resolvable by name so the :name route gate admits management calls`,
+    );
   }
 });
