@@ -1,0 +1,28 @@
+id: pm-web-yqmi
+title: "The package catalog could silently omit a fleet package, and had already drifted from pm-ops capabilities"
+description: "The catalog is the single source of truth for what the UI can install, and its tests asserted only one direction: every catalog entry has a real fleet manifest. Nothing asserted the converse, so a package added to the fleet was invisible to the UI with every test green. Three were: pm-vcs and pm-rl ship a manifest.json declaring capabilities and were absent entirely. The one-directional check had also let a real drift through unnoticed: pm-ops declared a services capability its catalog entry did not carry."
+type: Issue
+status: closed
+priority: 1
+tags: []
+created_at: "2026-08-16T02:41:42.317Z"
+updated_at: "2026-08-16T02:44:11.544Z"
+closed_at: "2026-08-16T02:44:11.518Z"
+completed_at: "2026-08-16T02:44:11.518Z"
+author: claude-code
+acceptance_criteria: A fleet package that ships a manifest.json declaring capabilities and is absent from the catalog fails the suite; a catalog entry that claims to be published while its package.json declares no publishConfig.access fails; a catalog entry whose capabilities differ from its manifest fails; and the expected membership is derived from the fleet rather than restated as a second hardcoded list
+comments[1]{created_at,author,text}:
+  "2026-08-16T02:44:10.322Z",claude-code,"Revert-proof run against this exact tree. Baseline exit 0. Deleting the pm-vcs catalog entry while the fleet still contains it exits 1. Declaring pm-vcs published when its package.json carries no publishConfig.access exits 1. Declaring pm-graph unreleased when it does carry one exits 1. Drifting pm-ops capabilities from its manifest exits 1. Restored exit 0. The pm-ops case was not hypothetical: pm-ops had already added a services capability its catalog entry did not carry, and the one-directional test in place before this change did not notice."
+files[3]{path,scope}:
+  src/routes/extensions.ts,project
+  src/services/package-catalog.ts,project
+  test/catalog.test.ts,project
+tests[1]:
+  - command: PM_PATH=/tmp/pm-web-cat PM_GLOBAL_PATH=/tmp/pm-web-cat-g node --test test/catalog.test.ts
+    path: test/catalog.test.ts
+    scope: project
+    timeout_seconds: 120
+    assert_stdout_regex[1]: "the catalog covers every pm extension in the fleet[\\s\\S]*every catalog entry declares an availability the fleet agrees with"
+    note: "Binds the catalog completeness and availability assertions to their real node:test titles."
+close_reason: "The catalog now represents every pm extension in the fleet. Membership is derived from the fleet directory rather than restated as a second list, availability is checked against each package's own publishConfig.access, and the pm-ops capability drift the previous test missed is corrected. pm-vcs and pm-rl are listed as unreleased and resolveNpmSpec refuses them, so the UI can show them honestly without offering an install that cannot work."
+body: ""

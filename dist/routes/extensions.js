@@ -136,6 +136,16 @@ router.post("/:name/install", async (req, res) => {
     if (!project)
         return;
     const entry = catalogEntry(res);
+    // An unreleased package is catalogued so the UI can show it honestly, but no
+    // install spec resolves for it. Refuse here with a reason rather than
+    // spawning a `pm install` that would fail against the registry with an
+    // opaque 404 the user cannot act on.
+    if (entry.availability === "unreleased") {
+        res.status(409).json({
+            error: `${entry.name} is not published to npm yet, so it cannot be installed.`,
+        });
+        return;
+    }
     const result = await runPm({
         // entry.npmSpec is a catalog constant, never the request string.
         args: ["install", entry.npmSpec, "--project"],

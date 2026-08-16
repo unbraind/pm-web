@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -35,6 +35,12 @@ interface Manifest {
 interface PackageJson {
   name?: string;
   description?: string;
+  /**
+   * Present exactly on the fleet packages that are publishable to npm; `npm
+   * publish` reads it, so its presence is the local fact that decides whether
+   * a released version can exist for this package at all.
+   */
+  publishConfig?: { access?: string };
 }
 
 function readManifest(pkg: string): Manifest | null {
@@ -62,25 +68,19 @@ function readPackageJson(pkg: string): PackageJson | null {
 // `pm-web` itself is the host and is deliberately absent. The two starter
 // packages are authoring reference templates (category "template") that sort
 // last; the rest are user-facing product extensions (category "extension").
-const EXPECTED_NAMES = [
-  "pm-beads",
-  "pm-brief",
-  "pm-changelog",
-  "pm-context",
-  "pm-csv",
-  "pm-gantt-chart",
-  "pm-github",
-  "pm-graph",
-  "pm-jira",
-  "pm-linear",
-  "pm-ops",
-  "pm-presets",
-  "pm-slack",
-  "pm-slack-standup",
-  "pm-starter",
-  "pm-todos",
-  "pm-ts-starter",
-] as const;
+// The expected catalog membership is DERIVED, never restated. A second
+// hardcoded list would drift from the fleet exactly as the catalog itself
+// can, so it would move the bug rather than catch it. A pm extension is a
+// fleet directory shipping a `manifest.json` that declares `capabilities`;
+// pm-web is the host and pm-cli is the CLI, so neither is an extension of it.
+const CATALOG_HOSTS = new Set(["pm-web", "pm-cli"]);
+const EXPECTED_NAMES: readonly string[] = existsSync(FLEET_ROOT)
+  ? readdirSync(FLEET_ROOT, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !CATALOG_HOSTS.has(entry.name))
+      .map((entry) => entry.name)
+      .filter((name) => Array.isArray(readManifest(name)?.capabilities))
+      .sort()
+  : catalogNames();
 
 // The two authoring reference templates that must be in the catalog.
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
@@ -108,12 +108,18 @@ test("every catalog entry has non-empty name/npmSpec/title/description/capabilit
       entry.category === "extension" || entry.category === "template",
       `${entry.name}: category must be "extension" or "template", got ${entry.category}`,
     );
-    // resolveNpmSpec must round-trip the catalog name and reject others.
-    assert.equal(resolveNpmSpec(entry.name), `npm:${entry.name}`);
+    // resolveNpmSpec round-trips a published name and refuses an unreleased
+    // one, so a route can never build an install target for a package that
+    // has no published release to install.
+    assert.equal(
+      resolveNpmSpec(entry.name),
+      entry.availability === "unreleased" ? null : `npm:${entry.name}`,
+      `${entry.name}: resolveNpmSpec must refuse an unreleased package and round-trip a published one`,
+    );
   }
 });
 
-test("category partition: exactly 2 templates (pm-starter, pm-ts-starter), 15 extensions", () => {
+test("category partition: exactly 2 templates (pm-starter, pm-ts-starter), the rest extensions", () => {
   const templates = PACKAGE_CATALOG.filter((e) => e.category === "template");
   const extensions = PACKAGE_CATALOG.filter((e) => e.category === "extension");
   assert.equal(templates.length, 2, "exactly two template entries");
@@ -122,9 +128,23 @@ test("category partition: exactly 2 templates (pm-starter, pm-ts-starter), 15 ex
     [...TEMPLATE_NAMES],
     "templates must be pm-starter and pm-ts-starter",
   );
-  assert.equal(extensions.length, 15, "exactly 15 extension entries");
+  // Derived, not restated: every catalogued package that is not one of the two
+  // authoring templates is a product extension. A hardcoded count here would
+  // have to be edited by hand on every fleet addition, which is the same drift
+  // this suite exists to catch.
+  assert.equal(
+    extensions.length,
+    PACKAGE_CATALOG.length - templates.length,
+    "every non-template entry must be categorised as an extension",
+  );
+  assert.ok(extensions.length > 0, "the catalog must contain product extensions");
   // Templates sort last (display order = catalog order).
-  const lastIndex = PACKAGE_CATALOG.length - 1;
+  // The templates sort last among themselves; unreleased entries are appended
+  // after them, so the anchor is the final template, not the final entry.
+  const templateIndexes = PACKAGE_CATALOG
+    .map((entry, index) => (entry.category === "template" ? index : -1))
+    .filter((index) => index >= 0);
+  const lastIndex = templateIndexes[templateIndexes.length - 1]!;
   assert.equal(PACKAGE_CATALOG[lastIndex]!.name, "pm-ts-starter",
     "pm-ts-starter must be the last catalog entry");
   assert.equal(PACKAGE_CATALOG[lastIndex - 1]!.name, "pm-starter",
@@ -199,6 +219,65 @@ test("catalog entries mirror each package's real manifest.json claims", () => {
   if (skipped === 0) {
     assert.equal(checked, EXPECTED_NAMES.length,
       "every catalog entry should have a resolvable fleet manifest in this environment");
+  }
+});
+
+test("the catalog covers every pm extension in the fleet", () => {
+  // The completeness direction the other tests do not cover. They assert that
+  // every catalog entry has a real manifest; this asserts the converse — that
+  // every pm extension present in the fleet is represented in the catalog, so
+  // a package added to the fleet cannot be silently missing from the UI.
+  //
+  // The expected set is DERIVED from the fleet directory rather than restated
+  // as a second list: a package is a pm extension exactly when it ships a
+  // `manifest.json` declaring `capabilities`. A second hardcoded list would
+  // just move the drift somewhere it is equally invisible. pm-web is excluded
+  // because it is the host and cannot install itself; pm-cli is excluded
+  // because it is the CLI, not an extension of it.
+  if (!existsSync(FLEET_ROOT)) return; // standalone checkout: siblings absent
+  const HOSTS = new Set(["pm-web", "pm-cli"]);
+  const fleetExtensions = readdirSync(FLEET_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !HOSTS.has(entry.name))
+    .map((entry) => entry.name)
+    .filter((name) => {
+      const manifest = readManifest(name);
+      return manifest !== null && Array.isArray(manifest.capabilities);
+    })
+    .sort();
+  if (fleetExtensions.length === 0) return; // no siblings resolvable here
+
+  const missing = fleetExtensions.filter((name) => findCatalogEntry(name) === undefined);
+  assert.deepEqual(
+    missing,
+    [],
+    `these fleet packages ship a manifest.json with capabilities but are absent from the catalog, so the UI would never offer or even mention them: ${missing.join(", ")}`,
+  );
+});
+
+test("every catalog entry declares an availability the fleet agrees with", () => {
+  // The declaration is checked against the fleet, not merely against itself.
+  // A publishable fleet package declares `publishConfig.access` in its
+  // package.json — that is what `npm publish` reads, so it is the local fact
+  // that decides whether a release can exist at all, and it is present for
+  // every published fleet extension and absent for exactly the release-gated
+  // ones. Consulting the npm registry instead would make this gate fail on an
+  // offline runner rather than on a real drift.
+  if (!existsSync(FLEET_ROOT)) return;
+  for (const entry of PACKAGE_CATALOG) {
+    const pkg = readPackageJson(entry.name);
+    if (!pkg) continue; // sibling not resolvable in this environment
+    const declared = entry.availability ?? "published";
+    const publishable = pkg.publishConfig?.access !== undefined;
+    assert.equal(
+      declared === "published",
+      publishable,
+      `${entry.name}: catalogued as ${declared}, but its package.json ${publishable ? "declares" : "does not declare"} publishConfig.access — a catalogue that promises an install for an unpublishable package renders an install button that cannot work`,
+    );
+    assert.equal(
+      resolveNpmSpec(entry.name),
+      declared === "unreleased" ? null : entry.npmSpec,
+      `${entry.name}: resolveNpmSpec must agree with the declared availability`,
+    );
   }
 });
 

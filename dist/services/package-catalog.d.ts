@@ -23,6 +23,24 @@ export type PackageCapability = string;
  */
 export type PackageCategory = "extension" | "template";
 /**
+ * Whether a catalogued package can actually be installed right now.
+ *
+ * - `"published"` — the package is on npm and `pm install npm:<name>` works.
+ *   This is the default and the state every product extension is in.
+ * - `"unreleased"` — the package exists in the fleet and is developed in the
+ *   open, but is deliberately not published to npm yet, so no install spec can
+ *   resolve. It is listed rather than hidden because silently omitting it
+ *   would make the catalog look complete while a user reading the fleet on
+ *   GitHub can plainly see a package the UI never mentions. The UI must render
+ *   these as not-yet-installable and must not offer an install action.
+ *
+ * A catalogued package must be in exactly one of these states, and the state
+ * is asserted against the npm registry metadata in `test/catalog.test.ts` —
+ * declaring `"published"` for a package that is not on npm is a failing test,
+ * not a broken install button.
+ */
+export type PackageAvailability = "published" | "unreleased";
+/**
  * Honest gating metadata so the UI can tell a user what they must configure
  * before a package is useful. Both fields are OPTIONAL — most packages work
  * with no external setup.
@@ -75,6 +93,12 @@ export interface PackageCatalogEntry {
      * extension. See {@link PackageCategory}.
      */
     readonly category: PackageCategory;
+    /**
+     * Whether the package is installable today. Defaults to `"published"` when
+     * absent, because every entry was installable before unreleased packages
+     * were representable. See {@link PackageAvailability}.
+     */
+    readonly availability?: PackageAvailability;
     /** Backing service the package needs (optional). */
     readonly requiresService?: ServiceRequirement;
     /** Credentials the user must configure (optional). */
