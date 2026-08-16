@@ -137,5 +137,7 @@
   "packages.confirmUninstall": "是否从该项目卸载 {name}？",
   "packages.noProject": "未选择项目",
   "packages.changedByOther": "软件包 {name} 已被其他用户{operation}",
-  "packages.templateBadge": "模板"
+  "packages.templateBadge": "模板",
+  "packages.unreleasedBadge": "尚未发布",
+  "packages.unreleased": "该软件包公开开发，但尚未发布到 npm，因此无法安装。"
 }

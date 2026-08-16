@@ -137,5 +137,7 @@
   "packages.confirmUninstall": "{name} aus diesem Projekt deinstallieren?",
   "packages.noProject": "Kein Projekt ausgewählt",
   "packages.changedByOther": "Paket {name} von einem anderen Benutzer {operation}",
-  "packages.templateBadge": "Vorlage"
+  "packages.templateBadge": "Vorlage",
+  "packages.unreleasedBadge": "Noch nicht veröffentlicht",
+  "packages.unreleased": "Dieses Paket wird offen entwickelt, ist aber noch nicht auf npm veröffentlicht und kann daher nicht installiert werden."
 }

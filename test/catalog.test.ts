@@ -74,13 +74,39 @@ function readPackageJson(pkg: string): PackageJson | null {
 // fleet directory shipping a `manifest.json` that declares `capabilities`;
 // pm-web is the host and pm-cli is the CLI, so neither is an extension of it.
 const CATALOG_HOSTS = new Set(["pm-web", "pm-cli"]);
-const EXPECTED_NAMES: readonly string[] = existsSync(FLEET_ROOT)
-  ? readdirSync(FLEET_ROOT, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && !CATALOG_HOSTS.has(entry.name))
-      .map((entry) => entry.name)
-      .filter((name) => Array.isArray(readManifest(name)?.capabilities))
-      .sort()
-  : catalogNames();
+
+/**
+ * Every pm extension resolvable as a sibling of this package, or an empty
+ * array when the siblings are not present.
+ *
+ * `FLEET_ROOT` defaults to this package's parent directory, which EXISTS in a
+ * standalone checkout too — it is just some unrelated directory that holds no
+ * pm packages. Testing for the directory is therefore not a test for the
+ * fleet; only finding pm extensions in it is. An empty result means "siblings
+ * unavailable here", never "the fleet is empty".
+ */
+function fleetExtensionNames(): readonly string[] {
+  if (!existsSync(FLEET_ROOT)) return [];
+  let entries;
+  try {
+    entries = readdirSync(FLEET_ROOT, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && !CATALOG_HOSTS.has(entry.name))
+    .map((entry) => entry.name)
+    .filter((name) => Array.isArray(readManifest(name)?.capabilities))
+    .sort();
+}
+
+const FLEET_EXTENSIONS = fleetExtensionNames();
+// Where the siblings are unavailable, the derivation cannot be the oracle, and
+// asserting the catalog against an empty set would fail every standalone
+// checkout. The structural invariants still run in that environment; only the
+// membership comparison degrades to a self-check.
+const EXPECTED_NAMES: readonly string[] =
+  FLEET_EXTENSIONS.length > 0 ? FLEET_EXTENSIONS : catalogNames();
 
 // The two authoring reference templates that must be in the catalog.
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
@@ -234,17 +260,8 @@ test("the catalog covers every pm extension in the fleet", () => {
   // just move the drift somewhere it is equally invisible. pm-web is excluded
   // because it is the host and cannot install itself; pm-cli is excluded
   // because it is the CLI, not an extension of it.
-  if (!existsSync(FLEET_ROOT)) return; // standalone checkout: siblings absent
-  const HOSTS = new Set(["pm-web", "pm-cli"]);
-  const fleetExtensions = readdirSync(FLEET_ROOT, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !HOSTS.has(entry.name))
-    .map((entry) => entry.name)
-    .filter((name) => {
-      const manifest = readManifest(name);
-      return manifest !== null && Array.isArray(manifest.capabilities);
-    })
-    .sort();
-  if (fleetExtensions.length === 0) return; // no siblings resolvable here
+  const fleetExtensions = FLEET_EXTENSIONS;
+  if (fleetExtensions.length === 0) return; // siblings not resolvable here
 
   const missing = fleetExtensions.filter((name) => findCatalogEntry(name) === undefined);
   assert.deepEqual(
@@ -262,7 +279,7 @@ test("every catalog entry declares an availability the fleet agrees with", () =>
   // every published fleet extension and absent for exactly the release-gated
   // ones. Consulting the npm registry instead would make this gate fail on an
   // offline runner rather than on a real drift.
-  if (!existsSync(FLEET_ROOT)) return;
+  if (FLEET_EXTENSIONS.length === 0) return; // siblings not resolvable here
   for (const entry of PACKAGE_CATALOG) {
     const pkg = readPackageJson(entry.name);
     if (!pkg) continue; // sibling not resolvable in this environment

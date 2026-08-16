@@ -6,13 +6,14 @@ status: closed
 priority: 1
 tags: []
 created_at: "2026-08-16T02:41:42.317Z"
-updated_at: "2026-08-16T02:44:11.544Z"
-closed_at: "2026-08-16T02:44:11.518Z"
-completed_at: "2026-08-16T02:44:11.518Z"
+updated_at: "2026-08-16T03:18:06.479Z"
+closed_at: "2026-08-16T03:18:06.462Z"
+completed_at: "2026-08-16T03:18:06.462Z"
 author: claude-code
 acceptance_criteria: A fleet package that ships a manifest.json declaring capabilities and is absent from the catalog fails the suite; a catalog entry that claims to be published while its package.json declares no publishConfig.access fails; a catalog entry whose capabilities differ from its manifest fails; and the expected membership is derived from the fleet rather than restated as a second hardcoded list
-comments[1]{created_at,author,text}:
+comments[2]{created_at,author,text}:
   "2026-08-16T02:44:10.322Z",claude-code,"Revert-proof run against this exact tree. Baseline exit 0. Deleting the pm-vcs catalog entry while the fleet still contains it exits 1. Declaring pm-vcs published when its package.json carries no publishConfig.access exits 1. Declaring pm-graph unreleased when it does carry one exits 1. Drifting pm-ops capabilities from its manifest exits 1. Restored exit 0. The pm-ops case was not hypothetical: pm-ops had already added a services capability its catalog entry did not carry, and the one-directional test in place before this change did not notice."
+  "2026-08-16T03:18:04.698Z",claude-code,"Greptile review round, two P1 findings, both adopted. First: the fleet detection tested existsSync(FLEET_ROOT), but FLEET_ROOT defaults to this package's parent directory, which exists in a standalone checkout too and simply holds no pm packages. The derived set would have been empty and the membership assertion would have compared twenty catalog names against nothing, failing every standalone CI and release run. Verified against a simulated standalone root: the old expression derives an empty array while the directory reports as existing. The oracle is now the presence of resolvable pm extensions, not the presence of a directory. Second: the install refusal existed server-side but the frontend ignored the availability field and rendered an Install button for pm-vcs and pm-rl, so a user clicked a known-broken action and received the 409 instead of seeing the package as unavailable. The card now shows a not-yet-released badge and no action at all, with strings in all four locales, and a route test asserts the refusal happens before any process spawn. Both revert-proved: removing the 409 guard fails the route test, and dropping availability from the catalog entries fails it too."
 files[3]{path,scope}:
   src/routes/extensions.ts,project
   src/services/package-catalog.ts,project
@@ -24,5 +25,5 @@ tests[1]:
     timeout_seconds: 120
     assert_stdout_regex[1]: "the catalog covers every pm extension in the fleet[\\s\\S]*every catalog entry declares an availability the fleet agrees with"
     note: "Binds the catalog completeness and availability assertions to their real node:test titles."
-close_reason: "The catalog now represents every pm extension in the fleet. Membership is derived from the fleet directory rather than restated as a second list, availability is checked against each package's own publishConfig.access, and the pm-ops capability drift the previous test missed is corrected. pm-vcs and pm-rl are listed as unreleased and resolveNpmSpec refuses them, so the UI can show them honestly without offering an install that cannot work."
+close_reason: "The catalog represents every pm extension in the fleet, membership is derived from resolvable fleet extensions rather than from a directory existing, availability is checked against each package's own publishConfig.access, and the UI shows an unreleased package as unavailable rather than offering an install that cannot succeed. Every invariant has a mutation that fails it."
 body: ""
