@@ -479,3 +479,58 @@ test("a healthy extension read lists packages without a stateError field", async
     await harness.restore();
   }
 });
+test("an unreleased package is listed but refuses install without spawning pm", async () => {
+  // pm-vcs and pm-rl are catalogued so the UI can show them honestly, but they
+  // have no published release. The route must refuse BEFORE spawning anything:
+  // a `pm install npm:pm-vcs` would fail against the registry with a 404 the
+  // user cannot act on, and would still have cost a process spawn.
+  const harness = await setupHarness();
+  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
+  const app = createApp();
+  try {
+    const listed = await request(
+      app,
+      "GET",
+      `/api/projects/${PROJECT_ID}/extensions`,
+      OWNER_USER_ID,
+    );
+    assert.equal(listed.status, 200);
+    const rows = (listed.body as { packages: { name: string; availability?: string }[] }).packages;
+    const unreleased = rows.filter((row) => row.availability === "unreleased").map((row) => row.name);
+    assert.ok(
+      unreleased.length > 0,
+      "the catalog must surface its unreleased packages to the UI rather than hiding them",
+    );
+
+    for (const name of unreleased) {
+      const { status, body } = await request(
+        app,
+        "POST",
+        `/api/projects/${PROJECT_ID}/extensions/${encodeURIComponent(name)}/install`,
+        OWNER_USER_ID,
+      );
+      assert.equal(
+        status,
+        409,
+        `installing unreleased ${name} must be refused with 409, got ${status}: ${JSON.stringify(body)}`,
+      );
+      assert.match(
+        (body as { error: string }).error,
+        /not published to npm/,
+        `${name}: the refusal must say why, not just fail`,
+      );
+    }
+
+    // The decisive assertion: no pm process ran for any of them.
+    const log = await readFile(harness.logPath, "utf8").catch(() => "");
+    for (const name of unreleased) {
+      assert.ok(
+        !log.includes(`install npm:${name}`),
+        `${name}: the route must refuse before spawning pm, but the fake binary was invoked`,
+      );
+    }
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});

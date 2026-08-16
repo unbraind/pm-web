@@ -35,6 +35,13 @@ interface PackageRow {
   capabilities: string[];
   /** "extension" (product) or "template" (authoring reference scaffold). */
   category: 'extension' | 'template';
+  /**
+   * Whether the package can be installed today. Absent means published, which
+   * is the state of every package that has a release on npm. "unreleased"
+   * means the package is real and developed in the open but has no published
+   * version, so no install can succeed and the card must not offer one.
+   */
+  availability?: 'published' | 'unreleased';
   requiresService?: { name: string; optional?: boolean };
   requiresCredentials?: Array<{ label: string; envVars: string[]; optional?: boolean }>;
   installed: boolean;
@@ -143,6 +150,20 @@ function renderPackageCard(row: PackageRow): string {
     ? `<span style="font-size:11px;color:var(--text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:4px" data-i18n="packages.templateBadge">${escHtml(t('packages.templateBadge'))}</span>`
     : '';
 
+  // A package with no published release is shown, because hiding it would make
+  // the catalog look complete while the fleet plainly contains it — but it is
+  // shown as unavailable, never with an install action that cannot succeed.
+  const unreleased = row.availability === 'unreleased';
+  const unreleasedBadge = unreleased
+    ? `<span style="font-size:11px;color:var(--text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:4px" data-i18n="packages.unreleasedBadge">${escHtml(t('packages.unreleasedBadge'))}</span>`
+    : '';
+  // The explanation is about not being installable, so it only applies while
+  // the package is not installed. Showing it beside an installed package would
+  // contradict the card's own status chip.
+  const unreleasedNote = unreleased && !row.installed
+    ? `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:6px">🚧 ${escHtml(t('packages.unreleased'))}</div>`
+    : '';
+
   // Honest gating explanations — the UI must not promise a one-click install
   // for a package that needs a Neo4j instance or an API token.
   const serviceNote = row.requiresService
@@ -164,7 +185,14 @@ function renderPackageCard(row: PackageRow): string {
   // a raw DOM string — and the server validates it against the catalog again
   // before any pm command is spawned.
   let actions = '';
-  if (!row.installed) {
+  if (unreleased && !row.installed) {
+    // Nothing to install: there is no published version to install from. An
+    // unreleased package that IS installed — from a local path or a
+    // preexisting install — keeps its full management controls below, because
+    // the server supports deactivating and removing it and hiding those would
+    // strand the user with a package they cannot get rid of.
+    actions = '';
+  } else if (!row.installed) {
     actions = `<button class="btn btn-primary btn-sm" style="width:100%" data-pkg-action="install" data-pkg-name="${escHtml(row.name)}">${escHtml(t('packages.install'))}</button>`;
   } else if (row.active && row.enabled) {
     actions = `
@@ -185,14 +213,14 @@ function renderPackageCard(row: PackageRow): string {
       <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <div style="display:flex;align-items:center;gap:6px">
           <div class="card-title">${escHtml(row.title)}</div>
-          ${templateBadge}
+          ${templateBadge}${unreleasedBadge}
         </div>
-        ${statusChip}
+        ${unreleased && !row.installed ? '' : statusChip}
       </div>
       <div class="card-body" style="padding-top:0">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${escHtml(row.description)}</div>
-        ${serviceNote}${credNotes}${caps}
-        <div style="margin-top:12px">${actions}</div>
+        ${unreleasedNote}${serviceNote}${credNotes}${caps}
+        ${actions ? `<div style="margin-top:12px">${actions}</div>` : ''}
       </div>
     </div>`;
 }

@@ -1,0 +1,31 @@
+id: pm-web-yqmi
+title: "The package catalog could silently omit a fleet package, and had already drifted from pm-ops capabilities"
+description: "The catalog is the single source of truth for what the UI can install, and its tests asserted only one direction: every catalog entry has a real fleet manifest. Nothing asserted the converse, so a package added to the fleet was invisible to the UI with every test green. Three were: pm-vcs and pm-rl ship a manifest.json declaring capabilities and were absent entirely. The one-directional check had also let a real drift through unnoticed: pm-ops declared a services capability its catalog entry did not carry."
+type: Issue
+status: closed
+priority: 1
+tags: []
+created_at: "2026-08-16T02:41:42.317Z"
+updated_at: "2026-08-16T03:38:08.754Z"
+closed_at: "2026-08-16T03:18:06.462Z"
+completed_at: "2026-08-16T03:18:06.462Z"
+author: claude-code
+acceptance_criteria: A fleet package that ships a manifest.json declaring capabilities and is absent from the catalog fails the suite; a catalog entry that claims to be published while its package.json declares no publishConfig.access fails; a catalog entry whose capabilities differ from its manifest fails; and the expected membership is derived from the fleet rather than restated as a second hardcoded list
+comments[4]{created_at,author,text}:
+  "2026-08-16T02:44:10.322Z",claude-code,"Revert-proof run against this exact tree. Baseline exit 0. Deleting the pm-vcs catalog entry while the fleet still contains it exits 1. Declaring pm-vcs published when its package.json carries no publishConfig.access exits 1. Declaring pm-graph unreleased when it does carry one exits 1. Drifting pm-ops capabilities from its manifest exits 1. Restored exit 0. The pm-ops case was not hypothetical: pm-ops had already added a services capability its catalog entry did not carry, and the one-directional test in place before this change did not notice."
+  "2026-08-16T03:18:04.698Z",claude-code,"Greptile review round, two P1 findings, both adopted. First: the fleet detection tested existsSync(FLEET_ROOT), but FLEET_ROOT defaults to this package's parent directory, which exists in a standalone checkout too and simply holds no pm packages. The derived set would have been empty and the membership assertion would have compared twenty catalog names against nothing, failing every standalone CI and release run. Verified against a simulated standalone root: the old expression derives an empty array while the directory reports as existing. The oracle is now the presence of resolvable pm extensions, not the presence of a directory. Second: the install refusal existed server-side but the frontend ignored the availability field and rendered an Install button for pm-vcs and pm-rl, so a user clicked a known-broken action and received the 409 instead of seeing the package as unavailable. The card now shows a not-yet-released badge and no action at all, with strings in all four locales, and a route test asserts the refusal happens before any process spawn. Both revert-proved: removing the 409 guard fails the route test, and dropping availability from the catalog entries fails it too."
+  "2026-08-16T03:19:56.544Z",claude-code,"CodeRabbit added a case the Greptile fix did not cover: an explicitly configured PM_FLEET_ROOT that resolves no pm extension. Falling back to catalogNames() there makes the membership check self-referential and hides an operator misconfiguration behind a green suite, which is the failure this file exists to prevent. The fallback is now allowed only for the IMPLICIT default, where a sibling directory simply happens not to hold the fleet. An explicit PM_FLEET_ROOT that resolves nothing throws with the path and the remedy. Verified three ways: the real fleet passes 9 of 9 by derivation, an explicit PM_FLEET_ROOT pointing at an empty directory fails with that error, and a genuine standalone layout - the package copied under an unrelated parent with no siblings - passes 9 of 9 on the fallback."
+  "2026-08-16T03:38:08.754Z",claude-code,"Greptile P1 in the second review round: suppressing every action for an unreleased package stranded the case where one is ALREADY installed, from a local path or an install predating the catalog entry. The card hid the status chip and offered neither deactivate nor uninstall, while the server supported both the whole time. That is worse than the install-button problem the change set out to fix. The condition is now unreleased and not installed in all three places: actions, status chip and explanatory note. The underlying confusion is worth naming: availability is a property of the registry, answering whether a new install can be fetched, and never a property of this project's installed state. A test asserts an unreleased entry stays an ordinary catalog entry in every respect except that no install spec resolves, because title, description, capabilities, category and findCatalogEntry resolution are exactly what the management controls and the route gate read."
+files[3]{path,scope}:
+  src/routes/extensions.ts,project
+  src/services/package-catalog.ts,project
+  test/catalog.test.ts,project
+tests[1]:
+  - command: PM_PATH=/tmp/pm-web-cat PM_GLOBAL_PATH=/tmp/pm-web-cat-g node --test test/catalog.test.ts
+    path: test/catalog.test.ts
+    scope: project
+    timeout_seconds: 120
+    assert_stdout_regex[1]: "the catalog covers every pm extension in the fleet[\\s\\S]*every catalog entry declares an availability the fleet agrees with"
+    note: "Binds the catalog completeness and availability assertions to their real node:test titles."
+close_reason: "The catalog represents every pm extension in the fleet, membership is derived from resolvable fleet extensions rather than from a directory existing, availability is checked against each package's own publishConfig.access, and the UI shows an unreleased package as unavailable rather than offering an install that cannot succeed. Every invariant has a mutation that fails it."
+body: ""

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The package catalog could silently omit a fleet package, and had already drifted from pm-ops capabilities ([pm-web-yqmi](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-yqmi.toon))
+
 ## 2026.8.14 - 2026-08-14
 
 ### Fixed

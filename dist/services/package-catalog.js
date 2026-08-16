@@ -143,7 +143,7 @@ export const PACKAGE_CATALOG = [
         npmSpec: "npm:pm-ops",
         title: "Ops",
         description: "Multi-repo fleet operations for pm-cli",
-        capabilities: ["commands", "renderers", "schema", "parser"],
+        capabilities: ["commands", "renderers", "schema", "parser", "services"],
         category: "extension",
     },
     {
@@ -226,6 +226,24 @@ export const PACKAGE_CATALOG = [
         ],
         category: "template",
     },
+    {
+        name: "pm-vcs",
+        npmSpec: "npm:pm-vcs",
+        title: "VCS",
+        description: "A general version control system written from scratch on the pm SDK for arbitrary files and structured records, with stable file and change identities, native PM attribution, its own object store, refs, merge, operation log and bundles, and no Git dependency in its engine.",
+        capabilities: ["commands", "schema"],
+        category: "extension",
+        availability: "unreleased",
+    },
+    {
+        name: "pm-rl",
+        npmSpec: "npm:pm-rl",
+        title: "RL",
+        description: "Reinforcement-learning programme management on the pm SDK. Content-addressed environments keep runs attributable; bounded compressed metric segments preserve every accepted branch occurrence. Commands: `pm rl env register/list/show`, `pm rl run start/log/show/finish`, `pm rl generation register/promote/show`, `pm rl lineage`, `pm rl invalidate`, and `pm rl compare`.",
+        capabilities: ["commands", "schema"],
+        category: "extension",
+        availability: "unreleased",
+    },
 ];
 /** A frozen map keyed by package name for O(1) catalog lookup. */
 const CATALOG_BY_NAME = new Map(PACKAGE_CATALOG.map((entry) => [entry.name, entry]));
@@ -247,7 +265,9 @@ export function findCatalogEntry(name) {
  */
 export function resolveNpmSpec(name) {
     const entry = CATALOG_BY_NAME.get(name);
-    return entry ? entry.npmSpec : null;
+    if (!entry || entry.availability === "unreleased")
+        return null;
+    return entry.npmSpec;
 }
 /** The immutable list of catalog package names, in display order. */
 export function catalogNames() {

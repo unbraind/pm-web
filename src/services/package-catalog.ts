@@ -57,6 +57,25 @@ export type PackageCapability = string;
 export type PackageCategory = "extension" | "template";
 
 /**
+ * Whether a catalogued package can actually be installed right now.
+ *
+ * - `"published"` — the package is on npm and `pm install npm:<name>` works.
+ *   This is the default and the state every product extension is in.
+ * - `"unreleased"` — the package exists in the fleet and is developed in the
+ *   open, but is deliberately not published to npm yet, so no install spec can
+ *   resolve. It is listed rather than hidden because silently omitting it
+ *   would make the catalog look complete while a user reading the fleet on
+ *   GitHub can plainly see a package the UI never mentions. The UI must render
+ *   these as not-yet-installable and must not offer an install action.
+ *
+ * A catalogued package must be in exactly one of these states, and the state
+ * is asserted against the npm registry metadata in `test/catalog.test.ts` —
+ * declaring `"published"` for a package that is not on npm is a failing test,
+ * not a broken install button.
+ */
+export type PackageAvailability = "published" | "unreleased";
+
+/**
  * Honest gating metadata so the UI can tell a user what they must configure
  * before a package is useful. Both fields are OPTIONAL — most packages work
  * with no external setup.
@@ -111,6 +130,12 @@ export interface PackageCatalogEntry {
    * extension. See {@link PackageCategory}.
    */
   readonly category: PackageCategory;
+  /**
+   * Whether the package is installable today. Defaults to `"published"` when
+   * absent, because every entry was installable before unreleased packages
+   * were representable. See {@link PackageAvailability}.
+   */
+  readonly availability?: PackageAvailability;
   /** Backing service the package needs (optional). */
   readonly requiresService?: ServiceRequirement;
   /** Credentials the user must configure (optional). */
@@ -237,7 +262,7 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     npmSpec: "npm:pm-ops",
     title: "Ops",
     description: "Multi-repo fleet operations for pm-cli",
-    capabilities: ["commands", "renderers", "schema", "parser"],
+    capabilities: ["commands", "renderers", "schema", "parser", "services"],
     category: "extension",
   },
   {
@@ -324,6 +349,26 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     ],
     category: "template",
   },
+  {
+    name: "pm-vcs",
+    npmSpec: "npm:pm-vcs",
+    title: "VCS",
+    description:
+      "A general version control system written from scratch on the pm SDK for arbitrary files and structured records, with stable file and change identities, native PM attribution, its own object store, refs, merge, operation log and bundles, and no Git dependency in its engine.",
+    capabilities: ["commands", "schema"],
+    category: "extension",
+    availability: "unreleased",
+  },
+  {
+    name: "pm-rl",
+    npmSpec: "npm:pm-rl",
+    title: "RL",
+    description:
+      "Reinforcement-learning programme management on the pm SDK. Content-addressed environments keep runs attributable; bounded compressed metric segments preserve every accepted branch occurrence. Commands: `pm rl env register/list/show`, `pm rl run start/log/show/finish`, `pm rl generation register/promote/show`, `pm rl lineage`, `pm rl invalidate`, and `pm rl compare`.",
+    capabilities: ["commands", "schema"],
+    category: "extension",
+    availability: "unreleased",
+  },
 ];
 
 /** A frozen map keyed by package name for O(1) catalog lookup. */
@@ -350,7 +395,8 @@ export function findCatalogEntry(name: string): PackageCatalogEntry | undefined 
  */
 export function resolveNpmSpec(name: string): string | null {
   const entry = CATALOG_BY_NAME.get(name);
-  return entry ? entry.npmSpec : null;
+  if (!entry || entry.availability === "unreleased") return null;
+  return entry.npmSpec;
 }
 
 /** The immutable list of catalog package names, in display order. */
