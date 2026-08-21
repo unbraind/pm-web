@@ -277,6 +277,8 @@ test("mutation-event watcher: cursor resume after an error restarts from stored 
 test("mutation-event watcher: a cursorless batch event cannot erase the last resume cursor", async () => {
   const errors: unknown[] = [];
   const sinceValues: string[] = [];
+  let resolveFirstError: (() => void) | undefined;
+  const firstError = new Promise<void>((resolve) => { resolveFirstError = resolve; });
   let callCount = 0;
   const subscribe = (options: { pmRoot: string; since: string; intervalMs: number; signal: AbortSignal }): AsyncGenerator<MutationEvent, void, void> => {
     callCount += 1;
@@ -298,11 +300,14 @@ test("mutation-event watcher: a cursorless batch event cannot erase the last res
     subscribe,
     consumeSignaledItemMutation: () => false,
     emit: () => undefined,
-    onError: (error) => { errors.push(error); },
+    onError: (error) => {
+      errors.push(error);
+      resolveFirstError?.();
+    },
   });
 
   await reconcile();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await firstError;
   assert.equal(errors.length, 1);
   await reconcile();
   assert.equal(callCount, 2);

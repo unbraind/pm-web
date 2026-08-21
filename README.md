@@ -219,9 +219,9 @@ release approvals.
 
 ## New data endpoints (kanban board & search)
 
-The pm data API exposes board and search views, both driven by the
-workspace's live `pm contracts` schema (so they reflect the installed pm CLI +
-extensions) and the certified complete-read contract described above:
+The pm data API exposes board and search views through the certified
+complete-read contract described above. The board also uses the workspace's
+live `pm contracts` statuses for its columns:
 
 - `GET /api/projects/:projectId/pm/board` — items grouped into kanban columns by
   the workspace's runtime statuses (unlisted statuses fall into `(other)`).
