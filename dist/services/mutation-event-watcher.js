@@ -82,7 +82,8 @@ export function createMutationEventReconciler(deps = {}) {
             try {
                 const gen = subscribe({ pmRoot, since, intervalMs, signal: controller.signal });
                 for await (const event of gen) {
-                    sub.cursor = event.cursor;
+                    if (event.cursor !== undefined)
+                        sub.cursor = event.cursor;
                     // Skip events that this instance's own API already announced (per-item dedupe).
                     if (consumeSignal(projectId, event.item_id))
                         continue;

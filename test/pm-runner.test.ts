@@ -4,7 +4,17 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { evictPmClient, EXIT_CODE, getPmClient, runPm, Semaphore } from "../src/services/pm-runner.ts";
+import {
+  certifyPmWebCompleteList,
+  evictPmClient,
+  EXIT_CODE,
+  getPmClient,
+  PmWebCompleteListReceiptError,
+  readCompletePmItems,
+  runPm,
+  Semaphore,
+  type PmWebCompleteListReceiptFinding,
+} from "../src/services/pm-runner.ts";
 
 test("semaphore hands a released slot directly to the oldest waiter", async () => {
   const semaphore = new Semaphore(1);
@@ -288,6 +298,47 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     });
     assert.equal(second.ok, true, second.stderr);
 
+    const complete = await readCompletePmItems("user", "sdk", true);
+    if (!complete.ok) assert.fail(complete.stderr);
+    assert.equal(complete.result.items.length, 2);
+    assert.equal(complete.result.complete_list.item_count, 2);
+    assert.ok(complete.result.items.every((item) => typeof item.body === "string"));
+
+    const supplementalFailures: ReadonlyArray<{
+      finding: PmWebCompleteListReceiptFinding;
+      mutate: (candidate: Record<string, unknown>) => void;
+    }> = [
+      {
+        finding: "unreadable_source_count",
+        mutate: (candidate) => {
+          const completeness = candidate["completeness"] as Record<string, unknown>;
+          completeness["unreadable_item_count"] = 1;
+        },
+      },
+      {
+        finding: "invalid_omission_receipt",
+        mutate: (candidate) => { delete candidate["omission_receipt"]; },
+      },
+      {
+        finding: "invalid_read_output_receipt",
+        mutate: (candidate) => { delete candidate["read_output"]; },
+      },
+      {
+        finding: "budget_disclosure_present",
+        mutate: (candidate) => { candidate["output_budget_exceeded"] = {}; },
+      },
+    ];
+    for (const { finding, mutate } of supplementalFailures) {
+      const candidate = structuredClone(complete.result) as unknown as Record<string, unknown>;
+      mutate(candidate);
+      assert.throws(
+        () => certifyPmWebCompleteList(candidate),
+        (error: unknown) =>
+          error instanceof PmWebCompleteListReceiptError && error.findings.includes(finding),
+        `supplemental certification must reject ${finding}`,
+      );
+    }
+
     const comment = await runPm({
       userId: "user",
       slug: "sdk",
@@ -323,7 +374,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     const firstPage = await runPm({
       userId: "user",
       slug: "sdk",
-      args: ["list-all", "--limit", "1", "--include-body"],
+      args: ["list", "--all", "--limit", "1", "--include-body"],
       jsonOutput: true,
     });
     assert.equal(firstPage.ok, true, firstPage.stderr);
@@ -340,7 +391,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     const nextPage = await runPm({
       userId: "user",
       slug: "sdk",
-      args: ["list-all", "--limit", "1", "--after", String(firstPageResult.next_cursor)],
+      args: ["list", "--all", "--limit", "1", "--after", String(firstPageResult.next_cursor)],
       jsonOutput: true,
     });
     assert.equal(nextPage.ok, true, nextPage.stderr);

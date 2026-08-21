@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { ensureGraphExtension, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.ts";
+import { ensureGraphExtension, readCompletePmItems, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.ts";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
 // aggregate sdk barrel documents itself as re-exporting every supported export but
 // omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
@@ -533,32 +533,27 @@ function broadcastDependencyEvent(
   });
 }
 
-function itemsFromListAll(parsed: unknown): PmItem[] {
+function itemsFromCompleteList(parsed: unknown): PmItem[] {
   return ((((parsed as { items?: PmItem[] } | undefined)?.items) ?? []) as PmItem[]);
 }
 
 /**
- * Build a project graph from `pm list-all` when no graph extension is available.
+ * Build a project graph from a certified complete pm read when no graph extension is available.
  *
- * Runs `list-all` as the project owner and assembles the graph from the returned
- * items using their embedded `deps`/`dependencies` (no per-item subprocess calls),
- * avoiding an N+1 fan-out. Throws when the items cannot be loaded.
+ * Reads every item through the public SDK's high-level complete-list operation
+ * and assembles the graph from embedded `deps`/`dependencies` (no per-item
+ * calls), avoiding an N+1 fan-out. Throws when the corpus cannot be certified.
  *
  * @param ownerUserId - The project owner's user id.
  * @param slug - The project slug.
  * @returns A pm-web-sourced project graph.
  */
 async function fallbackGraphForProject(ownerUserId: string, slug: string): Promise<ProjectGraph> {
-  const itemsResult = await runPm({
-    args: ["list-all"],
-    userId: ownerUserId,
-    slug,
-    jsonOutput: true,
-  });
+  const itemsResult = await readCompletePmItems(ownerUserId, slug);
   if (!itemsResult.ok) throw new Error(itemsResult.stderr || "Failed to load items for graph");
 
-  const items = itemsFromListAll(itemsResult.parsed);
-  // Deps are already embedded in list-all output (item.deps / item.dependencies).
+  const items = itemsFromCompleteList(itemsResult.result);
+  // Deps are already embedded in the full item rows (item.deps / item.dependencies).
   // Avoid N+1 subprocess calls by using only the embedded data.
   return graphFromItems(items, new Map());
 }
@@ -777,7 +772,10 @@ router.get("/list-all", async (req: AuthRequest, res) => {
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const { type, limit, after } = req.query as Record<string, string>;
-  const args = ["list-all"];
+  // Preserve the public HTTP compatibility route while invoking the canonical
+  // CLI/SDK command internally. This route is intentionally paginated and is
+  // therefore distinct from readCompletePmItems used by whole-corpus views.
+  const args = ["list", "--all"];
   if (type) args.push("--type", type);
   if (limit) args.push("--limit", limit);
   const cursorResult = validateCursor(after);
@@ -808,22 +806,22 @@ router.get("/board", async (req: AuthRequest, res) => {
     : undefined;
   const statuses = Array.isArray(rt?.["statuses"]) ? (rt!["statuses"] as string[]) : [];
 
-  const listed = await runPm({ args: ["list-all", "--json"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const listed = await readCompletePmItems(project.ownerUserId, project.slug);
   if (!listed.ok) { res.json({ error: listed.stderr, columns: [] }); return; }
-  const items = itemsFromListAll(listed.parsed);
+  const items = itemsFromCompleteList(listed.result);
   res.json({ columns: boardColumns(items, statuses), statuses, count: items.length });
 });
 
 // GET /api/projects/:projectId/pm/search?q=...
-// Full-text search over id/title/tags/body via a single list-all read.
+// Full-text search over id/title/tags/body via one certified complete read.
 router.get("/search", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const query = String((req.query as Record<string, string>)["q"] ?? "");
-  const listed = await runPm({ args: ["list-all", "--json", "--include-body"], userId: project.ownerUserId, slug: project.slug, jsonOutput: true });
+  const listed = await readCompletePmItems(project.ownerUserId, project.slug, true);
   if (!listed.ok) { res.json({ error: listed.stderr, items: [] }); return; }
-  const items = filterItemsByQuery(itemsFromListAll(listed.parsed), query);
+  const items = filterItemsByQuery(itemsFromCompleteList(listed.result), query);
   res.json({ query, items, count: items.length });
 });
 
@@ -1253,22 +1251,17 @@ router.get("/calendar", async (req: AuthRequest, res) => {
 
 // GET /api/projects/:projectId/pm/calendar.ics
 // RFC 5545 iCalendar feed of item deadlines, for subscribing in Google
-// Calendar / Outlook / Apple Calendar. Reuses the same list-all read as the
-// calendar view. Auth works via the usual token (header/cookie) or a
+// Calendar / Outlook / Apple Calendar. Reads one certified complete corpus.
+// Auth works via the usual token (header/cookie) or a
 // `?token=` query param, since calendar clients cannot send cookies.
 router.get("/calendar.ics", async (req: AuthRequest, res) => {
   const project = await verifyProject(req.user!.userId, routeParam(req, "projectId"));
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
-  const listed = await runPm({
-    args: ["list-all", "--json"],
-    userId: project.ownerUserId,
-    slug: project.slug,
-    jsonOutput: true,
-  });
+  const listed = await readCompletePmItems(project.ownerUserId, project.slug);
   if (!listed.ok) { res.status(502).json({ error: listed.stderr || "Failed to load items" }); return; }
 
-  const items = itemsFromListAll(listed.parsed)
+  const items = itemsFromCompleteList(listed.result)
     .filter((i) => Boolean(i.deadline))
     .map<CalendarItem>((i) => ({
       id: i.id,
@@ -1935,20 +1928,14 @@ router.get("/export", async (req: AuthRequest, res) => {
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const format = (req.query["format"] as string) || "json";
-  // Use --full --include-body to get the richest available list-level metadata
-  const result = await runPm({
-    args: ["list-all", "--limit", "10000", "--full", "--include-body"],
-    userId: project.ownerUserId,
-    slug: project.slug,
-    jsonOutput: true,
-  });
+  const result = await readCompletePmItems(project.ownerUserId, project.slug, true);
 
   if (!result.ok) {
     res.status(500).json({ error: result.stderr || "Export failed" });
     return;
   }
 
-  const data = result.parsed as { items?: unknown[] } | undefined;
+  const data = result.result;
   const exportedAt = new Date().toISOString();
 
   if (format === "csv") {

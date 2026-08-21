@@ -14,10 +14,20 @@ interface DependencyManifest {
   readonly peerDependencies?: Readonly<Record<string, string>>;
 }
 
+/** Compatibility metadata published for extension-host consumers. */
+interface ExtensionManifest {
+  readonly pm_min_version?: string;
+}
+
 /** The published manifest, read from disk rather than imported so the assertions run against the same bytes npm publishes. */
 const manifest = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 ) as DependencyManifest;
+
+/** The extension manifest loaded by a pm host. */
+const extensionManifest = JSON.parse(
+  readFileSync(new URL("../manifest.json", import.meta.url), "utf8"),
+) as ExtensionManifest;
 
 /** The host CLI package whose placement in the manifest this suite governs. */
 const HOST_CLI = "@unbrained/pm-cli";
@@ -84,5 +94,28 @@ test("the host CLI is pinned to an exact version rather than a range", () => {
     declared,
     EXACT_VERSION,
     `${HOST_CLI} must be pinned exactly, not declared as the range "${declared}": both the gate verdict and the deployed server depend on which CLI version resolves`,
+  );
+});
+
+test("the extension compatibility floor matches the standalone runtime SDK", () => {
+  const runtimeVersion = manifest.dependencies?.[HOST_CLI];
+  assert.ok(runtimeVersion, `${HOST_CLI} must be declared for the standalone server`);
+  assert.equal(
+    extensionManifest.pm_min_version,
+    runtimeVersion,
+    "manifest.json must refuse extension hosts older than the exact SDK exercised by the standalone server",
+  );
+});
+
+test("the release gate exercises the packed npm and Bun launchers", () => {
+  assert.match(
+    String(manifest.scripts?.["accept:packed"]),
+    /scripts\/accept-packed\.ts/u,
+    "accept:packed must execute the real packed-install acceptance script",
+  );
+  assert.match(
+    String(manifest.scripts?.["release:check"]),
+    /npm run accept:packed/u,
+    "release:check must not publish without packed npm and Bun launcher acceptance",
   );
 });

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Certify pm-web complete tracker reads and refresh the package catalog ([pm-web-crdr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-crdr.toon))
+- Docstring corrections: filters, graph-canvas, crypto, board, pm routes, project-watcher, sse, mutation-event-watcher ([pm-web-oehb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-oehb.toon))
+- Fix release publish-before-protected-main-push ordering ([pm-web-8l6j](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8l6j.toon))
+
 ## 2026.8.17 - 2026-08-17
 
 ### Fixed

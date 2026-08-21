@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
 
+import { isHostOutputSuppressed } from "@unbrained/pm-cli/sdk";
 import { createExtensionTestHarness } from "@unbrained/pm-cli/sdk/testing";
 
-import extension from "../src/index.ts";
+import extension, { emitOwnedOutput } from "../src/index.ts";
 
 /**
  * Activate pm-web through pm's real host engine with the manifest's declared
@@ -41,6 +42,23 @@ test("pm-web registers web, status, stop and doctor commands", async () => {
   ext.assertCommandContract({ name: "web doctor", flags: ["--port"] });
 
   await ext.deactivate();
+});
+
+test("command-owned output is single-write JSON or human text with a retained result", (context) => {
+  const writes: string[] = [];
+  context.mock.method(console, "log", (value: unknown) => writes.push(String(value)));
+
+  const result = { status: "down", port: 61115 };
+  const json = emitOwnedOutput(true, result, ["human fallback"]);
+  assert.equal(isHostOutputSuppressed(json), true);
+  assert.deepEqual(json.result, result);
+  assert.deepEqual(writes, [JSON.stringify(result, null, 2)]);
+
+  writes.length = 0;
+  const human = emitOwnedOutput(false, result, ["first", "second"]);
+  assert.equal(isHostOutputSuppressed(human), true);
+  assert.deepEqual(human.result, result);
+  assert.deepEqual(writes, ["first", "second"]);
 });
 
 test("server entrypoint exits non-zero without DATABASE_URL", () => {

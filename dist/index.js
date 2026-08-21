@@ -6,7 +6,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineExtension, } from "@unbrained/pm-cli/sdk";
+import { defineExtension, suppressHostOutput, } from "@unbrained/pm-cli/sdk";
 // ---------------------------------------------------------------------------
 // Error contract
 // CommandError carries a numeric exitCode so the pm runtime surfaces a clean
@@ -92,6 +92,28 @@ export function shapeStatusResult(input) {
     if (input.error)
         result.error = input.error;
     return result;
+}
+/**
+ * Write a command-owned JSON or human-readable payload exactly once.
+ *
+ * The public SDK marker retains the structured result for hooks and embedded
+ * hosts while preventing the CLI presentation layer from appending a second
+ * serialization to stdout.
+ *
+ * @param json - Whether to render the structured JSON representation.
+ * @param result - Structured command result retained for host integrations.
+ * @param humanLines - Lines rendered for an interactive non-JSON invocation.
+ * @returns The host-output suppression marker carrying the structured result.
+ */
+export function emitOwnedOutput(json, result, humanLines) {
+    if (json) {
+        console.log(JSON.stringify(result, null, 2));
+    }
+    else {
+        for (const line of humanLines)
+            console.log(line);
+    }
+    return suppressHostOutput(result);
 }
 // ---------------------------------------------------------------------------
 // Runtime helpers
@@ -316,17 +338,10 @@ export default defineExtension({
                     body: probe.body,
                     error: probe.error,
                 });
-                if (json) {
-                    console.log(JSON.stringify(result, null, 2));
-                }
-                else if (result.status === "up") {
-                    console.log(`pm-web is UP on port ${result.port}` +
-                        (result.version ? ` (version ${result.version})` : ""));
-                }
-                else {
-                    console.log(`pm-web is DOWN on port ${result.port}`);
-                }
-                return result;
+                const humanLine = result.status === "up"
+                    ? `pm-web is UP on port ${result.port}${result.version ? ` (version ${result.version})` : ""}`
+                    : `pm-web is DOWN on port ${result.port}`;
+                return emitOwnedOutput(json, result, [humanLine]);
             },
         });
         // -----------------------------------------------------------------------
@@ -346,15 +361,6 @@ export default defineExtension({
                 // (the host rejects the registration) and must read it from ctx.global.
                 const json = ctx.global?.json === true;
                 const pidfile = pidfilePath(port);
-                const emit = (result) => {
-                    if (json) {
-                        console.log(JSON.stringify(result, null, 2));
-                    }
-                    else {
-                        console.log(String(result["message"]));
-                    }
-                    return result;
-                };
                 // Prefer the in-process handle if we started it this session.
                 let pid = null;
                 if (serverProcess?.pid) {
@@ -367,22 +373,24 @@ export default defineExtension({
                         pid = parsed;
                 }
                 if (pid === null) {
-                    return emit({
+                    const result = {
                         status: "not_running",
                         port: Number(port),
                         message: `pm-web is not running (no pidfile for port ${port}).`,
-                    });
+                    };
+                    return emitOwnedOutput(json, result, [result.message]);
                 }
                 if (!processAlive(pid)) {
                     // Stale pidfile — clean it up and report gracefully.
                     if (fs.existsSync(pidfile))
                         fs.rmSync(pidfile, { force: true });
-                    return emit({
+                    const result = {
                         status: "not_running",
                         port: Number(port),
                         pid,
                         message: `pm-web process (PID ${pid}) is not running; cleared stale pidfile.`,
-                    });
+                    };
+                    return emitOwnedOutput(json, result, [result.message]);
                 }
                 try {
                     process.kill(pid, "SIGTERM");
@@ -394,12 +402,13 @@ export default defineExtension({
                     fs.rmSync(pidfile, { force: true });
                 if (serverProcess?.pid === pid)
                     serverProcess = null;
-                return emit({
+                const result = {
                     status: "stopped",
                     port: Number(port),
                     pid,
                     message: `Stopped pm-web (PID ${pid}) on port ${port}.`,
-                });
+                };
+                return emitOwnedOutput(json, result, [result.message]);
             },
         });
         // -----------------------------------------------------------------------
@@ -467,16 +476,10 @@ export default defineExtension({
                     port: Number(port),
                     checks,
                 };
-                if (json) {
-                    console.log(JSON.stringify(result, null, 2));
-                }
-                else {
-                    console.log(`pm-web doctor — overall: ${ok ? "OK" : "ISSUES"}`);
-                    for (const c of checks) {
-                        console.log(`  [${c.ok ? "ok" : "!!"}] ${c.name}: ${c.detail}`);
-                    }
-                }
-                return result;
+                return emitOwnedOutput(json, result, [
+                    `pm-web doctor — overall: ${ok ? "OK" : "ISSUES"}`,
+                    ...checks.map((check) => `  [${check.ok ? "ok" : "!!"}] ${check.name}: ${check.detail}`),
+                ]);
             },
         });
         // -----------------------------------------------------------------------

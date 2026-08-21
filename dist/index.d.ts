@@ -1,4 +1,4 @@
-import { type ExtensionApi } from "@unbrained/pm-cli/sdk";
+import { type ExtensionApi, type SuppressedHostOutput } from "@unbrained/pm-cli/sdk";
 /** Resolve the port from flag → PORT env → default 4000. */
 export declare function resolvePort(options: Record<string, unknown>, env?: NodeJS.ProcessEnv): string;
 /**
@@ -34,6 +34,19 @@ export declare function shapeStatusResult(input: {
     healthz: unknown;
     error?: string;
 };
+/**
+ * Write a command-owned JSON or human-readable payload exactly once.
+ *
+ * The public SDK marker retains the structured result for hooks and embedded
+ * hosts while preventing the CLI presentation layer from appending a second
+ * serialization to stdout.
+ *
+ * @param json - Whether to render the structured JSON representation.
+ * @param result - Structured command result retained for host integrations.
+ * @param humanLines - Lines rendered for an interactive non-JSON invocation.
+ * @returns The host-output suppression marker carrying the structured result.
+ */
+export declare function emitOwnedOutput<TResult>(json: boolean, result: TResult, humanLines: readonly string[]): SuppressedHostOutput<TResult>;
 declare const _default: {
     name: string;
     version: string;

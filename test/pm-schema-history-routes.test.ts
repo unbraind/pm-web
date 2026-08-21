@@ -54,10 +54,10 @@ async function setupHarness(): Promise<Harness> {
 }
 
 /** Create a real item in the harness workspace and return its id. */
-function createItem(pmRoot: string, title: string): string {
+function createItem(pmRoot: string, title: string, extraArgs: readonly string[] = []): string {
   const out = execFileSync(
     "pm",
-    ["create", "--type", "Task", "--title", title, "--pm-path", pmRoot, "--json"],
+    ["create", "--type", "Task", "--title", title, ...extraArgs, "--pm-path", pmRoot, "--json"],
     { encoding: "utf8" },
   );
   const parsed = JSON.parse(out) as { id?: string; item?: { id?: string } };
@@ -135,6 +135,71 @@ async function request(
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 }
+
+test("whole-project routes consume certified complete reads while list-all remains paginated", async () => {
+  const harness = await setupHarness();
+  const restorePool = stubPool();
+  const app = createApp();
+  try {
+    const activeId = createItem(harness.pmRoot, "Alpha active item", [
+      "--description",
+      "searchable complete-read fixture",
+      "--deadline",
+      "2026-08-25",
+      "--body",
+      "body retained by export",
+    ]);
+    const closedId = createItem(harness.pmRoot, "Closed corpus item");
+    execFileSync(
+      "pm",
+      ["close", closedId, "complete-route fixture", "--pm-path", harness.pmRoot],
+      { stdio: "ignore" },
+    );
+
+    const page = await request(
+      app,
+      "GET",
+      `/api/projects/${PROJECT_ID}/pm/list-all?limit=1`,
+      OWNER_USER_ID,
+    );
+    assert.equal(page.status, 200);
+    assert.equal((page.body.items as unknown[]).length, 1);
+    assert.equal(page.body.has_more, true, "the compatibility route remains intentionally paginated");
+    assert.equal(page.body.total, 2);
+
+    const board = await request(app, "GET", `/api/projects/${PROJECT_ID}/pm/board`, OWNER_USER_ID);
+    assert.equal(board.status, 200);
+    assert.equal(board.body.count, 2, "the complete board read includes terminal work");
+
+    const search = await request(
+      app,
+      "GET",
+      `/api/projects/${PROJECT_ID}/pm/search?q=searchable`,
+      OWNER_USER_ID,
+    );
+    assert.equal(search.status, 200);
+    assert.equal(search.body.count, 1);
+    assert.equal((search.body.items as Array<{ id?: string }>)[0]?.id, activeId);
+
+    const exported = await request(app, "GET", `/api/projects/${PROJECT_ID}/pm/export`, OWNER_USER_ID);
+    assert.equal(exported.status, 200);
+    const exportedItems = exported.body.items as Array<{ id?: string; body?: string }>;
+    assert.deepEqual(new Set(exportedItems.map((item) => item.id)), new Set([activeId, closedId]));
+    assert.equal(exportedItems.find((item) => item.id === activeId)?.body, "body retained by export");
+
+    const calendar = await request(
+      app,
+      "GET",
+      `/api/projects/${PROJECT_ID}/pm/calendar.ics`,
+      OWNER_USER_ID,
+    );
+    assert.equal(calendar.status, 200);
+    assert.match(String(calendar.body.raw ?? ""), /SUMMARY:\[Task\] Alpha active item/);
+  } finally {
+    restorePool();
+    await harness.restore();
+  }
+});
 
 test("schema/add-type registers a real custom type with all optional fields applied", async () => {
   const harness = await setupHarness();

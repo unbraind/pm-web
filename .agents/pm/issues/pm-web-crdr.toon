@@ -1,0 +1,54 @@
+id: pm-web-crdr
+title: Certify pm-web complete tracker reads and refresh the package catalog
+description: "Replace every internal whole-workspace list-all consumer with one canonical strict full doubly-unbounded list --all reader certified by the public pm SDK, while preserving intentionally paginated HTTP list routes; update the runtime/tooling pins and synchronize the install catalog with the exact manifests of every fleet extension."
+type: Issue
+status: closed
+priority: 1
+tags: []
+created_at: "2026-08-21T11:07:28.820Z"
+updated_at: "2026-08-21T11:46:38.226Z"
+closed_at: "2026-08-21T11:41:29.112Z"
+completed_at: "2026-08-21T11:41:29.112Z"
+author: codex
+acceptance_criteria: "One shared reader owns every whole-workspace corpus load; the exact canonical argv and SDK certificate failure modes are covered; graph, board, search, calendar, export and other whole-corpus consumers fail closed rather than silently accepting omissions; client-facing paginated list endpoints preserve cursor semantics; the catalog exactly mirrors all fleet manifests including pm-rl; runtime/tooling use pm CLI 2026.8.21 and pm-changelog/pm-ops 2026.8.17; Node floor is exact in CI/release; real PostgreSQL integration, SDK, installed CLI, npm and Bun acceptance are green; independent exact-coverage and reachable-history privacy blockers remain explicit"
+definition_of_ready: "Main is clean at 77a0377; the real PostgreSQL release gate reproduces one stale pm-rl catalog failure; package coverage is 64.49 lines, 81.41 branches and 58.07 functions; internal list-all calls omit completeness proof; npm reports newer pm CLI, pm-changelog and pm-ops versions."
+reviewer: greptile
+risk: high
+confidence: high
+sprint: 2026-08-canonical-readers
+release: next
+reporter: codex
+severity: high
+environment: "pm-web 2026.8.17, exact runtime pm CLI/SDK 2026.8.21, Node 22.19.0, real PostgreSQL on 127.0.0.1:55433, fresh npm and Bun projects"
+repro_steps: "Run npm run release:check with the real test database: catalog parity fails because pm-rl changed; inspect src/routes/pm.ts and observe whole-corpus list-all calls without strict-read, no-truncate, full projection, or both unbounded output controls."
+resolution: "Centralized all whole-workspace reads behind SDK certification and verified supplemental receipts, preserved paginated compatibility routes, refreshed the full fleet catalog and current dependencies, pinned workflow supply-chain inputs, added fresh packed npm and Bun acceptance, and removed duplicate command JSON through the public SDK output protocol."
+expected_result: "Every full-project view is derived only from a verified complete corpus and the UI offers an accurate, current catalog for every pm package."
+actual_result: "The real PostgreSQL gate passes 289 tests with 66.18 percent lines, 80.40 percent branches, and 60.45 percent functions across 26 configured sources and thresholds ratcheted to 66/80/60. All 528 declarations across 78 TypeScript files are documented. Fresh packed npm/npx and Bun/bunx scenarios activate the extension on pm 2026.8.21 and return one parseable status payload without deprecated diagnostics. Production audit is zero and npm pack contains 232 published files. Exact all-source coverage items pm-web-9ulj and pm-web-ulgy plus privacy item pm-web-priv and GitHub issue 96 remain open, so the branch must not merge or publish."
+affected_version: pm-web 2026.8.17
+component: routes/pm.ts complete-corpus reads and package catalog
+customer_impact: "A silently partial corpus can hide work from graph, board, search, calendar and export views, while stale catalog metadata misrepresents installable package functionality."
+dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
+  pm-web-ulgy,related,"2026-08-21T11:07:28.820Z",codex,pm,asserted
+notes[3]{created_at,author,text}:
+  "2026-08-21T11:08:33.042Z",codex,Implementation remains independently merge and publication blocked by pm-web-priv and GitHub issue #96 even if code and CI turn green.
+  "2026-08-21T11:41:28.575Z",codex,"The first packed run failed because web status emitted its own JSON and returned an ordinary structured value,causing the pm host to append a second JSON document. The production fix uses the installed public SDK suppressHostOutput primitive for status,stop,and doctor through one tested shared output owner; packed npx and bunx now each return exactly one parseable document."
+  "2026-08-21T11:46:38.204Z",codex,"Dependabot PRs 89 through 93 were individually closed as superseded by PR 97: the implementation carries openid-client 6.8.7,pg 8.23.0,@types/pg 8.23.1,@types/node 26.2.0,pm-changelog 2026.8.17,and pm-ops 2026.8.17 through the full gate."
+files[9]{path,scope,note}:
+  src/routes/pm.ts,project,Whole-corpus HTTP and fallback consumers
+  src/services/pm-runner.ts,project,SDK dispatch and certification boundary
+  src/services/package-catalog.ts,project,Install catalog source of truth
+  src/index.ts,project,Public SDK output suppression for command-owned payloads
+  scripts/accept-packed.ts,project,Fresh packed npm/npx and Bun/bunx acceptance
+  test/smoke.test.ts,project,Single-write SDK output ownership regression
+  test/packaging.test.ts,project,Mandatory packed gate and runtime floor contracts
+  test/pm-schema-history-routes.test.ts,project,Real-workspace complete route acceptance
+  test/workflow-security.test.ts,project,Immutable action and read-only credential regression gates
+tests[3]{command,path,scope,timeout_seconds,pm_context_mode}:
+  "npm run release:check",test,project,300,tracker
+  "npm run accept:packed",scripts/accept-packed.ts,project,300,tracker
+  npm run coverage,test,project,300,tracker
+docs[2]{path,scope,note}:
+  "https://github.com/unbraind/pm-web/issues/96",global,Independent reachable-history privacy blocker
+  "https://github.com/unbraind/pm-web/pull/97",global,Certified complete-reader and packed-host implementation PR retained behind independent blockers
+close_reason: "Scoped complete-reader, catalog, dependency, workflow, and packed-host tranche is implemented and locally verified; independent route coverage and history privacy items remain open and prohibit merge or publication."
+body: ""

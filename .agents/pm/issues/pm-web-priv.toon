@@ -1,0 +1,37 @@
+id: pm-web-priv
+title: Authorize and execute pm-web reachable-history privacy remediation
+description: "Current tracked files have zero detected absolute current-user home paths, private IPv4 literals, private-key headers, or common GitHub, AWS and npm token prefixes, but 316 reachable commits contain 137 patch lines with the current-user home path and three distinct non-noreply author email identities. Public history must not be rewritten without explicit coordinated authorization and downstream impact planning."
+type: Issue
+status: open
+priority: 1
+tags: []
+created_at: "2026-08-21T11:07:29.247Z"
+updated_at: "2026-08-21T11:57:19.780Z"
+assignee: codex
+author: codex
+estimated_minutes: 720
+acceptance_criteria: "Inventory every reachable ref and tag; classify absolute paths, identities, secrets, hosted data and personal domains; obtain explicit maintainer authorization before any rewrite; preserve an offline recovery bundle; rewrite atomically across every affected ref when authorized; publish coordinated clone invalidation guidance; rescan current files, package contents and full reachable history to zero approved-scope findings before merge or publication"
+definition_of_ready: "Current tracked scans, reachable-history patch counts, author-domain counts, GitHub secret-scanning status and repository ref count are recorded without exposing matched private values."
+reviewer: maintainer
+risk: critical
+confidence: high
+sprint: 2026-08-privacy
+release: next
+reporter: codex
+severity: critical
+environment: pm-web public Git repository with 316 reachable commits
+repro_steps: "Scan git log --all --format= --patch for absolute home paths and git log --all --format=%ae for author identities; scan tracked files and reachable history for private IPs, private-key headers, and common token prefixes without printing matches."
+expected_result: The public repository and every published artifact have an explicitly approved privacy boundary with no unreviewed personal or hosted-service data in reachable history.
+actual_result: "Current tracked scans are clean for the measured patterns. Reachable history has 137 current-user absolute-home-path patch lines, seven distinct author emails of which three are not GitHub noreply identities, and zero detected private IPv4, private-key-header, or common token-prefix patch lines. GitHub secret scanning reports zero open alerts. No history rewrite is authorized."
+affected_version: all reachable pm-web history through 77a0377
+component: git history and publication privacy
+customer_impact: Merging or publishing without an approved history boundary can preserve personal host or identity metadata in a public repository and package provenance.
+notes[1]{created_at,author,text}:
+  "2026-08-21T11:56:16.925Z",codex,"CodeRabbit identified that the prior linked test emitted raw reachable patches. Replaced it with three count-only fail-closed scanners for reachable history,current tracked files,and packed package contents. The scanners never print matched values; the history check is expected to remain non-zero until an explicitly authorized rewrite resolves this blocker."
+tests[3]{command,path,scope,timeout_seconds,pm_context_mode}:
+  "git log --all --format= --patch | node --input-type=module -e 'let s=\"\";for await(const c of process.stdin)s+=c;let n=0;n+=(s.match(/\\/home\\/[A-Za-z0-9._-]+\\//g)||[]).length;n+=(s.match(/\\b(?:10\\.(?:[0-9][0-9]?[0-9]?\\.){2}[0-9][0-9]?[0-9]?|192\\.168\\.[0-9][0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?|172\\.(?:1[6-9]|2[0-9]|3[01])\\.[0-9][0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?)\\b/g)||[]).length;n+=(s.match(/BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY/g)||[]).length;n+=(s.match(/\\b(?:AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20}[A-Za-z0-9_]*|npm_[A-Za-z0-9]{20}[A-Za-z0-9]*)\\b/g)||[]).length;console.log(\"approved_scope_content_matches=\"+n);process.exitCode=n===0?0:1'; a=$?; git log --all --format=%ae | node --input-type=module -e 'let s=\"\";for await(const c of process.stdin)s+=c;const e=s.trim().split(/\\s+/).filter(Boolean);const n=e.filter(v=>!v.endsWith(\"@users.noreply.github.com\")).length;console.log(\"non_noreply_author_commits=\"+n);process.exitCode=n===0?0:1'; b=$?; test $a -eq 0 -a $b -eq 0",.git,project,120,tracker
+  "{ git ls-files; git grep -I -h -E '.' -- . || true; } | node --input-type=module -e 'let s=\"\";for await(const c of process.stdin)s+=c;let n=0;n+=(s.match(/\\/home\\/[A-Za-z0-9._-]+\\//g)||[]).length;n+=(s.match(/\\b(?:10\\.(?:[0-9][0-9]?[0-9]?\\.){2}[0-9][0-9]?[0-9]?|192\\.168\\.[0-9][0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?|172\\.(?:1[6-9]|2[0-9]|3[01])\\.[0-9][0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?)\\b/g)||[]).length;n+=(s.match(/BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY/g)||[]).length;n+=(s.match(/\\b(?:AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20}[A-Za-z0-9_]*|npm_[A-Za-z0-9]{20}[A-Za-z0-9]*)\\b/g)||[]).length;console.log(\"approved_scope_content_matches=\"+n);process.exitCode=n===0?0:1'",.,project,120,tracker
+  "p=$(npm pack --ignore-scripts --silent) && { tar -tzf \"$p\"; tar -xOzf \"$p\"; } | node --input-type=module -e 'let s=\"\";for await(const c of process.stdin)s+=c;let n=0;n+=(s.match(/\\/home\\/[A-Za-z0-9._-]+\\//g)||[]).length;n+=(s.match(/\\b(?:10\\.(?:[0-9][0-9]?[0-9]?\\.){2}[0-9][0-9]?[0-9]?|192\\.168\\.[0-9][0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?|172\\.(?:1[6-9]|2[0-9]|3[01])\\.[0-9][0-9]?[0-9]?\\.[0-9][0-9]?[0-9]?)\\b/g)||[]).length;n+=(s.match(/BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY/g)||[]).length;n+=(s.match(/\\b(?:AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20}[A-Za-z0-9_]*|npm_[A-Za-z0-9]{20}[A-Za-z0-9]*)\\b/g)||[]).length;console.log(\"approved_scope_content_matches=\"+n);process.exitCode=n===0?0:1'; s=$?; rm -f -- \"$p\"; exit $s",package.json,project,300,tracker
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-web/issues/96",global,Public authorization and remediation blocker
+body: ""

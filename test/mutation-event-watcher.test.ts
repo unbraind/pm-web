@@ -56,8 +56,16 @@ function makeSubscribeHarness() {
   return { instances, subscribe };
 }
 
-function makeEvent(itemId: string, cursor: string, type = "update", author = "other-agent"): MutationEvent {
-  return { cursor, item_id: itemId, version: 1, ts: new Date().toISOString(), author, type, patch_count: 1 };
+function makeEvent(itemId: string, cursor: string | undefined, type = "update", author = "other-agent"): MutationEvent {
+  return {
+    ...(cursor === undefined ? {} : { cursor }),
+    item_id: itemId,
+    version: 1,
+    ts: new Date().toISOString(),
+    author,
+    type,
+    patch_count: 1,
+  };
 }
 
 test("mutation-event watcher: newly-active project starts a subscription and delivers events with granular payload", async () => {
@@ -264,6 +272,50 @@ test("mutation-event watcher: cursor resume after an error restarts from stored 
   assert.equal(emitted.length, 1);
   // The restart error is not repeated.
   assert.equal(errors.length, 1);
+});
+
+test("mutation-event watcher: a cursorless batch event cannot erase the last resume cursor", async () => {
+  const errors: unknown[] = [];
+  const sinceValues: string[] = [];
+  let resolveFirstError: (() => void) | undefined;
+  const firstError = new Promise<void>((resolve) => { resolveFirstError = resolve; });
+  let callCount = 0;
+  const subscribe = (options: { pmRoot: string; since: string; intervalMs: number; signal: AbortSignal }): AsyncGenerator<MutationEvent, void, void> => {
+    callCount += 1;
+    sinceValues.push(options.since);
+    const currentCall = callCount;
+    return (async function* () {
+      if (currentCall === 1) {
+        yield makeEvent("item-cursor", "cursor-batch-boundary");
+        yield makeEvent("item-without-cursor", undefined);
+        throw new Error("stream broke after cursorless event");
+      }
+    })();
+  };
+
+  const { reconcile } = createMutationEventReconciler({
+    intervalMs: 10,
+    getActiveProjectIds: () => [PID_A],
+    resolveProjectDir: async () => "/proj/a",
+    subscribe,
+    consumeSignaledItemMutation: () => false,
+    emit: () => undefined,
+    onError: (error) => {
+      errors.push(error);
+      resolveFirstError?.();
+    },
+  });
+
+  await reconcile();
+  await firstError;
+  assert.equal(errors.length, 1);
+  await reconcile();
+  assert.equal(callCount, 2);
+  assert.equal(
+    sinceValues[1],
+    "cursor-batch-boundary",
+    "the latest defined cursor remains the recovery boundary",
+  );
 });
 
 test("mutation-event watcher: AbortError from deliberate stop is NOT reported as error", async () => {
