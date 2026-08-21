@@ -17,7 +17,7 @@ jobs:
       matrix:
         # 22 is the floor declared in `engines` and the first line that strips
         # TypeScript without a flag; 26 is what the fleet develops against.
-        node-version: [22, 26]
+        node-version: [22.18.0, 26]
 
     # pm-web requires PostgreSQL by design, and the route-coverage suite talks to
     # a real database rather than stubbing `pool.query`. The gate therefore needs
@@ -48,19 +48,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2.2.0
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
         run: npm ci

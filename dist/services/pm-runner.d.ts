@@ -1,4 +1,4 @@
-import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult } from "@unbrained/pm-cli/sdk";
+import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult, type PmCompleteListResult } from "@unbrained/pm-cli/sdk";
 export { PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult };
 /**
  * Async semaphore bounding concurrent work to a fixed `limit`.
@@ -93,6 +93,7 @@ export interface PmRunOptions {
     jsonOutput?: boolean;
     timeoutMs?: number;
 }
+/** Transport-neutral result shared by in-process SDK and child-process calls. */
 export interface PmRunResult {
     stdout: string;
     stderr: string;
@@ -101,6 +102,27 @@ export interface PmRunResult {
     /** pm CLI exit code from either the SDK dispatcher or spawned CLI fallback. */
     exitCode?: number;
 }
+/** Stable pm-web checks that supplement the pm CLI 2026.8.21 SDK certificate. */
+export declare const PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS: readonly ["unreadable_source_count", "invalid_omission_receipt", "invalid_read_output_receipt", "budget_disclosure_present"];
+/** A stable reason pm-web refused an otherwise SDK-certified complete list. */
+export type PmWebCompleteListReceiptFinding = (typeof PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS)[number];
+/** Fail-closed error carrying every supplemental complete-read receipt defect. */
+export declare class PmWebCompleteListReceiptError extends Error {
+    /** Stable findings suitable for route diagnostics and regression assertions. */
+    readonly findings: readonly PmWebCompleteListReceiptFinding[];
+    /** Build an immutable receipt error from independently detected defects. */
+    constructor(findings: readonly PmWebCompleteListReceiptFinding[]);
+}
+/** Result of a fail-closed whole-workspace read through the public pm SDK. */
+export type PmCompleteListRunResult = {
+    readonly ok: true;
+    readonly result: PmCompleteListResult;
+} | {
+    readonly ok: false;
+    readonly stderr: string;
+    readonly exitCode?: number;
+};
+/** Installation and activation state returned by the pm-graph provisioner. */
 export interface EnsureGraphExtensionResult {
     ok: boolean;
     installed: boolean;
@@ -186,6 +208,34 @@ export declare function ensureGraphExtension(userId: string, slug: string): Prom
 export declare function getPmClient(pmRoot: string): PmClient;
 /** Drop a cached client when its workspace is deleted. */
 export declare function evictPmClient(pmRoot: string): void;
+/**
+ * Apply pm-web's supplemental truthfulness checks to a complete-list candidate.
+ *
+ * The public SDK certificate owns the shared corpus invariants. pm CLI
+ * 2026.8.21 does not yet reject absent or contradictory source counters,
+ * omission receipts, universal-output receipts, or legacy budget disclosures
+ * (tracked upstream in unbraind/pm-cli#1078), so the hosted multi-tenant reader
+ * verifies those narrow gaps before any route can consume the rows.
+ *
+ * @param candidate - Unknown result produced by the pm SDK.
+ * @returns The SDK-certified full list when every supplemental receipt agrees.
+ * @throws {PmWebCompleteListReceiptError} when supplemental proof is absent or contradictory.
+ */
+export declare function certifyPmWebCompleteList(candidate: unknown): PmCompleteListResult;
+/**
+ * Read and certify every item in a project through the public high-level SDK.
+ *
+ * The SDK's `listAllComplete` operation supplies all lifecycle states, full
+ * metadata, strict source reads, and unbounded output. The same per-workspace
+ * queue used by {@link runPm} prevents a whole-workspace read from racing a
+ * mutation in this process, while independent projects can still overlap.
+ *
+ * @param userId - The project owner's user id.
+ * @param slug - The project slug.
+ * @param includeBody - Whether complete rows must include item bodies.
+ * @returns A discriminated success result with certified rows, or a failure.
+ */
+export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean): Promise<PmCompleteListRunResult>;
 /**
  * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
  * Returns `{}` when absent so resolvers fall back to their built-in defaults.

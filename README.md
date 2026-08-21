@@ -149,6 +149,19 @@ within each Node process, so high-throughput installations should run multiple
 pm-web replicas behind a shared PostgreSQL realtime bus. Independent replicas
 converge through PostgreSQL notifications and the mutation-event watcher.
 
+Whole-project graph fallback, board, local search, iCalendar, and export reads
+use the SDK's high-level `listAllComplete` operation. pm-web accepts those rows
+only after the shared SDK certificate and supplemental 2026.8.21 source,
+omission, output-receipt, and budget checks all agree. The public `/pm/list-all`
+HTTP compatibility route remains deliberately paginated for interactive clients,
+but invokes canonical `list --all` internally; consumers that need the whole
+workspace must use a complete-read endpoint rather than assembling a page as if
+it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.8.21, and
+the extension manifest refuses older hosts through the same compatibility floor.
+Commands that render their own text or JSON (`web status`, `web stop`, and
+`web doctor`) return the public SDK output-suppression marker, so the host never
+appends a second payload to stdout.
+
 Optional OIDC uses Authorization Code flow with PKCE, provider discovery/JWKS,
 signed state cookies, and issuer/subject identity mapping. It is disabled when
 no OIDC variables are present and production startup fails closed on partial or
@@ -186,13 +199,29 @@ MIT
 
 ## Release Automation
 
-This package is release-ready for GitHub, npm, and Bun-compatible installs. CI runs type checking, build, production dependency audit, package packing, Bun install verification, and pm-changelog validation. The daily release workflow publishes only when commits exist after the latest release tag and uses pm-changelog to generate CHANGELOG.md and GitHub release notes.
+CI runs type checking, exact Node 22.18.0 and current-Node matrices, real
+PostgreSQL integration tests, the configured coverage gate, complete docstring
+coverage, production dependency audit, package packing, fresh packed `npx` and
+`bunx` install-and-command acceptance, immutable workflow-action checks, and
+pm-changelog validation. The daily release
+workflow publishes at most once when commits exist after the latest release tag
+and uses pm-changelog for both `CHANGELOG.md` and GitHub release notes.
+
+The current package is **not** approved for a new release: exact all-source
+100/100/100/100 coverage remains open in
+[`pm-web-9ulj`](.agents/pm/epics/pm-web-9ulj.toon) and
+[`pm-web-ulgy`](.agents/pm/tasks/pm-web-ulgy.toon), while reachable-history
+privacy authorization is tracked in
+[`pm-web-priv`](.agents/pm/issues/pm-web-priv.toon) and
+[GitHub issue #96](https://github.com/unbraind/pm-web/issues/96). Passing the
+configured gate is evidence for the measured source set, not those independent
+release approvals.
 
 ## New data endpoints (kanban board & search)
 
-The pm data API now exposes board and search views, both driven by the
+The pm data API exposes board and search views, both driven by the
 workspace's live `pm contracts` schema (so they reflect the installed pm CLI +
-extensions):
+extensions) and the certified complete-read contract described above:
 
 - `GET /api/projects/:projectId/pm/board` — items grouped into kanban columns by
   the workspace's runtime statuses (unlisted statuses fall into `(other)`).

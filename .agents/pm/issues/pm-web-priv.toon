@@ -1,0 +1,33 @@
+id: pm-web-priv
+title: Authorize and execute pm-web reachable-history privacy remediation
+description: "Current tracked files have zero detected absolute current-user home paths, private IPv4 literals, private-key headers, or common GitHub, AWS and npm token prefixes, but 316 reachable commits contain 137 patch lines with the current-user home path and three distinct non-noreply author email identities. Public history must not be rewritten without explicit coordinated authorization and downstream impact planning."
+type: Issue
+status: open
+priority: 1
+tags: []
+created_at: "2026-08-21T11:07:29.247Z"
+updated_at: "2026-08-21T11:42:36.524Z"
+assignee: codex
+author: codex
+estimated_minutes: 720
+acceptance_criteria: "Inventory every reachable ref and tag; classify absolute paths, identities, secrets, hosted data and personal domains; obtain explicit maintainer authorization before any rewrite; preserve an offline recovery bundle; rewrite atomically across every affected ref when authorized; publish coordinated clone invalidation guidance; rescan current files, package contents and full reachable history to zero approved-scope findings before merge or publication"
+definition_of_ready: "Current tracked scans, reachable-history patch counts, author-domain counts, GitHub secret-scanning status and repository ref count are recorded without exposing matched private values."
+reviewer: maintainer
+risk: critical
+confidence: high
+sprint: 2026-08-privacy
+release: next
+reporter: codex
+severity: critical
+environment: pm-web public Git repository with 316 reachable commits
+repro_steps: "Scan git log --all --format= --patch for absolute home paths and git log --all --format=%ae for author identities; scan tracked files and reachable history for private IPs, private-key headers, and common token prefixes without printing matches."
+expected_result: The public repository and every published artifact have an explicitly approved privacy boundary with no unreviewed personal or hosted-service data in reachable history.
+actual_result: "Current tracked scans are clean for the measured patterns. Reachable history has 137 current-user absolute-home-path patch lines, seven distinct author emails of which three are not GitHub noreply identities, and zero detected private IPv4, private-key-header, or common token-prefix patch lines. GitHub secret scanning reports zero open alerts. No history rewrite is authorized."
+affected_version: all reachable pm-web history through 77a0377
+component: git history and publication privacy
+customer_impact: Merging or publishing without an approved history boundary can preserve personal host or identity metadata in a public repository and package provenance.
+tests[1]{command,path,scope,timeout_seconds,pm_context_mode}:
+  git log --all --format= --patch,.git,project,120,tracker
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-web/issues/96",global,Public authorization and remediation blocker
+body: ""

@@ -2,12 +2,27 @@ id: pm-web-oehb
 title: "Docstring corrections: filters, graph-canvas, crypto, board, pm routes, project-watcher, sse, mutation-event-watcher"
 description: "Corrected inaccurate JSDoc across 8 files: filters.ts (unknown keys ignored, not defaulted), graph-canvas.ts (reheat sets not raises alpha; edge bundling biased toward not through centroid), crypto.ts (only IV/authTag/ciphertext base64url-encoded), board.ts (declared-status order not first-seen), routes/pm.ts (item-updated carries itemId/change/target not from/to), project-watcher.ts (positiveIntEnv leading-integer parsing; FNV-1a not collision-free), sse.ts (no-client call not a no-op), mutation-event-watcher.ts (same positiveIntEnv fix)."
 type: Issue
-status: open
+status: closed
 priority: 2
 tags: []
 created_at: "2026-08-10T05:51:48.472Z"
-updated_at: "2026-08-10T05:51:53.666Z"
+updated_at: "2026-08-21T11:08:32.181Z"
+closed_at: "2026-08-21T11:08:32.169Z"
+completed_at: "2026-08-21T11:08:32.169Z"
 author: pi-agent
+estimated_minutes: 240
+acceptance_criteria: Every corrected declaration accurately describes runtime behavior; the canonical docstring gate scans every executable TypeScript source; unresolvable entry paths fail closed; typecheck and docstring gates pass; the merged PR has green CI and substantive reviewers
+resolution: Canonical docstring gate and corrected documentation merged in PR #84.
+expected_result: Every executable TypeScript declaration is documented accurately and the mandatory gate cannot silently skip an unresolvable invocation.
+actual_result: "Merged PR #84 corrected the eight documented source areas, hardened the entry guard, and added nine focused gate tests. Current npm run docstring reports 77 files and 519 documented declarations; PR #84 Node 22/26, Greptile, CodeRabbit and Hound checks passed."
 notes[1]{created_at,author,text}:
   "2026-08-10T05:51:53.666Z",pi-agent,"Files changed: public/src/filters.ts, public/src/views/graph-canvas.ts, src/crypto.ts, src/board.ts, src/routes/pm.ts, src/services/project-watcher.ts, src/services/sse.ts, src/services/mutation-event-watcher.ts. Also: scripts/docstring-gate.ts (entry-guard fix: throws on unresolvable argv[1] instead of returning false), test/docstring-gate.test.ts (new test file, 9 tests)."
+files[2]{path,scope,note}:
+  scripts/docstring-gate.ts,project,Canonical fail-closed gate
+  test/docstring-gate.test.ts,project,Entry and gate regressions
+tests[1]{command,path,scope,timeout_seconds,pm_context_mode}:
+  npm run docstring,scripts/docstring-gate.ts,project,60,tracker
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-web/pull/84",global,Merged implementation and review evidence
+close_reason: Corrected docstrings and canonical 519-declaration gate are merged and green
 body: ""

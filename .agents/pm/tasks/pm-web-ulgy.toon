@@ -6,8 +6,11 @@ status: open
 priority: 2
 tags: []
 created_at: "2026-07-29T17:26:40.207Z"
-updated_at: "2026-07-29T17:26:40.207Z"
+updated_at: "2026-08-21T11:42:35.828Z"
 author: codex
+estimated_minutes: 1800
 acceptance_criteria: routes/pm.ts is exercised against a real pm workspace rather than a fake pm binary so in-process SDK dispatch is observable; a regression test asserts that a '..' folder traversal is rejected and that items never land outside the pm root; POSITIONAL_KEYS coverage proves no positional is silently dropped; index.ts and server.ts bootstrap paths are covered; thresholds ratchet again
 parent: pm-web-9ulj
+notes[1]{created_at,author,text}:
+  "2026-08-21T11:41:29.704Z",codex,"The certified complete-read tranche adds a real-workspace end-to-end test for paginated list-all,complete board/search/export/calendar views and raises routes/pm.ts from 27.28 to 30.70 percent lines and from 7.08 to 14.41 percent functions; branches are 58.95 percent. The shared output-owner test also raises src/index.ts to 51.20 lines,94.12 branches,and 31.58 functions. Most command and bootstrap paths remain uncovered,so this task stays open."
 body: ""

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { getItemAt, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { certifyCompleteListResult, getItemAt, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -320,6 +320,24 @@ export function projectExists(userId, slug) {
     const dir = getProjectDir(userId, slug);
     return fs.existsSync(path.join(dir, ".agents", "pm", "settings.json"));
 }
+/** Stable pm-web checks that supplement the pm CLI 2026.8.21 SDK certificate. */
+export const PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS = [
+    "unreadable_source_count",
+    "invalid_omission_receipt",
+    "invalid_read_output_receipt",
+    "budget_disclosure_present",
+];
+/** Fail-closed error carrying every supplemental complete-read receipt defect. */
+export class PmWebCompleteListReceiptError extends Error {
+    /** Stable findings suitable for route diagnostics and regression assertions. */
+    findings;
+    /** Build an immutable receipt error from independently detected defects. */
+    constructor(findings) {
+        super(`Complete pm read receipt validation failed: ${findings.join(", ")}.`);
+        this.name = "PmWebCompleteListReceiptError";
+        this.findings = Object.freeze([...findings]);
+    }
+}
 /**
  * Read the per-project extension state from `pm extension --json`, returning a
  * map keyed by extension name. Used both by {@link ensureGraphExtension} and
@@ -561,6 +579,92 @@ export function getPmClient(pmRoot) {
 /** Drop a cached client when its workspace is deleted. */
 export function evictPmClient(pmRoot) {
     pmClientCache.delete(pmRoot);
+}
+/** Narrow an unknown receipt fragment to a non-array object. */
+function isRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/**
+ * Apply pm-web's supplemental truthfulness checks to a complete-list candidate.
+ *
+ * The public SDK certificate owns the shared corpus invariants. pm CLI
+ * 2026.8.21 does not yet reject absent or contradictory source counters,
+ * omission receipts, universal-output receipts, or legacy budget disclosures
+ * (tracked upstream in unbraind/pm-cli#1078), so the hosted multi-tenant reader
+ * verifies those narrow gaps before any route can consume the rows.
+ *
+ * @param candidate - Unknown result produced by the pm SDK.
+ * @returns The SDK-certified full list when every supplemental receipt agrees.
+ * @throws {PmWebCompleteListReceiptError} when supplemental proof is absent or contradictory.
+ */
+export function certifyPmWebCompleteList(candidate) {
+    const result = certifyCompleteListResult(candidate);
+    const findings = [];
+    if (!Number.isSafeInteger(result.completeness.unreadable_item_count) ||
+        result.completeness.unreadable_item_count !== 0 ||
+        !Number.isSafeInteger(result.completeness.unreadable_directory_count) ||
+        result.completeness.unreadable_directory_count !== 0) {
+        findings.push("unreadable_source_count");
+    }
+    const envelope = candidate;
+    const omissionReceipt = envelope["omission_receipt"];
+    if (!isRecord(omissionReceipt) ||
+        omissionReceipt["has_omissions"] !== false ||
+        omissionReceipt["omitted_field_group_count"] !== 0 ||
+        !Array.isArray(omissionReceipt["omitted_field_groups"]) ||
+        omissionReceipt["omitted_field_groups"].length !== 0) {
+        findings.push("invalid_omission_receipt");
+    }
+    const readOutput = envelope["read_output"];
+    const requestedDimensions = isRecord(readOutput) ? readOutput["requested_dimensions"] : undefined;
+    if (!isRecord(readOutput) ||
+        readOutput["contract_version"] !== 1 ||
+        readOutput["command"] !== "list" ||
+        readOutput["within_budget"] !== true ||
+        readOutput["strings_compacted"] !== false ||
+        readOutput["rows_compacted"] !== false ||
+        readOutput["result_omitted"] !== false ||
+        !Array.isArray(requestedDimensions) ||
+        !["include", "amount", "cost"].every((dimension) => requestedDimensions.includes(dimension))) {
+        findings.push("invalid_read_output_receipt");
+    }
+    if (envelope["output_budget_truncation"] !== undefined ||
+        envelope["output_budget_exceeded"] !== undefined) {
+        findings.push("budget_disclosure_present");
+    }
+    if (findings.length > 0)
+        throw new PmWebCompleteListReceiptError(findings);
+    return result;
+}
+/**
+ * Read and certify every item in a project through the public high-level SDK.
+ *
+ * The SDK's `listAllComplete` operation supplies all lifecycle states, full
+ * metadata, strict source reads, and unbounded output. The same per-workspace
+ * queue used by {@link runPm} prevents a whole-workspace read from racing a
+ * mutation in this process, while independent projects can still overlap.
+ *
+ * @param userId - The project owner's user id.
+ * @param slug - The project slug.
+ * @param includeBody - Whether complete rows must include item bodies.
+ * @returns A discriminated success result with certified rows, or a failure.
+ */
+export async function readCompletePmItems(userId, slug, includeBody = false) {
+    const dir = getProjectDir(userId, slug);
+    return runSerialized(dir, async () => {
+        try {
+            const pmRoot = path.join(dir, ".agents", "pm");
+            const result = certifyPmWebCompleteList(await getPmClient(pmRoot).listAllComplete({ includeBody }));
+            return { ok: true, result };
+        }
+        catch (error) {
+            const stderr = error instanceof Error ? error.message : String(error);
+            if (error instanceof PmCliError || isPmCliExpectedError(error)) {
+                return { ok: false, stderr, exitCode: error.exitCode };
+            }
+            return { ok: false, stderr };
+        }
+    });
 }
 /**
  * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
