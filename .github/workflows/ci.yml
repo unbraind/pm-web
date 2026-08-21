@@ -17,7 +17,9 @@ jobs:
       matrix:
         # 22 is the floor declared in `engines` and the first line that strips
         # TypeScript without a flag; 26 is what the fleet develops against.
-        node-version: [22.18.0, 26]
+        # Use the major-line label so job names match the required status
+        # check contexts (`test (22)`, `test (26)`) on the protected main branch.
+        node-version: [22, 26]
 
     # pm-web requires PostgreSQL by design, and the route-coverage suite talks to
     # a real database rather than stubbing `pool.query`. The gate therefore needs
