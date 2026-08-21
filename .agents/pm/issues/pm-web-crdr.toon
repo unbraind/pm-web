@@ -6,7 +6,7 @@ status: closed
 priority: 1
 tags: []
 created_at: "2026-08-21T11:07:28.820Z"
-updated_at: "2026-08-21T11:44:29.897Z"
+updated_at: "2026-08-21T11:45:56.110Z"
 closed_at: "2026-08-21T11:41:29.112Z"
 completed_at: "2026-08-21T11:41:29.112Z"
 author: codex
@@ -46,7 +46,8 @@ tests[3]{command,path,scope,timeout_seconds,pm_context_mode}:
   "npm run release:check",test,project,300,tracker
   "npm run accept:packed",scripts/accept-packed.ts,project,300,tracker
   npm run coverage,test,project,300,tracker
-docs[1]{path,scope,note}:
+docs[2]{path,scope,note}:
   "https://github.com/unbraind/pm-web/issues/96",global,Independent reachable-history privacy blocker
+  "https://github.com/unbraind/pm-web/pull/97",global,Certified complete-reader and packed-host implementation PR retained behind independent blockers
 close_reason: "Scoped complete-reader, catalog, dependency, workflow, and packed-host tranche is implemented and locally verified; independent route coverage and history privacy items remain open and prohibit merge or publication."
 body: ""
