@@ -7,10 +7,14 @@ const TRUSTED_ACTION_COMMITS = new Map<string, string>([
   ["actions/checkout", "3d3c42e5aac5ba805825da76410c181273ba90b1"],
   ["actions/setup-node", "820762786026740c76f36085b0efc47a31fe5020"],
   ["oven-sh/setup-bun", "0c5077e51419868618aeaa5fe8019c62421857d6"],
+  // The CodeQL action is referenced twice, as distinct sub-actions sharing one
+  // release commit, so both names must be listed for the gate to cover them.
+  ["github/codeql-action/init", "db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28"],
+  ["github/codeql-action/analyze", "db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28"],
 ]);
 
 /** Workflow files shipped by this repository. */
-const WORKFLOW_FILES = ["ci.yml", "release.yml"] as const;
+const WORKFLOW_FILES = ["ci.yml", "release.yml", "codeql.yml"] as const;
 
 test("every external workflow action is pinned to its reviewed commit", () => {
   for (const file of WORKFLOW_FILES) {
