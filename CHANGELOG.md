@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The changelog gate stamps an untagged version with the current date, so its verdict flips every midnight with no commit ([pm-web-kcs1](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-kcs1.toon))
+
 ## 2026.8.24 - 2026-08-24
 
 ### Fixed
