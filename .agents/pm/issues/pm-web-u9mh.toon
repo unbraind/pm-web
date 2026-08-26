@@ -1,0 +1,17 @@
+id: pm-web-u9mh
+title: "Health endpoint reports ok: true while database and projects volume are unreachable"
+description: "SYMPTOM: /healthz returned { ok: true, version } unconditionally — even when PostgreSQL was down, the projects host mount was missing, or the volume was read-only. A probe that cannot fail made a real outage invisible until someone opened the site. DEPENDENCY TABLE: Postgres (POSTGRES_HOST/PORT/USER/PASSWORD/DB or DATABASE_URL) — hard, no service without it; Projects volume (PROJECTS_ROOT, host-mounted /app/projects) — hard, every project lives here; Neo4j (NEO4J_URI etc.) — soft, graph features degrade; Ollama embeddings (OLLAMA_BASE_URL, PM_OLLAMA_MODEL) — soft, semantic search degrades. FAILURE MODES NOW CAUGHT: unreachable database (503), hung database with 2s timeout (503), missing projects root (503), read-only projects root (503), pool exhaustion surfaced via real pool SELECT 1. Soft deps report state but never change the status code. The result is cached for ~5s so polling cannot become a load source."
+type: Issue
+status: open
+priority: 2
+tags[3]: "area:health","area:observability","type:defect"
+created_at: "2026-08-26T19:25:16.077Z"
+updated_at: "2026-08-26T19:25:16.077Z"
+author: pi-agent
+estimated_minutes: 120
+acceptance_criteria: "/healthz returns 503 with ok:false when PostgreSQL is unreachable; /healthz returns 503 when the projects root is missing; /healthz returns 503 when the projects root is read-only; /healthz returns 503 when a probe times out after 2s; /healthz returns 200 with ok:true when all hard deps are up; soft dependencies report state but never cause 503; the result is cached for ~5s; no stray probe files remain; no credentials or connection strings appear in the response; coverage thresholds met; pm health --strict-exit passes"
+learnings[1]{created_at,author,text}:
+  "2026-08-26T19:25:16.077Z",pi-agent,"An unconditional health endpoint converts every outage into a silent one — a probe that cannot fail is a constant,not a probe. Drive the failure paths (unreachable DB,missing root,read-only root,timeout) with real temp dirs and stub pools,and prove non-vacuity by showing each test fails when the corresponding probe is forced to pass."
+tests[1]{command,path,scope,timeout_seconds}:
+  npm test,test/healthz.test.ts,project,240
+body: "The /healthz handler was a constant shaped like a probe: it returned { ok: true, version } regardless of whether any dependency was reachable. Docker and monitoring polled it and saw green during a real outage. The fix probes the real PostgreSQL pool (SELECT 1, not a fresh connection — pool exhaustion is itself a failure mode), the projects root (write-and-remove a temp file inside it — a missing or read-only host mount is the exact failure caught), and soft dependencies (Neo4j, Ollama) when configured. Every probe is bounded to 2s. The computed result is cached for 5s. The response is backward compatible: ok and version remain top-level; a per-dependency breakdown is added. Tests drive every failure path with a real temp directory and stub pools, and non-vacuity checks prove each test discriminates."
