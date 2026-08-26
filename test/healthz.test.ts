@@ -45,10 +45,12 @@ function writableRoot(): string {
  */
 async function getHealthz(deps: HealthProbeDeps): Promise<{ status: number; body: Record<string, unknown> }> {
   const app = createApp({
-    pool: deps.pool,
-    projectsRoot: deps.projectsRoot,
-    version: deps.version,
-    softProbes: deps.softProbes,
+    health: {
+      pool: deps.pool,
+      projectsRoot: deps.projectsRoot,
+      version: deps.version,
+      softProbes: deps.softProbes,
+    },
   });
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -108,6 +110,32 @@ test("all healthy: 200 with ok:true and per-dependency breakdown", async () => {
 // ---------------------------------------------------------------------------
 // Tests — Postgres failure paths
 // ---------------------------------------------------------------------------
+
+test("createApp route: a failing Postgres probe yields HTTP 503 through the mounted handler", async () => {
+  // This is the regression guard for the Greptile P1 finding: `createHealthHandler`
+  // existed but was never mounted, so `/healthz` returned the unconditional
+  // `{ ok: true }` stub regardless of database state. This test drives the FULL
+  // `createApp` route (a real HTTP server) with a Postgres pool that rejects, and
+  // asserts 503 — proving the real handler is mounted on the app, not just that
+  // `createHealthHandler` returns 503 when called directly. Reverting the mount
+  // (restoring the unconditional `ok:true` route) makes this test fail with
+  // `status === 200`.
+  const root = writableRoot();
+  try {
+    const { status, body } = await getHealthz({
+      pool: unreachablePool(),
+      projectsRoot: root,
+      version: "test-1.0",
+    });
+    assert.equal(status, 503, "a failing Postgres probe must yield 503 through createApp's route");
+    assert.equal(body.ok, false);
+    const deps = body.dependencies as Record<string, DependencyStatus>;
+    assert.equal(deps.postgres.ok, false);
+    assert.ok(deps.postgres.error, "postgres error must be reported");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("unreachable database: 503 with postgres.ok:false", async () => {
   const root = writableRoot();
@@ -524,17 +552,19 @@ test("concurrent uncached probes share one computation rather than one each", as
   const root = mkdtempSync(path.join(tmpdir(), "pm-web-healthz-single-"));
   let queries = 0;
   const app = createApp({
-    pool: {
-      query: () => {
-        queries += 1;
-        return new Promise<{ rows: unknown[] }>((resolve) => {
-          setTimeout(() => resolve({ rows: [] }), 40);
-        });
+    health: {
+      pool: {
+        query: () => {
+          queries += 1;
+          return new Promise<{ rows: unknown[] }>((resolve) => {
+            setTimeout(() => resolve({ rows: [] }), 40);
+          });
+        },
       },
+      projectsRoot: root,
+      version: "test-1.0",
+      softProbes: [],
     },
-    projectsRoot: root,
-    version: "test-1.0",
-    softProbes: [],
   });
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

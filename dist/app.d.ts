@@ -1,4 +1,5 @@
 import { type Express } from "express";
+import { type HealthProbeDeps } from "./health.ts";
 /**
  * Legal pages served as standalone HTML (not part of the SPA bundle).
  *
@@ -35,9 +36,32 @@ export declare const LEGAL_REDIRECTS: Record<string, string>;
  */
 export declare function resolveLegalPagesDir(env?: NodeJS.ProcessEnv): string;
 /**
+ * Optional dependencies `createApp` can wire into the application.
+ *
+ * Currently only the {@link HealthProbeDeps} for the real `/healthz` handler is
+ * supported; the object is kept as a bag so further production-only wiring
+ * (e.g. a logger) can be added later without another signature change.
+ */
+export interface CreateAppDeps {
+    /**
+     * Health-probe dependencies for the real `/healthz` handler. When supplied,
+     * `createApp` mounts {@link createHealthHandler}, which probes PostgreSQL and
+     * the projects volume and answers 200/503 accordingly. When omitted, the
+     * route answers 503 `ok:false` (see the comment at the route) so a
+     * misconfigured deployment can never report healthy while its dependencies
+     * are down — the exact failure this handler was written to close.
+     */
+    readonly health?: HealthProbeDeps;
+}
+/**
  * Build the Express application with all middleware, static assets, legal
  * page routes, API routes and the SPA fallback — but WITHOUT touching the
  * database or binding a port. Splitting this out from server.ts keeps the
  * HTTP surface unit-testable without a running PostgreSQL instance.
+ *
+ * @param deps - Optional production wiring. Pass `health` to mount the real
+ *   probing `/healthz` handler; omit it for tests that only need the HTTP
+ *   surface (the route then answers 503 `ok:false`, never `ok:true`).
+ * @returns The configured Express application, not yet listening on a port.
  */
-export declare function createApp(): Express;
+export declare function createApp(deps?: CreateAppDeps): Express;

@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import path from "node:path";
 import { accessSync, constants, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { createHealthHandler } from "./health.js";
 import { authRouter } from "./routes/auth.js";
 import { oidcRouter } from "./routes/oidc.js";
 import { projectsRouter } from "./routes/projects.js";
@@ -95,8 +96,13 @@ export function resolveLegalPagesDir(env = process.env) {
  * page routes, API routes and the SPA fallback — but WITHOUT touching the
  * database or binding a port. Splitting this out from server.ts keeps the
  * HTTP surface unit-testable without a running PostgreSQL instance.
+ *
+ * @param deps - Optional production wiring. Pass `health` to mount the real
+ *   probing `/healthz` handler; omit it for tests that only need the HTTP
+ *   surface (the route then answers 503 `ok:false`, never `ok:true`).
+ * @returns The configured Express application, not yet listening on a port.
  */
-export function createApp() {
+export function createApp(deps) {
     const app = express();
     const legalPagesDir = resolveLegalPagesDir();
     app.use(express.json({ limit: "1mb" }));
@@ -128,7 +134,25 @@ export function createApp() {
             return "unknown";
         }
     })();
-    app.get("/healthz", (_req, res) => res.json({ ok: true, version: PM_WEB_VERSION }));
+    if (deps?.health) {
+        // Production wiring: probe PostgreSQL and the projects volume before
+        // answering. `server.ts` always supplies these dependencies, so the
+        // deployed service reports healthy only when its hard dependencies are
+        // actually reachable.
+        app.get("/healthz", createHealthHandler(deps.health));
+    }
+    else {
+        // No health-probe dependencies were supplied, so this route cannot probe
+        // PostgreSQL or the projects volume. Answering `ok:true` here would
+        // reproduce the original bug this handler exists to close: pm-web has
+        // previously served frozen data for two days while `/healthz` reported
+        // healthy. A route that cannot probe must not claim `ok:true`, so the
+        // unconfigured default answers 503 with the version only. Production
+        // (`server.ts`) always supplies the real dependencies; this branch is
+        // reached only by tests that exercise the HTTP surface without a database
+        // and by misconfigured deployments, which must fail loud rather than lie.
+        app.get("/healthz", (_req, res) => res.status(503).json({ ok: false, version: PM_WEB_VERSION }));
+    }
     const legalPages = new Set(LEGAL_PAGES);
     Object.entries(LEGAL_REDIRECTS).forEach(([from, to]) => {
         app.get(from, (_req, res) => {
