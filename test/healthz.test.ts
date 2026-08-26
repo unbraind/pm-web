@@ -11,6 +11,21 @@ import { createHealthHandler, type HealthProbeDeps, type SoftProbe, type Depende
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Assert that mode bits actually restrict this process.
+ *
+ * `chmod 0555` does not stop root from writing, so a read-only-directory test
+ * running as root asserts nothing while still passing. Failing loudly is the
+ * only honest option: a green test that proves nothing is worse than a red one.
+ */
+function requireModeBitsEnforced(): void {
+  assert.notEqual(
+    process.getuid?.(),
+    0,
+    "this test relies on filesystem permissions, which root bypasses - run the suite as a non-root user"
+  );
+}
+
 /** A pool whose `query` resolves immediately — the healthy baseline. */
 function healthyPool(): Queryable {
   return { query: () => Promise.resolve({ rows: [] }) };
@@ -83,6 +98,32 @@ async function directHealthz(deps: HealthProbeDeps): Promise<{ status: number; b
   await handler(req, res, next);
   return { status, body };
 }
+
+/**
+ * Drive one already-constructed handler, so cache and cooldown state persist.
+ *
+ * {@link directHealthz} builds a fresh handler per call, which resets the very
+ * state these tests exist to observe.
+ *
+ * @param handler - The handler under test.
+ * @returns Its status code and JSON body.
+ */
+async function callHandler(
+  handler: ReturnType<typeof createHealthHandler>,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  let status = 0;
+  let body: Record<string, unknown> = {};
+  const req = {} as never;
+  const res = {
+    status(code: number) { status = code; return this; },
+    json(payload: unknown) { body = payload as Record<string, unknown>; },
+  } as never;
+  await handler(req, res, (() => {}) as never);
+  return { status, body };
+}
+
+/** The handler's response-cache TTL, mirrored so tests can step past it. */
+const CACHE_TTL_FOR_TEST = 5000;
 
 // ---------------------------------------------------------------------------
 // Tests — all dependencies healthy
@@ -215,6 +256,7 @@ test("missing projects root: 503 with projects_root.ok:false", async () => {
 
 test("read-only projects root: 503 with projects_root.ok:false", async () => {
   // Create a temp dir, make it read-only. On Linux this prevents file creation.
+  requireModeBitsEnforced();
   const root = writableRoot();
   try {
     chmodSync(root, 0o555);
@@ -408,6 +450,7 @@ test("cache expires and re-probes after 5 seconds", async () => {
 // ---------------------------------------------------------------------------
 
 test("read-only projects root: no stray files left behind", async () => {
+  requireModeBitsEnforced();
   const root = writableRoot();
   try {
     chmodSync(root, 0o555);
@@ -628,5 +671,70 @@ test("two replicas probing one shared volume do not delete each other's probe fi
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+
+test("a PostgreSQL probe timeout is not retried until the cooldown expires", async () => {
+  // `withTimeout` rejects its wrapper but cannot cancel `pool.query`, so a
+  // timed-out probe leaves a client checked out until the server answers.
+  // Re-probing on every cache expiry during a stall drains the shared pool out
+  // from under the ordinary API, so a timeout must suppress the next probe.
+  let queries = 0;
+  const stalled: Queryable = {
+    query: () => {
+      queries += 1;
+      return new Promise<{ rows: unknown[] }>(() => {});
+    },
+  };
+  const root = writableRoot();
+  try {
+    const handler = createHealthHandler({
+      pool: stalled,
+      projectsRoot: root,
+      version: "test-1.0",
+    });
+
+    const first = await callHandler(handler);
+    assert.equal(first.status, 503);
+    assert.equal(queries, 1, "the first probe must actually query");
+
+    // Past the 5s response cache, but inside the 30s pool cooldown.
+    await new Promise((r) => setTimeout(r, CACHE_TTL_FOR_TEST + 50));
+    const second = await callHandler(handler);
+
+    assert.equal(second.status, 503, "a cooling probe must still report unhealthy");
+    assert.equal(
+      queries,
+      1,
+      "a second query during the cooldown would keep another pool client checked out"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a failing projects-root probe answers rather than awaiting its own cleanup", async () => {
+  // The cleanup path is reached exactly when the volume is misbehaving. Awaiting
+  // an unbounded unlink there would leave probeProjectsRoot unresolved, so the
+  // Promise.all in compute() would never settle, `inFlight` would never clear,
+  // and every later request would await the same pending promise forever -
+  // serving nothing at all instead of 503. Repeated calls must keep answering.
+  const missing = path.join(tmpdir(), `pm-web-healthz-missing-${Date.now()}`);
+  const handler = createHealthHandler({
+    pool: healthyPool(),
+    projectsRoot: missing,
+    version: "test-1.0",
+  });
+
+  for (let i = 0; i < 3; i += 1) {
+    const started = Date.now();
+    const res = await callHandler(handler);
+    assert.equal(res.status, 503, `request ${i + 1} must answer, not hang`);
+    assert.ok(
+      Date.now() - started < 5000,
+      `request ${i + 1} answered in time rather than awaiting cleanup`
+    );
+    await new Promise((r) => setTimeout(r, CACHE_TTL_FOR_TEST + 50));
   }
 });
