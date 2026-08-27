@@ -45,6 +45,23 @@ export interface HealthProbeDeps {
     readonly version: string;
     /** Soft-dependency probes; their results are reported but never cause 503. */
     readonly softProbes?: ReadonlyArray<SoftProbe>;
+    /**
+     * Timing overrides, in milliseconds.
+     *
+     * Production never sets these. They exist because the behaviour that matters
+     * here -- what happens on the second cooldown expiry of a stall that has not
+     * ended -- is otherwise only reachable by a test that waits over half a
+     * minute, and a guard nothing executes is how a pool-drain protection stops
+     * working without anyone noticing.
+     */
+    readonly timing?: {
+        /** Overrides {@link PROBE_TIMEOUT_MS}. */
+        readonly probeTimeoutMs?: number;
+        /** Overrides {@link CACHE_TTL_MS}. */
+        readonly cacheTtlMs?: number;
+        /** Overrides {@link POOL_COOLDOWN_MS}. */
+        readonly poolCooldownMs?: number;
+    };
 }
 /** Shape of the `/healthz` response body (backward compatible: `ok`, `version`). */
 export interface HealthResult {

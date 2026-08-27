@@ -50,6 +50,23 @@ export interface HealthProbeDeps {
   readonly version: string;
   /** Soft-dependency probes; their results are reported but never cause 503. */
   readonly softProbes?: ReadonlyArray<SoftProbe>;
+  /**
+   * Timing overrides, in milliseconds.
+   *
+   * Production never sets these. They exist because the behaviour that matters
+   * here -- what happens on the second cooldown expiry of a stall that has not
+   * ended -- is otherwise only reachable by a test that waits over half a
+   * minute, and a guard nothing executes is how a pool-drain protection stops
+   * working without anyone noticing.
+   */
+  readonly timing?: {
+    /** Overrides {@link PROBE_TIMEOUT_MS}. */
+    readonly probeTimeoutMs?: number;
+    /** Overrides {@link CACHE_TTL_MS}. */
+    readonly cacheTtlMs?: number;
+    /** Overrides {@link POOL_COOLDOWN_MS}. */
+    readonly poolCooldownMs?: number;
+  };
 }
 
 /** Shape of the `/healthz` response body (backward compatible: `ok`, `version`). */
@@ -127,14 +144,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * itself a failure mode the probe catches. The probe is bounded by
  * {@link PROBE_TIMEOUT_MS}.
  */
-async function probePostgres(pool: Queryable): Promise<DependencyStatus> {
+function probePostgres(
+  pool: Queryable,
+  timeoutMs: number,
+): { query: Promise<unknown>; status: Promise<DependencyStatus> } {
   const start = Date.now();
-  try {
-    await withTimeout(pool.query("SELECT 1"), PROBE_TIMEOUT_MS);
-    return { ok: true, latency_ms: Date.now() - start };
-  } catch (error) {
-    return { ok: false, latency_ms: Date.now() - start, error: errorMessage(error) };
-  }
+  // The raw query is returned alongside the status because the two settle at
+  // different times: the status settles when the timeout fires, the query only
+  // when PostgreSQL answers, and it is the query that holds a pool client.
+  // Anything deciding whether to start another probe has to wait on the query.
+  const query = pool.query("SELECT 1");
+  const status = withTimeout(query, timeoutMs).then(
+    (): DependencyStatus => ({ ok: true, latency_ms: Date.now() - start }),
+    (error: unknown): DependencyStatus =>
+      ({ ok: false, latency_ms: Date.now() - start, error: errorMessage(error) }),
+  );
+  return { query, status };
 }
 
 /**
@@ -237,6 +262,17 @@ export function createHealthHandler(deps: HealthProbeDeps): RequestHandler {
   let inFlight: Promise<HealthResult> | null = null;
   // Epoch ms of the last PostgreSQL probe timeout, or 0 if none has timed out.
   let lastPostgresTimeoutAt = 0;
+  // A timed-out probe's query is still outstanding: `withTimeout` rejects its
+  // wrapper, it cannot cancel `pool.query`. Elapsed time alone is therefore the
+  // wrong condition to start another one -- during a prolonged stall the
+  // cooldown expires on schedule while the previous client is still checked
+  // out, and the pool drains one client per cooldown. This holds the query
+  // itself, so at most one probe is ever outstanding however long the database
+  // takes to answer.
+  let outstandingPostgresProbe: Promise<unknown> | undefined;
+  const probeTimeoutMs = deps.timing?.probeTimeoutMs ?? PROBE_TIMEOUT_MS;
+  const cacheTtlMs = deps.timing?.cacheTtlMs ?? CACHE_TTL_MS;
+  const poolCooldownMs = deps.timing?.poolCooldownMs ?? POOL_COOLDOWN_MS;
 
   /**
    * Probe every dependency once and cache the outcome.
@@ -255,14 +291,34 @@ export function createHealthHandler(deps: HealthProbeDeps): RequestHandler {
       // database drains the shared pool out from under the ordinary API. After
       // a timeout the probe is not retried for POOL_COOLDOWN_MS; the endpoint
       // keeps answering 503 from the reported status in the meantime.
-      const cooling = Date.now() - lastPostgresTimeoutAt < POOL_COOLDOWN_MS;
-      const postgresProbe = cooling
+      /**
+       * Start one PostgreSQL probe and hold its query until PostgreSQL answers.
+       *
+       * @returns The probe's status.
+       */
+      const startPostgresProbe = (): Promise<DependencyStatus> => {
+        const { query, status } = probePostgres(deps.pool, probeTimeoutMs);
+        // Cleared when the QUERY settles, not when the status does. A timed-out
+        // probe reports in milliseconds while its client stays checked out
+        // until PostgreSQL answers, so clearing on the status would let the
+        // next cooldown expiry check out another one on top of it.
+        outstandingPostgresProbe = query;
+        const release = (): void => {
+          if (outstandingPostgresProbe === query) outstandingPostgresProbe = undefined;
+        };
+        void query.then(release, release);
+        return status;
+      };
+
+      const cooling = Date.now() - lastPostgresTimeoutAt < poolCooldownMs;
+      const outstanding = outstandingPostgresProbe !== undefined;
+      const postgresProbe = cooling || outstanding
         ? Promise.resolve<DependencyStatus>({
             ok: false,
             latency_ms: 0,
-            error: "probe cooling down after timeout",
+            error: outstanding ? "previous probe still outstanding" : "probe cooling down after timeout",
           })
-        : probePostgres(deps.pool).then((status) => {
+        : startPostgresProbe().then((status) => {
             // "timed out" is errorMessage()'s stable category, not the raw
             // message: /healthz is unauthenticated, so the raw text is
             // deliberately never surfaced. Matching the category is what makes
@@ -313,7 +369,7 @@ export function createHealthHandler(deps: HealthProbeDeps): RequestHandler {
   }
 
   const handler: RequestHandler = async (_req, res) => {
-    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+    if (cached && Date.now() - cached.at < cacheTtlMs) {
       res.status(cached.result.ok ? 200 : 503).json(cached.result);
       return;
     }
