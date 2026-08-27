@@ -76,15 +76,26 @@ export function nodeVersionMeetsRequirement(version = process.versions.node) {
     }
     return true;
 }
-/** Shape a /healthz probe outcome into a stable status result object. */
+/**
+ * Shape a /healthz probe outcome into a stable status result object.
+ *
+ * Reachability and readiness are separate answers. A server whose dependencies
+ * are down answers 503 while being perfectly reachable, and reporting that as
+ * DOWN sends an operator to look for a process that is running -- so the two
+ * are reported separately, with "degraded" naming the state in between.
+ */
 export function shapeStatusResult(input) {
     const portNum = Number(input.port);
     const body = (input.body ?? null);
     const version = body && typeof body["version"] === "string" ? body["version"] : null;
+    // `healthy` defaults to reachability so a caller that does not distinguish the
+    // two keeps its previous meaning.
+    const healthy = input.healthy ?? input.reachable;
     const result = {
-        status: input.reachable ? "up" : "down",
+        status: !input.reachable ? "down" : healthy ? "up" : "degraded",
         port: portNum,
         reachable: input.reachable,
+        healthy,
         url: `http://localhost:${portNum}/healthz`,
         version,
         healthz: input.body ?? null,
@@ -160,10 +171,12 @@ async function probeHealthz(port) {
         catch {
             body = null;
         }
-        return { reachable: res.ok, body };
+        // A response of any status means the server answered. `res.ok` is whether
+        // its dependencies are healthy, which is a different question.
+        return { reachable: true, healthy: res.ok, body };
     }
     catch (err) {
-        return { reachable: false, error: err instanceof Error ? err.message : String(err) };
+        return { reachable: false, healthy: false, error: err instanceof Error ? err.message : String(err) };
     }
     finally {
         clearTimeout(timer);
@@ -335,12 +348,16 @@ export default defineExtension({
                 const result = shapeStatusResult({
                     port,
                     reachable: probe.reachable,
+                    healthy: probe.healthy,
                     body: probe.body,
                     error: probe.error,
                 });
+                const version = result.version ? ` (version ${result.version})` : "";
                 const humanLine = result.status === "up"
-                    ? `pm-web is UP on port ${result.port}${result.version ? ` (version ${result.version})` : ""}`
-                    : `pm-web is DOWN on port ${result.port}`;
+                    ? `pm-web is UP on port ${result.port}${version}`
+                    : result.status === "degraded"
+                        ? `pm-web is REACHABLE but UNHEALTHY on port ${result.port}${version} - see healthz for the failing dependency`
+                        : `pm-web is DOWN on port ${result.port}`;
                 return emitOwnedOutput(json, result, [humanLine]);
             },
         });

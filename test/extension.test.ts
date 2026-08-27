@@ -92,3 +92,25 @@ test("extension registers web, status, stop and doctor commands", async () => {
     flags: ["--port"],
   });
 });
+
+test("a server answering 503 is reachable but unhealthy, not down", () => {
+  // Conflating the two sends an operator to look for a process that is running.
+  // The distinction is the whole reason /healthz reports dependency state.
+  const degraded = shapeStatusResult({
+    port: "4000",
+    reachable: true,
+    healthy: false,
+    body: { ok: false, version: "2026.8.27", dependencies: { postgres: { ok: false } } },
+  });
+  assert.equal(degraded.status, "degraded");
+  assert.equal(degraded.reachable, true, "the server answered, so it is reachable");
+  assert.equal(degraded.healthy, false);
+  assert.equal(degraded.version, "2026.8.27", "a degraded server still reports its version");
+
+  const down = shapeStatusResult({ port: "4000", reachable: false, healthy: false, error: "ECONNREFUSED" });
+  assert.equal(down.status, "down");
+  assert.equal(down.reachable, false);
+
+  // A caller that does not pass `healthy` keeps the previous meaning.
+  assert.equal(shapeStatusResult({ port: "4000", reachable: true, body: { ok: true } }).status, "up");
+});
