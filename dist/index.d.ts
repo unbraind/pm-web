@@ -19,16 +19,25 @@ export declare function pidfilePath(port: string | number, env?: NodeJS.ProcessE
  * @returns True when the version is at least 22.18.0.
  */
 export declare function nodeVersionMeetsRequirement(version?: string): boolean;
-/** Shape a /healthz probe outcome into a stable status result object. */
+/**
+ * Shape a /healthz probe outcome into a stable status result object.
+ *
+ * Reachability and readiness are separate answers. A server whose dependencies
+ * are down answers 503 while being perfectly reachable, and reporting that as
+ * DOWN sends an operator to look for a process that is running -- so the two
+ * are reported separately, with "degraded" naming the state in between.
+ */
 export declare function shapeStatusResult(input: {
     port: string | number;
     reachable: boolean;
+    healthy?: boolean;
     body?: unknown;
     error?: string;
 }): {
-    status: "up" | "down";
+    status: "up" | "degraded" | "down";
     port: number;
     reachable: boolean;
+    healthy: boolean;
     url: string;
     version: string | null;
     healthz: unknown;

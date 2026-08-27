@@ -115,11 +115,15 @@ test("German legal aliases redirect (308) to the canonical pages", async () => {
   }
 });
 
-test("healthz reports ok and a version", async () => {
+test("healthz without probe deps reports degraded (ok:false, 503) and a version", async () => {
+  // createApp() with no health deps cannot probe its dependencies. Per the
+  // contract documented in app.ts, it must NOT claim ok:true (that is the bug
+  // this change closes), so the no-deps route answers 503 ok:false while still
+  // reporting the version.
   const res = await request("GET", "/healthz");
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 503);
   const body = JSON.parse(res.body);
-  assert.equal(body.ok, true);
+  assert.equal(body.ok, false);
   assert.ok(typeof body.version === "string" && body.version.length > 0, "version should be a non-empty string");
 });
 
