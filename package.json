@@ -1,7 +1,7 @@
 {
   "name": "@unbrained/pm-web",
   "version": "2026.8.26",
-  "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+  "description": "Full web UI for pm-cli \u2014 browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
     "dist/",
@@ -30,7 +30,7 @@
     "changelog:full": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm",
     "changelog:check": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --check",
     "release:notes": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --stdout --since-previous-tag --until-release-tag --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --github-step-summary",
-    "release:check": "npm run check && npm run docstring && npm run coverage && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check",
+    "release:check": "npm run check && npm run docstring && npm run coverage && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date",
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
     "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test test/*.test.ts",
@@ -40,7 +40,8 @@
     "coverage": "npm run build && npm run build:test && node scripts/with-test-db.ts node scripts/coverage-gate.ts",
     "db:up": "node scripts/db-up.ts",
     "db:down": "node scripts/db-down.ts",
-    "db:check": "node scripts/ensure-test-db.ts"
+    "db:check": "node scripts/ensure-test-db.ts",
+    "verify:release-changelog-date": "bash scripts/verify-release-changelog-date.sh"
   },
   "dependencies": {
     "@unbrained/pm-cli": "2026.8.21",
@@ -96,7 +97,7 @@
     "catalog": {
       "display_name": "pm Web UI",
       "category": "app",
-      "summary": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
+      "summary": "Full web UI for pm-cli \u2014 browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
       "tags": [
         "web",
         "pwa",
