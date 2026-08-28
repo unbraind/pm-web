@@ -13,6 +13,8 @@ import { groupsRouter } from "./routes/groups.ts";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.ts";
 import { githubRouter } from "./routes/github.ts";
 import { adminRouter } from "./routes/admin.ts";
+import { createTierLimiters, resolveTrustProxy } from "./rate-limit.ts";
+import { csrfProtection } from "./csrf.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "..", "public");
@@ -129,10 +131,25 @@ export function createApp(deps?: CreateAppDeps): Express {
   const app = express();
   const legalPagesDir = resolveLegalPagesDir();
 
+  // Trust the reverse proxy so `req.ip`, `req.hostname` and `req.protocol`
+  // reflect the real client behind Caddy instead of the proxy itself. This is
+  // what the rate limiter keys on: without it every client would share one
+  // bucket (the proxy's address) and the limiter would be useless. The hop
+  // count is configurable via PM_WEB_TRUST_PROXY; the default trusts a single
+  // hop, matching the documented Caddy deployment, and never `true` (which
+  // would let callers forge X-Forwarded-For and bypass per-client limits).
+  app.set("trust proxy", resolveTrustProxy(process.env));
+
+  // One set of tier limiters for this app instance; each owns an independent
+  // in-memory store so the tiers never steal each other's quota. See
+  // src/rate-limit.ts for the per-tier limits and the abuse each protects
+  // against.
+  const limiters = createTierLimiters(process.env);
+
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
 
-  app.get("/sw.js", (_req, res) => {
+  app.get("/sw.js", limiters.staticAssets, (_req, res) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
@@ -194,7 +211,7 @@ export function createApp(deps?: CreateAppDeps): Express {
     });
   });
 
-  app.get(["/legal-notice", "/privacy-policy", "/terms", "/cookie-settings"], (req, res) => {
+  app.get(["/legal-notice", "/privacy-policy", "/terms", "/cookie-settings"], limiters.staticAssets, (req, res) => {
     // Non-strict routing also matches trailing-slash variants (/terms/), so
     // normalize before the whitelist lookup instead of 404ing on them.
     const page = req.path.replace(/\/+$/, "").slice(1);
@@ -206,17 +223,30 @@ export function createApp(deps?: CreateAppDeps): Express {
     res.sendFile(path.join(legalPagesDir, `${page}.html`));
   });
 
-  // API routes
-  app.use("/api/auth", oidcRouter);
-  app.use("/api/auth", authRouter);
-  app.use("/api/projects", projectsRouter);
-  app.use("/api/projects/:projectId/pm", pmRouter);
-  app.use("/api/projects/:projectId/extensions", extensionsRouter);
-  app.use("/api/groups", groupsRouter);
-  app.use("/api/projects/:id/shares", sharesRouter);
-  app.use("/api/shared", sharedWithMeRouter);
-  app.use("/api/projects/:id/github", githubRouter);
-  app.use("/api/admin", adminRouter);
+  // CSRF guard: issued after cookie-parser (it reads/sets the csrf cookie) and
+  // before the API routers so every cookie-authenticated state-changing route
+  // is guarded. See src/csrf.ts.
+  app.use(csrfProtection());
+
+  // API routes. Each mount sits behind the tier that matches its abuse profile:
+  //   - /api/auth  → auth tier (tightest): credential brute-force / account abuse.
+  //   - /api/admin → admin tier (tight): privileged operations, rare in normal use.
+  //   - every other /api mount → read tier (GET/HEAD/OPTIONS) + write tier
+  //     (POST/PATCH/PUT/DELETE), split by method via the limiters' `skip`
+  //     predicates so reads and writes carry separate per-minute budgets.
+  // Real-time collaborative editing generates many requests per user, but a
+  // single human stays well under 300 writes/min and 600 reads/min; the limits
+  // stop scripted floods without throttling normal collaboration.
+  app.use("/api/auth", limiters.auth, oidcRouter);
+  app.use("/api/auth", limiters.auth, authRouter);
+  app.use("/api/projects", limiters.read, limiters.write, projectsRouter);
+  app.use("/api/projects/:projectId/pm", limiters.read, limiters.write, pmRouter);
+  app.use("/api/projects/:projectId/extensions", limiters.read, limiters.write, extensionsRouter);
+  app.use("/api/groups", limiters.read, limiters.write, groupsRouter);
+  app.use("/api/projects/:id/shares", limiters.read, limiters.write, sharesRouter);
+  app.use("/api/shared", limiters.read, limiters.write, sharedWithMeRouter);
+  app.use("/api/projects/:id/github", limiters.read, limiters.write, githubRouter);
+  app.use("/api/admin", limiters.admin, adminRouter);
 
   // Unknown API routes get a JSON 404 instead of falling through to the SPA
   // shell, which would hand HTML to API clients expecting JSON.
@@ -225,7 +255,7 @@ export function createApp(deps?: CreateAppDeps): Express {
   });
 
   // SPA fallback — serve index.html for all non-API routes
-  app.get("/{*splat}", (_req, res) => {
+  app.get("/{*splat}", limiters.staticAssets, (_req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, "index.html"));
   });
 

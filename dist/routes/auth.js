@@ -8,6 +8,42 @@ const router = Router();
 const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "")
     .trim()
     .toLowerCase();
+/** RFC 5321 caps an email address at 254 characters; bound the input first so the
+ * checks below run over a fixed, small string regardless of attacker input. */
+const MAX_EMAIL_LENGTH = 254;
+/**
+ * Validate an email address without a backtracking regular expression.
+ *
+ * The previous check used `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`, whose repeated
+ * `[^\s@]+` groups force O(n) backtracking attempts on a long string with no
+ * `@`, giving polynomial (quadratic) runtime — the ReDoS CodeQL flagged. This
+ * helper splits on the single `@` first and then validates each side with
+ * anchored single-class patterns (`[^\s]+`), which are linear and cannot
+ * backtrack across a missing delimiter. The 254-character bound (RFC 5321)
+ * is applied up front so even the linear checks run over a capped length.
+ *
+ * @param email - The candidate address to validate.
+ * @returns `true` when the address has exactly one `@`, non-empty whitespace-free
+ *   local and domain parts, and a dotted domain.
+ */
+export function isValidEmail(email) {
+    if (email.length === 0 || email.length > MAX_EMAIL_LENGTH)
+        return false;
+    const at = email.indexOf("@");
+    if (at < 1 || at === email.length - 1)
+        return false;
+    const local = email.slice(0, at);
+    const domain = email.slice(at + 1);
+    // A second `@` (in the domain) is rejected: split-on-first-`@` already
+    // guarantees the local part is `@`-free, so only the domain needs the check.
+    if (domain.includes("@"))
+        return false;
+    if (!/^[^\s]+$/.test(local) || !/^[^\s]+$/.test(domain))
+        return false;
+    // A dot somewhere in the domain gives the `host.tld` shape the old regex
+    // required; the character-class checks above already excluded whitespace.
+    return domain.includes(".");
+}
 router.post("/register", async (req, res) => {
     const { email, password, displayName } = req.body;
     if (!email || !password) {
@@ -18,7 +54,7 @@ router.post("/register", async (req, res) => {
         res.status(400).json({ error: "Password must be at least 8 characters" });
         return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!isValidEmail(email)) {
         res.status(400).json({ error: "Invalid email address" });
         return;
     }

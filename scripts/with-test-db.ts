@@ -35,6 +35,18 @@ const DEFAULT_JWT_SECRET = "pm-web-test-jwt-secret-at-least-32-bytes";
 if (!process.env.DATABASE_URL) process.env.DATABASE_URL = DEFAULT_DATABASE_URL;
 if (!process.env.JWT_SECRET) process.env.JWT_SECRET = DEFAULT_JWT_SECRET;
 
+// Raise the rate-limit tiers high enough that the functional (real-Postgres)
+// suite — which issues many requests per file, e.g. the auth suite logs in and
+// registers repeatedly — is never throttled by the production limiter. The
+// rate-limit behaviour itself is proven by a dedicated test that builds an
+// isolated limiter with a tiny limit, so loosening here does not weaken that
+// coverage; it only keeps the per-route tests focused on their own behaviour.
+if (!process.env.PM_WEB_RATE_LIMIT_AUTH) process.env.PM_WEB_RATE_LIMIT_AUTH = "100000";
+if (!process.env.PM_WEB_RATE_LIMIT_ADMIN) process.env.PM_WEB_RATE_LIMIT_ADMIN = "100000";
+if (!process.env.PM_WEB_RATE_LIMIT_READ) process.env.PM_WEB_RATE_LIMIT_READ = "100000";
+if (!process.env.PM_WEB_RATE_LIMIT_WRITE) process.env.PM_WEB_RATE_LIMIT_WRITE = "100000";
+if (!process.env.PM_WEB_RATE_LIMIT_STATIC) process.env.PM_WEB_RATE_LIMIT_STATIC = "100000";
+
 const preflight = spawnSync(process.execPath, ["scripts/ensure-test-db.ts"], {
   stdio: "inherit",
   env: process.env,

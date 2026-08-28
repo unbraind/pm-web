@@ -149,7 +149,7 @@ test("general schema includes the idempotent external identity contract", () => 
   assert.match(schema, /UNIQUE\(issuer, user_id\)/);
   assert.match(schema, /user_id UUID NOT NULL REFERENCES pm_users\(id\) ON DELETE CASCADE/);
   assert.match(runtimeSchema, /CREATE TABLE IF NOT EXISTS pm_external_identities/);
-  assert.match(app, /app\.use\("\/api\/auth", oidcRouter\)/);
+  assert.match(app, /app\.use\("\/api\/auth", limiters\.auth, oidcRouter\)/);
   assert.match(server, /assertOidcConfiguration\(\)/);
   assert.match(authView, /\/auth\/oidc\/config/);
   assert.match(authView, /\/api\/auth\/oidc\/start/);
