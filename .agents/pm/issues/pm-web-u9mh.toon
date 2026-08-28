@@ -1,12 +1,12 @@
 id: pm-web-u9mh
-title: "Health endpoint reports ok: true while database and projects volume are unreachable"
+title: "The health endpoint no longer reports ok: true when the database or projects volume is unreachable"
 description: "SYMPTOM: /healthz returned { ok: true, version } unconditionally — even when PostgreSQL was down, the projects host mount was missing, or the volume was read-only. A probe that cannot fail made a real outage invisible until someone opened the site. DEPENDENCY TABLE: Postgres (POSTGRES_HOST/PORT/USER/PASSWORD/DB or DATABASE_URL) — hard, no service without it; Projects volume (PROJECTS_ROOT, host-mounted /app/projects) — hard, every project lives here; Neo4j (NEO4J_URI etc.) — soft, graph features degrade; Ollama embeddings (OLLAMA_BASE_URL, PM_OLLAMA_MODEL) — soft, semantic search degrades. FAILURE MODES NOW CAUGHT: unreachable database (503), hung database with 2s timeout (503), missing projects root (503), read-only projects root (503), pool exhaustion surfaced via real pool SELECT 1. Soft deps report state but never change the status code. The result is cached for ~5s so polling cannot become a load source."
 type: Issue
 status: closed
 priority: 2
 tags[3]: "area:health","area:observability","type:defect"
 created_at: "2026-08-26T19:25:16.077Z"
-updated_at: "2026-08-28T05:33:16.269Z"
+updated_at: "2026-08-28T06:15:25.565Z"
 closed_at: "2026-08-28T05:33:16.252Z"
 completed_at: "2026-08-28T05:33:16.252Z"
 claim_principal: pi-agent
@@ -29,155 +29,80 @@ tests[16]:
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-  - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='unreachable database: 503 with postgres.ok:false' test/healthz.test.ts"
-    path: test/healthz.test.ts
-    scope: project
-    timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:21.515Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
-    note: "unreachable database: 503 with postgres.ok:false"
-  - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='hung database (probe timeout): 503 with timeout error' test/healthz.test.ts"
-    path: test/healthz.test.ts
-    scope: project
-    timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:21.983Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
-    note: "hung database (probe timeout): 503 with timeout error"
-  - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='slow database (exceeds 2s timeout): 503' test/healthz.test.ts"
-    path: test/healthz.test.ts
-    scope: project
-    timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:22.541Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
-    note: "slow database (exceeds 2s timeout): 503"
   - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='missing projects root: 503 with projects_root.ok:false' test/healthz.test.ts"
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:23.047Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: "missing projects root: 503 with projects_root.ok:false"
   - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='read-only projects root: 503 with projects_root.ok:false' test/healthz.test.ts"
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:23.527Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: "read-only projects root: 503 with projects_root.ok:false"
   - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='both hard deps fail: 503 with both reported as down' test/healthz.test.ts"
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:24.022Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: "both hard deps fail: 503 with both reported as down"
   - command: PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='soft dependency down does not cause 503' test/healthz.test.ts
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:24.481Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: soft dependency down does not cause 503
   - command: PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='cached result is reused within 5 seconds' test/healthz.test.ts
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:24.951Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: cached result is reused within 5 seconds
   - command: PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='projects root writability probe leaves no stray files' test/healthz.test.ts
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:25.419Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: projects root writability probe leaves no stray files
   - command: PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='health response never includes connection strings or credentials' test/healthz.test.ts
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:25.879Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: health response never includes connection strings or credentials
   - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='non-vacuity: unreachable-db test would fail if postgres probe always succeeded' test/healthz.test.ts"
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:26.402Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: "non-vacuity: unreachable-db test would fail if postgres probe always succeeded"
   - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='non-vacuity: missing-root test would fail if projects-root probe always succeeded' test/healthz.test.ts"
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:26.885Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: "non-vacuity: missing-root test would fail if projects-root probe always succeeded"
   - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='non-vacuity: timeout test would fail if the probe had no timeout' test/healthz.test.ts"
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:27.372Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: "non-vacuity: timeout test would fail if the probe had no timeout"
   - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='a failing probe never leaks the underlying path, host or message' test/healthz.test.ts"
     path: test/healthz.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:27.861Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: "a failing probe never leaks the underlying path, host or message"
   - command: PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='a PostgreSQL probe timeout is not retried until the cooldown expires' test/healthz-pool-guard.test.ts
     path: test/healthz-pool-guard.test.ts
     scope: project
     timeout_seconds: 240
-    provenance:
-      author: pi-agent
-      created_at: "2026-08-28T05:32:28.395Z"
-      source_kind: local_mutation
-      source_ref: ci/publish-by-oidc-trusted-publishing
     note: a PostgreSQL probe timeout is not retried until the cooldown expires
+  - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='hung database \\(probe timeout\\): 503 with timeout error' test/healthz.test.ts"
+    path: test/healthz.test.ts
+    scope: project
+    timeout_seconds: 240
+    note: "hung database (probe timeout): 503 with timeout error - parentheses escaped because --test-name-pattern is a regex"
+  - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='slow database \\(exceeds 2s timeout\\): 503' test/healthz.test.ts"
+    path: test/healthz.test.ts
+    scope: project
+    timeout_seconds: 240
+    note: "slow database (exceeds 2s timeout): 503 - parentheses escaped because --test-name-pattern is a regex"
+  - command: "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='unreachable database: 503 with postgres.ok:false' test/healthz.test.ts"
+    path: test/healthz.test.ts
+    scope: project
+    timeout_seconds: 240
+    note: "unreachable database: 503 with postgres.ok:false"
 close_reason: fixed
 body: "The /healthz handler was a constant shaped like a probe: it returned { ok: true, version } regardless of whether any dependency was reachable. Docker and monitoring polled it and saw green during a real outage. The fix probes the real PostgreSQL pool (SELECT 1, not a fresh connection — pool exhaustion is itself a failure mode), the projects root (write-and-remove a temp file inside it — a missing or read-only host mount is the exact failure caught), and soft dependencies (Neo4j, Ollama) when configured. Every probe is bounded to 2s. The computed result is cached for 5s. The response is backward compatible: ok and version remain top-level; a per-dependency breakdown is added. Tests drive every failure path with a real temp directory and stub pools, and non-vacuity checks prove each test discriminates."

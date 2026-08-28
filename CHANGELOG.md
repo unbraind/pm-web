@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Health endpoint reports ok: true while database and projects volume are unreachable ([pm-web-u9mh](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-u9mh.toon))
+- The health endpoint no longer reports ok: true when the database or projects volume is unreachable ([pm-web-u9mh](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-u9mh.toon))
 - Mount the real /healthz handler in pm-web (Greptile P1 on PR \#105) ([pm-web-iocm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-iocm.toon))
 
 ### Security

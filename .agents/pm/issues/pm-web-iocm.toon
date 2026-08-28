@@ -6,7 +6,7 @@ status: closed
 priority: 2
 tags: []
 created_at: "2026-08-26T21:46:18.077Z"
-updated_at: "2026-08-28T05:32:56.356Z"
+updated_at: "2026-08-28T06:14:49.841Z"
 closed_at: "2026-08-28T05:32:56.328Z"
 completed_at: "2026-08-28T05:32:56.328Z"
 claim_principal: pi-agent
@@ -29,10 +29,10 @@ files[6]{path,scope}:
   test/healthz-pool-guard.test.ts,project
   test/healthz.test.ts,project
   test/legal-routes.test.ts,project
-tests[4]{command,path,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref},note}:
-  "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='createApp route: a failing Postgres probe yields HTTP 503 through the mounted handler' test/healthz.test.ts",test/healthz.test.ts,project,240,pi-agent,"2026-08-28T05:31:52.533Z",local_mutation,ci/publish-by-oidc-trusted-publishing,"createApp route: a failing Postgres probe yields HTTP 503 through the mounted handler"
-  "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='all healthy: 200 with ok:true and per-dependency breakdown' test/healthz.test.ts",test/healthz.test.ts,project,240,pi-agent,"2026-08-28T05:31:53.026Z",local_mutation,ci/publish-by-oidc-trusted-publishing,"all healthy: 200 with ok:true and per-dependency breakdown"
-  PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='concurrent uncached probes share one computation rather than one each' test/healthz.test.ts,test/healthz.test.ts,project,240,pi-agent,"2026-08-28T05:31:53.496Z",local_mutation,ci/publish-by-oidc-trusted-publishing,concurrent uncached probes share one computation rather than one each
-  "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='healthz without probe deps reports degraded (ok:false, 503) and a version' test/legal-routes.test.ts",test/legal-routes.test.ts,project,240,pi-agent,"2026-08-28T05:31:53.950Z",local_mutation,ci/publish-by-oidc-trusted-publishing,"healthz without probe deps reports degraded (ok:false, 503) and a version"
+tests[4]{command,path,scope,timeout_seconds,note}:
+  "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='createApp route: a failing Postgres probe yields HTTP 503 through the mounted handler' test/healthz.test.ts",test/healthz.test.ts,project,240,"createApp route: a failing Postgres probe yields HTTP 503 through the mounted handler"
+  "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='all healthy: 200 with ok:true and per-dependency breakdown' test/healthz.test.ts",test/healthz.test.ts,project,240,"all healthy: 200 with ok:true and per-dependency breakdown"
+  PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='concurrent uncached probes share one computation rather than one each' test/healthz.test.ts,test/healthz.test.ts,project,240,concurrent uncached probes share one computation rather than one each
+  "PM_PATH=/tmp/pm-web-linked-test PM_GLOBAL_PATH=/tmp/pm-web-linked-test-global node scripts/with-test-db.ts node --test --test-name-pattern='healthz without probe deps reports degraded \\(ok:false, 503\\) and a version' test/legal-routes.test.ts",test/legal-routes.test.ts,project,240,"healthz without probe deps reports degraded (ok:false, 503) and a version - parentheses escaped because --test-name-pattern is a regex"
 close_reason: fixed
 body: ""
