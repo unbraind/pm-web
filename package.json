@@ -30,7 +30,7 @@
     "changelog:full": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm",
     "changelog:check": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --check",
     "release:notes": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --stdout --since-previous-tag --until-release-tag --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --github-step-summary",
-    "release:check": "npm run check && npm run docstring && npm run coverage && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date",
+    "release:check": "npm run check && npm run docstring && npm run coverage && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date && npm run verify:release-publish-attestation",
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
     "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test test/*.test.ts",
@@ -41,7 +41,8 @@
     "db:up": "node scripts/db-up.ts",
     "db:down": "node scripts/db-down.ts",
     "db:check": "node scripts/ensure-test-db.ts",
-    "verify:release-changelog-date": "node scripts/verify-release-changelog-date.ts"
+    "verify:release-changelog-date": "node scripts/verify-release-changelog-date.ts",
+    "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts"
   },
   "dependencies": {
     "@unbrained/pm-cli": "2026.8.21",
