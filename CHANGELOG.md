@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- The health endpoint no longer reports ok: true when the database or projects volume is unreachable ([pm-web-u9mh](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-u9mh.toon))
+- Mount the real /healthz handler in pm-web (Greptile P1 on PR \#105) ([pm-web-iocm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-iocm.toon))
+
 ### Security
 
 - The identity gate deadlocks the one remediation its own failure message prescribes ([pm-web-1ggj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-1ggj.toon))
