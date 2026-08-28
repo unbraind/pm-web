@@ -240,7 +240,7 @@ export const PACKAGE_CATALOG = [
         npmSpec: "npm:pm-rl",
         title: "RL",
         description: "Reinforcement-learning programme management on the pm SDK. Content-addressed environments and benchmarks keep runs and evaluations attributable; fail-closed leaderboards refuse mixed environments and contaminated suites. Commands: `pm rl env register/list/show`, `pm rl benchmark register`, `pm rl eval record`, `pm rl leaderboard`, `pm rl run start/log/show/finish`, `pm rl generation register/promote/show`, `pm rl lineage`, `pm rl invalidate`, and `pm rl compare`.",
-        capabilities: ["commands", "schema"],
+        capabilities: ["commands", "hooks", "schema"],
         category: "extension",
         availability: "unreleased",
     },
