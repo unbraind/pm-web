@@ -118,6 +118,7 @@ pm web doctor --json
 | `PM_CLI_BIN` | No | Explicit pm CLI executable path (default: packaged CLI, then `pm` from `PATH`) |
 | `PM_WEB_DB_POOL_MAX` | No | PostgreSQL pool size including one dedicated realtime listener (default: `20`, minimum: `2`) |
 | `NODE_ENV` | No | `production` enables caching |
+| `PM_WEB_TRUST_PROXY` | Behind a proxy | Reverse-proxy hops to trust for the client address (`1` for a single proxy such as Caddy), a comma-separated IP/subnet allowlist, or `false`/`0`. **Defaults to `false`** — a direct deployment must not trust `X-Forwarded-For`, or a caller can rotate that header to draw a fresh rate-limit bucket per request. Set it only when a proxy really does sit in front, otherwise the per-IP limits enforce nothing. |
 | `OLLAMA_BASE_URL` / `OLLAMA_HOST` | No | Local Ollama endpoint for semantic pm search |
 | `PM_OLLAMA_MODEL` | No | Embedding model for new projects, default `qwen3-embedding:0.6b` |
 | `NEO4J_URI` | No | Neo4j Bolt URI for graph sync |

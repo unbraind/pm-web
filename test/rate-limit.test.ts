@@ -95,6 +95,28 @@ test("the limiter keys on the real client IP behind the proxy, not the proxy its
   assert.equal(otherClient.status, 200, "a different real client has a separate bucket");
 });
 
+test("under the default configuration a rotated X-Forwarded-For cannot draw a fresh bucket", async (t) => {
+  // The complement of the test above. That one opts into one proxy hop and
+  // asserts the limiter follows the real client. This one takes the default an
+  // operator gets by running the documented `npm start` or `docker run` with no
+  // proxy in front, and asserts the header buys nothing: were a hop trusted
+  // there, every request could name a new client and the limiter would enforce
+  // nothing at all.
+  const app = express();
+  app.set("trust proxy", resolveTrustProxy({}));
+  app.use(createRateLimiter({ windowMs: 60_000, limit: 2, identifier: "default-trust-test" }));
+  app.get("/x", (_req, res) => res.json({ ok: true }));
+  const server = await start(app);
+  t.after(() => server.close());
+
+  for (let i = 0; i < 2; i++) {
+    const res = await fetch(server.url("/x"), { headers: { "x-forwarded-for": `9.9.9.${i}` } });
+    assert.equal(res.status, 200);
+  }
+  const rotated = await fetch(server.url("/x"), { headers: { "x-forwarded-for": "9.9.9.99" } });
+  assert.equal(rotated.status, 429, "a new forwarded address must not reset the budget");
+});
+
 test("read and write tiers carry separate per-minute budgets", async (t) => {
   const tiers = createTierLimiters({
     PM_WEB_RATE_LIMIT_READ: "2",
@@ -164,8 +186,12 @@ test("isSafeMethod / isUnsafeMethod classify GET, POST and mixed-case methods", 
 });
 
 test("resolveTrustProxy honours hops, booleans and IP allowlists", () => {
-  assert.equal(resolveTrustProxy({}), 1, "the default trusts a single proxy hop");
-  assert.equal(resolveTrustProxy({ PM_WEB_TRUST_PROXY: "" }), 1);
+  // The default must trust nothing. Every documented launch path exposes
+  // Express directly, where trusting a hop would make req.ip the caller's own
+  // X-Forwarded-For and hand an attacker a fresh bucket per request.
+  assert.equal(resolveTrustProxy({}), false, "the default trusts no proxy hop");
+  assert.equal(resolveTrustProxy({ PM_WEB_TRUST_PROXY: "" }), false);
+  assert.equal(resolveTrustProxy({ PM_WEB_TRUST_PROXY: "1" }), 1, "a proxied deployment opts in");
   assert.equal(resolveTrustProxy({ PM_WEB_TRUST_PROXY: "2" }), 2);
   assert.equal(resolveTrustProxy({ PM_WEB_TRUST_PROXY: "false" }), false);
   assert.equal(resolveTrustProxy({ PM_WEB_TRUST_PROXY: "0" }), false);

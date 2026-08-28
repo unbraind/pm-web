@@ -70,10 +70,19 @@ export function isUnsafeMethod(method) {
  * `true`: trusting every hop lets any caller spoof `X-Forwarded-For` and
  * bypass per-client limits, and `express-rate-limit` refuses that setting.
  *
- * The default trusts a single proxy hop, matching the documented Caddy
- * deployment. Operators behind a longer chain set `PM_WEB_TRUST_PROXY` to the
- * hop count, to a comma-separated IP/subnet allowlist, or to `false`/`0` for a
- * direct (no-proxy) deployment.
+ * The default trusts NO hop. That is the only safe default here, because the
+ * unsafe direction is silent: every launch path this package documents --
+ * `docker run -p 4000:4000`, `npm start`, a pm-host container -- exposes
+ * Express directly, and trusting one hop there makes `req.ip` the value the
+ * caller wrote in `X-Forwarded-For`. An attacker rotating that header would
+ * draw a fresh bucket for every request and bypass all of these limits while
+ * the limiter reported itself as enforcing them. A deployment that really is
+ * behind a proxy fails in the visible direction instead: every client shares
+ * the proxy's address, the limit bites early, and an operator notices.
+ *
+ * Deployments behind a reverse proxy set `PM_WEB_TRUST_PROXY` to the hop count
+ * (`1` for the Caddy deployment), to a comma-separated IP/subnet allowlist, or
+ * to `false`/`0` to state the direct case explicitly.
  *
  * @param env - Environment to read `PM_WEB_TRUST_PROXY` from; defaults to
  *   `process.env` so production reads the live configuration.
@@ -86,7 +95,7 @@ export function resolveTrustProxy(env = process.env) {
     if (raw === "false" || raw === "0")
         return false;
     if (raw === "")
-        return 1;
+        return false;
     const numeric = Number(raw);
     if (Number.isFinite(numeric) && numeric > 0)
         return Math.trunc(numeric);

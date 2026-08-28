@@ -198,15 +198,24 @@ export function createApp(deps) {
     // Real-time collaborative editing generates many requests per user, but a
     // single human stays well under 300 writes/min and 600 reads/min; the limits
     // stop scripted floods without throttling normal collaboration.
-    app.use("/api/auth", limiters.auth, oidcRouter);
-    app.use("/api/auth", limiters.auth, authRouter);
-    app.use("/api/projects", limiters.read, limiters.write, projectsRouter);
-    app.use("/api/projects/:projectId/pm", limiters.read, limiters.write, pmRouter);
-    app.use("/api/projects/:projectId/extensions", limiters.read, limiters.write, extensionsRouter);
+    // A limiter counts every request that traverses it, so it must be mounted at
+    // exactly one point per path. Repeating it on a prefix and again on a nested
+    // mount charged one request twice and silently halved the published budget:
+    // /api/auth fell through oidcRouter into authRouter, and every
+    // /api/projects/... request matched the /api/projects prefix before its own
+    // nested mount. Each shared prefix therefore carries its limiters once, and
+    // the routers mount behind them.
+    app.use("/api/auth", limiters.auth);
+    app.use("/api/auth", oidcRouter);
+    app.use("/api/auth", authRouter);
+    app.use("/api/projects", limiters.read, limiters.write);
+    app.use("/api/projects", projectsRouter);
+    app.use("/api/projects/:projectId/pm", pmRouter);
+    app.use("/api/projects/:projectId/extensions", extensionsRouter);
+    app.use("/api/projects/:id/shares", sharesRouter);
+    app.use("/api/projects/:id/github", githubRouter);
     app.use("/api/groups", limiters.read, limiters.write, groupsRouter);
-    app.use("/api/projects/:id/shares", limiters.read, limiters.write, sharesRouter);
     app.use("/api/shared", limiters.read, limiters.write, sharedWithMeRouter);
-    app.use("/api/projects/:id/github", limiters.read, limiters.write, githubRouter);
     app.use("/api/admin", limiters.admin, adminRouter);
     // Unknown API routes get a JSON 404 instead of falling through to the SPA
     // shell, which would hand HTML to API clients expecting JSON.

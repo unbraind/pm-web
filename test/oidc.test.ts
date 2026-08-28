@@ -149,7 +149,36 @@ test("general schema includes the idempotent external identity contract", () => 
   assert.match(schema, /UNIQUE\(issuer, user_id\)/);
   assert.match(schema, /user_id UUID NOT NULL REFERENCES pm_users\(id\) ON DELETE CASCADE/);
   assert.match(runtimeSchema, /CREATE TABLE IF NOT EXISTS pm_external_identities/);
-  assert.match(app, /app\.use\("\/api\/auth", limiters\.auth, oidcRouter\)/);
+  // The OIDC router must sit at /api/auth behind the auth limiter. Matching one
+  // exact mount line asserted the arrangement rather than the property, and
+  // broke on a refactor that preserved it: the limiter now mounts on the prefix
+  // once and the routers mount behind it, because repeating it on the prefix
+  // and again on a nested path charged one request twice.
+  assert.match(app, /app\.use\("\/api\/auth", limiters\.auth\);/);
+  assert.match(app, /app\.use\("\/api\/auth", oidcRouter\);/);
+  // And the property that fix established: no path is given the same limiter
+  // more than once, so every published budget is the enforced one.
+  const mounts = [...app.matchAll(/app\.use\("([^"]+)",([^)]*)\)/g)]
+    .map(([, path, rest]) => ({
+      path,
+      limiters: [...rest.matchAll(/limiters\.(\w+)/g)].map(([, tier]) => tier),
+    }));
+  for (const tier of ["auth", "read", "write", "admin"]) {
+    const paths = mounts.filter((m) => m.limiters.includes(tier)).map((m) => m.path);
+    assert.equal(
+      new Set(paths).size,
+      paths.length,
+      `the ${tier} limiter is mounted more than once on the same path: ${paths.join(", ")}`,
+    );
+    for (const outer of paths) {
+      for (const inner of paths) {
+        assert.ok(
+          outer === inner || !inner.startsWith(`${outer}/`),
+          `the ${tier} limiter guards both ${outer} and the nested ${inner}, so a nested request is counted twice`,
+        );
+      }
+    }
+  }
   assert.match(server, /assertOidcConfiguration\(\)/);
   assert.match(authView, /\/auth\/oidc\/config/);
   assert.match(authView, /\/api\/auth\/oidc\/start/);
