@@ -224,43 +224,53 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
   // tokenization so an apostrophe in `name: package's release` cannot quote the
   // remainder of the file and hide a later run command.
   const text = /\.ya?ml$/.test(source.file)
-    ? joined.split("\n").map((line) => {
-      const key = /^\s*(?:-\s*)?(?:"([^"]+)"|'([^']+)'|([A-Za-z_][A-Za-z0-9_-]*)):\s*/.exec(line);
-      if (key === null) return line;
-      if ((key[1] ?? key[2] ?? key[3]) !== "run") return "";
-      const value = line.slice(key[0].length);
-      if (value === "|" || value === ">") return "";
-      // A YAML comment follows the complete scalar, outside its quote pair.
-      // Remove it before unquoting so `run: "npm publish" # release` cannot
-      // remain one quoted shell program token.
-      const scalar = /^("(?:\\.|[^"\\])*"|'(?:''|[^'])*')(?:\s+#.*)?$/.exec(value)?.[1] ?? value;
-      // YAML's quotes delimit the scalar; they are not shell quotes. Remove a
-      // whole-value quote pair so `run: "npm publish"` reaches shell parsing as
-      // the command words npm and publish rather than one quoted program word.
-      if (scalar.startsWith('"') && scalar.endsWith('"')) {
-        try { return JSON.parse(scalar) as string; } catch {
-          // YAML accepts escapes JSON does not (for example `\e`). Even when
-          // this lightweight extractor cannot decode one, remove the YAML
-          // delimiters so the command is still audited rather than collapsed
-          // into one quoted program token.
-          const escapes: Record<string, string> = {
-            "0": "\0", a: "\x07", b: "\b", t: "\t", n: "\n", v: "\v",
-            f: "\f", r: "\r", e: "\x1b", " ": " ", "_": "\u00a0",
-            N: "\u0085", L: "\u2028", P: "\u2029", "/": "/", "\\": "\\", '"': '"',
-          };
-          return scalar.slice(1, -1).replace(
-            /\\(?:x([0-9A-Fa-f]{2})|u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8})|(.))/g,
-            (_whole, hex2?: string, hex4?: string, hex8?: string, named?: string) => {
-              const hex = hex2 ?? hex4 ?? hex8;
-              if (hex !== undefined) return String.fromCodePoint(Number.parseInt(hex, 16));
-              return escapes[named!] ?? " ";
-            },
-          );
+    ? (() => {
+      const physical = joined.split("\n");
+      const logical: string[] = [];
+      for (let index = 0; index < physical.length; index += 1) {
+        const line = physical[index]!;
+        const folded = /^(\s*)(?:-\s*)?(?:"run"|'run'|run):\s*>\s*$/.exec(line);
+        if (folded === null) { logical.push(line); continue; }
+        const baseIndent = folded[1]!.length;
+        const body: string[] = [];
+        while (index + 1 < physical.length) {
+          const candidate = physical[index + 1]!;
+          const indent = /^\s*/.exec(candidate)![0].length;
+          if (candidate.trim().length > 0 && indent <= baseIndent) break;
+          index += 1;
+          if (candidate.trim().length > 0) body.push(candidate.trim());
         }
+        logical.push(body.join(" "));
       }
-      if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
-      return scalar;
-    }).join("\n")
+      return logical.map((line) => {
+        const key = /^\s*(?:-\s*)?(?:"([^"]+)"|'([^']+)'|([A-Za-z_][A-Za-z0-9_-]*)):\s*/.exec(line);
+        if (key === null) return line;
+        if ((key[1] ?? key[2] ?? key[3]) !== "run") return "";
+        const value = line.slice(key[0].length);
+        if (value === "|") return "";
+        // A YAML comment follows the complete scalar, outside its quote pair.
+        const scalar = /^("(?:\\.|[^"\\])*"|'(?:''|[^'])*')(?:\s+#.*)?$/.exec(value)?.[1] ?? value;
+        if (scalar.startsWith('"') && scalar.endsWith('"')) {
+          try { return JSON.parse(scalar) as string; } catch {
+            const escapes: Record<string, string> = {
+              "0": "\0", a: "\x07", b: "\b", t: "\t", n: "\n", v: "\v",
+              f: "\f", r: "\r", e: "\x1b", " ": " ", "_": "\u00a0",
+              N: "\u0085", L: "\u2028", P: "\u2029", "/": "/", "\\": "\\", '"': '"',
+            };
+            return scalar.slice(1, -1).replace(
+              /\\(?:x([0-9A-Fa-f]{2})|u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8})|(.))/g,
+              (_whole, hex2?: string, hex4?: string, hex8?: string, named?: string) => {
+                const hex = hex2 ?? hex4 ?? hex8;
+                if (hex !== undefined) return String.fromCodePoint(Number.parseInt(hex, 16));
+                return escapes[named!] ?? " ";
+              },
+            );
+          }
+        }
+        if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
+        return scalar;
+      }).join("\n");
+    })()
     : joined;
   const lines = text.split("\n");
   let prefix = "";
