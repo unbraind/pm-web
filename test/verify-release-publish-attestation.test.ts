@@ -675,16 +675,18 @@ test("a workflow key carries the command as its value, and is not the command", 
   );
 });
 
-test("workflow prose cannot quote later run commands", () => {
+test("workflow prose and YAML scalar quotes cannot hide later run commands", () => {
   const result = auditPublishAttestation([{
     file: "release.yml",
     text: [
       "run: npm publish --provenance",
       "name: package's release",
       "run: npm publish --access public",
+      'run: "npm publish --access public"',
+      "run: 'npm publish --access public'",
     ].join("\n"),
   }]);
-  assert.equal(result.failures.length, 1);
+  assert.equal(result.failures.length, 3);
 });
 
 test("a quoted parenthesis inside a substitution is a literal, not its delimiter", () => {

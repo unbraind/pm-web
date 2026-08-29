@@ -211,7 +211,18 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
   const text = /\.ya?ml$/.test(source.file)
     ? joined.split("\n").map((line) => {
       const key = /^\s*(?:-\s*)?(?:"([^"]+)"|'([^']+)'|([A-Za-z_][A-Za-z0-9_-]*)):\s*/.exec(line);
-      return key !== null && (key[1] ?? key[2] ?? key[3]) !== "run" ? "" : line;
+      if (key === null) return line;
+      if ((key[1] ?? key[2] ?? key[3]) !== "run") return "";
+      const value = line.slice(key[0].length);
+      if (value === "|" || value === ">") return "";
+      // YAML's quotes delimit the scalar; they are not shell quotes. Remove a
+      // whole-value quote pair so `run: "npm publish"` reaches shell parsing as
+      // the command words npm and publish rather than one quoted program word.
+      if (value.startsWith('"') && value.endsWith('"')) {
+        try { return JSON.parse(value) as string; } catch { return value; }
+      }
+      if (value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1).replace(/''/g, "'");
+      return value;
     }).join("\n")
     : joined;
   const lines = text.split("\n");
