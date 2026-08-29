@@ -204,13 +204,24 @@ export function attestationEnabled(command: ShellCommand): boolean {
  */
 export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
   const raw = source.file.endsWith("package.json") ? manifestCommandLines(source.text) : source.text;
-  const text = joinContinuations(raw);
-  const arrays = bashArrays(text);
-  const scalars = shellScalars(text);
-  const expanded = text
-    .split("\n")
-    .map((line) => expandScalars(expandArrays(line, arrays), scalars))
-    .join("\n");
+  const joined = joinContinuations(raw);
+  // Workflow metadata is YAML, not shell. Drop non-run key lines before shell
+  // tokenization so an apostrophe in `name: package's release` cannot quote the
+  // remainder of the file and hide a later run command.
+  const text = /\.ya?ml$/.test(source.file)
+    ? joined.split("\n").map((line) => {
+      const key = /^\s*(?:-\s*)?(?:"([^"]+)"|'([^']+)'|([A-Za-z_][A-Za-z0-9_-]*)):\s*/.exec(line);
+      return key !== null && (key[1] ?? key[2] ?? key[3]) !== "run" ? "" : line;
+    }).join("\n")
+    : joined;
+  const lines = text.split("\n");
+  let prefix = "";
+  const expanded = lines.map((line) => {
+    prefix += `${line}\n`;
+    // Resolve each reference against declarations visible at this source
+    // position. A later reassignment must never rewrite an earlier publish.
+    return expandScalars(expandArrays(line, bashArrays(prefix)), shellScalars(prefix));
+  }).join("\n");
   const found: PublishInvocation[] = [];
   for (const command of tokenizeCommands(expanded)) {
     // Every reading, not just the command's own: a wrapper option that takes a

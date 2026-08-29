@@ -435,7 +435,12 @@ function skipCommandPrefix(command: ShellCommand): number {
       index += 1;
       continue;
     }
-    if (index <= 1 && !token.startsQuoted && /^[A-Za-z_][A-Za-z0-9_-]*:$/.test(token.value)) {
+    if (index <= 1 && (
+      (!token.startsQuoted && /^[A-Za-z_][A-Za-z0-9_-]*:$/.test(token.value))
+      // YAML permits quoted keys. Restrict the quoted form to the executable
+      // `run` key so a quoted shell argument ending in `:` is not consumed.
+      || token.value === "run:"
+    )) {
       sawPrefix = true;
       index += 1;
       continue;

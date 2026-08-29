@@ -659,6 +659,7 @@ test("a workflow key carries the command as its value, and is not the command", 
   // other: `run: npm publish` read `run:` as the program and audited nothing.
   assert.equal(commandName(onlyCommand("run: npm publish")), "npm");
   assert.equal(commandName(onlyCommand("- run: npm publish")), "npm");
+  assert.equal(commandName(onlyCommand('- "run": npm publish')), "npm");
   // Only a LEADING key is consumed, so an argument that ends in a colon is not.
   assert.equal(commandName(onlyCommand("echo label:")), "echo");
   assert.deepEqual(
@@ -668,10 +669,22 @@ test("a workflow key carries the command as its value, and is not the command", 
   assert.equal(
     auditPublishAttestation([{
       file: "release.yml",
-      text: "          npm publish --provenance\n          - run: npm publish\n",
+      text: "          npm publish --provenance\n          - run: npm publish\n          - \"run\": npm publish\n",
     }]).failures.length,
-    1,
+    2,
   );
+});
+
+test("workflow prose cannot quote later run commands", () => {
+  const result = auditPublishAttestation([{
+    file: "release.yml",
+    text: [
+      "run: npm publish --provenance",
+      "name: package's release",
+      "run: npm publish --access public",
+    ].join("\n"),
+  }]);
+  assert.equal(result.failures.length, 1);
 });
 
 test("a quoted parenthesis inside a substitution is a literal, not its delimiter", () => {
@@ -774,6 +787,16 @@ test("a substitution's quote state does not leak across its lines", () => {
   const found = publishInvocationsIn({ file: "release.yml", text }).map((i) => renderCommand(i.command));
   assert.ok(found.includes("npm publish"), "the publish inside the substitution is still found");
   assert.ok(found.includes("npm publish --provenance"), "and the one after it is not swallowed");
+});
+
+test("scalar and array expansion follows source assignment order", () => {
+  for (const text of [
+    ['CMD="npm publish"', "$CMD", 'CMD="npm publish --provenance"'],
+    ["OPTS=(--ignore-scripts)", 'npm publish "${OPTS[@]}"', "OPTS=(--provenance)"],
+  ]) {
+    const result = auditPublishAttestation([{ file: "release.sh", text: text.join("\n") }]);
+    assert.equal(result.failures.length, 1, text.join("; "));
+  }
 });
 
 test("a publish routed through an unquoted scalar is audited, not hidden by an attested sibling", () => {
