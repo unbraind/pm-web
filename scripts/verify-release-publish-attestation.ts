@@ -31,6 +31,7 @@ import {
   joinContinuations,
   shellScalars,
   type ShellCommand,
+  type ShellToken,
   type SourceFile,
   tokenizeCommands,
   type VerifierResult,
@@ -60,6 +61,10 @@ const GENERATED_PREFIXES = ["dist/", "coverage/", "node_modules/", ".agents/pm/r
 const EXECUTABLE_PATHS = [
   /^\.github\/workflows\/[^/]+\.ya?ml$/,
   /(^|\/)package\.json$/,
+  // Node release helpers are executable publish paths too. Verifier files are
+  // excluded because they contain adversarial fixture text rather than a
+  // release entry point.
+  /(^|\/)scripts\/(?!verify-)(?:release|publish)[^/]*\.(?:js|mjs|cjs|ts)$/,
   /\.(sh|bash|zsh|ksh)$/,
   /(^|\/)(Makefile|makefile|GNUmakefile)$/,
   /\.mk$/,
@@ -203,6 +208,16 @@ export function attestationEnabled(command: ShellCommand): boolean {
  * @returns The publish invocations found, in file order.
  */
 export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
+  // Node release helpers express subprocess arguments as JavaScript rather
+  // than shell text. Reject a helper that delegates to npm publish; requiring a
+  // human to model a new release path is safer than silently declaring it
+  // attested based on a parser for the wrong language.
+  if (/(?:^|\/)scripts\/(?!verify-)(?:release|publish)[^/]*\.(?:js|mjs|cjs|ts)$/.test(source.file)
+    && (/(?:npm\s+publish)/.test(source.text)
+      || /["']npm["'][\s\S]{0,240}["']publish["']/.test(source.text))) {
+    const token = (value: string): ShellToken => ({ value, quoted: false, startsQuoted: false });
+    return [{ file: source.file, program: "node", command: [token("node"), token("publish")] }];
+  }
   const raw = source.file.endsWith("package.json") ? manifestCommandLines(source.text) : source.text;
   const joined = joinContinuations(raw);
   // Workflow metadata is YAML, not shell. Drop non-run key lines before shell
@@ -215,14 +230,18 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
       if ((key[1] ?? key[2] ?? key[3]) !== "run") return "";
       const value = line.slice(key[0].length);
       if (value === "|" || value === ">") return "";
+      // A YAML comment follows the complete scalar, outside its quote pair.
+      // Remove it before unquoting so `run: "npm publish" # release` cannot
+      // remain one quoted shell program token.
+      const scalar = /^("(?:\\.|[^"\\])*"|'(?:''|[^'])*')(?:\s+#.*)?$/.exec(value)?.[1] ?? value;
       // YAML's quotes delimit the scalar; they are not shell quotes. Remove a
       // whole-value quote pair so `run: "npm publish"` reaches shell parsing as
       // the command words npm and publish rather than one quoted program word.
-      if (value.startsWith('"') && value.endsWith('"')) {
-        try { return JSON.parse(value) as string; } catch { return value; }
+      if (scalar.startsWith('"') && scalar.endsWith('"')) {
+        try { return JSON.parse(scalar) as string; } catch { return scalar; }
       }
-      if (value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1).replace(/''/g, "'");
-      return value;
+      if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
+      return scalar;
     }).join("\n")
     : joined;
   const lines = text.split("\n");

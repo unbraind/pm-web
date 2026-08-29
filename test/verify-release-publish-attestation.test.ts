@@ -469,12 +469,22 @@ test("isExecutableSource recognises the shapes that can run a command", () => {
   for (const path of [".github/workflows/ci.yml", ".github/workflows/ci.yaml", "package.json", "web/package.json", "x.sh", "Makefile", "build/rules.mk", "Dockerfile", "Dockerfile.ci", "docker-compose.yml", "docker-compose.prod.yaml"]) {
     assert.equal(isExecutableSource(path, ""), true, path);
   }
-  for (const path of ["README.md", "src/index.ts", ".github/dependabot.yml", "package.json.bak"]) {
+  assert.equal(isExecutableSource("scripts/release.ts", ""), true, "a Node release helper is executable");
+  for (const path of ["README.md", "src/index.ts", "scripts/verify-release.ts", ".github/dependabot.yml", "package.json.bak"]) {
     assert.equal(isExecutableSource(path, ""), false, path);
   }
   assert.equal(isExecutableSource("tools/release", "#!/bin/sh"), true, "a shebang overrides the shape");
   assert.equal(isExecutableSource("dist/bundle.sh", "#!/bin/sh"), false, "build output is excluded first");
   assert.equal(isExecutableSource("coverage/x.sh", ""), false);
+});
+
+test("a Node release helper that delegates npm publish is rejected", () => {
+  const result = auditPublishAttestation([{
+    file: "scripts/release.ts",
+    text: `spawn("npm", ["publish", "--access", "public"]);`,
+  }]);
+  assert.equal(result.failures.length, 1);
+  assert.match(result.failures[0]!, /node publish/);
 });
 
 test("verify reads the tracked files and fails on an unattested one", () => {
@@ -684,9 +694,10 @@ test("workflow prose and YAML scalar quotes cannot hide later run commands", () 
       "run: npm publish --access public",
       'run: "npm publish --access public"',
       "run: 'npm publish --access public'",
+      'run: "npm publish --access public" # release package',
     ].join("\n"),
   }]);
-  assert.equal(result.failures.length, 3);
+  assert.equal(result.failures.length, 4);
 });
 
 test("a quoted parenthesis inside a substitution is a literal, not its delimiter", () => {

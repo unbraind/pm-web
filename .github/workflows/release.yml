@@ -754,8 +754,8 @@ jobs:
           while (( attempt < max_attempts )); do
             attempt=$(( attempt + 1 ))
             if publish_with_provenance; then
-              echo "Published with provenance on attempt ${attempt}."
-              exit 0
+              echo "Published with provenance on attempt ${attempt}; waiting for registry attestation visibility."
+              break
             fi
             if reconciled_attested; then
               echo "::notice::Version landed attested despite the reported error; treating as success."
