@@ -36,6 +36,54 @@ async function ghFetch(url, token, opts = {}) {
         },
     });
 }
+/** The only `state` values the GitHub issues API accepts. */
+const GITHUB_ISSUE_STATES = new Set(["open", "closed", "all"]);
+/**
+ * Build the GitHub issues-list URL for a linked repo from untrusted query
+ * parameters, without interpolating any of them into the URL string.
+ *
+ * `owner` and `repo` come from the database (they were already validated
+ * against the user's token when linked), but `state`, `per_page` and `page`
+ * come straight from the request query, so interpolating them raw — as the
+ * previous template literal did — let a caller inject extra query components
+ * or path segments into the `api.github.com` request (the SSRF CodeQL
+ * flagged). This constructs the URL with `URL`/`URLSearchParams`, which encode
+ * every value, whitelists `state`, and clamps `per_page`/`page` to safe integer
+ * ranges, so the request can only ever target the one issues endpoint.
+ *
+ * @param owner - The linked repository owner (from the database).
+ * @param repo - The linked repository name (from the database).
+ * @param query - The incoming request's query object.
+ * @returns The canonical `https://api.github.com/repos/.../issues?...` URL.
+ */
+export function buildGitHubIssuesUrl(owner, repo, query) {
+    const url = new URL(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`);
+    const params = url.searchParams;
+    const rawState = typeof query?.["state"] === "string" ? query["state"] : "open";
+    params.set("state", GITHUB_ISSUE_STATES.has(rawState) ? rawState : "open");
+    params.set("per_page", String(boundedNumber(query?.["per_page"], 30, 1, 100)));
+    params.set("page", String(boundedNumber(query?.["page"], 1, 1, 1000)));
+    params.set("pulls", "false");
+    return url.href;
+}
+/**
+ * Coerce an untrusted query value into a finite, clamped integer.
+ *
+ * Non-numeric, missing or out-of-range values fall back to the supplied
+ * default, so a caller cannot smuggle `NaN` or a huge number into the URL.
+ *
+ * @param raw - The raw query value (string, number or undefined).
+ * @param fallback - Value used when `raw` is not a usable number.
+ * @param min - Inclusive lower bound applied after parsing.
+ * @param max - Inclusive upper bound applied after parsing.
+ * @returns An integer in `[min, max]`.
+ */
+function boundedNumber(raw, fallback, min, max) {
+    const parsed = typeof raw === "number" ? raw : parseInt(String(raw ?? ""), 10);
+    if (!Number.isFinite(parsed))
+        return fallback;
+    return Math.min(max, Math.max(min, Math.trunc(parsed)));
+}
 // GET /api/projects/:id/github — get linked repo info
 router.get("/", async (req, res) => {
     const access = await verifyProjectAccess(req.user.userId, routeParam(req, "id"));
@@ -101,10 +149,7 @@ router.get("/issues", async (req, res) => {
         return;
     }
     try {
-        const state = req.query["state"] || "open";
-        const perPage = Math.min(parseInt(req.query["per_page"] || "30", 10), 100);
-        const page = parseInt(req.query["page"] || "1", 10);
-        const resp = await ghFetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues?state=${state}&per_page=${perPage}&page=${page}&pulls=false`, token);
+        const resp = await ghFetch(buildGitHubIssuesUrl(owner, repo, req.query), token);
         if (!resp.ok) {
             const body = await resp.json().catch(() => ({}));
             res.status(resp.status).json({ error: body.message || "GitHub API error" });

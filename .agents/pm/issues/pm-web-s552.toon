@@ -1,0 +1,20 @@
+id: pm-web-s552
+title: "Two limiters counted one request twice, halving every published budget on the affected routes"
+description: "A limiter counts every request that traverses it, so mounting the same limiter on a prefix and again on a nested path charges one request twice. The auth limiter was mounted on slash api slash auth once for the OIDC router and again for the auth router, so any request the OIDC router did not handle fell through and was counted a second time, reducing twenty requests per minute to ten. The read and write limiters were mounted on slash api slash projects and again on each nested mount beneath it, so every nested project request was counted twice and the six hundred and three hundred per minute budgets became three hundred and one hundred and fifty. Legitimate collaboration would meet a premature 429 at half the documented limit. Each shared prefix now carries its limiters exactly once and the routers mount behind them."
+type: Issue
+status: open
+priority: 1
+tags[2]: "area:http","type:defect"
+created_at: "2026-08-28T14:54:43.995Z"
+updated_at: "2026-08-28T15:15:10.697Z"
+author: claude
+comments[1]{created_at,author,text}:
+  "2026-08-28T14:55:15.721Z",claude,"Verified against Express prefix matching rather than assumed: a request to slash api slash projects slash ID slash pm matches the slash api slash projects mount before reaching its own, so both traversals incremented the same store. Raised by Greptile as a P1 finding on PR 110."
+tests[1]:
+  - command: "PM_PATH=/tmp/pmweb-s552 PM_GLOBAL_PATH=/tmp/pmweb-s552-g node --test --test-name-pattern \"general schema includes the idempotent\" test/oidc.test.ts"
+    scope: project
+    assert_stdout_regex[1]: pass 1
+    note: no limiter guards a prefix and a path nested under it
+docs[1]{path,scope,note}:
+  src/app.ts,project,router and limiter mounting
+body: ""

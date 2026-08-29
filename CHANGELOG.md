@@ -4,13 +4,14 @@
 
 ### Fixed
 
-- The health endpoint no longer reports ok: true when the database or projects volume is unreachable ([pm-web-u9mh](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-u9mh.toon))
-- Mount the real /healthz handler in pm-web (Greptile P1 on PR \#105) ([pm-web-iocm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-iocm.toon))
+- Every public API route lacked rate limiting, leaving auth and write endpoints open to abuse and denial of service ([pm-web-8dk0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8dk0.toon))
 
 ## 2026.8.28 - 2026-08-28
 
 ### Fixed
 
+- The health endpoint no longer reports ok: true when the database or projects volume is unreachable ([pm-web-u9mh](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-u9mh.toon))
+- Mount the real /healthz handler in pm-web (Greptile P1 on PR \#105) ([pm-web-iocm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-iocm.toon))
 - The changelog gate stamps an untagged version with the current date, so its verdict flips every midnight with no commit ([pm-web-kcs1](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-kcs1.toon))
 - Certify pm-web complete tracker reads and refresh the package catalog ([pm-web-crdr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-crdr.toon))
 - Docstring corrections: filters, graph-canvas, crypto, board, pm routes, project-watcher, sse, mutation-event-watcher ([pm-web-oehb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-oehb.toon))

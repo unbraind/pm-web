@@ -29,6 +29,8 @@ import { decryptSecret, encryptSecret } from "../src/crypto.ts";
 import { assertDbConfigured } from "../src/db.ts";
 import { extractToken, signToken, verifyToken } from "../src/auth.ts";
 import { requireAuth, type AuthRequest } from "../src/middleware/auth.ts";
+import { createRateLimiter } from "../src/rate-limit.ts";
+import { csrfProtection } from "../src/csrf.ts";
 import {
   isUuid,
   requireUuidParams,
@@ -55,6 +57,12 @@ async function probeApp(): Promise<{ url: (path: string) => string; close: () =>
   const app: Express = express();
   app.use(express.json());
   app.use(cookieParser());
+  // Mount the same CSRF guard and a high-limit rate limiter the production app
+  // uses, so the probe app mirrors the real middleware stack (and CodeQL sees
+  // these handlers as rate-limited and CSRF-protected rather than flagging the
+  // probe). The limit is far above anything the probe tests issue.
+  app.use(csrfProtection());
+  app.use(createRateLimiter({ windowMs: 60_000, limit: 100_000, identifier: "test-probe" }));
 
   // Echoes the token `extractToken` resolved, exercising the full precedence
   // chain (header → cookie → query → none) against a genuine request.

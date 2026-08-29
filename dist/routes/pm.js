@@ -392,7 +392,10 @@ function scheduleGraphSync(projectId, project, reason) {
             });
         })
             .catch((err) => {
-            console.error(`Neo4j graph auto-sync failed for ${projectId} after ${reason}:`, err);
+            // Use `%s` specifiers and pass the values as arguments instead of
+            // interpolating them into the format string, so a tainted `reason` or
+            // `projectId` cannot inject `console` format specifiers.
+            console.error("Neo4j graph auto-sync failed for %s after %s:", projectId, reason, err);
             broadcastProjectEvent(projectId, {
                 type: "graph-sync-failed",
                 data: { reason, error: err instanceof Error ? err.message : String(err) },
