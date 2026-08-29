@@ -243,7 +243,19 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
           // this lightweight extractor cannot decode one, remove the YAML
           // delimiters so the command is still audited rather than collapsed
           // into one quoted program token.
-          return scalar.slice(1, -1);
+          const escapes: Record<string, string> = {
+            "0": "\0", a: "\x07", b: "\b", t: "\t", n: "\n", v: "\v",
+            f: "\f", r: "\r", e: "\x1b", " ": " ", "_": "\u00a0",
+            N: "\u0085", L: "\u2028", P: "\u2029", "/": "/", "\\": "\\", '"': '"',
+          };
+          return scalar.slice(1, -1).replace(
+            /\\(?:x([0-9A-Fa-f]{2})|u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8})|(.))/g,
+            (_whole, hex2?: string, hex4?: string, hex8?: string, named?: string) => {
+              const hex = hex2 ?? hex4 ?? hex8;
+              if (hex !== undefined) return String.fromCodePoint(Number.parseInt(hex, 16));
+              return escapes[named!] ?? " ";
+            },
+          );
         }
       }
       if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
