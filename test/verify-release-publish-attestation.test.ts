@@ -697,7 +697,7 @@ test("workflow prose and YAML scalar quotes cannot hide later run commands", () 
       'run: "npm publish --access public" # release package',
       'run: "npm publish --access public \\e"',
       'run: "npm publish\\x20--access public"',
-      "run: >",
+      "run: >-",
       "  npm",
       "  publish --access public",
     ].join("\n"),

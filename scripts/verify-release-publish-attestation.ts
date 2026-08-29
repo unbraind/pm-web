@@ -229,7 +229,7 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
       const logical: string[] = [];
       for (let index = 0; index < physical.length; index += 1) {
         const line = physical[index]!;
-        const folded = /^(\s*)(?:-\s*)?(?:"run"|'run'|run):\s*>\s*$/.exec(line);
+        const folded = /^(\s*)(?:-\s*)?(?:"run"|'run'|run):\s*>(?:[+-]?[1-9]?|[1-9][+-]?)\s*$/.exec(line);
         if (folded === null) { logical.push(line); continue; }
         const baseIndent = folded[1]!.length;
         const body: string[] = [];
