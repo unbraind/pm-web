@@ -20,6 +20,7 @@
 import { execFileSync } from "node:child_process";
 import { closeSync, openSync, readFileSync, readSync } from "node:fs";
 import { resolve } from "node:path";
+import { isMap, isScalar, isSeq, parseDocument } from "yaml";
 
 import {
   bashArrays,
@@ -220,67 +221,31 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
   }
   const raw = source.file.endsWith("package.json") ? manifestCommandLines(source.text) : source.text;
   const joined = joinContinuations(raw);
-  // Workflow metadata is YAML, not shell. Drop non-run key lines before shell
-  // tokenization so an apostrophe in `name: package's release` cannot quote the
-  // remainder of the file and hide a later run command.
-  const text = /\.ya?ml$/.test(source.file)
-    ? (() => {
-      const physical = joined.split("\n");
-      const logical: string[] = [];
-      for (let index = 0; index < physical.length; index += 1) {
-        const line = physical[index]!;
-        const folded = /^(\s*)(?:-\s*)?(?:"run"|'run'|run):\s*>(?:[+-]?[1-9]?|[1-9][+-]?)\s*$/.exec(line);
-        if (folded === null) { logical.push(line); continue; }
-        const baseIndent = folded[1]!.length;
-        const body: string[] = [];
-        while (index + 1 < physical.length) {
-          const candidate = physical[index + 1]!;
-          const indent = /^\s*/.exec(candidate)![0].length;
-          if (candidate.trim().length > 0 && indent <= baseIndent) break;
-          index += 1;
-          body.push(candidate.trim());
-        }
-        let foldedBody = "";
-        for (const part of body) {
-          if (part.length === 0) {
-            if (foldedBody.length > 0 && !foldedBody.endsWith("\n")) foldedBody += "\n";
-          } else {
-            if (foldedBody.length > 0 && !foldedBody.endsWith("\n")) foldedBody += " ";
-            foldedBody += part;
+  let text = joined;
+  if (/\.ya?ml$/.test(source.file)) {
+    // Let a YAML parser own quoting, comments, escapes, folding, chomping and
+    // indentation. Hand-written partial YAML rules repeatedly turned valid run
+    // values into a different shell program from the one Actions executes.
+    const document = parseDocument(joined, { uniqueKeys: false });
+    const runs: string[] = [];
+    const visit = (node: unknown): void => {
+      if (isMap(node)) {
+        for (const pair of node.items) {
+          if (isScalar(pair.key) && pair.key.value === "run"
+            && isScalar(pair.value) && typeof pair.value.value === "string") {
+            runs.push(pair.value.value);
           }
+          visit(pair.value);
         }
-        logical.push(foldedBody);
+      } else if (isSeq(node)) {
+        for (const item of node.items) visit(item);
       }
-      return logical.map((line) => {
-        const key = /^\s*(?:-\s*)?(?:"([^"]+)"|'([^']+)'|([A-Za-z_][A-Za-z0-9_-]*)):\s*/.exec(line);
-        if (key === null) return line;
-        if ((key[1] ?? key[2] ?? key[3]) !== "run") return "";
-        const value = line.slice(key[0].length);
-        if (value === "|") return "";
-        // A YAML comment follows the complete scalar, outside its quote pair.
-        const scalar = /^("(?:\\.|[^"\\])*"|'(?:''|[^'])*')(?:\s+#.*)?$/.exec(value)?.[1] ?? value;
-        if (scalar.startsWith('"') && scalar.endsWith('"')) {
-          try { return JSON.parse(scalar) as string; } catch {
-            const escapes: Record<string, string> = {
-              "0": "\0", a: "\x07", b: "\b", t: "\t", n: "\n", v: "\v",
-              f: "\f", r: "\r", e: "\x1b", " ": " ", "_": "\u00a0",
-              N: "\u0085", L: "\u2028", P: "\u2029", "/": "/", "\\": "\\", '"': '"',
-            };
-            return scalar.slice(1, -1).replace(
-              /\\(?:x([0-9A-Fa-f]{2})|u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8})|(.))/g,
-              (_whole, hex2?: string, hex4?: string, hex8?: string, named?: string) => {
-                const hex = hex2 ?? hex4 ?? hex8;
-                if (hex !== undefined) return String.fromCodePoint(Number.parseInt(hex, 16));
-                return escapes[named!] ?? " ";
-              },
-            );
-          }
-        }
-        if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
-        return scalar;
-      }).join("\n");
-    })()
-    : joined;
+    };
+    if (document.errors.length === 0) visit(document.contents);
+    // Synthetic scanner fixtures may be shell snippets named *.yml rather than
+    // complete YAML documents. Fall back only when there is no parsed run node.
+    if (runs.length > 0) text = runs.join("\n");
+  }
   const lines = text.split("\n");
   let prefix = "";
   const expanded = lines.map((line) => {
