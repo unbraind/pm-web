@@ -701,9 +701,13 @@ test("workflow prose and YAML scalar quotes cannot hide later run commands", () 
       "run: >-",
       "  npm",
       "  publish --access public",
+      "run: >-",
+      "  npm publish --provenance",
+      "",
+      "  npm publish --access public",
     ].join("\n"),
   }]);
-  assert.equal(result.failures.length, 7);
+  assert.equal(result.failures.length, 8);
 });
 
 test("a quoted parenthesis inside a substitution is a literal, not its delimiter", () => {

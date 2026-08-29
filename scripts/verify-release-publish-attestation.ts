@@ -238,9 +238,18 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
           const indent = /^\s*/.exec(candidate)![0].length;
           if (candidate.trim().length > 0 && indent <= baseIndent) break;
           index += 1;
-          if (candidate.trim().length > 0) body.push(candidate.trim());
+          body.push(candidate.trim());
         }
-        logical.push(body.join(" "));
+        let foldedBody = "";
+        for (const part of body) {
+          if (part.length === 0) {
+            if (foldedBody.length > 0 && !foldedBody.endsWith("\n")) foldedBody += "\n";
+          } else {
+            if (foldedBody.length > 0 && !foldedBody.endsWith("\n")) foldedBody += " ";
+            foldedBody += part;
+          }
+        }
+        logical.push(foldedBody);
       }
       return logical.map((line) => {
         const key = /^\s*(?:-\s*)?(?:"([^"]+)"|'([^']+)'|([A-Za-z_][A-Za-z0-9_-]*)):\s*/.exec(line);
