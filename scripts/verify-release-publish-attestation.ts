@@ -238,7 +238,13 @@ export function publishInvocationsIn(source: SourceFile): PublishInvocation[] {
       // whole-value quote pair so `run: "npm publish"` reaches shell parsing as
       // the command words npm and publish rather than one quoted program word.
       if (scalar.startsWith('"') && scalar.endsWith('"')) {
-        try { return JSON.parse(scalar) as string; } catch { return scalar; }
+        try { return JSON.parse(scalar) as string; } catch {
+          // YAML accepts escapes JSON does not (for example `\e`). Even when
+          // this lightweight extractor cannot decode one, remove the YAML
+          // delimiters so the command is still audited rather than collapsed
+          // into one quoted program token.
+          return scalar.slice(1, -1);
+        }
       }
       if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
       return scalar;
