@@ -326,9 +326,11 @@ export function tokenizeCommands(text: string, depth = 0): ShellCommand[] {
     // The shell joins an evaluator's words with a space and evaluates the
     // result, so `eval "npm pub" "lish"` runs a publish that scanning each
     // argument on its own never sees.
-    const payload = found.slice(1)
-      .filter((argument) => !argument.value.startsWith("-"))
-      .map((argument) => argument.value);
+    const payload = found.slice(1).flatMap((argument) => {
+      if (argument.value === "-c") return [];
+      if (argument.value.startsWith("-c") && argument.value.length > 2) return [argument.value.slice(2)];
+      return argument.value.startsWith("-") ? [] : [argument.value];
+    });
     for (const body of new Set([...payload, payload.join(" ")])) {
       commands.push(...tokenizeCommands(body, depth + 1));
     }
