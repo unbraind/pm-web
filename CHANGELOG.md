@@ -4,12 +4,13 @@
 
 ### Fixed
 
-- Harden workflow publish scanning against YAML and reassignment bypasses ([pm-web-yafj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-yafj.toon))
+- Regenerate the changelog after the release tag exists ([pm-web-a401](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-a401.toon))
 
 ## 2026.8.29 - 2026-08-29
 
 ### Fixed
 
+- Harden workflow publish scanning against YAML and reassignment bypasses ([pm-web-yafj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-yafj.toon))
 - Every public API route lacked rate limiting, leaving auth and write endpoints open to abuse and denial of service ([pm-web-8dk0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8dk0.toon))
 
 ## 2026.8.28 - 2026-08-28

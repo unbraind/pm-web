@@ -1,0 +1,25 @@
+id: pm-web-a401
+title: Regenerate the changelog after the release tag exists
+description: "The daily release committed CHANGELOG.md before creating its own release tag, leaving content under Unreleased that changelog:check moves beneath the tagged release as soon as the tag exists. Regenerate the committed changelog with the release tag present so main and inherited pull request checks agree with deterministic output."
+type: Issue
+status: closed
+priority: 2
+tags: []
+created_at: "2026-08-30T15:03:57.046Z"
+updated_at: "2026-08-30T15:04:13.852Z"
+closed_at: "2026-08-30T15:04:11.445Z"
+completed_at: "2026-08-30T15:04:11.445Z"
+claim_principal: pi-agent
+author: pi-agent
+resolution: "Regenerate the complete changelog only after the tracking item reaches its final state, then verify deterministic agreement."
+expected_result: The committed changelog exactly matches a fresh full regeneration with the existing release tag present.
+actual_result: "Before repair, changelog:check reports the file out of date because the tagged release entry remains under Unreleased."
+comments[2]{created_at,author,text}:
+  "2026-08-30T15:04:11.020Z",pi-agent,"Baseline evidence: npm run changelog:check exited 1 with \"Changelog is out of date\" and showed the existing release entry moving from Unreleased beneath ## 2026.8.29 - 2026-08-29."
+  "2026-08-30T15:04:13.852Z",pi-agent,"Repair evidence: npm run changelog:full completed, and npm run changelog:check exited 0 with \"Changelog is up to date\". The generated changelog now assigns tagged content to the dated release and keeps this closed tracking item under Unreleased."
+files[1]{path,scope}:
+  CHANGELOG.md,project
+tests[1]{command,scope}:
+  "npm run changelog:check",project
+close_reason: The stale release section is ready to regenerate after this item reaches its final closed state; final changelog verification will be recorded before commit.
+body: ""
