@@ -1,0 +1,29 @@
+id: pm-web-lx5w
+title: CodeQL action updates split into mutually blocking pull requests
+description: Dependabot updates the CodeQL init and analyze actions separately even though CodeQL requires every action in a workflow to use the same release. Bump the pair together and group future github/codeql-action updates into one pull request.
+type: Issue
+status: closed
+priority: 2
+tags: []
+created_at: "2026-08-30T16:04:36.299Z"
+updated_at: "2026-08-30T16:14:24.411Z"
+closed_at: "2026-08-30T16:14:24.328Z"
+completed_at: "2026-08-30T16:14:24.328Z"
+claim_principal: pi-agent
+author: pi-agent
+comments[1]{created_at,author,text}:
+  "2026-08-30T16:14:15.491Z",pi-agent,"Updated every github/codeql-action reference from v4.37.8 to v4.37.9 at commit cdf488f595d80d6e07e03d4674febd5ab45fa938 and added the Dependabot codeql-action group. node --test test/workflow-security.test.ts passed 3/3; npm run typecheck passed; npm run docstring reported 85 files and 587 documented declarations. Regression proof: temporarily reverting analyze to v4.37.8 made the new same-release test fail (2 revisions !== 1), then restoring v4.37.9 made it pass. A full local npm test run reached 425 passing tests; unrelated fleet-catalog checks detected the separately tracked pm-web-bw5d catalog drift and one timing-sensitive pm-runner test, which passed alone."
+files[3]{path,scope,note}:
+  .github/workflows/codeql.yml,project,Pins init and analyze to one reviewed CodeQL release
+  .github/dependabot.yml,project,Groups future CodeQL action updates
+  test/workflow-security.test.ts,project,Guards same-version and grouped-update invariants
+tests[3]:
+  - command: node --test test/workflow-security.test.ts
+    path: test/workflow-security.test.ts
+    scope: project
+  - command: npm run typecheck
+    scope: project
+  - command: npm run docstring
+    scope: project
+close_reason: "Pinned every CodeQL sub-action to v4.37.9, grouped future CodeQL Dependabot updates, and added a regression guard for both invariants."
+body: ""
