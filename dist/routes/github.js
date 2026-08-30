@@ -38,6 +38,8 @@ async function ghFetch(url, token, opts = {}) {
 }
 /** The only `state` values the GitHub issues API accepts. */
 const GITHUB_ISSUE_STATES = new Set(["open", "closed", "all"]);
+/** Largest issue number accepted from an import request. */
+const MAX_GITHUB_ISSUE_NUMBER = 2_147_483_647;
 /**
  * Build the GitHub issues-list URL for a linked repo from untrusted query
  * parameters, without interpolating any of them into the URL string.
@@ -171,6 +173,30 @@ router.post("/import", async (req, res) => {
         res.status(403).json({ error: "Not authorized" });
         return;
     }
+    const requestBody = req.body;
+    const rawIssueNumbers = typeof requestBody === "object" && requestBody !== null
+        ? requestBody["issueNumbers"]
+        : undefined;
+    if (!Array.isArray(rawIssueNumbers) || rawIssueNumbers.length === 0) {
+        res.status(400).json({ error: "No issue numbers provided" });
+        return;
+    }
+    if (rawIssueNumbers.length > 50) {
+        res.status(400).json({ error: "Cannot import more than 50 issues at once" });
+        return;
+    }
+    const unvalidatedIssueNumbers = rawIssueNumbers;
+    const issueNumbers = [];
+    for (const value of unvalidatedIssueNumbers) {
+        if (typeof value !== "number" ||
+            !Number.isInteger(value) ||
+            value <= 0 ||
+            value > MAX_GITHUB_ISSUE_NUMBER) {
+            res.status(400).json({ error: "Issue numbers must be positive integers" });
+            return;
+        }
+        issueNumbers.push(value);
+    }
     const repoResult = await pool.query(`SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`, [routeParam(req, "id")]);
     const { github_owner: owner, github_repo: repo } = repoResult.rows[0];
     if (!owner || !repo) {
@@ -182,20 +208,11 @@ router.post("/import", async (req, res) => {
         res.status(400).json({ error: "No GitHub token configured" });
         return;
     }
-    const { issueNumbers } = req.body;
-    if (!issueNumbers || issueNumbers.length === 0) {
-        res.status(400).json({ error: "No issue numbers provided" });
-        return;
-    }
-    if (issueNumbers.length > 50) {
-        res.status(400).json({ error: "Cannot import more than 50 issues at once" });
-        return;
-    }
     const created = [];
     const errors = [];
     for (const num of issueNumbers) {
         try {
-            const resp = await ghFetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${num}`, token);
+            const resp = await ghFetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(num)}`, token);
             if (!resp.ok) {
                 errors.push(`#${num}: not found`);
                 continue;
@@ -311,7 +328,7 @@ router.post("/push", async (req, res) => {
             }
             const issue = (await resp.json());
             if (ghState === "closed") {
-                await ghFetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issue.number}`, token, { method: "PATCH", body: JSON.stringify({ state: "closed" }), headers: { "Content-Type": "application/json" } }).catch(() => undefined);
+                await ghFetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(issue.number)}`, token, { method: "PATCH", body: JSON.stringify({ state: "closed" }), headers: { "Content-Type": "application/json" } }).catch(() => undefined);
             }
             await pool.query(`INSERT INTO pm_github_item_links (project_id, pm_item_id, issue_number, issue_url, synced_at)
          VALUES ($1, $2, $3, $4, NOW())
@@ -375,7 +392,7 @@ router.patch("/push/:itemId", async (req, res) => {
     const updatePayload = { title, body: bodyLines.join("\n"), state: ghState };
     if (tags.length > 0)
         updatePayload["labels"] = tags.filter(Boolean);
-    const resp = await ghFetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`, token, { method: "PATCH", body: JSON.stringify(updatePayload), headers: { "Content-Type": "application/json" } });
+    const resp = await ghFetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(issueNumber)}`, token, { method: "PATCH", body: JSON.stringify(updatePayload), headers: { "Content-Type": "application/json" } });
     if (!resp.ok) {
         const errBody = await resp.json().catch(() => ({}));
         res.status(resp.status).json({ error: errBody.message || `GitHub API error ${resp.status}` });

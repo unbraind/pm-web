@@ -1,0 +1,26 @@
+id: pm-web-po1s
+title: GitHub issue imports accepted path traversal values that steered the project owner's token
+description: "Validate imported GitHub issue numbers as bounded positive integers before constructing API paths, encode validated values defensively, and cover traversal and malformed inputs so edit collaborators cannot steer the project owner's token to unintended GitHub API endpoints."
+type: Issue
+status: closed
+priority: 2
+tags: []
+created_at: "2026-08-30T16:08:24.933Z"
+updated_at: "2026-08-30T16:34:58.204Z"
+closed_at: "2026-08-30T16:24:47.626Z"
+completed_at: "2026-08-30T16:24:47.626Z"
+claim_principal: pi-agent
+author: pi-agent
+comments[2]:
+  - created_at: "2026-08-30T16:24:42.144Z"
+    author: pi-agent
+    text: "Implemented strict boundary validation for arrays of positive integer GitHub issue numbers up to 2147483647 and encoded every issue-number path segment. Added real-Postgres route coverage proving traversal strings, malformed numbers, missing/empty/oversized arrays all return 400 without an outbound GitHub request, while integer 42 targets only the linked issue endpoint. Evidence: PM_FLEET_ROOT=<fleet-root> npm test passed 429/429; npm run coverage met all configured thresholds; npm run docstring reported 587/587 declarations documented. Revert proof: temporarily removing validation made test/github-routes.test.ts fail with numeric string status 200 instead of 400; restored source and typecheck passed."
+    edited_at: "2026-08-30T16:34:58.204Z"
+  - created_at: "2026-08-30T16:28:05.722Z"
+    author: pi-agent
+    text: "Greptile correctly identified that tracked dist/routes/github.js still contained the old route. Regenerated the production server build with npm run build:server so npm start and packaged entry points execute the validated implementation."
+files[2]{path,scope}:
+  src/routes/github.ts,project
+  test/github-routes.test.ts,project
+close_reason: Validated and encoded GitHub issue-number path segments with regression and revert-proof coverage.
+body: ""
