@@ -1,0 +1,30 @@
+id: pm-web-ccie
+title: Offline mutation queue is not bound to the originating account or idempotency key
+description: "Offline API mutations are stored with method, path, and body but no authenticated user identity or idempotency key. If a browser changes accounts before reconnecting, replay uses the current session; if a response is lost after the server commits, retry can repeat a non-idempotent mutation. The CSRF work in pm-web-413z deliberately repairs token freshness without pretending to solve account ownership or exactly-once delivery."
+type: Issue
+status: open
+priority: 0
+tags[4]: idempotency,multi-user,offline,security
+created_at: "2026-08-30T21:39:59.317Z"
+updated_at: "2026-08-30T21:40:06.180Z"
+author: codex
+estimated_minutes: 240
+acceptance_criteria: "Every queued mutation is durably bound to the authenticated user/session that created it; a different account never replays it; unknown legacy ownership is preserved and surfaced for explicit recovery without blocking unrelated owned records; every mutation carries a server-enforced idempotency key so retry after an ambiguous response cannot duplicate state; real browser/service-worker/PostgreSQL tests cover logout/login, account switching, lost responses, restart, queue ordering, and zero data loss."
+why_now: The CSRF review proved queue records survive browser sessions and surfaced the adjacent cross-account and ambiguous-retry risks; multi-user production readiness requires explicit ownership and exactly-once semantics.
+reviewer: security-review
+risk: high
+confidence: high
+reporter: codex
+severity: high
+environment: pm-web 2026.8.29 offline service-worker queue
+repro_steps: "Queue a mutation while authenticated as user A, change the browser session to user B before reconnecting, then flush; the request is authenticated as B. Separately, let the server commit a non-idempotent mutation but drop the response; the retained record retries without an idempotency key."
+expected_result: Queued work remains owned by its creator and ambiguous retries are exactly-once.
+actual_result: Replay uses whichever session is current and has no deduplication identity.
+affected_version: 2026.8.29
+component: Offline mutation queue
+customer_impact: "A shared browser can attribute pending work to the wrong user, and a network ambiguity can duplicate mutations."
+files[3]{path,scope,note}:
+  public/src/sw.ts,project,Offline persistence and replay boundary
+  src/services/pm-runner.ts,project,Mutation execution and idempotency integration surface
+  test/sw-queue.test.ts,project,Queue lifecycle regression suite
+body: ""
