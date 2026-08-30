@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { parse } from "yaml";
 
 /** Reviewed action commits allowed in this repository's workflows. */
 const TRUSTED_ACTION_COMMITS = new Map<string, string>([
@@ -41,10 +42,20 @@ test("CodeQL sub-actions stay on one release and update as one Dependabot group"
   assert.ok(revisions.length > 1, "the CodeQL workflow must keep every sub-action under this gate");
   assert.equal(new Set(revisions).size, 1, "every CodeQL sub-action must use the same release commit");
 
-  const dependabot = readFileSync(new URL("../.github/dependabot.yml", import.meta.url), "utf8");
-  assert.match(
-    dependabot,
-    /groups:\s*\n\s+codeql-action:\s*\n\s+patterns:\s*\n\s+- ["']github\/codeql-action\*["']/,
+  const dependabot = parse(
+    readFileSync(new URL("../.github/dependabot.yml", import.meta.url), "utf8"),
+  ) as {
+    updates?: Array<{
+      "package-ecosystem"?: string;
+      groups?: Record<string, { patterns?: string[] }>;
+    }>;
+  };
+  const githubActions = dependabot.updates?.find(
+    (update) => update["package-ecosystem"] === "github-actions",
+  );
+  assert.deepEqual(
+    githubActions?.groups?.["codeql-action"]?.patterns,
+    ["github/codeql-action*"],
     "Dependabot must group every CodeQL sub-action into one pull request",
   );
 });
