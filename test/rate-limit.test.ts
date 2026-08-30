@@ -220,6 +220,13 @@ test("csrfProtection sets the csrf cookie and lets same-origin/authenticated rea
   const setCookie = res.headers.get("set-cookie") ?? "";
   assert.match(setCookie, /csrf_token=/, "the double-submit token cookie is issued");
   assert.doesNotMatch(setCookie, /HttpOnly/i, "the csrf cookie is readable by the SPA");
+  const responseToken = res.headers.get("x-csrf-token");
+  assert.ok(responseToken, "safe responses expose the current token to same-origin workers");
+  assert.match(
+    setCookie,
+    new RegExp(`csrf_token=${responseToken}`),
+    "the bootstrap header and cookie carry the same token",
+  );
 });
 
 test("csrfProtection blocks a cross-site, cookie-authenticated mutation with 403", async (t) => {
@@ -233,7 +240,11 @@ test("csrfProtection blocks a cross-site, cookie-authenticated mutation with 403
   // A same-origin mutation (matching Host) is allowed.
   const ok = await fetch(server.url("/change"), {
     method: "POST",
-    headers: { cookie: "pm_token=abc", origin: server.url("") },
+    headers: {
+      cookie: "pm_token=abc; csrf_token=same-origin-token",
+      origin: server.url(""),
+      "x-csrf-token": "same-origin-token",
+    },
   });
   assert.equal(ok.status, 200, "a same-origin cookie mutation is allowed");
 
@@ -243,9 +254,23 @@ test("csrfProtection blocks a cross-site, cookie-authenticated mutation with 403
     headers: { cookie: "pm_token=abc", origin: "https://evil.example" },
   });
   assert.equal(blocked.status, 403, "a cross-site cookie mutation is blocked");
+
+  // A sibling origin is same-site but not same-origin. Public sibling services
+  // are outside this app's trust boundary, so Fetch Metadata must not bypass
+  // the exact Origin comparison.
+  const siblingBlocked = await fetch(server.url("/change"), {
+    method: "POST",
+    headers: {
+      cookie: "pm_token=abc",
+      host: "pm-web.unbrained.dev",
+      origin: "https://evil.unbrained.dev",
+      "sec-fetch-site": "same-site",
+    },
+  });
+  assert.equal(siblingBlocked.status, 403, "a same-site sibling mutation is blocked");
 });
 
-test("csrfProtection does not block when Sec-Fetch-Site or Origin are absent", async (t) => {
+test("csrfProtection requires a double-submit token for headerless cookie clients", async (t) => {
   const app = express();
   app.use(cookieParser());
   app.use(csrfProtection());
@@ -253,16 +278,60 @@ test("csrfProtection does not block when Sec-Fetch-Site or Origin are absent", a
   const server = await start(app);
   t.after(() => server.close());
 
-  // Node's fetch sends no Sec-Fetch-Site and no Origin: this is exactly the
-  // shape the real-Postgres route suite uses, so the guard must not block it.
-  const res = await fetch(server.url("/change"), {
+  const bearerLike = await fetch(server.url("/change"), {
     method: "POST",
-    headers: { cookie: "pm_token=abc" },
   });
-  assert.equal(res.status, 200, "non-browser requests are never CSRF-blocked");
+  assert.equal(bearerLike.status, 200, "non-cookie server clients remain compatible");
+
+  const matched = await fetch(server.url("/change"), {
+    method: "POST",
+    headers: {
+      cookie: "pm_token=abc; csrf_token=headerless-token",
+      "x-csrf-token": "headerless-token",
+    },
+  });
+  assert.equal(matched.status, 200, "a matching cookie/header token authorizes the request");
+
+  const missing = await fetch(server.url("/change"), {
+    method: "POST",
+    headers: { cookie: "pm_token=abc; csrf_token=headerless-token" },
+  });
+  assert.equal(missing.status, 403, "a session cookie without the replayed token is blocked");
+
+  const mismatched = await fetch(server.url("/change"), {
+    method: "POST",
+    headers: {
+      cookie: "pm_token=abc; csrf_token=headerless-token",
+      "x-csrf-token": "different-token",
+    },
+  });
+  assert.equal(mismatched.status, 403, "a mismatched double-submit token is blocked");
 });
 
-test("csrfProtection skips the check for unauthenticated mutations", async (t) => {
+test("csrfProtection compares Origin with the trust-aware forwarded host", async (t) => {
+  const app = express();
+  app.set("trust proxy", 1);
+  app.use(cookieParser());
+  app.use(csrfProtection());
+  app.post("/change", (_req, res) => res.status(204).end());
+  const server = await start(app);
+  t.after(() => server.close());
+
+  const res = await fetch(server.url("/change"), {
+    method: "POST",
+    headers: {
+      cookie: "pm_token=abc; csrf_token=proxy-token",
+      origin: "https://pm-web.unbrained.dev",
+      "sec-fetch-site": "same-site",
+      "x-csrf-token": "proxy-token",
+      "x-forwarded-host": "pm-web.unbrained.dev",
+      "x-forwarded-proto": "https",
+    },
+  });
+  assert.equal(res.status, 204, "a trusted proxy's public origin is accepted");
+});
+
+test("csrfProtection blocks browser-originated mutations without relying on a session cookie", async (t) => {
   const app = express();
   app.use(cookieParser());
   app.use(csrfProtection());
@@ -272,19 +341,37 @@ test("csrfProtection skips the check for unauthenticated mutations", async (t) =
 
   const res = await fetch(server.url("/login"), {
     method: "POST",
-    headers: { origin: "https://evil.example" },
+    headers: { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
   });
-  assert.equal(res.status, 200, "a login with no session cookie is not CSRF-protected");
+  assert.equal(
+    res.status,
+    403,
+    "login and logout endpoints stay protected even when a Lax session cookie is omitted",
+  );
 });
 
 test("isCrossSiteRequest trusts Sec-Fetch-Site and falls back to the Origin header", () => {
-  const base = { get: () => "127.0.0.1:1" } as unknown as import("express").Request;
+  const base = {
+    get: () => "127.0.0.1:1",
+    host: "127.0.0.1:1",
+    protocol: "http",
+  } as unknown as import("express").Request;
   const req = (headers: Record<string, string>) =>
     ({ ...base, headers } as unknown as import("express").Request);
 
   assert.equal(isCrossSiteRequest(req({ "sec-fetch-site": "cross-site" })), true);
   assert.equal(isCrossSiteRequest(req({ "sec-fetch-site": "same-origin" })), false);
   assert.equal(isCrossSiteRequest(req({ "sec-fetch-site": "none" })), false);
+  assert.equal(
+    isCrossSiteRequest(req({ "sec-fetch-site": "same-site", origin: "https://evil.example" })),
+    true,
+    "same-site is not trusted without an exact origin match",
+  );
+  assert.equal(
+    isCrossSiteRequest(req({ "sec-fetch-site": "same-site" })),
+    true,
+    "a browser-classified sibling request without Origin fails closed",
+  );
   // An unknown Sec-Fetch-Site string is neither conclusive cross-site nor a
   // known same-site value, so it falls through to the Origin header check.
   assert.equal(
@@ -303,11 +390,16 @@ test("isCrossSiteRequest trusts Sec-Fetch-Site and falls back to the Origin head
     true,
     "mismatched Origin is cross-site",
   );
+  assert.equal(
+    isCrossSiteRequest(req({ origin: "https://127.0.0.1:1" })),
+    true,
+    "a scheme mismatch is cross-origin even when Host matches",
+  );
   assert.equal(isCrossSiteRequest(req({})), false, "no Origin means non-browser, allowed");
   assert.equal(
     isCrossSiteRequest(req({ origin: "not-a-url" })),
-    false,
-    "a malformed Origin is not treated as cross-site (no false positive)",
+    true,
+    "a malformed browser Origin fails closed",
   );
 });
 

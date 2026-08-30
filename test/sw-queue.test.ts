@@ -21,6 +21,8 @@ let getAllResult: unknown[] = [];
 let getAllShouldFail = false;
 /** Count of `store.delete()` calls, to prove no mutations are lost on read failure. */
 let deleteCallCount = 0;
+/** Last mutation record passed to `store.add`, used to verify token durability. */
+let lastAdded: unknown;
 
 /**
  * Minimal mock IDB request: stores the success/error callbacks and fires one
@@ -43,7 +45,7 @@ function mockRequest(result: unknown, shouldFail: boolean): IDBRequest {
 
 const mockStore: IDBObjectStore = {
   getAll: () => mockRequest(getAllResult, getAllShouldFail),
-  add: () => mockRequest(undefined, false),
+  add: (value: unknown) => { lastAdded = value; return mockRequest(undefined, false); },
   delete: () => { deleteCallCount++; return mockRequest(undefined, false); },
 } as unknown as IDBObjectStore;
 
@@ -107,7 +109,11 @@ const internals = (g.__swInternals as {
   getQueuedMutations: () => Promise<QueueReadResultLike>;
   flushMutationQueue: () => Promise<void>;
   clearMutation: (id: number) => Promise<boolean>;
-  queueMutation: (method: string, path: string, body: unknown) => Promise<boolean>;
+  queueMutation: (
+    method: string,
+    path: string,
+    body: unknown,
+  ) => Promise<boolean>;
 });
 
 // ── Tests ──
@@ -165,6 +171,90 @@ test("sw queue: an empty queue flush is a no-op — the two outcomes do not coll
   assert.equal(postedMessages.length, 0, "empty queue flush must not post any messages");
 });
 
+test("sw queue: an offline mutation is persisted without a stale session token", async () => {
+  lastAdded = undefined;
+  assert.equal(
+    await internals.queueMutation("PATCH", "/items/one", { title: "updated" }),
+    true,
+  );
+  assert.deepEqual(lastAdded, {
+    method: "PATCH",
+    path: "/items/one",
+    body: JSON.stringify({ title: "updated" }),
+    timestamp: (lastAdded as { timestamp: number }).timestamp,
+  });
+});
+
+test("sw queue: a stale mutation token is refreshed and replayed without data loss", async () => {
+  openShouldFail = false;
+  getAllResult = [
+    {
+      id: 1,
+      method: "PATCH",
+      path: "/items/stale",
+      body: null,
+      csrfToken: "stale-session-token",
+      timestamp: 0,
+    },
+  ];
+  getAllShouldFail = false;
+  deleteCallCount = 0;
+  postedMessages.length = 0;
+
+  const originalFetch = globalThis.fetch;
+  const originalGetAll = mockStore.getAll;
+  const requests: { input: string; token: string | null }[] = [];
+  (globalThis as unknown as Record<string, unknown>).fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    const url = String(input);
+    requests.push({ input: url, token: new Headers(init?.headers).get("x-csrf-token") });
+    if (url === "/api/auth/me") {
+      return new Response(null, { status: 200, headers: { "x-csrf-token": "migrated-token" } });
+    }
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    let readCount = 0;
+    (mockStore as unknown as Record<string, unknown>).getAll = () => {
+      readCount++;
+      return mockRequest(readCount === 1 ? getAllResult : [], false);
+    };
+    await internals.flushMutationQueue();
+  } finally {
+    (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
+    (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
+  }
+
+  assert.deepEqual(requests, [
+    { input: "/api/auth/me", token: null },
+    { input: "/api/items/stale", token: "migrated-token" },
+  ]);
+  assert.equal(deleteCallCount, 1, "the successfully replayed stale record is cleared once");
+  assert.deepEqual(postedMessages, [{ type: "MUTATIONS_REPLAYED", count: 1 }]);
+});
+
+test("sw queue: a failed token bootstrap preserves every queued mutation", async () => {
+  openShouldFail = false;
+  getAllResult = [{ id: 1, method: "PATCH", path: "/items/preserved", body: null, timestamp: 0 }];
+  getAllShouldFail = false;
+  deleteCallCount = 0;
+  postedMessages.length = 0;
+
+  const originalFetch = globalThis.fetch;
+  (globalThis as unknown as Record<string, unknown>).fetch = async () => new Response(null, { status: 200 });
+  try {
+    await internals.flushMutationQueue();
+  } finally {
+    (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
+  }
+
+  assert.equal(deleteCallCount, 0, "bootstrap failure must not delete queued work");
+  assert.equal(postedMessages.length, 0, "bootstrap failure cannot claim replay progress");
+});
+
 test("sw queue: a final read failure after replay reports the known replayed count, not a full drain", async () => {
   // The mutations must actually replay before the final read fails, otherwise
   // `replayed` is 0 for the trivial reason that the loop never ran and the
@@ -176,16 +266,23 @@ test("sw queue: a final read failure after replay reports the known replayed cou
   // rather than MUTATIONS_REPLAYED.
   openShouldFail = false;
   getAllResult = [
-    { id: 1, method: "POST", path: "/items", body: null, timestamp: 0 },
-    { id: 2, method: "POST", path: "/items", body: null, timestamp: 0 },
+    { id: 1, method: "POST", path: "/items", body: null, csrfToken: "queued-csrf", timestamp: 0 },
+    { id: 2, method: "POST", path: "/items", body: null, csrfToken: "queued-csrf", timestamp: 0 },
   ];
   getAllShouldFail = false;
   postedMessages.length = 0;
 
   const originalFetch = globalThis.fetch;
   let sent = 0;
-  (globalThis as unknown as Record<string, unknown>).fetch = async () => {
+  (globalThis as unknown as Record<string, unknown>).fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    if (String(input) === "/api/auth/me") {
+      return new Response(null, { status: 200, headers: { "x-csrf-token": "current-token" } });
+    }
     sent++;
+    assert.equal(new Headers(init?.headers).get("x-csrf-token"), "current-token");
     return new Response(null, { status: 204 });
   };
 

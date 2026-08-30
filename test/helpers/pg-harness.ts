@@ -339,7 +339,19 @@ export async function seedGroupShare(
  * through the real `requireAuth` middleware.
  */
 export function authCookie(user: SeedUser): string {
-  return `pm_token=${signToken({ userId: user.id, email: user.email })}`;
+  return `pm_token=${signToken({ userId: user.id, email: user.email })}; csrf_token=pm-web-test-csrf`;
+}
+
+/**
+ * Build the complete cookie-authenticated header pair used by mutating route
+ * tests. The CSRF value appears in both the readable cookie and request header,
+ * matching the browser client's double-submit contract.
+ */
+export function authHeaders(user: SeedUser): Record<string, string> {
+  return {
+    cookie: authCookie(user),
+    "x-csrf-token": "pm-web-test-csrf",
+  };
 }
 
 /**
@@ -360,5 +372,6 @@ export async function authedFetch(
   // documented unauthenticated and alternate-session cases impossible to express
   // and quietly turning such a test into another authenticated request.
   if (!headers.has("cookie")) headers.set("cookie", authCookie(user));
+  if (!headers.has("x-csrf-token")) headers.set("x-csrf-token", "pm-web-test-csrf");
   return fetch(server.url(path), { ...init, headers });
 }

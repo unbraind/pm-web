@@ -16,6 +16,7 @@ import bcrypt from "bcryptjs";
 import { pool } from "../src/db.ts";
 import {
   authCookie,
+  authHeaders,
   ensureSchema,
   seedUser,
   startApp,
@@ -186,19 +187,31 @@ test("auth: change-password for a user absent from the database is 404", async (
   await pool.query(`DELETE FROM pm_users WHERE id = $1`, [ghost.id]);
   const res = await fetch(server.url("/api/auth/change-password"), {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: authCookie(ghost) },
+    headers: { "content-type": "application/json", ...authHeaders(ghost) },
     body: JSON.stringify({ currentPassword: "x", newPassword: "new-password-9" }),
   });
   assert.equal(res.status, 404);
 });
 
 
-test("auth: logout clears the pm_token cookie", async (t) => {
+test("auth: logout requires authentication and clears the pm_token cookie", async (t) => {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
 
-  const res = await fetch(server.url("/api/auth/logout"), { method: "POST" });
+  const unauthenticated = await fetch(server.url("/api/auth/logout"), { method: "POST" });
+  assert.equal(unauthenticated.status, 401);
+  assert.doesNotMatch(
+    unauthenticated.headers.get("set-cookie") ?? "",
+    /pm_token=/,
+    "an unauthenticated cross-site request cannot clear the target-origin session",
+  );
+
+  const user = await seedUser(uniqueEmail("logout"));
+  const res = await fetch(server.url("/api/auth/logout"), {
+    method: "POST",
+    headers: authHeaders(user),
+  });
   assert.equal(res.status, 200);
   const setCookie = res.headers.get("set-cookie") ?? "";
   assert.match(setCookie, /pm_token=/);
@@ -214,7 +227,7 @@ test("auth: PATCH /profile updates display name", async (t) => {
   const user = await seedUser(uniqueEmail("profile"));
   const res = await fetch(server.url("/api/auth/profile"), {
     method: "PATCH",
-    headers: { "content-type": "application/json", cookie: authCookie(user) },
+    headers: { "content-type": "application/json", ...authHeaders(user) },
     body: JSON.stringify({ displayName: "Updated Name" }),
   });
   assert.equal(res.status, 200);
@@ -231,7 +244,7 @@ test("auth: PATCH /profile with an empty display name clears it", async (t) => {
   const user = await seedUser(uniqueEmail("profile-clear"), { displayName: "Keepfirst" });
   const res = await fetch(server.url("/api/auth/profile"), {
     method: "PATCH",
-    headers: { "content-type": "application/json", cookie: authCookie(user) },
+    headers: { "content-type": "application/json", ...authHeaders(user) },
     // An empty display name must resolve to null in the route (`name?.trim() || null`)
     // and clear the column, rather than storing a blank string.
     body: JSON.stringify({ displayName: "   " }),
@@ -256,7 +269,7 @@ test("auth: change-password verifies the current password and replaces it", asyn
   // Wrong current password is rejected.
   const wrong = await fetch(server.url("/api/auth/change-password"), {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: authCookie({ id: userId, email }) },
+    headers: { "content-type": "application/json", ...authHeaders({ id: userId, email }) },
     body: JSON.stringify({ currentPassword: "wrong-password-1", newPassword: "new-password-9" }),
   });
   assert.equal(wrong.status, 401);
@@ -264,7 +277,7 @@ test("auth: change-password verifies the current password and replaces it", asyn
   // Missing fields is 400.
   const missing = await fetch(server.url("/api/auth/change-password"), {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: authCookie({ id: userId, email }) },
+    headers: { "content-type": "application/json", ...authHeaders({ id: userId, email }) },
     body: JSON.stringify({ currentPassword: PASSWORD }),
   });
   assert.equal(missing.status, 400);
@@ -272,7 +285,7 @@ test("auth: change-password verifies the current password and replaces it", asyn
   // Too-short new password is 400.
   const short = await fetch(server.url("/api/auth/change-password"), {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: authCookie({ id: userId, email }) },
+    headers: { "content-type": "application/json", ...authHeaders({ id: userId, email }) },
     body: JSON.stringify({ currentPassword: PASSWORD, newPassword: "1234567" }),
   });
   assert.equal(short.status, 400);
@@ -280,7 +293,7 @@ test("auth: change-password verifies the current password and replaces it", asyn
   // Correct current password succeeds and the hash is replaced.
   const ok = await fetch(server.url("/api/auth/change-password"), {
     method: "POST",
-    headers: { "content-type": "application/json", cookie: authCookie({ id: userId, email }) },
+    headers: { "content-type": "application/json", ...authHeaders({ id: userId, email }) },
     body: JSON.stringify({ currentPassword: PASSWORD, newPassword: "new-password-9" }),
   });
   assert.equal(ok.status, 200);
@@ -302,7 +315,7 @@ test("auth: PATCH /github-token saves and clears the encrypted token", async (t)
 
   const save = await fetch(server.url("/api/auth/github-token"), {
     method: "PATCH",
-    headers: { "content-type": "application/json", cookie: authCookie(user) },
+    headers: { "content-type": "application/json", ...authHeaders(user) },
     body: JSON.stringify({ token: "ghp_secret-value" }),
   });
   assert.equal(save.status, 200);
@@ -319,7 +332,7 @@ test("auth: PATCH /github-token saves and clears the encrypted token", async (t)
   // Clearing the token.
   const clear = await fetch(server.url("/api/auth/github-token"), {
     method: "PATCH",
-    headers: { "content-type": "application/json", cookie: authCookie(user) },
+    headers: { "content-type": "application/json", ...authHeaders(user) },
     body: JSON.stringify({ token: "" }),
   });
   assert.equal(clear.status, 200);

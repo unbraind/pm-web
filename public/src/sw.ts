@@ -164,7 +164,11 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
  * been durably persisted to IndexedDB; `false` when persistence failed so the
  * caller can respond with an explicit error instead of claiming it was queued.
  */
-async function queueMutation(method: string, path: string, body: unknown): Promise<boolean> {
+async function queueMutation(
+  method: string,
+  path: string,
+  body: unknown,
+): Promise<boolean> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
@@ -250,12 +254,32 @@ async function flushMutationQueue(): Promise<void> {
   const mutations = read.mutations;
   if (mutations.length === 0) return;
 
+  let replayCsrfToken: string | null;
+  try {
+    const bootstrap = await fetch('/api/auth/me', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    replayCsrfToken = bootstrap.headers.get('x-csrf-token');
+    if (!replayCsrfToken) {
+      console.warn('Cannot replay offline mutations without a CSRF bootstrap token');
+      return;
+    }
+  } catch {
+    // The network failed during token bootstrap; preserve the entire queue.
+    return;
+  }
+
   let replayed = 0;
   for (const mut of mutations) {
     try {
       const opts: RequestInit = {
         method: mut.method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': replayCsrfToken,
+        },
         credentials: 'include',
       };
       if (mut.body !== null) opts.body = mut.body;

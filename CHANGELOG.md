@@ -9,6 +9,10 @@
 - Pin pm-changelog 2026.8.30 before the next release ([pm-web-5ucr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-5ucr.toon))
 - Regenerate the changelog after the release tag exists ([pm-web-a401](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-a401.toon))
 
+### Security
+
+- Same-site sibling origins bypass the cookie-authenticated CSRF guard ([pm-web-413z](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-413z.toon))
+
 ## 2026.8.29 - 2026-08-29
 
 ### Fixed

@@ -3,13 +3,36 @@
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * Read the host-only double-submit token from a browser cookie string.
+ * Malformed percent encoding is treated as absent so an invalid cookie cannot
+ * make every API call throw before it reaches the server.
+ */
+export function csrfTokenFromCookie(cookie = document.cookie): string | undefined {
+  const encoded = cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('csrf_token='))
+    ?.slice('csrf_token='.length);
+  if (!encoded) return undefined;
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Fetch wrapper for the `/api` endpoints. Generic in `T` so each call site is
  * typed against the response interface declared in `api-types.ts`.
  */
 export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  const csrfToken = csrfTokenFromCookie();
   const opts: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+    },
     credentials: 'include',
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
