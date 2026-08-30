@@ -111,7 +111,7 @@ interface QueuedMutation {
   method: string;
   path: string;
   body: string | null;
-  csrfToken: string | null;
+  csrfToken?: string | null;
   timestamp: number;
 }
 
@@ -258,14 +258,34 @@ async function flushMutationQueue(): Promise<void> {
   const mutations = read.mutations;
   if (mutations.length === 0) return;
 
+  let legacyCsrfToken: string | null = null;
+  if (mutations.some((mutation) => !mutation.csrfToken)) {
+    try {
+      const bootstrap = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      legacyCsrfToken = bootstrap.headers.get('x-csrf-token');
+      if (!legacyCsrfToken) {
+        console.warn('Cannot replay legacy offline mutations without a CSRF bootstrap token');
+        return;
+      }
+    } catch {
+      // The network failed during token bootstrap; preserve the entire queue.
+      return;
+    }
+  }
+
   let replayed = 0;
   for (const mut of mutations) {
     try {
+      const csrfToken = mut.csrfToken || legacyCsrfToken;
       const opts: RequestInit = {
         method: mut.method,
         headers: {
           'Content-Type': 'application/json',
-          ...(mut.csrfToken ? { 'X-CSRF-Token': mut.csrfToken } : {}),
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
         },
         credentials: 'include',
       };

@@ -64,16 +64,22 @@ export function isCrossSiteRequest(req: Request): boolean {
  * the same on the way out and the way back.
  *
  * @param req - The Express request, post-`cookie-parser`.
- * @param res - The Express response to attach the cookie to.
+ * @param res - The Express response to attach the cookie and bootstrap header to.
  */
 function ensureCsrfCookie(req: Request, res: Response): void {
   const cookies = (req as Request & { cookies?: Record<string, string | undefined> }).cookies;
-  if (cookies?.[CSRF_COOKIE_NAME]) return;
-  res.cookie(CSRF_COOKIE_NAME, crypto.randomBytes(24).toString("base64url"), {
-    sameSite: "lax",
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-  });
+  const token = cookies?.[CSRF_COOKIE_NAME] ?? crypto.randomBytes(24).toString("base64url");
+  if (!cookies?.[CSRF_COOKIE_NAME]) {
+    res.cookie(CSRF_COOKIE_NAME, token, {
+      sameSite: "lax",
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+  // A service worker cannot read document.cookie. Exposing the same token on
+  // same-origin responses lets an upgraded worker replay pre-token queue
+  // records without deleting or rewriting a user's pending mutations.
+  res.setHeader("X-CSRF-Token", token);
 }
 
 /**

@@ -187,6 +187,50 @@ test("sw queue: the CSRF token is persisted with an offline mutation", async () 
   });
 });
 
+test("sw queue: a legacy mutation bootstraps a token and replays without data loss", async () => {
+  openShouldFail = false;
+  getAllResult = [
+    { id: 1, method: "PATCH", path: "/items/legacy", body: null, timestamp: 0 },
+  ];
+  getAllShouldFail = false;
+  deleteCallCount = 0;
+  postedMessages.length = 0;
+
+  const originalFetch = globalThis.fetch;
+  const originalGetAll = mockStore.getAll;
+  const requests: { input: string; token: string | null }[] = [];
+  (globalThis as unknown as Record<string, unknown>).fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    const url = String(input);
+    requests.push({ input: url, token: new Headers(init?.headers).get("x-csrf-token") });
+    if (url === "/api/auth/me") {
+      return new Response(null, { status: 200, headers: { "x-csrf-token": "migrated-token" } });
+    }
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    let readCount = 0;
+    (mockStore as unknown as Record<string, unknown>).getAll = () => {
+      readCount++;
+      return mockRequest(readCount === 1 ? getAllResult : [], false);
+    };
+    await internals.flushMutationQueue();
+  } finally {
+    (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
+    (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
+  }
+
+  assert.deepEqual(requests, [
+    { input: "/api/auth/me", token: null },
+    { input: "/api/items/legacy", token: "migrated-token" },
+  ]);
+  assert.equal(deleteCallCount, 1, "the successfully replayed legacy record is cleared once");
+  assert.deepEqual(postedMessages, [{ type: "MUTATIONS_REPLAYED", count: 1 }]);
+});
+
 test("sw queue: a final read failure after replay reports the known replayed count, not a full drain", async () => {
   // The mutations must actually replay before the final read fails, otherwise
   // `replayed` is 0 for the trivial reason that the loop never ran and the

@@ -220,6 +220,13 @@ test("csrfProtection sets the csrf cookie and lets same-origin/authenticated rea
   const setCookie = res.headers.get("set-cookie") ?? "";
   assert.match(setCookie, /csrf_token=/, "the double-submit token cookie is issued");
   assert.doesNotMatch(setCookie, /HttpOnly/i, "the csrf cookie is readable by the SPA");
+  const responseToken = res.headers.get("x-csrf-token");
+  assert.ok(responseToken, "safe responses expose the current token to same-origin workers");
+  assert.match(
+    setCookie,
+    new RegExp(`csrf_token=${responseToken}`),
+    "the bootstrap header and cookie carry the same token",
+  );
 });
 
 test("csrfProtection blocks a cross-site, cookie-authenticated mutation with 403", async (t) => {
