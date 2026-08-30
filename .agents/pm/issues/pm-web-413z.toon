@@ -6,7 +6,7 @@ status: in_progress
 priority: 0
 tags[4]: codeql,csrf,hosted-boundary,security
 created_at: "2026-08-30T20:50:06.757Z"
-updated_at: "2026-08-30T21:22:11.842Z"
+updated_at: "2026-08-30T21:25:37.247Z"
 author: codex
 estimated_minutes: 120
 acceptance_criteria: Cookie-authenticated unsafe requests with Sec-Fetch-Site same-site and a foreign Origin are rejected with 403; same-origin requests remain accepted; bearer or non-browser clients without a session cookie retain their documented compatibility; all state-changing API routers remain behind the CSRF middleware; CodeQL alerts 163 and 164 are dispositioned with exact justification; required package gates pass on the exact pushed head.
@@ -24,10 +24,11 @@ actual_result: "The same-site branch returns false without comparing Origin, so 
 affected_version: 2026.8.29
 component: HTTP security boundary
 customer_impact: A compromised or attacker-controlled sibling origin can perform authenticated state changes for a visiting pm-web user.
-comments[3]{created_at,author,text}:
+comments[4]{created_at,author,text}:
   "2026-08-30T21:00:04.518Z",codex,"TDD reproducer ran before implementation: node --import tsx --test test/rate-limit.test.ts produced 12 passes and 3 failures. The sibling-origin request returned 200 instead of 403, the cross-site unauthenticated login returned 200 instead of 403, and direct classification trusted same-site. After the middleware change the same 15-test real-Express suite passed. Independent read-only review also found pm-web-jpa6: GET /pm/graph can install or activate pm-graph and bypass edit permission; that separate unsafe-method/authorization issue is tracked without broadening this focused patch."
   "2026-08-30T21:14:14.441Z",codex,"Authoritative coverage gate passed 434/434 tests across 29 required TypeScript source files. Exact measured aggregate coverage is 69.64% lines, 81.38% branches, and 64.32% functions; src/csrf.ts itself is 100% lines, 96.15% branches, 100% functions. The repository threshold is only 66/80/60, so this is green for the current package gate but not the ecosystem's requested 100/100/100/100 target."
   "2026-08-30T21:22:11.842Z",codex,"Direct npm run release:check passed on the working head: typecheck, docstrings (85 files / 588 declarations), 434/434 tests with real PostgreSQL routes, npm audit (0 vulnerabilities), pack, fresh npm and Bun acceptance, changelog, release-date verification, and publish-attestation verification. The same release command initially failed only inside the linked-test schema sandbox because its injected PM_PATH escaped into the fresh packed-project pm init; direct acceptance created both fresh trackers successfully. Existing upstream reports GH-682/GH-743 cover linked-test workspace and package-lifecycle sandbox collisions, while GH-841 documents nested init target discovery, so no duplicate pm-cli issue was opened."
+  "2026-08-30T21:25:37.247Z",codex,"CI first failed before tests because this item was authored with host pm 2026.8.24 while pm-web and CI exact-pin 2026.8.21; the two versions compute incompatible PM history hashes. Targeted dry-run then pinned history-repair re-anchored only pm-web-413z, and pinned pm health --strict-exit now passes with no gate-failing findings. Upgrading pm-web to 2026.8.27 is separately blocked because that version false-flags intact legacy items pm-web-iocm and pm-web-u9mh; upstream GH-1162 tracks the version-dependent hash/replay regression and Dependabot PR #120 demonstrates it."
 files[10]{path,scope,note}:
   src/csrf.ts,project,Same-origin enforcement boundary
   src/routes/auth.ts,project,Authenticated forced-logout boundary
@@ -39,7 +40,7 @@ files[10]{path,scope,note}:
   test/helpers/pg-harness.ts,project,Real-route CSRF-aware authentication harness
   test/frontend-api.test.ts,project,Browser API token replay tests
   test/sw-queue.test.ts,project,Offline token durability tests
-tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref},note}:
-  npm run coverage,project,1800,codex,"2026-08-30T21:12:02.526Z",local_mutation,security/block-sibling-origin-csrf,"All-source real PostgreSQL coverage gate includes CSRF, browser client, and offline replay regressions"
-  "npm run release:check",project,2400,codex,"2026-08-30T21:12:02.526Z",local_mutation,security/block-sibling-origin-csrf,"Authoritative package gate including coverage, audit, pack, acceptance, and release checks"
+tests[2]{command,scope,timeout_seconds,note}:
+  npm run coverage,project,1800,"All-source real PostgreSQL coverage gate includes CSRF, browser client, and offline replay regressions"
+  "npm run release:check",project,2400,"Authoritative package gate including coverage, audit, pack, acceptance, and release checks"
 body: ""
