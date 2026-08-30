@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { parse } from "yaml";
 
 /** Reviewed action commits allowed in this repository's workflows. */
 const TRUSTED_ACTION_COMMITS = new Map<string, string>([
@@ -9,8 +10,8 @@ const TRUSTED_ACTION_COMMITS = new Map<string, string>([
   ["oven-sh/setup-bun", "0c5077e51419868618aeaa5fe8019c62421857d6"],
   // The CodeQL action is referenced twice, as distinct sub-actions sharing one
   // release commit, so both names must be listed for the gate to cover them.
-  ["github/codeql-action/init", "db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28"],
-  ["github/codeql-action/analyze", "db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28"],
+  ["github/codeql-action/init", "cdf488f595d80d6e07e03d4674febd5ab45fa938"],
+  ["github/codeql-action/analyze", "cdf488f595d80d6e07e03d4674febd5ab45fa938"],
 ]);
 
 /** Workflow files shipped by this repository. */
@@ -31,6 +32,32 @@ test("every external workflow action is pinned to its reviewed commit", () => {
       );
     }
   }
+});
+
+test("CodeQL sub-actions stay on one release and update as one Dependabot group", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/codeql.yml", import.meta.url), "utf8");
+  const revisions = [...workflow.matchAll(/github\/codeql-action\/[^@\s]+@([^\s#]+)/g)].map(
+    (match) => match[1]!,
+  );
+  assert.ok(revisions.length > 1, "the CodeQL workflow must keep every sub-action under this gate");
+  assert.equal(new Set(revisions).size, 1, "every CodeQL sub-action must use the same release commit");
+
+  const dependabot = parse(
+    readFileSync(new URL("../.github/dependabot.yml", import.meta.url), "utf8"),
+  ) as {
+    updates?: Array<{
+      "package-ecosystem"?: string;
+      groups?: Record<string, { patterns?: string[] }>;
+    }>;
+  };
+  const githubActions = dependabot.updates?.find(
+    (update) => update["package-ecosystem"] === "github-actions",
+  );
+  assert.deepEqual(
+    githubActions?.groups?.["codeql-action"]?.patterns,
+    ["github/codeql-action*"],
+    "Dependabot must group every CodeQL sub-action into one pull request",
+  );
 });
 
 test("the read-only CI checkout never persists repository credentials", () => {

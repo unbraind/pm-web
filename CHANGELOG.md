@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- CodeQL action updates split into mutually blocking pull requests ([pm-web-lx5w](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-lx5w.toon))
 - Pin pm-changelog 2026.8.30 before the next release ([pm-web-5ucr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-5ucr.toon))
 - Regenerate the changelog after the release tag exists ([pm-web-a401](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-a401.toon))
 
