@@ -1,0 +1,29 @@
+id: pm-web-jpa6
+title: GET graph installs or activates pm-graph and bypasses edit permission
+description: "GET /api/projects/:projectId/pm/graph calls pmGraphExtensionGraphForProject, which calls ensureGraphExtension. The helper can install npm:pm-graph and activate it, so a safe-method request mutates project state. The pm router's permission middleware exempts GET/HEAD/OPTIONS, which also lets view-only collaborators trigger the mutation. This was found while tracing the complete CSRF boundary for pm-web-413z and must be repaired as a distinct route-semantics/authorization change."
+type: Issue
+status: open
+priority: 0
+tags[4]: authorization,http-semantics,pm-graph,security
+created_at: "2026-08-30T20:58:12.273Z"
+updated_at: "2026-08-30T20:58:12.273Z"
+author: codex
+estimated_minutes: 180
+acceptance_criteria: "GET /pm/graph is observational and never installs, activates, or otherwise mutates an extension; any explicit provisioning uses a CSRF-protected unsafe method and requires edit permission; view-only users can read the fallback graph without changing project state; real route tests prove command logs remain mutation-free on GET."
+why_now: A state-changing GET can be triggered cross-origin and currently bypasses the edit-permission middleware by design.
+reviewer: security-review
+risk: high
+confidence: high
+reporter: codex
+severity: high
+environment: pm-web 2026.8.29 at 7e09ca9
+repro_steps: "Request GET /api/projects/:projectId/pm/graph for a project without active pm-graph; pmGraphExtensionGraphForProject calls ensureGraphExtension, which runs pm install and extension activate."
+expected_result: GET reads the installed graph when available or returns the fallback graph without mutation.
+actual_result: "GET may install and activate pm-graph, including for view-only users."
+affected_version: 2026.8.29
+component: Graph HTTP routes
+customer_impact: Cross-origin or view-only callers can change a project's extension state through a nominally read-only endpoint.
+files[2]{path,scope,note}:
+  src/routes/pm.ts,project,GET graph route and provisioning call
+  src/services/pm-runner.ts,project,Mutating ensureGraphExtension helper
+body: ""

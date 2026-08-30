@@ -2,7 +2,7 @@
 // APP — Main entry point
 // ═══════════════════════════════════════════════════════════════
 import { state } from './state.js';
-import { api } from './api.js';
+import { api, csrfTokenFromCookie } from './api.js';
 import type { AuthMeResponse, SearchResponse } from './api-types.js';
 import { showView, setOnViewChange } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
@@ -546,10 +546,14 @@ function disconnectSSE(): void {
  * connected. */
 function notifyPresenceView(view: string): void {
   if (!sseClientId || !sseCurrentProjectId) return;
+  const csrfToken = csrfTokenFromCookie();
   // Fire-and-forget: update current view on server
   void fetch(`/api/projects/${encodeURIComponent(sseCurrentProjectId)}/pm/presence/${encodeURIComponent(sseClientId)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+    },
     body: JSON.stringify({ view }),
   }).catch(() => undefined);
 }

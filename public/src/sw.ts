@@ -111,6 +111,7 @@ interface QueuedMutation {
   method: string;
   path: string;
   body: string | null;
+  csrfToken: string | null;
   timestamp: number;
 }
 
@@ -118,6 +119,7 @@ interface StoredMutation {
   method: string;
   path: string;
   body: string | null;
+  csrfToken: string | null;
   timestamp: number;
 }
 
@@ -164,7 +166,12 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
  * been durably persisted to IndexedDB; `false` when persistence failed so the
  * caller can respond with an explicit error instead of claiming it was queued.
  */
-async function queueMutation(method: string, path: string, body: unknown): Promise<boolean> {
+async function queueMutation(
+  method: string,
+  path: string,
+  body: unknown,
+  csrfToken: string | null,
+): Promise<boolean> {
   try {
     const db = await openMutationDB();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
@@ -173,6 +180,7 @@ async function queueMutation(method: string, path: string, body: unknown): Promi
       method,
       path,
       body: body !== undefined ? JSON.stringify(body) : null,
+      csrfToken,
       timestamp: Date.now(),
     };
     store.add(record);
@@ -255,7 +263,10 @@ async function flushMutationQueue(): Promise<void> {
     try {
       const opts: RequestInit = {
         method: mut.method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(mut.csrfToken ? { 'X-CSRF-Token': mut.csrfToken } : {}),
+        },
         credentials: 'include',
       };
       if (mut.body !== null) opts.body = mut.body;
@@ -353,6 +364,7 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
             event.request.method,
             url.pathname.replace('/api', ''),
             body,
+            event.request.headers.get('x-csrf-token'),
           );
           if (queued) {
             return new Response(

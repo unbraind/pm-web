@@ -13,44 +13,24 @@ import { isUnsafeMethod } from "./rate-limit.js";
  */
 export const CSRF_COOKIE_NAME = "csrf_token";
 /**
- * Values of the `Sec-Fetch-Site` request header that prove a request did NOT
- * cross sites. `none` is a user-initiated navigation (no referrer) and is safe;
- * `same-origin` and `same-site` are, by definition, not cross-site. Any other
- * value (`cross-site`) is a forgery attempt and is blocked.
+ * Values of the `Sec-Fetch-Site` request header that prove a request did not
+ * cross this application's origin. `none` is a direct user-agent navigation;
+ * `same-origin` has the same scheme, host and port. `same-site` is deliberately
+ * absent because it includes sibling subdomains, which are separate public
+ * services and therefore outside pm-web's origin trust boundary.
  */
-const SAME_FETCH_SITES = new Set(["same-origin", "same-site", "none"]);
+const TRUSTED_FETCH_SITES = new Set(["same-origin", "none"]);
 /**
- * Read the `pm_token` session cookie from a request that has already been
- * through `cookie-parser`.
- *
- * The CSRF guard only enforces same-origin on requests that are actually
- * authenticated with the session cookie: a cross-site `POST /api/auth/login`
- * carries no `pm_token` (the victim has not logged in from the attacker's
- * page), so it cannot act on the victim's behalf and need not be blocked.
- * Bearer-token API clients (which send `Authorization` and no cookie) are
- * likewise exempt, which is why the guard keys on the cookie and not on
- * `requireAuth`.
- *
- * @param req - The Express request, post-`cookie-parser`.
- * @returns `true` when a `pm_token` session cookie is present.
- */
-function hasSessionCookie(req) {
-    const cookies = req.cookies;
-    return Boolean(cookies && cookies.pm_token);
-}
-/**
- * Decide whether an unsafe request crossed sites, using the unforgeable
- * `Sec-Fetch-Site` header first and the `Origin` header as a fallback.
+ * Decide whether an unsafe request crossed origins, using the unforgeable
+ * `Sec-Fetch-Site` header first and the `Origin` header as an exact fallback.
  *
  * `Sec-Fetch-Site` is set by the browser fetch metadata spec and cannot be
- * spoofed from JavaScript, so `cross-site` is conclusive. When it is absent
- * (older browsers, non-browser clients) the `Origin` header is compared
- * against the request's own `Host`: a browser always sends `Origin` on
- * unsafe requests, so a present, mismatched `Origin` is also conclusive. A
- * missing `Origin` means the request is not browser-initiated and therefore
- * cannot be a CSRF attack, so it is allowed. A malformed `Origin` is treated
- * as not-cross-site rather than blocked, so the guard never produces a false
- * positive that would block a legitimate (if quirky) client.
+ * spoofed from JavaScript, so `cross-site` is conclusive. `same-site` is not:
+ * it includes sibling origins, so those requests must still prove an exact
+ * scheme-and-host match through `Origin`. A browser-classified sibling request
+ * without that proof fails closed. When Fetch Metadata is absent, an absent
+ * `Origin` preserves non-browser and server-to-server clients; a present
+ * malformed or mismatched `Origin` is browser evidence and fails closed.
  *
  * @param req - The Express request to inspect.
  * @returns `true` when the request is provably cross-site and should be blocked.
@@ -59,19 +39,20 @@ export function isCrossSiteRequest(req) {
     const site = req.headers["sec-fetch-site"];
     if (site === "cross-site")
         return true;
-    if (typeof site === "string" && SAME_FETCH_SITES.has(site))
+    if (typeof site === "string" && TRUSTED_FETCH_SITES.has(site))
         return false;
     const origin = req.headers["origin"];
     if (typeof origin !== "string" || origin === "")
-        return false;
-    let originHost;
+        return site === "same-site";
     try {
-        originHost = new URL(origin).host;
+        const requestHost = req.host;
+        if (!requestHost)
+            return true;
+        return new URL(origin).origin !== new URL(`${req.protocol}://${requestHost}`).origin;
     }
     catch {
-        return false;
+        return true;
     }
-    return originHost !== (req.get("host") ?? "");
 }
 /**
  * Set the double-submit CSRF token cookie when the request does not already
@@ -99,14 +80,12 @@ function ensureCsrfCookie(req, res) {
  * Build the CSRF protection middleware.
  *
  * On every request it (re)issues the {@link CSRF_COOKIE_NAME} token cookie when
- * absent, and on every **cookie-authenticated, state-changing** request it
- * blocks provably cross-site callers with 403. Safe methods and unauthenticated
- * requests pass through, so login/register (no session cookie) and reads are
- * unaffected. The same-origin check relies on browser-fetch-metadata headers
- * that are absent from Node's `fetch`, so the real-Postgres route suite —
- * which drives the app with cookie-authenticated `fetch` calls and no `Origin`
- * — is never blocked, while a real browser CSRF attempt (which always sends
- * `Sec-Fetch-Site: cross-site` or a foreign `Origin`) is.
+ * absent. Every state-changing request blocks browser evidence of a foreign
+ * origin. Cookie-authenticated mutations additionally require that token in
+ * `X-CSRF-Token`, so an older browser or intermediary that omits both origin
+ * signals cannot silently bypass the boundary. Login remains usable before a
+ * session exists; non-cookie server clients remain compatible. Safe methods
+ * pass through and bootstrap the token for a returning browser session.
  *
  * @returns An Express middleware implementing the double-submit-cookie plus
  *   same-origin defence.
@@ -114,7 +93,15 @@ function ensureCsrfCookie(req, res) {
 export function csrfProtection() {
     return (req, res, next) => {
         ensureCsrfCookie(req, res);
-        if (!isUnsafeMethod(req.method) || !hasSessionCookie(req) || !isCrossSiteRequest(req)) {
+        const cookies = req.cookies;
+        const sessionCookie = cookies?.pm_token;
+        const cookieToken = cookies?.[CSRF_COOKIE_NAME];
+        const headerToken = req.get("x-csrf-token");
+        const validDoubleSubmit = typeof cookieToken === "string" &&
+            cookieToken.length > 0 &&
+            headerToken === cookieToken;
+        if (!isUnsafeMethod(req.method) ||
+            (!isCrossSiteRequest(req) && (!sessionCookie || validDoubleSubmit))) {
             next();
             return;
         }

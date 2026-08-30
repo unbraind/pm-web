@@ -21,6 +21,8 @@ let getAllResult: unknown[] = [];
 let getAllShouldFail = false;
 /** Count of `store.delete()` calls, to prove no mutations are lost on read failure. */
 let deleteCallCount = 0;
+/** Last mutation record passed to `store.add`, used to verify token durability. */
+let lastAdded: unknown;
 
 /**
  * Minimal mock IDB request: stores the success/error callbacks and fires one
@@ -43,7 +45,7 @@ function mockRequest(result: unknown, shouldFail: boolean): IDBRequest {
 
 const mockStore: IDBObjectStore = {
   getAll: () => mockRequest(getAllResult, getAllShouldFail),
-  add: () => mockRequest(undefined, false),
+  add: (value: unknown) => { lastAdded = value; return mockRequest(undefined, false); },
   delete: () => { deleteCallCount++; return mockRequest(undefined, false); },
 } as unknown as IDBObjectStore;
 
@@ -107,7 +109,12 @@ const internals = (g.__swInternals as {
   getQueuedMutations: () => Promise<QueueReadResultLike>;
   flushMutationQueue: () => Promise<void>;
   clearMutation: (id: number) => Promise<boolean>;
-  queueMutation: (method: string, path: string, body: unknown) => Promise<boolean>;
+  queueMutation: (
+    method: string,
+    path: string,
+    body: unknown,
+    csrfToken: string | null,
+  ) => Promise<boolean>;
 });
 
 // ── Tests ──
@@ -165,6 +172,21 @@ test("sw queue: an empty queue flush is a no-op — the two outcomes do not coll
   assert.equal(postedMessages.length, 0, "empty queue flush must not post any messages");
 });
 
+test("sw queue: the CSRF token is persisted with an offline mutation", async () => {
+  lastAdded = undefined;
+  assert.equal(
+    await internals.queueMutation("PATCH", "/items/one", { title: "updated" }, "queued-csrf"),
+    true,
+  );
+  assert.deepEqual(lastAdded, {
+    method: "PATCH",
+    path: "/items/one",
+    body: JSON.stringify({ title: "updated" }),
+    csrfToken: "queued-csrf",
+    timestamp: (lastAdded as { timestamp: number }).timestamp,
+  });
+});
+
 test("sw queue: a final read failure after replay reports the known replayed count, not a full drain", async () => {
   // The mutations must actually replay before the final read fails, otherwise
   // `replayed` is 0 for the trivial reason that the loop never ran and the
@@ -176,16 +198,20 @@ test("sw queue: a final read failure after replay reports the known replayed cou
   // rather than MUTATIONS_REPLAYED.
   openShouldFail = false;
   getAllResult = [
-    { id: 1, method: "POST", path: "/items", body: null, timestamp: 0 },
-    { id: 2, method: "POST", path: "/items", body: null, timestamp: 0 },
+    { id: 1, method: "POST", path: "/items", body: null, csrfToken: "queued-csrf", timestamp: 0 },
+    { id: 2, method: "POST", path: "/items", body: null, csrfToken: "queued-csrf", timestamp: 0 },
   ];
   getAllShouldFail = false;
   postedMessages.length = 0;
 
   const originalFetch = globalThis.fetch;
   let sent = 0;
-  (globalThis as unknown as Record<string, unknown>).fetch = async () => {
+  (globalThis as unknown as Record<string, unknown>).fetch = async (
+    _input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
     sent++;
+    assert.equal(new Headers(init?.headers).get("x-csrf-token"), "queued-csrf");
     return new Response(null, { status: 204 });
   };
 

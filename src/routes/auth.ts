@@ -125,7 +125,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.post("/logout", (_req, res) => {
+router.post("/logout", requireAuth, (_req, res) => {
   res.clearCookie("pm_token");
   res.json({ ok: true });
 });
