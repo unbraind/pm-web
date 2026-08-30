@@ -54,6 +54,9 @@ async function ghFetch(url: string, token: string, opts: RequestInit = {}): Prom
 /** The only `state` values the GitHub issues API accepts. */
 const GITHUB_ISSUE_STATES = new Set(["open", "closed", "all"]);
 
+/** Largest issue number accepted from an import request. */
+const MAX_GITHUB_ISSUE_NUMBER = 2_147_483_647;
+
 /**
  * Build the GitHub issues-list URL for a linked repo from untrusted query
  * parameters, without interpolating any of them into the URL string.
@@ -197,6 +200,32 @@ router.post("/import", async (req: AuthRequest, res) => {
   const access = await verifyProjectAccess(req.user!.userId, routeParam(req, "id"));
   if (!access || access.permission !== "edit") { res.status(403).json({ error: "Not authorized" }); return; }
 
+  const requestBody: unknown = req.body;
+  const rawIssueNumbers: unknown =
+    typeof requestBody === "object" && requestBody !== null
+      ? (requestBody as Record<string, unknown>)["issueNumbers"]
+      : undefined;
+  if (!Array.isArray(rawIssueNumbers) || rawIssueNumbers.length === 0) {
+    res.status(400).json({ error: "No issue numbers provided" });
+    return;
+  }
+  if (rawIssueNumbers.length > 50) { res.status(400).json({ error: "Cannot import more than 50 issues at once" }); return; }
+
+  const unvalidatedIssueNumbers: unknown[] = rawIssueNumbers;
+  const issueNumbers: number[] = [];
+  for (const value of unvalidatedIssueNumbers) {
+    if (
+      typeof value !== "number" ||
+      !Number.isInteger(value) ||
+      value <= 0 ||
+      value > MAX_GITHUB_ISSUE_NUMBER
+    ) {
+      res.status(400).json({ error: "Issue numbers must be positive integers" });
+      return;
+    }
+    issueNumbers.push(value);
+  }
+
   const repoResult = await pool.query(
     `SELECT github_owner, github_repo FROM pm_projects WHERE id = $1`,
     [routeParam(req, "id")]
@@ -207,17 +236,13 @@ router.post("/import", async (req: AuthRequest, res) => {
   const token = await getGitHubToken(access.ownerUserId);
   if (!token) { res.status(400).json({ error: "No GitHub token configured" }); return; }
 
-  const { issueNumbers } = req.body as { issueNumbers?: number[] };
-  if (!issueNumbers || issueNumbers.length === 0) { res.status(400).json({ error: "No issue numbers provided" }); return; }
-  if (issueNumbers.length > 50) { res.status(400).json({ error: "Cannot import more than 50 issues at once" }); return; }
-
   const created: string[] = [];
   const errors: string[] = [];
 
   for (const num of issueNumbers) {
     try {
       const resp = await ghFetch(
-        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${num}`,
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(num)}`,
         token
       );
       if (!resp.ok) { errors.push(`#${num}: not found`); continue; }
@@ -333,7 +358,7 @@ router.post("/push", async (req: AuthRequest, res) => {
 
       if (ghState === "closed") {
         await ghFetch(
-          `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issue.number}`,
+          `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(issue.number)}`,
           token,
           { method: "PATCH", body: JSON.stringify({ state: "closed" }), headers: { "Content-Type": "application/json" } }
         ).catch(() => undefined);
@@ -399,7 +424,7 @@ router.patch("/push/:itemId", async (req: AuthRequest, res) => {
   if (tags.length > 0) updatePayload["labels"] = tags.filter(Boolean);
 
   const resp = await ghFetch(
-    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`,
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(issueNumber)}`,
     token,
     { method: "PATCH", body: JSON.stringify(updatePayload), headers: { "Content-Type": "application/json" } }
   );
