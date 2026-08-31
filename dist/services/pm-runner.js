@@ -320,11 +320,8 @@ export function projectExists(userId, slug) {
     const dir = getProjectDir(userId, slug);
     return fs.existsSync(path.join(dir, ".agents", "pm", "settings.json"));
 }
-/** Stable pm-web checks that supplement the pm CLI 2026.8.21 SDK certificate. */
+/** Stable pm-web checks that supplement the pm CLI SDK complete-list certificate. */
 export const PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS = [
-    "unreadable_source_count",
-    "invalid_omission_receipt",
-    "invalid_read_output_receipt",
     "budget_disclosure_present",
 ];
 /** Fail-closed error carrying every supplemental complete-read receipt defect. */
@@ -580,18 +577,23 @@ export function getPmClient(pmRoot) {
 export function evictPmClient(pmRoot) {
     pmClientCache.delete(pmRoot);
 }
-/** Narrow an unknown receipt fragment to a non-array object. */
-function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 /**
  * Apply pm-web's supplemental truthfulness checks to a complete-list candidate.
  *
- * The public SDK certificate owns the shared corpus invariants. pm CLI
- * 2026.8.21 does not yet reject absent or contradictory source counters,
- * omission receipts, universal-output receipts, or legacy budget disclosures
- * (tracked upstream in unbraind/pm-cli#1078), so the hosted multi-tenant reader
- * verifies those narrow gaps before any route can consume the rows.
+ * The public SDK certificate owns the shared corpus invariants. pm CLI 2026.8.31
+ * closed unbraind/pm-cli#1078, so `certifyCompleteListResult` now rejects absent
+ * or contradictory source counters (`source_incomplete`, `source_unchecked`),
+ * omission receipts (`omission_receipt_missing`, `omission_receipt_invalid`),
+ * universal-output receipts (`read_output_missing`, `read_output_invalid`,
+ * `read_output_dimensions_incomplete`), and a truncation disclosure
+ * (`budget_compaction`) on its own. pm-web no longer duplicates those checks:
+ * duplicating them would leave branches the SDK makes unreachable, which cannot
+ * be honestly covered.
+ *
+ * One gap remains. The SDK rejects an `output_budget_truncation` disclosure but
+ * still accepts `output_budget_exceeded`, even though either one means the rows
+ * may be short of the whole corpus. The hosted multi-tenant reader must not serve
+ * a partial list as complete, so that single check stays here.
  *
  * @param candidate - Unknown result produced by the pm SDK.
  * @returns The SDK-certified full list when every supplemental receipt agrees.
@@ -600,36 +602,7 @@ function isRecord(value) {
 export function certifyPmWebCompleteList(candidate) {
     const result = certifyCompleteListResult(candidate);
     const findings = [];
-    if (!Number.isSafeInteger(result.completeness.unreadable_item_count) ||
-        result.completeness.unreadable_item_count !== 0 ||
-        !Number.isSafeInteger(result.completeness.unreadable_directory_count) ||
-        result.completeness.unreadable_directory_count !== 0) {
-        findings.push("unreadable_source_count");
-    }
-    const envelope = candidate;
-    const omissionReceipt = envelope["omission_receipt"];
-    if (!isRecord(omissionReceipt) ||
-        omissionReceipt["has_omissions"] !== false ||
-        omissionReceipt["omitted_field_group_count"] !== 0 ||
-        !Array.isArray(omissionReceipt["omitted_field_groups"]) ||
-        omissionReceipt["omitted_field_groups"].length !== 0) {
-        findings.push("invalid_omission_receipt");
-    }
-    const readOutput = envelope["read_output"];
-    const requestedDimensions = isRecord(readOutput) ? readOutput["requested_dimensions"] : undefined;
-    if (!isRecord(readOutput) ||
-        readOutput["contract_version"] !== 1 ||
-        readOutput["command"] !== "list" ||
-        readOutput["within_budget"] !== true ||
-        readOutput["strings_compacted"] !== false ||
-        readOutput["rows_compacted"] !== false ||
-        readOutput["result_omitted"] !== false ||
-        !Array.isArray(requestedDimensions) ||
-        !["include", "amount", "cost"].every((dimension) => requestedDimensions.includes(dimension))) {
-        findings.push("invalid_read_output_receipt");
-    }
-    if (envelope["output_budget_truncation"] !== undefined ||
-        envelope["output_budget_exceeded"] !== undefined) {
+    if (candidate["output_budget_exceeded"] !== undefined) {
         findings.push("budget_disclosure_present");
     }
     if (findings.length > 0)

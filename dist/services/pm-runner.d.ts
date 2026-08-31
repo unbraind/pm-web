@@ -102,8 +102,8 @@ export interface PmRunResult {
     /** pm CLI exit code from either the SDK dispatcher or spawned CLI fallback. */
     exitCode?: number;
 }
-/** Stable pm-web checks that supplement the pm CLI 2026.8.21 SDK certificate. */
-export declare const PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS: readonly ["unreadable_source_count", "invalid_omission_receipt", "invalid_read_output_receipt", "budget_disclosure_present"];
+/** Stable pm-web checks that supplement the pm CLI SDK complete-list certificate. */
+export declare const PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS: readonly ["budget_disclosure_present"];
 /** A stable reason pm-web refused an otherwise SDK-certified complete list. */
 export type PmWebCompleteListReceiptFinding = (typeof PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS)[number];
 /** Fail-closed error carrying every supplemental complete-read receipt defect. */
@@ -211,11 +211,20 @@ export declare function evictPmClient(pmRoot: string): void;
 /**
  * Apply pm-web's supplemental truthfulness checks to a complete-list candidate.
  *
- * The public SDK certificate owns the shared corpus invariants. pm CLI
- * 2026.8.21 does not yet reject absent or contradictory source counters,
- * omission receipts, universal-output receipts, or legacy budget disclosures
- * (tracked upstream in unbraind/pm-cli#1078), so the hosted multi-tenant reader
- * verifies those narrow gaps before any route can consume the rows.
+ * The public SDK certificate owns the shared corpus invariants. pm CLI 2026.8.31
+ * closed unbraind/pm-cli#1078, so `certifyCompleteListResult` now rejects absent
+ * or contradictory source counters (`source_incomplete`, `source_unchecked`),
+ * omission receipts (`omission_receipt_missing`, `omission_receipt_invalid`),
+ * universal-output receipts (`read_output_missing`, `read_output_invalid`,
+ * `read_output_dimensions_incomplete`), and a truncation disclosure
+ * (`budget_compaction`) on its own. pm-web no longer duplicates those checks:
+ * duplicating them would leave branches the SDK makes unreachable, which cannot
+ * be honestly covered.
+ *
+ * One gap remains. The SDK rejects an `output_budget_truncation` disclosure but
+ * still accepts `output_budget_exceeded`, even though either one means the rows
+ * may be short of the whole corpus. The hosted multi-tenant reader must not serve
+ * a partial list as complete, so that single check stays here.
  *
  * @param candidate - Unknown result produced by the pm SDK.
  * @returns The SDK-certified full list when every supplemental receipt agrees.
