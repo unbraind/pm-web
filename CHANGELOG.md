@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Converge the pinned pm CLI on 2026.8.31 and drop the supplemental checks the SDK now owns ([pm-web-vz43](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-vz43.toon))
+
 ## 2026.8.31 - 2026-08-31
 
 ### Fixed

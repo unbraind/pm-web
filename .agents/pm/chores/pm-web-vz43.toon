@@ -1,0 +1,27 @@
+id: pm-web-vz43
+title: Converge the pinned pm CLI on 2026.8.31 and drop the supplemental checks the SDK now owns
+description: "pm CLI changed its history-hash computation between 2026.8.22 and 2026.8.24, so bumping the pinned binary made pm health --strict-exit fail with history_drift_chain_mismatch even though the before_hash/after_hash chain is perfectly linked. Repairing the hashes under the pinned 2026.8.31 binary clears it. Bumping the SDK also revealed that pm CLI 2026.8.31 closed unbraind/pm-cli#1078: certifyCompleteListResult now rejects the source-counter, omission-receipt, output-receipt and truncation-disclosure shapes that pm-web was checking itself, leaving those pm-web branches unreachable. One gap remains, so one supplemental check stays."
+type: Chore
+status: closed
+priority: 2
+tags: []
+created_at: "2026-08-31T18:22:37.279Z"
+updated_at: "2026-08-31T18:26:30.517Z"
+closed_at: "2026-08-31T18:26:30.503Z"
+completed_at: "2026-08-31T18:26:30.503Z"
+author: claude
+comments[1]{created_at,author,text}:
+  "2026-08-31T18:25:16.166Z",claude,"Bumping the pin surfaced two defects the packaging tests caught: npm i -D moved @unbrained/pm-cli from dependencies to devDependencies, which would have dropped it from the Docker image built with --omit=dev; and manifest.json pm_min_version must track the exact runtime SDK, so it moved 2026.8.21 to 2026.8.31."
+learnings[1]{created_at,author,text}:
+  "2026-08-31T18:25:15.680Z",claude,"pm CLI 2026.8.31 closed unbraind/pm-cli#1078: certifyCompleteListResult now rejects unreadable source counters, a missing or contradictory omission receipt, a missing or invalid read_output receipt, and an output_budget_truncation disclosure. Measured each shape against the SDK directly. It still accepts output_budget_exceeded, so exactly one supplemental check remains justified in pm-web."
+files[5]{path,scope}:
+  manifest.json,project
+  package.json,project
+  README.md,project
+  src/services/pm-runner.ts,project
+  test/pm-runner.test.ts,project
+tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref},note}:
+  npm test,project,1800,claude,"2026-08-31T18:25:48.934Z",local_mutation,chore/converge-pm-cli-pin-and-repair-history-hashes,"Full suite: proves the SDK certificate rejects the shapes pm-web no longer checks, and that the packaging gate keeps the host CLI a runtime dependency pinned to the manifest floor"
+  npm run coverage,project,2400,claude,"2026-08-31T18:25:48.934Z",local_mutation,chore/converge-pm-cli-pin-and-repair-history-hashes,All-source real PostgreSQL coverage gate after removing the guards the SDK now owns
+close_reason: "Converged the pin on pm CLI 2026.8.31 and repaired the history hashes under that exact binary, so pm health --strict-exit passes with the version CI runs. Removed the three supplemental complete-list checks the SDK now owns after unbraind/pm-cli#1078, keeping the one output_budget_exceeded check the SDK still accepts. Full suite 436/436 green, coverage gate thresholds met, docstring gate 85 files / 588 declarations."
+body: ""

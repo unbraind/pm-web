@@ -304,40 +304,44 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     assert.equal(complete.result.complete_list.item_count, 2);
     assert.ok(complete.result.items.every((item) => typeof item.body === "string"));
 
-    const supplementalFailures: ReadonlyArray<{
-      finding: PmWebCompleteListReceiptFinding;
-      mutate: (candidate: Record<string, unknown>) => void;
-    }> = [
-      {
-        finding: "unreadable_source_count",
-        mutate: (candidate) => {
-          const completeness = candidate["completeness"] as Record<string, unknown>;
-          completeness["unreadable_item_count"] = 1;
-        },
-      },
-      {
-        finding: "invalid_omission_receipt",
-        mutate: (candidate) => { delete candidate["omission_receipt"]; },
-      },
-      {
-        finding: "invalid_read_output_receipt",
-        mutate: (candidate) => { delete candidate["read_output"]; },
-      },
-      {
-        finding: "budget_disclosure_present",
-        mutate: (candidate) => { candidate["output_budget_exceeded"] = {}; },
-      },
+    // The SDK certificate owns these invariants as of pm CLI 2026.8.31
+    // (unbraind/pm-cli#1078). Asserting the SDK — not pm-web — rejects them keeps
+    // pm-web from re-adding guards whose branches the SDK makes unreachable, and
+    // turns an upstream regression into a failure here rather than a silent gap.
+    const sdkOwnedFailures: ReadonlyArray<(candidate: Record<string, unknown>) => void> = [
+      (c) => { (c["completeness"] as Record<string, unknown>)["unreadable_item_count"] = 1; },
+      (c) => { (c["completeness"] as Record<string, unknown>)["unreadable_directory_count"] = 1; },
+      (c) => { (c["completeness"] as Record<string, unknown>)["unreadable_item_count"] = 1.5; },
+      (c) => { delete c["omission_receipt"]; },
+      (c) => { (c["omission_receipt"] as Record<string, unknown>)["has_omissions"] = true; },
+      (c) => { delete c["read_output"]; },
+      (c) => { (c["read_output"] as Record<string, unknown>)["contract_version"] = 2; },
+      (c) => { (c["read_output"] as Record<string, unknown>)["within_budget"] = false; },
+      (c) => { (c["read_output"] as Record<string, unknown>)["requested_dimensions"] = ["include"]; },
+      (c) => { c["output_budget_truncation"] = {}; },
     ];
-    for (const { finding, mutate } of supplementalFailures) {
+    for (const mutate of sdkOwnedFailures) {
       const candidate = structuredClone(complete.result) as unknown as Record<string, unknown>;
       mutate(candidate);
       assert.throws(
         () => certifyPmWebCompleteList(candidate),
         (error: unknown) =>
-          error instanceof PmWebCompleteListReceiptError && error.findings.includes(finding),
-        `supplemental certification must reject ${finding}`,
+          error instanceof Error && !(error instanceof PmWebCompleteListReceiptError),
+        "the SDK certificate must reject this shape before pm-web's supplemental checks",
       );
     }
+
+    // The one shape the SDK still accepts: an `output_budget_exceeded` disclosure
+    // means the rows may be short of the whole corpus, so pm-web refuses it.
+    const budgetFinding: PmWebCompleteListReceiptFinding = "budget_disclosure_present";
+    const exceeded = structuredClone(complete.result) as unknown as Record<string, unknown>;
+    exceeded["output_budget_exceeded"] = {};
+    assert.throws(
+      () => certifyPmWebCompleteList(exceeded),
+      (error: unknown) =>
+        error instanceof PmWebCompleteListReceiptError && error.findings.includes(budgetFinding),
+      "supplemental certification must reject budget_disclosure_present",
+    );
 
     const comment = await runPm({
       userId: "user",
