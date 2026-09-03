@@ -41,8 +41,9 @@ const CATALOG_HOSTS = new Set(["pm-web", "pm-cli"]);
  */
 export function readFleetExtensions(fleetRoot, fs) {
     if (!fs.existsSync(fleetRoot))
-        return [];
+        return { extensions: [], problems: [] };
     const found = [];
+    const problems = [];
     for (const entry of fs.readdirSync(fleetRoot, { withFileTypes: true })) {
         if (!entry.isDirectory() || !entry.name.startsWith("pm-") || CATALOG_HOSTS.has(entry.name))
             continue;
@@ -54,10 +55,18 @@ export function readFleetExtensions(fleetRoot, fs) {
             manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         }
         catch {
+            // A manifest that exists and does not parse is a defect in that package,
+            // not evidence that it is not an extension. Reporting it is the whole
+            // point: skipping silently is indistinguishable from absence.
+            problems.push({ name: entry.name, reason: "manifest.json exists but is not valid JSON" });
             continue;
         }
         const capabilities = manifest.capabilities;
-        if (!Array.isArray(capabilities) || capabilities.length === 0)
+        if (!Array.isArray(capabilities)) {
+            problems.push({ name: entry.name, reason: "manifest.json declares no capabilities array" });
+            continue;
+        }
+        if (capabilities.length === 0)
             continue;
         let publishable = false;
         let packageDescription = "";
@@ -71,6 +80,7 @@ export function readFleetExtensions(fleetRoot, fs) {
             }
             catch {
                 publishable = false;
+                problems.push({ name: entry.name, reason: "package.json exists but is not valid JSON" });
             }
         }
         found.push({
@@ -81,6 +91,9 @@ export function readFleetExtensions(fleetRoot, fs) {
             publishable,
         });
     }
-    return found.sort((a, b) => a.name.localeCompare(b.name));
+    return {
+        extensions: found.sort((a, b) => a.name.localeCompare(b.name)),
+        problems: problems.sort((a, b) => a.name.localeCompare(b.name)),
+    };
 }
 //# sourceMappingURL=fleet-snapshot.js.map

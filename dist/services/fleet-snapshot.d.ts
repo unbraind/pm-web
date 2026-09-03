@@ -17,8 +17,30 @@
  */
 /** Repository-relative location of the committed fleet snapshot. */
 export declare const FLEET_SNAPSHOT_PATH = "test/fleet-extensions.snapshot.json";
-/** One fleet extension, as both the snapshot and the live fleet describe it. */
-export interface FleetExtension {
+/**
+ * A directory the derivation could not read as it expected.
+ *
+ * Returned rather than swallowed. A silent skip is the failure mode this whole
+ * mechanism exists to remove: an extension omitted because its manifest failed
+ * to parse looks exactly like an extension that is not there, and because the
+ * generator and the freshness assertion run the *same* derivation, both would
+ * agree on the same wrong answer and neither would report it.
+ */
+export interface FleetProblem {
+    /** Directory the problem was found in. */
+    name: string;
+    /** What could not be read, in terms a reader can act on. */
+    reason: string;
+}
+/**
+ * What the fleet directories alone can say about one extension.
+ *
+ * Split from {@link FleetExtension} deliberately: every field here is derivable
+ * offline from files on disk, which is what the freshness assertion can
+ * re-derive and compare. Registry state cannot be, so it lives only on the
+ * snapshot type.
+ */
+export interface LocalFleetExtension {
     /** Directory and package name, e.g. `pm-ado`. */
     name: string;
     /** The manifest's description, which a product extension's catalog entry mirrors exactly. */
@@ -38,13 +60,27 @@ export interface FleetExtension {
     /**
      * Whether the package declares `publishConfig`.
      *
-     * `npm publish` reads that field, so its presence is the local, offline
-     * fact deciding whether a released version can exist — which is what the
-     * catalog's `availability` must agree with. Consulting the npm registry
-     * instead would make the gate fail on an offline runner rather than on a
-     * real drift.
+     * A local, offline signal of *intent* to publish. It is deliberately not the
+     * thing the catalog's `availability` is checked against, because it answers
+     * the wrong question: a package can declare `publishConfig` and be absent
+     * from npm, which is exactly how this fleet came to have a catalog entry
+     * promising an install for a package the registry answers 404 for.
      */
     publishable: boolean;
+}
+/** One fleet extension as the committed snapshot records it. */
+export interface FleetExtension extends LocalFleetExtension {
+    /**
+     * Whether the npm registry actually serves this package.
+     *
+     * Recorded at generation time, when the network is available and regenerating
+     * the snapshot is a deliberate act, so the offline gate can assert against a
+     * fact rather than a proxy. Generation refuses to write when the registry
+     * could not be reached, so this is never a guess: an unreachable registry
+     * would otherwise relabel every package as unpublished the moment a runner
+     * lost the network.
+     */
+    npmPublished: boolean;
 }
 /** The filesystem calls {@link readFleetExtensions} needs, injected so the
  * derivation can be exercised against a synthetic tree. */
@@ -73,4 +109,7 @@ export interface FleetFs {
  *          holds none, which callers must treat as "not resolvable here"
  *          rather than as "the fleet is empty".
  */
-export declare function readFleetExtensions(fleetRoot: string, fs: FleetFs): FleetExtension[];
+export declare function readFleetExtensions(fleetRoot: string, fs: FleetFs): {
+    extensions: LocalFleetExtension[];
+    problems: FleetProblem[];
+};

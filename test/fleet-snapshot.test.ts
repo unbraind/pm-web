@@ -33,7 +33,7 @@ function fakeFs(
 const ROOT = "/fleet";
 
 test("an extension is a directory shipping a manifest that declares capabilities", () => {
-  const found = readFleetExtensions(
+  const { extensions: found } = readFleetExtensions(
     ROOT,
     fakeFs(
       {
@@ -61,22 +61,52 @@ test("an extension is a directory shipping a manifest that declares capabilities
   ]);
 });
 
+test("unreadable fleet metadata is reported rather than silently skipped", () => {
+  // The failure this whole mechanism exists to remove. An extension omitted
+  // because its manifest failed to parse looks exactly like an extension that
+  // is not there, and because the generator and the freshness assertion run the
+  // SAME derivation, both would agree on the same wrong answer and neither
+  // would report it. So the derivation returns what it could not read.
+  const { extensions, problems } = readFleetExtensions(
+    ROOT,
+    fakeFs(
+      {
+        "/fleet/pm-badmanifest/manifest.json": "{ not json",
+        "/fleet/pm-nocaps/manifest.json": JSON.stringify({ description: "x" }),
+        "/fleet/pm-badpkg/manifest.json": JSON.stringify({ description: "d", capabilities: ["commands"] }),
+        "/fleet/pm-badpkg/package.json": "{ not json",
+      },
+      ["pm-badmanifest", "pm-nocaps", "pm-badpkg"],
+    ),
+  );
+  assert.deepEqual(problems, [
+    { name: "pm-badmanifest", reason: "manifest.json exists but is not valid JSON" },
+    { name: "pm-badpkg", reason: "package.json exists but is not valid JSON" },
+    { name: "pm-nocaps", reason: "manifest.json declares no capabilities array" },
+  ]);
+  // pm-badpkg is still an extension - its manifest is fine - but the unreadable
+  // package.json means publishable defaulted, which is reported rather than trusted.
+  assert.deepEqual(extensions.map((e) => e.name), ["pm-badpkg"]);
+});
+
 test("a directory with no manifest, empty capabilities, or unreadable JSON is not an extension", () => {
   const files: Record<string, string> = {
+    // An explicitly empty capabilities array is a deliberate declaration that
+    // the package contributes nothing, not a defect, so it is skipped silently
+    // where an unparseable or absent array is reported.
     "/fleet/pm-empty/manifest.json": JSON.stringify({ capabilities: [] }),
-    "/fleet/pm-broken/manifest.json": "{ not json",
-    "/fleet/pm-nocaps/manifest.json": JSON.stringify({ description: "x" }),
   };
-  const found = readFleetExtensions(
+  const { extensions: found, problems } = readFleetExtensions(
     ROOT,
-    fakeFs(files, ["pm-empty", "pm-broken", "pm-nocaps", "pm-nomanifest"]),
+    fakeFs(files, ["pm-empty", "pm-nomanifest"]),
   );
-  assert.deepEqual(found, [], "none of these four shapes is an installable pm extension");
+  assert.deepEqual(found, [], "neither shape is an installable pm extension");
+  assert.deepEqual(problems, [], "and neither is a defect worth reporting");
 });
 
 test("the host and the CLI are excluded, and so is any directory not named pm-*", () => {
   const manifest = JSON.stringify({ description: "d", capabilities: ["commands"] });
-  const found = readFleetExtensions(
+  const { extensions: found } = readFleetExtensions(
     ROOT,
     fakeFs(
       {
@@ -96,7 +126,7 @@ test("the host and the CLI are excluded, and so is any directory not named pm-*"
 
 test("a package without publishConfig is not publishable, and unreadable package.json is not either", () => {
   const manifest = JSON.stringify({ description: "d", capabilities: ["commands"] });
-  const found = readFleetExtensions(
+  const { extensions: found } = readFleetExtensions(
     ROOT,
     fakeFs(
       {
@@ -132,7 +162,7 @@ test("a plain file named like a package is not an extension", () => {
   // A stray `pm-notes.md` or a `pm-archive.tar` beside the packages must not be
   // walked into: the entry has to be a directory before anything else is asked
   // of it, or the manifest read below would be a read of a path that is not one.
-  const found = readFleetExtensions(
+  const { extensions: found } = readFleetExtensions(
     ROOT,
     fakeFs(
       { "/fleet/pm-file/manifest.json": JSON.stringify({ capabilities: ["commands"] }) },
@@ -147,11 +177,11 @@ test("a fleet root that does not exist yields no extensions rather than throwing
   // Callers must read an empty result as 'not resolvable here' rather than as
   // 'the fleet is empty' — which is why the generator refuses to write an empty
   // snapshot and the gate asserts the committed one is non-empty.
-  assert.deepEqual(readFleetExtensions("/absent", fakeFs({}, [])), []);
+  assert.deepEqual(readFleetExtensions("/absent", fakeFs({}, [])), { extensions: [], problems: [] });
 });
 
 test("a missing manifest description becomes an empty string rather than undefined", () => {
-  const found = readFleetExtensions(
+  const { extensions: found } = readFleetExtensions(
     ROOT,
     fakeFs(
       { "/fleet/pm-terse/manifest.json": JSON.stringify({ capabilities: ["commands"] }) },

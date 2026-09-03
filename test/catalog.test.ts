@@ -12,6 +12,7 @@ import {
 } from "../src/services/package-catalog.ts";
 import {
   FLEET_SNAPSHOT_PATH,
+  type FleetExtension,
   readFleetExtensions,
 } from "../src/services/fleet-snapshot.ts";
 
@@ -302,7 +303,7 @@ test("the catalog covers every pm extension in the fleet", () => {
 // re-derives the snapshot from the live fleet wherever the siblings resolve, so
 // the snapshot cannot go stale unnoticed and quietly narrow what CI checks.
 
-const fleetSnapshot: ReturnType<typeof readFleetExtensions> = JSON.parse(
+const fleetSnapshot: FleetExtension[] = JSON.parse(
   readFileSync(path.join(packageRoot, FLEET_SNAPSHOT_PATH), "utf8"),
 );
 
@@ -345,24 +346,45 @@ test("the catalog covers every fleet extension in the committed snapshot", () =>
       extension.capabilities,
       `${extension.name}: catalog capabilities must mirror the manifest capabilities`,
     );
+    // Asserted against what the registry actually serves, recorded at snapshot
+    // generation time, rather than against publishConfig. The two answer
+    // different questions: publishConfig is an intent to publish, and a package
+    // can declare it while npm answers 404 — which is exactly how this catalog
+    // came to promise an install for a package that had never been released.
     assert.equal(
       (entry.availability ?? "published") === "published",
-      extension.publishable,
-      `${extension.name}: catalogued as ${entry.availability ?? "published"}, but the package `
-        + `${extension.publishable ? "declares" : "does not declare"} publishConfig — a catalogue `
-        + "that promises an install for an unpublishable package renders a button that cannot work",
+      extension.npmPublished,
+      `${extension.name}: catalogued as ${entry.availability ?? "published"}, but the npm registry `
+        + `${extension.npmPublished ? "serves" : "does not serve"} it — a catalogue that promises an `
+        + "install for a package npm answers 404 for renders a button that cannot work",
     );
   }
 });
 
-test("the committed snapshot still matches the live fleet", () => {
-  const live = readFleetExtensions(FLEET_ROOT, { existsSync, readdirSync, readFileSync });
-  if (live.length === 0) return; // siblings not resolvable here; the gate above still ran
+test("the committed snapshot still matches the live fleet, and the fleet is readable", () => {
+  const { extensions: live, problems } = readFleetExtensions(FLEET_ROOT, {
+    existsSync,
+    readdirSync,
+    readFileSync,
+  });
+  if (live.length === 0 && problems.length === 0) return; // siblings not resolvable here
+  // A directory whose metadata cannot be read is a defect to fix, not a package
+  // to omit. Without this the derivation would skip it silently, the snapshot
+  // would bake the omission in, and this assertion would agree - because it runs
+  // the same derivation.
+  assert.deepEqual(
+    problems,
+    [],
+    `unreadable fleet metadata: ${problems.map((p) => `${p.name} (${p.reason})`).join("; ")}`,
+  );
+  // Compare only the locally derivable fields. npmPublished is a generation-time
+  // fact about the registry, and re-deriving it here would either need the
+  // network on every test run or would report a false mismatch offline.
   assert.deepEqual(
     live,
-    fleetSnapshot,
+    fleetSnapshot.map(({ npmPublished: _npmPublished, ...local }) => local),
     "the fleet has changed since the snapshot was generated, so the gate above is now checking "
-      + "the catalog against a stale list — regenerate with `npm run fleet:snapshot` and commit it",
+      + "the catalog against a stale list - regenerate with `npm run fleet:snapshot` and commit it",
   );
 });
 

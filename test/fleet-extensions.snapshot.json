@@ -10,7 +10,8 @@
       "preflight",
       "schema"
     ],
-    "publishable": false
+    "publishable": false,
+    "npmPublished": false
   },
   {
     "name": "pm-beads",
@@ -21,7 +22,8 @@
       "importers",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-brief",
@@ -32,7 +34,8 @@
       "renderers",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-changelog",
@@ -44,7 +47,8 @@
       "renderers",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-context",
@@ -55,7 +59,8 @@
       "renderers",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-csv",
@@ -66,7 +71,8 @@
       "importers",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-gantt-chart",
@@ -78,7 +84,8 @@
       "preflight",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-github",
@@ -92,7 +99,8 @@
       "schema",
       "search"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-graph",
@@ -103,7 +111,8 @@
       "importers",
       "services"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-jira",
@@ -116,7 +125,8 @@
       "preflight",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-linear",
@@ -128,7 +138,8 @@
       "preflight",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-ops",
@@ -141,7 +152,8 @@
       "schema",
       "services"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-presets",
@@ -151,7 +163,8 @@
       "commands",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-rl",
@@ -162,7 +175,8 @@
       "hooks",
       "schema"
     ],
-    "publishable": false
+    "publishable": false,
+    "npmPublished": false
   },
   {
     "name": "pm-slack",
@@ -174,7 +188,8 @@
       "preflight",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-slack-standup",
@@ -187,7 +202,8 @@
       "schema",
       "services"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-starter",
@@ -204,7 +220,8 @@
       "search",
       "services"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-todos",
@@ -216,7 +233,8 @@
       "preflight",
       "schema"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-ts-starter",
@@ -233,7 +251,8 @@
       "search",
       "services"
     ],
-    "publishable": true
+    "publishable": true,
+    "npmPublished": true
   },
   {
     "name": "pm-vcs",
@@ -243,6 +262,7 @@
       "commands",
       "schema"
     ],
-    "publishable": false
+    "publishable": false,
+    "npmPublished": false
   }
 ]
