@@ -10,6 +10,10 @@ import {
   findCatalogEntry,
   resolveNpmSpec,
 } from "../src/services/package-catalog.ts";
+import {
+  FLEET_SNAPSHOT_PATH,
+  readFleetExtensions,
+} from "../src/services/fleet-snapshot.ts";
 
 // Package root: test/ compiles to dist-test/, so go up one level from there.
 const packageRoot = path.resolve(
@@ -282,6 +286,83 @@ test("the catalog covers every pm extension in the fleet", () => {
     missing,
     [],
     `these fleet packages ship a manifest.json with capabilities but are absent from the catalog, so the UI would never offer or even mention them: ${missing.join(", ")}`,
+  );
+});
+
+
+// --- the completeness gate, in the environment that guards the merge ---------
+// The assertions above compare the catalog against sibling package directories,
+// which a standalone CI checkout does not have — so they skip themselves in CI
+// and only ever run on a machine with the whole fleet cloned. That is how
+// pm-ado sat in the fleet with a manifest declaring five capabilities, absent
+// from the catalog, across a long run of green CI.
+//
+// These two assertions close that. The first reads a committed snapshot, so it
+// has input everywhere and fails in CI when the catalog drifts. The second
+// re-derives the snapshot from the live fleet wherever the siblings resolve, so
+// the snapshot cannot go stale unnoticed and quietly narrow what CI checks.
+
+const fleetSnapshot: ReturnType<typeof readFleetExtensions> = JSON.parse(
+  readFileSync(path.join(packageRoot, FLEET_SNAPSHOT_PATH), "utf8"),
+);
+
+test("the catalog covers every fleet extension in the committed snapshot", () => {
+  assert.ok(
+    fleetSnapshot.length > 0,
+    "an empty snapshot would make this gate pass vacuously; regenerate with `npm run fleet:snapshot`",
+  );
+  const missing = fleetSnapshot
+    .map((extension) => extension.name)
+    .filter((name) => findCatalogEntry(name) === undefined);
+  assert.deepEqual(
+    missing,
+    [],
+    `these fleet packages ship a manifest.json with capabilities but are absent from the catalog, `
+      + `so the UI would never offer or even mention them: ${missing.join(", ")}`,
+  );
+
+  // Membership alone is not enough: an entry that exists but misdescribes the
+  // package is the same defect one step later, and availability decides whether
+  // the UI renders an install action that npm would answer 404 for.
+  for (const extension of fleetSnapshot) {
+    const entry = findCatalogEntry(extension.name);
+    assert.ok(entry, `${extension.name} must be catalogued`);
+    // Same rule the live-fleet assertion applies: a product extension mirrors
+    // the manifest description, an authoring template mirrors the concise
+    // package.json one.
+    const expectedDescription =
+      entry.category === "template" && extension.packageDescription
+        ? extension.packageDescription
+        : extension.description;
+    assert.equal(
+      entry.description,
+      expectedDescription,
+      `${extension.name}: catalog description must mirror the `
+        + `${entry.category === "template" ? "package.json" : "manifest"} description`,
+    );
+    assert.deepEqual(
+      [...entry.capabilities].sort(),
+      extension.capabilities,
+      `${extension.name}: catalog capabilities must mirror the manifest capabilities`,
+    );
+    assert.equal(
+      (entry.availability ?? "published") === "published",
+      extension.publishable,
+      `${extension.name}: catalogued as ${entry.availability ?? "published"}, but the package `
+        + `${extension.publishable ? "declares" : "does not declare"} publishConfig — a catalogue `
+        + "that promises an install for an unpublishable package renders a button that cannot work",
+    );
+  }
+});
+
+test("the committed snapshot still matches the live fleet", () => {
+  const live = readFleetExtensions(FLEET_ROOT, { existsSync, readdirSync, readFileSync });
+  if (live.length === 0) return; // siblings not resolvable here; the gate above still ran
+  assert.deepEqual(
+    live,
+    fleetSnapshot,
+    "the fleet has changed since the snapshot was generated, so the gate above is now checking "
+      + "the catalog against a stale list — regenerate with `npm run fleet:snapshot` and commit it",
   );
 });
 

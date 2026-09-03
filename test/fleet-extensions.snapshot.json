@@ -1,0 +1,248 @@
+[
+  {
+    "name": "pm-ado",
+    "description": "Azure DevOps work-item sync for pm-cli. Every remote write carries a System.Rev assertion in its JSON Patch document, so a concurrent edit is rejected atomically instead of silently overwritten - the compare-and-swap that lets many agents sync one project at once. Maps work item revisions onto pm item history, typed work item relations onto pm parent and dependency kinds, and batches reads through the work item batch endpoint.",
+    "packageDescription": "Azure DevOps work-item sync for pm-cli, with revision-checked writes so concurrent agents cannot clobber each other",
+    "capabilities": [
+      "commands",
+      "hooks",
+      "importers",
+      "preflight",
+      "schema"
+    ],
+    "publishable": false
+  },
+  {
+    "name": "pm-beads",
+    "description": "Beads JSONL importer/exporter. Import work items from the Beads JSONL format into pm and export pm items back to Beads JSONL, preserving ids and dependency edges.",
+    "packageDescription": "Beads JSONL import/export extension for pm-cli",
+    "capabilities": [
+      "commands",
+      "importers",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-brief",
+    "description": "Token-budgeted agent briefs and next-work plans for pm workspaces",
+    "packageDescription": "Token-budgeted agent briefs and next-work plans for pm workspaces",
+    "capabilities": [
+      "commands",
+      "renderers",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-changelog",
+    "description": "Generate CHANGELOG.md release notes from pm-cli items",
+    "packageDescription": "Generate CHANGELOG.md files from pm-cli items for local and CI usage",
+    "capabilities": [
+      "commands",
+      "importers",
+      "renderers",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-context",
+    "description": "Generate deterministic pm context packs for agent handoffs, reviews, and status briefs",
+    "packageDescription": "Generate deterministic pm context packs for agent handoffs, reviews, and status briefs",
+    "capabilities": [
+      "commands",
+      "renderers",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-csv",
+    "description": "CSV importer and exporter for pm-cli",
+    "packageDescription": "CSV importer and exporter for pm-cli",
+    "capabilities": [
+      "commands",
+      "importers",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-gantt-chart",
+    "description": "ASCII Gantt chart renderer + multi-format exporter for pm-cli",
+    "packageDescription": "ASCII Gantt chart renderer + multi-format exporter for pm-cli",
+    "capabilities": [
+      "commands",
+      "importers",
+      "preflight",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-github",
+    "description": "GitHub Issues + Projects v2 integration. Imports issues as pm items (`pm github import`), exports pm items as GitHub issues, syncs issue state, and bidirectionally syncs pm items with a GitHub Projects v2 board (`pm github project import/sync/list/fields`) — mapping pm status to the board Status column with idempotent, no-data-loss provenance.",
+    "packageDescription": "GitHub Issues importer extension for pm-cli",
+    "capabilities": [
+      "commands",
+      "hooks",
+      "importers",
+      "preflight",
+      "schema",
+      "search"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-graph",
+    "description": "Knowledge graph and dependency graph extension for pm CLI workspaces, with optional Neo4j sync.",
+    "packageDescription": "Knowledge graph and dependency graph extension for pm CLI workspaces, with optional Neo4j sync.",
+    "capabilities": [
+      "commands",
+      "importers",
+      "services"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-jira",
+    "description": "Jira issue sync for pm-cli",
+    "packageDescription": "Jira issue sync for pm-cli",
+    "capabilities": [
+      "commands",
+      "hooks",
+      "importers",
+      "preflight",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-linear",
+    "description": "Linear.app issue sync for pm-cli",
+    "packageDescription": "Linear.app issue sync for pm-cli",
+    "capabilities": [
+      "commands",
+      "importers",
+      "preflight",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-ops",
+    "description": "Multi-repo fleet operations for pm-cli",
+    "packageDescription": "Multi-repo fleet operations for pm-cli",
+    "capabilities": [
+      "commands",
+      "parser",
+      "renderers",
+      "schema",
+      "services"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-presets",
+    "description": "All 7 official pm-cli workspace presets in one package: bug-triage, indie-dev, open-source, software-sprint, startup-roadmap, kanban, agent-workflow",
+    "packageDescription": "All 7 official pm-cli workspace presets in one package: bug-triage, indie-dev, open-source, software-sprint, startup-roadmap, kanban, agent-workflow",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-rl",
+    "description": "Reinforcement-learning programme management on the pm SDK. Content-addressed environments and benchmarks keep runs and evaluations attributable; fail-closed leaderboards refuse mixed environments and contaminated suites. Commands: `pm rl env register/list/show`, `pm rl benchmark register`, `pm rl eval record`, `pm rl leaderboard`, `pm rl run start/log/show/finish`, `pm rl generation register/promote/show`, `pm rl lineage`, `pm rl invalidate`, and `pm rl compare`.",
+    "packageDescription": "Reinforcement-learning programme management on the pm SDK: content-addressed environments, attributable runs, and bounded compressed metric segments that preserve accepted branch occurrences.",
+    "capabilities": [
+      "commands",
+      "hooks",
+      "schema"
+    ],
+    "publishable": false
+  },
+  {
+    "name": "pm-slack",
+    "description": "Slack notifications for pm item lifecycle events",
+    "packageDescription": "Slack notifications for pm item lifecycle events",
+    "capabilities": [
+      "commands",
+      "hooks",
+      "preflight",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-slack-standup",
+    "description": "Post pm context as a Slack standup message",
+    "packageDescription": "Post pm context as a Slack standup message",
+    "capabilities": [
+      "commands",
+      "importers",
+      "preflight",
+      "schema",
+      "services"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-starter",
+    "description": "Complete scaffold showing all 9 capability types: commands, renderers, hooks, schema, importers, search, parser, preflight, services. Includes plan workflow, context, and search integration examples plus guided setup. Use as a starting template for new extensions.",
+    "packageDescription": "Complete starter/scaffold extension for pm-cli showing all capability types",
+    "capabilities": [
+      "commands",
+      "hooks",
+      "importers",
+      "parser",
+      "preflight",
+      "renderers",
+      "schema",
+      "search",
+      "services"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-todos",
+    "description": "TODO round-trip. Import/export/sync markdown checkboxes, todo.txt, jsonl, checkbox, and pi coding-agent todo JSON as pm items.",
+    "packageDescription": "TODO round-trip extension for pm-cli: markdown, todo.txt, GitHub task lists, and pi coding-agent todo JSON",
+    "capabilities": [
+      "commands",
+      "importers",
+      "preflight",
+      "schema"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-ts-starter",
+    "description": "TypeScript reference extension covering all 9 SDK capability types: commands, renderers, hooks, schema, importers, search, parser, preflight, services. Aligned to the pm-cli 2026.7.6 SDK: demonstrates defineExtension plus registerCommand/registerFlags (with failure_hints + typed positional arguments), registerItemFields/registerItemTypes/registerMigration, the five api.hooks.* lifecycle hooks, registerImporter/registerExporter (with ImportExportRegistrationOptions), registerRenderer, registerSearchProvider/registerVectorStoreAdapter, registerParser, registerPreflight, registerService, PmCliExpectedError-shaped errors, demo commands for the plan/context/search/history-compact pm surfaces, and a guided `ts-starter setup --interactive` onboarding - all fully typed.",
+    "packageDescription": "TypeScript reference extension for pm-cli covering all capability types",
+    "capabilities": [
+      "commands",
+      "hooks",
+      "importers",
+      "parser",
+      "preflight",
+      "renderers",
+      "schema",
+      "search",
+      "services"
+    ],
+    "publishable": true
+  },
+  {
+    "name": "pm-vcs",
+    "description": "A general version control system written from scratch on the pm SDK for arbitrary files and structured records, with stable file and change identities, native PM attribution, its own object store, refs, merge, operation log and bundles, and no Git dependency in its engine.",
+    "packageDescription": "A general version control system written from scratch on the pm SDK for arbitrary files and structured records, with stable file and change identities, native PM attribution, its own object store, refs, merge, operation log and bundles, and no Git dependency.",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": false
+  }
+]
