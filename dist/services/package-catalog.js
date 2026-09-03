@@ -48,6 +48,25 @@ export const PACKAGE_CATALOG = [
         requiresService: { name: "Neo4j", optional: true },
     },
     {
+        name: "pm-ado",
+        npmSpec: "npm:pm-ado",
+        title: "Azure DevOps",
+        description: "Azure DevOps work-item sync for pm-cli. Every remote write carries a System.Rev assertion in its JSON Patch document, so a concurrent edit is rejected atomically instead of silently overwritten - the compare-and-swap that lets many agents sync one project at once. Maps work item revisions onto pm item history, typed work item relations onto pm parent and dependency kinds, and batches reads through the work item batch endpoint.",
+        capabilities: ["commands", "schema", "importers", "hooks", "preflight"],
+        category: "extension",
+        // Release-gated behind vars.PM_RELEASE_APPROVED and absent from npm, so no
+        // install spec resolves. Listed rather than hidden: a user reading the fleet
+        // on GitHub can plainly see this package, and omitting it would make the
+        // catalogue look complete while the UI never mentioned it.
+        availability: "unreleased",
+        requiresCredentials: [
+            {
+                label: "Azure DevOps credentials (organization URL, project, and a personal access token)",
+                envVars: ["ADO_ORG_URL", "ADO_PROJECT", "ADO_TOKEN"],
+            },
+        ],
+    },
+    {
         name: "pm-beads",
         npmSpec: "npm:pm-beads",
         title: "Beads",

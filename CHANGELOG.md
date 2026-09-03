@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The catalog completeness gate cannot fail in CI, and a package it should have caught has been missing since it was created ([pm-web-z1vm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-z1vm.toon))
+
 ## 2026.9.1 - 2026-09-01
 
 ### Other
