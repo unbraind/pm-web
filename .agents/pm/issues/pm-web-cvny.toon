@@ -6,15 +6,16 @@ status: in_progress
 priority: 1
 tags[3]: collaboration,dependencies,sdk
 created_at: "2026-09-04T19:54:48.756Z"
-updated_at: "2026-09-04T20:12:03.751Z"
+updated_at: "2026-09-04T20:17:42.633Z"
 assignee: codex-pm-services
 claim_principal: codex-pm-services
 author: codex-pm-services
 estimated_minutes: 60
 acceptance_criteria: "The lockfile resolves PM CLI 2026.9.4; typecheck, existing test and coverage gates, docstrings, audit, packed npm/Bun acceptance and deterministic changelog pass; deployment preserves shared project data and remains coordinated with pm-gpt"
 risk: high
-comments[1]{created_at,author,text}:
+comments[2]{created_at,author,text}:
   "2026-09-04T20:12:03.751Z",codex-pm-services,"The complete release:check now passes with CLI/SDK 2026.9.4, including typecheck, tests, docstrings, production audit, npm pack, real npm and Bun packed extension acceptance, deterministic changelog and release provenance checks. The first packaging run exposed a stale manifest floor; manifest.json and README now match the dependency pin. Measured server coverage is 70.10% lines, 81.50% branches and 64.40% functions across 30 source files; these existing floors do not satisfy the requested all-source exact 100% gate. Review and coordinated hosted deployment remain pending."
+  "2026-09-04T20:17:42.633Z",codex-pm-services,"CodeRabbit review identified an ambiguous earlier README version reference. The certificate behavior is now explicitly described as available since 2026.8.31, preserving its historical origin while the standalone requirement remains 2026.9.4. Greptile reports no actionable findings on the initial head; cubic and Sourcery report exhausted free review quotas. These are review limitations, not approvals."
 files[2]{path,scope}:
   package-lock.json,project
   package.json,project
