@@ -1,0 +1,25 @@
+id: pm-web-cvny
+title: Align shared workspace mutations with PM CLI and SDK 2026.9.4
+description: "The hosted web service pins PM CLI 2026.8.31 while the coordinated hosted MCP dependency update targets 2026.9.4. Both services mutate the same project data. Pin the same current CLI/SDK, validate real workspace mutations and packed npm/Bun acceptance, and keep deployment coupled to the hosted MCP rollout."
+type: Issue
+status: in_progress
+priority: 1
+tags[3]: collaboration,dependencies,sdk
+created_at: "2026-09-04T19:54:48.756Z"
+updated_at: "2026-09-04T20:12:03.751Z"
+assignee: codex-pm-services
+claim_principal: codex-pm-services
+author: codex-pm-services
+estimated_minutes: 60
+acceptance_criteria: "The lockfile resolves PM CLI 2026.9.4; typecheck, existing test and coverage gates, docstrings, audit, packed npm/Bun acceptance and deterministic changelog pass; deployment preserves shared project data and remains coordinated with pm-gpt"
+risk: high
+comments[1]{created_at,author,text}:
+  "2026-09-04T20:12:03.751Z",codex-pm-services,"The complete release:check now passes with CLI/SDK 2026.9.4, including typecheck, tests, docstrings, production audit, npm pack, real npm and Bun packed extension acceptance, deterministic changelog and release provenance checks. The first packaging run exposed a stale manifest floor; manifest.json and README now match the dependency pin. Measured server coverage is 70.10% lines, 81.50% branches and 64.40% functions across 30 source files; these existing floors do not satisfy the requested all-source exact 100% gate. Review and coordinated hosted deployment remain pending."
+files[2]{path,scope}:
+  package-lock.json,project
+  package.json,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run release:check",project,900,codex-pm-services,"2026-09-04T20:00:20.449Z",local_mutation,fix/align-shared-workspace-cli-2026-9-4
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-cli-companion/blob/main/.agents/pm/issues/pm-cli-website-nc0j.toon",project,Coordinated fleet upgrade
+body: ""

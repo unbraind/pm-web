@@ -160,7 +160,7 @@ means the rows may be short of the whole corpus. The public `/pm/list-all`
 HTTP compatibility route remains deliberately paginated for interactive clients,
 but invokes canonical `list --all` internally; consumers that need the whole
 workspace must use a complete-read endpoint rather than assembling a page as if
-it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.8.31, and
+it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.9.4, and
 the extension manifest refuses older hosts through the same compatibility floor.
 Commands that render their own text or JSON (`web status`, `web stop`, and
 `web doctor`) return the public SDK output-suppression marker, so the host never
