@@ -152,15 +152,15 @@ converge through PostgreSQL notifications and the mutation-event watcher.
 
 Whole-project graph fallback, board, local search, iCalendar, and export reads
 use the SDK's high-level `listAllComplete` operation. pm-web accepts those rows
-only after the shared SDK certificate agrees. pm CLI 2026.8.31 certifies the
-source counters, omission receipt, output receipt, and truncation disclosure
-itself, so pm-web keeps just one supplemental check: it refuses an
+only after the shared SDK certificate agrees. Since pm CLI 2026.8.31, the SDK
+certifies the source counters, omission receipt, output receipt, and truncation
+disclosure itself, so pm-web keeps just one supplemental check: it refuses an
 `output_budget_exceeded` disclosure, which the SDK still accepts even though it
 means the rows may be short of the whole corpus. The public `/pm/list-all`
 HTTP compatibility route remains deliberately paginated for interactive clients,
 but invokes canonical `list --all` internally; consumers that need the whole
 workspace must use a complete-read endpoint rather than assembling a page as if
-it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.8.31, and
+it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.9.4, and
 the extension manifest refuses older hosts through the same compatibility floor.
 Commands that render their own text or JSON (`web status`, `web stop`, and
 `web doctor`) return the public SDK output-suppression marker, so the host never
