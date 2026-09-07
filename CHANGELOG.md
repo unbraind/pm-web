@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- Consume the canonical attestation gate instead of carrying a copy of it ([pm-web-tg1s](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-tg1s.toon))
+
 ## 2026.9.5 - 2026-09-05
 
 ### Fixed

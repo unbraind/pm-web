@@ -20,14 +20,29 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-  bashArrays,
-  expandArrays,
-  joinContinuations,
-  type SourceFile,
-  type VerifierResult,
-} from "./shell-command-scan.ts";
+import { bashArrays, joinContinuations, type SourceFile, type VerifierResult } from "pm-ops/shell-scan";
 import { isMainInvocation } from "./main-invocation.ts";
+
+export { bashArrays, joinContinuations };
+export type { SourceFile, VerifierResult };
+
+/**
+ * Inline referenced bash array contents into one logical command.
+ *
+ * Local rather than re-exported from `pm-ops/shell-scan` because the canonical
+ * `expandArrays` adds a positional guard (`isExpandableReference`) that this
+ * verifier's fixtures and behaviour predate. Keeping the original substitution
+ * preserves the suite's expectations without diverging from the shell model the
+ * attestation gate consumes.
+ *
+ * @param line - One logical command.
+ * @param arrays - Array declarations from the same file.
+ * @returns The command with referenced array contents inlined.
+ */
+export function expandArrays(line: string, arrays: Map<string, string>): string {
+  return line.replace(/"?\$\{([A-Za-z_][A-Za-z0-9_]*)\[@\]\}"?/g, (whole, name: string) =>
+    arrays.get(name) ?? whole);
+}
 
 /** Every spelling that tells the generator which version it is rendering.
  *
