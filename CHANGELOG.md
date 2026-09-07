@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Prove that a write arriving from another surface reaches a connected subscriber ([pm-web-pi1i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-pi1i.toon))
+
 ### Security
 
 - Consume the canonical attestation gate instead of carrying a copy of it ([pm-web-tg1s](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-tg1s.toon))
