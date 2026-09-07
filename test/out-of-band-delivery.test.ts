@@ -27,7 +27,7 @@ import test from "node:test";
 import type { Response } from "express";
 
 import { createProjectWatchCycle, computeWorkspaceSignature } from "../src/services/project-watcher.ts";
-import { addSSEClient, consumeSignaledMutation } from "../src/services/sse.ts";
+import { addSSEClient, consumeSignaledMutation, deliverProjectEvent, wasSignaledWithin } from "../src/services/sse.ts";
 
 /** A subscriber that records the SSE frames written to it. */
 function recordingClient(projectId: string, id: string): { frames: string[]; stop: () => void } {
@@ -151,14 +151,39 @@ test("a subscriber on a different project is not told about this one's write", a
   }
 });
 
-test("delivery through the default sink also records the mutation signal", async () => {
-  // deliverProjectEvent notes a signaled mutation as well as writing to
-  // subscribers. Asserting only the frames would let a sink that writes but
-  // does not signal pass, and the signal is what stops the next tick
-  // re-announcing a change this process already knows about.
+test("delivery through the default sink records the signal that suppresses a duplicate", () => {
+  // `deliverProjectEvent` notes a signaled mutation as well as writing to
+  // subscribers, and the signal is what stops the next tick re-announcing a
+  // change this process already delivered.
+  //
+  // An earlier version of this case asserted `consumeSignaledMutation(id)`
+  // returned undefined, which proved nothing: it returns undefined whether or
+  // not a signal exists, so removing `noteSignaledMutation` from the sink left
+  // it green. Found in review. Both halves are observable now - that the signal
+  // is SET, and that it does the job it exists for.
   const projectId = "project-signal";
-  const ws = await workspace('id: "item-1"\nstatus: "open"\n');
+  consumeSignaledMutation(projectId);
+  assert.equal(wasSignaledWithin(projectId, 10_000), false, "no signal before any delivery");
+
   const subscriber = recordingClient(projectId, "client-signal");
+  try {
+    deliverProjectEvent(projectId, { type: "workspace-changed", data: { source: "filesystem" } });
+    assert.equal(wasSignaledWithin(projectId, 10_000), true, "the sink must record the signal, not only write the frame");
+    assert.match(subscriber.frames.join(""), /event: workspace-changed/u, "and must still write the frame");
+
+    consumeSignaledMutation(projectId);
+    assert.equal(wasSignaledWithin(projectId, 10_000), false, "consuming the signal must clear it");
+  } finally {
+    subscriber.stop();
+  }
+});
+
+test("a change this process delivered is not re-announced by the next sweep", async () => {
+  // The behavioural half: the watcher suppresses an emit for a project that was
+  // signaled, so a mutation this process already pushed does not arrive twice.
+  const projectId = "project-suppression";
+  const ws = await workspace('id: "item-1"\nstatus: "open"\n');
+  const subscriber = recordingClient(projectId, "client-suppression");
   try {
     const { tick } = createProjectWatchCycle({
       intervalMs: 1000,
@@ -169,10 +194,20 @@ test("delivery through the default sink also records the mutation signal", async
       onError: (err) => assert.fail(`watcher tick failed: ${String(err)}`),
     });
     await tick();
-    consumeSignaledMutation(projectId);
+
+    // Deliver as this process would for its own write, which signals the
+    // project, then make the write the sweep will see.
+    deliverProjectEvent(projectId, { type: "workspace-changed", data: { source: "mutation" } });
     await ws.write('id: "item-1"\nstatus: "closed"\n');
+    const before = subscriber.frames.length;
     await tick();
-    assert.equal(consumeSignaledMutation(projectId), undefined, "consuming the signal must not throw");
+
+    const delivered = subscriber.frames.slice(before).join("");
+    assert.doesNotMatch(
+      delivered,
+      /"source":"filesystem"/u,
+      "a change already delivered by this process must not be announced again by the sweep",
+    );
   } finally {
     subscriber.stop();
     await ws.cleanup();
