@@ -6,16 +6,17 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-09-07T22:58:28.455Z"
-updated_at: "2026-09-07T23:07:47.782Z"
+updated_at: "2026-09-07T23:23:43.923Z"
 assignee: codex-hosted-collaboration
 claim_principal: codex-hosted-collaboration
 author: codex-hosted-collaboration
 acceptance_criteria: A real PostgreSQL disconnect followed by a notification during the gap yields a refresh on each still-connected project stream after LISTEN succeeds; later project notifications retain tenant isolation; initial startup and stopped listeners do not emit reconnect refreshes; installed CLI 2026.9.7 real SDK tests and release checks remain green; report remaining whole-source coverage and hosted rollout gates accurately.
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-2rek,related,"2026-09-07T22:58:28.455Z",codex-hosted-collaboration,"cli:create:dep",detected
-comments[2]{created_at,author,text}:
+comments[3]{created_at,author,text}:
   "2026-09-07T23:01:22.108Z",codex-hosted-collaboration,"TDD: dedicated PostgreSQL listener termination reproduced the missing recovery invalidation before the fix (3-second bounded assertion failed). After adding local invalidations on successful re-LISTEN, the real HTTP/PG regression passes and confirms the gap notification was lost, both active projects refresh once, recovery never echoes to the shared channel, subsequent events remain project-isolated, and stop removes delivery. Replaced the previous source-text reconnect assertion with this behavioral regression. Installed CLI/SDK is 2026.9.7. Coordinated hosted deployment and complete source coverage remain separate unfulfilled gates."
   "2026-09-07T23:07:47.782Z",codex-hosted-collaboration,"Validation 2026-09-07 UTC: npm run release:check passed (393 tests; 393 pass, 0 fail, 0 skipped; all 30 configured src files reported). Measured lines/branches/functions: 71.04% / 81.17% / 65.71%; the Node reporter does not expose an independent statement metric. Realtime bus measured 93.59% / 76.79% / 78.95%. Docstring gate documents 565 declarations. Packed npm/Bun acceptance, production vulnerability audit, changelog verification, release-date and publish-attestation checks passed. PM-linked real database regression also passed. Whole-source 100% and reviewed hosted rollout remain unfulfilled and this item stays in progress until those deployment acceptance obligations are verified."
+  "2026-09-07T23:23:43.923Z",codex-hosted-collaboration,"Review follow-up: CodeRabbit reported 66.67% documentation among three touched functions; the missing declaration was the existing fakeResponse unit-test sink. Added its docstring. Greptile reviewed commit 64e3208 with 5/5 confidence and no findings. Startup policy was independently checked: src/server.ts awaits startRealtimeBus before app.listen and exits on an initial listener failure, so viewers cannot be connected before first successful LISTEN. The real regression also verifies initial LISTEN does not emit a recovery event. Additional isolated transport measurement at 64e3208 connected 1000 project viewers plus 10 control viewers in 2.777 seconds, delivered 1000/1000 notifications with zero tenant crossover and p99 88.205 ms, and refreshed 1010/1010 viewers after listener recovery in 871.726 ms. This 5.404-second run measured HTTP/PostgreSQL transport only: it does not certify authentication, browser UI, live user data, write throughput, reconnection storms, or larger production capacity."
 files[3]{path,scope}:
   src/services/realtime-bus.ts,project
   test/realtime-recovery.test.ts,project
