@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+
+- Prove that a write arriving from another surface reaches a connected subscriber ([pm-web-pi1i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-pi1i.toon))
+
+### Security
+
+- Consume the canonical attestation gate instead of carrying a copy of it ([pm-web-tg1s](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-tg1s.toon))
+
+### Other
+
+- Harden the attestation consumer suite to match the rest of the converged fleet ([pm-web-qq0i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-qq0i.toon))
+
+## 2026.9.5 - 2026-09-05
+
 ### Fixed
 
 - The catalog completeness gate cannot fail in CI, and a package it should have caught has been missing since it was created ([pm-web-z1vm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-z1vm.toon))
