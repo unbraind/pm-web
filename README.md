@@ -149,11 +149,12 @@ primitive. The current pm SDK serializes activation-backed `PmClient` calls
 within each Node process, so high-throughput installations should run multiple
 pm-web replicas behind a shared PostgreSQL realtime bus. Independent replicas
 converge through PostgreSQL notifications and the mutation-event watcher.
-When the PostgreSQL listener reconnects, it invalidates each locally connected
-project so viewers reload authorized state that may have changed while the
-listener was disconnected. This recovery signal contains no item content and
-stays local to the recovering process; PostgreSQL notifications are transient
-and are not a durable event replay mechanism.
+When the PostgreSQL listener reconnects, it invalidates the workspace and
+extension catalog of each locally connected project so viewers, including the
+Packages view, reload authorized state that may have changed while the listener
+was disconnected. These recovery signals contain no item content and stay
+local to the recovering process; PostgreSQL notifications are transient and
+are not a durable event replay mechanism.
 
 Whole-project graph fallback, board, local search, iCalendar, and export reads
 use the SDK's high-level `listAllComplete` operation. pm-web accepts those rows

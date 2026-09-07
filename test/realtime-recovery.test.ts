@@ -64,7 +64,7 @@ test("real PostgreSQL reconnect refreshes open SSE projects and preserves subseq
       projectId: projectIds[0], type: "item-updated", data: { itemId: "before-reconnect" }, sourceId: "external-writer",
     })]);
     await waitUntil(() => received[0].includes("before-reconnect"), "initial listener delivers remote mutations before disconnect");
-    assert.ok(received.every((body) => !body.includes("event: workspace-changed")), "initial LISTEN does not announce a recovery");
+    assert.ok(received.every((body) => !body.includes("event: workspace-changed") && !body.includes("event: extensions-changed")), "initial LISTEN does not announce a recovery");
 
     const listener = await observer.query<{ pid: number }>(
       "SELECT pid FROM pg_stat_activity WHERE application_name = $1 AND query = 'LISTEN pm_workspace_events'",
@@ -75,9 +75,16 @@ test("real PostgreSQL reconnect refreshes open SSE projects and preserves subseq
     await observer.query("SELECT pg_notify($1, $2)", ["pm_workspace_events", JSON.stringify({
       projectId: projectIds[0], type: "item-updated", data: { itemId: "lost-during-disconnect" }, sourceId: "external-writer",
     })]);
-    await waitUntil(() => received.every((body) => body.includes('"source":"realtime-reconnect"')), "recovery refresh reaches both still-open project streams");
+    await observer.query("SELECT pg_notify($1, $2)", ["pm_workspace_events", JSON.stringify({
+      projectId: projectIds[1], type: "extensions-changed", data: { source: "lost-package-change" }, sourceId: "external-writer",
+    })]);
+    await waitUntil(() => received.every((body) => body.includes('"source":"realtime-reconnect"') && body.includes("event: extensions-changed")), "workspace and Packages recovery reach both still-open project streams");
     assert.ok(received.every((body) => !body.includes("lost-during-disconnect")), "NOTIFY sent in the disconnected interval was actually lost");
-    for (const body of received) assert.equal(body.match(/event: workspace-changed/g)?.length, 1, "one recovery refresh per active project");
+    assert.ok(received.every((body) => !body.includes("lost-package-change")), "package notification in the disconnected interval was also lost");
+    for (const body of received) {
+      assert.equal(body.match(/event: workspace-changed/g)?.length, 1, "one workspace recovery refresh per active project");
+      assert.equal(body.match(/event: extensions-changed/g)?.length, 1, "one Packages recovery refresh per active project");
+    }
     assert.ok(notifications.every((payload) => !payload.includes("realtime-reconnect")), "recovery stays local instead of echoing across replicas");
 
     await observer.query("SELECT pg_notify($1, $2)", ["pm_workspace_events", JSON.stringify({

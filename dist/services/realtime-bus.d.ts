@@ -52,8 +52,9 @@ export declare function handleIncomingEnvelope(raw: string | undefined, instance
  * channel, fans incoming envelopes out to local SSE clients (skipping this
  * instance's own), publishes local events via `pg_notify`, and reconnects with
  * exponential backoff on disconnect. After reconnecting, existing viewers get
- * a local workspace invalidation because notifications during the disconnected
- * interval cannot be replayed. The returned function undoes all of it.
+ * local workspace and extension-catalog invalidations because notifications
+ * during the disconnected interval cannot be replayed. The returned function
+ * undoes all of it.
  *
  * @param database - PostgreSQL pool used for listening and publishing.
  * @returns A function that stops the bus and releases the listener.
