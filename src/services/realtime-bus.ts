@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { PoolClient } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { pool } from "../db.ts";
 import {
   configureProjectEventPublisher,
   deliverProjectEvent,
+  getActiveProjectIds,
   type SSEEvent,
 } from "./sse.ts";
 
@@ -113,17 +114,22 @@ export function handleIncomingEnvelope(
  * is `"false"`. Otherwise reserves a pool client on the `pm_workspace_events`
  * channel, fans incoming envelopes out to local SSE clients (skipping this
  * instance's own), publishes local events via `pg_notify`, and reconnects with
- * exponential backoff on disconnect. The returned function undoes all of it.
+ * exponential backoff on disconnect. After reconnecting, existing viewers get
+ * local workspace and extension-catalog invalidations because notifications
+ * during the disconnected interval cannot be replayed. The returned function
+ * undoes all of it.
  *
+ * @param database - PostgreSQL pool used for listening and publishing.
  * @returns A function that stops the bus and releases the listener.
  */
-export async function startRealtimeBus(): Promise<() => Promise<void>> {
+export async function startRealtimeBus(database: Pick<Pool, "connect" | "query"> = pool): Promise<() => Promise<void>> {
   if (process.env.PM_REALTIME_ENABLED === "false") return async () => undefined;
 
   let listener: PoolClient | null = null;
   let reconnectTimer: NodeJS.Timeout | null = null;
   let reconnectDelayMs = 250;
   let stopped = false;
+  let hasConnected = false;
   let connecting: Promise<void> | null = null;
   const handlers = new Map<PoolClient, {
     error: (error: Error) => void;
@@ -161,7 +167,7 @@ export async function startRealtimeBus(): Promise<() => Promise<void>> {
   };
 
   const connectOnce = async (): Promise<void> => {
-    const client = await pool.connect();
+    const client = await database.connect();
     const notification = (message: { payload?: string }): void => {
       handleIncomingEnvelope(message.payload, INSTANCE_ID, deliverProjectEvent);
     };
@@ -189,6 +195,13 @@ export async function startRealtimeBus(): Promise<() => Promise<void>> {
       return;
     }
     reconnectDelayMs = 250;
+    if (hasConnected) {
+      for (const projectId of getActiveProjectIds()) {
+        deliverProjectEvent(projectId, { type: "workspace-changed", data: { source: "realtime-reconnect" } });
+        deliverProjectEvent(projectId, { type: "extensions-changed", data: { source: "realtime-reconnect" } });
+      }
+    }
+    hasConnected = true;
   };
 
   const connect = (): Promise<void> => {
@@ -202,7 +215,7 @@ export async function startRealtimeBus(): Promise<() => Promise<void>> {
   configureProjectEventPublisher(async (projectId: string, event: SSEEvent) => {
     const payload = buildEnvelope(projectId, event, INSTANCE_ID);
     if (payload) {
-      await pool.query("SELECT pg_notify($1, $2)", [CHANNEL, payload]);
+      await database.query("SELECT pg_notify($1, $2)", [CHANNEL, payload]);
     } else {
       console.warn(`Realtime event payload exceeded size limit: ${projectId}/${event.type}`);
     }
