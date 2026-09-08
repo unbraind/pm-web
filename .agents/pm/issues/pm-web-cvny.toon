@@ -1,0 +1,29 @@
+id: pm-web-cvny
+title: Align shared workspace CLI and SDK with PM 2026.9.7
+description: "The hosted web service pins PM CLI 2026.8.31 while the coordinated hosted MCP dependency update targets 2026.9.7. Both services mutate the same project data. Pin the same current CLI/SDK, validate real workspace mutations and packed npm/Bun acceptance, and keep deployment coupled to the hosted MCP rollout."
+type: Issue
+status: in_progress
+priority: 1
+tags[3]: collaboration,dependencies,sdk
+created_at: "2026-09-04T19:54:48.756Z"
+updated_at: "2026-09-07T21:19:33.533Z"
+assignee: codex-pm-services
+claim_principal: codex-pm-services
+author: codex-pm-services
+estimated_minutes: 60
+acceptance_criteria: "The lockfile resolves PM CLI 2026.9.7; typecheck, existing test and coverage gates, docstrings, audit, packed npm/Bun acceptance and deterministic changelog pass; deployment preserves shared project data and remains coordinated with pm-gpt"
+risk: high
+comments[5]{created_at,author,text}:
+  "2026-09-04T20:12:03.751Z",codex-pm-services,"The complete release:check now passes with CLI/SDK 2026.9.4, including typecheck, tests, docstrings, production audit, npm pack, real npm and Bun packed extension acceptance, deterministic changelog and release provenance checks. The first packaging run exposed a stale manifest floor; manifest.json and README now match the dependency pin. Measured server coverage is 70.10% lines, 81.50% branches and 64.40% functions across 30 source files; these existing floors do not satisfy the requested all-source exact 100% gate. Review and coordinated hosted deployment remain pending."
+  "2026-09-04T20:17:42.633Z",codex-pm-services,"CodeRabbit review identified an ambiguous earlier README version reference. The certificate behavior is now explicitly described as available since 2026.8.31, preserving its historical origin while the standalone requirement remains 2026.9.4. Greptile reports no actionable findings on the initial head; cubic and Sourcery report exhausted free review quotas. These are review limitations, not approvals."
+  "2026-09-07T20:48:11.642Z",codex-pm-ecosystem,"2026-09-07: runtime and manifest aligned on CLI/SDK 2026.9.7; pm-changelog 2026.9.6. Initial full gate ran 393 tests: only the manifest pin assertion failed; measured 70.14% lines, 81.71% branches, 64.85% functions. Corrected the manifest pin and reran all four packaging assertions successfully. All later release steps pass, including zero production vulnerabilities, packed npm/Bun acceptance using host 2026.9.7, changelog and both release verifiers. Source coverage remains below the mandate; final complete rerun and review are pending."
+  "2026-09-07T21:04:58.866Z",codex-pm-ecosystem,"2026-09-07 UTC final release:check passed with installed CLI/SDK 2026.9.7 and pm-changelog 2026.9.6. Final suite: {'tests': '393', 'pass': '393', 'fail': '0', 'skipped': '0'}. Line/branch/function coverage: ℹ all files                   |  70.14 |    81.71 |   64.85 | . Packed npm and Bun acceptance passes. The earlier full rerun was interrupted by a sibling pm-vcs manifest conflict during catalog discovery; that conflict was resolved and the complete gate now passes. Whole-source 100% coverage and coordinated private-data deployment remain unfulfilled."
+  "2026-09-07T21:19:33.533Z",codex-pm-ecosystem,"2026-09-07 UTC review correction: Greptile and CodeRabbit: aligned the active description and acceptance criteria with CLI/SDK 2026.9.7 through pm update. Historical dated comments and the open coverage and hosted deployment requirements remain explicit."
+files[2]{path,scope}:
+  package-lock.json,project
+  package.json,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run release:check",project,900,codex-pm-services,"2026-09-04T20:00:20.449Z",local_mutation,fix/align-shared-workspace-cli-2026-9-4
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-cli-companion/blob/main/.agents/pm/issues/pm-cli-website-nc0j.toon",project,Coordinated fleet upgrade
+body: ""
