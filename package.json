@@ -46,7 +46,7 @@
     "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.9.7",
+    "@unbrained/pm-cli": "2026.9.10",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -65,7 +65,7 @@
     "@types/pg": "^8.23.1",
     "@types/uuid": "^11.0.0",
     "pm-changelog": "2026.9.6",
-    "pm-ops": "^2026.9.7",
+    "pm-ops": "^2026.9.9",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "yaml": "^2.9.0"

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Certify pm CLI 2026.9.10, raise the extension compatibility floor to match, and guard the auditor fixes ([pm-web-8ynl](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-8ynl.toon))
+
 ## 2026.9.8 - 2026-09-08
 
 ### Added
