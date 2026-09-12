@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Certify pm CLI 2026.9.12 and pm-ops 2026.9.11, and raise the extension compatibility floor with them ([pm-web-7brz](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-7brz.toon))
+
 ## 2026.9.11 - 2026-09-11
 
 ### Other

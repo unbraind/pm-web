@@ -1,0 +1,20 @@
+id: pm-web-7brz
+title: "Certify pm CLI 2026.9.12 and pm-ops 2026.9.11, and raise the extension compatibility floor with them"
+description: "pm-web builds the hosted pm-web.unbrained.dev image and pinned pm CLI 2026.9.10 with pm-ops 2026.9.9 on 2026-09-12. npm latest is 2026.9.12, which brings the 2026.9.11 and 2026.9.12 multi-writer merge fixes (same-id items created on two branches, merge receipt isolation) and named history digest algorithms, plus pm-ops 2026.9.11. The hosted container still ran 2026.9.7 because its image predates the 2026.9.10 certification. manifest.json pm_min_version is gated to equal the exact SDK the standalone server runs, so it moves with the pin. Companion tracking: pm-cli-website-mghj."
+type: Chore
+status: closed
+priority: 1
+tags: []
+created_at: "2026-09-12T20:39:34.382Z"
+updated_at: "2026-09-12T20:45:40.727Z"
+closed_at: "2026-09-12T20:45:40.682Z"
+completed_at: "2026-09-12T20:45:40.682Z"
+claim_principal: claude-orchestrator
+author: claude-orchestrator
+acceptance_criteria: "package.json pins @unbrained/pm-cli 2026.9.12 exactly and pm-ops ^2026.9.11, with the lockfile resolving both; manifest.json pm_min_version is 2026.9.12; npm run release:check exits 0 with PM_FLEET_ROOT pointing at the fleet root; CI is green on Node 22 and 26"
+files[3]{path,scope,note}:
+  manifest.json,project,pm_min_version raised to the exact SDK the standalone server runs
+  package-lock.json,project,lockfile resolves both new versions
+  package.json,project,exact pm CLI 2026.9.12 pin and pm-ops ^2026.9.11
+close_reason: "Pins advanced: @unbrained/pm-cli 2026.9.10 to 2026.9.12 (exact), and pm-ops ^2026.9.9 to ^2026.9.11 with the lockfile resolving 2026.9.11. manifest.json pm_min_version was raised from 2026.9.10 to 2026.9.12, as the compatibility-floor test requires it to equal the exact SDK the standalone server runs; that test failed first with the floor left at 2026.9.10. npm run release:check exits 0 with PM_FLEET_ROOT set to the fleet root: 395 of 395 tests, docstring gate, coverage gate, production audit, pack dry-run, packed acceptance, changelog check, release changelog date check and publish attestation verification. Without PM_FLEET_ROOT, two catalog tests fail only because a worktree outside the fleet directory has no sibling packages; that is a location artifact, not a regression."
+body: ""
