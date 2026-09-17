@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Review codeql-action v4.38.0 into the pinned-action allowlist so the Dependabot group can merge ([pm-web-mv7l](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-mv7l.toon))
+
 ## 2026.9.13 - 2026-09-13
 
 ### Other
