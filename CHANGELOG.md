@@ -4,7 +4,6 @@
 
 ### Other
 
-- Cover the routes/pm.ts command surface and the index/server bootstrap in pm-web ([pm-web-ulgy](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ulgy.toon))
 - Certify pm CLI 2026.9.17 ([pm-web-kl90](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-kl90.toon))
 - Review codeql-action v4.38.0 into the pinned-action allowlist so the Dependabot group can merge ([pm-web-mv7l](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-mv7l.toon))
 

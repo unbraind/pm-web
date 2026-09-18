@@ -54,7 +54,7 @@ async function createCollaborationHarness(): Promise<CollaborationHarness> {
 /** Decode a successful create response and require the real item id. */
 async function createdItemId(response: Response): Promise<string> {
   assert.equal(response.status, 201, await response.clone().text());
-  const payload = await response.json() as { id?: string; item?: { id?: string } }; 
+  const payload = await response.json() as { id?: string; item?: { id?: string } };
   const id = payload.item?.id ?? payload.id;
   assert.ok(id, `create response did not contain an item id: ${JSON.stringify(payload)}`);
   return id;
@@ -94,15 +94,17 @@ async function createItem(server: AppServer, user: SeedUser, projectId: string, 
 test("client B receives client A's item mutation over the real SSE route", async (t) => {
   const previousRoot = process.env.PROJECTS_ROOT;
   const harness = await createCollaborationHarness();
-  const server = await startApp();
+  let startedServer: AppServer | undefined;
   const controller = new AbortController();
   t.after(async () => {
     controller.abort();
-    await server.close();
+    if (startedServer) await startedServer.close();
     await rm(harness.root, { recursive: true, force: true });
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousRoot;
   });
+  const server = await startApp();
+  startedServer = server;
   const stream = await fetch(server.url(`/api/projects/${harness.projectId}/pm/events?view=items`), {
     headers: authHeaders(harness.editor),
     signal: controller.signal,
@@ -119,13 +121,15 @@ test("client B receives client A's item mutation over the real SSE route", async
 test("concurrent collaborators update one item without a lost write or malformed history", async (t) => {
   const previousRoot = process.env.PROJECTS_ROOT;
   const harness = await createCollaborationHarness();
-  const server = await startApp();
+  let startedServer: AppServer | undefined;
   t.after(async () => {
-    await server.close();
+    if (startedServer) await startedServer.close();
     await rm(harness.root, { recursive: true, force: true });
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousRoot;
   });
+  const server = await startApp();
+  startedServer = server;
 
   const itemId = await createItem(server, harness.owner, harness.projectId, "Concurrent original");
   const [titleUpdate, descriptionUpdate] = await Promise.all([
@@ -165,13 +169,15 @@ test("concurrent collaborators update one item without a lost write or malformed
 test("the real HTTP command surface preserves an item's lifecycle and related records", async (t) => {
   const previousRoot = process.env.PROJECTS_ROOT;
   const harness = await createCollaborationHarness();
-  const server = await startApp();
+  let startedServer: AppServer | undefined;
   t.after(async () => {
-    await server.close();
+    if (startedServer) await startedServer.close();
     await rm(harness.root, { recursive: true, force: true });
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousRoot;
   });
+  const server = await startApp();
+  startedServer = server;
 
   const base = `/api/projects/${harness.projectId}/pm`;
   const schema = await authedFetch(server, harness.owner, `${base}/schema`);
