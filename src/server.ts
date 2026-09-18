@@ -76,9 +76,18 @@ initSchema()
       console.error(`Server error on :${PORT}:`, err.message);
       process.exit(1);
     });
-    server.on("close", () => { stopProjectWatcher(); stopMutationEventWatcher(); void closeRealtimeBus(); });
     // Periodic cleanup of stale SSE clients
-    setInterval(cleanupStaleClients, 5 * 60 * 1000);
+    const staleClientTimer = setInterval(cleanupStaleClients, 5 * 60 * 1000);
+    server.on("close", () => {
+      clearInterval(staleClientTimer);
+      stopProjectWatcher();
+      stopMutationEventWatcher();
+      void closeRealtimeBus()
+        .finally(() => pool.end())
+        .finally(() => process.exit(0));
+    });
+    process.once("SIGINT", () => server.close());
+    process.once("SIGTERM", () => server.close());
   })
   .catch((err) => {
     console.error("Failed to initialize pm-web runtime:", err instanceof Error ? err.message : err);

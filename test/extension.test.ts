@@ -41,6 +41,8 @@ test("nodeVersionMeetsRequirement enforces the package engine floor", () => {
   assert.strictEqual(nodeVersionMeetsRequirement("22.18.0"), true);
   assert.strictEqual(nodeVersionMeetsRequirement("22.19.0"), true);
   assert.strictEqual(nodeVersionMeetsRequirement("23.0.0"), true);
+  assert.strictEqual(nodeVersionMeetsRequirement("not-a-version"), false);
+  assert.strictEqual(nodeVersionMeetsRequirement("v22.18.0-nightly"), true);
 });
 
 test("shapeStatusResult marks a reachable server as up", () => {
