@@ -5,6 +5,7 @@ import type { Response } from "express";
 import {
   addSSEClient,
   broadcastProjectEvent,
+  closeAllSSEClients,
   configureProjectEventPublisher,
   consumeSignaledItemMutation,
   getProjectPresence,
@@ -98,6 +99,29 @@ test("project events and presence are isolated per project and clients are index
   // Unsubscribing removes clients from both indexes.
   assert.equal(getSSEClientCount(), 0);
   assert.equal(getProjectPresence(projectId).length, 0);
+});
+
+test("shutdown closes and removes every active SSE client", () => {
+  let ended = 0;
+  const response = {
+    write: () => true,
+    end: () => { ended += 1; },
+  } as unknown as Response;
+  addSSEClient({
+    id: "shutdown-a", projectId, userId: "user-a", displayName: "User A",
+    currentView: "items", res: response, connectedAt: new Date(),
+  });
+  addSSEClient({
+    id: "shutdown-b", projectId: otherProjectId, userId: "user-b", displayName: "User B",
+    currentView: "items", res: response, connectedAt: new Date(),
+  });
+
+  closeAllSSEClients();
+
+  assert.equal(ended, 2);
+  assert.equal(getSSEClientCount(), 0);
+  assert.deepEqual(getProjectPresence(projectId), []);
+  assert.deepEqual(getProjectPresence(otherProjectId), []);
 });
 
 test("broadcastProjectEvent notes per-item signal when data has a string itemId", () => {

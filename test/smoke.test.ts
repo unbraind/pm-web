@@ -187,6 +187,7 @@ test("registered status, doctor, and stop commands use real environment state", 
   process.env.PROJECTS_ROOT = root;
   process.env.PM_WEB_STATE_DIR = stateDir;
   const ext = await harness();
+  let target: ReturnType<typeof spawn> | null = null;
 
   try {
     const down = commandResult(await ext.runCommand({ command: "web status", options: { port }, pmRoot })) as { status?: string; port?: number };
@@ -235,17 +236,22 @@ test("registered status, doctor, and stop commands use real environment state", 
     assert.equal(stale.status, "not_running");
     assert.equal(stale.pid, 2147483647);
 
-    const target = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
-    assert.equal(typeof target.pid, "number");
-    writeFileSync(join(stateDir, `pm-web-${port}.pid`), `${target.pid}\n`, "utf8");
+    const startedTarget = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+    target = startedTarget;
+    assert.equal(typeof startedTarget.pid, "number");
+    writeFileSync(join(stateDir, `pm-web-${port}.pid`), `${startedTarget.pid}\n`, "utf8");
     const terminated = commandResult(await ext.runCommand({ command: "web stop", options: { port }, pmRoot })) as { status?: string; pid?: number };
     assert.equal(terminated.status, "stopped");
-    assert.equal(terminated.pid, target.pid);
+    assert.equal(terminated.pid, startedTarget.pid);
     await new Promise<void>((resolve) => {
-      if (target.exitCode !== null || target.signalCode !== null) resolve();
-      else target.once("exit", () => resolve());
+      if (startedTarget.exitCode !== null || startedTarget.signalCode !== null) resolve();
+      else startedTarget.once("exit", () => resolve());
     });
   } finally {
+    if (target && target.exitCode === null && target.signalCode === null) {
+      target.kill("SIGTERM");
+      await new Promise<void>((resolve) => target?.once("exit", () => resolve()));
+    }
     await ext.deactivate();
     if (previousProjectsRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousProjectsRoot;

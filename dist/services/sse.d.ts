@@ -153,6 +153,13 @@ export declare function setupSSEHeaders(res: Response): void;
 /** Return the total number of currently connected SSE clients. */
 export declare function getSSEClientCount(): number;
 /**
+ * End every active SSE response and remove it from the connection indexes.
+ *
+ * Server shutdown calls this before `server.close()` because open streaming
+ * responses otherwise keep the HTTP server's close event pending indefinitely.
+ */
+export declare function closeAllSSEClients(): void;
+/**
  * Close long-lived clients and prune stale signal entries.
  *
  * Ends and removes any client connected for more than 12 hours, schedules a

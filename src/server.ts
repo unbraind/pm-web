@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { initSchema, assertDbConfigured, pool } from "./db.ts";
 import { createApp } from "./app.ts";
 import { projectsRoot } from "./services/pm-runner.ts";
-import { cleanupStaleClients } from "./services/sse.ts";
+import { cleanupStaleClients, closeAllSSEClients } from "./services/sse.ts";
 import { startRealtimeBus } from "./services/realtime-bus.ts";
 import { startProjectWatcher } from "./services/project-watcher.ts";
 import { startMutationEventWatcher } from "./services/mutation-event-watcher.ts";
@@ -86,8 +86,13 @@ initSchema()
         .finally(() => pool.end())
         .finally(() => process.exit(0));
     });
-    process.once("SIGINT", () => server.close());
-    process.once("SIGTERM", () => server.close());
+    /** End streaming responses before waiting for the HTTP server to close. */
+    const shutdown = (): void => {
+      closeAllSSEClients();
+      server.close();
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
   })
   .catch((err) => {
     console.error("Failed to initialize pm-web runtime:", err instanceof Error ? err.message : err);

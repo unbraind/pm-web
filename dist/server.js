@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { initSchema, assertDbConfigured, pool } from "./db.js";
 import { createApp } from "./app.js";
 import { projectsRoot } from "./services/pm-runner.js";
-import { cleanupStaleClients } from "./services/sse.js";
+import { cleanupStaleClients, closeAllSSEClients } from "./services/sse.js";
 import { startRealtimeBus } from "./services/realtime-bus.js";
 import { startProjectWatcher } from "./services/project-watcher.js";
 import { startMutationEventWatcher } from "./services/mutation-event-watcher.js";
@@ -70,9 +70,23 @@ initSchema()
         console.error(`Server error on :${PORT}:`, err.message);
         process.exit(1);
     });
-    server.on("close", () => { stopProjectWatcher(); stopMutationEventWatcher(); void closeRealtimeBus(); });
     // Periodic cleanup of stale SSE clients
-    setInterval(cleanupStaleClients, 5 * 60 * 1000);
+    const staleClientTimer = setInterval(cleanupStaleClients, 5 * 60 * 1000);
+    server.on("close", () => {
+        clearInterval(staleClientTimer);
+        stopProjectWatcher();
+        stopMutationEventWatcher();
+        void closeRealtimeBus()
+            .finally(() => pool.end())
+            .finally(() => process.exit(0));
+    });
+    /** End streaming responses before waiting for the HTTP server to close. */
+    const shutdown = () => {
+        closeAllSSEClients();
+        server.close();
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
 })
     .catch((err) => {
     console.error("Failed to initialize pm-web runtime:", err instanceof Error ? err.message : err);
