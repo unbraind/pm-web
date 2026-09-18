@@ -353,6 +353,28 @@ export function getSSEClientCount() {
     return byId.size;
 }
 /**
+ * End every active SSE response and remove it from the connection indexes.
+ *
+ * Server shutdown calls this before `server.close()` because open streaming
+ * responses otherwise keep the HTTP server's close event pending indefinitely.
+ */
+export function closeAllSSEClients() {
+    for (const client of [...byId.values()]) {
+        try {
+            client.res.end();
+        }
+        catch (error) {
+            // One response that cannot end (e.g. its socket already failed) must not
+            // abort shutdown: the remaining streams still have to close, and the
+            // caller still has to reach server.close().
+            console.error(`SSE client ${client.id} failed to end during shutdown:`, error instanceof Error ? error.message : error);
+        }
+        finally {
+            removeClient(client);
+        }
+    }
+}
+/**
  * Close long-lived clients and prune stale signal entries.
  *
  * Ends and removes any client connected for more than 12 hours, schedules a
