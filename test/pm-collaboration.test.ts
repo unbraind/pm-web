@@ -251,8 +251,21 @@ test("the real HTTP command surface preserves an item's lifecycle and related re
     `${base}/list?status=open&type=Task&limit=10&priority=2&sprint=s1&release=r1&assignee=nobody`,
   );
   assert.equal(listed.status, 200);
+  const unfiltered = await authedFetch(server, harness.owner, `${base}/list`);
+  assert.equal(unfiltered.status, 200);
   const all = await authedFetch(server, harness.owner, `${base}/list-all?type=Task&limit=1`);
   assert.equal(all.status, 200);
+  const allBody = await all.json() as { next_cursor?: string };
+  if (allBody.next_cursor) {
+    const nextPage = await authedFetch(
+      server,
+      harness.owner,
+      `${base}/list-all?type=Task&limit=1&after=${encodeURIComponent(allBody.next_cursor)}`,
+    );
+    assert.equal(nextPage.status, 200, `${allBody.next_cursor}: ${await nextPage.clone().text()}`);
+  }
+  const unfilteredAll = await authedFetch(server, harness.owner, `${base}/list-all`);
+  assert.equal(unfilteredAll.status, 200);
   const searched = await authedFetch(server, harness.owner, `${base}/search?q=Lifecycle`);
   assert.equal(searched.status, 200);
   assert.equal((await searched.json() as { count?: number }).count, 3);
@@ -275,6 +288,8 @@ test("the real HTTP command surface preserves an item's lifecycle and related re
   const fetched = await authedFetch(server, harness.owner, `${base}/get/${childId}`);
   assert.equal(fetched.status, 200);
   assert.match(await fetched.text(), /Lifecycle updated/);
+  const missingGet = await authedFetch(server, harness.owner, `${base}/get/co-does-not-exist`);
+  assert.equal(missingGet.status, 404);
 
   const comment = await authedFetch(server, harness.owner, `${base}/comments/${childId}`, {
     method: "POST",
@@ -335,7 +350,16 @@ test("the real HTTP command surface preserves an item's lifecycle and related re
   });
   assert.equal(removeRelation.status, 200, await removeRelation.clone().text());
 
-  for (const route of ["context?depth=brief", "activity?limit=5", "stats", "aggregate", "calendar", "health"]) {
+  for (const route of [
+    "context?depth=brief",
+    "context?depth=unsupported",
+    "activity?limit=5",
+    "activity",
+    "stats",
+    "aggregate",
+    "calendar",
+    "health",
+  ]) {
     const response = await authedFetch(server, harness.editor, `${base}/${route}`);
     assert.equal(response.status, 200, `${route}: ${await response.clone().text()}`);
   }
