@@ -186,10 +186,11 @@ test("registered status, doctor, and stop commands use real environment state", 
   const previousStateDir = process.env.PM_WEB_STATE_DIR;
   process.env.PROJECTS_ROOT = root;
   process.env.PM_WEB_STATE_DIR = stateDir;
-  const ext = await harness();
+  let ext: Awaited<ReturnType<typeof harness>> | undefined;
   let target: ReturnType<typeof spawn> | null = null;
 
   try {
+    ext = await harness();
     const down = commandResult(await ext.runCommand({ command: "web status", options: { port }, pmRoot })) as { status?: string; port?: number };
     assert.equal(down.status, "down");
     assert.equal(down.port, port);
@@ -252,7 +253,7 @@ test("registered status, doctor, and stop commands use real environment state", 
       target.kill("SIGTERM");
       await new Promise<void>((resolve) => target?.once("exit", () => resolve()));
     }
-    await ext.deactivate();
+    await ext?.deactivate();
     if (previousProjectsRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousProjectsRoot;
     if (previousStateDir === undefined) delete process.env.PM_WEB_STATE_DIR;

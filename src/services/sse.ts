@@ -404,6 +404,11 @@ export function closeAllSSEClients(): void {
   for (const client of [...byId.values()]) {
     try {
       client.res.end();
+    } catch (error) {
+      // One response that cannot end (e.g. its socket already failed) must not
+      // abort shutdown: the remaining streams still have to close, and the
+      // caller still has to reach server.close().
+      console.error(`SSE client ${client.id} failed to end during shutdown:`, error instanceof Error ? error.message : error);
     } finally {
       removeClient(client);
     }
