@@ -109,10 +109,10 @@ test("client B receives client A's item mutation over the real SSE route", async
     headers: authHeaders(harness.editor),
     signal: controller.signal,
   });
-  const event = waitForEvent(stream, "item-created");
-
-  const itemId = await createItem(server, harness.owner, harness.projectId, "SSE shared mutation");
-  const received = await event;
+  const [received, itemId] = await Promise.all([
+    waitForEvent(stream, "item-created"),
+    createItem(server, harness.owner, harness.projectId, "SSE shared mutation"),
+  ]);
   controller.abort();
   assert.match(received, new RegExp(itemId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(received, new RegExp(harness.owner.id));
@@ -261,15 +261,18 @@ test("the real HTTP command surface preserves an item's lifecycle and related re
   assert.equal(unfiltered.status, 200);
   const all = await authedFetch(server, harness.owner, `${base}/list-all?type=Task&limit=1`);
   assert.equal(all.status, 200);
-  const allBody = await all.json() as { next_cursor?: string };
-  if (allBody.next_cursor) {
-    const nextPage = await authedFetch(
-      server,
-      harness.owner,
-      `${base}/list-all?type=Task&limit=1&after=${encodeURIComponent(allBody.next_cursor)}`,
-    );
-    assert.equal(nextPage.status, 200, `${allBody.next_cursor}: ${await nextPage.clone().text()}`);
-  }
+  const allBody = await all.json() as { items?: Array<{ id: string }>; next_cursor?: string };
+  assert.equal(allBody.items?.length, 1);
+  assert.ok(allBody.next_cursor, "two visible Task items with limit=1 must page");
+  const nextPage = await authedFetch(
+    server,
+    harness.owner,
+    `${base}/list-all?type=Task&limit=1&after=${encodeURIComponent(allBody.next_cursor)}`,
+  );
+  assert.equal(nextPage.status, 200, `${allBody.next_cursor}: ${await nextPage.clone().text()}`);
+  const nextBody = await nextPage.json() as { items?: Array<{ id: string }> };
+  assert.equal(nextBody.items?.length, 1);
+  assert.notEqual(nextBody.items?.[0]?.id, allBody.items?.[0]?.id);
   const unfilteredAll = await authedFetch(server, harness.owner, `${base}/list-all`);
   assert.equal(unfilteredAll.status, 200);
   const searched = await authedFetch(server, harness.owner, `${base}/search?q=Lifecycle`);
