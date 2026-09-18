@@ -21,8 +21,10 @@ test("resolvePort defaults to 4000", () => {
   assert.strictEqual(resolvePort({}, {}), "4000");
 });
 
-test("resolvePort ignores empty flag and empty env", () => {
+test("resolvePort ignores absent values while retaining numeric zero", () => {
   assert.strictEqual(resolvePort({ port: "" }, { PORT: "" }), "4000");
+  assert.strictEqual(resolvePort({ port: null }, { PORT: "4555" }), "4555");
+  assert.strictEqual(resolvePort({ port: 0 }, { PORT: "4555" }), "0");
 });
 
 test("pidfilePath keys by port in the temp dir by default", () => {
@@ -33,6 +35,7 @@ test("pidfilePath keys by port in the temp dir by default", () => {
 test("pidfilePath honors PM_WEB_STATE_DIR", () => {
   const p = pidfilePath("4000", { PM_WEB_STATE_DIR: "/var/state" }, os.tmpdir());
   assert.strictEqual(p, path.join("/var/state", "pm-web-4000.pid"));
+  assert.strictEqual(pidfilePath("4001", { PM_WEB_STATE_DIR: "" }, "/tmp/fallback"), path.join("/tmp/fallback", "pm-web-4001.pid"));
 });
 
 test("nodeVersionMeetsRequirement enforces the package engine floor", () => {
