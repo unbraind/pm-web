@@ -100,13 +100,16 @@ async function setupCollabTest(t: test.TestContext): Promise<{
 }> {
   const previousRoot = process.env.PROJECTS_ROOT;
   const harness = await createCollaborationHarness();
-  const server = await startApp();
+  // Teardown is registered before startApp() so a rejected start still removes the root and restores env.
+  const startedServer: { current?: AppServer } = {};
   t.after(async () => {
-    await server.close();
+    if (startedServer.current) await startedServer.current.close();
     await rm(harness.root, { recursive: true, force: true });
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousRoot;
   });
+  const server = await startApp();
+  startedServer.current = server;
   return { harness, server };
 }
 
