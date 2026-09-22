@@ -12,6 +12,11 @@ import { loadItemsBadge } from './projects.js';
 import { renderLocalGraph, destroyLocalGraph } from './graph.js';
 import { EMPTY_FILTERS, filtersToQueryString, filtersFromSearchParams, hasActiveFilters } from '../filters.js';
 import type { Item } from '../types.js';
+
+/** Store the fetched item list outside the async loader. */
+function rememberItems(items: Item[]): void {
+  state.items = items;
+}
 import type {
   CloseManyResponse,
   CommentsResponse,
@@ -561,7 +566,7 @@ export async function renderItemsView(): Promise<void> {
       </select>
       <select class="filter-select" id="filter-priority" onchange="window.__app.applyItemFilters()">
         <option value="">All Priorities</option>
-        ${[0,1,2,3,4].map(p=>`<option value="${p}"${state.itemFilters.priority==String(p)?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+        ${[0,1,2,3,4].map(p=>`<option value="${p}"${state.itemFilters.priority===String(p)?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
       </select>
       <input class="filter-select" id="filter-sprint" type="text" placeholder="Sprint…" value="${escHtml(state.itemFilters.sprint)}" oninput="window.__app.applyItemFilters()" style="width:100px">
       <input class="filter-select" id="filter-release" type="text" placeholder="Release…" value="${escHtml(state.itemFilters.release)}" oninput="window.__app.applyItemFilters()" style="width:100px">
@@ -604,7 +609,7 @@ export async function fetchAndRenderItems(): Promise<void> {
     if (tag) {
       items = items.filter((i) => (i.tags || []).some((t) => t.toLowerCase() === tag));
     }
-    state.items = items;
+    rememberItems(items);
     const sub = document.getElementById('items-subtitle');
     if (sub) sub.textContent = `${state.items.length} item${state.items.length!==1?'s':''}`;
     renderItemsList();
@@ -884,7 +889,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <div class="form-group">
             <label class="form-label">Priority</label>
             <select class="form-select" id="edit-priority">
-              ${[0,1,2,3,4].map(p=>`<option value="${p}"${item.priority==p?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+              ${[0,1,2,3,4].map(p=>`<option value="${p}"${item.priority===p?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
             </select>
           </div>
         </div>

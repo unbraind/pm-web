@@ -33,7 +33,7 @@ test("semaphore hands a released slot directly to the oldest waiter", async () =
     return release;
   });
 
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  await new Promise<void>((resolve) => { setImmediate(resolve); });
   assert.equal(secondAcquired, true);
   assert.equal(thirdAcquired, false, "a new acquire must not steal a slot handed to a waiter");
 

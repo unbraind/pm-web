@@ -291,10 +291,12 @@ search, `/` focus search, `n`/`c` new item, `t` cycle theme, `a` activity,
 This repo tracks its project management in `.agents/pm/` and ships a committed `.gitattributes`
 that maps those tracker artifacts to pm-cli's field-aware Git merge drivers, so concurrent-branch
 tracker edits merge cleanly instead of hard-conflicting. The driver **definitions** live in
-per-clone Git config; `npm install` / `npm ci` wires them automatically via the `prepare` script (a portable Node guard, `scripts/prepare-merge-driver.mjs`: it runs
-`pm merge install` only when the `pm` CLI is on `PATH`, and no-ops cleanly otherwise so
-production / `--omit=dev` installs are not broken; being Node-based it behaves identically
-on POSIX shells and Windows `cmd.exe`). To (re)run manually: `npm run merge:install`.
+per-clone Git config; `npm install` / `npm ci` from a clone wires them automatically via the
+`prepare` script (`scripts/prepare-merge-driver.ts`, a thin launcher over `pm-ops/merge-driver`, which
+runs `pm merge install` only when the `pm` CLI is resolvable and exits 0 with a one-line notice
+otherwise). Registry installs never run `prepare`, and a production install of a clone
+(`npm ci --omit=dev`) omits `pm-ops` itself, so it must pass `--ignore-scripts`; making that launcher
+guarded is tracked as companion item pm-cli-website-xy19. To (re)run manually: `npm run merge:install`.
 
 After merging a branch that touched `.agents/pm/`, reconcile any residual history-hash drift with
 **`pm merge reconcile`** (pm-cli ≥ 2026.7.22): preview with `pm merge reconcile --dry-run`, apply with

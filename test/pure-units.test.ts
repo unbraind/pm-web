@@ -99,12 +99,12 @@ async function probeApp(): Promise<{ url: (path: string) => string; close: () =>
   });
 
   const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", () => { resolve(); }); });
   const addr = server.address();
   const port = typeof addr === "object" && addr ? addr.port : 0;
   return {
     url: (path: string) => `http://127.0.0.1:${port}${path}`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () => new Promise<void>((resolve) => { server.close(() => { resolve(); }); }),
   };
 }
 

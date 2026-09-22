@@ -51,14 +51,14 @@ export function resolveLocale(opts?: {
   // wants that value: `null` skips the step. A property that is absent falls
   // back to the real browser global, so the no-argument browser path still
   // works. This keeps the function deterministic and unit-testable in Node.
-  const hasStorage = opts != null && Object.prototype.hasOwnProperty.call(opts, 'storage');
+  const hasStorage = opts !== undefined && opts !== null && Object.hasOwn(opts, 'storage');
   const storage = hasStorage ? opts!.storage : safeLocalStorage();
   if (storage) {
     let stored: string | null = null;
     try { stored = storage.getItem(LOCALE_STORAGE_KEY); } catch { /* privacy mode */ }
     if (stored && isSupported(stored)) return stored;
   }
-  const hasNav = opts != null && Object.prototype.hasOwnProperty.call(opts, 'navLang');
+  const hasNav = opts !== undefined && opts !== null && Object.hasOwn(opts, 'navLang');
   const navLang = hasNav ? opts!.navLang : safeNavLang();
   if (navLang) {
     const prefix = navLang.toLowerCase().split('-')[0];
@@ -128,6 +128,16 @@ let initialized = false;
  */
 let localeReqId = 0;
 
+/** Commit the English fallback catalog. Isolated so an awaited fetch cannot race the write. */
+function rememberEnglishCatalog(catalog: Record<string, string>): void {
+  enCatalog = catalog;
+}
+
+/** Mark i18n ready. Isolated so the flag write is not paired with a stale read across await. */
+function markI18nInitialized(): void {
+  initialized = true;
+}
+
 /** Fetch a locale catalog JSON. Best-effort: returns {} on any failure. */
 async function fetchCatalog(locale: string): Promise<Record<string, string>> {
   try {
@@ -156,14 +166,14 @@ export async function initI18n(): Promise<void> {
     currentLocale = resolveLocale();
   }
   if (!Object.keys(enCatalog).length) {
-    enCatalog = await fetchCatalog('en');
+    rememberEnglishCatalog(await fetchCatalog('en'));
   }
   if (currentLocale === 'en') {
     activeCatalog = enCatalog;
   } else {
     activeCatalog = await fetchCatalog(currentLocale);
   }
-  initialized = true;
+  markI18nInitialized();
   syncHtmlLang(currentLocale);
   applyTranslations();
 }
@@ -201,14 +211,14 @@ export async function setLocale(locale: string): Promise<void> {
     const en = await fetchCatalog('en');
     // A newer setLocale superseded this one: do not assign enCatalog.
     if (myReqId !== localeReqId) return;
-    enCatalog = en;
+    rememberEnglishCatalog(en);
   }
   const fetched = next === 'en' ? enCatalog : await fetchCatalog(next);
   // Stale request: discard the fetched catalog so it can never overwrite a
   // newer selection (e.g. a slow German fetch finishing after en was chosen).
   if (myReqId !== localeReqId) return;
   activeCatalog = fetched;
-  initialized = true;
+  markI18nInitialized();
   syncHtmlLang(next);
   applyTranslations();
 }

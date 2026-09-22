@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-// The filter (de)serialization helpers are pure and live in the frontend
-// bundle (compiled to public/src/filters.js by the public tsconfig). They are
-// loaded here via a runtime dynamic import of the built JS so the test program
-// (rootDir: test/) does not pull the frontend TypeScript sources into its
-// compilation graph.
-const filtersUrl = new URL("../public/src/filters.js", import.meta.url).href;
-const mod: any = await import(filtersUrl);
-const { filtersToQueryString, filtersFromSearchParams, hasActiveFilters, EMPTY_FILTERS } = mod;
+import {
+  EMPTY_FILTERS,
+  filtersFromSearchParams,
+  filtersToQueryString,
+  hasActiveFilters,
+} from "../public/src/filters.ts";
 
 test("filtersToQueryString omits empty dimensions and is deterministic", () => {
   const qs = filtersToQueryString({
@@ -34,7 +31,8 @@ test("filtersFromSearchParams defaults missing keys to empty and ignores unknown
   assert.equal(parsed.status, "open");
   assert.equal(parsed.type, "");
   assert.equal(parsed.tag, "");
-  assert.equal(parsed["bogus"], undefined);
+  const parsedRecord: Record<string, string | undefined> = { ...parsed };
+  assert.equal(parsedRecord["bogus"], undefined);
 });
 
 test("hasActiveFilters detects whether any dimension is set", () => {

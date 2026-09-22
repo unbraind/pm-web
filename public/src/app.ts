@@ -4,7 +4,7 @@
 import { state } from './state.js';
 import { api, csrfTokenFromCookie } from './api.js';
 import type { AuthMeResponse, SearchResponse } from './api-types.js';
-import { showView, setOnViewChange } from './views/router.js';
+import { showView, setOnViewChange, getViewForPath } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
 import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, copyFilterLink, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
@@ -13,7 +13,7 @@ import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSea
 import { renderStatsView } from './views/stats.js';
 import { renderCalendarView, calNav, showDayItems } from './views/calendar.js';
 import { renderContextView } from './views/context.js';
-import { renderGraphView } from './views/graph.js';
+import { renderGraphView, refreshGraphData as refreshGraphViewData } from './views/graph.js';
 
 /** Switch to the graph view, wait for it to mount, render it, then focus the
  * node with the given id by invoking the graph view's select-node hook. */
@@ -23,7 +23,7 @@ async function openGraphAt(nodeId: string): Promise<void> {
   setTimeout(async () => {
     await renderGraphView();
     // Select the node via the graph canvas
-    window.__graphSelectNode?.(nodeId);
+    browserWindow().__graphSelectNode?.(nodeId);
   }, 50);
 }
 import { renderSharingView, openShareModal, submitShare, removeShare } from './views/sharing.js';
@@ -47,7 +47,8 @@ import { initI18n, setLocale as i18nSetLocale, applyTranslations } from './i18n.
 import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan, copyPlanAgentBrief, copyPlanNextStepPrompt, planEditPrompt, submitEditPlan, planDeletePrompt } from './views/plan.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
-import { escHtml } from './utils.js';
+import { escHtml, typeIcon, priorityDot, statusBadge } from './utils.js';
+import { browserWindow, isBeforeInstallPromptEvent, type BeforeInstallPromptEvent } from './browser-window.js';
 import { initTheme, cycleTheme } from './theme.js';
 
 // Apply the persisted theme immediately on script load (before boot) so the UI
@@ -195,7 +196,6 @@ async function doGlobalSearch(): Promise<void> {
   try {
     const data = await api<SearchResponse>('POST',`/projects/${state.currentProject.id}/pm/search`,{query});
     const results = data.results || data.items || [];
-    const { escHtml, typeIcon, priorityDot, statusBadge } = await import('./utils.js');
     if (resultsEl) resultsEl.innerHTML = results.length === 0
       ? `<div class="empty-state" style="padding:24px"><div class="empty-state-text">No results for "${escHtml(query)}"</div></div>`
       : `<div class="item-list">${results.map((item) =>`
@@ -213,10 +213,6 @@ async function doGlobalSearch(): Promise<void> {
 // PWA install
 // The DOM lib has no `BeforeInstallPromptEvent` type, so model the two members
 // the install flow actually uses (`prompt()` and `userChoice`).
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
@@ -421,28 +417,7 @@ const __app = {
  * handlers reach through `window.__app` is enumerated here via `typeof __app`. */
 export type AppBridge = typeof __app;
 
-// Global augmentation: type the `window.__app` bridge plus the two PWA install
-// helpers assigned below. `beforeinstallprompt` is augmented on WindowEventMap
-// so the listener receives our `BeforeInstallPromptEvent`.
-declare global {
-  interface Window {
-    __app?: AppBridge;
-    installPwa?: () => void;
-    dismissInstallBanner?: () => void;
-    /**
-     * Graph view's keydown handler, parked on `window` so the view can detach
-     * the exact same function reference when it tears down.
-     */
-    __graphKeyHandler?: (e: KeyboardEvent) => void;
-    /** Set by the graph view so other views can focus a node by item id. */
-    __graphSelectNode?: (id: string) => void;
-  }
-  interface WindowEventMap {
-    beforeinstallprompt: BeforeInstallPromptEvent;
-  }
-}
-
-window.__app = __app;
+browserWindow().__app = __app;
 
 // ═══════════════════════════════════════════════════════════════
 // SSE REAL-TIME SYNC
@@ -613,7 +588,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     // Graph-synced events (Neo4j sync complete) do a full graph reload
     const refreshGraph = () => {
       if (state.currentView === 'graph') {
-        import('./views/graph.js').then((module) => module.renderGraphView());
+        void renderGraphView();
       }
     };
 
@@ -639,7 +614,7 @@ function connectSSE(projectId: string, attempt = 0): void {
         } catch { /* ignore parse errors */ }
       }
       if (state.currentView === 'graph') {
-        import('./views/graph.js').then((module) => module.refreshGraphData());
+        void refreshGraphViewData();
       } else {
         refreshView();
       }
@@ -766,7 +741,6 @@ async function handleLaunchAction(): Promise<void> {
   }
 
   // Restore view from URL path (supports refresh/bookmark)
-  const { getViewForPath } = await import('./views/router.js');
   const view = getViewForPath(window.location.pathname);
 
   // If view requires a project and none is selected, try to select first one
@@ -945,9 +919,10 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════════════════════════════
 // PWA INSTALL PROMPT
 // ═══════════════════════════════════════════════════════════════
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
+window.addEventListener('beforeinstallprompt', (event) => {
+  if (!isBeforeInstallPromptEvent(event)) return;
+  event.preventDefault();
+  deferredPrompt = event;
   const banner = document.getElementById('install-banner');
   if (banner && !localStorage.getItem('pm-web-install-dismissed')) {
     banner.classList.add('visible');
@@ -961,7 +936,7 @@ window.addEventListener('appinstalled', () => {
   toast('pm-web installed!', 'success');
 });
 
-window.installPwa = function(): void {
+browserWindow().installPwa = function(): void {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
   deferredPrompt.userChoice.then((result) => {
@@ -974,7 +949,7 @@ window.installPwa = function(): void {
   });
 };
 
-window.dismissInstallBanner = function(): void {
+browserWindow().dismissInstallBanner = function(): void {
   localStorage.setItem('pm-web-install-dismissed', '1');
   const banner = document.getElementById('install-banner');
   if (banner) banner.classList.remove('visible');

@@ -240,6 +240,15 @@ export interface ProjectWatcherDeps {
   onError?: (err: unknown) => void;
 }
 
+/** Adapt a one-shot signature reader into a sweep step that always completes. */
+function bindLegacySignature(
+  readSignature: (projectDir: string) => Promise<string>,
+): NonNullable<ProjectWatcherDeps["stepSignature"]> {
+  return async function readLegacySignature(dir: string): Promise<{ completed: boolean; signature?: string }> {
+    return { completed: true, signature: await readSignature(dir) };
+  };
+}
+
 // Pure, testable cycle. Holds per-project baseline state across ticks.
 export function createProjectWatchCycle(deps: ProjectWatcherDeps = {}): {
   tick: () => Promise<void>;
@@ -257,12 +266,11 @@ export function createProjectWatchCycle(deps: ProjectWatcherDeps = {}): {
 
   // A caller-supplied one-shot `readSignature` is adapted into a sweep that
   // completes on the first tick, so legacy callers/tests keep exact semantics.
+  // A named function keeps the return type off an arrow, which the lint parser
+  // rejects when a generic annotation follows `=>` in this ternary.
   const legacyReadSig = deps.readSignature;
   const stepSig = legacyReadSig
-    ? async (dir: string): Promise<{ completed: boolean; signature?: string }> => ({
-        completed: true,
-        signature: await legacyReadSig(dir),
-      })
+    ? bindLegacySignature(legacyReadSig)
     : deps.stepSignature ?? stepWorkspaceSweep;
 
   const lastSeen = new Map<string, string>();

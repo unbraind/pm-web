@@ -6,6 +6,7 @@ import { state } from '../state.js';
 import type { GraphNode, GraphRelationship, ProjectGraph } from '../types.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
+import { browserWindow } from '../browser-window.js';
 import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode } from './graph-canvas.js';
 
 type GraphResponse = {
@@ -34,6 +35,11 @@ let selectedNodeId = '';
 const canvasRef: { current: GraphCanvas | null } = { current: null };
 let physicsLabel = 'Pause Physics';
 let graphSyncInFlight = false;
+
+/** Record whether a graph sync is running, outside the async sync function. */
+function setGraphSyncInFlight(active: boolean): void {
+  graphSyncInFlight = active;
+}
 let infoDrawerOpen   = false;
 let relDrawerOpen    = false;
 let filterOpen       = false;
@@ -98,7 +104,7 @@ function showCtxMenu(nodeId: string, x: number, y: number): void {
   };
 
   if (isItem) {
-    menu.appendChild(btn('⊡', 'Open Item', () => window.__app?.openItemDetail(nodeId)));
+    menu.appendChild(btn('⊡', 'Open Item', () => browserWindow().__app?.openItemDetail(nodeId)));
     const sep1 = document.createElement('div'); sep1.className = 'graph-ctx-sep'; menu.appendChild(sep1);
   }
   menu.appendChild(btn('⊙', 'Select & Focus', () => {
@@ -1053,7 +1059,7 @@ function initCanvas(): void {
       else selectedItemCache = null;
     },
     onOpenNode(id) {
-      window.__app?.openItemDetail(id);
+      browserWindow().__app?.openItemDetail(id);
     },
     onContextMenu(id, x, y) { showCtxMenu(id, x, y); },
   });
@@ -1185,7 +1191,7 @@ function updateLegend(): void {
 /** Binds click handlers for the info-panel controls (open and clear the selected item, add and remove dependency) and for neighbor, tag, and relationship rows so they update the selection and canvas. */
 function bindInfoPanelEvents(): void {
   document.getElementById('graph-open-selected')?.addEventListener('click', () => {
-    if (selectedNodeId) window.__app?.openItemDetail(selectedNodeId);
+    if (selectedNodeId) browserWindow().__app?.openItemDetail(selectedNodeId);
   });
   document.getElementById('graph-clear-selected')?.addEventListener('click', () => {
     selectedNodeId = '';
@@ -1245,15 +1251,15 @@ function bindHudEvents(): void {
   document.getElementById('graph-back-btn')?.addEventListener('click', () => {
     removeCtxMenu();
     // Remove graph keyboard handler
-    const kh = window.__graphKeyHandler;
-    if (kh) { document.removeEventListener('keydown', kh); delete window.__graphKeyHandler; }
-    window.__app?.showView('items');
+    const kh = browserWindow().__graphKeyHandler;
+    if (kh) { document.removeEventListener('keydown', kh); delete browserWindow().__graphKeyHandler; }
+    browserWindow().__app?.showView('items');
   });
 
   const runGraphSync = async (): Promise<void> => {
     if (!state.currentProject || graphSyncInFlight) return;
     const syncBtn = document.getElementById('graph-sync-btn') as HTMLButtonElement | null;
-    graphSyncInFlight = true;
+    setGraphSyncInFlight(true);
     if (syncBtn) {
       syncBtn.disabled = true;
       syncBtn.textContent = 'Syncing…';
@@ -1265,7 +1271,7 @@ function bindHudEvents(): void {
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : String(err), 'error');
     } finally {
-      graphSyncInFlight = false;
+      setGraphSyncInFlight(false);
       if (syncBtn) {
         syncBtn.disabled = false;
         syncBtn.textContent = '⧉ Sync';
@@ -1572,7 +1578,7 @@ function bindHudEvents(): void {
   };
   document.addEventListener('keydown', graphKeyHandler);
   // Store for cleanup on graph exit
-  window.__graphKeyHandler = graphKeyHandler;
+  browserWindow().__graphKeyHandler = graphKeyHandler;
 }
 
 // ── URL routing (pushState) ─────────────────────────────────
@@ -1699,7 +1705,7 @@ function showRemoveDependencyModal(): void {
   }).join('');
 
   if (!depRels.length) {
-    window.__app?.toast('No dependencies to remove', 'info');
+    browserWindow().__app?.toast('No dependencies to remove', 'info');
     return;
   }
 
@@ -1893,12 +1899,12 @@ export async function renderLocalGraph(
       if (id !== nodeId) {
         const n = nodes.find((nd) => nd.id === id);
         if (n && isItemNode(n)) {
-          window.__app?.openItemDetail(id);
+          browserWindow().__app?.openItemDetail(id);
         }
       }
     },
     onOpenNode(id) {
-      window.__app?.openItemDetail(id);
+      browserWindow().__app?.openItemDetail(id);
     },
     onContextMenu() { /* no context menu in local graph */ },
   });

@@ -40,7 +40,7 @@ test("presence view updates require the exact user and project session", async (
     assert.equal(updateClientView("client-a", "user-b", projectId, "graph"), false);
     assert.equal(updateClientView("client-a", "user-a", "22222222-2222-4222-8222-222222222222", "graph"), false);
     assert.equal(updateClientView("client-a", "user-a", projectId, "graph"), true);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => { setTimeout(resolve, 100); });
     assert.match(target.writes.join(""), /"currentView":"graph"/);
   } finally {
     unsubscribe();
@@ -62,7 +62,7 @@ test("project events deliver locally and invoke the configured cross-process pub
   configureProjectEventPublisher(async (id, event) => { published.push({ projectId: id, type: event.type }); });
   try {
     broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "test" } });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
     assert.match(target.writes.join(""), /event: workspace-changed/);
     assert.deepEqual(published, [{ projectId, type: "workspace-changed" }]);
   } finally {
@@ -89,7 +89,7 @@ test("project events and presence are isolated per project and clients are index
 
     // An event for `projectId` must reach only that project's clients.
     broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "iso" } });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
     assert.match(a.writes.join(""), /event: workspace-changed/);
     assert.doesNotMatch(b.writes.join(""), /event: workspace-changed/);
   } finally {

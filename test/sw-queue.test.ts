@@ -10,118 +10,25 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  mockRequest,
+  mockStore,
+  swQueue,
+  swQueueInternals,
+} from "./helpers/sw-queue-preload.ts";
+import "../public/src/sw.ts";
 
-// ── Mock IndexedDB ──
-
-/** Whether the next `indexedDB.open()` call should reject. */
-let openShouldFail = false;
-/** The result array returned by the next `store.getAll()` call. */
-let getAllResult: unknown[] = [];
-/** Whether the next `store.getAll()` request should error. */
-let getAllShouldFail = false;
-/** Count of `store.delete()` calls, to prove no mutations are lost on read failure. */
-let deleteCallCount = 0;
-/** Last mutation record passed to `store.add`, used to verify token durability. */
-let lastAdded: unknown;
-
-/**
- * Minimal mock IDB request: stores the success/error callbacks and fires one
- * via a microtask so the caller has time to assign `onsuccess`/`onerror`.
- */
-function mockRequest(result: unknown, shouldFail: boolean): IDBRequest {
-  const req: IDBRequest = {
-    result,
-    error: shouldFail ? new Error("mock IDB read failure") : null,
-    onupgradeneeded: null,
-    onsuccess: null,
-    onerror: null,
-  } as unknown as IDBRequest;
-  queueMicrotask(() => {
-    if (shouldFail) (req.onerror as (() => void) | null)?.();
-    else (req.onsuccess as (() => void) | null)?.();
-  });
-  return req;
-}
-
-const mockStore: IDBObjectStore = {
-  getAll: () => mockRequest(getAllResult, getAllShouldFail),
-  add: (value: unknown) => { lastAdded = value; return mockRequest(undefined, false); },
-  delete: () => { deleteCallCount++; return mockRequest(undefined, false); },
-} as unknown as IDBObjectStore;
-
-const mockTransaction: IDBTransaction = {
-  objectStore: () => mockStore,
-  oncomplete: null,
-  onabort: null,
-  onerror: null,
-} as unknown as IDBTransaction;
-
-// Schedule oncomplete after the caller assigns handlers.
-function scheduleCommit(): void {
-  queueMicrotask(() => (mockTransaction.oncomplete as (() => void) | null)?.());
-}
-
-const mockDB: IDBDatabase = {
-  transaction: () => { scheduleCommit(); return mockTransaction; },
-  objectStoreNames: { contains: () => true } as unknown as DOMStringList,
-  close: () => {},
-} as unknown as IDBDatabase;
-
-const mockIndexedDB: IDBFactory = {
-  open: () => mockRequest(mockDB, openShouldFail),
-} as unknown as IDBFactory;
-
-// ── Mock ServiceWorkerGlobalScope surface ──
-
-const postedMessages: { type: string; [key: string]: unknown }[] = [];
-const mockClients = [
-  { postMessage: (msg: unknown) => postedMessages.push(msg as { type: string; [key: string]: unknown }) },
-];
-
-const mockSelf = {
-  addEventListener: () => {},
-  skipWaiting: () => {},
-  clients: {
-    matchAll: async () => mockClients,
-    claim: () => {},
-  },
-};
-
-// Install mocks and the test-harness flag before importing sw.ts.
-const g = globalThis as unknown as Record<string, unknown>;
-g.self = mockSelf;
-g.indexedDB = mockIndexedDB;
-g.caches = { open: async () => ({ add: async () => {}, put: async () => {}, match: async () => undefined }), keys: async () => [], delete: async () => true };
-g.__swTestHarness = true;
-
-// ── Import sw.ts (runs module-level code, registers listeners, exposes internals) ──
-
-const swUrl = new URL("../public/src/sw.ts", import.meta.url).href;
-await import(swUrl);
-
-interface QueueReadResultLike {
-  ok: boolean;
-  mutations?: unknown[];
-  error?: unknown;
-}
-
-const internals = (g.__swInternals as {
-  getQueuedMutations: () => Promise<QueueReadResultLike>;
-  flushMutationQueue: () => Promise<void>;
-  clearMutation: (id: number) => Promise<boolean>;
-  queueMutation: (
-    method: string,
-    path: string,
-    body: unknown,
-  ) => Promise<boolean>;
-});
+const internals = swQueueInternals();
+const {
+  postedMessages,
+} = swQueue;
 
 // ── Tests ──
 
 test("sw queue: getQueuedMutations returns ok:false on storage failure, not an empty array", async () => {
-  openShouldFail = true;
+  swQueue.openShouldFail = true;
   const result = await internals.getQueuedMutations();
-  openShouldFail = false;
+  swQueue.openShouldFail = false;
 
   assert.equal(result.ok, false, "read failure must return ok:false");
   assert.ok(result.error !== undefined, "read failure must carry the error");
@@ -129,10 +36,10 @@ test("sw queue: getQueuedMutations returns ok:false on storage failure, not an e
 });
 
 test("sw queue: a read failure does not report the queue as drained", async () => {
-  openShouldFail = true;
+  swQueue.openShouldFail = true;
   postedMessages.length = 0;
   await internals.flushMutationQueue();
-  openShouldFail = false;
+  swQueue.openShouldFail = false;
 
   assert.equal(postedMessages.length, 0, "no client messages on initial read failure");
   for (const msg of postedMessages) {
@@ -141,18 +48,18 @@ test("sw queue: a read failure does not report the queue as drained", async () =
 });
 
 test("sw queue: a read failure does not delete or lose queued mutations", async () => {
-  openShouldFail = true;
-  deleteCallCount = 0;
+  swQueue.openShouldFail = true;
+  swQueue.deleteCallCount = 0;
   await internals.flushMutationQueue();
-  openShouldFail = false;
+  swQueue.openShouldFail = false;
 
-  assert.equal(deleteCallCount, 0, "no delete calls on read failure — mutations must not be lost");
+  assert.equal(swQueue.deleteCallCount, 0, "no delete calls on read failure — mutations must not be lost");
 });
 
 test("sw queue: an empty queue is reported as ok:true with an empty array, not as a failure", async () => {
-  openShouldFail = false;
-  getAllResult = [];
-  getAllShouldFail = false;
+  swQueue.openShouldFail = false;
+  swQueue.getAllResult = [];
+  swQueue.getAllShouldFail = false;
 
   const result = await internals.getQueuedMutations();
 
@@ -161,9 +68,9 @@ test("sw queue: an empty queue is reported as ok:true with an empty array, not a
 });
 
 test("sw queue: an empty queue flush is a no-op — the two outcomes do not collapse", async () => {
-  openShouldFail = false;
-  getAllResult = [];
-  getAllShouldFail = false;
+  swQueue.openShouldFail = false;
+  swQueue.getAllResult = [];
+  swQueue.getAllShouldFail = false;
   postedMessages.length = 0;
 
   await internals.flushMutationQueue();
@@ -172,22 +79,22 @@ test("sw queue: an empty queue flush is a no-op — the two outcomes do not coll
 });
 
 test("sw queue: an offline mutation is persisted without a stale session token", async () => {
-  lastAdded = undefined;
+  swQueue.lastAdded = undefined;
   assert.equal(
     await internals.queueMutation("PATCH", "/items/one", { title: "updated" }),
     true,
   );
-  assert.deepEqual(lastAdded, {
+  assert.deepEqual(swQueue.lastAdded, {
     method: "PATCH",
     path: "/items/one",
     body: JSON.stringify({ title: "updated" }),
-    timestamp: (lastAdded as { timestamp: number }).timestamp,
+    timestamp: (swQueue.lastAdded as { timestamp: number }).timestamp,
   });
 });
 
 test("sw queue: a stale mutation token is refreshed and replayed without data loss", async () => {
-  openShouldFail = false;
-  getAllResult = [
+  swQueue.openShouldFail = false;
+  swQueue.getAllResult = [
     {
       id: 1,
       method: "PATCH",
@@ -197,8 +104,8 @@ test("sw queue: a stale mutation token is refreshed and replayed without data lo
       timestamp: 0,
     },
   ];
-  getAllShouldFail = false;
-  deleteCallCount = 0;
+  swQueue.getAllShouldFail = false;
+  swQueue.deleteCallCount = 0;
   postedMessages.length = 0;
 
   const originalFetch = globalThis.fetch;
@@ -220,7 +127,7 @@ test("sw queue: a stale mutation token is refreshed and replayed without data lo
     let readCount = 0;
     (mockStore as unknown as Record<string, unknown>).getAll = () => {
       readCount++;
-      return mockRequest(readCount === 1 ? getAllResult : [], false);
+      return mockRequest(readCount === 1 ? swQueue.getAllResult : [], false);
     };
     await internals.flushMutationQueue();
   } finally {
@@ -232,15 +139,15 @@ test("sw queue: a stale mutation token is refreshed and replayed without data lo
     { input: "/api/auth/me", token: null },
     { input: "/api/items/stale", token: "migrated-token" },
   ]);
-  assert.equal(deleteCallCount, 1, "the successfully replayed stale record is cleared once");
+  assert.equal(swQueue.deleteCallCount, 1, "the successfully replayed stale record is cleared once");
   assert.deepEqual(postedMessages, [{ type: "MUTATIONS_REPLAYED", count: 1 }]);
 });
 
 test("sw queue: a failed token bootstrap preserves every queued mutation", async () => {
-  openShouldFail = false;
-  getAllResult = [{ id: 1, method: "PATCH", path: "/items/preserved", body: null, timestamp: 0 }];
-  getAllShouldFail = false;
-  deleteCallCount = 0;
+  swQueue.openShouldFail = false;
+  swQueue.getAllResult = [{ id: 1, method: "PATCH", path: "/items/preserved", body: null, timestamp: 0 }];
+  swQueue.getAllShouldFail = false;
+  swQueue.deleteCallCount = 0;
   postedMessages.length = 0;
 
   const originalFetch = globalThis.fetch;
@@ -251,7 +158,7 @@ test("sw queue: a failed token bootstrap preserves every queued mutation", async
     (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
   }
 
-  assert.equal(deleteCallCount, 0, "bootstrap failure must not delete queued work");
+  assert.equal(swQueue.deleteCallCount, 0, "bootstrap failure must not delete queued work");
   assert.equal(postedMessages.length, 0, "bootstrap failure cannot claim replay progress");
 });
 
@@ -264,12 +171,12 @@ test("sw queue: a final read failure after replay reports the known replayed cou
   // non-trivial - a test asserting `replayed: 1` cannot tell a real count from
   // an off-by-one. The flush must report MUTATIONS_PARTIAL carrying that count
   // rather than MUTATIONS_REPLAYED.
-  openShouldFail = false;
-  getAllResult = [
+  swQueue.openShouldFail = false;
+  swQueue.getAllResult = [
     { id: 1, method: "POST", path: "/items", body: null, csrfToken: "queued-csrf", timestamp: 0 },
     { id: 2, method: "POST", path: "/items", body: null, csrfToken: "queued-csrf", timestamp: 0 },
   ];
-  getAllShouldFail = false;
+  swQueue.getAllShouldFail = false;
   postedMessages.length = 0;
 
   const originalFetch = globalThis.fetch;
@@ -292,7 +199,7 @@ test("sw queue: a final read failure after replay reports the known replayed cou
     (mockStore as unknown as Record<string, unknown>).getAll = () => {
       callCount++;
       // The second read is the post-replay re-read; fail only that one.
-      return callCount === 2 ? mockRequest([], true) : mockRequest(getAllResult, false);
+      return callCount === 2 ? mockRequest([], true) : mockRequest(swQueue.getAllResult, false);
     };
 
     await internals.flushMutationQueue();

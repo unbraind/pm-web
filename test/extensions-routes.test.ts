@@ -10,7 +10,6 @@ import { createApp } from "../src/app.ts";
 import { signToken } from "../src/auth.ts";
 import { pool } from "../src/db.ts";
 import { addSSEClient, type SSEClient } from "../src/services/sse.ts";
-import type { Pool } from "pg";
 
 // Package root: test/ compiles to dist-test/, so go up one level from there.
 const packageRoot = path.resolve(
@@ -132,10 +131,18 @@ process.stdout.write(JSON.stringify({ ok: true, action: process.argv[3], source:
  * (including the shared-access fallback) returns empty, so a non-owner is
  * denied and the route 404s before any pm command runs.
  */
+function replacePoolQuery(
+  query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>,
+): () => void {
+  const realQuery = pool.query.bind(pool);
+  Reflect.set(pool, "query", query);
+  return () => {
+    Reflect.set(pool, "query", realQuery);
+  };
+}
+
 function stubPool(ownerUserId: string, projectId: string, slug: string): () => void {
-  const realQuery = pool.query.bind(pool) as Pool["query"];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (pool as any).query = async (text: string, params?: unknown[]) => {
+  return replacePoolQuery(async (text: string, params?: unknown[]) => {
     const sql = String(text);
     if (
       sql.includes("user_id = $2") &&
@@ -156,11 +163,7 @@ function stubPool(ownerUserId: string, projectId: string, slug: string): () => v
       };
     }
     return { rows: [], rowCount: 0 };
-  };
-  return () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (pool as any).query = realQuery;
-  };
+  });
 }
 
 async function request(
@@ -174,7 +177,7 @@ async function request(
   // it. This exercises the full middleware + route stack (auth, mergeParams,
   // body parsing) with no test-only HTTP mocking library.
   const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : 0;
   try {
@@ -190,7 +193,7 @@ async function request(
     const text = await res.text();
     return { status: res.status, body: safeJson(text) };
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 }
 
@@ -258,9 +261,7 @@ function stubSharedPool(
   slug: string,
   permission: string,
 ): () => void {
-  const realQuery = pool.query.bind(pool) as Pool["query"];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (pool as any).query = async (text: string, params?: unknown[]) => {
+  return replacePoolQuery(async (text: string, params?: unknown[]) => {
     const sql = String(text);
     const row = {
       id: projectId,
@@ -276,11 +277,7 @@ function stubSharedPool(
       return { rows: [row], rowCount: 1 };
     }
     return { rows: [], rowCount: 0 };
-  };
-  return () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (pool as any).query = realQuery;
-  };
+  });
 }
 
 test("a view-only collaborator cannot mutate packages but can still list them", async () => {

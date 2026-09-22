@@ -43,7 +43,7 @@ test("a stall that outlives the cooldown never starts a second probe query", asy
       const res = response();
       await handler({} as never, res as never, (() => {}) as never);
       assert.equal(res.code, 503, "a stalled database must report unhealthy");
-      await new Promise((done) => setTimeout(done, 40));
+      await new Promise((done) => { setTimeout(done, 40); });
     }
 
     assert.equal(
@@ -73,7 +73,7 @@ test("a healthy pool is probed again once the cache expires", async () => {
       const res = response();
       await handler({} as never, res as never, (() => {}) as never);
       assert.equal(res.code, 200, "a healthy pool must report healthy");
-      await new Promise((done) => setTimeout(done, 5));
+      await new Promise((done) => { setTimeout(done, 5); });
     }
     assert.equal(started, 3, "each expired cache must re-probe a pool that answers");
   } finally {

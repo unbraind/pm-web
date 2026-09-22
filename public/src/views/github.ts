@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
+import { loadItemsBadge } from './projects.js';
 import type { GitHubImportResponse, GitHubIssuesResponse, GitHubIssueRow, GitHubPushResponse, GitHubRepoResponse, ListResponse } from '../api-types.js';
 
 /**
@@ -357,9 +358,7 @@ export async function importGitHubIssues(): Promise<void> {
           ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} error${errors.length!==1?'s':''}: ${errors.map((e)=>escHtml(String(e))).join('; ')}</div>` : ''}
         </div>`;
     }
-    // loadItemsBadge is in projects.ts, import via app bridge
-    const loadBadge = window.__app?.loadItemsBadge;
-    if (loadBadge) loadBadge();
+    void loadItemsBadge();
   } catch(err: unknown) {
     toast(`Import failed: ${err instanceof Error ? err.message : String(err)}`,'error');
   } finally {

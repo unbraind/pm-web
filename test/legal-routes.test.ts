@@ -7,6 +7,43 @@ import { createApp, LEGAL_PAGES, resolveLegalPagesDir } from "../src/app.ts";
 
 const app = createApp();
 
+/** The request fields this in-process client supplies to Express. */
+interface LegalRequest {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  connection: { remoteAddress: string };
+}
+
+/** The response methods the legal routes actually call. */
+interface LegalResponse {
+  statusCode: number;
+  headersSent: boolean;
+  _headers: Record<string, string>;
+  _chunks: Buffer[];
+  setHeader(name: string, value: string): void;
+  getHeader(name: string): string | undefined;
+  status(code: number): this;
+  redirect(code: number, location: string): void;
+  sendFile(file: string, options: unknown, done?: (err?: Error) => void): void;
+  end(chunk?: unknown): void;
+  json(body: unknown): void;
+}
+
+/** Express apps are request handlers. This names the subset the suite calls. */
+type LegalHandler = (req: LegalRequest, res: LegalResponse, next: (err?: unknown) => void) => void;
+
+/**
+ * Narrow the Express app to the handler shape this in-process client invokes.
+ *
+ * @param value - The value returned by `createApp`.
+ * @returns The same function, checked to be callable.
+ */
+function asLegalHandler(value: unknown): LegalHandler {
+  if (typeof value !== "function") throw new Error("express app is not a function");
+  return value as LegalHandler;
+}
+
 /**
  * Minimal in-process HTTP client: invokes the Express app against a fake
  * request without binding a port. Avoids the need for a running PostgreSQL
@@ -14,26 +51,26 @@ const app = createApp();
  */
 function request(method: string, url: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string; location?: string }> {
   return new Promise((resolve, reject) => {
-    const req: any = { method, url, headers: {}, connection: { remoteAddress: "127.0.0.1" } };
-    const res: any = {
+    const req: LegalRequest = { method, url, headers: {}, connection: { remoteAddress: "127.0.0.1" } };
+    const res: LegalResponse = {
       statusCode: 200,
       headersSent: false,
-      _headers: {} as Record<string, string>,
-      _chunks: [] as Buffer[],
-      setHeader(k: string, v: string) { this._headers[k.toLowerCase()] = v; },
-      getHeader(k: string) { return this._headers[k.toLowerCase()]; },
+      _headers: {},
+      _chunks: [],
+      setHeader(name: string, value: string) { this._headers[name.toLowerCase()] = value; },
+      getHeader(name: string) { return this._headers[name.toLowerCase()]; },
       status(code: number) { this.statusCode = code; return this; },
-      redirect(code: number, loc: string) {
+      redirect(code: number, location: string) {
         this.statusCode = code;
-        this.setHeader("Location", loc);
+        this.setHeader("Location", location);
         this.headersSent = true;
         this.end();
       },
-      sendFile(file: string, _opts: unknown, done?: (err?: Error) => void) {
+      sendFile(file: string, options: unknown, done?: (err?: Error) => void) {
         // Express' sendFile is file-system based; we don't need the bytes for
         // these assertions, only to know it was dispatched. resolve() is enough.
         void file;
-        if (typeof _opts === "function") { done = _opts as (err?: Error) => void; }
+        if (typeof options === "function") { done = options as (err?: Error) => void; }
         this.headersSent = true;
         this.end();
         if (done) done();
@@ -44,7 +81,7 @@ function request(method: string, url: string): Promise<{ status: number; headers
           status: this.statusCode,
           headers: this._headers,
           body: Buffer.concat(this._chunks).toString("utf8"),
-          location: this._headers.location as string | undefined,
+          location: this._headers.location,
         });
       },
       json(body: unknown) {
@@ -56,7 +93,7 @@ function request(method: string, url: string): Promise<{ status: number; headers
     // Dispatch through Express' handler. Express 5 apps are functions of
     // (req, res, next).
     try {
-      (app as unknown as (req: any, res: any, next: (err?: any) => void) => void)(req, res, (err?: any) => {
+      asLegalHandler(app)(req, res, (err?: unknown) => {
         if (err) {
           reject(err);
           return;

@@ -57,7 +57,7 @@ async function workspace(body: string): Promise<{ dir: string; write: (next: str
     write: async (next: string) => {
       // A distinct mtime, because the signature folds path and mtime together
       // and a same-millisecond rewrite is genuinely indistinguishable.
-      await new Promise((resolve) => setTimeout(resolve, 12));
+      await new Promise((resolve) => { setTimeout(resolve, 12); });
       await writeFile(file, next, "utf-8");
     },
     cleanup: () => rm(dir, { recursive: true, force: true }),

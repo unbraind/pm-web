@@ -33,7 +33,7 @@ export function createModal(
   footerHtml: string,
   wide = false
 ): HTMLElement {
-  let existing = document.getElementById(id);
+  const existing = document.getElementById(id);
   if (existing) existing.remove();
   const el = document.createElement('div');
   el.id = id;

@@ -7,6 +7,7 @@ import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { buildPlanExecutionSnapshot, buildPlanAgentBrief, buildNextStepPrompt, type AnalyzedPlanStep, type PlanExecutionSnapshot } from './plan-execution.js';
+import { showView } from './router.js';
 import type { ListResponse, PlanResponse } from '../api-types.js';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -734,7 +735,7 @@ export async function submitMaterializePlan(planId: string): Promise<void> {
     hideModal('materialize-plan-modal');
     toast('Plan materialized — items created. Switching to Items view.', 'success');
     // Navigate to items view so user can see the created items
-    setTimeout(() => window.__app?.showView('items'), 1200);
+    setTimeout(() => showView('items'), 1200);
   } catch(err: unknown) {
     toast(err instanceof Error ? err.message : 'Failed to materialize plan', 'error');
   }

@@ -3,8 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, typeIcon, statusBadge } from '../utils.js';
-import { skeletonRows } from '../utils.js';
+import { escHtml, typeIcon, statusBadge, skeletonRows } from '../utils.js';
 import { showModal, createModal } from '../components/modals.js';
 import { renderItemRow } from './items.js';
 import type { CalendarListItem, CalendarResponse, ListResponse } from '../api-types.js';

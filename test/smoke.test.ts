@@ -251,7 +251,7 @@ test("registered status, doctor, and stop commands use real environment state", 
   } finally {
     if (target && target.exitCode === null && target.signalCode === null) {
       target.kill("SIGTERM");
-      await new Promise<void>((resolve) => target?.once("exit", () => resolve()));
+      await new Promise<void>((resolve) => { target?.once("exit", () => { resolve(); }); });
     }
     await ext?.deactivate();
     if (previousProjectsRoot === undefined) delete process.env.PROJECTS_ROOT;

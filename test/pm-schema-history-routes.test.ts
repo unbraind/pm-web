@@ -117,7 +117,7 @@ async function request(
   body?: unknown,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : 0;
   try {
@@ -132,7 +132,7 @@ async function request(
     try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* keep raw */ }
     return { status: res.status, body: parsed };
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 }
 

@@ -15,7 +15,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import test from "node:test";
 
-import express, { type Express } from "express";
+import express, { type Express, type Request } from "express";
 import cookieParser from "cookie-parser";
 
 import { createApp } from "../src/app.ts";
@@ -42,12 +42,12 @@ interface ProbeServer {
 /** Start an Express app on an ephemeral loopback port. */
 async function start(app: Express): Promise<ProbeServer> {
   const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", () => { resolve(); }); });
   const addr = server.address();
   const port = typeof addr === "object" && addr ? addr.port : 0;
   return {
     url: (p: string) => `http://127.0.0.1:${port}${p}`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () => new Promise<void>((resolve) => { server.close(() => { resolve(); }); }),
   };
 }
 
@@ -350,14 +350,28 @@ test("csrfProtection blocks browser-originated mutations without relying on a se
   );
 });
 
+/** Whether a partial request fixture has the fields `isCrossSiteRequest` reads. */
+function isRequestFixture(value: unknown): value is Request {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.get === "function"
+    && typeof candidate.host === "string"
+    && typeof candidate.protocol === "string"
+    && typeof candidate.headers === "object"
+    && candidate.headers !== null;
+}
+
 test("isCrossSiteRequest trusts Sec-Fetch-Site and falls back to the Origin header", () => {
   const base = {
     get: () => "127.0.0.1:1",
     host: "127.0.0.1:1",
     protocol: "http",
-  } as unknown as import("express").Request;
-  const req = (headers: Record<string, string>) =>
-    ({ ...base, headers } as unknown as import("express").Request);
+  };
+  const req = (headers: Record<string, string>): Request => {
+    const candidate: unknown = { ...base, headers };
+    if (!isRequestFixture(candidate)) throw new Error("request fixture is incomplete");
+    return candidate;
+  };
 
   assert.equal(isCrossSiteRequest(req({ "sec-fetch-site": "cross-site" })), true);
   assert.equal(isCrossSiteRequest(req({ "sec-fetch-site": "same-origin" })), false);

@@ -3,8 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml } from '../utils.js';
-import { skeletonCards } from '../utils.js';
+import { escHtml, skeletonCards } from '../utils.js';
 import type { SharedProject, SharedProjectsResponse } from '../api-types.js';
 
 /** Renders the grid of projects other users have shared with the current user, showing each project's name, slug, description, permission level, and owner. */

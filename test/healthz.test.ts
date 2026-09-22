@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -43,7 +43,7 @@ function hangingPool(): Queryable {
 
 /** A pool whose `query` resolves after a delay longer than the probe timeout. */
 function slowPool(ms: number): Queryable {
-  return { query: () => new Promise<{ rows: unknown[] }>((resolve) => setTimeout(() => resolve({ rows: [] }), ms)) };
+  return { query: () => new Promise<{ rows: unknown[] }>((resolve) => { setTimeout(() => { resolve({ rows: [] }); }, ms); }) };
 }
 
 /** A real writable temp directory — the healthy projects-root baseline. */
@@ -68,7 +68,7 @@ async function getHealthz(deps: HealthProbeDeps): Promise<{ status: number; body
     },
   });
   const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : 0;
   try {
@@ -76,7 +76,7 @@ async function getHealthz(deps: HealthProbeDeps): Promise<{ status: number; body
     const body = await res.json() as Record<string, unknown>;
     return { status: res.status, body };
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
   }
 }
 
@@ -281,7 +281,6 @@ test("projects root writability probe leaves no stray files", async () => {
   const root = writableRoot();
   try {
     await directHealthz({ pool: healthyPool(), projectsRoot: root, version: "test" });
-    const { readdirSync } = await import("node:fs");
     const entries = readdirSync(root);
     assert.equal(entries.length, 0, "no probe files should remain in the projects root");
   } finally {
@@ -435,7 +434,7 @@ test("cache expires and re-probes after 5 seconds", async () => {
     assert.equal(queryCount, 1);
 
     // Wait just over the cache TTL.
-    await new Promise<void>((resolve) => setTimeout(resolve, 5100));
+    await new Promise<void>((resolve) => { setTimeout(resolve, 5100); });
 
     const res2 = { status(code: number) { return this; }, json(_b: unknown) {} } as never;
     await handler(req, res2, next);
@@ -456,7 +455,6 @@ test("read-only projects root: no stray files left behind", async () => {
     chmodSync(root, 0o555);
     await directHealthz({ pool: healthyPool(), projectsRoot: root, version: "test" });
     // No file should have been created (write should have failed).
-    const { readdirSync } = await import("node:fs");
     const entries = readdirSync(root);
     assert.equal(entries.length, 0, "no probe files should remain after a failed write");
   } finally {
@@ -610,7 +608,7 @@ test("concurrent uncached probes share one computation rather than one each", as
     },
   });
   const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : 0;
   try {
@@ -621,7 +619,7 @@ test("concurrent uncached probes share one computation rather than one each", as
     for (const response of responses) assert.equal(response.status, 200);
     assert.equal(queries, 1, `eight concurrent probes must issue one query, issued ${queries}`);
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -700,7 +698,7 @@ test("a PostgreSQL probe timeout is not retried until the cooldown expires", asy
     assert.equal(queries, 1, "the first probe must actually query");
 
     // Past the 5s response cache, but inside the 30s pool cooldown.
-    await new Promise((r) => setTimeout(r, CACHE_TTL_FOR_TEST + 50));
+    await new Promise((r) => { setTimeout(r, CACHE_TTL_FOR_TEST + 50); });
     const second = await callHandler(handler);
 
     assert.equal(second.status, 503, "a cooling probe must still report unhealthy");
@@ -735,6 +733,6 @@ test("a failing projects-root probe answers rather than awaiting its own cleanup
       Date.now() - started < 5000,
       `request ${i + 1} answered in time rather than awaiting cleanup`
     );
-    await new Promise((r) => setTimeout(r, CACHE_TTL_FOR_TEST + 50));
+    await new Promise((r) => { setTimeout(r, CACHE_TTL_FOR_TEST + 50); });
   }
 });

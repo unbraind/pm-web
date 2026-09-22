@@ -93,7 +93,7 @@ test("mutation-event watcher: newly-active project starts a subscription and del
   instances[0].events.push(makeEvent("item-1", "cursor-1", "create", "pm-gpt"));
 
   // Give the detached loop a tick to consume it.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
 
   assert.equal(emitted.length, 1, "one event delivered");
   assert.equal(emitted[0].projectId, PID_A);
@@ -134,7 +134,7 @@ test("mutation-event watcher: inactive project aborts subscription and cleans up
 
   assert.equal(controller.aborted, true, "subscription was aborted");
   // Give the loop time to notice abort.
-  await new Promise((r) => setTimeout(r, 20));
+  await new Promise((r) => { setTimeout(r, 20); });
   assert.equal(errors.length, 0, "AbortError must NOT be reported");
 });
 
@@ -166,7 +166,7 @@ test("mutation-event watcher: per-item dedupe skips events already announced by 
   instances[0].events.push(makeEvent("item-1", "cursor-1"));
   instances[0].events.push(makeEvent("item-2", "cursor-2"));
 
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
 
   // Only item-2 should be delivered; item-1 was consumed/suppressed.
   assert.equal(emitted.length, 1);
@@ -210,7 +210,7 @@ test("mutation-event watcher: a single per-item signal suppresses exactly one ev
   instances[0].events.push(makeEvent("item-1", "cursor-2"));
   instances[0].events.push(makeEvent("item-1", "cursor-3"));
 
-  await new Promise((r) => setTimeout(r, 60));
+  await new Promise((r) => { setTimeout(r, 60); });
 
   // Exactly one suppressed; the remaining two still reach clients, so the
   // concurrent agent's changes are never silently dropped.
@@ -258,7 +258,7 @@ test("mutation-event watcher: cursor resume after an error restarts from stored 
 
   await reconcile();
   // Wait for the first event + error.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
   assert.equal(emitted.length, 1, "first event delivered before error");
   assert.equal(errors.length, 1, "error reported");
   assert.equal(sinceValues[0].match(/^\d{4}-/) !== null, true, "first since is ISO timestamp");
@@ -268,7 +268,7 @@ test("mutation-event watcher: cursor resume after an error restarts from stored 
   assert.equal(callCount, 2, "subscription restarted");
   assert.equal(sinceValues[1], "cursor-after-error", "restart uses stored cursor, not ISO timestamp");
   // No new events on the restart, so no new emit.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
   assert.equal(emitted.length, 1);
   // The restart error is not repeated.
   assert.equal(errors.length, 1);
@@ -335,7 +335,7 @@ test("mutation-event watcher: AbortError from deliberate stop is NOT reported as
   await reconcile();
   await stopAll();
   // Give the loop time to process the abort.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
   assert.equal(errors.length, 0, "AbortError must not be reported");
 });
 
