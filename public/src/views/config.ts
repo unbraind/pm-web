@@ -6,6 +6,17 @@ import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 
+/** PATCHs a value to the project config endpoint for the given key and toasts
+ * the result (success or error), used by every configSave* function. */
+async function patchConfigValue(pid: string, key: string, value: unknown): Promise<void> {
+  try {
+    await api('PATCH', `/projects/${pid}/pm/config/${encodeURIComponent(key)}`, { value });
+    toast(`Saved ${key.replace(/_/g, ' ')}`, 'success');
+  } catch (err: unknown) {
+    toast(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
+  }
+}
+
 interface ConfigKey {
   key: string;
   aliases: string[];
@@ -302,12 +313,7 @@ export async function configSaveArray(key: string): Promise<void> {
   const inputs = container.querySelectorAll('input[data-key]');
   const values = Array.from(inputs).map(inp => (inp as HTMLInputElement).value.trim()).filter(Boolean);
 
-  try {
-    await api('PATCH', `/projects/${pid}/pm/config/${encodeURIComponent(key)}`, { value: values });
-    toast(`Saved ${key.replace(/_/g, ' ')}`, 'success');
-  } catch (err: unknown) {
-    toast(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
-  }
+  await patchConfigValue(pid, key, values);
 }
 
 /**
@@ -322,12 +328,7 @@ export async function configSaveSimple(key: string): Promise<void> {
   const inputEl = document.getElementById(`config-field-${key}`) as HTMLInputElement | null;
   const value = inputEl?.value?.trim() ?? '';
 
-  try {
-    await api('PATCH', `/projects/${pid}/pm/config/${encodeURIComponent(key)}`, { value });
-    toast(`Saved ${key.replace(/_/g, ' ')}`, 'success');
-  } catch (err: unknown) {
-    toast(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
-  }
+  await patchConfigValue(pid, key, value);
 }
 
 /**
@@ -401,11 +402,5 @@ export async function configSaveObject(key: string): Promise<void> {
     toast('Invalid JSON — please check the format', 'error');
     return;
   }
-
-  try {
-    await api('PATCH', `/projects/${pid}/pm/config/${encodeURIComponent(key)}`, { value: parsed });
-    toast(`Saved ${key.replace(/_/g, ' ')}`, 'success');
-  } catch (err: unknown) {
-    toast(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
-  }
+  await patchConfigValue(pid, key, parsed);
 }

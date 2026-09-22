@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml } from '../utils.js';
+import { escHtml, resetButton, showError } from '../utils.js';
 import { toast } from '../components/toast.js';
 import type { CreateItemResponse } from '../api-types.js';
 import { getTypes, TYPE_ICONS, PRIORITY_LABELS } from '../constants.js';
@@ -243,8 +243,8 @@ export async function submitCreateItem(e: Event, openAfter = false): Promise<voi
       showView('items');
     }
   } catch(err: unknown) {
-    if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = 'block'; }
-    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Create Item'; }
+    showError(errEl, err);
+    resetButton(btn, 'Create Item');
     if (btnOpen) btnOpen.disabled = false;
   }
 }

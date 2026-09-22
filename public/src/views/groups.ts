@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml } from '../utils.js';
+import { escHtml, showError } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
 import type { GroupDetailResponse, GroupMemberRow, GroupsResponse, GroupListRow } from '../api-types.js';
@@ -103,7 +103,7 @@ export async function submitCreateGroup(): Promise<void> {
     hideModal('create-group-modal');
     await loadGroups();
   } catch(err: unknown) {
-    if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = 'block'; }
+    showError(errEl, err);
   }
 }
 

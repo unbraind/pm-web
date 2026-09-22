@@ -5,10 +5,10 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import http from "node:http";
+import { authedRequest } from "./helpers/ephemeral-server.ts";
 import test from "node:test";
 
 import { createApp } from "../src/app.ts";
-import { signToken } from "../src/auth.ts";
 import { pool } from "../src/db.ts";
 import type { Pool } from "pg";
 
@@ -116,24 +116,30 @@ async function request(
   userId: string,
   body?: unknown,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const server = http.createServer(app);
-  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
-  const address = server.address();
-  const port = typeof address === "object" && address ? address.port : 0;
-  try {
-    const token = signToken({ userId, email: `${userId}@example.com` });
-    const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, {
-      method,
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    const text = await res.text();
-    let parsed: Record<string, unknown> = { raw: text };
-    try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* keep raw */ }
-    return { status: res.status, body: parsed };
-  } finally {
-    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
-  }
+  const { status, text } = await authedRequest(app, method, urlPath, userId, body);
+  let parsed: Record<string, unknown> = { raw: text };
+  try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* keep raw */ }
+  return { status, body: parsed };
+}
+
+
+/** Common setup for schema add-type tests: create harness, stub pool, create
+ * app, and return everything the test needs including cleanup. */
+async function setupSchemaAddTypeTest(): Promise<{
+  harness: Harness;
+  app: ReturnType<typeof createApp>;
+  restorePool: () => void;
+  cleanup: () => Promise<void>;
+}> {
+  const harness = await setupHarness();
+  const restorePool = stubPool();
+  const app = createApp();
+  return {
+    harness,
+    app,
+    restorePool,
+    cleanup: async () => { restorePool(); await harness.restore(); },
+  };
 }
 
 test("whole-project routes consume certified complete reads while list-all remains paginated", async () => {
@@ -202,9 +208,7 @@ test("whole-project routes consume certified complete reads while list-all remai
 });
 
 test("schema/add-type registers a real custom type with all optional fields applied", async () => {
-  const harness = await setupHarness();
-  const restorePool = stubPool();
-  const app = createApp();
+  const { harness, app, cleanup } = await setupSchemaAddTypeTest();
   try {
     const { status, body } = await request(app, "POST", `/api/projects/${PROJECT_ID}/pm/schema/add-type`, OWNER_USER_ID, {
       name: "Spike",
@@ -225,15 +229,12 @@ test("schema/add-type registers a real custom type with all optional fields appl
     const schema = execFileSync("pm", ["schema", "list", "--pm-path", harness.pmRoot, "--json"], { encoding: "utf8" });
     assert.match(schema, /Spike/, "the registered type must be readable by a fresh pm process");
   } finally {
-    restorePool();
-    await harness.restore();
+    await cleanup();
   }
 });
 
 test("schema/add-type omits flags for blank optional fields rather than passing empty values", async () => {
-  const harness = await setupHarness();
-  const restorePool = stubPool();
-  const app = createApp();
+  const { app, cleanup } = await setupSchemaAddTypeTest();
   try {
     const { status, body } = await request(app, "POST", `/api/projects/${PROJECT_ID}/pm/schema/add-type`, OWNER_USER_ID, {
       name: "Chore2",
@@ -249,8 +250,7 @@ test("schema/add-type omits flags for blank optional fields rather than passing 
       `a blank description must not be sent as a value, got ${JSON.stringify(type.description)}`,
     );
   } finally {
-    restorePool();
-    await harness.restore();
+    await cleanup();
   }
 });
 

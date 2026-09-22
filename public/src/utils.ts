@@ -2,6 +2,7 @@
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════
 import { PRIORITY_LABELS, TYPE_ICONS } from './constants.js';
+import type { User } from './types.js';
 
 /** Escape `&`, `<`, `>` and `"` so a value can be inserted into HTML text or a
  * double-quoted attribute. Falsy input yields an empty string.
@@ -70,6 +71,58 @@ export function setLoading(btn: HTMLButtonElement, yes: boolean, text?: string):
     if (span) span.textContent = text;
     else btn.textContent = text;
   }
+}
+
+/** Restores a button to its enabled state with the given label, updating the
+ * first inner span when present. No-op when `btn` is null. */
+export function resetButton(btn: HTMLButtonElement | null, label: string): void {
+  if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = label; }
+}
+
+/** Sets a form element's value by id, skipping empty or undefined values.
+ * Looks up the element as input, select, or textarea. */
+export function setFormValue(id: string, val: string | undefined): void {
+  if (!val) return;
+  const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+  if (el) el.value = val;
+}
+
+/** Renders a single issue or change row with an icon, message, and optional
+ * item link. The `contentStyle` parameter controls the inner div's style
+ * (pass an empty string for no style attribute). */
+export function issueRow(icon: string, iconColor: string, message: string, itemId?: string, contentStyle = 'flex:1'): string {
+  return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
+                <span style="color:${iconColor};flex-shrink:0">${icon}</span>
+                <div${contentStyle ? ` style="${contentStyle}"` : ''}>
+                  <div style="font-size:13px">${escHtml(message)}</div>
+                  ${itemId ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px"><a href="#" onclick="window.__app.openItemDetail('${escHtml(itemId)}');return false" style="color:var(--accent)">${escHtml(itemId)}</a></div>` : ''}
+                </div>
+              </div>`;
+}
+
+/** Renders the common name, slug, and description portion of a project card,
+ * leaving the wrapper and meta row for the caller. */
+export function projectCardInfo(p: { name: string; slug: string; description?: string }): string {
+  return `<div class="project-card-name">${escHtml(p.name)}</div>
+          <div class="project-card-slug mono">${escHtml(p.slug)}</div>
+          <div class="project-card-desc">${escHtml(p.description || 'No description')}</div>`;
+}
+
+/** Updates the header avatar initials and display name from the given user's
+ * profile data. */
+export function updateHeaderUser(u: User): void {
+  const initials = (u.display_name||u.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const avatarEl = document.getElementById('user-avatar');
+  if (avatarEl) avatarEl.textContent = initials;
+  const nameEl = document.getElementById('user-name-display');
+  if (nameEl) nameEl.textContent = u.display_name||u.email;
+}
+
+/** Shows an error message in the given inline error element and makes it
+ * visible, extracting the message from an unknown error value. No-op when
+ * `errEl` is null. */
+export function showError(errEl: HTMLElement | null, err: unknown): void {
+  if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = 'block'; }
 }
 
 /** Build an HTML string of `n` placeholder skeleton rows for loading states. */

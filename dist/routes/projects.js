@@ -3,6 +3,7 @@ import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { initProject, deleteProjectDir } from "../services/pm-runner.js";
 import { routeParam, uuidParamGuard } from "./route-params.js";
+import { isUniqueViolation, notFoundWhenEmpty } from "./route-helpers.js";
 const router = Router();
 router.use(requireAuth);
 // :id is a project UUID; reject a malformed one with 400 before it reaches SQL.
@@ -100,8 +101,7 @@ router.post("/", async (req, res) => {
         res.status(201).json({ project });
     }
     catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("unique") || msg.includes("duplicate")) {
+        if (isUniqueViolation(err)) {
             res.status(409).json({ error: "A project with this name already exists" });
         }
         else {
@@ -127,13 +127,17 @@ router.get("/:id", async (req, res) => {
 router.patch("/:id", async (req, res) => {
     const { name, description } = req.body;
     try {
+        const updateArgs = [
+            name?.trim() || null,
+            description !== undefined ? description : null,
+            routeParam(req, "id"),
+            req.user.userId,
+        ];
         const result = await pool.query(`UPDATE pm_projects SET name = COALESCE($1, name), description = COALESCE($2, description)
        WHERE id = $3 AND user_id = $4
-       RETURNING id, name, slug, description, prefix, created_at, updated_at`, [name?.trim() || null, description !== undefined ? description : null, routeParam(req, "id"), req.user.userId]);
-        if (result.rows.length === 0) {
-            res.status(404).json({ error: "Project not found" });
+       RETURNING id, name, slug, description, prefix, created_at, updated_at`, updateArgs);
+        if (notFoundWhenEmpty(res, result.rows, "Project not found"))
             return;
-        }
         res.json({ project: result.rows[0] });
     }
     catch (err) {

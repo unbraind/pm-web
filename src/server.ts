@@ -1,33 +1,11 @@
-import path from "node:path";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { initSchema, assertDbConfigured, pool } from "./db.ts";
-import { createApp } from "./app.ts";
+import { createApp, readPackageVersion } from "./app.ts";
 import { projectsRoot } from "./services/pm-runner.ts";
 import { cleanupStaleClients, closeAllSSEClients } from "./services/sse.ts";
 import { startRealtimeBus } from "./services/realtime-bus.ts";
 import { startProjectWatcher } from "./services/project-watcher.ts";
 import { startMutationEventWatcher } from "./services/mutation-event-watcher.ts";
 import { assertOidcConfiguration } from "./oidc.ts";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-/**
- * Resolve this package's version from `package.json`, once at boot.
- *
- * Best-effort: returns `"unknown"` if the file is missing or fails to parse so
- * `/healthz` can always report a version string even in a broken checkout.
- */
-function readPackageVersion(): string {
-  try {
-    const pkg = JSON.parse(
-      readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8"),
-    ) as { version?: string };
-    return pkg.version ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
 
 const PORT = parseInt(process.env.PORT || "4000", 10);
 

@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, typeIcon } from '../utils.js';
+import { escHtml, typeIcon, setFormValue } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { showView } from './router.js';
 import type { TemplateEntry, TemplatesResponse } from '../api-types.js';
@@ -97,20 +97,15 @@ export function createFromTemplate(name: string, template: TemplateEntry): void 
   // Give the create view time to render, then fill fields
   setTimeout(() => {
     const defaults = template.defaults || template;
-    const setVal = (id: string, val: string | undefined) => {
-      if (!val) return;
-      const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
-      if (el) el.value = val;
-    };
-    setVal('ci-type', defaults.type || template.type);
-    setVal('ci-priority', String(defaults.priority || template.priority || ''));
-    setVal('ci-tags', (defaults.tags || template.tags || []).join(', '));
-    setVal('ci-desc', defaults.description || template.description || '');
-    setVal('ci-sprint', defaults.sprint || template.sprint || '');
-    setVal('ci-release', defaults.release || template.release || '');
-    setVal('ci-assignee', defaults.assignee || template.assignee || '');
+    setFormValue('ci-type', defaults.type || template.type);
+    setFormValue('ci-priority', String(defaults.priority || template.priority || ''));
+    setFormValue('ci-tags', (defaults.tags || template.tags || []).join(', '));
+    setFormValue('ci-desc', defaults.description || template.description || '');
+    setFormValue('ci-sprint', defaults.sprint || template.sprint || '');
+    setFormValue('ci-release', defaults.release || template.release || '');
+    setFormValue('ci-assignee', defaults.assignee || template.assignee || '');
     if (defaults.acceptance_criteria || defaults.acceptanceCriteria) {
-      setVal('ci-acceptance-criteria', defaults.acceptance_criteria || defaults.acceptanceCriteria);
+      setFormValue('ci-acceptance-criteria', defaults.acceptance_criteria || defaults.acceptanceCriteria);
     }
     toast(`Template "${name}" applied`, 'success');
     document.getElementById('ci-title')?.focus();

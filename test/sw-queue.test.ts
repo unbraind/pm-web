@@ -23,6 +23,26 @@ const {
   postedMessages,
 } = swQueue;
 
+/** Temporarily replaces `globalThis.fetch` and (optionally) `mockStore.getAll`,
+ * runs `flushMutationQueue`, and restores both in a finally block. */
+async function withMockedFetch(
+  fetchImpl: typeof globalThis.fetch,
+  getAllImpl?: () => IDBRequest,
+): Promise<void> {
+  const originalFetch = globalThis.fetch;
+  const originalGetAll = mockStore.getAll;
+  (globalThis as unknown as Record<string, unknown>).fetch = fetchImpl;
+  try {
+    if (getAllImpl) {
+      (mockStore as unknown as Record<string, unknown>).getAll = getAllImpl;
+    }
+    await internals.flushMutationQueue();
+  } finally {
+    (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
+    (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
+  }
+}
+
 // ── Tests ──
 
 test("sw queue: getQueuedMutations returns ok:false on storage failure, not an empty array", async () => {
@@ -108,32 +128,25 @@ test("sw queue: a stale mutation token is refreshed and replayed without data lo
   swQueue.deleteCallCount = 0;
   postedMessages.length = 0;
 
-  const originalFetch = globalThis.fetch;
-  const originalGetAll = mockStore.getAll;
   const requests: { input: string; token: string | null }[] = [];
-  (globalThis as unknown as Record<string, unknown>).fetch = async (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
-    const url = String(input);
-    requests.push({ input: url, token: new Headers(init?.headers).get("x-csrf-token") });
-    if (url === "/api/auth/me") {
-      return new Response(null, { status: 200, headers: { "x-csrf-token": "migrated-token" } });
-    }
-    return new Response(null, { status: 204 });
-  };
-
-  try {
-    let readCount = 0;
-    (mockStore as unknown as Record<string, unknown>).getAll = () => {
+  let readCount = 0;
+  await withMockedFetch(
+    async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      const url = String(input);
+      requests.push({ input: url, token: new Headers(init?.headers).get("x-csrf-token") });
+      if (url === "/api/auth/me") {
+        return new Response(null, { status: 200, headers: { "x-csrf-token": "migrated-token" } });
+      }
+      return new Response(null, { status: 204 });
+    },
+    () => {
       readCount++;
       return mockRequest(readCount === 1 ? swQueue.getAllResult : [], false);
-    };
-    await internals.flushMutationQueue();
-  } finally {
-    (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
-    (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
-  }
+    },
+  );
 
   assert.deepEqual(requests, [
     { input: "/api/auth/me", token: null },
@@ -150,13 +163,7 @@ test("sw queue: a failed token bootstrap preserves every queued mutation", async
   swQueue.deleteCallCount = 0;
   postedMessages.length = 0;
 
-  const originalFetch = globalThis.fetch;
-  (globalThis as unknown as Record<string, unknown>).fetch = async () => new Response(null, { status: 200 });
-  try {
-    await internals.flushMutationQueue();
-  } finally {
-    (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
-  }
+  await withMockedFetch(async () => new Response(null, { status: 200 }));
 
   assert.equal(swQueue.deleteCallCount, 0, "bootstrap failure must not delete queued work");
   assert.equal(postedMessages.length, 0, "bootstrap failure cannot claim replay progress");
@@ -179,34 +186,26 @@ test("sw queue: a final read failure after replay reports the known replayed cou
   swQueue.getAllShouldFail = false;
   postedMessages.length = 0;
 
-  const originalFetch = globalThis.fetch;
   let sent = 0;
-  (globalThis as unknown as Record<string, unknown>).fetch = async (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
-    if (String(input) === "/api/auth/me") {
-      return new Response(null, { status: 200, headers: { "x-csrf-token": "current-token" } });
-    }
-    sent++;
-    assert.equal(new Headers(init?.headers).get("x-csrf-token"), "current-token");
-    return new Response(null, { status: 204 });
-  };
-
-  const originalGetAll = mockStore.getAll;
-  try {
-    let callCount = 0;
-    (mockStore as unknown as Record<string, unknown>).getAll = () => {
+  let callCount = 0;
+  await withMockedFetch(
+    async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      if (String(input) === "/api/auth/me") {
+        return new Response(null, { status: 200, headers: { "x-csrf-token": "current-token" } });
+      }
+      sent++;
+      assert.equal(new Headers(init?.headers).get("x-csrf-token"), "current-token");
+      return new Response(null, { status: 204 });
+    },
+    () => {
       callCount++;
       // The second read is the post-replay re-read; fail only that one.
       return callCount === 2 ? mockRequest([], true) : mockRequest(swQueue.getAllResult, false);
-    };
-
-    await internals.flushMutationQueue();
-  } finally {
-    (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
-    (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
-  }
+    },
+  );
 
   assert.equal(sent, 2, "both queued mutations must be replayed before the final read fails");
 

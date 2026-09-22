@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, fmtDate } from '../utils.js';
+import { escHtml, fmtDate, projectCardInfo } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
 import type { CreateProjectResponse, ListResponse, ProjectsResponse, SchemaResponse } from '../api-types.js';
@@ -124,9 +124,7 @@ export function renderProjectsView(): void {
       ${state.projects.map(p=>`
         <div class="project-card" onclick="window.__app.selectProject('${p.id}')">
           <button class="btn btn-ghost btn-sm project-card-del" onclick="event.stopPropagation();window.__app.deleteProject('${p.id}','${escHtml(p.name)}')" title="Delete project">✕</button>
-          <div class="project-card-name">${escHtml(p.name)}</div>
-          <div class="project-card-slug mono">${escHtml(p.slug)}</div>
-          <div class="project-card-desc">${escHtml(p.description||'No description')}</div>
+          ${projectCardInfo(p)}
           <div class="project-card-meta">
             <span class="project-card-prefix">${escHtml(p.prefix)}</span>
             <span class="project-card-date">${fmtDate(p.created_at)}</span>

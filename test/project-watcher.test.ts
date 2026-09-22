@@ -5,12 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { createProjectWatchCycle, computeWorkspaceSignature, stepWorkspaceSweep, newSweepState } from "../src/services/project-watcher.ts";
-import type { SSEEvent } from "../src/services/sse.ts";
-
-interface EmitRecord {
-  projectId: string;
-  event: SSEEvent;
-}
+import { stdWatcherCallbacks, type EmitRecord } from "./helpers/watcher-callbacks.ts";
 
 function makeHarness(opts: {
   activeIds: () => string[];
@@ -44,14 +39,28 @@ function makeHarness(opts: {
 
 const PID_A = "11111111-1111-4111-8111-111111111111";
 const PID_B = "22222222-2222-4222-8222-222222222222";
-
-test("project watcher: first tick baselines, later mtime increase emits workspace-changed", async () => {
-  const activeIds = (): string[] => [PID_A];
-  const dirs = new Map<string, string | null>([[PID_A, "/proj/a"]]);
-  const mtimes = new Map<string, number>([[PID_A, 1_000]]);
-  const signaled = new Set<string>();
+/** Create a watcher harness with the common single-project setup. Returns the
+ * emitted events, cycle, and mutable mtimes/signaled sets for the test to
+ * manipulate between ticks. */
+function setupWatcherState(opts: {
+  activeIds?: string[];
+  dirs?: Array<[string, string | null]>;
+  mtimes?: Array<[string, number]>;
+  signaled?: string[];
+} = {}): { emitted: EmitRecord[]; cycle: ReturnType<typeof createProjectWatchCycle>; mtimes: Map<string, number>; signaled: Set<string>; errors: unknown[] } {
+  const pids = opts.activeIds ?? [PID_A];
+  const activeIds = (): string[] => pids;
+  const dirs = new Map<string, string | null>(opts.dirs ?? [[PID_A, "/proj/a"]]);
+  const mtimes = new Map<string, number>(opts.mtimes ?? [[PID_A, 1_000]]);
+  const signaled = new Set<string>(opts.signaled ?? []);
   const errors: unknown[] = [];
   const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+  return { emitted, cycle, mtimes, signaled, errors };
+}
+
+
+test("project watcher: first tick baselines, later mtime increase emits workspace-changed", async () => {
+  const { emitted, cycle, mtimes, signaled, errors } = setupWatcherState();
 
   await cycle.tick();
   assert.equal(emitted.length, 0, "first tick should baseline, no emit");
@@ -67,12 +76,7 @@ test("project watcher: first tick baselines, later mtime increase emits workspac
 });
 
 test("project watcher: signaled project suppresses emit but baseline advances", async () => {
-  const activeIds = (): string[] => [PID_A];
-  const dirs = new Map<string, string | null>([[PID_A, "/proj/a"]]);
-  const mtimes = new Map<string, number>([[PID_A, 1_000]]);
-  const signaled = new Set<string>([PID_A]);
-  const errors: unknown[] = [];
-  const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+  const { emitted, cycle, mtimes, signaled, errors } = setupWatcherState({ signaled: [PID_A] });
 
   await cycle.tick();
   assert.equal(emitted.length, 0, "baseline");
@@ -91,12 +95,7 @@ test("project watcher: signaled project suppresses emit but baseline advances", 
 });
 
 test("project watcher: unchanged mtime across ticks produces no emit", async () => {
-  const activeIds = (): string[] => [PID_A];
-  const dirs = new Map<string, string | null>([[PID_A, "/proj/a"]]);
-  const mtimes = new Map<string, number>([[PID_A, 5_000]]);
-  const signaled = new Set<string>();
-  const errors: unknown[] = [];
-  const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+  const { emitted, cycle, mtimes, signaled, errors } = setupWatcherState({ mtimes: [[PID_A, 5_000]] });
 
   await cycle.tick();
   await cycle.tick();
@@ -135,12 +134,7 @@ test("project watcher: inactive projects pruned; re-adding re-baselines without 
 });
 
 test("project watcher: resolveProjectDir returning null skips project (no emit, no throw)", async () => {
-  const activeIds = (): string[] => [PID_A];
-  const dirs = new Map<string, string | null>([[PID_A, null]]);
-  const mtimes = new Map<string, number>();
-  const signaled = new Set<string>();
-  const errors: unknown[] = [];
-  const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+  const { emitted, cycle, errors } = setupWatcherState({ dirs: [[PID_A, null]], mtimes: [] });
 
   await cycle.tick();
   await cycle.tick();
@@ -168,8 +162,7 @@ test("project watcher: readMaxMtimeMs throwing for one project calls onError but
       return "0";
     },
     wasSignaledWithin: () => false,
-    emit: (projectId, event) => { emitted.push({ projectId, event }); },
-    onError: (err) => { errors.push(err); },
+    ...stdWatcherCallbacks(emitted, errors),
   });
 
   await cycle.tick(); // A throws, B baselines
@@ -187,12 +180,7 @@ test("project watcher: readMaxMtimeMs throwing for one project calls onError but
 test("project watcher: signature change to a LOWER value (mtime-preserving restore) still emits", async () => {
   // A raw restore can rewrite item files with older preserved mtimes, so the
   // composite signature must trigger on ANY change, not only on an increase.
-  const activeIds = (): string[] => [PID_A];
-  const dirs = new Map<string, string | null>([[PID_A, "/proj/a"]]);
-  const mtimes = new Map<string, number>([[PID_A, 5_000]]);
-  const signaled = new Set<string>();
-  const errors: unknown[] = [];
-  const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+  const { emitted, cycle, mtimes, signaled, errors } = setupWatcherState({ mtimes: [[PID_A, 5_000]] });
 
   await cycle.tick(); // baseline at 5_000
   assert.equal(emitted.length, 0);
@@ -226,8 +214,7 @@ test("project watcher: transient resolveProjectDir failure is retried, not cache
     },
     readSignature: async () => String(mtimes.get(PID_A) ?? 0),
     wasSignaledWithin: () => false,
-    emit: (projectId, event) => { emitted.push({ projectId, event }); },
-    onError: (err) => { errors.push(err); },
+    ...stdWatcherCallbacks(emitted, errors),
   });
 
   await cycle.tick(); // resolve throws → onError, nothing cached
@@ -250,12 +237,7 @@ test("project watcher: a signaled write consumes its signal so a LATER unrelated
   // filesystem. The watcher must attribute exactly ONE delta to that signal and
   // then stop suppressing — otherwise an unrelated out-of-band edit landing in
   // the same window is silently swallowed (CodeRabbit finding).
-  const activeIds = (): string[] => [PID_A];
-  const dirs = new Map<string, string | null>([[PID_A, "/proj/a"]]);
-  const mtimes = new Map<string, number>([[PID_A, 1_000]]);
-  const signaled = new Set<string>([PID_A]); // realtime event just fired
-  const errors: unknown[] = [];
-  const { emitted, cycle } = makeHarness({ activeIds, dirs, mtimes, signaled, errors });
+  const { emitted, cycle, mtimes, signaled, errors } = setupWatcherState({ signaled: [PID_A] }); // realtime event just fired
 
   await cycle.tick(); // baseline
   assert.equal(emitted.length, 0);

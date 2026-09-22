@@ -53,6 +53,17 @@ const indexHtml = readFileSync(
 
 
 // ── Catalog parity: every en key must exist in every shipped locale with a non-empty value ──
+
+/** A localStorage stub that stores nothing — used by resolveLocale tests. */
+const emptyStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+  clear: () => {},
+  key: () => null,
+  length: 0,
+};
+
 test("catalog parity: every en key exists in every locale with a non-empty value", () => {
   const enKeys = Object.keys(enJson).sort();
   assert.ok(enKeys.length > 0, "en.json should not be empty");
@@ -125,33 +136,19 @@ test("resolveLocale: explicit storage choice wins", () => {
 });
 
 test("resolveLocale: navigator.language prefix match when no stored choice", () => {
-  const empty = {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-    key: () => null,
-    length: 0,
-  };
-  assert.equal(resolveLocale({ storage: empty, navLang: "de-DE" }), "de");
-  assert.equal(resolveLocale({ storage: empty, navLang: "de" }), "de");
-  assert.equal(resolveLocale({ storage: empty, navLang: "en-US" }), "en");
-  assert.equal(resolveLocale({ storage: empty, navLang: "es-MX" }), "es");
-  assert.equal(resolveLocale({ storage: empty, navLang: "es" }), "es");
-  assert.equal(resolveLocale({ storage: empty, navLang: "zh-CN" }), "zh");
-  assert.equal(resolveLocale({ storage: empty, navLang: "zh" }), "zh");
+
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "de-DE" }), "de");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "de" }), "de");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "en-US" }), "en");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "es-MX" }), "es");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "es" }), "es");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "zh-CN" }), "zh");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "zh" }), "zh");
 });
 
 test("resolveLocale: unsupported navigator language falls back to en", () => {
-  const empty = {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-    key: () => null,
-    length: 0,
-  };
-  assert.equal(resolveLocale({ storage: empty, navLang: "fr-FR" }), "en");
+
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "fr-FR" }), "en");
   // Explicit null means "skip this source" — both skipped falls back to en.
   assert.equal(resolveLocale({ storage: null, navLang: null }), "en");
   assert.equal(resolveLocale({ storage: null, navLang: "" }), "en");

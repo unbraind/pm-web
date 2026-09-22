@@ -91,6 +91,25 @@ async function createItem(server: AppServer, user: SeedUser, projectId: string, 
   return createdItemId(response);
 }
 
+
+/** Common setup for collaboration tests: save PROJECTS_ROOT, create harness,
+ * start app, register cleanup that closes the server and restores env. */
+async function setupCollabTest(t: test.TestContext): Promise<{
+  harness: Awaited<ReturnType<typeof createCollaborationHarness>>;
+  server: AppServer;
+}> {
+  const previousRoot = process.env.PROJECTS_ROOT;
+  const harness = await createCollaborationHarness();
+  const server = await startApp();
+  t.after(async () => {
+    await server.close();
+    await rm(harness.root, { recursive: true, force: true });
+    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
+    else process.env.PROJECTS_ROOT = previousRoot;
+  });
+  return { harness, server };
+}
+
 test("client B receives client A's item mutation over the real SSE route", async (t) => {
   const previousRoot = process.env.PROJECTS_ROOT;
   const harness = await createCollaborationHarness();
@@ -119,17 +138,7 @@ test("client B receives client A's item mutation over the real SSE route", async
 });
 
 test("concurrent collaborators update one item without a lost write or malformed history", async (t) => {
-  const previousRoot = process.env.PROJECTS_ROOT;
-  const harness = await createCollaborationHarness();
-  const startedServer: { current?: AppServer } = {};
-  t.after(async () => {
-    if (startedServer.current) await startedServer.current.close();
-    await rm(harness.root, { recursive: true, force: true });
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-  });
-  const server = await startApp();
-  startedServer.current = server;
+  const { harness, server } = await setupCollabTest(t);
 
   const itemId = await createItem(server, harness.owner, harness.projectId, "Concurrent original");
   const [titleUpdate, descriptionUpdate] = await Promise.all([
@@ -167,17 +176,7 @@ test("concurrent collaborators update one item without a lost write or malformed
 });
 
 test("the real HTTP command surface preserves an item's lifecycle and related records", async (t) => {
-  const previousRoot = process.env.PROJECTS_ROOT;
-  const harness = await createCollaborationHarness();
-  const startedServer: { current?: AppServer } = {};
-  t.after(async () => {
-    if (startedServer.current) await startedServer.current.close();
-    await rm(harness.root, { recursive: true, force: true });
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-  });
-  const server = await startApp();
-  startedServer.current = server;
+  const { harness, server } = await setupCollabTest(t);
 
   const base = `/api/projects/${harness.projectId}/pm`;
   const schema = await authedFetch(server, harness.owner, `${base}/schema`);

@@ -163,62 +163,49 @@ router.post("/:name/install", async (req, res) => {
     broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, "install");
     res.status(201).json(result.parsed || { ok: true, name: entry.name });
 });
-// POST /api/projects/:projectId/extensions/:name/activate
-router.post("/:name/activate", async (req, res) => {
+/**
+ * Run a `pm extension <subcommand>` mutation and broadcast the change.
+ *
+ * The activate, deactivate, and uninstall handlers share the same body:
+ * resolve the editable project, look up the catalog entry, run `pm extension
+ * <subcommand> <name> --project`, return 400 on failure, broadcast an
+ * extensions-changed event, and return the parsed result. This helper
+ * centralises that body so the three route definitions stay one-liners.
+ *
+ * @param req - The authenticated request.
+ * @param res - The Express response.
+ * @param subcommand - The pm extension subcommand ("activate", "deactivate",
+ *   or "uninstall"); also used as the error verb and the broadcast operation.
+ */
+async function runExtensionCommand(req, res, subcommand) {
     const project = await requireEditableProject(req, res);
     if (!project)
         return;
     const entry = catalogEntry(res);
     const result = await runPm({
-        args: ["extension", "activate", entry.name, "--project"],
+        args: ["extension", subcommand, entry.name, "--project"],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
     });
     if (!result.ok) {
-        res.status(400).json({ error: result.stderr || `Failed to activate ${entry.name}` });
+        res.status(400).json({ error: result.stderr || `Failed to ${subcommand} ${entry.name}` });
         return;
     }
-    broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, "activate");
+    broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, subcommand);
     res.json(result.parsed || { ok: true, name: entry.name });
+}
+// POST /api/projects/:projectId/extensions/:name/activate
+router.post("/:name/activate", async (req, res) => {
+    await runExtensionCommand(req, res, "activate");
 });
 // POST /api/projects/:projectId/extensions/:name/deactivate
 router.post("/:name/deactivate", async (req, res) => {
-    const project = await requireEditableProject(req, res);
-    if (!project)
-        return;
-    const entry = catalogEntry(res);
-    const result = await runPm({
-        args: ["extension", "deactivate", entry.name, "--project"],
-        userId: project.ownerUserId,
-        slug: project.slug,
-        jsonOutput: true,
-    });
-    if (!result.ok) {
-        res.status(400).json({ error: result.stderr || `Failed to deactivate ${entry.name}` });
-        return;
-    }
-    broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, "deactivate");
-    res.json(result.parsed || { ok: true, name: entry.name });
+    await runExtensionCommand(req, res, "deactivate");
 });
 // DELETE /api/projects/:projectId/extensions/:name
 router.delete("/:name", async (req, res) => {
-    const project = await requireEditableProject(req, res);
-    if (!project)
-        return;
-    const entry = catalogEntry(res);
-    const result = await runPm({
-        args: ["extension", "uninstall", entry.name, "--project"],
-        userId: project.ownerUserId,
-        slug: project.slug,
-        jsonOutput: true,
-    });
-    if (!result.ok) {
-        res.status(400).json({ error: result.stderr || `Failed to uninstall ${entry.name}` });
-        return;
-    }
-    broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, "uninstall");
-    res.json(result.parsed || { ok: true, name: entry.name });
+    await runExtensionCommand(req, res, "uninstall");
 });
 export { router as extensionsRouter };
 //# sourceMappingURL=extensions.js.map

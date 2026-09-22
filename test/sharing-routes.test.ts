@@ -20,20 +20,54 @@ import {
   seedUser,
   seedUserShare,
   seedGroupShare,
+  setupOwnerProjectTest,
   startApp,
   uniqueEmail,
   type AppServer,
   type SeedUser,
 } from "./helpers/pg-harness.ts";
 
-test("sharing: owner lists shares, non-owner is denied 404", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
+/** POST a share-create request and return the response. */
+async function createShare(
+  server: AppServer,
+  user: SeedUser,
+  projectId: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return authedFetch(server, user, `/api/projects/${projectId}/shares`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
 
-  const owner = await seedUser(uniqueEmail("owner"));
+/** DELETE a share and return the response. */
+async function deleteShare(
+  server: AppServer,
+  user: SeedUser,
+  projectId: string,
+  shareId: string,
+): Promise<Response> {
+  return authedFetch(server, user, `/api/projects/${projectId}/shares/${shareId}`, {
+    method: "DELETE",
+  });
+}
+
+/** Setup for share-removal tests: create an owner with a project, a
+ * collaborator, and a view-permission share row. */
+async function setupShareTest(t: test.TestContext): Promise<{
+  server: AppServer; owner: SeedUser; project: { id: string }; collaborator: SeedUser; shareId: string;
+}> {
+  const { server, owner, project } = await setupOwnerProjectTest(t);
+  const collaborator = await seedUser(uniqueEmail("collab"));
+  const shareId = await seedUserShare(project.id, collaborator.id, "view");
+  return { server, owner, project, collaborator, shareId };
+}
+
+
+test("sharing: owner lists shares, non-owner is denied 404", async (t) => {
+  const { server, owner, project } = await setupOwnerProjectTest(t);
   const stranger = await seedUser(uniqueEmail("stranger"));
-  const project = await seedProject(owner.id);
 
   const ok = await authedFetch(server, owner, `/api/projects/${project.id}/shares`);
   assert.equal(ok.status, 200);
@@ -44,21 +78,12 @@ test("sharing: owner lists shares, non-owner is denied 404", async (t) => {
 });
 
 test("sharing: share by email, permission coerces to view for non-edit", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner, project } = await setupOwnerProjectTest(t);
   const collaborator = await seedUser(uniqueEmail("collab"));
-  const project = await seedProject(owner.id);
 
   // "admin" is not a recognized permission; the route coerces anything but
   // "edit" to "view", so the stored share must read "view".
-  const created = await authedFetch(server, owner, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: collaborator.email, permission: "admin" }),
-  });
+  const created = await createShare(server, owner, project.id, { email: collaborator.email, permission: "admin" });
   assert.equal(created.status, 201);
   const share = (await created.json() as { share: { permission: string; user_email: string } }).share;
   assert.equal(share.permission, "view");
@@ -81,11 +106,7 @@ test("sharing: explicit edit permission is preserved", async (t) => {
   const editor = await seedUser(uniqueEmail("editor"));
   const project = await seedProject(owner.id);
 
-  const created = await authedFetch(server, owner, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: editor.email, permission: "edit" }),
-  });
+  const created = await createShare(server, owner, project.id, { email: editor.email, permission: "edit" });
   assert.equal(created.status, 201);
   assert.equal((await created.json() as { share: { permission: string } }).share.permission, "edit");
 });
@@ -100,95 +121,46 @@ test("sharing: both email and groupId supplied is 400", async (t) => {
   const project = await seedProject(owner.id);
   const group = await seedGroup(owner.id);
 
-  const res = await authedFetch(server, owner, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: other.email, groupId: group.id }),
-  });
+  const res = await createShare(server, owner, project.id, { email: other.email, groupId: group.id });
   assert.equal(res.status, 400);
 });
 
 test("sharing: neither email nor groupId supplied is 400", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
+  const { server, owner, project } = await setupOwnerProjectTest(t);
 
-  const owner = await seedUser(uniqueEmail("owner"));
-  const project = await seedProject(owner.id);
-
-  const res = await authedFetch(server, owner, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({}),
-  });
+  const res = await createShare(server, owner, project.id, {});
   assert.equal(res.status, 400);
 });
 
 test("sharing: non-owner cannot create a share (404)", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner, project } = await setupOwnerProjectTest(t);
   const stranger = await seedUser(uniqueEmail("stranger"));
   const target = await seedUser(uniqueEmail("target"));
-  const project = await seedProject(owner.id);
 
-  const res = await authedFetch(server, stranger, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: target.email }),
-  });
+  const res = await createShare(server, stranger, project.id, { email: target.email });
   assert.equal(res.status, 404, "a non-owner must not be told the project exists");
 });
 
 test("sharing: sharing with a non-existent user is 404", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
+  const { server, owner, project } = await setupOwnerProjectTest(t);
 
-  const owner = await seedUser(uniqueEmail("owner"));
-  const project = await seedProject(owner.id);
-
-  const res = await authedFetch(server, owner, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: "nobody@nowhere.test" }),
-  });
+  const res = await createShare(server, owner, project.id, { email: "nobody@nowhere.test" });
   assert.equal(res.status, 404);
 });
 
 test("sharing: cannot share a project with yourself (400)", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
+  const { server, owner, project } = await setupOwnerProjectTest(t);
 
-  const owner = await seedUser(uniqueEmail("owner"));
-  const project = await seedProject(owner.id);
-
-  const res = await authedFetch(server, owner, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: owner.email }),
-  });
+  const res = await createShare(server, owner, project.id, { email: owner.email });
   assert.equal(res.status, 400);
 });
 
 test("sharing: share by group, and non-member group is 404", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
-  const project = await seedProject(owner.id);
+  const { server, owner, project } = await setupOwnerProjectTest(t);
   const group = await seedGroup(owner.id);
 
   // Owner is a member of their own group (seeded), so sharing succeeds.
-  const created = await authedFetch(server, owner, `/api/projects/${project.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ groupId: group.id, permission: "edit" }),
-  });
+  const created = await createShare(server, owner, project.id, { groupId: group.id, permission: "edit" });
   assert.equal(created.status, 201);
   const share = (await created.json() as { share: { group_id: string; group_name: string; permission: string } }).share;
   assert.equal(share.group_id, group.id);
@@ -197,49 +169,25 @@ test("sharing: share by group, and non-member group is 404", async (t) => {
   // A stranger who is not a member of the group cannot reference it.
   const stranger = await seedUser(uniqueEmail("stranger"));
   const strangerProject = await seedProject(stranger.id);
-  const denied = await authedFetch(server, stranger, `/api/projects/${strangerProject.id}/shares`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ groupId: group.id }),
-  });
+  const denied = await createShare(server, stranger, strangerProject.id, { groupId: group.id });
   assert.equal(denied.status, 404, "a non-member must not share through someone else's group");
 });
 
 test("sharing: owner removes a share, and removing a missing share is 404", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
+  const { server, owner, project, shareId } = await setupShareTest(t);
 
-  const owner = await seedUser(uniqueEmail("owner"));
-  const collaborator = await seedUser(uniqueEmail("collab"));
-  const project = await seedProject(owner.id);
-  const shareId = await seedUserShare(project.id, collaborator.id, "view");
-
-  const removed = await authedFetch(server, owner, `/api/projects/${project.id}/shares/${shareId}`, {
-    method: "DELETE",
-  });
+  const removed = await deleteShare(server, owner, project.id, shareId);
   assert.equal(removed.status, 200);
 
   // Removing again is now a 404 — the share is gone.
-  const again = await authedFetch(server, owner, `/api/projects/${project.id}/shares/${shareId}`, {
-    method: "DELETE",
-  });
+  const again = await deleteShare(server, owner, project.id, shareId);
   assert.equal(again.status, 404);
 });
 
 test("sharing: a non-owner cannot remove a share (404)", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
+  const { server, project, collaborator, shareId } = await setupShareTest(t);
 
-  const owner = await seedUser(uniqueEmail("owner"));
-  const collaborator = await seedUser(uniqueEmail("collab"));
-  const project = await seedProject(owner.id);
-  const shareId = await seedUserShare(project.id, collaborator.id, "view");
-
-  const res = await authedFetch(server, collaborator, `/api/projects/${project.id}/shares/${shareId}`, {
-    method: "DELETE",
-  });
+  const res = await deleteShare(server, collaborator, project.id, shareId);
   assert.equal(res.status, 404, "only the project owner may remove a share");
 });
 
@@ -314,28 +262,17 @@ test("sharing: a malformed identifier is rejected with 400 on mutating routes", 
   t.after(() => server.close());
 
   const owner = await seedUser(uniqueEmail("owner"));
-  const post = await authedFetch(server, owner, "/api/projects/not-a-uuid/shares", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: "x@y.test" }),
-  });
+  const post = await createShare(server, owner, "not-a-uuid", { email: "x@y.test" });
   assert.equal(post.status, 400);
 
-  const del = await authedFetch(server, owner, "/api/projects/not-a-uuid/shares/some-id", {
-    method: "DELETE",
-  });
+  const del = await deleteShare(server, owner, "not-a-uuid", "some-id");
   assert.equal(del.status, 400);
 
   // The mount-path project id is validated first, so :shareId is only genuinely
   // exercised behind a valid project id. Asserting the error body proves it is
   // the shareId guard answering and not the project guard again.
   const project = await seedProject(owner.id);
-  const badShare = await authedFetch(
-    server,
-    owner,
-    `/api/projects/${project.id}/shares/not-a-uuid`,
-    { method: "DELETE" },
-  );
+  const badShare = await deleteShare(server, owner, project.id, "not-a-uuid");
   assert.equal(badShare.status, 400);
   assert.equal(((await badShare.json()) as { error: string }).error, "Invalid shareId");
 });

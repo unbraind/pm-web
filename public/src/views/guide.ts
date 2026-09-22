@@ -6,6 +6,16 @@ import { getGuide, getGuideTopic } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 
+/** Replaces the guide content with the shared error state and toasts the
+ * failure, falling back to the given message when the error has none. */
+function showGuideError(err: unknown, fallback: string): void {
+  const contentEl = document.getElementById('guide-content');
+  if (contentEl) {
+    contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+  }
+  toast(err instanceof Error ? err.message : fallback, 'error');
+}
+
 const TOPIC_ICONS: Record<string, string> = {
   quickstart: '🚀',
   commands: '⌨️',
@@ -134,11 +144,7 @@ export async function renderGuideView(topicId?: string): Promise<void> {
       const contentEl = document.getElementById('guide-content');
       if (contentEl) contentEl.innerHTML = renderTopicDetail(topic as Parameters<typeof renderTopicDetail>[0]);
     } catch (err: unknown) {
-      const contentEl = document.getElementById('guide-content');
-      if (contentEl) {
-        contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
-      }
-      toast(err instanceof Error ? err.message : 'Failed to load topic', 'error');
+      showGuideError(err, 'Failed to load topic');
     }
   } else {
     // Show topic list
@@ -155,11 +161,7 @@ export async function renderGuideView(topicId?: string): Promise<void> {
       const contentEl = document.getElementById('guide-content');
       if (contentEl) contentEl.innerHTML = renderTopicCards(topics as Parameters<typeof renderTopicCards>[0]);
     } catch (err: unknown) {
-      const contentEl = document.getElementById('guide-content');
-      if (contentEl) {
-        contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
-      }
-      toast(err instanceof Error ? err.message : 'Failed to load guide', 'error');
+      showGuideError(err, 'Failed to load guide');
     }
   }
 }

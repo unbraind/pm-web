@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml } from '../utils.js';
+import { escHtml, issueRow } from '../utils.js';
 import type { ValidateIssue, ValidateResponse } from '../api-types.js';
 
 /** Renders metadata and lifecycle validation results for the current project: a combined list of error and warning issues with item links, an optional summary, and an overall pass/fail status. */
@@ -30,14 +30,7 @@ export async function renderValidateView(): Promise<void> {
         <div class="card-body">
           ${allIssues.length === 0
             ? '<div style="color:var(--status-closed);font-size:13px">✓ All checks passed — no issues found!</div>'
-            : allIssues.map((i)=>`
-              <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
-                <span style="color:${i.level==='error'?'var(--status-blocked)':'var(--priority-3)'};flex-shrink:0">${i.level==='error'?'✗':'⚠'}</span>
-                <div>
-                  <div style="font-size:13px">${escHtml(i.message||i.description||JSON.stringify(i))}</div>
-                  ${i.id?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px"><a href="#" onclick="window.__app.openItemDetail('${escHtml(i.id)}');return false" style="color:var(--accent)">${escHtml(i.id)}</a></div>`:''}
-                </div>
-              </div>`).join('')
+            : allIssues.map((i)=>issueRow(i.level==='error'?'✗':'⚠', i.level==='error'?'var(--status-blocked)':'var(--priority-3)', i.message||i.description||JSON.stringify(i), i.id, '')).join('')
           }
         </div>
       </div>

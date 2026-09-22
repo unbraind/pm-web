@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import http from "node:http";
+import { startEphemeralServer } from "./helpers/ephemeral-server.ts";
 import { createApp } from "../src/app.ts";
 import { createHealthHandler, type HealthProbeDeps, type SoftProbe, type DependencyStatus, type Queryable } from "../src/health.ts";
 
@@ -67,16 +68,13 @@ async function getHealthz(deps: HealthProbeDeps): Promise<{ status: number; body
       softProbes: deps.softProbes,
     },
   });
-  const server = http.createServer(app);
-  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
-  const address = server.address();
-  const port = typeof address === "object" && address ? address.port : 0;
+  const { port, close } = await startEphemeralServer(app);
   try {
     const res = await fetch(`http://127.0.0.1:${port}/healthz`);
     const body = await res.json() as Record<string, unknown>;
     return { status: res.status, body };
   } finally {
-    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
+    await close();
   }
 }
 
@@ -86,17 +84,11 @@ async function getHealthz(deps: HealthProbeDeps): Promise<{ status: number; body
  */
 async function directHealthz(deps: HealthProbeDeps): Promise<{ status: number; body: Record<string, unknown> }> {
   const handler = createHealthHandler(deps);
-  let status = 0;
-  let body: Record<string, unknown> = {};
-  // Minimal fake req/res/next sufficient for the health handler.
+  const { res, getStatus, getBody } = createFakeRes();
   const req = {} as never;
-  const res = {
-    status(code: number) { status = code; return this; },
-    json(payload: unknown) { body = payload as Record<string, unknown>; },
-  } as never;
   const next = (() => {}) as never;
   await handler(req, res, next);
-  return { status, body };
+  return { status: getStatus(), body: getBody() };
 }
 
 /**
@@ -111,27 +103,103 @@ async function directHealthz(deps: HealthProbeDeps): Promise<{ status: number; b
 async function callHandler(
   handler: ReturnType<typeof createHealthHandler>,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  let status = 0;
-  let body: Record<string, unknown> = {};
+  const { res, getStatus, getBody } = createFakeRes();
   const req = {} as never;
-  const res = {
-    status(code: number) { status = code; return this; },
-    json(payload: unknown) { body = payload as Record<string, unknown>; },
-  } as never;
   await handler(req, res, (() => {}) as never);
-  return { status, body };
+  return { status: getStatus(), body: getBody() };
 }
 
 /** The handler's response-cache TTL, mirrored so tests can step past it. */
 const CACHE_TTL_FOR_TEST = 5000;
+/** A no-op Express response for cache tests that only count queries. */
+function noopRes(): never {
+  return { status(_code: number) { return this; }, json(_b: unknown) {} } as never;
+}
+
+/** Create a minimal fake Express response that captures status and body. */
+function createFakeRes(): { res: never; getStatus: () => number; getBody: () => Record<string, unknown> } {
+  let status = 0;
+  let body: Record<string, unknown> = {};
+  const res = {
+    status(code: number) { status = code; return this; },
+    json(payload: unknown) { body = payload as Record<string, unknown>; },
+  } as never;
+  return { res, getStatus: () => status, getBody: () => body };
+}
+
+/** Run a test body with a writable root directory, cleaning up afterwards. */
+async function withWritableRoot<T>(fn: (root: string) => Promise<T>): Promise<T> {
+  const root = mkdtempSync(path.join(tmpdir(), "pm-web-healthz-"));
+  try {
+    return await fn(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** Assert the common unhealthy-response shape: given status, ok=false, and
+ * postgres.ok + error presence. When `errorRegex` is given, the postgres error
+ * is matched against it instead of just being checked for presence. */
+function assertUnhealthy(
+  result: { status: number; body: Record<string, unknown> },
+  expectedStatus: number,
+  postgresOk: boolean,
+  errorRegex?: RegExp,
+): void {
+  assert.equal(result.status, expectedStatus);
+  assert.equal(result.body.ok, false);
+  const deps = result.body.dependencies as Record<string, DependencyStatus>;
+  assert.equal(deps.postgres.ok, postgresOk);
+  if (errorRegex) {
+    assert.match(deps.postgres.error ?? "", errorRegex);
+  } else if (!postgresOk) {
+    assert.ok(deps.postgres.error, "postgres error must be reported");
+  }
+}
+
+/** Assert a 503 with a timed-out postgres (common to hung and slow pool tests). */
+
+/** Assert 503 with ok=false and return the dependencies object for further
+ * per-dependency assertions. */
+
+/** Create a counting pool + handler + req + next for cache tests. */
+function createCacheTestHarness(root: string): {
+  handler: ReturnType<typeof createHealthHandler>;
+  req: never;
+  next: never;
+  getQueryCount: () => number;
+} {
+  let queryCount = 0;
+  const countingPool: Queryable = {
+    query: () => { queryCount++; return Promise.resolve({ rows: [] }); },
+  };
+  const handler = createHealthHandler({
+    pool: countingPool,
+    projectsRoot: root,
+    version: "test-1.0",
+  });
+  const req = {} as never;
+  const next = (() => {}) as never;
+  return { handler, req, next, getQueryCount: () => queryCount };
+}
+
+function assert503Body(result: { status: number; body: Record<string, unknown> }): Record<string, DependencyStatus> {
+  assert.equal(result.status, 503);
+  assert.equal(result.body.ok, false);
+  return result.body.dependencies as Record<string, DependencyStatus>;
+}
+
+function assertTimedOut503(result: { status: number; body: Record<string, unknown> }): void {
+  assertUnhealthy(result, 503, false, /timed out/i);
+}
+
 
 // ---------------------------------------------------------------------------
 // Tests — all dependencies healthy
 // ---------------------------------------------------------------------------
 
 test("all healthy: 200 with ok:true and per-dependency breakdown", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const { status, body } = await getHealthz({
       pool: healthyPool(),
       projectsRoot: root,
@@ -143,9 +211,7 @@ test("all healthy: 200 with ok:true and per-dependency breakdown", async () => {
     const deps = body.dependencies as Record<string, DependencyStatus>;
     assert.equal(deps.postgres.ok, true);
     assert.equal(deps.projects_root.ok, true);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 // ---------------------------------------------------------------------------
@@ -161,8 +227,7 @@ test("createApp route: a failing Postgres probe yields HTTP 503 through the moun
   // `createHealthHandler` returns 503 when called directly. Reverting the mount
   // (restoring the unconditional `ok:true` route) makes this test fail with
   // `status === 200`.
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const { status, body } = await getHealthz({
       pool: unreachablePool(),
       projectsRoot: root,
@@ -173,64 +238,42 @@ test("createApp route: a failing Postgres probe yields HTTP 503 through the moun
     const deps = body.dependencies as Record<string, DependencyStatus>;
     assert.equal(deps.postgres.ok, false);
     assert.ok(deps.postgres.error, "postgres error must be reported");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 test("unreachable database: 503 with postgres.ok:false", async () => {
-  const root = writableRoot();
-  try {
-    const { status, body } = await getHealthz({
+  await withWritableRoot(async (root) => {
+    const result = await getHealthz({
       pool: unreachablePool(),
       projectsRoot: root,
       version: "test-1.0",
     });
-    assert.equal(status, 503);
-    assert.equal(body.ok, false);
-    const deps = body.dependencies as Record<string, DependencyStatus>;
-    assert.equal(deps.postgres.ok, false);
-    assert.ok(deps.postgres.error, "postgres error must be reported");
+    assertUnhealthy(result, 503, false);
+    const deps = result.body.dependencies as Record<string, DependencyStatus>;
     assert.equal(deps.projects_root.ok, true, "projects root should still be ok");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 test("hung database (probe timeout): 503 with timeout error", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const { status, body } = await getHealthz({
       pool: hangingPool(),
       projectsRoot: root,
       version: "test-1.0",
     });
-    assert.equal(status, 503);
-    assert.equal(body.ok, false);
-    const deps = body.dependencies as Record<string, DependencyStatus>;
-    assert.equal(deps.postgres.ok, false);
-    assert.match(deps.postgres.error ?? "", /timed out/i);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+    assertTimedOut503({ status, body });
+  })
 });
 
 test("slow database (exceeds 2s timeout): 503", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const { status, body } = await getHealthz({
       pool: slowPool(3500),
       projectsRoot: root,
       version: "test-1.0",
     });
-    assert.equal(status, 503);
-    assert.equal(body.ok, false);
-    const deps = body.dependencies as Record<string, DependencyStatus>;
-    assert.equal(deps.postgres.ok, false);
-    assert.match(deps.postgres.error ?? "", /timed out/i);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+    assertTimedOut503({ status, body });
+  })
 });
 
 // ---------------------------------------------------------------------------
@@ -246,9 +289,7 @@ test("missing projects root: 503 with projects_root.ok:false", async () => {
     projectsRoot: missing,
     version: "test-1.0",
   });
-  assert.equal(status, 503);
-  assert.equal(body.ok, false);
-  const deps = body.dependencies as Record<string, DependencyStatus>;
+  const deps = assert503Body({ status, body });
   assert.equal(deps.projects_root.ok, false);
   assert.ok(deps.projects_root.error, "projects_root error must be reported");
   assert.equal(deps.postgres.ok, true, "postgres should still be ok");
@@ -265,9 +306,7 @@ test("read-only projects root: 503 with projects_root.ok:false", async () => {
       projectsRoot: root,
       version: "test-1.0",
     });
-    assert.equal(status, 503);
-    assert.equal(body.ok, false);
-    const deps = body.dependencies as Record<string, DependencyStatus>;
+    const deps = assert503Body({ status, body });
     assert.equal(deps.projects_root.ok, false);
     assert.ok(deps.projects_root.error, "writability failure must be reported");
   } finally {
@@ -278,14 +317,11 @@ test("read-only projects root: 503 with projects_root.ok:false", async () => {
 });
 
 test("projects root writability probe leaves no stray files", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     await directHealthz({ pool: healthyPool(), projectsRoot: root, version: "test" });
     const entries = readdirSync(root);
     assert.equal(entries.length, 0, "no probe files should remain in the projects root");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 // ---------------------------------------------------------------------------
@@ -299,9 +335,7 @@ test("both hard deps fail: 503 with both reported as down", async () => {
     projectsRoot: missing,
     version: "test-1.0",
   });
-  assert.equal(status, 503);
-  assert.equal(body.ok, false);
-  const deps = body.dependencies as Record<string, DependencyStatus>;
+  const deps = assert503Body({ status, body });
   assert.equal(deps.postgres.ok, false);
   assert.equal(deps.projects_root.ok, false);
 });
@@ -311,8 +345,7 @@ test("both hard deps fail: 503 with both reported as down", async () => {
 // ---------------------------------------------------------------------------
 
 test("soft dependency down does not cause 503", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const softProbes: SoftProbe[] = [
       { name: "neo4j", probe: async () => ({ ok: false, latency_ms: 0, error: "connection refused", configured: true }) },
       { name: "ollama", probe: async () => ({ ok: false, latency_ms: 0, error: "ECONNREFUSED", configured: true }) },
@@ -328,14 +361,11 @@ test("soft dependency down does not cause 503", async () => {
     const deps = body.dependencies as Record<string, DependencyStatus>;
     assert.equal(deps.neo4j.ok, false);
     assert.equal(deps.ollama.ok, false);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 test("soft dependency not configured reports configured:false", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const softProbes: SoftProbe[] = [
       { name: "neo4j", probe: async () => ({ ok: true, latency_ms: 0, configured: false }) },
     ];
@@ -349,14 +379,11 @@ test("soft dependency not configured reports configured:false", async () => {
     const deps = body.dependencies as Record<string, DependencyStatus>;
     assert.equal(deps.neo4j.ok, true);
     assert.equal(deps.neo4j.configured, false);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 test("soft dependency probe that throws is caught and reported as down", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const softProbes: SoftProbe[] = [
       { name: "flaky", probe: () => { throw new Error("synchronous explosion"); } },
     ];
@@ -374,9 +401,7 @@ test("soft dependency probe that throws is caught and reported as down", async (
     // names and filesystem paths - reconnaissance for an anonymous caller.
     assert.equal(deps.flaky.error, "unavailable");
     assert.doesNotMatch(JSON.stringify(body), /synchronous explosion/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 // ---------------------------------------------------------------------------
@@ -384,61 +409,27 @@ test("soft dependency probe that throws is caught and reported as down", async (
 // ---------------------------------------------------------------------------
 
 test("cached result is reused within 5 seconds", async () => {
-  const root = writableRoot();
-  try {
-    let queryCount = 0;
-    const countingPool: Queryable = {
-      query: () => { queryCount++; return Promise.resolve({ rows: [] }); },
-    };
-    const handler = createHealthHandler({
-      pool: countingPool,
-      projectsRoot: root,
-      version: "test-1.0",
-    });
-
-    // First call probes.
-    const req = {} as never;
-    const next = (() => {}) as never;
-    const res1 = { status(code: number) { return this; }, json(_b: unknown) {} } as never;
-    await handler(req, res1, next);
-    assert.equal(queryCount, 1, "first call must probe");
-
-    // Second call within 5s must use the cache.
-    const res2 = { status(code: number) { return this; }, json(_b: unknown) {} } as never;
-    await handler(req, res2, next);
-    assert.equal(queryCount, 1, "second call within cache TTL must not re-probe");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  await withWritableRoot(async (root) => {
+    const { handler, req, next, getQueryCount } = createCacheTestHarness(root);
+    await handler(req, noopRes(), next);
+    assert.equal(getQueryCount(), 1, "first call must probe");
+    await handler(req, noopRes(), next);
+    assert.equal(getQueryCount(), 1, "second call within cache TTL must not re-probe");
+  })
 });
 
 test("cache expires and re-probes after 5 seconds", async () => {
   const root = writableRoot();
   try {
-    let queryCount = 0;
-    const countingPool: Queryable = {
-      query: () => { queryCount++; return Promise.resolve({ rows: [] }); },
-    };
-    // Use a direct handler with a reduced cache TTL by probing twice with
-    // a delay longer than the TTL. The real handler uses 5s; we wait 5.1s.
-    const handler = createHealthHandler({
-      pool: countingPool,
-      projectsRoot: root,
-      version: "test-1.0",
-    });
-
-    const req = {} as never;
-    const next = (() => {}) as never;
-    const res1 = { status(code: number) { return this; }, json(_b: unknown) {} } as never;
-    await handler(req, res1, next);
-    assert.equal(queryCount, 1);
+    const { handler, req, next, getQueryCount } = createCacheTestHarness(root);
+    await handler(req, noopRes(), next);
+    assert.equal(getQueryCount(), 1);
 
     // Wait just over the cache TTL.
     await new Promise<void>((resolve) => { setTimeout(resolve, 5100); });
 
-    const res2 = { status(code: number) { return this; }, json(_b: unknown) {} } as never;
-    await handler(req, res2, next);
-    assert.equal(queryCount, 2, "call after cache TTL must re-probe");
+    await handler(req, noopRes(), next);
+    assert.equal(getQueryCount(), 2, "call after cache TTL must re-probe");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -468,8 +459,7 @@ test("read-only projects root: no stray files left behind", async () => {
 // ---------------------------------------------------------------------------
 
 test("health response never includes connection strings or credentials", async () => {
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const { body } = await getHealthz({
       pool: unreachablePool(),
       projectsRoot: root,
@@ -478,9 +468,7 @@ test("health response never includes connection strings or credentials", async (
     const json = JSON.stringify(body);
     // The response must not leak any credential-like patterns.
     assert.doesNotMatch(json, /postgres:\/\/|password=|Bearer\s|api_key/i, "no credentials in health response");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 // ---------------------------------------------------------------------------
@@ -493,17 +481,14 @@ test("non-vacuity: unreachable-db test would fail if postgres probe always succe
   // test above would still expect 503 — but it would get 200, proving the test
   // is not vacuous. We verify this by checking that a healthy pool produces 200
   // under the same conditions the failure test uses (temp projects root).
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const { status } = await getHealthz({
       pool: healthyPool(),
       projectsRoot: root,
       version: "test-1.0",
     });
     assert.equal(status, 200, "with a healthy pool the status must be 200, not 503 — proving the unreachable-db test discriminates");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 test("non-vacuity: missing-root test would fail if projects-root probe always succeeded", async () => {
@@ -511,17 +496,14 @@ test("non-vacuity: missing-root test would fail if projects-root probe always su
   // test would get 200 instead of 503. We verify by passing a writable root
   // with a healthy pool — the status must be 200, proving the failure test
   // would fail if the probe were a no-op.
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const { status } = await getHealthz({
       pool: healthyPool(),
       projectsRoot: root,
       version: "test-1.0",
     });
     assert.equal(status, 200, "with a real writable root the status must be 200 — proving the missing-root test discriminates");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 
 test("non-vacuity: timeout test would fail if the probe had no timeout", async () => {
@@ -529,8 +511,7 @@ test("non-vacuity: timeout test would fail if the probe had no timeout", async (
   // rather than return 503. We verify that a fast pool returns promptly,
   // proving the timeout test is meaningful (a hanging pool without timeout
   // would never return).
-  const root = writableRoot();
-  try {
+  await withWritableRoot(async (root) => {
     const start = Date.now();
     const { status } = await getHealthz({
       pool: healthyPool(),
@@ -540,9 +521,7 @@ test("non-vacuity: timeout test would fail if the probe had no timeout", async (
     const elapsed = Date.now() - start;
     assert.equal(status, 200);
     assert.ok(elapsed < 1000, `healthy probe should return in under 1s, took ${elapsed}ms — proving the timeout test discriminates`);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  })
 });
 test("a failing probe never leaks the underlying path, host or message", async () => {
   // Every hard-dependency failure the endpoint can report must reduce to a
@@ -607,10 +586,7 @@ test("concurrent uncached probes share one computation rather than one each", as
       softProbes: [],
     },
   });
-  const server = http.createServer(app);
-  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
-  const address = server.address();
-  const port = typeof address === "object" && address ? address.port : 0;
+  const { port, close } = await startEphemeralServer(app);
   try {
     // All eight start before the first can finish, so all eight miss the cache.
     const responses = await Promise.all(
@@ -619,7 +595,7 @@ test("concurrent uncached probes share one computation rather than one each", as
     for (const response of responses) assert.equal(response.status, 200);
     assert.equal(queries, 1, `eight concurrent probes must issue one query, issued ${queries}`);
   } finally {
-    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
+    await close();
     rmSync(root, { recursive: true, force: true });
   }
 });

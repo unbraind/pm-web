@@ -14,6 +14,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import test from "node:test";
+import { startEphemeralServer } from "./helpers/ephemeral-server.ts";
 
 import express, { type Express, type Request } from "express";
 import cookieParser from "cookie-parser";
@@ -41,27 +42,46 @@ interface ProbeServer {
 
 /** Start an Express app on an ephemeral loopback port. */
 async function start(app: Express): Promise<ProbeServer> {
-  const server = http.createServer(app);
-  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", () => { resolve(); }); });
-  const addr = server.address();
-  const port = typeof addr === "object" && addr ? addr.port : 0;
-  return {
-    url: (p: string) => `http://127.0.0.1:${port}${p}`,
-    close: () => new Promise<void>((resolve) => { server.close(() => { resolve(); }); }),
-  };
+  const { url, close } = await startEphemeralServer(app);
+  return { url, close };
 }
 
-test("createRateLimiter returns 429 with retry headers once the limit is exceeded", async (t) => {
+
+/** Create an Express app with a rate limiter and a test GET /x route.
+ * Optionally set a trust proxy value first. */
+async function setupRateLimitApp(t: test.TestContext, limiter: ReturnType<typeof createRateLimiter>, trustProxy?: string | number | boolean): Promise<ProbeServer> {
   const app = express();
-  app.use(createRateLimiter({ windowMs: 60_000, limit: 3, identifier: "test-limit" }));
+  if (trustProxy !== undefined) app.set("trust proxy", trustProxy);
+  app.use(limiter);
   app.get("/x", (_req, res) => res.json({ ok: true }));
   const server = await start(app);
   t.after(() => server.close());
+  return server;
+}
 
-  for (let i = 0; i < 3; i++) {
-    const res = await fetch(server.url("/x"));
-    assert.equal(res.status, 200, `request ${i + 1} should be allowed`);
+/** Exhaust a rate limit bucket by making `count` requests and asserting each is 200. */
+
+/** Create an Express app with cookieParser + csrfProtection + a test route. */
+async function setupCsrfApp(t: test.TestContext, method: string, path: string): Promise<ProbeServer> {
+  const app = express();
+  app.use(cookieParser());
+  app.use(csrfProtection());
+  app[method.toLowerCase() as "get" | "post"](path, (_req, res) => res.json({ ok: true }));
+  const server = await start(app);
+  t.after(() => server.close());
+  return server;
+}
+
+async function exhaustBucket(server: ProbeServer, count: number, headers?: Record<string, string>): Promise<void> {
+  for (let i = 0; i < count; i++) {
+    const res = await fetch(server.url("/x"), headers ? { headers } : undefined);
+    assert.equal(res.status, 200);
   }
+}
+
+test("createRateLimiter returns 429 with retry headers once the limit is exceeded", async (t) => {
+  const server = await setupRateLimitApp(t, createRateLimiter({ windowMs: 60_000, limit: 3, identifier: "test-limit" }));
+  await exhaustBucket(server, 3);
   const blocked = await fetch(server.url("/x"));
   assert.equal(blocked.status, 429, "the request past the limit must be rejected with 429");
   assert.equal(blocked.headers.get("ratelimit-limit"), "3", "RateLimit-Limit reports the tier limit");
@@ -73,18 +93,8 @@ test("createRateLimiter returns 429 with retry headers once the limit is exceede
 });
 
 test("the limiter keys on the real client IP behind the proxy, not the proxy itself", async (t) => {
-  const app = express();
-  app.set("trust proxy", 1);
-  app.use(createRateLimiter({ windowMs: 60_000, limit: 2, identifier: "proxy-test" }));
-  app.get("/x", (_req, res) => res.json({ ok: true }));
-  const server = await start(app);
-  t.after(() => server.close());
-
-  // Exhaust the bucket for one forwarded client.
-  for (let i = 0; i < 2; i++) {
-    const res = await fetch(server.url("/x"), { headers: { "x-forwarded-for": "1.1.1.1" } });
-    assert.equal(res.status, 200);
-  }
+  const server = await setupRateLimitApp(t, createRateLimiter({ windowMs: 60_000, limit: 2, identifier: "proxy-test" }), 1);
+  await exhaustBucket(server, 2, { "x-forwarded-for": "1.1.1.1" });
   const sameClient = await fetch(server.url("/x"), { headers: { "x-forwarded-for": "1.1.1.1" } });
   assert.equal(sameClient.status, 429, "the original client's bucket is exhausted");
 
@@ -102,13 +112,7 @@ test("under the default configuration a rotated X-Forwarded-For cannot draw a fr
   // proxy in front, and asserts the header buys nothing: were a hop trusted
   // there, every request could name a new client and the limiter would enforce
   // nothing at all.
-  const app = express();
-  app.set("trust proxy", resolveTrustProxy({}));
-  app.use(createRateLimiter({ windowMs: 60_000, limit: 2, identifier: "default-trust-test" }));
-  app.get("/x", (_req, res) => res.json({ ok: true }));
-  const server = await start(app);
-  t.after(() => server.close());
-
+  const server = await setupRateLimitApp(t, createRateLimiter({ windowMs: 60_000, limit: 2, identifier: "default-trust-test" }), resolveTrustProxy({}));
   for (let i = 0; i < 2; i++) {
     const res = await fetch(server.url("/x"), { headers: { "x-forwarded-for": `9.9.9.${i}` } });
     assert.equal(res.status, 200);
@@ -139,8 +143,9 @@ test("read and write tiers carry separate per-minute budgets", async (t) => {
 
   // Writes use a separate WRITE bucket, so they still succeed even though reads
   // are throttled — proving the tiers are not one shared bucket.
-  assert.equal((await fetch(server.url("/w"), { method: "POST" })).status, 200);
-  assert.equal((await fetch(server.url("/w"), { method: "POST" })).status, 200);
+  for (let i = 0; i < 2; i++) {
+    assert.equal((await fetch(server.url("/w"), { method: "POST" })).status, 200);
+  }
   assert.equal(
     (await fetch(server.url("/w"), { method: "POST" })).status,
     429,
@@ -208,12 +213,7 @@ test("resolveTrustProxy honours hops, booleans and IP allowlists", () => {
 });
 
 test("csrfProtection sets the csrf cookie and lets same-origin/authenticated reads pass", async (t) => {
-  const app = express();
-  app.use(cookieParser());
-  app.use(csrfProtection());
-  app.get("/me", (_req, res) => res.json({ ok: true }));
-  const server = await start(app);
-  t.after(() => server.close());
+  const server = await setupCsrfApp(t, "GET", "/me");
 
   const res = await fetch(server.url("/me"));
   assert.equal(res.status, 200);
@@ -230,12 +230,7 @@ test("csrfProtection sets the csrf cookie and lets same-origin/authenticated rea
 });
 
 test("csrfProtection blocks a cross-site, cookie-authenticated mutation with 403", async (t) => {
-  const app = express();
-  app.use(cookieParser());
-  app.use(csrfProtection());
-  app.post("/change", (_req, res) => res.json({ ok: true }));
-  const server = await start(app);
-  t.after(() => server.close());
+  const server = await setupCsrfApp(t, "POST", "/change");
 
   // A same-origin mutation (matching Host) is allowed.
   const ok = await fetch(server.url("/change"), {
@@ -271,12 +266,7 @@ test("csrfProtection blocks a cross-site, cookie-authenticated mutation with 403
 });
 
 test("csrfProtection requires a double-submit token for headerless cookie clients", async (t) => {
-  const app = express();
-  app.use(cookieParser());
-  app.use(csrfProtection());
-  app.post("/change", (_req, res) => res.json({ ok: true }));
-  const server = await start(app);
-  t.after(() => server.close());
+  const server = await setupCsrfApp(t, "POST", "/change");
 
   const bearerLike = await fetch(server.url("/change"), {
     method: "POST",
@@ -332,12 +322,7 @@ test("csrfProtection compares Origin with the trust-aware forwarded host", async
 });
 
 test("csrfProtection blocks browser-originated mutations without relying on a session cookie", async (t) => {
-  const app = express();
-  app.use(cookieParser());
-  app.use(csrfProtection());
-  app.post("/login", (_req, res) => res.json({ ok: true }));
-  const server = await start(app);
-  t.after(() => server.close());
+  const server = await setupCsrfApp(t, "POST", "/login");
 
   const res = await fetch(server.url("/login"), {
     method: "POST",

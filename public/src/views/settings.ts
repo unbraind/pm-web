@@ -3,12 +3,25 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml } from '../utils.js';
+import { escHtml, resetButton, updateHeaderUser } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { confirmDialog } from '../components/modals.js';
 import { t, translateError, localeDate, getLocale, SUPPORTED_LOCALES, type SupportedLocale } from '../i18n.js';
 import type { GithubTokenResponse, ProfileResponse } from '../api-types.js';
 import type { User } from '../types.js';
+
+/** Displays a translated error message in the given inline error element and
+ * makes it visible. No-op when `errEl` is null. */
+function showInlineError(errEl: HTMLElement | null, err: unknown): void {
+  if (errEl) { errEl.textContent = translateError(err instanceof Error ? err.message : String(err)); errEl.style.display = 'block'; }
+}
+
+/** Hides the inline error and disables the save button with the shared
+ * "Saving..." label. No-op on a null element. */
+function beginSave(errEl: HTMLElement | null, btn: HTMLButtonElement | null): void {
+  if (errEl) errEl.style.display = 'none';
+  if (btn) { btn.disabled = true; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.saving'); }
+}
 
 function avatarInitial(name: string): string {
   return (name.trim()[0] || '?').toUpperCase();
@@ -153,8 +166,7 @@ export async function saveProfile(): Promise<void> {
   const errEl = document.getElementById('settings-profile-error') as HTMLElement | null;
   const btn = document.getElementById('settings-profile-btn') as HTMLButtonElement | null;
   if (!displayName) { if (errEl) { errEl.textContent = t('settings.displayNameEmpty'); errEl.style.display = 'block'; } return; }
-  if (errEl) errEl.style.display = 'none';
-  if (btn) { btn.disabled = true; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.saving'); }
+  beginSave(errEl, btn);
   try {
     const data = await api<ProfileResponse>('PATCH','/auth/profile',{displayName});
     if (data.user) {
@@ -162,18 +174,13 @@ export async function saveProfile(): Promise<void> {
     } else {
       state.user!.display_name = displayName;
     }
-    const u = state.user!;
-    const initials = (u.display_name||u.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const avatarEl = document.getElementById('user-avatar');
-    if (avatarEl) avatarEl.textContent = initials;
-    const nameEl = document.getElementById('user-name-display');
-    if (nameEl) nameEl.textContent = u.display_name||u.email;
+    updateHeaderUser(state.user!);
     toast(t('settings.profileSaved'),'success');
     renderSettingsView();
   } catch(err: unknown) {
-    if (errEl) { errEl.textContent = translateError(err instanceof Error ? err.message : String(err)); errEl.style.display = 'block'; }
+    showInlineError(errEl, err);
   } finally {
-    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.saveProfile'); }
+    resetButton(btn, t('settings.saveProfile'));
   }
 }
 
@@ -204,9 +211,9 @@ export async function changePassword(): Promise<void> {
     if (newEl) newEl.value = '';
     if (confEl) confEl.value = '';
   } catch(err: unknown) {
-    if (errEl) { errEl.textContent = translateError(err instanceof Error ? err.message : String(err)); errEl.style.display = 'block'; }
+    showInlineError(errEl, err);
   } finally {
-    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.changePassword'); }
+    resetButton(btn, t('settings.changePassword'));
   }
 }
 
@@ -221,17 +228,16 @@ export async function saveGitHubToken(): Promise<void> {
   const errEl = document.getElementById('settings-github-error') as HTMLElement | null;
   const btn = document.getElementById('settings-github-btn') as HTMLButtonElement | null;
   if (!token) { if (errEl) { errEl.textContent = t('settings.tokenEmpty'); errEl.style.display = 'block'; } return; }
-  if (errEl) errEl.style.display = 'none';
-  if (btn) { btn.disabled = true; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.saving'); }
+  beginSave(errEl, btn);
   try {
     const data = await api<GithubTokenResponse>('PATCH','/auth/github-token',{token});
     state.user!.has_github_token = data.hasToken !== undefined ? data.hasToken : true;
     toast(t('settings.tokenSaved'),'success');
     renderSettingsView();
   } catch(err: unknown) {
-    if (errEl) { errEl.textContent = translateError(err instanceof Error ? err.message : String(err)); errEl.style.display = 'block'; }
+    showInlineError(errEl, err);
   } finally {
-    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = t('settings.saveToken'); }
+    resetButton(btn, t('settings.saveToken'));
   }
 }
 

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
+import { findUserByEmail, notFoundWhenEmpty, parseGroupInput } from "./route-helpers.ts";
 
 const router = Router();
 router.use(requireAuth);
@@ -32,11 +33,9 @@ router.get("/", async (req: AuthRequest, res) => {
 
 // POST /api/groups - create a group
 router.post("/", async (req: AuthRequest, res) => {
-  const { name, description } = req.body as { name?: string; description?: string };
-  if (!name?.trim()) {
-    res.status(400).json({ error: "Group name is required" });
-    return;
-  }
+  const input = parseGroupInput(res, req.body);
+  if (!input) return;
+  const { name, description } = input;
 
   const client = await pool.connect();
   try {
@@ -45,7 +44,7 @@ router.post("/", async (req: AuthRequest, res) => {
       `INSERT INTO pm_groups (owner_id, name, description)
        VALUES ($1, $2, $3)
        RETURNING id, owner_id, name, description, created_at, updated_at`,
-      [req.user!.userId, name.trim(), description?.trim() || ""]
+      [req.user!.userId, name, description]
     );
     const group = groupResult.rows[0] as { id: string };
 
@@ -116,10 +115,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
        RETURNING id, owner_id, name, description, created_at, updated_at`,
       [name?.trim() || null, description !== undefined ? description : null, routeParam(req, "id"), req.user!.userId]
     );
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: "Group not found or you are not the owner" });
-      return;
-    }
+    if (notFoundWhenEmpty(res, result.rows, "Group not found or you are not the owner")) return;
     res.json({ group: result.rows[0] });
   } catch (err) {
     console.error("Update group error:", err);
@@ -134,10 +130,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
       `DELETE FROM pm_groups WHERE id = $1 AND owner_id = $2 RETURNING id`,
       [routeParam(req, "id"), req.user!.userId]
     );
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: "Group not found or you are not the owner" });
-      return;
-    }
+    if (notFoundWhenEmpty(res, result.rows, "Group not found or you are not the owner")) return;
     res.json({ ok: true });
   } catch (err) {
     console.error("Delete group error:", err);
@@ -166,15 +159,11 @@ router.post("/:id/members", async (req: AuthRequest, res) => {
     }
 
     // Find the user by email
-    const userResult = await pool.query(
-      `SELECT id, email, display_name FROM pm_users WHERE email = $1`,
-      [email.trim().toLowerCase()]
-    );
-    if (userResult.rows.length === 0) {
+    const invitedUser = await findUserByEmail(email);
+    if (!invitedUser) {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    const invitedUser = userResult.rows[0] as { id: string; email: string; display_name: string };
 
     const memberResult = await pool.query(
       `INSERT INTO pm_group_members (group_id, user_id, role)

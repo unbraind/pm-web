@@ -20,30 +20,11 @@ import path from "node:path";
 import { subscribeMutationEvents } from "@unbrained/pm-cli/sdk";
 import { resolveProjectDir } from "./pm-runner.js";
 import { consumeSignaledItemMutation, deliverProjectEvent, getActiveProjectIds, } from "./sse.js";
+import { cachedProjectDir, dropInactive, positiveIntEnv } from "./watcher-utils.js";
 const DEFAULT_INTERVAL_MS = 250;
 const MIN_INTERVAL_MS = 10;
 const DEFAULT_RECONCILE_MS = 2_000;
 const MIN_RECONCILE_MS = 500;
-/**
- * Read a positive-integer environment variable, with a fallback.
- *
- * Returns the parsed integer when the variable is set and the raw value parses
- * as a positive integer via `Number.parseInt`; otherwise returns `fallback`.
- * Because `parseInt` parses a leading integer prefix, values like `"500ms"`
- * parse as `500` and `"1.5"` truncates to `1`. Non-numeric, zero, or negative
- * values fall back rather than throwing.
- *
- * @param name - The environment variable name.
- * @param fallback - Value used when unset or invalid.
- * @returns The parsed positive integer, or the fallback.
- */
-function positiveIntEnv(name, fallback) {
-    const raw = process.env[name];
-    if (!raw)
-        return fallback;
-    const n = Number.parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-}
 // Determine whether an error from the subscription loop is an AbortError caused
 // by a deliberate stop (project went inactive or shutdown). Those must NOT be
 // reported as errors — only genuine failures are routed to onError.
@@ -123,16 +104,10 @@ export function createMutationEventReconciler(deps = {}) {
                 }
             }
             // Clean up dir cache for inactive projects.
-            for (const id of [...dirCache.keys()])
-                if (!active.has(id))
-                    dirCache.delete(id);
+            dropInactive(dirCache, active);
             for (const projectId of ids) {
                 try {
-                    let dir = dirCache.get(projectId);
-                    if (dir === undefined) {
-                        dir = await resolveDir(projectId);
-                        dirCache.set(projectId, dir);
-                    }
+                    const dir = await cachedProjectDir(projectId, dirCache, resolveDir);
                     if (!dir)
                         continue;
                     const existing = subs.get(projectId);

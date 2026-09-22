@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { ensureGraphExtension, readCompletePmItems, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.ts";
+import { ensureGraphExtension, readCompletePmItems, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE, type PmRunResult } from "../services/pm-runner.ts";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
 // aggregate sdk barrel documents itself as re-exporting every supported export but
 // omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
@@ -646,6 +646,223 @@ function projectPm(project: ProjectRef, args: string[], jsonOutput?: boolean): R
   });
 }
 
+/**
+ * Shared body of the cursor-paginated list endpoints.
+ *
+ * Copies the base arguments, appends each filter flag whose query value is
+ * present, validates the `after` cursor (sending the shared 400 body when it
+ * is malformed), and maps a USAGE exit to a 400. Returns the command result
+ * so the caller can send its success or failure payload, or `undefined`
+ * after an error response has already been sent.
+ *
+ * @param res - Response used for the cursor and USAGE error bodies.
+ * @param project - Verified project that owns the workspace.
+ * @param baseArgs - Command and fixed arguments; copied, never mutated.
+ * @param flags - Ordered `[flag, value]` pairs appended when `value` is present.
+ * @param after - Raw `after` query value to validate as a pagination cursor.
+ * @returns The pm result, or `undefined` after an error response was sent.
+ */
+async function runCursorList(
+  res: Response,
+  project: ProjectRef,
+  baseArgs: string[],
+  flags: ReadonlyArray<readonly [flag: string, value: string | undefined]>,
+  after: string | undefined,
+): Promise<PmRunResult | undefined> {
+  const args = [...baseArgs];
+  for (const [flag, value] of flags) {
+    if (value) args.push(flag, value);
+  }
+  const cursorResult = validateCursor(after);
+  if (cursorResult.error) {
+    res.status(400).json({ error: cursorResult.error, items: [] });
+    return undefined;
+  }
+  if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
+  const result = await projectPm(project, args, true);
+  if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
+    res.status(400).json({ error: result.stderr, items: [] });
+    return undefined;
+  }
+  return result;
+}
+
+/**
+ * Run a mutating pm command and send the shared failure response.
+ *
+ * Every item and plan mutation maps a failed pm run to
+ * `pmErrorStatus(result)` with `result.stderr || fallback` as the body.
+ * Centralising it keeps the status mapping identical everywhere while the
+ * per-route fallback text stays at the call site.
+ *
+ * @param res - Response used for the failure body.
+ * @param project - Verified project that owns the workspace.
+ * @param args - pm arguments, already validated by the route.
+ * @param fallback - Error text used when pm wrote nothing to stderr.
+ * @param jsonOutput - Request JSON output (default); pass `false` to keep the
+ *   CLI default output, as the raw delete invocation does.
+ * @returns The successful pm result, or `undefined` after the error response.
+ */
+async function runMutation(
+  res: Response,
+  project: ProjectRef,
+  args: string[],
+  fallback: string,
+  jsonOutput = true,
+): Promise<PmRunResult | undefined> {
+  const result = await projectPm(project, args, jsonOutput);
+  if (!result.ok) {
+    res.status(pmErrorStatus(result)).json({ error: result.stderr || fallback });
+    return undefined;
+  }
+  return result;
+}
+
+/**
+ * Broadcast an item lifecycle event to the project's SSE clients and queue a
+ * graph sync for the same project.
+ *
+ * @param req - Authenticated request carrying the project and user ids.
+ * @param project - Verified project that owns the workspace.
+ * @param type - Event name to broadcast and graph-sync reason.
+ * @param itemId - Item the event is about; defaults to the route's `itemId`.
+ */
+function emitItemEvent(
+  req: AuthRequest,
+  project: ProjectRef,
+  type: string,
+  itemId = routeParam(req, "itemId"),
+): void {
+  broadcastProjectEvent(routeParam(req, "projectId"), {
+    type,
+    data: { itemId, userId: req.user!.userId },
+  });
+  scheduleGraphSync(routeParam(req, "projectId"), project, type);
+}
+
+/**
+ * Queue a graph sync and broadcast a dependency event for one graph edge.
+ *
+ * The four dependency mutation routes (deps and rel, add and remove) all pair
+ * the same two side effects with the same payload shape; only the sync reason
+ * and the broadcast event name vary between them.
+ *
+ * @param req - Authenticated request carrying the project and user ids.
+ * @param project - Verified project that owns the workspace.
+ * @param syncReason - Graph-sync queue reason for this mutation.
+ * @param event - SSE dependency event name to broadcast.
+ * @param from - Source item id of the edge.
+ * @param to - Target item id of the edge.
+ * @param rel - Dependency kind of the edge.
+ */
+function emitDependencyEvent(
+  req: AuthRequest,
+  project: ProjectRef,
+  syncReason: string,
+  event: "dependency-added" | "dependency-removed",
+  from: string,
+  to: string,
+  rel: string,
+): void {
+  scheduleGraphSync(routeParam(req, "projectId"), project, syncReason);
+  broadcastDependencyEvent(routeParam(req, "projectId"), event, {
+    from,
+    to,
+    rel,
+    userId: req.user!.userId,
+  });
+}
+
+/**
+ * Run a plan mutation and complete the whole response.
+ *
+ * The plan step routes share one response shape end to end: map a failure via
+ * {@link pmErrorStatus} with the per-route fallback text, broadcast an
+ * `item-updated` event naming the plan id, and answer with the parsed result.
+ * This helper performs all of it; the caller supplies only the arguments and
+ * the failure text, and nothing after the call.
+ *
+ * @param req - Authenticated request carrying the project, plan and user ids.
+ * @param res - Response used for both the failure and success bodies.
+ * @param project - Verified project that owns the workspace.
+ * @param args - pm arguments, already validated by the route.
+ * @param fallback - Error text used when pm wrote nothing to stderr.
+ * @param successStatus - HTTP status for the success response (default 200).
+ */
+async function runPlanMutation(
+  req: AuthRequest,
+  res: Response,
+  project: ProjectRef,
+  args: string[],
+  fallback: string,
+  successStatus = 200,
+): Promise<void> {
+  const result = await runMutation(res, project, args, fallback);
+  if (!result) return;
+  broadcastProjectEvent(routeParam(req, "projectId"), {
+    type: "item-updated",
+    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
+  });
+  res.status(successStatus).json(result.parsed || {});
+}
+
+/** Validate a `text` body field and run a mutation with it. Used by the
+ * comments, notes, append and learnings POST routes that all share the same
+ * body shape and error-handling pattern. */
+async function runTextBodyMutation(
+  req: AuthRequest,
+  res: Response,
+  project: ProjectRef,
+  cmd: string,
+  errorMsg: string,
+  failedMsg: string,
+): Promise<PmRunResult | undefined> {
+  const { text } = req.body as { text?: string };
+  if (!text?.trim()) { res.status(400).json({ error: errorMsg }); return undefined; }
+  return runMutation(res, project, [cmd, routeParam(req, "itemId"), text.trim()], failedMsg);
+}
+
+/** Validate a `reason` body field and run a mutation with it. Used by the
+ * close and close-task POST routes that share the same body shape. */
+async function runReasonBodyMutation(
+  req: AuthRequest,
+  res: Response,
+  project: ProjectRef,
+  cmd: string,
+  errorMsg: string,
+  failedMsg: string,
+): Promise<PmRunResult | undefined> {
+  const { reason } = req.body as { reason?: string };
+  if (!reason?.trim()) { res.status(400).json({ error: errorMsg }); return undefined; }
+  return runMutation(res, project, [cmd, routeParam(req, "itemId"), reason.trim()], failedMsg);
+}
+
+/** Validate the `targetId`/`rel` body fields for deps add/remove routes and
+ * return the normalized dependency kind. */
+function parseDepBody(req: AuthRequest, res: Response, defaultRel?: string): { targetId: string; depRel: string } | undefined {
+  const { targetId, rel } = req.body as { targetId?: string; rel?: string };
+  if (!targetId?.trim()) { res.status(400).json({ error: "targetId is required" }); return undefined; }
+  return { targetId: targetId.trim(), depRel: normalizeDependencyKind(rel || defaultRel) };
+}
+
+/** Validate the `from`/`to`/`type` body fields for rel add/remove routes and
+ * return the normalized values. */
+function parseRelBody(req: AuthRequest, res: Response): { from: string; to: string; depRel: string } | undefined {
+  const { from, to, type: relType } = req.body as { from?: string; to?: string; type?: string };
+  if (!from?.trim() || !to?.trim()) {
+    res.status(400).json({ error: "from and to item IDs are required" });
+    return undefined;
+  }
+  return { from: from.trim(), to: to.trim(), depRel: normalizeDependencyKind(relType || "relates_to") };
+}
+
+/** Push `--title` and `--description` args from a plan/step PATCH body when
+ * present. Used by the plan and step update routes. */
+function pushTitleDescArgs(args: string[], body: Record<string, string>): void {
+  if (body.title?.trim()) args.push("--title", body.title.trim());
+  if (body.description !== undefined) args.push("--description", body.description);
+}
+
 
 // GET /api/projects/:projectId/pm/schema
 // Returns runtime types/statuses from `pm contracts --json` so the frontend
@@ -779,26 +996,16 @@ router.get("/list", async (req: AuthRequest, res) => {
   if (!project) return;
 
   const { status, type, limit, priority, sprint, release, assignee, after } = req.query as Record<string, string>;
-  const args = ["list"];
-  if (status) args.push("--status", status);
-  if (type) args.push("--type", type);
-  if (limit) args.push("--limit", limit);
-  if (priority) args.push("--priority", priority);
-  if (sprint) args.push("--sprint", sprint);
-  if (release) args.push("--release", release);
-  if (assignee) args.push("--assignee", assignee);
-  const cursorResult = validateCursor(after);
-  if (cursorResult.error) {
-    res.status(400).json({ error: cursorResult.error, items: [] });
-    return;
-  }
-  if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
-
-  const result = await projectPm(project, args, true);
-  if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
-    res.status(400).json({ error: result.stderr, items: [] });
-    return;
-  }
+  const result = await runCursorList(res, project, ["list"], [
+    ["--status", status],
+    ["--type", type],
+    ["--limit", limit],
+    ["--priority", priority],
+    ["--sprint", sprint],
+    ["--release", release],
+    ["--assignee", assignee],
+  ], after);
+  if (!result) return;
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 
@@ -811,21 +1018,11 @@ router.get("/list-all", async (req: AuthRequest, res) => {
   // Preserve the public HTTP compatibility route while invoking the canonical
   // CLI/SDK command internally. This route is intentionally paginated and is
   // therefore distinct from readCompletePmItems used by whole-corpus views.
-  const args = ["list", "--all"];
-  if (type) args.push("--type", type);
-  if (limit) args.push("--limit", limit);
-  const cursorResult = validateCursor(after);
-  if (cursorResult.error) {
-    res.status(400).json({ error: cursorResult.error, items: [] });
-    return;
-  }
-  if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
-
-  const result = await projectPm(project, args, true);
-  if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
-    res.status(400).json({ error: result.stderr, items: [] });
-    return;
-  }
+  const result = await runCursorList(res, project, ["list", "--all"], [
+    ["--type", type],
+    ["--limit", limit],
+  ], after);
+  if (!result) return;
   res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
 });
 
@@ -1011,17 +1208,10 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   // Type can be set but must use --type
   if (body.type) args.push("--type", body.type);
 
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update item" });
-    return;
-  }
+  const result = await runMutation(res, project, args, "Failed to update item");
+  if (!result) return;
   // Broadcast SSE update event
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "itemId"), userId: req.user!.userId },
-  });
-  scheduleGraphSync(routeParam(req, "projectId"), project, "item-updated");
+  emitItemEvent(req, project, "item-updated");
   res.json(result.parsed || {});
 });
 
@@ -1030,19 +1220,9 @@ router.post("/close/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { reason } = req.body as { reason?: string };
-  if (!reason?.trim()) { res.status(400).json({ error: "Close reason is required" }); return; }
-
-  const result = await projectPm(project, ["close", routeParam(req, "itemId"), reason.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to close item" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-closed",
-    data: { itemId: routeParam(req, "itemId"), userId: req.user!.userId },
-  });
-  scheduleGraphSync(routeParam(req, "projectId"), project, "item-closed");
+  const result = await runReasonBodyMutation(req, res, project, "close", "Close reason is required", "Failed to close item");
+  if (!result) return;
+  emitItemEvent(req, project, "item-closed");
   res.json(result.parsed || {});
 });
 
@@ -1051,16 +1231,9 @@ router.delete("/delete/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["delete", routeParam(req, "itemId"), "--yes"]);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to delete item" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-deleted",
-    data: { itemId: routeParam(req, "itemId"), userId: req.user!.userId },
-  });
-  scheduleGraphSync(routeParam(req, "projectId"), project, "item-deleted");
+  const result = await runMutation(res, project, ["delete", routeParam(req, "itemId"), "--yes"], "Failed to delete item", false);
+  if (!result) return;
+  emitItemEvent(req, project, "item-deleted");
   res.json({ ok: true });
 });
 
@@ -1069,14 +1242,8 @@ router.post("/comments/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { text } = req.body as { text?: string };
-  if (!text?.trim()) { res.status(400).json({ error: "Comment text is required" }); return; }
-
-  const result = await projectPm(project, ["comments", routeParam(req, "itemId"), text.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add comment" });
-    return;
-  }
+  const result = await runTextBodyMutation(req, res, project, "comments", "Comment text is required", "Failed to add comment");
+  if (!result) return;
   res.status(201).json(result.parsed || { ok: true });
 });
 
@@ -1102,14 +1269,8 @@ router.post("/notes/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { text } = req.body as { text?: string };
-  if (!text?.trim()) { res.status(400).json({ error: "Note text is required" }); return; }
-
-  const result = await projectPm(project, ["notes", routeParam(req, "itemId"), text.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add note" });
-    return;
-  }
+  const result = await runTextBodyMutation(req, res, project, "notes", "Note text is required", "Failed to add note");
+  if (!result) return;
   res.status(201).json(result.parsed || { ok: true });
 });
 
@@ -1276,14 +1437,8 @@ router.post("/append/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { text } = req.body as { text?: string };
-  if (!text?.trim()) { res.status(400).json({ error: "Text is required" }); return; }
-
-  const result = await projectPm(project, ["append", routeParam(req, "itemId"), text.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to append" });
-    return;
-  }
+  const result = await runTextBodyMutation(req, res, project, "append", "Text is required", "Failed to append");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-appended");
   res.json(result.parsed || { ok: true });
 });
@@ -1311,22 +1466,11 @@ router.post("/deps/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { targetId, rel } = req.body as { targetId?: string; rel?: string };
-  if (!targetId?.trim()) { res.status(400).json({ error: "targetId is required" }); return; }
-
-  const depRel = normalizeDependencyKind(rel);
-  const result = await projectPm(project, ["update", routeParam(req, "itemId"), "--dep", `id=${targetId.trim()},kind=${depRel}`], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add dependency" });
-    return;
-  }
-  scheduleGraphSync(routeParam(req, "projectId"), project, "dependency-added");
-  broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-added", {
-    from: routeParam(req, "itemId"),
-    to: targetId.trim(),
-    rel: depRel,
-    userId: req.user!.userId,
-  });
+  const dep = parseDepBody(req, res);
+  if (!dep) return;
+  const result = await runMutation(res, project, ["update", routeParam(req, "itemId"), "--dep", `id=${dep.targetId},kind=${dep.depRel}`], "Failed to add dependency");
+  if (!result) return;
+  emitDependencyEvent(req, project, "dependency-added", "dependency-added", routeParam(req, "itemId"), dep.targetId, dep.depRel);
   res.status(201).json(result.parsed || { ok: true });
 });
 
@@ -1335,24 +1479,13 @@ router.delete("/deps/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { targetId, rel } = req.body as { targetId?: string; rel?: string };
-  if (!targetId?.trim()) { res.status(400).json({ error: "targetId is required" }); return; }
-
-  const depRel = normalizeDependencyKind(rel || "relates_to");
-  const selector = `id=${targetId.trim()},kind=${depRel}`;
-  const result = await projectPm(project, ["update", routeParam(req, "itemId"), "--dep-remove", selector], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to remove dependency" });
-    return;
-  }
-  scheduleGraphSync(routeParam(req, "projectId"), project, "dependency-removed");
-  broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-removed", {
-    from: routeParam(req, "itemId"),
-    to: targetId.trim(),
-    rel: depRel,
-    userId: req.user!.userId,
-  });
-  res.status(200).json({ ok: true, from: routeParam(req, "itemId"), to: targetId.trim(), type: depRel, result: result.parsed || null });
+  const dep = parseDepBody(req, res, "relates_to");
+  if (!dep) return;
+  const selector = `id=${dep.targetId},kind=${dep.depRel}`;
+  const result = await runMutation(res, project, ["update", routeParam(req, "itemId"), "--dep-remove", selector], "Failed to remove dependency");
+  if (!result) return;
+  emitDependencyEvent(req, project, "dependency-removed", "dependency-removed", routeParam(req, "itemId"), dep.targetId, dep.depRel);
+  res.status(200).json({ ok: true, from: routeParam(req, "itemId"), to: dep.targetId, type: dep.depRel, result: result.parsed || null });
 });
 
 // POST /api/projects/:projectId/pm/rel — Create a relationship between two items
@@ -1360,25 +1493,12 @@ router.post("/rel", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { from, to, type: relType } = req.body as { from?: string; to?: string; type?: string };
-  if (!from?.trim() || !to?.trim()) {
-    res.status(400).json({ error: "from and to item IDs are required" });
-    return;
-  }
-  const depRel = normalizeDependencyKind(relType || "relates_to");
-  const result = await projectPm(project, ["update", from.trim(), "--dep", `id=${to.trim()},kind=${depRel}`], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to create relationship" });
-    return;
-  }
-  scheduleGraphSync(routeParam(req, "projectId"), project, "rel-created");
-  broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-added", {
-    from: from.trim(),
-    to: to.trim(),
-    rel: depRel,
-    userId: req.user!.userId,
-  });
-  res.status(201).json({ ok: true, from: from.trim(), to: to.trim(), type: depRel });
+  const rel = parseRelBody(req, res);
+  if (!rel) return;
+  const result = await runMutation(res, project, ["update", rel.from, "--dep", `id=${rel.to},kind=${rel.depRel}`], "Failed to create relationship");
+  if (!result) return;
+  emitDependencyEvent(req, project, "rel-created", "dependency-added", rel.from, rel.to, rel.depRel);
+  res.status(201).json({ ok: true, from: rel.from, to: rel.to, type: rel.depRel });
 });
 
 // DELETE /api/projects/:projectId/pm/rel — Remove a relationship between two items
@@ -1386,26 +1506,13 @@ router.delete("/rel", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { from, to, type: relType } = req.body as { from?: string; to?: string; type?: string };
-  if (!from?.trim() || !to?.trim()) {
-    res.status(400).json({ error: "from and to item IDs are required" });
-    return;
-  }
-  const depRel = normalizeDependencyKind(relType || "relates_to");
-  const selector = `id=${to.trim()},kind=${depRel}`;
-  const result = await projectPm(project, ["update", from.trim(), "--dep-remove", selector, "--message", `Remove ${depRel} dependency on ${to.trim()}`], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to remove relationship" });
-    return;
-  }
-  scheduleGraphSync(routeParam(req, "projectId"), project, "rel-removed");
-  broadcastDependencyEvent(routeParam(req, "projectId"), "dependency-removed", {
-    from: from.trim(),
-    to: to.trim(),
-    rel: depRel,
-    userId: req.user!.userId,
-  });
-  res.json({ ok: true, from: from.trim(), to: to.trim(), type: depRel, result: result.parsed || null });
+  const rel = parseRelBody(req, res);
+  if (!rel) return;
+  const selector = `id=${rel.to},kind=${rel.depRel}`;
+  const result = await runMutation(res, project, ["update", rel.from, "--dep-remove", selector, "--message", `Remove ${rel.depRel} dependency on ${rel.to}`], "Failed to remove relationship");
+  if (!result) return;
+  emitDependencyEvent(req, project, "rel-removed", "dependency-removed", rel.from, rel.to, rel.depRel);
+  res.json({ ok: true, from: rel.from, to: rel.to, type: rel.depRel, result: result.parsed || null });
 });
 
 // GET /api/projects/:projectId/pm/graph
@@ -1528,14 +1635,8 @@ router.post("/learnings/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { text } = req.body as { text?: string };
-  if (!text?.trim()) { res.status(400).json({ error: "Learning text is required" }); return; }
-
-  const result = await projectPm(project, ["learnings", routeParam(req, "itemId"), text.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add learning" });
-    return;
-  }
+  const result = await runTextBodyMutation(req, res, project, "learnings", "Learning text is required", "Failed to add learning");
+  if (!result) return;
   res.status(201).json(result.parsed || { ok: true });
 });
 
@@ -1544,11 +1645,8 @@ router.post("/claim/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["claim", routeParam(req, "itemId")], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to claim item" });
-    return;
-  }
+  const result = await runMutation(res, project, ["claim", routeParam(req, "itemId")], "Failed to claim item");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-claimed");
   res.json(result.parsed || { ok: true });
 });
@@ -1558,11 +1656,8 @@ router.post("/release/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["release", routeParam(req, "itemId")], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to release item" });
-    return;
-  }
+  const result = await runMutation(res, project, ["release", routeParam(req, "itemId")], "Failed to release item");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-released");
   res.json(result.parsed || { ok: true });
 });
@@ -1572,11 +1667,8 @@ router.post("/start-task/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["start-task", routeParam(req, "itemId")], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to start task" });
-    return;
-  }
+  const result = await runMutation(res, project, ["start-task", routeParam(req, "itemId")], "Failed to start task");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "task-started");
   res.json(result.parsed || { ok: true });
 });
@@ -1586,11 +1678,8 @@ router.post("/pause-task/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["pause-task", routeParam(req, "itemId")], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to pause task" });
-    return;
-  }
+  const result = await runMutation(res, project, ["pause-task", routeParam(req, "itemId")], "Failed to pause task");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "task-paused");
   res.json(result.parsed || { ok: true });
 });
@@ -1615,11 +1704,8 @@ router.post("/tests/:itemId", async (req: AuthRequest, res) => {
   const args = ["test", routeParam(req, "itemId"), "--add", "--command", command.trim()];
   if (description) args.push("--description", description.trim());
 
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add test" });
-    return;
-  }
+  const result = await runMutation(res, project, args, "Failed to add test");
+  if (!result) return;
   res.status(201).json(result.parsed || { ok: true });
 });
 
@@ -1645,11 +1731,8 @@ router.post("/restore/:itemId", async (req: AuthRequest, res) => {
   if (!project) return;
   const { target } = req.body as { target?: string };
   if (!target?.trim()) { res.status(400).json({ error: "Restore target (timestamp or version) is required" }); return; }
-  const result = await projectPm(project, ["restore", routeParam(req, "itemId"), target.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to restore item" });
-    return;
-  }
+  const result = await runMutation(res, project, ["restore", routeParam(req, "itemId"), target.trim()], "Failed to restore item");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "item-restored");
   res.json(result.parsed || { ok: true });
 });
@@ -1659,14 +1742,8 @@ router.post("/close-task/:itemId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { reason } = req.body as { reason?: string };
-  if (!reason?.trim()) { res.status(400).json({ error: "Close reason is required" }); return; }
-
-  const result = await projectPm(project, ["close-task", routeParam(req, "itemId"), reason.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to close task" });
-    return;
-  }
+  const result = await runReasonBodyMutation(req, res, project, "close-task", "Close reason is required", "Failed to close task");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "task-closed");
   res.json(result.parsed || { ok: true });
 });
@@ -1713,11 +1790,8 @@ router.post("/files/:itemId", async (req: AuthRequest, res) => {
   let addVal = `path=${filePath.trim()}`;
   if (scope) addVal += `,scope=${scope}`;
   const args = ["files", routeParam(req, "itemId"), "--add", addVal];
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to link file" });
-    return;
-  }
+  const result = await runMutation(res, project, args, "Failed to link file");
+  if (!result) return;
   scheduleGraphSync(routeParam(req, "projectId"), project, "file-linked");
   res.status(201).json(result.parsed || { ok: true });
 });
@@ -2167,26 +2241,17 @@ function buildListShortcutRoute(pmCommand: string) {
     const project = await requireProject(req, res);
     if (!project) return;
     const { type, limit, offset, tag, priority, assignee, sprint, release, after } = req.query as Record<string, string>;
-    const args = [pmCommand];
-    if (type) args.push("--type", type);
-    if (limit) args.push("--limit", limit);
-    if (offset) args.push("--offset", offset);
-    if (tag) args.push("--tag", tag);
-    if (priority) args.push("--priority", priority);
-    if (assignee) args.push("--assignee", assignee);
-    if (sprint) args.push("--sprint", sprint);
-    if (release) args.push("--release", release);
-    const cursorResult = validateCursor(after);
-    if (cursorResult.error) {
-      res.status(400).json({ error: cursorResult.error, items: [] });
-      return;
-    }
-    if (cursorResult.cursor) args.push("--after", cursorResult.cursor);
-    const result = await projectPm(project, args, true);
-    if (!result.ok && result.exitCode === EXIT_CODE.USAGE) {
-      res.status(400).json({ error: result.stderr, items: [] });
-      return;
-    }
+    const result = await runCursorList(res, project, [pmCommand], [
+      ["--type", type],
+      ["--limit", limit],
+      ["--offset", offset],
+      ["--tag", tag],
+      ["--priority", priority],
+      ["--assignee", assignee],
+      ["--sprint", sprint],
+      ["--release", release],
+    ], after);
+    if (!result) return;
     res.json(result.ok ? (result.parsed || {}) : { items: [] });
   };
 }
@@ -2246,21 +2311,10 @@ router.patch("/plan/:planId", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { title, description } = req.body as Record<string, string>;
   const args = ["update", routeParam(req, "planId")];
-  if (title?.trim()) args.push("--title", title.trim());
-  if (description !== undefined) args.push("--description", description);
+  pushTitleDescArgs(args, req.body as Record<string, string>);
 
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update plan" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, args, "Failed to update plan");
 });
 
 // DELETE /api/projects/:projectId/pm/plan/:planId
@@ -2292,16 +2346,7 @@ router.post("/plan/:planId/steps", async (req: AuthRequest, res) => {
   if (description) args.push("--description", description);
   if (dependsOn) args.push("--depends-on", dependsOn);
 
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to add step" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.status(201).json(result.parsed || {});
+  await runPlanMutation(req, res, project, args, "Failed to add step", 201);
 });
 
 // PATCH /api/projects/:projectId/pm/plan/:planId/steps/:stepRef
@@ -2309,21 +2354,10 @@ router.patch("/plan/:planId/steps/:stepRef", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const { title, description } = req.body as Record<string, string>;
   const args = ["plan", "update-step", routeParam(req, "planId"), routeParam(req, "stepRef")];
-  if (title) args.push("--title", title);
-  if (description) args.push("--description", description);
+  pushTitleDescArgs(args, req.body as Record<string, string>);
 
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to update step" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, args, "Failed to update step");
 });
 
 // POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/complete
@@ -2331,16 +2365,7 @@ router.post("/plan/:planId/steps/:stepRef/complete", async (req: AuthRequest, re
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["plan", "complete-step", routeParam(req, "planId"), routeParam(req, "stepRef")], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to complete step" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, ["plan", "complete-step", routeParam(req, "planId"), routeParam(req, "stepRef")], "Failed to complete step");
 });
 
 // POST /api/projects/:projectId/pm/plan/:planId/steps/:stepRef/block
@@ -2351,16 +2376,7 @@ router.post("/plan/:planId/steps/:stepRef/block", async (req: AuthRequest, res) 
   const { reason } = req.body as { reason?: string };
   if (!reason?.trim()) { res.status(400).json({ error: "Block reason is required" }); return; }
 
-  const result = await projectPm(project, ["plan", "block-step", routeParam(req, "planId"), routeParam(req, "stepRef"), "--step-blocked-reason", reason.trim()], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to block step" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, ["plan", "block-step", routeParam(req, "planId"), routeParam(req, "stepRef"), "--step-blocked-reason", reason.trim()], "Failed to block step");
 });
 
 // DELETE /api/projects/:projectId/pm/plan/:planId/steps/:stepRef
@@ -2368,16 +2384,7 @@ router.delete("/plan/:planId/steps/:stepRef", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["plan", "remove-step", routeParam(req, "planId"), routeParam(req, "stepRef")], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to remove step" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, ["plan", "remove-step", routeParam(req, "planId"), routeParam(req, "stepRef")], "Failed to remove step");
 });
 
 // POST /api/projects/:projectId/pm/plan/:planId/approve
@@ -2385,16 +2392,7 @@ router.post("/plan/:planId/approve", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const result = await projectPm(project, ["plan", "approve", routeParam(req, "planId")], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to approve plan" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, ["plan", "approve", routeParam(req, "planId")], "Failed to approve plan");
 });
 
 // POST /api/projects/:projectId/pm/plan/:planId/materialize
@@ -2431,16 +2429,7 @@ router.post("/plan/:planId/steps/:stepRef/reorder", async (req: AuthRequest, res
     return;
   }
 
-  const result = await projectPm(project, ["plan", "reorder-step", routeParam(req, "planId"), routeParam(req, "stepRef"), String(reorderTo)], true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to reorder step" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, ["plan", "reorder-step", routeParam(req, "planId"), routeParam(req, "stepRef"), String(reorderTo)], "Failed to reorder step");
 });
 
 // POST /api/projects/:projectId/pm/plan/:planId/link
@@ -2456,16 +2445,7 @@ router.post("/plan/:planId/link", async (req: AuthRequest, res) => {
   if (linkNote) args.push("--link-note", linkNote);
   if (promoteToItemDep === "true") args.push("--promote-to-item-dep");
 
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to link plan" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.status(201).json(result.parsed || {});
+  await runPlanMutation(req, res, project, args, "Failed to link plan", 201);
 });
 
 // DELETE /api/projects/:projectId/pm/plan/:planId/link
@@ -2479,16 +2459,7 @@ router.delete("/plan/:planId/link", async (req: AuthRequest, res) => {
   const args = ["plan", "unlink", routeParam(req, "planId"), "--link", link.trim()];
   if (linkKind) args.push("--link-kind", linkKind);
 
-  const result = await projectPm(project, args, true);
-  if (!result.ok) {
-    res.status(pmErrorStatus(result)).json({ error: result.stderr || "Failed to unlink plan" });
-    return;
-  }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type: "item-updated",
-    data: { itemId: routeParam(req, "planId"), userId: req.user!.userId },
-  });
-  res.json(result.parsed || {});
+  await runPlanMutation(req, res, project, args, "Failed to unlink plan");
 });
 
 // GET /api/projects/:projectId/pm/upgrade

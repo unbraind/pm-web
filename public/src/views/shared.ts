@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, skeletonCards } from '../utils.js';
+import { escHtml, skeletonCards, projectCardInfo } from '../utils.js';
 import type { SharedProject, SharedProjectsResponse } from '../api-types.js';
 
 /** Renders the grid of projects other users have shared with the current user, showing each project's name, slug, description, permission level, and owner. */
@@ -34,9 +34,7 @@ export async function renderSharedView(): Promise<void> {
       <div class="projects-grid">
         ${projects.map((p) => `
           <div class="project-card" onclick="window.__app.selectProject('${p.id}')">
-            <div class="project-card-name">${escHtml(p.name)}</div>
-            <div class="project-card-slug mono">${escHtml(p.slug)}</div>
-            <div class="project-card-desc">${escHtml(p.description || 'No description')}</div>
+            ${projectCardInfo(p)}
             <div class="project-card-meta">
               <span class="share-perm">${escHtml(p.permission || 'view')}</span>
               <span class="project-card-date">by ${escHtml(p.owner_display_name || p.owner_email || 'Unknown')}</span>

@@ -3,11 +3,31 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml } from '../utils.js';
+import { escHtml, resetButton, showError } from '../utils.js';
 import { confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
 import { loadItemsBadge } from './projects.js';
 import type { GitHubImportResponse, GitHubIssuesResponse, GitHubIssueRow, GitHubPushResponse, GitHubRepoResponse, ListResponse } from '../api-types.js';
+
+/** Renders a styled result box with a title header and inner HTML body, used
+ * by the push and import result displays. */
+function githubResultBox(title: string, bodyHtml: string): string {
+  return `<div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+    <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${title}</div>
+    ${bodyHtml}
+  </div>`;
+}
+
+/** Toast the result of a GitHub push or import operation with a count and any
+ * errors, matching the pluralisation and error-count format both share. */
+function githubOpToast(verb: string, noun: string, count: number, errors: string[]): void {
+  toast(`${verb} ${count} ${noun}${count!==1?'s':''}${errors.length?' ('+errors.length+' error'+(errors.length!==1?'s':'')+')':''}`, errors.length ? 'info' : 'success');
+}
+
+/** Show result HTML in a result element, making it visible. No-op when null. */
+function showResultEl(el: HTMLElement | null, html: string): void {
+  if (el) { el.style.display = ''; el.innerHTML = html; }
+}
 
 /**
  * Renders the GitHub integration page for the current project: a header, a
@@ -151,8 +171,8 @@ export async function linkGitHubRepo(): Promise<void> {
     toast('Repository linked','success');
     renderGitHubView();
   } catch(err: unknown) {
-    if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = 'block'; }
-    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Link Repository'; }
+    showError(errEl, err);
+    resetButton(btn, 'Link Repository');
   }
 }
 
@@ -297,21 +317,15 @@ export async function pushItemsToGitHub(): Promise<void> {
     const data = await api<GitHubPushResponse>('POST', `/projects/${state.currentProject!.id}/github/push`, { itemIds });
     const pushed = data.pushed || [];
     const errors = data.errors || [];
-    toast(`Pushed ${pushed.length} item${pushed.length!==1?'s':''}${errors.length?' ('+errors.length+' error'+( errors.length!==1?'s':'')+')':''}`, errors.length ? 'info' : 'success');
-    if (resultEl) {
-      resultEl.style.display = '';
-      resultEl.innerHTML = `
-        <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Push Results</div>
-          ${pushed.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Pushed ${pushed.length}: ${pushed.map((p)=>`<a href="${escHtml(p.issueUrl)}" target="_blank" style="color:var(--accent)">#${p.issueNumber}</a>`).join(', ')}</div>` : ''}
-          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} failed: ${errors.map((e)=>escHtml(String(e))).join('; ')}</div>` : ''}
-        </div>`;
-    }
+    githubOpToast('Pushed', 'item', pushed.length, errors);
+    showResultEl(resultEl, githubResultBox('Push Results',
+      `${pushed.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Pushed ${pushed.length}: ${pushed.map((p)=>`<a href="${escHtml(p.issueUrl)}" target="_blank" style="color:var(--accent)">#${p.issueNumber}</a>`).join(', ')}</div>` : ''}
+      ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} failed: ${errors.map((e)=>escHtml(String(e))).join('; ')}</div>` : ''}`));
     loadItemsForPush();
   } catch(err: unknown) {
     toast(`Push failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
   } finally {
-    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Push to GitHub'; }
+    resetButton(btn, 'Push to GitHub');
   }
 }
 
@@ -348,20 +362,14 @@ export async function importGitHubIssues(): Promise<void> {
     const data = await api<GitHubImportResponse>('POST',`/projects/${state.currentProject!.id}/github/import`,{issueNumbers});
     const created = data.created || [];
     const errors = data.errors || [];
-    toast(`Imported ${created.length} issue${created.length!==1?'s':''}${errors.length?' ('+errors.length+' error'+( errors.length!==1?'s':'')+')':''}`, errors.length ? 'info' : 'success');
-    if (resultEl) {
-      resultEl.style.display = '';
-      resultEl.innerHTML = `
-        <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Import Results</div>
-          ${created.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Created ${created.length} item${created.length!==1?'s':''}: ${created.map((id)=>`<span class="mono" style="font-size:11px">${escHtml(String(id))}</span>`).join(', ')}</div>` : ''}
-          ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} error${errors.length!==1?'s':''}: ${errors.map((e)=>escHtml(String(e))).join('; ')}</div>` : ''}
-        </div>`;
-    }
+    githubOpToast('Imported', 'issue', created.length, errors);
+    showResultEl(resultEl, githubResultBox('Import Results',
+      `${created.length > 0 ? `<div style="color:var(--status-closed);font-size:13px;margin-bottom:6px">✓ Created ${created.length} item${created.length!==1?'s':''}: ${created.map((id)=>`<span class="mono" style="font-size:11px">${escHtml(String(id))}</span>`).join(', ')}</div>` : ''}
+      ${errors.length > 0 ? `<div style="color:var(--status-blocked);font-size:13px">✗ ${errors.length} error${errors.length!==1?'s':''}: ${errors.map((e)=>escHtml(String(e))).join('; ')}</div>` : ''}`));
     void loadItemsBadge();
   } catch(err: unknown) {
     toast(`Import failed: ${err instanceof Error ? err.message : String(err)}`,'error');
   } finally {
-    if (btn) { btn.disabled = false; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Import Selected'; }
+    resetButton(btn, 'Import Selected');
   }
 }

@@ -3,11 +3,10 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import http from "node:http";
+import { authedRequest } from "./helpers/ephemeral-server.ts";
 import test from "node:test";
 
 import { createApp } from "../src/app.ts";
-import { signToken } from "../src/auth.ts";
 import { pool } from "../src/db.ts";
 import { addSSEClient, type SSEClient } from "../src/services/sse.ts";
 
@@ -173,66 +172,65 @@ async function request(
   userId: string,
   body?: unknown,
 ): Promise<{ status: number; body: unknown }> {
-  // Start a real ephemeral HTTP server with the Express app and fetch against
-  // it. This exercises the full middleware + route stack (auth, mergeParams,
-  // body parsing) with no test-only HTTP mocking library.
-  const server = http.createServer(app);
-  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", resolve); });
-  const address = server.address();
-  const port = typeof address === "object" && address ? address.port : 0;
-  try {
-    const token = signToken({ userId, email: `${userId}@example.com` });
-    const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, {
-      method,
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    const text = await res.text();
-    return { status: res.status, body: safeJson(text) };
-  } finally {
-    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
-  }
+  const { status, text } = await authedRequest(app, method, urlPath, userId, body);
+  return { status, body: safeJson(text) };
 }
 
 function safeJson(text: string): unknown {
   try { return JSON.parse(text); } catch { return text; }
 }
 
-test("catalog validation: an unknown/injected :name is rejected with 400 before any spawn", async () => {
-  const harness = await setupHarness();
+/** Wrap a test body with the standard extensions harness setup: create the
+ * fake-pm harness, stub the pool for OWNER_USER_ID, create the app, run the
+ * test body, and restore both in a finally block. */
+async function withExtensionsHarness(
+  fn: (harness: Harness, app: ReturnType<typeof createApp>) => Promise<void>,
+  opts?: HarnessOptions,
+): Promise<void> {
+  const harness = await setupHarness(opts);
   const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
   const app = createApp();
   try {
-    const injected = ["pm-cli", "npm:pm-graph", "..%2Fpm-graph", "pm-graph --project", "PM-GRAPH"];
-    for (const name of injected) {
-      const { status, body } = await request(
-        app,
-        "POST",
-        `/api/projects/${PROJECT_ID}/extensions/${encodeURIComponent(name)}/install`,
-        OWNER_USER_ID,
-      );
-      assert.equal(status, 400, `unknown name ${name} must be 400, got ${status}: ${JSON.stringify(body)}`);
-      assert.match(String((body as { error?: string }).error ?? ""), /Unknown package/i);
-    }
-    // No pm command must have been spawned for any rejected name.
-    const log = await readFile(harness.logPath, "utf8").catch(() => "");
-    assert.equal(log, "", "a rejected :name must never reach a pm process spawn");
+    await fn(harness, app);
   } finally {
     restorePool();
     await harness.restore();
   }
+}
+
+/** Assert that every name in `names` is rejected with 400 + "Unknown package"
+ * on the install route, and that no pm process was spawned for any of them. */
+async function assertAllRejectedAndNoSpawn(
+  harness: Harness,
+  app: ReturnType<typeof createApp>,
+  names: string[],
+  reason: string,
+): Promise<void> {
+  for (const name of names) {
+    const { status, body } = await request(
+      app,
+      "POST",
+      `/api/projects/${PROJECT_ID}/extensions/${encodeURIComponent(name)}/install`,
+      OWNER_USER_ID,
+    );
+    assert.equal(status, 400, `${reason} name ${name} must be 400, got ${status}: ${JSON.stringify(body)}`);
+    assert.match(String((body as { error?: string }).error ?? ""), /Unknown package/i);
+  }
+  const log = await readFile(harness.logPath, "utf8").catch(() => "");
+  assert.equal(log, "", `a ${reason} name must never reach a pm process spawn`);
+}
+
+test("catalog validation: an unknown/injected :name is rejected with 400 before any spawn", async () => {
+  await withExtensionsHarness(async (harness, app) => {
+    const injected = ["pm-cli", "npm:pm-graph", "..%2Fpm-graph", "pm-graph --project", "PM-GRAPH"];
+    await assertAllRejectedAndNoSpawn(harness, app, injected, "unknown");
+  });
 });
 
 test("route authorization: a user cannot install into a project they do not own", async () => {
-  const harness = await setupHarness();
-  // The pool stub grants access only to OWNER_USER_ID; the other user is
-  // denied at verifyProjectAccess and never reaches a pm command.
-  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
-  const app = createApp();
-  try {
+  await withExtensionsHarness(async (harness, app) => {
+    // The pool stub grants access only to OWNER_USER_ID; the other user is
+    // denied at verifyProjectAccess and never reaches a pm command.
     const { status } = await request(
       app,
       "POST",
@@ -243,10 +241,7 @@ test("route authorization: a user cannot install into a project they do not own"
     // And no spawn happened for the denied request.
     const log = await readFile(harness.logPath, "utf8").catch(() => "");
     assert.equal(log, "", "a denied request must never spawn a pm command");
-  } finally {
-    restorePool();
-    await harness.restore();
-  }
+  });
 });
 
 /**
@@ -316,50 +311,44 @@ test("a view-only collaborator cannot mutate packages but can still list them", 
 });
 
 test("the realtime extensions-changed event fires on a successful install mutation", async () => {
-  const harness = await setupHarness();
-  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
-  const app = createApp();
-  const target = fakeResponse();
-  const client: SSEClient = {
-    id: "sse-test",
-    projectId: PROJECT_ID,
-    userId: OWNER_USER_ID,
-    displayName: "Owner",
-    currentView: "packages",
-    res: target.res as unknown as SSEClient["res"],
-    connectedAt: new Date(),
-  };
-  const unsubscribe = addSSEClient(client);
-  try {
-    const { status, body } = await request(
-      app,
-      "POST",
-      `/api/projects/${PROJECT_ID}/extensions/pm-graph/install`,
-      OWNER_USER_ID,
-    );
-    assert.equal(status, 201, `install must succeed (201), got ${status}: ${JSON.stringify(body)}`);
-    // The fake pm binary must have been invoked with the catalog-verified
-    // npm:pm-graph spec — never a raw user string.
-    const log = await readFile(harness.logPath, "utf8");
-    assert.match(log, /install npm:pm-graph --project/);
-    // The SSE client on the project must have received an extensions-changed
-    // event so collaborators see the install live.
-    const events = target.writes.join("");
-    assert.match(events, /event: extensions-changed/);
-    assert.match(events, /"name":"pm-graph"/);
-    assert.match(events, /"operation":"install"/);
-  } finally {
-    unsubscribe();
-    restorePool();
-    await harness.restore();
-  }
+  await withExtensionsHarness(async (harness, app) => {
+    const target = fakeResponse();
+    const client: SSEClient = {
+      id: "sse-test",
+      projectId: PROJECT_ID,
+      userId: OWNER_USER_ID,
+      displayName: "Owner",
+      currentView: "packages",
+      res: target.res as unknown as SSEClient["res"],
+      connectedAt: new Date(),
+    };
+    const unsubscribe = addSSEClient(client);
+    try {
+      const { status, body } = await request(
+        app,
+        "POST",
+        `/api/projects/${PROJECT_ID}/extensions/pm-graph/install`,
+        OWNER_USER_ID,
+      );
+      assert.equal(status, 201, `install must succeed (201), got ${status}: ${JSON.stringify(body)}`);
+      // The fake pm binary must have been invoked with the catalog-verified
+      // npm:pm-graph spec — never a raw user string.
+      const log = await readFile(harness.logPath, "utf8");
+      assert.match(log, /install npm:pm-graph --project/);
+      // The SSE client on the project must have received an extensions-changed
+      // event so collaborators see the install live.
+      const events = target.writes.join("");
+      assert.match(events, /event: extensions-changed/);
+      assert.match(events, /"name":"pm-graph"/);
+      assert.match(events, /"operation":"install"/);
+    } finally {
+      unsubscribe();
+    }
+  });
 });
 
 test("the GET list includes the category field so the UI can group extensions vs templates", async () => {
-  const harness = await setupHarness();
-  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
-  const app = createApp();
-  try {
+  await withExtensionsHarness(async (_harness, app) => {
     const { status, body } = await request(
       app,
       "GET",
@@ -383,39 +372,16 @@ test("the GET list includes the category field so the UI can group extensions vs
     // pm-graph must be an extension.
     assert.equal(byName.get("pm-graph"), "extension",
       "pm-graph must be listed as an extension");
-  } finally {
-    restorePool();
-    await harness.restore();
-  }
+  });
 });
 
 test("a request for a non-catalog package name is rejected 400 before any spawn", async () => {
-  const harness = await setupHarness();
-  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
-  const app = createApp();
-  try {
+  await withExtensionsHarness(async (harness, app) => {
     // Names that are valid npm package names but NOT in the catalog must be
     // rejected before any pm process is spawned.
     const nonCatalog = ["../../evil", "pm-web", "lodash"];
-    for (const name of nonCatalog) {
-      const { status, body } = await request(
-        app,
-        "POST",
-        `/api/projects/${PROJECT_ID}/extensions/${encodeURIComponent(name)}/install`,
-        OWNER_USER_ID,
-      );
-      assert.equal(status, 400,
-        `non-catalog name ${name} must be 400, got ${status}: ${JSON.stringify(body)}`);
-      assert.match(String((body as { error?: string }).error ?? ""), /Unknown package/i);
-    }
-    // No pm command must have been spawned for any rejected name.
-    const log = await readFile(harness.logPath, "utf8").catch(() => "");
-    assert.equal(log, "",
-      "a non-catalog name must never reach a pm process spawn");
-  } finally {
-    restorePool();
-    await harness.restore();
-  }
+    await assertAllRejectedAndNoSpawn(harness, app, nonCatalog, "non-catalog");
+  });
 });
 
 test("an install that pm rejects is surfaced as 400 carrying pm's stderr", async () => {
@@ -423,10 +389,7 @@ test("an install that pm rejects is surfaced as 400 carrying pm's stderr", async
   // carrying pm's own stderr, so a failed registry resolution reads as a
   // client error rather than a silent 201 or a 500. The install route sets a
   // timeout, so runPm spawns the fake pm rather than serving it in-process.
-  const harness = await setupHarness({ fail: true });
-  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
-  const app = createApp();
-  try {
+  await withExtensionsHarness(async (harness, app) => {
     const { status, body } = await request(
       app,
       "POST",
@@ -443,10 +406,7 @@ test("an install that pm rejects is surfaced as 400 carrying pm's stderr", async
     // happened inside pm, not before the spawn.
     const log = await readFile(harness.logPath, "utf8");
     assert.match(log, /install npm:pm-graph --project/);
-  } finally {
-    restorePool();
-    await harness.restore();
-  }
+  }, { fail: true });
 });
 
 test("a healthy extension read lists packages without a stateError field", async () => {
@@ -455,10 +415,7 @@ test("a healthy extension read lists packages without a stateError field", async
   // distinguishable from one whose state read failed. The degraded arm is
   // covered by the other GET tests (the success fake returns non-list JSON);
   // this one pins the healthy contract.
-  const harness = await setupHarness({ healthy: true });
-  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
-  const app = createApp();
-  try {
+  await withExtensionsHarness(async (_harness, app) => {
     const { status, body } = await request(
       app,
       "GET",
@@ -471,20 +428,14 @@ test("a healthy extension read lists packages without a stateError field", async
       "the catalog list must still render");
     assert.equal(payload.stateError, undefined,
       "a healthy read must not surface a stateError");
-  } finally {
-    restorePool();
-    await harness.restore();
-  }
+  }, { healthy: true });
 });
 test("an unreleased package is listed but refuses install without spawning pm", async () => {
   // pm-vcs and pm-rl are catalogued so the UI can show them honestly, but they
   // have no published release. The route must refuse BEFORE spawning anything:
   // a `pm install npm:pm-vcs` would fail against the registry with a 404 the
   // user cannot act on, and would still have cost a process spawn.
-  const harness = await setupHarness();
-  const restorePool = stubPool(OWNER_USER_ID, PROJECT_ID, PROJECT_SLUG);
-  const app = createApp();
-  try {
+  await withExtensionsHarness(async (harness, app) => {
     const listed = await request(
       app,
       "GET",
@@ -526,8 +477,5 @@ test("an unreleased package is listed but refuses install without spawning pm", 
         `${name}: the route must refuse before spawning pm, but the fake binary was invoked`,
       );
     }
-  } finally {
-    restorePool();
-    await harness.restore();
-  }
+  });
 });

@@ -230,6 +230,12 @@ function escHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Builds a tag-to-color map from a tag frequency map, assigning palette colors to the most frequent tags in descending order. */
+export function tagColorMapFromFreq(freq: Map<string, number>): Map<string, string> {
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, TAG_PALETTE.length).map(([t]) => t);
+  return new Map(top.map((t, i) => [t, TAG_PALETTE[i]]));
+}
+
 // ═══════════════════════════════════════════════════════════════
 // GraphCanvas class
 // ═══════════════════════════════════════════════════════════════
@@ -682,6 +688,23 @@ export class GraphCanvas {
     return a.source.id === b.source.id && a.target.id === b.target.id && a.type === b.type;
   }
 
+  /** Returns the bidirectional edge key, flag, and curve direction for the given source/target node pair. */
+  private edgeBidirInfo(s: SimNode, t: SimNode): { key: string; isBiDir: boolean; curveDir: number } {
+    const key = [s.id, t.id].sort().join('|');
+    const isBiDir = this.biDirPairs.has(key);
+    const curveDir = isBiDir ? (s.id < t.id ? 1 : -1) : 0;
+    return { key, isBiDir, curveDir };
+  }
+
+  /** Computes the start and end points of an edge segment, offset from the node radii along the unit direction vector. */
+  private edgeEndpoints(s: SimNode, t: SimNode, nx: number, ny: number): { x1: number; y1: number; x2: number; y2: number } {
+    const x1 = s.x + nx * s.r;
+    const y1 = s.y + ny * s.r;
+    const x2 = t.x - nx * (t.r + 7);
+    const y2 = t.y - ny * (t.r + 7);
+    return { x1, y1, x2, y2 };
+  }
+
   private buildEdgeGeometry(edge: SimEdge): EdgeGeometry {
     const { source: s, target: t } = edge;
 
@@ -693,17 +716,12 @@ export class GraphCanvas {
     const px = -dy / len;
     const py = dx / len;
 
-    const key = [s.id, t.id].sort().join('|');
-    const isBiDir = this.biDirPairs.has(key);
-    const curveDir = isBiDir ? (s.id < t.id ? 1 : -1) : 0;
+    const { key, isBiDir, curveDir } = this.edgeBidirInfo(s, t);
     const cpOffset = isBiDir ? len * 0.22 * curveDir : 0;
     const cpX = (s.x + t.x) / 2 + px * cpOffset;
     const cpY = (s.y + t.y) / 2 + py * cpOffset;
 
-    const x1 = s.x + nx * s.r;
-    const y1 = s.y + ny * s.r;
-    const x2 = t.x - nx * (t.r + 7);
-    const y2 = t.y - ny * (t.r + 7);
+    const { x1, y1, x2, y2 } = this.edgeEndpoints(s, t, nx, ny);
 
     const qX = (u: number): number => (1 - u) * (1 - u) * x1 + 2 * (1 - u) * u * cpX + u * u * x2;
     const qY = (u: number): number => (1 - u) * (1 - u) * y1 + 2 * (1 - u) * u * cpY + u * u * y2;
@@ -839,8 +857,7 @@ export class GraphCanvas {
       for (const n of this.nodes) {
         for (const t of n.tags ?? []) freq.set(t, (freq.get(t) ?? 0) + 1);
       }
-      const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, TAG_PALETTE.length).map(([t]) => t);
-      this.tagColorMap = new Map(top.map((t, i) => [t, TAG_PALETTE[i]]));
+      this.tagColorMap = tagColorMapFromFreq(freq);
     } else {
       this.tagColorMap = new Map();
     }
@@ -1474,9 +1491,7 @@ export class GraphCanvas {
     const py =  dx / len;
 
     // Determine curvature direction for bidirectional edges
-    const key      = [s.id, t.id].sort().join('|');
-    const isBiDir  = this.biDirPairs.has(key);
-    const curveDir = isBiDir ? (s.id < t.id ? 1 : -1) : 0;
+    const { isBiDir, curveDir } = this.edgeBidirInfo(s, t);
     const curvature = isBiDir ? 0.22 : 0.0;
     const cpFactor  = len * curvature * curveDir;
 
@@ -1487,10 +1502,7 @@ export class GraphCanvas {
     // Start/end points offset from node radii
     const nx = dx / len;
     const ny = dy / len;
-    const x1 = s.x + nx * s.r;
-    const y1 = s.y + ny * s.r;
-    const x2 = t.x - nx * (t.r + 7);
-    const y2 = t.y - ny * (t.r + 7);
+    const { x1, y1, x2, y2 } = this.edgeEndpoints(s, t, nx, ny);
 
     const color = onCritPath ? '#fbbf24' : getEdgeColor(edge.type);
     const isActive = highlighted || onCritPath;
@@ -2020,14 +2032,11 @@ export class GraphCanvas {
     }
   }
 
-  private onMouseDown(e: MouseEvent): void {
-    if (e.button !== 0) return;
-    this.canvas.focus();
-    const { x, y } = this.getPos(e);
+  /** Initiates a pointer drag at the given canvas coordinates: records the start position, performs a hit test, and begins either a node drag or canvas pan. */
+  private beginPointerDrag(x: number, y: number, setCursor: boolean): void {
     this.lastX = x; this.lastY = y;
     this.downX = x; this.downY = y;
     this.hasMoved = false;
-
     const [wx, wy] = this.toWorld(x, y);
     const hit = this.hitTest(wx, wy);
     if (hit) {
@@ -2036,11 +2045,62 @@ export class GraphCanvas {
       hit.fx = hit.x;
       hit.fy = hit.y;
       this.alpha = Math.max(this.alpha, 0.25);
-      this.canvas.style.cursor = 'grabbing';
+      if (setCursor) this.canvas.style.cursor = 'grabbing';
     } else {
       this.isDraggingCanvas = true;
-      this.canvas.style.cursor = 'grabbing';
+      if (setCursor) this.canvas.style.cursor = 'grabbing';
     }
+  }
+
+  /** Returns the canvas-relative coordinates of the first touch, or null when there is not exactly one active touch. */
+  private firstTouchPos(e: TouchEvent): { x: number; y: number } | null {
+    if (e.touches.length !== 1) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+  }
+
+  /** Handles a pointer move during an active drag: updates hasMoved, drags the grabbed node or pans the canvas, and returns true when a drag consumed the event. */
+  private handleDragMove(x: number, y: number, dx: number, dy: number, moveThreshold: number, clearFlyOnNode: boolean): boolean {
+    if (Math.abs(x - this.downX) > moveThreshold || Math.abs(y - this.downY) > moveThreshold) this.hasMoved = true;
+    if (this.isDraggingNode && this.dragNode) {
+      const [wx, wy] = this.toWorld(x, y);
+      this.dragNode.fx = wx;
+      this.dragNode.fy = wy;
+      if (clearFlyOnNode) this.flyTarget = null;
+      return true;
+    }
+    if (this.isDraggingCanvas) {
+      this.tx += dx;
+      this.ty += dy;
+      this.flyTarget = null;
+      return true;
+    }
+    return false;
+  }
+
+  /** Ends a node drag gesture: if the pointer did not move, toggles selection and flies to the node, then clears the drag state. Returns true when a node drag was in progress. */
+  private endNodeDrag(): boolean {
+    if (!this.isDraggingNode || !this.dragNode) return false;
+    if (!this.hasMoved) {
+      const id     = this.dragNode.id;
+      const newSel = this.filter.selectedId === id ? null : id;
+      this.filter  = { ...this.filter, selectedId: newSel };
+      this.particles = [];
+      this.lastParticleSpawn = 0;
+      this.onSelectNode(newSel);
+      if (newSel) this.flyTo(this.dragNode);
+    }
+    this.dragNode.fx = null;
+    this.dragNode.fy = null;
+    this.dragNode    = null;
+    return true;
+  }
+
+  private onMouseDown(e: MouseEvent): void {
+    if (e.button !== 0) return;
+    this.canvas.focus();
+    const { x, y } = this.getPos(e);
+    this.beginPointerDrag(x, y, true);
   }
 
   private onMouseMove(e: MouseEvent): void {
@@ -2050,18 +2110,7 @@ export class GraphCanvas {
     const dx = x - this.lastX;
     const dy = y - this.lastY;
 
-    if (Math.abs(x - this.downX) > 3 || Math.abs(y - this.downY) > 3) this.hasMoved = true;
-
-    if (this.isDraggingNode && this.dragNode) {
-      const [wx, wy] = this.toWorld(x, y);
-      this.dragNode.fx = wx;
-      this.dragNode.fy = wy;
-      this.flyTarget   = null;
-    } else if (this.isDraggingCanvas) {
-      this.tx += dx;
-      this.ty += dy;
-      this.flyTarget = null;
-    } else {
+    if (!this.handleDragMove(x, y, dx, dy, 3, true)) {
       const [wx, wy]  = this.toWorld(x, y);
       const hit       = this.hitTest(wx, wy);
       const newHov    = hit?.id ?? null;
@@ -2079,19 +2128,7 @@ export class GraphCanvas {
   private onMouseUp(e: MouseEvent): void {
     if (e.button !== 0) return;
 
-    if (this.isDraggingNode && this.dragNode) {
-      if (!this.hasMoved) {
-        const id     = this.dragNode.id;
-        const newSel = this.filter.selectedId === id ? null : id;
-        this.filter  = { ...this.filter, selectedId: newSel };
-        this.particles = [];
-        this.lastParticleSpawn = 0;
-        this.onSelectNode(newSel);
-        if (newSel) this.flyTo(this.dragNode);
-      }
-      this.dragNode.fx = null;
-      this.dragNode.fy = null;
-      this.dragNode    = null;
+    if (this.endNodeDrag()) {
       this.isDraggingNode = false;
     } else if (this.isDraggingCanvas) {
       this.isDraggingCanvas = false;
@@ -2121,25 +2158,11 @@ export class GraphCanvas {
 
   private onTouchStart(e: TouchEvent): void {
     e.preventDefault();
-    const rect = this.canvas.getBoundingClientRect();
-    if (e.touches.length === 1) {
-      const x = e.touches[0].clientX - rect.left;
-      const y = e.touches[0].clientY - rect.top;
-      this.lastX = x; this.lastY = y;
-      this.downX = x; this.downY = y;
-      this.hasMoved = false;
-      const [wx, wy] = this.toWorld(x, y);
-      const hit = this.hitTest(wx, wy);
-      if (hit) {
-        this.isDraggingNode = true;
-        this.dragNode = hit;
-        hit.fx = hit.x;
-        hit.fy = hit.y;
-        this.alpha = Math.max(this.alpha, 0.25);
-      } else {
-        this.isDraggingCanvas = true;
-      }
+    const pos = this.firstTouchPos(e);
+    if (pos) {
+      this.beginPointerDrag(pos.x, pos.y, false);
     } else if (e.touches.length === 2) {
+      const rect = this.canvas.getBoundingClientRect();
       this.isDraggingNode = false;
       this.isDraggingCanvas = false;
       if (this.dragNode) { this.dragNode.fx = null; this.dragNode.fy = null; this.dragNode = null; }
@@ -2153,25 +2176,16 @@ export class GraphCanvas {
 
   private onTouchMove(e: TouchEvent): void {
     e.preventDefault();
-    const rect = this.canvas.getBoundingClientRect();
-    if (e.touches.length === 1) {
-      const x  = e.touches[0].clientX - rect.left;
-      const y  = e.touches[0].clientY - rect.top;
+    const pos = this.firstTouchPos(e);
+    if (pos) {
+      const { x, y } = pos;
       const dx = x - this.lastX;
       const dy = y - this.lastY;
-      if (Math.abs(x - this.downX) > 5 || Math.abs(y - this.downY) > 5) this.hasMoved = true;
-      if (this.isDraggingNode && this.dragNode) {
-        const [wx, wy] = this.toWorld(x, y);
-        this.dragNode.fx = wx;
-        this.dragNode.fy = wy;
-      } else if (this.isDraggingCanvas) {
-        this.tx += dx;
-        this.ty += dy;
-        this.flyTarget = null;
-      }
+      this.handleDragMove(x, y, dx, dy, 5, false);
       this.lastX = x;
       this.lastY = y;
     } else if (e.touches.length === 2) {
+      const rect = this.canvas.getBoundingClientRect();
       const dx   = e.touches[0].clientX - e.touches[1].clientX;
       const dy   = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -2190,20 +2204,7 @@ export class GraphCanvas {
   private onTouchEnd(e: TouchEvent): void {
     e.preventDefault();
     if (e.touches.length === 0) {
-      if (this.isDraggingNode && this.dragNode) {
-        if (!this.hasMoved) {
-          const id     = this.dragNode.id;
-          const newSel = this.filter.selectedId === id ? null : id;
-          this.filter  = { ...this.filter, selectedId: newSel };
-          this.particles = [];
-          this.lastParticleSpawn = 0;
-          this.onSelectNode(newSel);
-          if (newSel) this.flyTo(this.dragNode);
-        }
-        this.dragNode.fx = null;
-        this.dragNode.fy = null;
-        this.dragNode    = null;
-      }
+      this.endNodeDrag();
       this.isDraggingNode   = false;
       this.isDraggingCanvas = false;
     }

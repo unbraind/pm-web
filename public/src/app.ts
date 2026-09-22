@@ -6,7 +6,7 @@ import { api, csrfTokenFromCookie } from './api.js';
 import type { AuthMeResponse, SearchResponse } from './api-types.js';
 import { showView, setOnViewChange, getViewForPath } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
-import { renderItemsView, fetchAndRenderItems, openItemDetail, switchDetailTab, addComment, addNote, appendItem, updateItem, closeItem, confirmDeleteItem, claimItem, releaseItem, startItem, pauseItem, addDep, removeDep, addLearning, addTest, addFileLink, setStatusFilter, applyItemFilters, clearFilters, copyFilterLink, showBulkUpdateModal, previewBulkUpdate, applyBulkUpdate, showBulkCloseModal, previewBulkClose, applyBulkClose, useItemAsTemplate } from './views/items.js';
+import * as itemsView from './views/items.js';
 import { submitCreateItem, submitCreateItemAndOpen } from './views/create.js';
 import { renderActivityView } from './views/activity.js';
 import { renderSearchView, setSearchMode, reindexProject, debouncedSearch, doSearch } from './views/search.js';
@@ -47,7 +47,7 @@ import { initI18n, setLocale as i18nSetLocale, applyTranslations } from './i18n.
 import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan, copyPlanAgentBrief, copyPlanNextStepPrompt, planEditPrompt, submitEditPlan, planDeletePrompt } from './views/plan.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
-import { escHtml, typeIcon, priorityDot, statusBadge } from './utils.js';
+import { escHtml, typeIcon, priorityDot, statusBadge, updateHeaderUser } from './utils.js';
 import { browserWindow, isBeforeInstallPromptEvent, type BeforeInstallPromptEvent } from './browser-window.js';
 import { initTheme, cycleTheme } from './theme.js';
 
@@ -222,7 +222,6 @@ const __app = {
   // Views
   showView,
   renderProjectsView,
-  renderItemsView,
   renderActivityView,
   renderSearchView,
   renderStatsView,
@@ -270,34 +269,7 @@ const __app = {
   submitCreateProject2,
 
   // Items
-  openItemDetail,
-  switchDetailTab,
-  addComment,
-  addNote,
-  appendItem,
-  updateItem,
-  closeItem,
-  confirmDeleteItem,
-  claimItem,
-  releaseItem,
-  startItem,
-  pauseItem,
-  addDep,
-  removeDep,
-  addLearning,
-  addTest,
-  addFileLink,
-  setStatusFilter,
-  applyItemFilters,
-  clearFilters,
-  copyFilterLink,
-  showBulkUpdateModal,
-  previewBulkUpdate,
-  applyBulkUpdate,
-  showBulkCloseModal,
-  previewBulkClose,
-  applyBulkClose,
-  useItemAsTemplate,
+  ...itemsView,
 
   // Create
   submitCreateItem,
@@ -569,7 +541,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     const doRefreshView = () => {
       const view = state.currentView;
       if (view === 'items') {
-        fetchAndRenderItems();
+        itemsView.fetchAndRenderItems();
       } else if (view === 'activity') {
         renderActivityView();
       } else if (view === 'stats') {
@@ -691,11 +663,7 @@ export async function bootApp(): Promise<void> {
   if (mainApp) mainApp.style.display = 'flex';
 
   const u = state.user!;
-  const initials = (u.display_name||u.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  const avatarEl = document.getElementById('user-avatar');
-  if (avatarEl) avatarEl.textContent = initials;
-  const nameEl = document.getElementById('user-name-display');
-  if (nameEl) nameEl.textContent = u.display_name||u.email;
+  updateHeaderUser(u);
   document.querySelectorAll<HTMLElement>('.admin-only').forEach((el) => {
     el.style.display = u.is_admin ? '' : 'none';
   });

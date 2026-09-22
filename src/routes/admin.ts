@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Response } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
+import { parseGroupInput } from "./route-helpers.ts";
 
 const router = Router();
 
@@ -169,18 +170,16 @@ router.delete("/projects/:id", async (req: AuthRequest, res) => {
 
 // POST /admin/groups — Create a new group
 router.post("/groups", async (req: AuthRequest, res) => {
-  const { name, description } = req.body as { name?: string; description?: string };
-  if (!name?.trim()) {
-    res.status(400).json({ error: "Group name is required" });
-    return;
-  }
+  const input = parseGroupInput(res, req.body);
+  if (!input) return;
+  const { name, description } = input;
   try {
     const result = await pool.query(
       `INSERT INTO pm_groups (owner_id, name, description) VALUES ($1, $2, $3)
        RETURNING id, name, description, created_at`,
-      [req.user!.userId, name.trim(), description?.trim() || ""]
+      [req.user!.userId, name, description]
     );
-    await logAudit(req.user!.userId, "group.create", `Created group "${name.trim()}"`);
+    await logAudit(req.user!.userId, "group.create", `Created group "${name}"`);
     res.status(201).json({ group: result.rows[0] });
   } catch (err) {
     console.error("Admin group create failed:", err);

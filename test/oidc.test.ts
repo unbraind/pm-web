@@ -36,6 +36,18 @@ function fullEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   };
 }
 
+
+/** Query pm_external_identities for the given issuer+subject and assert the
+ * linked user_id matches. */
+async function assertIdentity(base: { issuer: string; subject: string }, expectedUserId: string): Promise<void> {
+  const identities = await pool.query(
+    `SELECT user_id FROM pm_external_identities WHERE issuer = $1 AND subject = $2`,
+    [base.issuer, base.subject],
+  );
+  assert.equal(identities.rows.length, 1);
+  assert.equal((identities.rows[0] as { user_id: string }).user_id, expectedUserId);
+}
+
 test("OIDC is disabled by default and partial production config fails closed", () => {
   assert.deepEqual(resolveOidcSettings({ NODE_ENV: "production" }), { enabled: false });
   assert.throws(
@@ -282,12 +294,7 @@ test("external identity resolution auto-provisions once and is idempotent", asyn
     );
     assert.equal((users.rows[0] as { count: number }).count, 1);
 
-    const identities = await pool.query(
-      `SELECT user_id FROM pm_external_identities WHERE issuer = $1 AND subject = $2`,
-      [base.issuer, base.subject],
-    );
-    assert.equal(identities.rows.length, 1);
-    assert.equal((identities.rows[0] as { user_id: string }).user_id, first.id);
+    await assertIdentity(base, first.id);
 
     const stored = await pool.query<{ password_hash: string }>(
       `SELECT password_hash FROM pm_users WHERE id = $1`,
@@ -317,12 +324,7 @@ test("verified same-email identity links an existing account", async () => {
     const resolved = await resolveExternalIdentity(client, base);
     assert.equal(resolved.id, existingId);
 
-    const identities = await pool.query(
-      `SELECT user_id FROM pm_external_identities WHERE issuer = $1 AND subject = $2`,
-      [base.issuer, base.subject],
-    );
-    assert.equal(identities.rows.length, 1);
-    assert.equal((identities.rows[0] as { user_id: string }).user_id, existingId);
+    await assertIdentity(base, existingId);
   } finally {
     client.release();
   }

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A publish that npm accepts late is reported as failed and the GitHub Release is skipped on bun mirror lag ([pm-web-0d60](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-0d60.toon))
+
+### Other
+
+- Certify pm CLI 2026.9.21 and move onto the canonical pm-ops merge-driver, lint and duplication gates ([pm-web-xoxk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-xoxk.toon))
+
 ## 2026.9.18 - 2026-09-18
 
 ### Other
