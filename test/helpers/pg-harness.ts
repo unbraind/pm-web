@@ -135,6 +135,11 @@ const SCHEMA_LOCK_KEY = 0x706d7765;
  */
 let schemaReady = process.env.PM_WEB_TEST_SCHEMA_READY === "true";
 
+/** Record that schema initialization finished, outside the async lock holder. */
+function markSchemaReady(): void {
+  schemaReady = true;
+}
+
 /**
  * Ensures the full pm-web schema exists, serialising concurrent creators.
  *
@@ -167,7 +172,7 @@ export async function ensureSchema(): Promise<void> {
     await client.query("SELECT pg_advisory_lock($1)", [SCHEMA_LOCK_KEY]);
     try {
       await initSchema();
-      schemaReady = true;
+      markSchemaReady();
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [SCHEMA_LOCK_KEY]);
     }
@@ -188,14 +193,14 @@ export async function ensureSchema(): Promise<void> {
  */
 export async function startApp(): Promise<AppServer> {
   const server = http.createServer(createApp());
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  await new Promise<void>((resolve) => { server.listen(0, "127.0.0.1", () => { resolve(); }); });
   const addr = server.address();
   const port = typeof addr === "object" && addr ? addr.port : 0;
   return {
     port,
     url: (path: string) => `http://127.0.0.1:${port}${path}`,
     close: () =>
-      new Promise<void>((resolve) => server.close(() => resolve())),
+      new Promise<void>((resolve) => { server.close(() => { resolve(); }); }),
   };
 }
 
