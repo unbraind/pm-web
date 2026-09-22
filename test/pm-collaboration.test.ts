@@ -114,19 +114,11 @@ async function setupCollabTest(t: test.TestContext): Promise<{
 }
 
 test("client B receives client A's item mutation over the real SSE route", async (t) => {
-  const previousRoot = process.env.PROJECTS_ROOT;
-  const harness = await createCollaborationHarness();
-  const startedServer: { current?: AppServer } = {};
   const controller = new AbortController();
-  t.after(async () => {
-    controller.abort();
-    if (startedServer.current) await startedServer.current.close();
-    await rm(harness.root, { recursive: true, force: true });
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-  });
-  const server = await startApp();
-  startedServer.current = server;
+  // Registered first: node:test runs after-hooks in registration order, so the
+  // stream is aborted before setupCollabTest's teardown closes the server.
+  t.after(() => controller.abort());
+  const { harness, server } = await setupCollabTest(t);
   const stream = await fetch(server.url(`/api/projects/${harness.projectId}/pm/events?view=items`), {
     headers: authHeaders(harness.editor),
     signal: controller.signal,
