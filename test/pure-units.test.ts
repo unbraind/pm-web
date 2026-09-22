@@ -21,6 +21,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import test from "node:test";
+import { startEphemeralServer } from "./helpers/ephemeral-server.ts";
 
 import cookieParser from "cookie-parser";
 import express, { type Express } from "express";
@@ -98,14 +99,8 @@ async function probeApp(): Promise<{ url: (path: string) => string; close: () =>
     res.json({ userId: req.user?.userId });
   });
 
-  const server = http.createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
-  const addr = server.address();
-  const port = typeof addr === "object" && addr ? addr.port : 0;
-  return {
-    url: (path: string) => `http://127.0.0.1:${port}${path}`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
+  const { url, close } = await startEphemeralServer(app);
+  return { url, close };
 }
 
 /**
@@ -116,6 +111,25 @@ async function probeApp(): Promise<{ url: (path: string) => string; close: () =>
  */
 function env(name: string): string | undefined {
   return process.env[name];
+}
+
+/** Save the database-related env vars, run `setup` to modify them, execute
+ * `fn`, and restore all three vars to their original state in a finally block. */
+function withDbEnv(setup: () => void, fn: () => void): void {
+  const savedUrl = env("DATABASE_URL");
+  const savedHost = env("POSTGRES_HOST");
+  const savedDb = env("POSTGRES_DB");
+  setup();
+  try {
+    fn();
+  } finally {
+    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
+    else delete process.env.DATABASE_URL;
+    if (savedHost !== undefined) process.env.POSTGRES_HOST = savedHost;
+    else delete process.env.POSTGRES_HOST;
+    if (savedDb !== undefined) process.env.POSTGRES_DB = savedDb;
+    else delete process.env.POSTGRES_DB;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -343,56 +357,34 @@ test("crypto: encrypting without a usable secret key fails loudly", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test("assertDbConfigured: accepts a configured DATABASE_URL", () => {
-  const saved = env("DATABASE_URL");
-  const savedHost = env("POSTGRES_HOST");
-  const savedDb = env("POSTGRES_DB");
-  process.env.DATABASE_URL = "postgres://u:p@db.example:5432/pmweb";
-  delete process.env.POSTGRES_HOST;
-  delete process.env.POSTGRES_DB;
-  try {
-    assert.doesNotThrow(() => assertDbConfigured());
-  } finally {
-    if (saved !== undefined) process.env.DATABASE_URL = saved;
-    else delete process.env.DATABASE_URL;
-    if (savedHost !== undefined) process.env.POSTGRES_HOST = savedHost;
-    if (savedDb !== undefined) process.env.POSTGRES_DB = savedDb;
-  }
+  withDbEnv(
+    () => {
+      process.env.DATABASE_URL = "postgres://u:p@db.example:5432/pmweb";
+      delete process.env.POSTGRES_HOST;
+      delete process.env.POSTGRES_DB;
+    },
+    () => assert.doesNotThrow(() => assertDbConfigured()),
+  );
 });
 
 test("assertDbConfigured: accepts discrete POSTGRES_HOST + POSTGRES_DB vars", () => {
-  const savedUrl = env("DATABASE_URL");
-  const savedHost = env("POSTGRES_HOST");
-  const savedDb = env("POSTGRES_DB");
-  delete process.env.DATABASE_URL;
-  process.env.POSTGRES_HOST = "db.example";
-  process.env.POSTGRES_DB = "pmweb";
-  try {
-    assert.doesNotThrow(() => assertDbConfigured());
-  } finally {
-    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
-    else delete process.env.DATABASE_URL;
-    if (savedHost !== undefined) process.env.POSTGRES_HOST = savedHost;
-    else delete process.env.POSTGRES_HOST;
-    if (savedDb !== undefined) process.env.POSTGRES_DB = savedDb;
-    else delete process.env.POSTGRES_DB;
-  }
+  withDbEnv(
+    () => {
+      delete process.env.DATABASE_URL;
+      process.env.POSTGRES_HOST = "db.example";
+      process.env.POSTGRES_DB = "pmweb";
+    },
+    () => assert.doesNotThrow(() => assertDbConfigured()),
+  );
 });
 
 test("assertDbConfigured: throws with actionable guidance when no database is configured", () => {
-  const savedUrl = env("DATABASE_URL");
-  const savedHost = env("POSTGRES_HOST");
-  const savedDb = env("POSTGRES_DB");
-  delete process.env.DATABASE_URL;
-  delete process.env.POSTGRES_HOST;
-  delete process.env.POSTGRES_DB;
-  try {
-    assert.throws(() => assertDbConfigured(), /DATABASE_URL is not set/i);
-  } finally {
-    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
-    else delete process.env.DATABASE_URL;
-    if (savedHost !== undefined) process.env.POSTGRES_HOST = savedHost;
-    else delete process.env.POSTGRES_HOST;
-    if (savedDb !== undefined) process.env.POSTGRES_DB = savedDb;
-    else delete process.env.POSTGRES_DB;
-  }
+  withDbEnv(
+    () => {
+      delete process.env.DATABASE_URL;
+      delete process.env.POSTGRES_HOST;
+      delete process.env.POSTGRES_DB;
+    },
+    () => assert.throws(() => assertDbConfigured(), /DATABASE_URL is not set/i),
+  );
 });

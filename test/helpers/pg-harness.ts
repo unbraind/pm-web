@@ -20,9 +20,12 @@
  */
 
 import http from "node:http";
+import assert from "node:assert/strict";
+import type test from "node:test";
 import type { Express } from "express";
 import { createApp } from "../../src/app.ts";
 import { signToken } from "../../src/auth.ts";
+import { startEphemeralServer } from "./ephemeral-server.ts";
 import { initSchema, pool } from "../../src/db.ts";
 
 /**
@@ -135,6 +138,11 @@ const SCHEMA_LOCK_KEY = 0x706d7765;
  */
 let schemaReady = process.env.PM_WEB_TEST_SCHEMA_READY === "true";
 
+/** Record that schema initialization finished, outside the async lock holder. */
+function markSchemaReady(): void {
+  schemaReady = true;
+}
+
 /**
  * Ensures the full pm-web schema exists, serialising concurrent creators.
  *
@@ -167,7 +175,7 @@ export async function ensureSchema(): Promise<void> {
     await client.query("SELECT pg_advisory_lock($1)", [SCHEMA_LOCK_KEY]);
     try {
       await initSchema();
-      schemaReady = true;
+      markSchemaReady();
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [SCHEMA_LOCK_KEY]);
     }
@@ -187,17 +195,21 @@ export async function ensureSchema(): Promise<void> {
  * naturally once its tests finish.
  */
 export async function startApp(): Promise<AppServer> {
-  const server = http.createServer(createApp());
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
-  const addr = server.address();
-  const port = typeof addr === "object" && addr ? addr.port : 0;
-  return {
-    port,
-    url: (path: string) => `http://127.0.0.1:${port}${path}`,
-    close: () =>
-      new Promise<void>((resolve) => server.close(() => resolve())),
-  };
+  const { port, url, close } = await startEphemeralServer(createApp());
+  return { port, url, close };
 }
+/** Common setup for route tests: ensure schema, start app, register cleanup,
+ * and create an owner with a project. Used by sharing, groups and projects
+ * route test suites. */
+export async function setupOwnerProjectTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser; project: SeedProject }> {
+  await ensureSchema();
+  const server = await startApp();
+  t.after(() => server.close());
+  const owner = await seedUser(uniqueEmail("owner"));
+  const project = await seedProject(owner.id);
+  return { server, owner, project };
+}
+
 
 /**
  * Inserts a `pm_users` row and returns its id and email. The password hash is
@@ -374,4 +386,23 @@ export async function authedFetch(
   if (!headers.has("cookie")) headers.set("cookie", authCookie(user));
   if (!headers.has("x-csrf-token")) headers.set("x-csrf-token", "pm-web-test-csrf");
   return fetch(server.url(path), { ...init, headers });
+}
+
+/** Assert that PATCH and DELETE on a malformed UUID for the given resource
+ * prefix both return 400. Used by groups and projects route test suites to
+ * verify the uuid param guard short-circuits before SQL is reached. */
+export async function assertMalformedUuidMutating(
+  server: AppServer,
+  user: SeedUser,
+  resourcePrefix: string,
+): Promise<void> {
+  const patch = await authedFetch(server, user, `/api/${resourcePrefix}/not-a-uuid`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "X" }),
+  });
+  assert.equal(patch.status, 400);
+
+  const del = await authedFetch(server, user, `/api/${resourcePrefix}/not-a-uuid`, { method: "DELETE" });
+  assert.equal(del.status, 400);
 }

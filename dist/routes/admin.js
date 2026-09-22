@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { routeParam, uuidParamGuard } from "./route-params.js";
+import { parseGroupInput } from "./route-helpers.js";
 const router = Router();
 router.use(requireAuth);
 async function getAdminCount() {
@@ -155,15 +156,14 @@ router.delete("/projects/:id", async (req, res) => {
 });
 // POST /admin/groups — Create a new group
 router.post("/groups", async (req, res) => {
-    const { name, description } = req.body;
-    if (!name?.trim()) {
-        res.status(400).json({ error: "Group name is required" });
+    const input = parseGroupInput(res, req.body);
+    if (!input)
         return;
-    }
+    const { name, description } = input;
     try {
         const result = await pool.query(`INSERT INTO pm_groups (owner_id, name, description) VALUES ($1, $2, $3)
-       RETURNING id, name, description, created_at`, [req.user.userId, name.trim(), description?.trim() || ""]);
-        await logAudit(req.user.userId, "group.create", `Created group "${name.trim()}"`);
+       RETURNING id, name, description, created_at`, [req.user.userId, name, description]);
+        await logAudit(req.user.userId, "group.create", `Created group "${name}"`);
         res.status(201).json({ group: result.rows[0] });
     }
     catch (err) {

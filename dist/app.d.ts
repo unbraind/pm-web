@@ -36,6 +36,16 @@ export declare const LEGAL_REDIRECTS: Record<string, string>;
  */
 export declare function resolveLegalPagesDir(env?: NodeJS.ProcessEnv): string;
 /**
+ * Resolve this package's version from `package.json`, once at boot.
+ *
+ * Best-effort: returns `"unknown"` if the file is missing or fails to parse so
+ * `/healthz` can always report a version string even in a broken checkout.
+ * Shared with `server.ts` to avoid duplicating the read-and-parse logic.
+ *
+ * @returns The package version string, or `"unknown"` on any error.
+ */
+export declare function readPackageVersion(): string;
+/**
  * Optional dependencies `createApp` can wire into the application.
  *
  * Currently only the {@link HealthProbeDeps} for the real `/healthz` handler is

@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
-import test, { before } from "node:test";
-import { readFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import test from "node:test";
+import { readFileSync } from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import {
+  getLocale,
+  resolveLocale,
+  setLocale,
+  t,
+  translate,
+  translateError,
+} from "../public/src/i18n.ts";
 
 // Package root: test/ compiles to dist-test/, so go up one level from there.
 const packageRoot = path.resolve(
@@ -11,7 +18,11 @@ const packageRoot = path.resolve(
   "..",
 );
 const i18nDir = path.join(packageRoot, "public", "src", "i18n");
-const i18nSrc = path.join(packageRoot, "public", "src", "i18n.ts");
+
+/** Assign fetch outside an async test so the write is not paired with a stale read. */
+function setGlobalFetch(fetchImpl: typeof fetch): void {
+  globalThis.fetch = fetchImpl;
+}
 
 const enJson = JSON.parse(
   readFileSync(path.join(i18nDir, "en.json"), "utf8"),
@@ -39,78 +50,20 @@ const indexHtml = readFileSync(
   "utf8",
 );
 
-// Compile i18n.ts (which has no imports/side effects at module top level) into a
-// temp dir so the pure helpers (resolveLocale, translate, translateError) can
-// be imported and exercised directly — mirroring the static-scripts test,
-// which builds its TypeScript sources in a before() hook.
-const tmpOut = path.join(packageRoot, ".i18n-test-build");
 
-interface LocaleStorage {
-  getItem(k: string): string | null;
-  setItem(k: string, v: string): void;
-  removeItem(k: string): void;
-  clear(): void;
-  key(i: number): string | null;
-  length: number;
-}
-
-interface I18nModule {
-  resolveLocale(opts?: { storage?: LocaleStorage | null; navLang?: string | null }): string;
-  translate(
-    catalog: Record<string, string>,
-    fallback: Record<string, string>,
-    key: string,
-    params?: Record<string, string | number>,
-  ): string;
-  translateError(message: string): string;
-  setLocale(locale: string): Promise<void>;
-  getLocale(): string;
-  t(key: string, params?: Record<string, string | number>): string;
-}
-
-let i18n: I18nModule | null = null;
-
-before(() => {
-  const tscBin = path.join(
-    packageRoot,
-    "node_modules",
-    "typescript",
-    "bin",
-    "tsc",
-  );
-  rmSync(tmpOut, { recursive: true, force: true });
-  mkdirSync(tmpOut, { recursive: true });
-  execFileSync(
-    process.execPath,
-    [
-      tscBin,
-      i18nSrc,
-      "--target",
-      "ES2022",
-      "--module",
-      "ES2022",
-      "--moduleResolution",
-      "bundler",
-      "--lib",
-      "ES2022,DOM,DOM.Iterable",
-      "--strict",
-      "--outDir",
-      tmpOut,
-      "--ignoreConfig",
-    ],
-    {
-      cwd: packageRoot,
-      stdio: ["ignore", "inherit", "inherit"],
-    },
-  );
-  // Dynamic import (ESM) of the freshly compiled module.
-  const url = pathToFileURL(path.join(tmpOut, "i18n.js")).href;
-  return import(url).then((m: I18nModule) => {
-    i18n = m;
-  });
-});
 
 // ── Catalog parity: every en key must exist in every shipped locale with a non-empty value ──
+
+/** A localStorage stub that stores nothing — used by resolveLocale tests. */
+const emptyStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+  clear: () => {},
+  key: () => null,
+  length: 0,
+};
+
 test("catalog parity: every en key exists in every locale with a non-empty value", () => {
   const enKeys = Object.keys(enJson).sort();
   assert.ok(enKeys.length > 0, "en.json should not be empty");
@@ -178,41 +131,27 @@ test("resolveLocale: explicit storage choice wins", () => {
     key: () => null,
     length: 0,
   });
-  assert.equal(i18n!.resolveLocale({ storage: store("de"), navLang: "en-US" }), "de");
-  assert.equal(i18n!.resolveLocale({ storage: store("en"), navLang: "de-DE" }), "en");
+  assert.equal(resolveLocale({ storage: store("de"), navLang: "en-US" }), "de");
+  assert.equal(resolveLocale({ storage: store("en"), navLang: "de-DE" }), "en");
 });
 
 test("resolveLocale: navigator.language prefix match when no stored choice", () => {
-  const empty = {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-    key: () => null,
-    length: 0,
-  };
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "de-DE" }), "de");
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "de" }), "de");
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "en-US" }), "en");
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "es-MX" }), "es");
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "es" }), "es");
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "zh-CN" }), "zh");
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "zh" }), "zh");
+
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "de-DE" }), "de");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "de" }), "de");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "en-US" }), "en");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "es-MX" }), "es");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "es" }), "es");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "zh-CN" }), "zh");
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "zh" }), "zh");
 });
 
 test("resolveLocale: unsupported navigator language falls back to en", () => {
-  const empty = {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-    key: () => null,
-    length: 0,
-  };
-  assert.equal(i18n!.resolveLocale({ storage: empty, navLang: "fr-FR" }), "en");
+
+  assert.equal(resolveLocale({ storage: emptyStorage, navLang: "fr-FR" }), "en");
   // Explicit null means "skip this source" — both skipped falls back to en.
-  assert.equal(i18n!.resolveLocale({ storage: null, navLang: null }), "en");
-  assert.equal(i18n!.resolveLocale({ storage: null, navLang: "" }), "en");
+  assert.equal(resolveLocale({ storage: null, navLang: null }), "en");
+  assert.equal(resolveLocale({ storage: null, navLang: "" }), "en");
 });
 
 test("resolveLocale: unsupported stored value is ignored", () => {
@@ -224,39 +163,39 @@ test("resolveLocale: unsupported stored value is ignored", () => {
     key: () => null,
     length: 0,
   };
-  assert.equal(i18n!.resolveLocale({ storage: bad, navLang: "de-DE" }), "de");
+  assert.equal(resolveLocale({ storage: bad, navLang: "de-DE" }), "de");
 });
 
 // ── t()/translate fallback + params ─────────────────────────────────────
 test("translate: returns de value when present", () => {
   assert.equal(
-    i18n!.translate(deJson, enJson, "auth.title.login"),
+    translate(deJson, enJson, "auth.title.login"),
     deJson["auth.title.login"],
   );
 });
 
 test("translate: falls back to en when de key missing", () => {
   assert.equal(
-    i18n!.translate({}, enJson, "auth.title.login"),
+    translate({}, enJson, "auth.title.login"),
     enJson["auth.title.login"],
   );
 });
 
 test("translate: returns the key itself when missing from both catalogs", () => {
-  assert.equal(i18n!.translate({}, {}, "nope.does.not.exist"), "nope.does.not.exist");
+  assert.equal(translate({}, {}, "nope.does.not.exist"), "nope.does.not.exist");
 });
 
 test("translate: substitutes {param} placeholders", () => {
   assert.equal(
-    i18n!.translate(deJson, enJson, "auth.oidc.template", { label: "Acme" }),
+    translate(deJson, enJson, "auth.oidc.template", { label: "Acme" }),
     "Mit Acme fortfahren",
   );
   assert.equal(
-    i18n!.translate({}, enJson, "settings.accountCreated", { date: "2026" }),
+    translate({}, enJson, "settings.accountCreated", { date: "2026" }),
     "Account created 2026",
   );
   assert.equal(
-    i18n!.translate(deJson, enJson, "settings.accountCreated", { date: "2026" }),
+    translate(deJson, enJson, "settings.accountCreated", { date: "2026" }),
     "Konto erstellt am 2026",
   );
 });
@@ -280,7 +219,7 @@ test("error.* English values are unique so the reverse map is unambiguous", () =
 test("translateError: unknown message is returned unchanged (fallback)", () => {
   // No catalog has been fetched in this Node context, so the reverse map is
   // empty and any unknown message must pass through verbatim.
-  assert.equal(i18n!.translateError("Something completely unexpected"), "Something completely unexpected");
+  assert.equal(translateError("Something completely unexpected"), "Something completely unexpected");
 });
 
 test("translateError: every error.* key has a translation in every locale", () => {
@@ -376,7 +315,6 @@ test("index.html first-paint hint negotiates navigator.language when no stored l
     let htmlLang = 'en';
     const fakeDoc = { documentElement: { set lang(v: string) { htmlLang = v; }, get lang() { return htmlLang; } } };
     const fakeStore = { getItem: (k: string) => (k === 'pmLocale' ? stored : null) };
-    // eslint-disable-next-line no-new-func
     const fn = new Function(
       'localStorage', 'navigator', 'document',
       `try{${src}}catch(e){}`,
@@ -407,7 +345,7 @@ test("index.html first-paint hint negotiates navigator.language when no stored l
 // resolveLocale must catch these and continue with fallbacks rather than
 // reject and prevent the app from rendering.
 test("resolveLocale: throwing storage.getItem falls back to navigator language", () => {
-  const throwingGet: LocaleStorage = {
+  const throwingGet = {
     getItem: () => { throw new Error("SecurityError: storage blocked"); },
     setItem: () => {},
     removeItem: () => {},
@@ -416,9 +354,9 @@ test("resolveLocale: throwing storage.getItem falls back to navigator language",
     length: 0,
   };
   // getItem throws → caught → falls through to navLang prefix match → 'de'.
-  assert.equal(i18n!.resolveLocale({ storage: throwingGet, navLang: 'de-DE' }), 'de');
+  assert.equal(resolveLocale({ storage: throwingGet, navLang: 'de-DE' }), 'de');
   // No usable navLang → default 'en' (no throw).
-  assert.equal(i18n!.resolveLocale({ storage: throwingGet, navLang: 'fr-FR' }), 'en');
+  assert.equal(resolveLocale({ storage: throwingGet, navLang: 'fr-FR' }), 'en');
 });
 
 test("resolveLocale: safeLocalStorage getter throwing does not abort (no opts)", () => {
@@ -429,14 +367,14 @@ test("resolveLocale: safeLocalStorage getter throwing does not abort (no opts)",
   // environment), so we only assert it returns a supported locale and never
   // throws, which is the real contract being hardened.
   const g = globalThis as unknown as Record<string, unknown>;
-  const had = Object.prototype.hasOwnProperty.call(g, 'localStorage');
+  const had = Object.hasOwn(g, 'localStorage');
   const prev = g.localStorage;
   Object.defineProperty(g, 'localStorage', {
     configurable: true,
     get() { throw new Error("SecurityError: localStorage blocked"); },
   });
   try {
-    const resolved = i18n!.resolveLocale();
+    const resolved = resolveLocale();
     assert.ok(
       resolved === 'en' || resolved === 'de',
       `resolveLocale should return a supported locale without throwing, got ${resolved}`,
@@ -450,10 +388,10 @@ test("resolveLocale: safeLocalStorage getter throwing does not abort (no opts)",
 test("setLocale: throwing storage.setItem does not abort the locale switch", async () => {
   const realFetch = globalThis.fetch;
   // setLocale only needs an en catalog; stub fetch to return it immediately.
-  globalThis.fetch = (() => Promise.resolve({
+  setGlobalFetch((() => Promise.resolve({
     ok: true,
     json: () => Promise.resolve(enJson),
-  })) as unknown as typeof fetch;
+  })) as unknown as typeof fetch);
   const g = globalThis as unknown as Record<string, unknown>;
   const prevLS = g.localStorage;
   // A storage that throws on writes (privacy-mode write block).
@@ -467,11 +405,11 @@ test("setLocale: throwing storage.setItem does not abort the locale switch", asy
   };
   try {
     // Must not reject despite setItem throwing.
-    await i18n!.setLocale('en');
-    assert.equal(i18n!.getLocale(), 'en');
+    await setLocale('en');
+    assert.equal(getLocale(), 'en');
   } finally {
     g.localStorage = prevLS;
-    globalThis.fetch = realFetch;
+    setGlobalFetch(realFetch);
   }
 });
 
@@ -482,7 +420,7 @@ test("setLocale: throwing storage.setItem does not abort the locale switch", asy
 test("setLocale: stale catalog fetch is discarded when a newer setLocale wins", async () => {
   const realFetch = globalThis.fetch;
   let deResolve: ((v: { ok: boolean; json: () => Promise<Record<string, string>> }) => void) | undefined;
-  globalThis.fetch = ((input: unknown) => {
+  setGlobalFetch(((input: unknown) => {
     const url = String(input);
     if (url.endsWith('/en.json')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(enJson) });
@@ -492,17 +430,17 @@ test("setLocale: stale catalog fetch is discarded when a newer setLocale wins", 
       return new Promise((resolve) => { deResolve = resolve as typeof deResolve; });
     }
     return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
-  }) as unknown as typeof fetch;
+  }) as unknown as typeof fetch);
 
   try {
     // Pre-load the en fallback so both race calls skip the en fetch and go
     // straight to their (possibly deferred) active-catalog fetch.
-    await i18n!.setLocale('en');
+    await setLocale('en');
 
     // Start the German selection — its de fetch is deferred (pending).
-    const dePromise = i18n!.setLocale('de');
+    const dePromise = setLocale('de');
     // Immediately switch to en; en needs no fetch (activeCatalog = enCatalog).
-    await i18n!.setLocale('en');
+    await setLocale('en');
 
     // Release the stale German fetch.
     assert.ok(deResolve, 'de fetch should have been requested');
@@ -510,12 +448,12 @@ test("setLocale: stale catalog fetch is discarded when a newer setLocale wins", 
     await dePromise;
 
     // The latest selection (en) must win: locale is en, catalog is English.
-    assert.equal(i18n!.getLocale(), 'en');
-    assert.equal(i18n!.t('auth.title.login'), enJson['auth.title.login']);
+    assert.equal(getLocale(), 'en');
+    assert.equal(t('auth.title.login'), enJson['auth.title.login']);
     // German must NOT have leaked through the stale fetch.
-    assert.notEqual(i18n!.t('auth.title.login'), deJson['auth.title.login']);
+    assert.notEqual(t('auth.title.login'), deJson['auth.title.login']);
   } finally {
-    globalThis.fetch = realFetch;
+    setGlobalFetch(realFetch);
   }
 });
 

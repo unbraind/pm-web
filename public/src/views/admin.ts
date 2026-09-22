@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import { state } from '../state.js';
 import type { AdminGroup, AdminProject, AdminUser } from '../types.js';
-import { escHtml } from '../utils.js';
+import { escHtml, showError } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { confirmDialog, createModal, showModal, hideModal } from '../components/modals.js';
 
@@ -632,7 +632,7 @@ export function adminCreateGroup(): void {
       hideModal(id);
       await renderAdminView();
     } catch (err: unknown) {
-      if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = 'block'; }
+      showError(errEl, err);
     }
   });
 }

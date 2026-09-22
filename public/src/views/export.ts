@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
+import { loadItemsBadge } from './projects.js';
 
 /** Renders the export and import panel for the current project: JSON/CSV/YAML export buttons and a file picker for importing a JSON or YAML file. */
 export async function renderExportView(): Promise<void> {
@@ -271,9 +272,7 @@ export async function importData(file: File): Promise<void> {
     const failed = result.errors?.length ?? 0;
     statusEl.innerHTML = `<div style="padding:12px;font-size:13px"><span style="color:var(--status-closed)">✓ Imported ${created} items</span>${failed ? `<span style="color:var(--status-blocked);margin-left:12px">✗ ${failed} failed</span>` : ''}</div>`;
     toast(`Imported ${created} items`, 'success');
-    if (window.__app?.loadItemsBadge) {
-      window.__app.loadItemsBadge();
-    }
+    void loadItemsBadge();
   } catch(err: unknown) {
     statusEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px;padding:12px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
   }

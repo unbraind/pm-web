@@ -3,15 +3,11 @@ import test from "node:test";
 
 import { createMutationEventReconciler, startMutationEventWatcher } from "../src/services/mutation-event-watcher.ts";
 import type { MutationEvent } from "@unbrained/pm-cli/sdk";
-import type { SSEEvent } from "../src/services/sse.ts";
+import { stdWatcherCallbacks, type EmitRecord } from "./helpers/watcher-callbacks.ts";
 
 const PID_A = "11111111-1111-4111-8111-111111111111";
 const PID_B = "22222222-2222-4221-8222-222222222222";
 
-interface EmitRecord {
-  projectId: string;
-  event: SSEEvent;
-}
 
 // A fake subscribe factory that returns a controllable async generator. Each
 // call registers itself so the test can push events or end the stream.
@@ -68,21 +64,89 @@ function makeEvent(itemId: string, cursor: string | undefined, type = "update", 
   };
 }
 
-test("mutation-event watcher: newly-active project starts a subscription and delivers events with granular payload", async () => {
-  const emitted: EmitRecord[] = [];
-  const errors: unknown[] = [];
+/** Build a reconciler over a single project (PID_A -> /proj/a) with the
+ * standard emit/onError callbacks. `activeIds` lets each test control which
+ * projects are active. */
+function makeSingleProjectReconciler(
+  activeIds: () => string[],
+  emitted: EmitRecord[],
+  errors: unknown[],
+) {
   const { instances, subscribe } = makeSubscribeHarness();
-  const activeIds = (): string[] => [PID_A];
-
   const { reconcile } = createMutationEventReconciler({
     intervalMs: 10,
     getActiveProjectIds: activeIds,
     resolveProjectDir: async () => "/proj/a",
     subscribe,
     consumeSignaledItemMutation: () => false,
+    ...stdWatcherCallbacks(emitted, errors),
+  });
+  return { instances, reconcile };
+}
+
+/** Build a reconciler with per-item dedupe: `consumeSignaledItemMutation`
+ * returns true once for each signaled item, then clears the signal. */
+function makeDedupeReconciler(
+  emitted: EmitRecord[],
+  errors: unknown[],
+  signaled: Set<string>,
+) {
+  const { instances, subscribe } = makeSubscribeHarness();
+  const { reconcile } = createMutationEventReconciler({
+    intervalMs: 10,
+    getActiveProjectIds: () => [PID_A],
+    resolveProjectDir: async () => "/proj/a",
+    subscribe,
+    consumeSignaledItemMutation: (pid: string, itemId: string) => {
+      const key = `${pid} ${itemId}`;
+      if (signaled.has(key)) { signaled.delete(key); return true; }
+      return false;
+    },
     emit: (projectId, event) => { emitted.push({ projectId, event }); },
     onError: (err) => { errors.push(err); },
   });
+  return { instances, reconcile };
+}
+
+/** Setup for dedupe tests: create the harness, run the initial reconcile so the
+ * subscription is active, and return everything the test needs to push events
+ * and assert outcomes. */
+async function setupDedupeTest(): Promise<{
+  instances: ReturnType<typeof makeSubscribeHarness>["instances"];
+  reconcile: () => Promise<void>;
+  emitted: EmitRecord[];
+  errors: unknown[];
+  signaled: Set<string>;
+}> {
+  const emitted: EmitRecord[] = [];
+  const errors: unknown[] = [];
+  const signaled = new Set<string>();
+  const { instances, reconcile } = makeDedupeReconciler(emitted, errors, signaled);
+  await reconcile();
+  return { instances, reconcile, emitted, errors, signaled };
+}
+
+/** Build a reconciler over two projects (PID_A/PID_B) with a no-op emit. */
+function makeDualProjectReconciler(errors: unknown[]) {
+  const { instances, subscribe } = makeSubscribeHarness();
+  const reconciler = createMutationEventReconciler({
+    intervalMs: 10,
+    getActiveProjectIds: () => [PID_A, PID_B],
+    resolveProjectDir: async (id: string) => id === PID_A ? "/proj/a" : "/proj/b",
+    subscribe,
+    consumeSignaledItemMutation: () => false,
+    emit: () => undefined,
+    onError: (err) => { errors.push(err); },
+  });
+  return { instances, ...reconciler };
+}
+
+
+test("mutation-event watcher: newly-active project starts a subscription and delivers events with granular payload", async () => {
+  const emitted: EmitRecord[] = [];
+  const errors: unknown[] = [];
+  const activeIds = (): string[] => [PID_A];
+  const { instances, reconcile } = makeSingleProjectReconciler(activeIds, emitted, errors);
 
   await reconcile();
   assert.equal(instances.length, 1, "one subscription started");
@@ -93,7 +157,7 @@ test("mutation-event watcher: newly-active project starts a subscription and del
   instances[0].events.push(makeEvent("item-1", "cursor-1", "create", "pm-gpt"));
 
   // Give the detached loop a tick to consume it.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
 
   assert.equal(emitted.length, 1, "one event delivered");
   assert.equal(emitted[0].projectId, PID_A);
@@ -110,19 +174,9 @@ test("mutation-event watcher: newly-active project starts a subscription and del
 test("mutation-event watcher: inactive project aborts subscription and cleans up state", async () => {
   const emitted: EmitRecord[] = [];
   const errors: unknown[] = [];
-  const { instances, subscribe } = makeSubscribeHarness();
   let list: string[] = [PID_A];
   const activeIds = (): string[] => list.slice();
-
-  const { reconcile } = createMutationEventReconciler({
-    intervalMs: 10,
-    getActiveProjectIds: activeIds,
-    resolveProjectDir: async () => "/proj/a",
-    subscribe,
-    consumeSignaledItemMutation: () => false,
-    emit: (projectId, event) => { emitted.push({ projectId, event }); },
-    onError: (err) => { errors.push(err); },
-  });
+  const { instances, reconcile } = makeSingleProjectReconciler(activeIds, emitted, errors);
 
   await reconcile();
   assert.equal(instances.length, 1);
@@ -134,31 +188,12 @@ test("mutation-event watcher: inactive project aborts subscription and cleans up
 
   assert.equal(controller.aborted, true, "subscription was aborted");
   // Give the loop time to notice abort.
-  await new Promise((r) => setTimeout(r, 20));
+  await new Promise((r) => { setTimeout(r, 20); });
   assert.equal(errors.length, 0, "AbortError must NOT be reported");
 });
 
 test("mutation-event watcher: per-item dedupe skips events already announced by this instance", async () => {
-  const emitted: EmitRecord[] = [];
-  const errors: unknown[] = [];
-  const { instances, subscribe } = makeSubscribeHarness();
-  const signaled = new Set<string>();
-
-  const { reconcile } = createMutationEventReconciler({
-    intervalMs: 10,
-    getActiveProjectIds: () => [PID_A],
-    resolveProjectDir: async () => "/proj/a",
-    subscribe,
-    consumeSignaledItemMutation: (pid, itemId) => {
-      const key = `${pid} ${itemId}`;
-      if (signaled.has(key)) { signaled.delete(key); return true; }
-      return false;
-    },
-    emit: (projectId, event) => { emitted.push({ projectId, event }); },
-    onError: (err) => { errors.push(err); },
-  });
-
-  await reconcile();
+  const { instances, emitted, errors, signaled } = await setupDedupeTest();
 
   // Mark item-1 as already announced (this instance's own API write).
   signaled.add(`${PID_A} item-1`);
@@ -166,7 +201,7 @@ test("mutation-event watcher: per-item dedupe skips events already announced by 
   instances[0].events.push(makeEvent("item-1", "cursor-1"));
   instances[0].events.push(makeEvent("item-2", "cursor-2"));
 
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
 
   // Only item-2 should be delivered; item-1 was consumed/suppressed.
   assert.equal(emitted.length, 1);
@@ -182,26 +217,7 @@ test("mutation-event watcher: per-item dedupe skips events already announced by 
 // stale; with it, a surviving event always arrives and its authoritative refetch
 // covers whatever was suppressed.
 test("mutation-event watcher: a single per-item signal suppresses exactly one event, not the whole item stream", async () => {
-  const emitted: EmitRecord[] = [];
-  const errors: unknown[] = [];
-  const { instances, subscribe } = makeSubscribeHarness();
-  const signaled = new Set<string>();
-
-  const { reconcile } = createMutationEventReconciler({
-    intervalMs: 10,
-    getActiveProjectIds: () => [PID_A],
-    resolveProjectDir: async () => "/proj/a",
-    subscribe,
-    consumeSignaledItemMutation: (pid, itemId) => {
-      const key = `${pid} ${itemId}`;
-      if (signaled.has(key)) { signaled.delete(key); return true; }
-      return false;
-    },
-    emit: (projectId, event) => { emitted.push({ projectId, event }); },
-    onError: (err) => { errors.push(err); },
-  });
-
-  await reconcile();
+  const { instances, emitted, errors, signaled } = await setupDedupeTest();
 
   // ONE signal recorded for item-1, then THREE mutations of item-1 arrive —
   // e.g. this instance wrote once while another agent wrote twice.
@@ -210,7 +226,7 @@ test("mutation-event watcher: a single per-item signal suppresses exactly one ev
   instances[0].events.push(makeEvent("item-1", "cursor-2"));
   instances[0].events.push(makeEvent("item-1", "cursor-3"));
 
-  await new Promise((r) => setTimeout(r, 60));
+  await new Promise((r) => { setTimeout(r, 60); });
 
   // Exactly one suppressed; the remaining two still reach clients, so the
   // concurrent agent's changes are never silently dropped.
@@ -252,13 +268,12 @@ test("mutation-event watcher: cursor resume after an error restarts from stored 
     resolveProjectDir: async () => "/proj/a",
     subscribe: customSubscribe,
     consumeSignaledItemMutation: () => false,
-    emit: (projectId, event) => { emitted.push({ projectId, event }); },
-    onError: (err) => { errors.push(err); },
+    ...stdWatcherCallbacks(emitted, errors),
   });
 
   await reconcile();
   // Wait for the first event + error.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
   assert.equal(emitted.length, 1, "first event delivered before error");
   assert.equal(errors.length, 1, "error reported");
   assert.equal(sinceValues[0].match(/^\d{4}-/) !== null, true, "first since is ISO timestamp");
@@ -268,7 +283,7 @@ test("mutation-event watcher: cursor resume after an error restarts from stored 
   assert.equal(callCount, 2, "subscription restarted");
   assert.equal(sinceValues[1], "cursor-after-error", "restart uses stored cursor, not ISO timestamp");
   // No new events on the restart, so no new emit.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
   assert.equal(emitted.length, 1);
   // The restart error is not repeated.
   assert.equal(errors.length, 1);
@@ -335,7 +350,7 @@ test("mutation-event watcher: AbortError from deliberate stop is NOT reported as
   await reconcile();
   await stopAll();
   // Give the loop time to process the abort.
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => { setTimeout(r, 50); });
   assert.equal(errors.length, 0, "AbortError must not be reported");
 });
 
@@ -463,18 +478,8 @@ test("mutation-event watcher: transient resolveProjectDir failure is retried, no
 });
 
 test("mutation-event watcher: multiple active projects each get independent subscriptions", async () => {
-  const { instances, subscribe } = makeSubscribeHarness();
   const errors: unknown[] = [];
-
-  const { reconcile } = createMutationEventReconciler({
-    intervalMs: 10,
-    getActiveProjectIds: () => [PID_A, PID_B],
-    resolveProjectDir: async (id) => id === PID_A ? "/proj/a" : "/proj/b",
-    subscribe,
-    consumeSignaledItemMutation: () => false,
-    emit: () => undefined,
-    onError: (err) => { errors.push(err); },
-  });
+  const { instances, reconcile } = makeDualProjectReconciler(errors);
 
   await reconcile();
   assert.equal(instances.length, 2, "two independent subscriptions");
@@ -484,18 +489,8 @@ test("mutation-event watcher: multiple active projects each get independent subs
 });
 
 test("mutation-event watcher: stopAll aborts all subscriptions", async () => {
-  const { instances, subscribe } = makeSubscribeHarness();
   const errors: unknown[] = [];
-
-  const { reconcile, stopAll } = createMutationEventReconciler({
-    intervalMs: 10,
-    getActiveProjectIds: () => [PID_A, PID_B],
-    resolveProjectDir: async (id) => id === PID_A ? "/proj/a" : "/proj/b",
-    subscribe,
-    consumeSignaledItemMutation: () => false,
-    emit: () => undefined,
-    onError: (err) => { errors.push(err); },
-  });
+  const { instances, reconcile, stopAll } = makeDualProjectReconciler(errors);
 
   await reconcile();
   assert.equal(instances.length, 2);

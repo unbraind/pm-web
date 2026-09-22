@@ -4,6 +4,7 @@ import { pool } from "../db.js";
 import { setSessionCookie } from "../auth.js";
 import { requireAuth } from "../middleware/auth.js";
 import { encryptSecret } from "../crypto.js";
+import { isUniqueViolation } from "./route-helpers.js";
 const router = Router();
 const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "")
     .trim()
@@ -68,8 +69,7 @@ router.post("/register", async (req, res) => {
         res.status(201).json({ token, user: result.rows[0] });
     }
     catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("unique") || msg.includes("duplicate")) {
+        if (isUniqueViolation(err)) {
             res.status(409).json({ error: "An account with this email already exists" });
         }
         else {

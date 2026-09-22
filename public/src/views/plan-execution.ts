@@ -1,14 +1,4 @@
-type PlanStepInput = {
-  id?: string;
-  ref?: string;
-  title?: string;
-  description?: string;
-  status?: string;
-  blockedReason?: string;
-  blocked_reason?: string;
-  dependsOn?: string[];
-  depends_on?: string[];
-};
+import type { PlanStepPayload } from '../api-types.js';
 
 type PlanInput = {
   id?: string;
@@ -30,7 +20,7 @@ export type AnalyzedPlanStep = {
   incompleteDependencies: string[];
   isDone: boolean;
   isBlocked: boolean;
-  original: PlanStepInput;
+  original: PlanStepPayload;
 };
 
 /** Aggregated execution state for a plan: step counts, the waiting/ready/blocked/all step lists, a ref-to-step lookup map, completion percentage, and the next ready step (if any). */
@@ -55,13 +45,13 @@ function normalizeStatus(status?: string): string {
   return value || 'pending';
 }
 
-function normalizeStepRef(step: PlanStepInput, index: number): string {
+function normalizeStepRef(step: PlanStepPayload, index: number): string {
   const candidate = (step.ref || step.id || '').trim();
   return candidate || `step-${index + 1}`;
 }
 
 /** Returns the de-duplicated, trimmed dependency refs declared on a step, accepting either the camelCase or snake_case dependency field. */
-function normalizeDependsOn(step: PlanStepInput): string[] {
+function normalizeDependsOn(step: PlanStepPayload): string[] {
   const raw = Array.isArray(step.dependsOn)
     ? step.dependsOn
     : (Array.isArray(step.depends_on) ? step.depends_on : []);
@@ -96,7 +86,7 @@ function stepDependencyBlockers(step: AnalyzedPlanStep): string[] {
 }
 
 /** Builds an execution snapshot from raw plan steps: normalizes each step, resolves dependencies against completed steps, and partitions the not-done steps into ready, waiting, and blocked buckets along with completion percentage and the next ready step. */
-export function buildPlanExecutionSnapshot(steps: PlanStepInput[]): PlanExecutionSnapshot {
+export function buildPlanExecutionSnapshot(steps: PlanStepPayload[]): PlanExecutionSnapshot {
   const normalized: AnalyzedPlanStep[] = steps.map((step, index) => {
     const status = normalizeStatus(step.status);
     return {

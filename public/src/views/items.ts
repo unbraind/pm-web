@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, statusBadge, priorityDot, typeIcon } from '../utils.js';
+import { escHtml, statusBadge, priorityDot, typeIcon, relTime, fmtDate, setFormValue, resetButton } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
 import { getTypes, getStatuses, TYPE_ICONS, PRIORITY_LABELS } from '../constants.js';
@@ -12,12 +12,18 @@ import { loadItemsBadge } from './projects.js';
 import { renderLocalGraph, destroyLocalGraph } from './graph.js';
 import { EMPTY_FILTERS, filtersToQueryString, filtersFromSearchParams, hasActiveFilters } from '../filters.js';
 import type { Item } from '../types.js';
+
+/** Store the fetched item list outside the async loader. */
+function rememberItems(items: Item[]): void {
+  state.items = items;
+}
 import type {
   CloseManyResponse,
   CommentsResponse,
   DepsResponse,
   FilesResponse,
   HistoryResponse,
+  DepRow,
   ItemResponse,
   LearningsResponse,
   ListResponse,
@@ -41,6 +47,58 @@ interface BulkClosePayload {
   fAssignee: string;
   targetStatus: string;
   reason: string;
+}
+
+// ─── Shared item-action helpers ───────────────────────────────
+
+/** Toasts a standardized error message extracted from a caught error value. */
+function toastError(err: unknown): void {
+  toast(err instanceof Error ? err.message : String(err), 'error');
+}
+
+/** Performs a POST item action (start, pause, release) and refreshes the
+ * view, optionally reopening the detail modal and refreshing the badge. */
+async function postItemAction(endpoint: string, itemId: string, successMsg: string, withBadge: boolean): Promise<void> {
+  try {
+    await api('POST', `/projects/${state.currentProject!.id}/pm/${endpoint}/${itemId}`, {});
+    toast(successMsg, 'success');
+    openItemDetail(itemId);
+    if (state.currentView === 'items') fetchAndRenderItems();
+    if (withBadge) loadItemsBadge();
+  } catch (err: unknown) { toastError(err); }
+}
+
+/** Refreshes the items view after a successful item action, optionally
+ * reopening the detail modal or hiding it first, and refreshing the badge. */
+function refreshAfterItemAction(opts: { toastMsg: string; reopenDetail?: string; hideDetail?: boolean; withBadge?: boolean }): void {
+  toast(opts.toastMsg, 'success');
+  if (opts.hideDetail) hideModal('item-detail-modal');
+  if (opts.reopenDetail) openItemDetail(opts.reopenDetail);
+  if (state.currentView === 'items') fetchAndRenderItems();
+  if (opts.withBadge) loadItemsBadge();
+}
+
+/** Renders the "no items match" preview placeholder and disables the apply
+ * button. */
+function renderNoMatchPreview(previewEl: HTMLElement, applyBtn: HTMLButtonElement | null): void {
+  previewEl.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:10px 0">No items match the filter criteria.</div>`;
+  if (applyBtn) applyBtn.disabled = true;
+}
+
+/** Toasts the result of a bulk operation, noting failures when present. */
+function toastBulkResult(action: string, count: string | number, failed: number): void {
+  if (failed > 0) {
+    toast(`${action} ${count} item${count !== 1 ? 's' : ''} (${failed} failed)`, 'info');
+  } else {
+    toast(`${action} ${count} item${count !== 1 ? 's' : ''}`, 'success');
+  }
+}
+
+/** Renders a preview list of matched items with their changes, capped at 8
+ * entries with an overflow note. */
+function renderMatchedPreview(matched: ItemPlan[], displayCount: number): string {
+  return `${matched.slice(0, 8).map((it) => `<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
+            ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}`;
 }
 
 /**
@@ -71,18 +129,7 @@ export function loadFiltersFromUrl(): void {
   }
 }
 
-type RawDependency = {
-  targetId?: string;
-  id?: string;
-  rel?: string;
-  relationship?: string;
-  kind?: string;
-  type?: string;
-  target?: string;
-  targetTitle?: string;
-  title?: string;
-  [key: string]: unknown;
-};
+type RawDependency = DepRow;
 
 const DEP_REL_OPTIONS = [
   { value: 'blocked_by', label: 'Blocked by / depends on' },
@@ -292,15 +339,13 @@ export async function previewBulkUpdate(): Promise<void> {
       const updateDesc = updateParts.map(p=>`<strong>${escHtml(p)}</strong>`).join(', ');
 
       if (count === 0 && matched.length === 0) {
-        previewEl.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:10px 0">No items match the filter criteria.</div>`;
-        if (applyBtn) applyBtn.disabled = true;
+        renderNoMatchPreview(previewEl, applyBtn);
       } else {
         const displayCount = count || matched.length;
         previewEl.innerHTML = `
           <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will update <strong>${displayCount}</strong> item${displayCount!==1?'s':''}: ${updateDesc}</div>
-            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
-            ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
+            ${renderMatchedPreview(matched, displayCount)}
           </div>`;
         if (applyBtn) applyBtn.disabled = false;
         // Store payload for apply (without dryRun)
@@ -331,16 +376,12 @@ export async function applyBulkUpdate(): Promise<void> {
     const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, payload);
     const updated = data.updated_count ?? 'some';
     const failed = data.failed_count ?? 0;
-    if (failed > 0) {
-      toast(`Updated ${updated} item${updated!==1?'s':''} (${failed} failed)`, 'info');
-    } else {
-      toast(`Updated ${updated} item${updated!==1?'s':''}`, 'success');
-    }
+    toastBulkResult('Updated', updated, failed);
     hideModal('bulk-update-modal');
     if (state.currentView === 'items') fetchAndRenderItems();
     loadItemsBadge();
   } catch(err: unknown) {
-    toast(err instanceof Error ? err.message : String(err), 'error');
+    toastError(err);
     if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply Update'; }
   }
 }
@@ -452,15 +493,13 @@ export async function previewBulkClose(): Promise<void> {
     const applyBtn = document.getElementById('bc-apply-btn') as HTMLButtonElement | null;
     if (previewEl) {
       if (count === 0 && matched.length === 0) {
-        previewEl.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:10px 0">No items match the filter criteria.</div>`;
-        if (applyBtn) applyBtn.disabled = true;
+        renderNoMatchPreview(previewEl, applyBtn);
       } else {
         const displayCount = count || matched.length;
         previewEl.innerHTML = `
           <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will <strong>${targetStatus}</strong> <strong>${displayCount}</strong> item${displayCount!==1?'s':''}. Reason: <em>${escHtml(reason)}</em></div>
-            ${matched.slice(0,8).map((it)=>`<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
-            ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}
+            ${renderMatchedPreview(matched, displayCount)}
           </div>`;
         if (applyBtn) {
           applyBtn.disabled = false;
@@ -503,16 +542,12 @@ export async function applyBulkClose(): Promise<void> {
     const data = await api<CloseManyResponse>('POST', `/projects/${pid}/pm/close-many`, payload);
     const closed = data.closed_count ?? 'some';
     const failed = data.failed_count ?? 0;
-    if (failed > 0) {
-      toast(`Closed ${closed} item${closed!==1?'s':''} (${failed} failed)`, 'info');
-    } else {
-      toast(`Closed ${closed} item${closed!==1?'s':''}`, 'success');
-    }
+    toastBulkResult('Closed', closed, failed);
     hideModal('bulk-close-modal');
     if (state.currentView === 'items') fetchAndRenderItems();
     loadItemsBadge();
   } catch(err: unknown) {
-    toast(err instanceof Error ? err.message : String(err), 'error');
+    toastError(err);
     if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Close Items'; }
   }
 }
@@ -561,7 +596,7 @@ export async function renderItemsView(): Promise<void> {
       </select>
       <select class="filter-select" id="filter-priority" onchange="window.__app.applyItemFilters()">
         <option value="">All Priorities</option>
-        ${[0,1,2,3,4].map(p=>`<option value="${p}"${state.itemFilters.priority==String(p)?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+        ${[0,1,2,3,4].map(p=>`<option value="${p}"${state.itemFilters.priority===String(p)?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
       </select>
       <input class="filter-select" id="filter-sprint" type="text" placeholder="Sprint…" value="${escHtml(state.itemFilters.sprint)}" oninput="window.__app.applyItemFilters()" style="width:100px">
       <input class="filter-select" id="filter-release" type="text" placeholder="Release…" value="${escHtml(state.itemFilters.release)}" oninput="window.__app.applyItemFilters()" style="width:100px">
@@ -604,7 +639,7 @@ export async function fetchAndRenderItems(): Promise<void> {
     if (tag) {
       items = items.filter((i) => (i.tags || []).some((t) => t.toLowerCase() === tag));
     }
-    state.items = items;
+    rememberItems(items);
     const sub = document.getElementById('items-subtitle');
     if (sub) sub.textContent = `${state.items.length} item${state.items.length!==1?'s':''}`;
     renderItemsList();
@@ -884,7 +919,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <div class="form-group">
             <label class="form-label">Priority</label>
             <select class="form-select" id="edit-priority">
-              ${[0,1,2,3,4].map(p=>`<option value="${p}"${item.priority==p?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
+              ${[0,1,2,3,4].map(p=>`<option value="${p}"${item.priority===p?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -1068,28 +1103,6 @@ export async function openItemDetail(itemId: string): Promise<void> {
 }
 
 /**
- * Formats a timestamp as a human-readable relative age string (just now,
- * Nm/Nh/Nd ago) for recent times, or a localized date for anything older than
- * a week. Returns an empty string when the timestamp is missing.
- */
-function relTime(ts: string | undefined | null): string {
-  if (!ts) return '';
-  const d = new Date(ts);
-  const diff = Date.now() - d.getTime();
-  const s = Math.floor(diff/1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s/60)}m ago`;
-  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-  if (s < 604800) return `${Math.floor(s/86400)}d ago`;
-  return d.toLocaleDateString();
-}
-
-function fmtDate(ts: string | undefined | null): string {
-  if (!ts) return '';
-  return new Date(ts).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
-}
-
-/**
  * Switches the item detail modal to the selected tab: toggles the active class
  * on the tabs, shows the target tab panel while hiding the others, tears down
  * the local graph when leaving the graph tab, and initializes the graph along
@@ -1135,7 +1148,7 @@ export async function addComment(itemId: string): Promise<void> {
     toast('Comment added','success');
     el.value = '';
     openItemDetail(itemId);
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1151,7 +1164,7 @@ export async function addNote(itemId: string): Promise<void> {
     await api('POST',`/projects/${state.currentProject!.id}/pm/notes/${itemId}`,{text});
     toast('Note added','success');
     el.value = '';
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1168,7 +1181,7 @@ export async function appendItem(itemId: string): Promise<void> {
     await api('POST',`/projects/${state.currentProject!.id}/pm/append/${itemId}`,{text});
     toast('Appended','success');
     el.value = '';
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1217,11 +1230,8 @@ export async function updateItem(itemId: string): Promise<void> {
     if (acceptanceCriteria) payload.acceptanceCriteria = acceptanceCriteria;
     if (blockedReason) payload.blockedReason = blockedReason;
     await api('PATCH',`/projects/${state.currentProject!.id}/pm/update/${itemId}`,payload);
-    toast('Item updated','success');
-    openItemDetail(itemId);
-    if (state.currentView==='items') fetchAndRenderItems();
-    loadItemsBadge();
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+    refreshAfterItemAction({ toastMsg: 'Item updated', reopenDetail: itemId, withBadge: true });
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1241,11 +1251,8 @@ export async function closeItem(itemId: string, targetStatus: string): Promise<v
     } else {
       await api('POST',`/projects/${state.currentProject!.id}/pm/close/${itemId}`,{reason});
     }
-    toast(`Item ${targetStatus}`,'success');
-    hideModal('item-detail-modal');
-    if (state.currentView==='items') fetchAndRenderItems();
-    loadItemsBadge();
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+    refreshAfterItemAction({ toastMsg: `Item ${targetStatus}`, hideDetail: true, withBadge: true });
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1256,11 +1263,8 @@ export function confirmDeleteItem(itemId: string): void {
   confirmDialog('Delete Item?', 'This action cannot be undone. The item and all its data will be permanently removed.', async () => {
     try {
       await api('DELETE',`/projects/${state.currentProject!.id}/pm/delete/${itemId}`);
-      toast('Item deleted','success');
-      hideModal('item-detail-modal');
-      if (state.currentView==='items') fetchAndRenderItems();
-      loadItemsBadge();
-    } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+      refreshAfterItemAction({ toastMsg: 'Item deleted', hideDetail: true, withBadge: true });
+    } catch(err: unknown) { toastError(err); }
   }, true);
 }
 
@@ -1281,7 +1285,7 @@ export async function claimItem(itemId: string): Promise<void> {
     toast('Item claimed','success');
     openItemDetail(itemId);
     if (state.currentView==='items') fetchAndRenderItems();
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); if (row) row.style.opacity = ''; }
+  } catch(err: unknown) { toastError(err); if (row) row.style.opacity = ''; }
 }
 
 /**
@@ -1289,12 +1293,7 @@ export async function claimItem(itemId: string): Promise<void> {
  * reopens the detail and refreshes the items list.
  */
 export async function releaseItem(itemId: string): Promise<void> {
-  try {
-    await api('POST',`/projects/${state.currentProject!.id}/pm/release/${itemId}`,{});
-    toast('Item released','success');
-    openItemDetail(itemId);
-    if (state.currentView==='items') fetchAndRenderItems();
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  await postItemAction('release', itemId, 'Item released', false);
 }
 
 /**
@@ -1302,13 +1301,7 @@ export async function releaseItem(itemId: string): Promise<void> {
  * then reopens the detail and refreshes the items list and project badge.
  */
 export async function startItem(itemId: string): Promise<void> {
-  try {
-    await api('POST',`/projects/${state.currentProject!.id}/pm/start-task/${itemId}`,{});
-    toast('Item started','success');
-    openItemDetail(itemId);
-    if (state.currentView==='items') fetchAndRenderItems();
-    loadItemsBadge();
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  await postItemAction('start-task', itemId, 'Item started', true);
 }
 
 /**
@@ -1316,13 +1309,7 @@ export async function startItem(itemId: string): Promise<void> {
  * detail and refreshes the items list and project badge.
  */
 export async function pauseItem(itemId: string): Promise<void> {
-  try {
-    await api('POST',`/projects/${state.currentProject!.id}/pm/pause-task/${itemId}`,{});
-    toast('Item paused','success');
-    openItemDetail(itemId);
-    if (state.currentView==='items') fetchAndRenderItems();
-    loadItemsBadge();
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  await postItemAction('pause-task', itemId, 'Item paused', true);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1348,7 +1335,7 @@ export async function addDep(itemId: string): Promise<void> {
     await api('POST',`/projects/${state.currentProject!.id}/pm/deps/${itemId}`,{targetId,rel});
     toast('Dependency added','success');
     openItemDetail(itemId);
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1367,7 +1354,7 @@ export async function removeDep(itemId: string, targetId: string, relation: stri
         await api('DELETE', `/projects/${state.currentProject!.id}/pm/deps/${itemId}`, { targetId, rel });
         toast('Dependency removed','success');
         openItemDetail(itemId);
-      } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+      } catch(err: unknown) { toastError(err); }
     },
     true
   );
@@ -1386,7 +1373,7 @@ export async function addLearning(itemId: string): Promise<void> {
     await api('POST',`/projects/${state.currentProject!.id}/pm/learnings/${itemId}`,{text});
     toast('Learning recorded','success');
     openItemDetail(itemId);
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1404,7 +1391,7 @@ export async function addTest(itemId: string): Promise<void> {
     await api('POST',`/projects/${state.currentProject!.id}/pm/tests/${itemId}`,{command,description});
     toast('Test added','success');
     openItemDetail(itemId);
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  } catch(err: unknown) { toastError(err); }
 }
 
 /**
@@ -1419,7 +1406,7 @@ export async function addFileLink(itemId: string): Promise<void> {
     await api('POST',`/projects/${state.currentProject!.id}/pm/files/${itemId}`,{path:filePath});
     toast('File linked','success');
     openItemDetail(itemId);
-  } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
+  } catch(err: unknown) { toastError(err); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1437,27 +1424,22 @@ export function useItemAsTemplate(item: Record<string, unknown>): void {
   showView('create');
   // Give the create view time to render, then fill fields
   setTimeout(() => {
-    const setVal = (id: string, val: string | undefined) => {
-      if (!val) return;
-      const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
-      if (el) el.value = val;
-    };
     // Pre-fill create form from item fields (title gets "Copy of …" prefix)
     const origTitle = String(item['title'] || '');
-    setVal('ci-title', origTitle ? `Copy of ${origTitle}` : '');
-    setVal('ci-type', String(item['type'] || ''));
-    setVal('ci-priority', String(item['priority'] || ''));
+    setFormValue('ci-title', origTitle ? `Copy of ${origTitle}` : '');
+    setFormValue('ci-type', String(item['type'] || ''));
+    setFormValue('ci-priority', String(item['priority'] || ''));
     const tags = Array.isArray(item['tags']) ? (item['tags'] as string[]).join(', ') : String(item['tags'] || '');
-    setVal('ci-tags', tags);
-    setVal('ci-desc', String(item['description'] || ''));
-    setVal('ci-sprint', String(item['sprint'] || ''));
-    setVal('ci-release', String(item['release'] || ''));
-    setVal('ci-assignee', String(item['assignee'] || ''));
+    setFormValue('ci-tags', tags);
+    setFormValue('ci-desc', String(item['description'] || ''));
+    setFormValue('ci-sprint', String(item['sprint'] || ''));
+    setFormValue('ci-release', String(item['release'] || ''));
+    setFormValue('ci-assignee', String(item['assignee'] || ''));
     if (item['acceptance_criteria'] || item['acceptanceCriteria']) {
-      setVal('ci-acceptance-criteria', String(item['acceptance_criteria'] || item['acceptanceCriteria'] || ''));
+      setFormValue('ci-acceptance-criteria', String(item['acceptance_criteria'] || item['acceptanceCriteria'] || ''));
     }
     if (item['body']) {
-      setVal('ci-body', String(item['body']));
+      setFormValue('ci-body', String(item['body']));
     }
     document.getElementById('ci-title')?.focus();
     // Select all title text so user can immediately replace or refine

@@ -20,13 +20,54 @@ import {
   uniqueEmail,
 } from "./helpers/pg-harness.ts";
 
-test("admin: overview is 403 for a non-admin and 200 for an admin", async (t) => {
+/** Common setup for admin route tests: ensure the schema, start the app,
+ * register cleanup, and create a non-admin (`pleb`) and an admin user.
+ * Returns both users and the server handle. */
+async function setupAdminTest(t: test.TestContext): Promise<{ server: Awaited<ReturnType<typeof startApp>>; pleb: Awaited<ReturnType<typeof seedUser>>; admin: Awaited<ReturnType<typeof seedUser>> }> {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
-
   const pleb = await seedUser(uniqueEmail("pleb"));
   const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  return { server, pleb, admin };
+}
+
+/** Assert that an audit row with the given action exists for the given actor. */
+async function assertAuditRow(actorId: string, action: string): Promise<void> {
+  const audit = await pool.query(
+    `SELECT action FROM pm_admin_audit WHERE actor_id = $1 AND action = $2`,
+    [actorId, action],
+  );
+  assert.equal(audit.rows.length, 1);
+}
+
+/** Setup for admin tests that only need an admin user (no non-admin). */
+async function setupAdminOnly(t: test.TestContext): Promise<{ server: Awaited<ReturnType<typeof startApp>>; admin: Awaited<ReturnType<typeof seedUser>> }> {
+  await ensureSchema();
+  const server = await startApp();
+  t.after(() => server.close());
+  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  return { server, admin };
+}
+
+/** Assert that a non-admin gets 403 and an admin gets the expected success
+ * status on the same URL, returning the admin's response. */
+async function assertDeniedThenOk(
+  server: Awaited<ReturnType<typeof startApp>>,
+  pleb: Awaited<ReturnType<typeof seedUser>>,
+  admin: Awaited<ReturnType<typeof seedUser>>,
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const denied = await authedFetch(server, pleb, url, init);
+  assert.equal(denied.status, 403);
+  const ok = await authedFetch(server, admin, url, init);
+  assert.equal(ok.status, 200);
+  return ok;
+}
+
+test("admin: overview is 403 for a non-admin and 200 for an admin", async (t) => {
+  const { server, pleb, admin } = await setupAdminTest(t);
 
   const denied = await authedFetch(server, pleb, "/api/admin/overview");
   assert.equal(denied.status, 403);
@@ -39,29 +80,15 @@ test("admin: overview is 403 for a non-admin and 200 for an admin", async (t) =>
 });
 
 test("admin: audit log is 403 for a non-admin and retrievable for an admin", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
+  const { server, pleb, admin } = await setupAdminTest(t);
 
-  const pleb = await seedUser(uniqueEmail("pleb"));
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
-
-  const denied = await authedFetch(server, pleb, "/api/admin/audit");
-  assert.equal(denied.status, 403);
-
-  const ok = await authedFetch(server, admin, "/api/admin/audit");
-  assert.equal(ok.status, 200);
+  const ok = await assertDeniedThenOk(server, pleb, admin, "/api/admin/audit");
   const body = (await ok.json() as { entries: unknown[]; total: number });
   assert.ok(typeof body.total === "number");
 });
 
 test("admin: patching a user writes an audit row and rejects a non-admin", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const pleb = await seedUser(uniqueEmail("pleb"));
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, pleb, admin } = await setupAdminTest(t);
   const target = await seedUser(uniqueEmail("target"));
 
   const denied = await authedFetch(server, pleb, `/api/admin/users/${target.id}`, {
@@ -90,11 +117,7 @@ test("admin: patching a user writes an audit row and rejects a non-admin", async
 });
 
 test("admin: patching a user without isAdmin is 400", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, admin } = await setupAdminOnly(t);
   const target = await seedUser(uniqueEmail("target"));
 
   const res = await authedFetch(server, admin, `/api/admin/users/${target.id}`, {
@@ -113,11 +136,7 @@ test("admin: patching a user without isAdmin is 400", async (t) => {
 });
 
 test("admin: patching a non-existent user is 404", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, admin } = await setupAdminOnly(t);
   const ghost = "00000000-0000-4000-8000-000000000000";
 
   const res = await authedFetch(server, admin, `/api/admin/users/${ghost}`, {
@@ -155,19 +174,10 @@ test("admin: demoting an admin while another admin exists succeeds and audits", 
 });
 
 test("admin: deleting a user writes an audit row, rejects a non-admin, and deleting a non-existent user is 404", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const pleb = await seedUser(uniqueEmail("pleb"));
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, pleb, admin } = await setupAdminTest(t);
   const target = await seedUser(uniqueEmail("target"));
 
-  const denied = await authedFetch(server, pleb, `/api/admin/users/${target.id}`, { method: "DELETE" });
-  assert.equal(denied.status, 403);
-
-  const ok = await authedFetch(server, admin, `/api/admin/users/${target.id}`, { method: "DELETE" });
-  assert.equal(ok.status, 200);
+  const ok = await assertDeniedThenOk(server, pleb, admin, `/api/admin/users/${target.id}`, { method: "DELETE" });
   const audit = await pool.query(
     `SELECT action FROM pm_admin_audit WHERE actor_id = $1 AND action = 'user.delete'`,
     [admin.id],
@@ -187,12 +197,7 @@ test("admin: deleting a user writes an audit row, rejects a non-admin, and delet
 });
 
 test("admin: deleting a project writes an audit row and rejects a non-admin", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const pleb = await seedUser(uniqueEmail("pleb"));
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, pleb, admin } = await setupAdminTest(t);
   const projectOwner = await seedUser(uniqueEmail("owner"));
   const project = await seedProject(projectOwner.id);
 
@@ -213,12 +218,7 @@ test("admin: deleting a project writes an audit row and rejects a non-admin", as
 });
 
 test("admin: creating a group writes an audit row and rejects a non-admin", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const pleb = await seedUser(uniqueEmail("pleb"));
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, pleb, admin } = await setupAdminTest(t);
 
   const denied = await authedFetch(server, pleb, "/api/admin/groups", {
     method: "POST",
@@ -249,12 +249,7 @@ test("admin: creating a group writes an audit row and rejects a non-admin", asyn
 });
 
 test("admin: deleting a group writes an audit row and rejects a non-admin", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const pleb = await seedUser(uniqueEmail("pleb"));
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, pleb, admin } = await setupAdminTest(t);
   const groupOwner = await seedUser(uniqueEmail("owner"));
   const group = await seedGroup(groupOwner.id);
 
@@ -274,11 +269,7 @@ test("admin: deleting a group writes an audit row and rejects a non-admin", asyn
 });
 
 test("admin: a malformed user identifier is rejected with 400 before reaching SQL", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, admin } = await setupAdminOnly(t);
   // A non-UUID target id makes isUserAdmin's query throw; the route catches it
   // The uuidParamGuard rejects the malformed id before any query runs, so the
   // client learns its request was bad instead of being told the server failed.
@@ -291,11 +282,7 @@ test("admin: a malformed user identifier is rejected with 400 before reaching SQ
 });
 
 test("admin: creating a group with a description preserves it and audits", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, admin } = await setupAdminOnly(t);
   const res = await authedFetch(server, admin, "/api/admin/groups", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -306,11 +293,7 @@ test("admin: creating a group with a description preserves it and audits", async
 });
 
 test("admin: a malformed identifier is rejected with 400 on every mutating route", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const admin = await seedUser(uniqueEmail("admin"), { isAdmin: true });
+  const { server, admin } = await setupAdminOnly(t);
   // A non-UUID id makes each route's first query throw; the route catches it
   // Rejected up front on every mutating route, so no cast error reaches the log
   // and nothing leaks about whether the record exists.

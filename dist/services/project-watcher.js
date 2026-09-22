@@ -2,6 +2,7 @@ import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { resolveProjectDir } from "./pm-runner.js";
 import { consumeSignaledMutation, deliverProjectEvent, getActiveProjectIds, wasSignaledWithin, } from "./sse.js";
+import { cachedProjectDir, dropInactive, positiveIntEnv } from "./watcher-utils.js";
 // Safety-net filesystem sweep. The mutation-event stream
 // (src/services/mutation-event-watcher.ts) is now the PRIMARY out-of-band change
 // detector; this poll only catches raw non-pm writes that bypass the committed
@@ -19,26 +20,6 @@ const ITEM_DIRS = [
 // files are swept round-robin across ticks so I/O stays bounded (see
 // stepWorkspaceSweep); overridable via PM_WATCH_MAX_FILES_PER_TICK.
 const DEFAULT_MAX_FILES_PER_TICK = 8_000;
-/**
- * Read a positive-integer environment variable, with a fallback.
- *
- * Returns the parsed integer when the variable is set and the raw value parses
- * as a positive integer via `Number.parseInt`; otherwise returns `fallback`.
- * Because `parseInt` parses a leading integer prefix, values like `"500ms"`
- * parse as `500` and `"1.5"` truncates to `1`. Non-numeric, zero, or negative
- * values fall back rather than throwing.
- *
- * @param name - The environment variable name.
- * @param fallback - Value used when unset or invalid.
- * @returns The parsed positive integer, or the fallback.
- */
-function positiveIntEnv(name, fallback) {
-    const raw = process.env[name];
-    if (!raw)
-        return fallback;
-    const n = Number.parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-}
 // FNV-1a (32-bit), computed over UTF-8 bytes via `Math.imul` — fast, no BigInt
 // per byte and no allocation. Used to bind each file's path to its mtime so the
 // aggregate fingerprint below can't be aliased by rearranging raw mtimes.
@@ -180,6 +161,12 @@ export async function stepWorkspaceSweep(dir, state, maxFilesPerTick) {
     }
     return { completed: false };
 }
+/** Adapt a one-shot signature reader into a sweep step that always completes. */
+function bindLegacySignature(readSignature) {
+    return async function readLegacySignature(dir) {
+        return { completed: true, signature: await readSignature(dir) };
+    };
+}
 // Pure, testable cycle. Holds per-project baseline state across ticks.
 export function createProjectWatchCycle(deps = {}) {
     const intervalMs = Math.max(MIN_INTERVAL_MS, deps.intervalMs ?? positiveIntEnv("PM_WATCH_INTERVAL_MS", DEFAULT_INTERVAL_MS));
@@ -193,12 +180,11 @@ export function createProjectWatchCycle(deps = {}) {
     const onError = deps.onError ?? (() => undefined);
     // A caller-supplied one-shot `readSignature` is adapted into a sweep that
     // completes on the first tick, so legacy callers/tests keep exact semantics.
+    // A named function keeps the return type off an arrow, which the lint parser
+    // rejects when a generic annotation follows `=>` in this ternary.
     const legacyReadSig = deps.readSignature;
     const stepSig = legacyReadSig
-        ? async (dir) => ({
-            completed: true,
-            signature: await legacyReadSig(dir),
-        })
+        ? bindLegacySignature(legacyReadSig)
         : deps.stepSignature ?? stepWorkspaceSweep;
     const lastSeen = new Map();
     const dirCache = new Map();
@@ -211,22 +197,12 @@ export function createProjectWatchCycle(deps = {}) {
         try {
             const ids = getIds();
             const active = new Set(ids);
-            for (const id of [...lastSeen.keys()])
-                if (!active.has(id))
-                    lastSeen.delete(id);
-            for (const id of [...dirCache.keys()])
-                if (!active.has(id))
-                    dirCache.delete(id);
-            for (const id of [...sweeps.keys()])
-                if (!active.has(id))
-                    sweeps.delete(id);
+            dropInactive(lastSeen, active);
+            dropInactive(dirCache, active);
+            dropInactive(sweeps, active);
             for (const projectId of ids) {
                 try {
-                    let dir = dirCache.get(projectId);
-                    if (dir === undefined) {
-                        dir = await resolveDir(projectId);
-                        dirCache.set(projectId, dir);
-                    }
+                    const dir = await cachedProjectDir(projectId, dirCache, resolveDir);
                     if (!dir)
                         continue;
                     let state = sweeps.get(projectId);

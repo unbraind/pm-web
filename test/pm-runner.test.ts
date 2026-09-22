@@ -16,6 +16,15 @@ import {
   type PmWebCompleteListReceiptFinding,
 } from "../src/services/pm-runner.ts";
 
+
+/** Restore PROJECTS_ROOT and PM_CLI_BIN to their previous values. */
+function restoreEnvVars(previousRoot: string | undefined, previousBin: string | undefined): void {
+  if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
+  else process.env["PROJECTS_ROOT"] = previousRoot;
+  if (previousBin === undefined) delete process.env["PM_CLI_BIN"];
+  else process.env["PM_CLI_BIN"] = previousBin;
+}
+
 test("semaphore hands a released slot directly to the oldest waiter", async () => {
   const semaphore = new Semaphore(1);
   const releaseFirst = await semaphore.acquire();
@@ -33,7 +42,7 @@ test("semaphore hands a released slot directly to the oldest waiter", async () =
     return release;
   });
 
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  await new Promise<void>((resolve) => { setImmediate(resolve); });
   assert.equal(secondAcquired, true);
   assert.equal(thirdAcquired, false, "a new acquire must not steal a slot handed to a waiter");
 
@@ -100,10 +109,7 @@ setTimeout(() => {
     assert.equal(timedOut.ok, false);
     assert.match(timedOut.stderr, /timed out after 30ms/);
   } finally {
-    if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
-    else process.env["PROJECTS_ROOT"] = previousRoot;
-    if (previousBin === undefined) delete process.env["PM_CLI_BIN"];
-    else process.env["PM_CLI_BIN"] = previousBin;
+    restoreEnvVars(previousRoot, previousBin);
     delete process.env["FAKE_PM_LOG"];
     await rm(root, { recursive: true, force: true });
   }
@@ -194,10 +200,7 @@ setTimeout(() => process.stdout.write("done"), ${SPAWN_DELAY_MS});
       `an independent workspace must not be blocked, observed ${order.join(" -> ")}`,
     );
   } finally {
-    if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
-    else process.env["PROJECTS_ROOT"] = previousRoot;
-    if (previousBin === undefined) delete process.env["PM_CLI_BIN"];
-    else process.env["PM_CLI_BIN"] = previousBin;
+    restoreEnvVars(previousRoot, previousBin);
     await rm(root, { recursive: true, force: true });
   }
 });
@@ -455,10 +458,7 @@ process.stdout.write(JSON.stringify({ argv: process.argv.slice(2) }));
     );
   } finally {
     evictPmClient(path.join(root, "user", "future", ".agents", "pm"));
-    if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
-    else process.env["PROJECTS_ROOT"] = previousRoot;
-    if (previousBin === undefined) delete process.env["PM_CLI_BIN"];
-    else process.env["PM_CLI_BIN"] = previousBin;
+    restoreEnvVars(previousRoot, previousBin);
     await rm(root, { recursive: true, force: true });
   }
 });

@@ -98,6 +98,26 @@ export function resolveLegalPagesDir(env: NodeJS.ProcessEnv = process.env): stri
 }
 
 /**
+ * Resolve this package's version from `package.json`, once at boot.
+ *
+ * Best-effort: returns `"unknown"` if the file is missing or fails to parse so
+ * `/healthz` can always report a version string even in a broken checkout.
+ * Shared with `server.ts` to avoid duplicating the read-and-parse logic.
+ *
+ * @returns The package version string, or `"unknown"` on any error.
+ */
+export function readPackageVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8"),
+    ) as { version?: string };
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
  * Optional dependencies `createApp` can wire into the application.
  *
  * Currently only the {@link HealthProbeDeps} for the real `/healthz` handler is
@@ -172,16 +192,7 @@ export function createApp(deps?: CreateAppDeps): Express {
 
   // Health check — includes the running pm-web version so `pm web status` can
   // report it. Version is resolved once at boot from package.json (best-effort).
-  const PM_WEB_VERSION = (() => {
-    try {
-      const pkg = JSON.parse(
-        readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8"),
-      ) as { version?: string };
-      return pkg.version ?? "unknown";
-    } catch {
-      return "unknown";
-    }
-  })();
+  const PM_WEB_VERSION = readPackageVersion();
   if (deps?.health) {
     // Production wiring: probe PostgreSQL and the projects volume before
     // answering. `server.ts` always supplies these dependencies, so the

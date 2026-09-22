@@ -104,7 +104,7 @@ test("real PostgreSQL reconnect refreshes open SSE projects and preserves subseq
     await Promise.all(streams);
     await stop?.();
     server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
     await observer.end();
     await database.end();
   }

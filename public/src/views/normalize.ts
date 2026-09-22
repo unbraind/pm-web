@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml } from '../utils.js';
+import { escHtml, issueRow } from '../utils.js';
 import { toast } from '../components/toast.js';
 import type { NormalizeChange, NormalizePlan, NormalizeResponse } from '../api-types.js';
 
@@ -31,14 +31,7 @@ export async function renderNormalizeView(): Promise<void> {
         <div class="card">
           <div class="card-header"><div class="card-title">Suggested Changes (${items.length})</div></div>
           <div class="card-body">
-            ${items.map((i) => `
-              <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
-                <span style="color:var(--priority-3);flex-shrink:0">⚡</span>
-                <div style="flex:1">
-                  <div style="font-size:13px">${escHtml(i.message || i.description || JSON.stringify(i))}</div>
-                  ${i.id ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px"><a href="#" onclick="window.__app.openItemDetail('${escHtml(i.id)}');return false" style="color:var(--accent)">${escHtml(i.id)}</a></div>` : ''}
-                </div>
-              </div>`).join('')}
+            ${items.map((i) => issueRow('⚡', 'var(--priority-3)', i.message || i.description || JSON.stringify(i), i.id)).join('')}
           </div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">

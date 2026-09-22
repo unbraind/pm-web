@@ -94,6 +94,24 @@ export function resolveLegalPagesDir(env = process.env) {
     return root;
 }
 /**
+ * Resolve this package's version from `package.json`, once at boot.
+ *
+ * Best-effort: returns `"unknown"` if the file is missing or fails to parse so
+ * `/healthz` can always report a version string even in a broken checkout.
+ * Shared with `server.ts` to avoid duplicating the read-and-parse logic.
+ *
+ * @returns The package version string, or `"unknown"` on any error.
+ */
+export function readPackageVersion() {
+    try {
+        const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8"));
+        return pkg.version ?? "unknown";
+    }
+    catch {
+        return "unknown";
+    }
+}
+/**
  * Build the Express application with all middleware, static assets, legal
  * page routes, API routes and the SPA fallback — but WITHOUT touching the
  * database or binding a port. Splitting this out from server.ts keeps the
@@ -140,15 +158,7 @@ export function createApp(deps) {
     });
     // Health check — includes the running pm-web version so `pm web status` can
     // report it. Version is resolved once at boot from package.json (best-effort).
-    const PM_WEB_VERSION = (() => {
-        try {
-            const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8"));
-            return pkg.version ?? "unknown";
-        }
-        catch {
-            return "unknown";
-        }
-    })();
+    const PM_WEB_VERSION = readPackageVersion();
     if (deps?.health) {
         // Production wiring: probe PostgreSQL and the projects volume before
         // answering. `server.ts` always supplies these dependencies, so the

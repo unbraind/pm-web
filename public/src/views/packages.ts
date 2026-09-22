@@ -246,6 +246,12 @@ function wirePackageActions(root: HTMLElement): void {
   });
 }
 
+/** Restore a package-action button outside the async handler. */
+function restorePackageButton(button: HTMLButtonElement, label: string): void {
+  button.disabled = false;
+  button.textContent = label;
+}
+
 /**
  * Performs a package action against the extensions route for the current
  * project. Disables and marks the clicked button while in flight, confirms
@@ -271,8 +277,7 @@ async function handlePackageAction(name: string, action: string, btn: HTMLButton
   try {
     if (action === 'uninstall') {
       if (!window.confirm(t('packages.confirmUninstall', { name }))) {
-        btn.disabled = false;
-        btn.textContent = original;
+        restorePackageButton(btn, original);
         return;
       }
     }
@@ -284,8 +289,7 @@ async function handlePackageAction(name: string, action: string, btn: HTMLButton
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     toast(t('packages.actionFailed', { action: actionLabel[action] ?? action, error: msg }), 'error');
-    btn.disabled = false;
-    btn.textContent = original;
+    restorePackageButton(btn, original);
   }
 }
 

@@ -40,7 +40,6 @@ function assertValidJs(file: string, label: string): string {
   // `new Function` parses the body without executing it; TypeScript type
   // annotations (e.g. `const x: Promise<X>`) are SyntaxErrors in plain JS, so a
   // successful construction proves the emitted output is annotation-free.
-  // eslint-disable-next-line no-new-func
   new Function(src);
   assert.ok(src.trim().length > 0, `${label} should be non-empty`);
   return src;

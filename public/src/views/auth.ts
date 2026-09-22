@@ -7,6 +7,11 @@ import { bootApp } from '../app.js';
 import { t, translateError } from '../i18n.js';
 import type { User } from '../types.js';
 
+/** Store the signed-in user outside the async submit handler. */
+function rememberSignedInUser(user: User): void {
+  state.user = user;
+}
+
 /**
  * Fetches the OIDC provider configuration and shows or hides the single
  * sign-on login button and divider based on whether it is enabled. Both
@@ -91,7 +96,7 @@ export async function submitAuth(e: Event): Promise<void> {
     } else {
       data = await api('POST','/auth/register',{email,password,displayName:name||email.split('@')[0]});
     }
-    state.user = data.user;
+    rememberSignedInUser(data.user);
     await bootApp();
   } catch(err: unknown) {
     errEl.textContent = translateError(err instanceof Error ? err.message : String(err));

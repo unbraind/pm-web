@@ -17,6 +17,7 @@ import test from "node:test";
 
 import {
   addGroupMember,
+  assertMalformedUuidMutating,
   authedFetch,
   ensureSchema,
   seedGroup,
@@ -24,9 +25,75 @@ import {
   seedProject,
   seedUser,
   seedUserShare,
+  setupOwnerProjectTest,
   startApp,
   uniqueEmail,
 } from "./helpers/pg-harness.ts";
+
+/** Setup for project tests: ensure schema, set up the fs harness (PROJECTS_ROOT
+ * and a fake pm binary), start the app, and create an owner. Does NOT seed a
+ * project — tests that need one call `seedProject` or `createProject`. */
+async function setupProjectsTest(t: test.TestContext): Promise<{ server: Awaited<ReturnType<typeof startApp>>; owner: Awaited<ReturnType<typeof seedUser>> }> {
+  await ensureSchema();
+  const fs = await setupFsHarness();
+  t.after(() => fs.restore());
+  const server = await startApp();
+  t.after(() => server.close());
+  const owner = await seedUser(uniqueEmail("owner"));
+  return { server, owner };
+}
+
+/** Create a project via POST and return the created project body. */
+async function createProject(server: Awaited<ReturnType<typeof startApp>>, owner: Awaited<ReturnType<typeof seedUser>>, body: Record<string, unknown>): Promise<{ id: string }> {
+  const res = await authedFetch(server, owner, '/api/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  assert.equal(res.status, 201);
+  return (await res.json() as { project: { id: string } }).project;
+}
+
+/** GET a project and return its body. */
+async function getProject(server: Awaited<ReturnType<typeof startApp>>, user: Awaited<ReturnType<typeof seedUser>>, id: string): Promise<{ description: string; name: string }> {
+  const got = await authedFetch(server, user, `/api/projects/${id}`);
+  return (await got.json() as { project: { description: string; name: string } }).project;
+}
+/** Fetch the project list for a user and assert it contains exactly one
+ * project with the expected id, ownership, and permission. */
+async function assertProjectList(
+  server: Awaited<ReturnType<typeof startApp>>,
+  user: Awaited<ReturnType<typeof seedUser>>,
+  projectId: string,
+  isOwner: boolean,
+  permission: string,
+): Promise<void> {
+  const list = await authedFetch(server, user, "/api/projects");
+  const projects = (await list.json() as { projects: Array<{ id: string; is_owner: boolean; permission: string }> }).projects;
+  assert.equal(projects.length, 1);
+  assert.equal(projects[0].id, projectId);
+  assert.equal(projects[0].is_owner, isOwner);
+  assert.equal(projects[0].permission, permission);
+}
+/** PATCH a project and return the patched project body. */
+async function patchProject(
+  server: Awaited<ReturnType<typeof startApp>>,
+  owner: Awaited<ReturnType<typeof seedUser>>,
+  projectId: string,
+  body: Record<string, unknown>,
+): Promise<{ name: string; description: string }> {
+  const res = await authedFetch(server, owner, `/api/projects/${projectId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  assert.equal(res.status, 200);
+  return (await res.json() as { project: { name: string; description: string } }).project;
+}
+
+
+
+
 
 /**
  * Wires `PROJECTS_ROOT` and `PM_CLI_BIN` at a throwaway directory and a stub
@@ -71,13 +138,7 @@ async function setupFsHarness(): Promise<{ restore: () => Promise<void>; logPath
 }
 
 test("projects: create, list, get, update, and delete as owner", async (t) => {
-  await ensureSchema();
-  const fs = await setupFsHarness();
-  t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupProjectsTest(t);
 
   // Create a project.
   const created = await authedFetch(server, owner, "/api/projects", {
@@ -92,13 +153,7 @@ test("projects: create, list, get, update, and delete as owner", async (t) => {
   assert.ok(project.slug);
 
   // List own projects.
-  const list = await authedFetch(server, owner, "/api/projects");
-  assert.equal(list.status, 200);
-  const projects = (await list.json() as { projects: Array<{ id: string; is_owner: boolean; permission: string }> }).projects;
-  assert.equal(projects.length, 1);
-  assert.equal(projects[0].id, project.id);
-  assert.equal(projects[0].is_owner, true);
-  assert.equal(projects[0].permission, "edit");
+  await assertProjectList(server, owner, project.id, true, "edit");
 
   // Get the project.
   const got = await authedFetch(server, owner, `/api/projects/${project.id}`);
@@ -126,13 +181,7 @@ test("projects: create, list, get, update, and delete as owner", async (t) => {
 });
 
 test("projects: create validates name and prefix shape", async (t) => {
-  await ensureSchema();
-  const fs = await setupFsHarness();
-  t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupProjectsTest(t);
 
   const noName = await authedFetch(server, owner, "/api/projects", {
     method: "POST",
@@ -157,13 +206,7 @@ test("projects: create validates name and prefix shape", async (t) => {
 });
 
 test("projects: slug uniqueness per user (409), and another user's project is 404", async (t) => {
-  await ensureSchema();
-  const fs = await setupFsHarness();
-  t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupProjectsTest(t);
   const other = await seedUser(uniqueEmail("other"));
 
   // Create one project as owner.
@@ -202,13 +245,9 @@ test("projects: slug uniqueness per user (409), and another user's project is 40
 });
 
 test("projects: a shared collaborator sees the project in their list and can read it", async (t) => {
-  await ensureSchema();
+  const { server, owner } = await setupOwnerProjectTest(t);
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
   const viewer = await seedUser(uniqueEmail("viewer"));
   const project = await seedProject(owner.id);
 
@@ -216,12 +255,7 @@ test("projects: a shared collaborator sees the project in their list and can rea
   await seedUserShare(project.id, viewer.id, "view");
 
   // The viewer's project list includes the shared project with view permission.
-  const list = await authedFetch(server, viewer, "/api/projects");
-  const projects = (await list.json() as { projects: Array<{ id: string; is_owner: boolean; permission: string }> }).projects;
-  assert.equal(projects.length, 1);
-  assert.equal(projects[0].id, project.id);
-  assert.equal(projects[0].is_owner, false);
-  assert.equal(projects[0].permission, "view");
+  await assertProjectList(server, viewer, project.id, false, "view");
 
   // The viewer can GET the shared project.
   const got = await authedFetch(server, viewer, `/api/projects/${project.id}`);
@@ -242,13 +276,9 @@ test("projects: a shared collaborator sees the project in their list and can rea
 });
 
 test("projects: a group-shared collaborator sees the project in their list", async (t) => {
-  await ensureSchema();
+  const { server, owner } = await setupOwnerProjectTest(t);
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
   const groupOwner = await seedUser(uniqueEmail("groupowner"));
   const member = await seedUser(uniqueEmail("member"));
   const project = await seedProject(owner.id);
@@ -265,79 +295,39 @@ test("projects: a group-shared collaborator sees the project in their list", asy
 });
 
 test("projects: create without a description defaults to empty", async (t) => {
-  await ensureSchema();
-  const fs = await setupFsHarness();
-  t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
-  const created = await authedFetch(server, owner, "/api/projects", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "NoDesc", prefix: "nd" }),
-  });
-  assert.equal(created.status, 201);
-  const project = (await created.json() as { project: { id: string } }).project;
-  const got = await authedFetch(server, owner, `/api/projects/${project.id}`);
-  assert.equal((await got.json() as { project: { description: string } }).project.description, "");
+  const { server, owner } = await setupProjectsTest(t);
+  const project = await createProject(server, owner, { name: "NoDesc", prefix: "nd" });
+  assert.equal((await getProject(server, owner, project.id)).description, "");
 });
 
 test("projects: patch with only a name leaves the description untouched", async (t) => {
-  await ensureSchema();
+  const { server, owner } = await setupOwnerProjectTest(t);
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
   // Seed a non-empty description: with an empty one the assertion below could
   // not distinguish "preserved" from "wiped".
   const project = await seedProject(owner.id, undefined, { description: "keep me" });
-  const res = await authedFetch(server, owner, `/api/projects/${project.id}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "OnlyName" }),
-  });
-  assert.equal(res.status, 200);
-  const patched = (await res.json() as { project: { name: string; description: string } }).project;
+  const patched = await patchProject(server, owner, project.id, { name: "OnlyName" });
   assert.equal(patched.name, "OnlyName");
   assert.equal(patched.description, "keep me", "a name-only PATCH must not clear the description");
 });
 
 test("projects: patching only the description preserves the name (partial update)", async (t) => {
-  await ensureSchema();
+  const { server, owner } = await setupOwnerProjectTest(t);
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
   // Seed a non-empty name: with the default ("P") the assertion could not tell
   // "preserved" from "reset to default".
   const project = await seedProject(owner.id, undefined, { name: "OriginalName", description: "old" });
-  const res = await authedFetch(server, owner, `/api/projects/${project.id}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    // A description-only PATCH must omit name, so the route's
-  // `name?.trim() || null` resolves to null and COALESCE keeps the existing
-  // name — the partial-update contract clients rely on.
-    body: JSON.stringify({ description: "refreshed" }),
-  });
-  assert.equal(res.status, 200);
-  const patched = (await res.json() as { project: { name: string; description: string } }).project;
+  const patched = await patchProject(server, owner, project.id, { description: "refreshed" });
   assert.equal(patched.description, "refreshed");
   assert.equal(patched.name, "OriginalName", "omitting name must leave it untouched");
 });
 
 test("projects: a malformed project identifier is rejected with 400 before reaching SQL", async (t) => {
-  await ensureSchema();
+  const { server, owner } = await setupOwnerProjectTest(t);
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
   // A non-UUID id makes verifyProjectAccess's ownership query throw, which the
   // The uuidParamGuard rejects first, so the client gets an accurate 400 and the
   // project's state is never consulted.
@@ -346,39 +336,14 @@ test("projects: a malformed project identifier is rejected with 400 before reach
 });
 
 test("projects: create with a description preserves it", async (t) => {
-  await ensureSchema();
-  const fs = await setupFsHarness();
-  t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
-  const created = await authedFetch(server, owner, "/api/projects", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "WithDesc", prefix: "wd", description: "a description" }),
-  });
-  assert.equal(created.status, 201);
-  const project = (await created.json() as { project: { id: string } }).project;
-  const got = await authedFetch(server, owner, `/api/projects/${project.id}`);
-  assert.equal((await got.json() as { project: { description: string } }).project.description, "a description");
+  const { server, owner } = await setupProjectsTest(t);
+  const project = await createProject(server, owner, { name: "WithDesc", prefix: "wd", description: "a description" });
+  assert.equal((await getProject(server, owner, project.id)).description, "a description");
 });
 
 test("projects: a malformed identifier is rejected with 400 on mutating routes", async (t) => {
-  await ensureSchema();
+  const { server, owner } = await setupOwnerProjectTest(t);
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
-  const patch = await authedFetch(server, owner, "/api/projects/not-a-uuid", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "X" }),
-  });
-  assert.equal(patch.status, 400);
-
-  const del = await authedFetch(server, owner, "/api/projects/not-a-uuid", { method: "DELETE" });
-  assert.equal(del.status, 400);
+  await assertMalformedUuidMutating(server, owner, "projects");
 });

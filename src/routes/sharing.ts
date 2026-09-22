@@ -1,7 +1,8 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
 import { routeParam, requireUuidParams, uuidParamGuard } from "./route-params.ts";
+import { findUserByEmail } from "./route-helpers.ts";
 
 const sharesRouter = Router({ mergeParams: true });
 sharesRouter.use(requireAuth);
@@ -32,15 +33,36 @@ async function verifyProjectOwner(
   return result.rows.length > 0;
 }
 
+/**
+ * Resolve the project id from the merged route params and verify the current
+ * user owns it, sending a 404 and returning `null` when they do not.
+ *
+ * Every share-management handler (GET, POST, DELETE) needs the same
+ * project-id resolution followed by the same owner check and 404 response;
+ * centralising it here removes the triplicated block that the duplication
+ * gate flagged.
+ *
+ * @returns The validated project id, or `null` when ownership failed (the
+ *   404 response has already been sent).
+ */
+async function requireShareOwner(
+  req: AuthRequest,
+  res: Response,
+): Promise<string | null> {
+  const projectId = routeParam(req, "id") || routeParam(req, "projectId");
+  const isOwner = await verifyProjectOwner(req.user!.userId, projectId);
+  if (!isOwner) {
+    res.status(404).json({ error: "Project not found" });
+    return null;
+  }
+  return projectId;
+}
+
 // GET /api/projects/:id/shares - list who the project is shared with
 sharesRouter.get("/", async (req: AuthRequest, res) => {
-  const projectId = routeParam(req, "id") || routeParam(req, "projectId");
   try {
-    const isOwner = await verifyProjectOwner(req.user!.userId, projectId!);
-    if (!isOwner) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
+    const projectId = await requireShareOwner(req, res);
+    if (!projectId) return;
 
     const result = await pool.query(
       `SELECT ps.id, ps.permission, ps.shared_at,
@@ -63,7 +85,6 @@ sharesRouter.get("/", async (req: AuthRequest, res) => {
 
 // POST /api/projects/:id/shares - share project
 sharesRouter.post("/", async (req: AuthRequest, res) => {
-  const projectId = routeParam(req, "id") || routeParam(req, "projectId");
   const { email, groupId, permission } = req.body as {
     email?: string;
     groupId?: string;
@@ -82,23 +103,16 @@ sharesRouter.post("/", async (req: AuthRequest, res) => {
   const perm = permission === "edit" ? "edit" : "view";
 
   try {
-    const isOwner = await verifyProjectOwner(req.user!.userId, projectId!);
-    if (!isOwner) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
+    const projectId = await requireShareOwner(req, res);
+    if (!projectId) return;
 
     if (email) {
       // Share with a user
-      const userResult = await pool.query(
-        `SELECT id, email, display_name FROM pm_users WHERE email = $1`,
-        [email.trim().toLowerCase()]
-      );
-      if (userResult.rows.length === 0) {
+      const targetUser = await findUserByEmail(email);
+      if (!targetUser) {
         res.status(404).json({ error: "User not found" });
         return;
       }
-      const targetUser = userResult.rows[0] as { id: string; email: string; display_name: string };
 
       // Prevent sharing with yourself
       if (targetUser.id === req.user!.userId) {
@@ -160,13 +174,9 @@ sharesRouter.post("/", async (req: AuthRequest, res) => {
 
 // DELETE /api/projects/:id/shares/:shareId - remove a share
 sharesRouter.delete("/:shareId", async (req: AuthRequest, res) => {
-  const projectId = routeParam(req, "id") || routeParam(req, "projectId");
   try {
-    const isOwner = await verifyProjectOwner(req.user!.userId, projectId!);
-    if (!isOwner) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
+    const projectId = await requireShareOwner(req, res);
+    if (!projectId) return;
 
     const result = await pool.query(
       `DELETE FROM pm_project_shares WHERE id = $1 AND project_id = $2 RETURNING id`,

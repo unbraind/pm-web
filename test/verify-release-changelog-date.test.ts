@@ -17,6 +17,9 @@ import {
   VERSION_INPUTS,
   auditHeadings,
   auditInvocations,
+  bashArrays,
+  expandArrays,
+  joinContinuations,
   stripComment,
   invocationsIn,
   generateHeading,
@@ -25,11 +28,6 @@ import {
   report,
   resolveGenerator,
   verify,
-} from "../scripts/verify-release-changelog-date.ts";
-import {
-  bashArrays,
-  expandArrays,
-  joinContinuations,
 } from "../scripts/verify-release-changelog-date.ts";
 import { isMainInvocation } from "../scripts/main-invocation.ts";
 

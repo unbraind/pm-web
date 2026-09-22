@@ -91,20 +91,34 @@ async function createItem(server: AppServer, user: SeedUser, projectId: string, 
   return createdItemId(response);
 }
 
-test("client B receives client A's item mutation over the real SSE route", async (t) => {
+
+/** Common setup for collaboration tests: save PROJECTS_ROOT, create harness,
+ * start app, register cleanup that closes the server and restores env. */
+async function setupCollabTest(t: test.TestContext): Promise<{
+  harness: Awaited<ReturnType<typeof createCollaborationHarness>>;
+  server: AppServer;
+}> {
   const previousRoot = process.env.PROJECTS_ROOT;
   const harness = await createCollaborationHarness();
-  let startedServer: AppServer | undefined;
-  const controller = new AbortController();
+  // Teardown is registered before startApp() so a rejected start still removes the root and restores env.
+  const startedServer: { current?: AppServer } = {};
   t.after(async () => {
-    controller.abort();
-    if (startedServer) await startedServer.close();
+    if (startedServer.current) await startedServer.current.close();
     await rm(harness.root, { recursive: true, force: true });
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousRoot;
   });
   const server = await startApp();
-  startedServer = server;
+  startedServer.current = server;
+  return { harness, server };
+}
+
+test("client B receives client A's item mutation over the real SSE route", async (t) => {
+  const controller = new AbortController();
+  // Registered first: node:test runs after-hooks in registration order, so the
+  // stream is aborted before setupCollabTest's teardown closes the server.
+  t.after(() => controller.abort());
+  const { harness, server } = await setupCollabTest(t);
   const stream = await fetch(server.url(`/api/projects/${harness.projectId}/pm/events?view=items`), {
     headers: authHeaders(harness.editor),
     signal: controller.signal,
@@ -119,17 +133,7 @@ test("client B receives client A's item mutation over the real SSE route", async
 });
 
 test("concurrent collaborators update one item without a lost write or malformed history", async (t) => {
-  const previousRoot = process.env.PROJECTS_ROOT;
-  const harness = await createCollaborationHarness();
-  let startedServer: AppServer | undefined;
-  t.after(async () => {
-    if (startedServer) await startedServer.close();
-    await rm(harness.root, { recursive: true, force: true });
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-  });
-  const server = await startApp();
-  startedServer = server;
+  const { harness, server } = await setupCollabTest(t);
 
   const itemId = await createItem(server, harness.owner, harness.projectId, "Concurrent original");
   const [titleUpdate, descriptionUpdate] = await Promise.all([
@@ -167,17 +171,7 @@ test("concurrent collaborators update one item without a lost write or malformed
 });
 
 test("the real HTTP command surface preserves an item's lifecycle and related records", async (t) => {
-  const previousRoot = process.env.PROJECTS_ROOT;
-  const harness = await createCollaborationHarness();
-  let startedServer: AppServer | undefined;
-  t.after(async () => {
-    if (startedServer) await startedServer.close();
-    await rm(harness.root, { recursive: true, force: true });
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-  });
-  const server = await startApp();
-  startedServer = server;
+  const { harness, server } = await setupCollabTest(t);
 
   const base = `/api/projects/${harness.projectId}/pm`;
   const schema = await authedFetch(server, harness.owner, `${base}/schema`);

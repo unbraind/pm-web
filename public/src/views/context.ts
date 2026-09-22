@@ -6,6 +6,17 @@ import { api } from '../api.js';
 import { escHtml, relTime, typeIcon, statusBadge } from '../utils.js';
 import { TYPE_ICONS } from '../constants.js';
 import type { ContextResponse } from '../api-types.js';
+import type { Item } from '../types.js';
+
+/** Renders one context item row: type icon, id, title, and status badge with
+ * the given status string. */
+function contextItemRow(item: Item, status: string): string {
+  return `<div class="context-item-row">
+    ${typeIcon(item.type||'')} <span class="mono" style="font-size:11px;color:var(--text-muted)">${escHtml(item.id||'')}</span>
+    <span style="flex:1">${escHtml(item.title||'')}</span>
+    ${statusBadge(status)}
+  </div>`;
+}
 
 /** Renders the project context snapshot for the current project, delegating the body markup to renderContextData after loading the context from its endpoint. */
 export async function renderContextView(): Promise<void> {
@@ -50,12 +61,7 @@ function renderContextData(ctx: ContextResponse): string {
     sections.push(`<div class="context-section">
       <div class="context-section-title">⚡ Active Items (${activeItems.length})</div>
       <div class="card"><div class="card-body">
-        ${activeItems.map((item)=>`
-          <div class="context-item-row">
-            ${typeIcon(item.type||'')} <span class="mono" style="font-size:11px;color:var(--text-muted)">${escHtml(item.id||'')}</span>
-            <span style="flex:1">${escHtml(item.title||'')}</span>
-            ${statusBadge(item.status||'open')}
-          </div>`).join('')}
+        ${activeItems.map((item)=> contextItemRow(item, item.status||'open')).join('')}
       </div></div>
     </div>`);
   }
@@ -65,12 +71,7 @@ function renderContextData(ctx: ContextResponse): string {
     sections.push(`<div class="context-section">
       <div class="context-section-title" style="color:var(--status-blocked)">⛔ Blocked (${blockedItems.length})</div>
       <div class="card"><div class="card-body">
-        ${blockedItems.map((item)=>`
-          <div class="context-item-row">
-            ${typeIcon(item.type||'')} <span class="mono" style="font-size:11px;color:var(--text-muted)">${escHtml(item.id||'')}</span>
-            <span style="flex:1">${escHtml(item.title||'')}</span>
-            ${statusBadge('blocked')}
-          </div>`).join('')}
+        ${blockedItems.map((item)=> contextItemRow(item, 'blocked')).join('')}
       </div></div>
     </div>`);
   }

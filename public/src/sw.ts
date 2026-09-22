@@ -34,6 +34,7 @@ const STATIC_ASSETS: readonly string[] = [
   '/src/api.js',
   '/src/api-types.js',
   '/src/app.js',
+  '/src/browser-window.js',
   '/src/components/modals.js',
   '/src/components/toast.js',
   '/src/constants.js',

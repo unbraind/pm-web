@@ -57,11 +57,24 @@ async function workspace(body: string): Promise<{ dir: string; write: (next: str
     write: async (next: string) => {
       // A distinct mtime, because the signature folds path and mtime together
       // and a same-millisecond rewrite is genuinely indistinguishable.
-      await new Promise((resolve) => setTimeout(resolve, 12));
+      await new Promise((resolve) => { setTimeout(resolve, 12); });
       await writeFile(file, next, "utf-8");
     },
     cleanup: () => rm(dir, { recursive: true, force: true }),
   };
+}
+
+
+/** Create a watch cycle configured for out-of-band delivery tests. */
+function createTestWatchCycle(projectId: string, wsDir: string): ReturnType<typeof createProjectWatchCycle> {
+  return createProjectWatchCycle({
+    intervalMs: 1000,
+    suppressWindowMs: 10_000,
+    getActiveProjectIds: () => [projectId],
+    resolveProjectDir: async () => wsDir,
+    readSignature: async (dir) => computeWorkspaceSignature(dir),
+    onError: (err) => assert.fail(`watcher tick failed: ${String(err)}`),
+  });
 }
 
 test("a write made outside this process reaches a connected subscriber", async () => {
@@ -71,14 +84,7 @@ test("a write made outside this process reaches a connected subscriber", async (
   try {
     // No `emit`: the cycle must resolve its own sink, which is the binding
     // production uses and the one no other test executes.
-    const { tick } = createProjectWatchCycle({
-      intervalMs: 1000,
-      suppressWindowMs: 10_000,
-      getActiveProjectIds: () => [projectId],
-      resolveProjectDir: async () => ws.dir,
-      readSignature: async (dir) => computeWorkspaceSignature(dir),
-      onError: (err) => assert.fail(`watcher tick failed: ${String(err)}`),
-    });
+    const { tick } = createTestWatchCycle(projectId, ws.dir);
 
     await tick();
     const afterBaseline = subscriber.frames.length;
@@ -102,14 +108,7 @@ test("the first observation baselines rather than announcing a change that did n
   const ws = await workspace('id: "item-1"\nstatus: "open"\n');
   const subscriber = recordingClient(projectId, "client-baseline");
   try {
-    const { tick } = createProjectWatchCycle({
-      intervalMs: 1000,
-      suppressWindowMs: 10_000,
-      getActiveProjectIds: () => [projectId],
-      resolveProjectDir: async () => ws.dir,
-      readSignature: async (dir) => computeWorkspaceSignature(dir),
-      onError: (err) => assert.fail(`watcher tick failed: ${String(err)}`),
-    });
+    const { tick } = createTestWatchCycle(projectId, ws.dir);
     const afterConnect = subscriber.frames.length;
     await tick();
     await tick();
@@ -185,14 +184,7 @@ test("a change this process delivered is not re-announced by the next sweep", as
   const ws = await workspace('id: "item-1"\nstatus: "open"\n');
   const subscriber = recordingClient(projectId, "client-suppression");
   try {
-    const { tick } = createProjectWatchCycle({
-      intervalMs: 1000,
-      suppressWindowMs: 10_000,
-      getActiveProjectIds: () => [projectId],
-      resolveProjectDir: async () => ws.dir,
-      readSignature: async (dir) => computeWorkspaceSignature(dir),
-      onError: (err) => assert.fail(`watcher tick failed: ${String(err)}`),
-    });
+    const { tick } = createTestWatchCycle(projectId, ws.dir);
     await tick();
 
     // Deliver as this process would for its own write, which signals the

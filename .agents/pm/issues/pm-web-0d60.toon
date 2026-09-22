@@ -1,0 +1,23 @@
+id: pm-web-0d60
+title: A publish that npm accepts late is reported as failed and the GitHub Release is skipped on bun mirror lag
+description: "The release workflow treated npm's eventual visibility and the bun mirror as immediate, so a publish the registry accepted a few minutes late was reported as failed and the GitHub Release step was skipped on bun mirror lag. The publish reconcile window is widened to 20 x 30s (10 minutes) with npm view --prefer-online and an honest never-visible message; the GitHub Release now depends only on publish + tag push succeeding, while a dedicated gate step fails the job visibly when bun verification fails after a 21-attempt bun window with a final re-check (no backfill step; it was removed in review). Companion item pm-cli-website-3y5d; proof: stub harness 5/5 passing on the patched file, 4/5 failing on the unpatched file."
+type: Issue
+status: closed
+priority: 1
+tags[2]: release,reliability
+created_at: "2026-09-22T08:25:12.667Z"
+updated_at: "2026-09-22T18:40:49.590Z"
+closed_at: "2026-09-22T18:36:27.506Z"
+completed_at: "2026-09-22T18:36:27.506Z"
+author: pi-agent
+resolution: Widened publish reconcile to 20x30s with npm view --prefer-online; GitHub Release depends only on publish+tag; dedicated bun gate with 21 attempts + final re-check; backfill step removed
+expected_result: "reconcile_attempts=20, bun_attempts=21, no backfill step, harness 5/5 pass on patched file"
+actual_result: "grep -c reconcile_attempts=20 = 1, grep -c bun_attempts=21 = 1, grep -c backfill = 0; harness PASS=5 FAIL=0 on patched, 4/5 fail on unpatched; 15 pinned suite tests pass"
+comments[1]{created_at,author,text}:
+  "2026-09-22T08:25:30.563Z",pi-agent,"Applied via the anchored release-window applier (python3 scratchpad/release-window/apply.py pm-web): matched: 1, refused: 0 - no hand edits. Proof on the final file: grep -c reconcile_attempts=20 = 1, grep -c bun_attempts=21 = 1, grep -c 'Backfill missing GitHub releases' = 0 (backfill removed in review), max_attempts=3 declared before refuse_unattested_or_fail(), and grep -oE 'unbraind/pm-[a-z-]+' names only unbraind/pm-web. Stub harness (bash rw-iso/harness-bunfix.sh against the patched file): HARNESS RESULT: PASS=5 FAIL=0 (s6: visible at tick 20 -> attempt 21 succeeds, rc=0, no trailing sleep; s5/s7 backfill: absent as expected). The pinned workflow-security/release-workflow/identity-audit suites (15 tests) still pass on the patched file."
+files[1]{path,scope}:
+  .github/workflows/release.yml,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  bash /tmp/claude-1000/-home-steve-container-pm-cli/9b484a9b-9fda-4917-a083-a22d1fca981d/scratchpad/rw-iso/harness-bunfix.sh,project,pi-agent,"2026-09-22T08:25:21.612Z",local_mutation,pm-cli-2026-9-21-canonical-pm-ops-gates
+close_reason: "Release window widened to 20x30s reconcile + 21-attempt bun with final re-check; backfill step removed; harness 5/5 pass on patched, 4/5 fail on unpatched"
+body: ""

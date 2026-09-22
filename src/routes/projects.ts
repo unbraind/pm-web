@@ -3,6 +3,7 @@ import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
 import { initProject, projectExists, deleteProjectDir } from "../services/pm-runner.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
+import { isUniqueViolation, notFoundWhenEmpty } from "./route-helpers.ts";
 
 const router = Router();
 router.use(requireAuth);
@@ -130,8 +131,7 @@ router.post("/", async (req: AuthRequest, res) => {
 
     res.status(201).json({ project });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("unique") || msg.includes("duplicate")) {
+    if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A project with this name already exists" });
     } else {
       console.error("Create project error:", err);
@@ -157,16 +157,19 @@ router.get("/:id", async (req: AuthRequest, res) => {
 router.patch("/:id", async (req: AuthRequest, res) => {
   const { name, description } = req.body as { name?: string; description?: string };
   try {
+    const updateArgs: unknown[] = [
+      name?.trim() || null,
+      description !== undefined ? description : null,
+      routeParam(req, "id"),
+      req.user!.userId,
+    ];
     const result = await pool.query(
       `UPDATE pm_projects SET name = COALESCE($1, name), description = COALESCE($2, description)
        WHERE id = $3 AND user_id = $4
        RETURNING id, name, slug, description, prefix, created_at, updated_at`,
-      [name?.trim() || null, description !== undefined ? description : null, routeParam(req, "id"), req.user!.userId]
+      updateArgs
     );
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
+    if (notFoundWhenEmpty(res, result.rows, "Project not found")) return;
     res.json({ project: result.rows[0] });
   } catch (err) {
     console.error("Update project error:", err);

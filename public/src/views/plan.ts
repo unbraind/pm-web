@@ -7,21 +7,10 @@ import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { buildPlanExecutionSnapshot, buildPlanAgentBrief, buildNextStepPrompt, type AnalyzedPlanStep, type PlanExecutionSnapshot } from './plan-execution.js';
-import type { ListResponse, PlanResponse } from '../api-types.js';
+import { showView } from './router.js';
+import type { ListResponse, PlanResponse, PlanStepPayload } from '../api-types.js';
 
 // ─── Types ───────────────────────────────────────────────────
-
-type PlanStep = {
-  id?: string;
-  ref?: string;
-  title?: string;
-  description?: string;
-  status?: string;
-  blockedReason?: string;
-  blocked_reason?: string;
-  dependsOn?: string[];
-  depends_on?: string[];
-};
 
 type PlanData = {
   id?: string;
@@ -31,7 +20,7 @@ type PlanData = {
   status?: string;
   tags?: string[];
   priority?: number;
-  steps?: PlanStep[];
+  steps?: PlanStepPayload[];
   approvedAt?: string;
   approved_at?: string;
   createdAt?: string;
@@ -46,7 +35,7 @@ let currentExecutionSnapshot: PlanExecutionSnapshot | null = null;
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function stepRef(step: PlanStep): string {
+function stepRef(step: PlanStepPayload): string {
   return step.ref || step.id || '';
 }
 
@@ -171,7 +160,7 @@ function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): 
  * reason, plus conditional action buttons to copy the step prompt, mark
  * complete, block, or remove the step.
  */
-function renderStepRow(step: PlanStep, planId: string, analyzed?: AnalyzedPlanStep): string {
+function renderStepRow(step: PlanStepPayload, planId: string, analyzed?: AnalyzedPlanStep): string {
   const ref = stepRef(step);
   const isDone = ['done', 'completed'].includes((step.status || '').toLowerCase());
   const isBlocked = (step.status || '').toLowerCase() === 'blocked';
@@ -734,7 +723,7 @@ export async function submitMaterializePlan(planId: string): Promise<void> {
     hideModal('materialize-plan-modal');
     toast('Plan materialized — items created. Switching to Items view.', 'success');
     // Navigate to items view so user can see the created items
-    setTimeout(() => window.__app?.showView('items'), 1200);
+    setTimeout(() => showView('items'), 1200);
   } catch(err: unknown) {
     toast(err instanceof Error ? err.message : 'Failed to materialize plan', 'error');
   }

@@ -6,7 +6,8 @@ import { state } from '../state.js';
 import type { GraphNode, GraphRelationship, ProjectGraph } from '../types.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
-import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode } from './graph-canvas.js';
+import { browserWindow } from '../browser-window.js';
+import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode, tagColorMapFromFreq } from './graph-canvas.js';
 
 type GraphResponse = {
   graph?: ProjectGraph;
@@ -34,6 +35,11 @@ let selectedNodeId = '';
 const canvasRef: { current: GraphCanvas | null } = { current: null };
 let physicsLabel = 'Pause Physics';
 let graphSyncInFlight = false;
+
+/** Record whether a graph sync is running, outside the async sync function. */
+function setGraphSyncInFlight(active: boolean): void {
+  graphSyncInFlight = active;
+}
 let infoDrawerOpen   = false;
 let relDrawerOpen    = false;
 let filterOpen       = false;
@@ -98,7 +104,7 @@ function showCtxMenu(nodeId: string, x: number, y: number): void {
   };
 
   if (isItem) {
-    menu.appendChild(btn('⊡', 'Open Item', () => window.__app?.openItemDetail(nodeId)));
+    menu.appendChild(btn('⊡', 'Open Item', () => browserWindow().__app?.openItemDetail(nodeId)));
     const sep1 = document.createElement('div'); sep1.className = 'graph-ctx-sep'; menu.appendChild(sep1);
   }
   menu.appendChild(btn('⊙', 'Select & Focus', () => {
@@ -333,7 +339,7 @@ function blockerStats(rels: GraphRelationship[]): Map<string, { blockers: Set<st
 function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRelationship[]; connected: Set<string> } {
   const nodes = graph.nodes || [];
   let rels     = graph.relationships || [];
-  const connected = new Set(rels.flatMap((r) => [r.from, r.to]));
+  const connected = connectedNodeIds(rels);
 
   // Dep mode: restrict to dependency/block edges
   if (filter.depMode) {
@@ -379,24 +385,78 @@ function visibleGraph(graph: ProjectGraph): { nodes: GraphNode[]; rels: GraphRel
   return { nodes: visNodes, rels: visRels, connected };
 }
 
-// ── Canvas data conversion ────────────────────────────────────
+// ── Shared graph helpers ─────────────────────────────────────
 
-/** Converts graph nodes into canvas display nodes, attaching each node's edge degree (computed from the relationships) so the renderer can size them. */
-function toCanvasNodes(nodes: GraphNode[], rels: GraphRelationship[]): CanvasNode[] {
-  const deg = degreeMap(rels);
-  return nodes.map((n) => ({
+/** Returns the set of node ids that appear as either endpoint of any relationship in the given list. */
+function connectedNodeIds(rels: GraphRelationship[]): Set<string> {
+  return new Set(rels.flatMap((r) => [r.from, r.to]));
+}
+
+/** Counts how many times each relationship type appears, returning a type-to-count record. */
+function countRelTypes(rels: GraphRelationship[]): Record<string, number> {
+  return rels.reduce<Record<string, number>>((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {});
+}
+
+/** Counts how many nodes fall into each type category, returning a type-to-count record. */
+function countNodeTypes(nodes: GraphNode[]): Record<string, number> {
+  return nodes.reduce<Record<string, number>>((acc, n) => {
+    const t = nodeType(n); acc[t] = (acc[t] || 0) + 1; return acc;
+  }, {});
+}
+
+/** Converts a single graph node into a canvas display node with the given edge degree, copying id, label, type, status, lane, degree, and tags. */
+function nodeToCanvasNode(n: GraphNode, degree: number): CanvasNode {
+  return {
     id:       n.id,
     label:    nodeTitle(n),
     type:     nodeType(n),
     status:   nodeStatus(n),
     lane:     nodeLane(n),
-    degree:   deg.get(n.id) || 0,
+    degree,
     tags:     Array.isArray(n.properties?.tags)
       ? (n.properties.tags as unknown[]).map(String)
       : [],
-    priority: n.properties?.priority !== undefined ? Number(n.properties.priority) : undefined,
-    assignee: n.properties?.assignee ? String(n.properties.assignee) : undefined,
-  }));
+  };
+}
+
+/** Destroys the current canvas instance and re-renders the graph view from scratch. */
+function refreshGraph(): void {
+  canvasRef.current?.destroy();
+  canvasRef.current = null;
+  void renderGraphView();
+}
+
+/** Displays an error message on a form-error element, extracting the message from an unknown catch value. */
+function displayFormError(errEl: HTMLElement | null, err: unknown): void {
+  if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = ''; }
+}
+
+/** Reads the four physics-slider input elements from the DOM, returning null for any that are missing. */
+function getPhysicsInputs(): {
+  rep: HTMLInputElement | null;
+  linkDist: HTMLInputElement | null;
+  linkStr: HTMLInputElement | null;
+  gravity: HTMLInputElement | null;
+} {
+  return {
+    rep:      document.getElementById('graph-physics-repulsion') as HTMLInputElement | null,
+    linkDist: document.getElementById('graph-physics-linkdist')  as HTMLInputElement | null,
+    linkStr:  document.getElementById('graph-physics-linkstr')   as HTMLInputElement | null,
+    gravity:  document.getElementById('graph-physics-gravity')   as HTMLInputElement | null,
+  };
+}
+
+// ── Canvas data conversion ────────────────────────────────────
+
+/** Converts graph nodes into canvas display nodes, attaching each node's edge degree (computed from the relationships) so the renderer can size them. */
+function toCanvasNodes(nodes: GraphNode[], rels: GraphRelationship[]): CanvasNode[] {
+  const deg = degreeMap(rels);
+  return nodes.map((n) => {
+    const cn = nodeToCanvasNode(n, deg.get(n.id) || 0);
+    cn.priority = n.properties?.priority !== undefined ? Number(n.properties.priority) : undefined;
+    cn.assignee = n.properties?.assignee ? String(n.properties.assignee) : undefined;
+    return cn;
+  });
 }
 
 function toCanvasEdges(rels: GraphRelationship[]): CanvasEdge[] {
@@ -657,14 +717,12 @@ function renderInfoPanel(data: GraphResponse, fullItem?: Record<string, unknown>
   const nodes     = graph.nodes || [];
   const rels      = graph.relationships || [];
   const byId      = new Map(nodes.map((n) => [n.id, n]));
-  const connected = new Set(rels.flatMap((r) => [r.from, r.to]));
+  const connected = connectedNodeIds(rels);
   const itemNodes = nodes.filter(isItemNode);
-  const relCounts = rels.reduce<Record<string, number>>((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {});
+  const relCounts = countRelTypes(rels);
   const selectedNode = selectedNodeId ? byId.get(selectedNodeId) : undefined;
 
-  const typeCounts = nodes.reduce<Record<string, number>>((acc, n) => {
-    const t = nodeType(n); acc[t] = (acc[t] || 0) + 1; return acc;
-  }, {});
+  const typeCounts = countNodeTypes(nodes);
 
   return `
     <div class="graph-panel-title">Graph Coverage</div>
@@ -776,9 +834,9 @@ function renderGraphShell(data: GraphResponse): string {
   const rels       = graph.relationships || [];
   const itemNodes  = nodes.filter(isItemNode);
   const facetNodes = nodes.filter(isFacetNode);
-  const connected  = new Set(rels.flatMap((r) => [r.from, r.to]));
+  const connected  = connectedNodeIds(rels);
   const isolated   = itemNodes.filter((n) => !connected.has(n.id)).length;
-  const relCounts  = rels.reduce<Record<string, number>>((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {});
+  const relCounts  = countRelTypes(rels);
   const relOptions = Object.keys(relCounts).sort();
   const errText    = compactError(data.extensionError);
   const { rels: visRels } = visibleGraph(graph);
@@ -1053,7 +1111,7 @@ function initCanvas(): void {
       else selectedItemCache = null;
     },
     onOpenNode(id) {
-      window.__app?.openItemDetail(id);
+      browserWindow().__app?.openItemDetail(id);
     },
     onContextMenu(id, x, y) { showCtxMenu(id, x, y); },
   });
@@ -1095,7 +1153,6 @@ const TYPE_COLORS_MAP: Record<string, string> = {
   task:'#2dd4bf', feature:'#60a5fa', epic:'#a78bfa', bug:'#f87171',
   milestone:'#fbbf24', story:'#34d399', chore:'#94a3b8', release:'#38bdf8',
 };
-const TAG_PALETTE_JS = ['#2dd4bf','#60a5fa','#a78bfa','#f87171','#fbbf24','#34d399','#fb923c','#e879f9'];
 
 /** Computes a tag-to-color map by ranking tags by how often they appear across the nodes and assigning each of the most frequent ones a palette color. */
 function computeTagColorMap(nodes: GraphNode[]): Map<string, string> {
@@ -1104,8 +1161,7 @@ function computeTagColorMap(nodes: GraphNode[]): Map<string, string> {
     const tags = Array.isArray(n.properties?.tags) ? (n.properties.tags as unknown[]).map(String) : [];
     for (const t of tags) freq.set(t, (freq.get(t) ?? 0) + 1);
   }
-  const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, TAG_PALETTE_JS.length).map(([t]) => t);
-  return new Map(top.map((t, i) => [t, TAG_PALETTE_JS[i]]));
+  return tagColorMapFromFreq(freq);
 }
 
 /** Rebuilds the legend HUD HTML to match the current color mode (status, type, or tag) or dependency mode, including clickable tag chips when coloring by tag. */
@@ -1115,9 +1171,7 @@ function updateLegend(): void {
   const nodes = currentGraph?.graph?.nodes ?? [];
 
   if (filter.colorMode === 'type') {
-    const typeCounts = nodes.filter(isItemNode).reduce<Record<string, number>>((acc, n) => {
-      const t = nodeType(n); acc[t] = (acc[t] || 0) + 1; return acc;
-    }, {});
+    const typeCounts = countNodeTypes(nodes.filter(isItemNode));
     const shown = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
     legend.innerHTML = `
       <span><i class="legend-dot legend-facet"></i>Metadata</span>
@@ -1185,7 +1239,7 @@ function updateLegend(): void {
 /** Binds click handlers for the info-panel controls (open and clear the selected item, add and remove dependency) and for neighbor, tag, and relationship rows so they update the selection and canvas. */
 function bindInfoPanelEvents(): void {
   document.getElementById('graph-open-selected')?.addEventListener('click', () => {
-    if (selectedNodeId) window.__app?.openItemDetail(selectedNodeId);
+    if (selectedNodeId) browserWindow().__app?.openItemDetail(selectedNodeId);
   });
   document.getElementById('graph-clear-selected')?.addEventListener('click', () => {
     selectedNodeId = '';
@@ -1245,15 +1299,15 @@ function bindHudEvents(): void {
   document.getElementById('graph-back-btn')?.addEventListener('click', () => {
     removeCtxMenu();
     // Remove graph keyboard handler
-    const kh = window.__graphKeyHandler;
-    if (kh) { document.removeEventListener('keydown', kh); delete window.__graphKeyHandler; }
-    window.__app?.showView('items');
+    const kh = browserWindow().__graphKeyHandler;
+    if (kh) { document.removeEventListener('keydown', kh); delete browserWindow().__graphKeyHandler; }
+    browserWindow().__app?.showView('items');
   });
 
   const runGraphSync = async (): Promise<void> => {
     if (!state.currentProject || graphSyncInFlight) return;
     const syncBtn = document.getElementById('graph-sync-btn') as HTMLButtonElement | null;
-    graphSyncInFlight = true;
+    setGraphSyncInFlight(true);
     if (syncBtn) {
       syncBtn.disabled = true;
       syncBtn.textContent = 'Syncing…';
@@ -1265,7 +1319,7 @@ function bindHudEvents(): void {
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : String(err), 'error');
     } finally {
-      graphSyncInFlight = false;
+      setGraphSyncInFlight(false);
       if (syncBtn) {
         syncBtn.disabled = false;
         syncBtn.textContent = '⧉ Sync';
@@ -1439,10 +1493,7 @@ function bindHudEvents(): void {
     document.getElementById('graph-physics-panel-toggle')?.classList.toggle('active', physicsOpen);
     if (physicsOpen && canvasRef.current) {
       const params = canvasRef.current.getPhysicsParams();
-      const repEl  = document.getElementById('graph-physics-repulsion') as HTMLInputElement | null;
-      const ldEl   = document.getElementById('graph-physics-linkdist') as HTMLInputElement | null;
-      const lsEl   = document.getElementById('graph-physics-linkstr') as HTMLInputElement | null;
-      const gEl    = document.getElementById('graph-physics-gravity') as HTMLInputElement | null;
+      const { rep: repEl, linkDist: ldEl, linkStr: lsEl, gravity: gEl } = getPhysicsInputs();
       if (repEl) { repEl.value = String(params.repulsion); }
       if (ldEl)  { ldEl.value  = String(params.linkDistance); }
       if (lsEl)  { lsEl.value  = String(Math.round(params.linkStrength * 100)); }
@@ -1471,10 +1522,7 @@ function bindHudEvents(): void {
 
   document.getElementById('graph-physics-reset')?.addEventListener('click', () => {
     canvasRef.current?.setPhysicsParams({ repulsion: 2000, linkDistance: 140, linkStrength: 0.065, centerForce: 0.010 });
-    const repEl  = document.getElementById('graph-physics-repulsion') as HTMLInputElement | null;
-    const ldEl   = document.getElementById('graph-physics-linkdist')  as HTMLInputElement | null;
-    const lsEl   = document.getElementById('graph-physics-linkstr')   as HTMLInputElement | null;
-    const gEl    = document.getElementById('graph-physics-gravity')   as HTMLInputElement | null;
+    const { rep: repEl, linkDist: ldEl, linkStr: lsEl, gravity: gEl } = getPhysicsInputs();
     if (repEl) repEl.value = '2000';
     if (ldEl)  ldEl.value  = '140';
     if (lsEl)  lsEl.value  = '7';
@@ -1572,7 +1620,7 @@ function bindHudEvents(): void {
   };
   document.addEventListener('keydown', graphKeyHandler);
   // Store for cleanup on graph exit
-  window.__graphKeyHandler = graphKeyHandler;
+  browserWindow().__graphKeyHandler = graphKeyHandler;
 }
 
 // ── URL routing (pushState) ─────────────────────────────────
@@ -1674,12 +1722,9 @@ function showAddDependencyModal(): void {
     try {
       await api('POST', `/projects/${state.currentProject!.id}/pm/deps/${fromId}`, { targetId: toId, rel: relType });
       document.getElementById('graph-add-dep-modal')?.remove();
-      // Refresh graph
-      canvasRef.current?.destroy();
-      canvasRef.current = null;
-      void renderGraphView();
+      refreshGraph();
     } catch (err: unknown) {
-      if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = ''; }
+      displayFormError(errEl, err);
     }
   });
 }
@@ -1699,7 +1744,7 @@ function showRemoveDependencyModal(): void {
   }).join('');
 
   if (!depRels.length) {
-    window.__app?.toast('No dependencies to remove', 'info');
+    browserWindow().__app?.toast('No dependencies to remove', 'info');
     return;
   }
 
@@ -1739,12 +1784,9 @@ function showRemoveDependencyModal(): void {
     try {
       await api('DELETE', `/projects/${state.currentProject!.id}/pm/deps/${rel.from}`, { targetId: rel.to, rel: rel.type });
       document.getElementById('graph-remove-dep-modal')?.remove();
-      // Refresh graph
-      canvasRef.current?.destroy();
-      canvasRef.current = null;
-      void renderGraphView();
+      refreshGraph();
     } catch (err: unknown) {
-      if (errEl) { errEl.textContent = err instanceof Error ? err.message : String(err); errEl.style.display = ''; }
+      displayFormError(errEl, err);
     }
   });
 }
@@ -1893,25 +1935,17 @@ export async function renderLocalGraph(
       if (id !== nodeId) {
         const n = nodes.find((nd) => nd.id === id);
         if (n && isItemNode(n)) {
-          window.__app?.openItemDetail(id);
+          browserWindow().__app?.openItemDetail(id);
         }
       }
     },
     onOpenNode(id) {
-      window.__app?.openItemDetail(id);
+      browserWindow().__app?.openItemDetail(id);
     },
     onContextMenu() { /* no context menu in local graph */ },
   });
 
-  const canvasNodes: CanvasNode[] = subNodes.map((n) => ({
-    id:     n.id,
-    label:  nodeTitle(n),
-    type:   nodeType(n),
-    status: nodeStatus(n),
-    lane:   nodeLane(n),
-    degree: deg.get(n.id) || 0,
-    tags:   Array.isArray(n.properties?.tags) ? (n.properties.tags as unknown[]).map(String) : [],
-  }));
+  const canvasNodes: CanvasNode[] = subNodes.map((n) => nodeToCanvasNode(n, deg.get(n.id) || 0));
   const canvasEdges: CanvasEdge[] = subRels.map((r) => ({ from: r.from, to: r.to, type: r.type }));
 
   canvas.setData(canvasNodes, canvasEdges);

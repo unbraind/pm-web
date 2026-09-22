@@ -55,7 +55,9 @@ export class Semaphore {
    */
   async acquire(): Promise<() => void> {
     if (this.active >= this.limit) {
-      await new Promise<void>((resolve) => this.waiting.push(resolve));
+      await new Promise<void>((resolve) => {
+        this.waiting.push(resolve);
+      });
     } else {
       this.active += 1;
     }

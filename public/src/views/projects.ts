@@ -3,11 +3,12 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, fmtDate } from '../utils.js';
+import { escHtml, fmtDate, projectCardInfo } from '../utils.js';
 import { showModal, hideModal, createModal, confirmDialog } from '../components/modals.js';
 import { toast } from '../components/toast.js';
 import type { CreateProjectResponse, ListResponse, ProjectsResponse, SchemaResponse } from '../api-types.js';
 import { showView } from '../views/router.js';
+import { browserWindow } from '../browser-window.js';
 
 /**
  * Fetches the user's workspaces from the API, stores them on shared state,
@@ -58,7 +59,7 @@ export async function onProjectSelect(id: string): Promise<void> {
   if (!id) {
     state.currentProject = null;
     state.schema = null;
-    window.__app?.disconnectSSE?.();
+    browserWindow().__app?.disconnectSSE();
     const pmSection = document.getElementById('sidebar-pm-section');
     if (pmSection) pmSection.style.display = 'none';
     showView('projects');
@@ -71,7 +72,7 @@ export async function onProjectSelect(id: string): Promise<void> {
   if (pmSection) pmSection.style.display = '';
   const projName = document.getElementById('sidebar-project-name');
   if (projName) projName.textContent = proj.name;
-  window.__app?.connectSSE?.(proj.id);
+  browserWindow().__app?.connectSSE(proj.id);
   // Fetch schema in background — views use fallback until it resolves
   fetchProjectSchema(proj.id);
   showView('items');
@@ -123,9 +124,7 @@ export function renderProjectsView(): void {
       ${state.projects.map(p=>`
         <div class="project-card" onclick="window.__app.selectProject('${p.id}')">
           <button class="btn btn-ghost btn-sm project-card-del" onclick="event.stopPropagation();window.__app.deleteProject('${p.id}','${escHtml(p.name)}')" title="Delete project">✕</button>
-          <div class="project-card-name">${escHtml(p.name)}</div>
-          <div class="project-card-slug mono">${escHtml(p.slug)}</div>
-          <div class="project-card-desc">${escHtml(p.description||'No description')}</div>
+          ${projectCardInfo(p)}
           <div class="project-card-meta">
             <span class="project-card-prefix">${escHtml(p.prefix)}</span>
             <span class="project-card-date">${fmtDate(p.created_at)}</span>
