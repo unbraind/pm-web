@@ -48,7 +48,7 @@
     "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.9.21",
+    "@unbrained/pm-cli": "2026.9.23",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
