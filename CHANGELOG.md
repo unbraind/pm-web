@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Certify pm CLI 2026.9.23 and adopt the guarded pm-ops merge-driver launcher ([pm-web-75mz](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-75mz.toon))
+
 ## 2026.9.23 - 2026-09-23
 
 ### Fixed
