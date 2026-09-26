@@ -1435,18 +1435,32 @@ router.get("/graph/neighbors/:nodeId", async (req, res) => {
         res.status(400).json({ error: "nodeId is required" });
         return;
     }
-    const result = await projectPm(project, ["pm-graph", "neighbors", nodeId, "--json"], false);
-    if (!result.ok) {
-        // Extension not available — return empty neighbors
-        res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, error: result.stderr || "pm-graph extension not available" });
-        return;
-    }
     try {
-        const parsed = result.stdout ? JSON.parse(result.stdout) : null;
-        res.json({ ok: true, ...parsed, extensionAvailable: true });
+        const graph = await fallbackGraphForProject(project.ownerUserId, project.slug);
+        const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+        const center = nodesById.get(nodeId);
+        if (!center) {
+            res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, message: `No node found with id "${nodeId}".` });
+            return;
+        }
+        const neighbors = graph.relationships
+            .filter((edge) => edge.from === nodeId || edge.to === nodeId)
+            .map((edge) => {
+            // graphFromItems creates both endpoint nodes for every relationship.
+            const node = nodesById.get(edge.from === nodeId ? edge.to : edge.from);
+            return {
+                node: { ...node.properties, _labels: node.labels },
+                relationship: {
+                    type: edge.type,
+                    direction: edge.from === nodeId ? "outgoing" : "incoming",
+                    properties: { ...edge.properties, _type: edge.type },
+                },
+            };
+        });
+        res.json({ ok: true, center: { ...center.properties, _labels: center.labels }, neighbors, extensionAvailable: false });
     }
-    catch {
-        res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, error: "pm-graph neighbors returned invalid JSON" });
+    catch (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
     }
 });
 // POST /api/projects/:projectId/pm/graph/query

@@ -105,6 +105,51 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   assert.equal(ownerGet.status, 200);
   assert.equal((await ownerGet.json() as { extensionAvailable?: boolean }).extensionAvailable, false);
 
+  const neighborsUrl = `${url}/neighbors/${itemId}`;
+  const neighbors = await authedFetch(server, viewer, neighborsUrl);
+  assert.equal(neighbors.status, 200);
+  const neighborsBody = await neighbors.json() as {
+    extensionAvailable?: boolean;
+    center?: { id?: string };
+    neighbors?: Array<{ node?: { id?: string }; relationship?: { type?: string; direction?: string } }>;
+  };
+  assert.equal(neighborsBody.extensionAvailable, false);
+  assert.equal(neighborsBody.center?.id, itemId);
+  assert.ok(neighborsBody.neighbors?.some((entry) =>
+    entry.node?.id === targetId && entry.relationship?.type === "BLOCKED_BY" && entry.relationship.direction === "outgoing"));
+  const incoming = await authedFetch(server, viewer, `${url}/neighbors/${targetId}`);
+  assert.equal(incoming.status, 200);
+  const incomingBody = await incoming.json() as {
+    neighbors?: Array<{ node?: { id?: string }; relationship?: { type?: string; direction?: string } }>;
+  };
+  assert.ok(incomingBody.neighbors?.some((entry) =>
+    entry.node?.id === itemId && entry.relationship?.type === "BLOCKED_BY" && entry.relationship.direction === "incoming"));
+  assert.equal((await authedFetch(server, viewer, neighborsUrl, { method: "HEAD" })).status, 200);
+  const missingNeighbors = await authedFetch(server, viewer, `${url}/neighbors/unknown-item-id`);
+  assert.equal(missingNeighbors.status, 200);
+  const missingBody = await missingNeighbors.json() as { center?: unknown; neighbors?: unknown[]; extensionAvailable?: boolean };
+  assert.equal(missingBody.center, null);
+  assert.deepEqual(missingBody.neighbors, []);
+  assert.equal(missingBody.extensionAvailable, false);
+
+  const separateProject = await seedProject(viewer.id);
+  const separatePmRoot = path.join(root, viewer.id, separateProject.slug, ".agents", "pm");
+  await mkdir(path.dirname(path.dirname(separatePmRoot)), { recursive: true });
+  execFileSync("pm", ["init", "--pm-path", separatePmRoot], { stdio: "ignore" });
+  const separateItem = execFileSync("pm", [
+    "create", "--type", "Task", "--title", "Separate project item", "--pm-path", separatePmRoot, "--json",
+  ], { encoding: "utf8" });
+  const separateItemId = (JSON.parse(separateItem) as { id?: string }).id;
+  assert.ok(separateItemId);
+  assert.notEqual(separateItemId, itemId);
+  const separateRead = await authedFetch(server, viewer,
+    `/api/projects/${separateProject.id}/pm/graph/neighbors/${itemId}`);
+  assert.equal(separateRead.status, 200);
+  const separateBody = await separateRead.json() as { center?: unknown; neighbors?: unknown[] };
+  assert.equal(separateBody.center, null, "a project cannot read a node from another project");
+  assert.deepEqual(separateBody.neighbors, []);
+  assert.equal(existsSync(marker), false, "neighbor reads must not activate installed extensions");
+
   const deniedSync = await authedFetch(server, viewer, `${url}/sync`, { method: "POST" });
   assert.equal(deniedSync.status, 403);
 
