@@ -2,11 +2,13 @@ id: pm-web-jpa6
 title: GET graph installs or activates pm-graph and bypasses edit permission
 description: "GET /api/projects/:projectId/pm/graph calls pmGraphExtensionGraphForProject, which calls ensureGraphExtension. The helper can install npm:pm-graph and activate it, so a safe-method request mutates project state. The pm router's permission middleware exempts GET/HEAD/OPTIONS, which also lets view-only collaborators trigger the mutation. This was found while tracing the complete CSRF boundary for pm-web-413z and must be repaired as a distinct route-semantics/authorization change."
 type: Issue
-status: open
+status: in_progress
 priority: 0
 tags[4]: authorization,http-semantics,pm-graph,security
 created_at: "2026-08-30T20:58:12.273Z"
-updated_at: "2026-08-30T20:58:12.273Z"
+updated_at: "2026-09-26T15:49:25.707Z"
+assignee: codex
+claim_principal: codex
 author: codex
 estimated_minutes: 180
 acceptance_criteria: "GET /pm/graph is observational and never installs, activates, or otherwise mutates an extension; any explicit provisioning uses a CSRF-protected unsafe method and requires edit permission; view-only users can read the fallback graph without changing project state; real route tests prove command logs remain mutation-free on GET."
@@ -23,7 +25,13 @@ actual_result: "GET may install and activate pm-graph, including for view-only u
 affected_version: 2026.8.29
 component: Graph HTTP routes
 customer_impact: Cross-origin or view-only callers can change a project's extension state through a nominally read-only endpoint.
-files[2]{path,scope,note}:
+notes[2]{created_at,author,text}:
+  "2026-09-26T15:46:37.359Z",codex,"2026-09-26: GET and HEAD graph read reached extension provisioning under view-only access. Regression test reproduced pm-graph installation before patch. Independent review also found pm extension --json runs installed activate hooks; read path now uses SDK listAllComplete with noExtensions and the built-in graph. Upstream CLI static-inventory request: https://github.com/unbraind/pm-cli/issues/1316. Explicit POST graph sync and project creation retain provisioning."
+  "2026-09-26T15:49:25.706Z",codex,"2026-09-26 verification: real Postgres + HTTP + PM workspace test failed before the patch because viewer GET installed pm-graph; after the patch it passes for viewer GET/HEAD, owner GET, denied viewer POST, and a missing CLI binary. A local activation-marker extension proves the extension inventory probe executes activate(), while graph GET/HEAD does not. pm test linked acceptance passed (1/1). npm run release:check passed, including npm and Bun packed acceptance. Coverage from coverage/lcov.info: 9,239/10,998 lines (84.01%), 1,344/1,670 branches (80.48%), 395/513 functions (77.00%); 100% target remains open under pm-web-ulgy/pm-web-9ulj. GET now always returns the certified built-in graph; edit-protected POST sync retains pm-graph provisioning."
+files[3]{path,scope,note}:
   src/routes/pm.ts,project,GET graph route and provisioning call
   src/services/pm-runner.ts,project,Mutating ensureGraphExtension helper
+  test/graph-read-only.test.ts,project,real HTTP PostgreSQL and PM workspace regression
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/graph-read-only.test.ts,project,120,codex,"2026-09-26T15:46:39.111Z",local_mutation,fix/pm-web-graph-get-observational-2026-09-26
 body: ""

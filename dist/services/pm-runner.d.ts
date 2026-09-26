@@ -242,9 +242,10 @@ export declare function certifyPmWebCompleteList(candidate: unknown): PmComplete
  * @param userId - The project owner's user id.
  * @param slug - The project slug.
  * @param includeBody - Whether complete rows must include item bodies.
+ * @param noExtensions - Disable extension activation for a strictly observational read.
  * @returns A discriminated success result with certified rows, or a failure.
  */
-export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean): Promise<PmCompleteListRunResult>;
+export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean, noExtensions?: boolean): Promise<PmCompleteListRunResult>;
 /**
  * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
  * Returns `{}` when absent so resolvers fall back to their built-in defaults.

@@ -552,7 +552,7 @@ function itemsFromCompleteList(parsed: unknown): PmItem[] {
  * @returns A pm-web-sourced project graph.
  */
 async function fallbackGraphForProject(ownerUserId: string, slug: string): Promise<ProjectGraph> {
-  const itemsResult = await readCompletePmItems(ownerUserId, slug);
+  const itemsResult = await readCompletePmItems(ownerUserId, slug, false, true);
   if (!itemsResult.ok) throw new Error(itemsResult.stderr || "Failed to load items for graph");
 
   const items = itemsFromCompleteList(itemsResult.result);
@@ -564,8 +564,8 @@ async function fallbackGraphForProject(ownerUserId: string, slug: string): Promi
 /**
  * Fetch a project graph from the `pm-graph` extension, when installed.
  *
- * Ensures the extension is provisioned for the project (returning `{ error }`
- * if that fails), runs `pm-graph export --json`, and parses its output. Returns
+ * Used only by edit-protected graph sync. Provisions the extension if needed,
+ * then runs `pm-graph export --json` and parses its output. Returns
  * `{ graph }` when the extension produced valid JSON with a graph, otherwise an
  * `{ error }` so the caller can fall back to a pm-web-built graph.
  *
@@ -574,9 +574,7 @@ async function fallbackGraphForProject(ownerUserId: string, slug: string): Promi
  */
 async function pmGraphExtensionGraphForProject(project: ProjectRef): Promise<{ graph?: ProjectGraph; error?: string }> {
   const provision = await ensureGraphExtension(project.ownerUserId, project.slug);
-  if (!provision.ok) {
-    return { error: provision.error };
-  }
+  if (!provision.ok) return { error: provision.error };
 
   const extensionResult = await projectPm(project, ["pm-graph", "export", "--json"], false);
   let extensionData: { graph?: ProjectGraph } | undefined;
@@ -1520,22 +1518,11 @@ router.get("/graph", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const extensionGraph = await pmGraphExtensionGraphForProject(project);
-  if (extensionGraph.graph) {
-    res.json({
-      ok: true,
-      graph: extensionGraph.graph,
-      extensionAvailable: true,
-    });
-    return;
-  }
-
   try {
     res.json({
       ok: true,
       graph: await fallbackGraphForProject(project.ownerUserId, project.slug),
       extensionAvailable: false,
-      extensionError: extensionGraph.error,
     });
   } catch (err: unknown) {
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });

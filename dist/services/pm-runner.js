@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { certifyCompleteListResult, getItemAt, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { certifyCompleteListResult, getItemAt, listAllComplete, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -622,14 +622,17 @@ export function certifyPmWebCompleteList(candidate) {
  * @param userId - The project owner's user id.
  * @param slug - The project slug.
  * @param includeBody - Whether complete rows must include item bodies.
+ * @param noExtensions - Disable extension activation for a strictly observational read.
  * @returns A discriminated success result with certified rows, or a failure.
  */
-export async function readCompletePmItems(userId, slug, includeBody = false) {
+export async function readCompletePmItems(userId, slug, includeBody = false, noExtensions = false) {
     const dir = getProjectDir(userId, slug);
     return runSerialized(dir, async () => {
         try {
             const pmRoot = path.join(dir, ".agents", "pm");
-            const result = certifyPmWebCompleteList(await getPmClient(pmRoot).listAllComplete({ includeBody }));
+            const result = certifyPmWebCompleteList(noExtensions
+                ? await listAllComplete({ includeBody }, { pmRoot, cwd: dir, noExtensions: true })
+                : await getPmClient(pmRoot).listAllComplete({ includeBody }));
             return { ok: true, result };
         }
         catch (error) {
