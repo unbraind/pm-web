@@ -6,7 +6,7 @@ status: in_progress
 priority: 0
 tags[4]: authorization,http-semantics,pm-graph,security
 created_at: "2026-08-30T20:58:12.273Z"
-updated_at: "2026-09-26T15:50:25.679Z"
+updated_at: "2026-09-26T16:11:30.506Z"
 assignee: codex
 claim_principal: codex
 author: codex
@@ -25,10 +25,11 @@ actual_result: "GET may install and activate pm-graph, including for view-only u
 affected_version: 2026.8.29
 component: Graph HTTP routes
 customer_impact: Cross-origin or view-only callers can change a project's extension state through a nominally read-only endpoint.
-notes[3]{created_at,author,text}:
+notes[4]{created_at,author,text}:
   "2026-09-26T15:46:37.359Z",codex,"2026-09-26: GET and HEAD graph read reached extension provisioning under view-only access. Regression test reproduced pm-graph installation before patch. Independent review also found pm extension --json runs installed activate hooks; read path now uses SDK listAllComplete with noExtensions and the built-in graph. Upstream CLI static-inventory request: https://github.com/unbraind/pm-cli/issues/1316. Explicit POST graph sync and project creation retain provisioning."
   "2026-09-26T15:49:25.706Z",codex,"2026-09-26 verification: real Postgres + HTTP + PM workspace test failed before the patch because viewer GET installed pm-graph; after the patch it passes for viewer GET/HEAD, owner GET, denied viewer POST, and a missing CLI binary. A local activation-marker extension proves the extension inventory probe executes activate(), while graph GET/HEAD does not. pm test linked acceptance passed (1/1). npm run release:check passed, including npm and Bun packed acceptance. Coverage from coverage/lcov.info: 9,239/10,998 lines (84.01%), 1,344/1,670 branches (80.48%), 395/513 functions (77.00%); 100% target remains open under pm-web-ulgy/pm-web-9ulj. GET now always returns the certified built-in graph; edit-protected POST sync retains pm-graph provisioning."
   "2026-09-26T15:50:25.679Z",codex,"Package fix proposed in https://github.com/unbraind/pm-web/pull/161 at first head 4640bfe. Review, merge, hosted deployment, and live validation remain pending; this PM issue stays in progress until those independent gates are complete."
+  "2026-09-26T16:11:30.506Z",codex,"CodeRabbit exact-head review on 7221dab identified quadratic relationship deduplication after making fallback graph unconditional. Replaced final filter/findIndex with insertion-time Set keys and item-target linear scans with a precomputed item-ID Set; preserved first edge properties. The real HTTP/PostgreSQL/PM regression now creates a blocked-by relation represented in both item fields and dependencies and asserts one BLOCKED_BY edge. Focused test and linked pm test 1/1 passed; full npm run release:check passed. Extension-generated graph compatibility and separate neighbors GET activation remain open follow-up boundaries, not claimed by this route fix."
 files[3]{path,scope,note}:
   src/routes/pm.ts,project,GET graph route and provisioning call
   src/services/pm-runner.ts,project,Mutating ensureGraphExtension helper

@@ -40,8 +40,15 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   const pmRoot = path.join(projectDir, ".agents", "pm");
   await mkdir(projectDir, { recursive: true });
   execFileSync("pm", ["init", "--pm-path", pmRoot], { stdio: "ignore" });
+  const target = execFileSync("pm", [
+    "create", "--type", "Task", "--title", "Graph dependency target",
+    "--pm-path", pmRoot, "--json",
+  ], { encoding: "utf8" });
+  const targetId = (JSON.parse(target) as { id?: string }).id;
+  assert.ok(targetId);
   const created = execFileSync("pm", [
     "create", "--type", "Task", "--title", "Graph read marker",
+    "--blocked-by", targetId,
     "--pm-path", pmRoot, "--json",
   ], { encoding: "utf8" });
   const itemId = (JSON.parse(created) as { id?: string }).id;
@@ -80,11 +87,17 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   assert.equal(get.status, 200);
   const body = await get.json() as {
     extensionAvailable?: boolean;
-    graph?: { source?: string; nodes?: Array<{ id?: string }> };
+    graph?: {
+      source?: string;
+      nodes?: Array<{ id?: string }>;
+      relationships?: Array<{ from: string; to: string; type: string }>;
+    };
   };
   assert.equal(body.extensionAvailable, false);
   assert.equal(body.graph?.source, "pm-web");
   assert.ok(body.graph?.nodes?.some((node) => node.id === itemId));
+  assert.equal(body.graph?.relationships?.filter((edge) =>
+    edge.from === itemId && edge.to === targetId && edge.type === "BLOCKED_BY").length, 1);
 
   const head = await authedFetch(server, viewer, url, { method: "HEAD" });
   assert.equal(head.status, 200);

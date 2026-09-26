@@ -224,13 +224,19 @@ function normalizeDependencyKind(input) {
  */
 function graphFromItems(items, depsByItem) {
     const nodesById = new Map();
+    const itemIds = new Set(items.map((item) => item.id));
     const relationships = [];
+    const relationshipKeys = new Set();
     const addNode = (node) => {
         if (!nodesById.has(node.id))
             nodesById.set(node.id, node);
     };
     const addRelationship = (from, to, type, properties) => {
-        if (!nodesById.has(to) && !items.some((item) => item.id === to)) {
+        const key = JSON.stringify([from, to, type]);
+        if (relationshipKeys.has(key))
+            return;
+        relationshipKeys.add(key);
+        if (!nodesById.has(to) && !itemIds.has(to)) {
             addNode({
                 id: to,
                 labels: ["ExternalPmItem"],
@@ -273,16 +279,11 @@ function graphFromItems(items, depsByItem) {
             ...(item.dependencies ?? []),
             ...(depsByItem.get(item.id) ?? []),
         ];
-        const seenDeps = new Set();
         for (const dep of deps) {
             const target = dependencyTarget(dep);
             if (!target)
                 continue;
             const type = graphRelationshipType(dep.type ?? dep.kind ?? dep.relation ?? dep.rel ?? dep.relationship);
-            const key = `${item.id}->${target}:${type}`;
-            if (seenDeps.has(key))
-                continue;
-            seenDeps.add(key);
             addRelationship(item.id, target, type, { ...dep });
         }
         const facetLinks = [
@@ -319,7 +320,7 @@ function graphFromItems(items, depsByItem) {
         generatedAt: new Date().toISOString(),
         source: "pm-web",
         nodes: Array.from(nodesById.values()),
-        relationships: relationships.filter((rel, index, all) => all.findIndex((candidate) => candidate.from === rel.from && candidate.to === rel.to && candidate.type === rel.type) === index),
+        relationships,
     };
 }
 function graphProjectKey(project) {
