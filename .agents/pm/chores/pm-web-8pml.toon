@@ -1,0 +1,23 @@
+id: pm-web-8pml
+title: Certify pm-web against PM CLI/SDK 2026.9.26 and pm-changelog 2026.9.25
+description: "Update PM CLI/SDK, pm-changelog, and pm-ops package and lockfile pins from 2026.9.23 to current registry releases, verify installed runtime versions, then rerun the complete release and packed npm/Bun acceptance gates. Keep the public package and private hosted deployment boundaries separate."
+type: Chore
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-09-26T16:15:15.599Z"
+updated_at: "2026-09-26T16:24:34.110Z"
+assignee: codex
+claim_principal: codex
+author: codex
+acceptance_criteria: "package.json and package-lock.json resolve @unbrained/pm-cli 2026.9.26, pm-changelog 2026.9.25, and pm-ops 2026.9.26; local node_modules reports the same versions; npm run release:check passes; PM strict health passes; the PR names both package PM items and no hosted data is added."
+notes[1]{created_at,author,text}:
+  "2026-09-26T16:23:28.535Z",codex,"2026-09-26: package runtime dependency and lock now exact-pin @unbrained/pm-cli 2026.9.26; dev tools pin pm-changelog 2026.9.25 and pm-ops 2026.9.26. Installed node_modules versions read back match. Extension manifest minimum host version is 2026.9.26. Copied the canonical pm-ops prepare launcher byte for byte after the first full gate correctly found drift. Focused real Git launcher tests passed 6/6, linked PM packaging/launcher test passed 1/1, and full npm run release:check passed including packed npm and Bun host versions 2026.9.26. pm-cli 2026.9.26 requires @sentry/node 10.75.1 transitively; the lockfile reflects that dependency while no telemetry source or configuration was changed. PR review, merge, hosted rollout, and 100% coverage remain separate gates."
+files[4]{path,scope,note}:
+  manifest.json,project,minimum host CLI version
+  package-lock.json,project,resolved versions and integrity
+  package.json,project,exact package dependency pins
+  scripts/prepare-merge-driver.ts,project,canonical pm-ops launcher
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/packaging.test.ts test/prepare-merge-driver.test.ts,project,120,codex,"2026-09-26T16:23:15.980Z",local_mutation,fix/pm-web-graph-get-observational-2026-09-26
+body: ""
