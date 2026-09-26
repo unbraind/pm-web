@@ -1,0 +1,14 @@
+id: pm-web-24fc
+title: Graph neighbors GET activates extension code for view-only collaborators
+description: "GET /api/projects/:projectId/pm/graph/neighbors/:nodeId is exempt from edit permission but calls projectPm with pm-graph neighbors. The pm CLI loads and activates installed extensions for that command, so a viewer can trigger extension activation through a safe-method route. This route does not call ensureGraphExtension, so it is distinct from the graph overview provisioning bug pm-web-jpa6. Confirm with a real marker-extension route test and move the read to an observational, tenant-scoped path without removing neighbor information."
+type: Issue
+status: open
+priority: 0
+tags: []
+created_at: "2026-09-26T16:28:18.370Z"
+updated_at: "2026-09-26T16:28:29.638Z"
+author: codex
+acceptance_criteria: "A view-only GET/HEAD neighbors request never installs, activates, or mutates extensions; it returns accurate one-hop neighbors for authorized project data; the existing response contract is preserved or explicitly versioned; real HTTP/PostgreSQL/PM workspace tests prove activation marker absence, viewer access, edit guard on any provisioning, and tenant isolation."
+dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
+  pm-web-jpa6,related,"2026-09-26T16:28:29.603Z",codex,"cli:update:dep",detected
+body: ""

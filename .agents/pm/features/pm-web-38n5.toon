@@ -1,0 +1,14 @@
+id: pm-web-38n5
+title: Preserve pm-graph export fidelity in observational graph reads
+description: "The security fix for pm-web-jpa6 serves the built-in graph on every overview GET, even when pm-graph is installed. This preserves safe-method semantics but may omit pm-graph-specific nodes, relationships, filtering, or metadata. Define a pure read API over certified PM items in pm-graph or an equivalent no-activation integration, compare real extension exports and web responses, and retain explicit POST synchronization only for writes."
+type: Feature
+status: open
+priority: 1
+tags: []
+created_at: "2026-09-26T16:28:19.017Z"
+updated_at: "2026-09-26T16:28:30.274Z"
+author: codex
+acceptance_criteria: "The installed pm-graph and built-in graph paths have documented, measured node/edge/metadata parity on realistic workspaces; graph GET/HEAD remains observational for view-only users and does not activate extensions; the extensionAvailable/source response accurately describes the data returned; large-corpus latency is bounded and tested; no private hosted data enters public fixtures."
+dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
+  pm-web-jpa6,related,"2026-09-26T16:28:30.233Z",codex,"cli:update:dep",detected
+body: ""
