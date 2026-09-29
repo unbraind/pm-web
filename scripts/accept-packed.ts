@@ -49,6 +49,11 @@ const cleanEnvironment: NodeJS.ProcessEnv = {
   NPM_CONFIG_USERCONFIG: devNull,
   PM_TELEMETRY_DISABLED: "1",
 };
+// PM-linked tests select a sandbox through PM_PATH. Packed scenarios must
+// initialize their own tracker and never inherit that ancestor workspace.
+delete cleanEnvironment.PM_PATH;
+delete cleanEnvironment.PM_SOURCE_PM_PATH;
+delete cleanEnvironment.PM_SOURCE_WORKSPACE_ROOT;
 for (const key of Object.keys(cleanEnvironment)) {
   if (key.toLowerCase() === "npm_config_allow_scripts") delete cleanEnvironment[key];
 }
@@ -153,7 +158,7 @@ try {
       "--prefix",
       "accept",
     ]);
-    runPm(scenario, scenarioRoot, scenarioEnvironment, ["install", tarball, "--project"]);
+    runPm(scenario, scenarioRoot, scenarioEnvironment, ["package", "install", tarball, "--project"]);
     const status = runPm(scenario, scenarioRoot, scenarioEnvironment, [
       "web",
       "status",

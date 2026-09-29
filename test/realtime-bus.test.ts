@@ -23,6 +23,14 @@ function deliverSpy(): { records: DeliverRecord[]; fn: (projectId: string, event
   };
 }
 
+/** Deliver one envelope to a peer and return the single observable payload. */
+function deliveredData(envelope: string): SSEEvent["data"] {
+  const spy = deliverSpy();
+  handleIncomingEnvelope(envelope, "instance-B", spy.fn);
+  assert.equal(spy.records.length, 1);
+  return spy.records[0].event.data;
+}
+
 test("buildEnvelope + handleIncomingEnvelope delivers to a different replica", () => {
   const env = buildEnvelope(projectId, { type: "item-updated", data: { itemId: "x" } }, "instance-A");
   assert.equal(typeof env, "string");
@@ -84,10 +92,7 @@ test("buildEnvelope normalizes non-plain-object data to an empty object", () => 
   ]) {
     const env = buildEnvelope(projectId, { type: "item-updated", data }, "instance-A");
     assert.ok(env !== null);
-    const spy = deliverSpy();
-    handleIncomingEnvelope(env!, "instance-B", spy.fn);
-    assert.equal(spy.records.length, 1);
-    assert.deepEqual(spy.records[0].event.data, {});
+    assert.deepEqual(deliveredData(env!), {});
   }
 });
 
@@ -102,11 +107,8 @@ test("buildEnvelope drops non-whitelisted and over-long fields, bounding payload
   assert.ok(env !== null);
   assert.ok(Buffer.byteLength(env!, "utf8") <= 7_500);
 
-  const spy = deliverSpy();
-  handleIncomingEnvelope(env!, "instance-B", spy.fn);
-  assert.equal(spy.records.length, 1);
   // itemId dropped (too long), evil dropped (not whitelisted); count + source kept.
-  assert.deepEqual(spy.records[0].event.data, { count: 3, source: "cli" });
+  assert.deepEqual(deliveredData(env!), { count: 3, source: "cli" });
 });
 
 test("parseEnvelope is exported and round-trips a built envelope", () => {

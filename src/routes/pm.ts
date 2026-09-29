@@ -990,41 +990,23 @@ router.post("/items/:itemId/history-repair", async (req: AuthRequest, res) => {
   res.json(result.parsed || { ok: true, id: itemId });
 });
 
-// GET /api/projects/:projectId/pm/list
-router.get("/list", async (req: AuthRequest, res) => {
-  const project = await requireProject(req, res);
-  if (!project) return;
+// Keep the public /list-all compatibility route paginated while invoking the
+// canonical CLI/SDK list --all command. Whole-corpus views use readCompletePmItems.
+for (const route of [
+  { path: "/list", args: ["list"], filters: ["status", "type", "limit", "priority", "sprint", "release", "assignee"] },
+  { path: "/list-all", args: ["list", "--all"], filters: ["type", "limit"] },
+]) {
+  router.get(route.path, async (req: AuthRequest, res) => {
+    const project = await requireProject(req, res);
+    if (!project) return;
 
-  const { status, type, limit, priority, sprint, release, assignee, after } = req.query as Record<string, string>;
-  const result = await runCursorList(res, project, ["list"], [
-    ["--status", status],
-    ["--type", type],
-    ["--limit", limit],
-    ["--priority", priority],
-    ["--sprint", sprint],
-    ["--release", release],
-    ["--assignee", assignee],
-  ], after);
-  if (!result) return;
-  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
-});
-
-// GET /api/projects/:projectId/pm/list-all
-router.get("/list-all", async (req: AuthRequest, res) => {
-  const project = await requireProject(req, res);
-  if (!project) return;
-
-  const { type, limit, after } = req.query as Record<string, string>;
-  // Preserve the public HTTP compatibility route while invoking the canonical
-  // CLI/SDK command internally. This route is intentionally paginated and is
-  // therefore distinct from readCompletePmItems used by whole-corpus views.
-  const result = await runCursorList(res, project, ["list", "--all"], [
-    ["--type", type],
-    ["--limit", limit],
-  ], after);
-  if (!result) return;
-  res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
-});
+    const query = req.query as Record<string, string>;
+    const flags = route.filters.map((key): [string, string | undefined] => [`--${key}`, query[key]]);
+    const result = await runCursorList(res, project, route.args, flags, query.after);
+    if (!result) return;
+    res.json(result.ok ? (result.parsed || {}) : { error: result.stderr, items: [] });
+  });
+}
 
 // GET /api/projects/:projectId/pm/board
 // Kanban board: items grouped into columns by the workspace's runtime statuses

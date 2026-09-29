@@ -108,12 +108,9 @@ function makeDedupeReconciler(
   return { instances, reconcile };
 }
 
-/** Setup for dedupe tests: create the harness, run the initial reconcile so the
- * subscription is active, and return everything the test needs to push events
- * and assert outcomes. */
-async function setupDedupeTest(): Promise<{
-  instances: ReturnType<typeof makeSubscribeHarness>["instances"];
-  reconcile: () => Promise<void>;
+/** Start one subscription, seed a local-write signal for item-1, and queue the
+ * supplied events so both dedupe cases exercise the same delivery boundary. */
+async function setupDedupeTest(itemIds: readonly string[]): Promise<{
   emitted: EmitRecord[];
   errors: unknown[];
   signaled: Set<string>;
@@ -123,7 +120,9 @@ async function setupDedupeTest(): Promise<{
   const signaled = new Set<string>();
   const { instances, reconcile } = makeDedupeReconciler(emitted, errors, signaled);
   await reconcile();
-  return { instances, reconcile, emitted, errors, signaled };
+  signaled.add(`${PID_A} item-1`);
+  itemIds.forEach((itemId, index) => instances[0].events.push(makeEvent(itemId, `cursor-${index + 1}`)));
+  return { emitted, errors, signaled };
 }
 
 /** Build a reconciler over two projects (PID_A/PID_B) with a no-op emit. */
@@ -193,13 +192,7 @@ test("mutation-event watcher: inactive project aborts subscription and cleans up
 });
 
 test("mutation-event watcher: per-item dedupe skips events already announced by this instance", async () => {
-  const { instances, emitted, errors, signaled } = await setupDedupeTest();
-
-  // Mark item-1 as already announced (this instance's own API write).
-  signaled.add(`${PID_A} item-1`);
-  // item-2 is NOT signaled (another agent's write).
-  instances[0].events.push(makeEvent("item-1", "cursor-1"));
-  instances[0].events.push(makeEvent("item-2", "cursor-2"));
+  const { emitted, errors } = await setupDedupeTest(["item-1", "item-2"]);
 
   await new Promise((r) => { setTimeout(r, 50); });
 
@@ -217,15 +210,10 @@ test("mutation-event watcher: per-item dedupe skips events already announced by 
 // stale; with it, a surviving event always arrives and its authoritative refetch
 // covers whatever was suppressed.
 test("mutation-event watcher: a single per-item signal suppresses exactly one event, not the whole item stream", async () => {
-  const { instances, emitted, errors, signaled } = await setupDedupeTest();
+  const { emitted, errors, signaled } = await setupDedupeTest(["item-1", "item-1", "item-1"]);
 
   // ONE signal recorded for item-1, then THREE mutations of item-1 arrive —
   // e.g. this instance wrote once while another agent wrote twice.
-  signaled.add(`${PID_A} item-1`);
-  instances[0].events.push(makeEvent("item-1", "cursor-1"));
-  instances[0].events.push(makeEvent("item-1", "cursor-2"));
-  instances[0].events.push(makeEvent("item-1", "cursor-3"));
-
   await new Promise((r) => { setTimeout(r, 60); });
 
   // Exactly one suppressed; the remaining two still reach clients, so the
