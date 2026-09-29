@@ -1,0 +1,42 @@
+id: pm-web-8jjr
+title: jscpd 5.3.2 exposes pm-web zero-duplication failures
+description: "Dependabot PR #163 upgrades jscpd from 4.3.0 to 5.3.2. The unchanged zero-threshold gate reports ten clone pairs and 71 duplicated lines across graph rendering, PM routes, script entry guard, and HTTP/event tests."
+type: Issue
+status: in_progress
+priority: 1
+tags: []
+created_at: "2026-09-29T12:21:34.777Z"
+updated_at: "2026-09-29T12:44:50.890Z"
+assignee: codex
+claim_principal: codex
+author: codex
+estimated_minutes: 240
+acceptance_criteria: "Remove the detected duplication without relaxing the zero threshold; preserve graph, route, and realtime behavior; pass release and packed npm/Bun gates."
+reporter: codex
+severity: medium
+environment: "canonical pm-web checkout, PR #163 head dcb96dd, npm ci branch lockfile, Node 24.19"
+repro_steps: gh pr checkout 163; npm ci --ignore-scripts; npm run duplication
+expected_result: The unchanged zero-threshold duplication gate passes with zero clone pairs and the package release gate remains green.
+actual_result: duplication-gate reports 71/40295 duplicated lines across 141 sources and ten clone pairs; both PR Node CI jobs fail.
+notes[4]{created_at,author,text}:
+  "2026-09-29T12:33:07.927Z",codex,"At PR #163 head dcb96dd, jscpd 5.3.2 reported 71/40295 duplicated lines across ten clone pairs after npm ci; CI Node 22/26 failed. Reused the canonical entry guard, shared graph property filtering, unified two paginated PM list handlers, and consolidated repeated real-Postgres/realtime test setup without weakening assertions. The unchanged gate now reports 0/40200 lines and zero clone pairs. Typecheck passed. Full release:check rerun is underway after an unrelated live-fleet catalog snapshot drift was found and repaired under pm-web-bw5d."
+  "2026-09-29T12:37:27.892Z",codex,"After the catalog refresh, the direct full npm run release:check passed: typecheck, lint, zero-duplication gate (0/40199 lines across 141 sources), docstrings (599 declarations in 92 files), 408 tests with zero failures/skips, declared coverage gate (32 source files), production audit zero, pack, packed npm/Bun CLI 2026.9.23 acceptance, changelog and publish attestation. This is not all-source 100/100/100/100; separate pm-web-fy9a owns that gap. PM-linked full gate with tracker context is running to verify packed fixture isolation."
+  "2026-09-29T12:42:03.753Z",codex,"Additional latest-host packed acceptance at 2026-09-29 12:42 UTC: the candidate tarball installed in fresh synthetic npm/Node and Bun 1.3.5 projects alongside published @unbrained/pm-cli@2026.9.29. Both used canonical pm package install, pm web status --json returned down on their unused test ports, and pm health --strict-exit passed with zero warnings. The package built-in matrix remains pinned to CLI 2026.9.23; pm-web-cvny owns the wider pinned CLI/SDK alignment. scripts/accept-packed.ts now uses pm package install and clears inherited PM_PATH/source coordinates so its own fresh fixtures work when the gate runs through a PM linked test. Exact final-head PM-linked release:check is running."
+  "2026-09-29T12:44:50.890Z",codex,"Final PM-linked full release:check passed in tracker context after replacing the deprecated pm install command with pm package install and clearing inherited tracker coordinates. Its run completed typecheck, lint, zero-duplication, docstrings, 408 real suite tests, the package coverage gate, production audit, packed pinned-host acceptance, changelog, and attestation. The separate latest-host synthetic npm/Bun matrix passed on CLI 2026.9.29 with zero PM health warnings. Remaining all-source coverage, pinned CLI alignment, bot review, historical privacy certification, and hosted deployment are separate open gates."
+files[11]{path,scope,note}:
+  public/src/views/graph.ts,project,Shared relationship-property filtering
+  scripts/accept-packed.ts,project,Isolated packed fixture tracker when release gate runs through PM
+  scripts/docstring-gate.ts,project,Reuse canonical entry guard
+  src/routes/pm.ts,project,Shared list-route registration
+  test/docstring-gate.test.ts,project,Guard regression assertions
+  test/groups-routes.test.ts,project,Shared real-Postgres setup
+  test/helpers/pg-harness.ts,project,Shared owner-app fixture
+  test/mutation-event-watcher.test.ts,project,Distinct dedupe event cases
+  test/projects-routes.test.ts,project,Shared project route setup
+  test/realtime-bus.test.ts,project,Shared delivery assertion
+  test/sharing-routes.test.ts,project,Reuse owner-app setup
+tests[1]{command,path,scope,timeout_seconds,pm_context_mode,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run release:check",package.json,project,1200,tracker,codex,"2026-09-29T12:21:34.777Z",local_mutation,dependabot/npm_and_yarn/jscpd-5.3.2
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-web/pull/163",global,Dependency candidate
+body: ""

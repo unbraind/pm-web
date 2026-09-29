@@ -19,7 +19,8 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 
-import { isMainInvocation, main, runGate } from "../scripts/docstring-gate.ts";
+import { main, runGate } from "../scripts/docstring-gate.ts";
+import { isMainInvocation } from "../scripts/main-invocation.ts";
 
 /** This package's own root, the default the CLI entry point scans. */
 const packageRoot = resolve(import.meta.dirname, "..");
