@@ -25,11 +25,26 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   await ensureSchema();
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-graph-read-"));
   const previousRoot = process.env.PROJECTS_ROOT;
+  const previousMarker = process.env.PM_WEB_GRAPH_READ_MARKER;
+  let server: Awaited<ReturnType<typeof startApp>> | undefined;
   process.env.PROJECTS_ROOT = root;
   t.after(async () => {
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-    await rm(root, { recursive: true, force: true });
+    try {
+      if (server !== undefined) {
+        try {
+          assert.equal(existsSync(root), true, "the server closes before workspace deletion");
+          assert.equal(process.env.PROJECTS_ROOT, root, "the server closes before environment restoration");
+        } finally {
+          await server.close();
+        }
+      }
+    } finally {
+      if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
+      else process.env.PROJECTS_ROOT = previousRoot;
+      if (previousMarker === undefined) delete process.env.PM_WEB_GRAPH_READ_MARKER;
+      else process.env.PM_WEB_GRAPH_READ_MARKER = previousMarker;
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   const owner = await seedUser(uniqueEmail("graph-owner"));
@@ -66,12 +81,7 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   }));
   await writeFile(path.join(markerExtension, "index.mjs"),
     'import { writeFileSync } from "node:fs"; export function activate() { writeFileSync(process.env.PM_WEB_GRAPH_READ_MARKER, "activated"); }\n');
-  const previousMarker = process.env.PM_WEB_GRAPH_READ_MARKER;
   process.env.PM_WEB_GRAPH_READ_MARKER = marker;
-  t.after(() => {
-    if (previousMarker === undefined) delete process.env.PM_WEB_GRAPH_READ_MARKER;
-    else process.env.PM_WEB_GRAPH_READ_MARKER = previousMarker;
-  });
   execFileSync("pm", ["extension", "--json", "--pm-path", pmRoot], { stdio: "ignore" });
   assert.equal(existsSync(marker), true, "the control proves an extension-state probe activates extensions");
   await unlink(marker);
@@ -80,8 +90,7 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   const settingsBefore = await readFile(settingsFile);
   assert.equal(existsSync(graphInstall), false);
 
-  const server = await startApp();
-  t.after(() => server.close());
+  server = await startApp();
   const url = `/api/projects/${project.id}/pm/graph`;
   const get = await authedFetch(server, viewer, url);
   assert.equal(get.status, 200);

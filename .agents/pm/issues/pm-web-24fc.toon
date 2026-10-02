@@ -2,17 +2,18 @@ id: pm-web-24fc
 title: Graph neighbors GET activates extension code for view-only collaborators
 description: "GET /api/projects/:projectId/pm/graph/neighbors/:nodeId is exempt from edit permission but calls projectPm with pm-graph neighbors. The pm CLI loads and activates installed extensions for that command, so a viewer can trigger extension activation through a safe-method route. This route does not call ensureGraphExtension, so it is distinct from the graph overview provisioning bug pm-web-jpa6. Confirm with a real marker-extension route test and move the read to an observational, tenant-scoped path without removing neighbor information."
 type: Issue
-status: in_progress
+status: blocked
 priority: 0
 tags: []
 created_at: "2026-09-26T16:28:18.370Z"
-updated_at: "2026-09-26T17:19:15.075Z"
-assignee: codex
-claim_principal: codex
+updated_at: "2026-10-02T23:39:09.513Z"
 author: codex
 acceptance_criteria: "A view-only GET/HEAD neighbors request never installs, activates, or mutates extensions; it returns accurate one-hop neighbors for authorized project data; the existing response contract is preserved or explicitly versioned; real HTTP/PostgreSQL/PM workspace tests prove activation marker absence, viewer access, edit guard on any provisioning, and tenant isolation."
+blocked_reason: Observational neighbors fix is included in PR 161; extension-native response parity/versioning remains open under pm-web-38n5 and required review/coverage/hosted gates remain separate
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-jpa6,related,"2026-09-26T16:28:29.603Z",codex,"cli:update:dep",detected
+comments[1]{created_at,author,text}:
+  "2026-10-02T23:39:08.070Z",codex-sol,"Restart review clarification: ae65f73 deliberately changes installed-extension responses to extensionAvailable=false and the built-in pm-web neighbors shape (center plus one-hop incoming/outgoing neighbors). Safe GET/HEAD no longer activates pm-graph or returns its native payload. No version field was introduced. Existing extension-native response parity is NOT proven or marked met; that acceptance remains open under related pm-web-38n5. Real graph regression proves the built-in shape and security boundary, not extension-native parity. Preserve four-metric coverage and independent review/deployment prerequisites."
 notes[2]{created_at,author,text}:
   "2026-09-26T17:09:23.503Z",codex,"TDD: the existing neighbor route failed the new real HTTP/PostgreSQL/PM workspace test because it returned no center and activated extensions for a viewer. The observational fallback now returns one-hop outgoing and incoming relationships, a null center for missing or other-project node IDs, and leaves extension settings/install/marker untouched. Focused test passes. Typecheck, lint, and 0%-clone gate also pass; full release gate and exact-head review remain pending."
   "2026-09-26T17:19:15.048Z",codex,"Final observational neighbors implementation: GET/HEAD uses fallbackGraphForProject (SDK certified complete-list read with noExtensions), returns one-hop outgoing/incoming data, missing nodes as null, and isolates a second project. Real HTTP/PostgreSQL/PM marker-extension regression failed before change and now passes as linked test 1/1. npm run release:check exits 0: 409/409 tests, 0 skipped, 0 clone pairs across 142 TS sources, 600 documented declarations, 0 production audit vulnerabilities, packed npm/Bun acceptance. Measured overall source coverage 84.39% lines, 80.48% branches, 77.82% functions, below the user’s 100% target. pm health strict ok=true with 2 stale-item advisories. Hosted deployment and exact-head bot review remain pending."
