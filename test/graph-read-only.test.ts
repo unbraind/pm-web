@@ -26,16 +26,16 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-graph-read-"));
   const previousRoot = process.env.PROJECTS_ROOT;
   const previousMarker = process.env.PM_WEB_GRAPH_READ_MARKER;
-  let server: Awaited<ReturnType<typeof startApp>> | undefined;
+  const fixture: { server?: Awaited<ReturnType<typeof startApp>> } = {};
   process.env.PROJECTS_ROOT = root;
   t.after(async () => {
     try {
-      if (server !== undefined) {
+      if (fixture.server !== undefined) {
         try {
           assert.equal(existsSync(root), true, "the server closes before workspace deletion");
           assert.equal(process.env.PROJECTS_ROOT, root, "the server closes before environment restoration");
         } finally {
-          await server.close();
+          await fixture.server.close();
         }
       }
     } finally {
@@ -90,7 +90,8 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   const settingsBefore = await readFile(settingsFile);
   assert.equal(existsSync(graphInstall), false);
 
-  server = await startApp();
+  const server = await startApp();
+  fixture.server = server;
   const url = `/api/projects/${project.id}/pm/graph`;
   const get = await authedFetch(server, viewer, url);
   assert.equal(get.status, 200);
