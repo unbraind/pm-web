@@ -6,10 +6,11 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-08-28T23:25:38.715Z"
-updated_at: "2026-09-29T12:45:01.300Z"
-assignee: codex
-claim_principal: codex
+updated_at: "2026-10-03T00:35:45.718Z"
 author: claude
+comments[2]{created_at,author,text}:
+  "2026-10-03T00:24:19.226Z",codex-sol-land,"The PR #163 full gate reproduced stale live-fleet snapshot metadata for pm-ts-starter (SDK description 2026.7.6 versus live 2026.9.29). Reuse this catalog drift owner; existing freshness regression is red. Regenerate through npm run fleet:snapshot, retain registry verification and all completeness gates, and rerun the direct/PM-linked catalog regression plus the full PostgreSQL 17 release gate."
+  "2026-10-03T00:29:50.353Z",codex-sol-land,"Regenerated the live-fleet snapshot through the repository generator. The existing freshness regression was red before the update and passes 12/12 directly and through its existing PM test link; full release:check now passes 408 tests, 408 pass, 0 skips against disposable PostgreSQL 17 with unchanged gates. Only the pm-ts-starter description changed. The existing historical privacy/review blockers remain separate."
 notes[3]{created_at,author,text}:
   "2026-08-28T23:25:39.165Z",claude,"pm-rl merged an extension mutation guard on 2026-08-28 (unbraind/pm-rl#18), which added a hooks capability to its manifest.json. The catalog entry in src/services/package-catalog.ts still declared capabilities [commands, schema], so test/catalog.test.ts failed with: pm-rl: catalog capabilities must match manifest capabilities, actual [commands, hooks, schema] against expected [commands, schema]. Updated the entry to [commands, hooks, schema]. Worth noting the test did its job: this is a hand-maintained mirror of another repository's manifest, so it goes stale whenever any of the 20 packages changes its declared capabilities, and only this repository's own test notices. The catalog test is therefore the fleet's only detector for capability drift, and it can only run here."
   "2026-09-29T12:33:09.583Z",codex,"The live canonical pm-ado manifest changed its description to a client-foundation statement and explicitly says full sync/revision-to-history work is planned. This made pm-web's existing catalog test and snapshot freshness gate fail. Refreshed the 20-extension snapshot with npm run fleet:snapshot and aligned the user-facing pm-ado catalog description to the manifest. Direct and PM-linked catalog tests now pass 12/12; package release gate rerun is pending."
@@ -19,4 +20,6 @@ files[2]{path,scope,note}:
   test/fleet-extensions.snapshot.json,project,Complete 20-extension snapshot regenerated from canonical sibling repos
 tests[1]{command,path,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
   node --test test/catalog.test.ts,test/catalog.test.ts,project,120,codex,"2026-09-29T12:32:19.888Z",local_mutation,dependabot/npm_and_yarn/jscpd-5.3.2
+docs[1]{path,scope}:
+  "https://github.com/unbraind/pm-web/pull/163",project
 body: ""
