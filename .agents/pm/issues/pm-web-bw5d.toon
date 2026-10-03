@@ -2,12 +2,22 @@ id: pm-web-bw5d
 title: The package catalog went stale when pm-rl gained a hooks capability
 description: ""
 type: Issue
-status: open
+status: blocked
 priority: 2
 tags: []
 created_at: "2026-08-28T23:25:38.715Z"
-updated_at: "2026-08-28T23:25:39.179Z"
+updated_at: "2026-10-02T23:21:57.956Z"
 author: claude
+comments[2]{created_at,author,text}:
+  "2026-10-02T22:28:15.925Z",codex-sol,"Reusing existing catalog-drift item for PR #161 gate repair. PM_FLEET_ROOT full gate failed two existing assertions (407/409 pass): pm-ado description overclaims sync/revision reconciliation, and live snapshot has changed pm-ado / TS Starter descriptions. Preserve capabilities/publication constraints and all assertions; align catalog to real manifest and regenerate snapshot with own script. No canonical fleet source edits or hosted operations."
+  "2026-10-02T23:21:56.810Z",codex-sol,"Existing static-manifest and snapshot assertions failed before repair, then all 12 catalog tests and linked acceptance passed. Updated only pm-ado foundation description in static catalog and regenerated snapshot with own fleet:snapshot script; snapshot also records TS Starter checked SDK 2026.9.29. Full locked release:check with explicit canonical PM_FLEET_ROOT now passes 409/409, zero skips. Catalog source and generated dist are committed with this item/history; release claim for orchestrator review, no closure."
 notes[1]{created_at,author,text}:
   "2026-08-28T23:25:39.165Z",claude,"pm-rl merged an extension mutation guard on 2026-08-28 (unbraind/pm-rl#18), which added a hooks capability to its manifest.json. The catalog entry in src/services/package-catalog.ts still declared capabilities [commands, schema], so test/catalog.test.ts failed with: pm-rl: catalog capabilities must match manifest capabilities, actual [commands, hooks, schema] against expected [commands, schema]. Updated the entry to [commands, hooks, schema]. Worth noting the test did its job: this is a hand-maintained mirror of another repository's manifest, so it goes stale whenever any of the 20 packages changes its declared capabilities, and only this repository's own test notices. The catalog test is therefore the fleet's only detector for capability drift, and it can only run here."
+files[2]{path,scope}:
+  src/services/package-catalog.ts,project
+  test/fleet-extensions.snapshot.json,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/catalog.test.ts,project,codex-sol,"2026-10-02T22:42:10.509Z",local_mutation,land-restart/pm-web-161
+docs[1]{path,scope}:
+  README.md,project
 body: ""

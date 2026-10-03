@@ -286,14 +286,19 @@ function normalizeDependencyKind(input: string | undefined): string {
  */
 function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<string, unknown>>>): ProjectGraph {
   const nodesById = new Map<string, GraphNode>();
+  const itemIds = new Set(items.map((item) => item.id));
   const relationships: GraphRelationship[] = [];
+  const relationshipKeys = new Set<string>();
 
   const addNode = (node: GraphNode) => {
     if (!nodesById.has(node.id)) nodesById.set(node.id, node);
   };
 
   const addRelationship = (from: string, to: string, type: string, properties: Record<string, unknown>) => {
-    if (!nodesById.has(to) && !items.some((item) => item.id === to)) {
+    const key = JSON.stringify([from, to, type]);
+    if (relationshipKeys.has(key)) return;
+    relationshipKeys.add(key);
+    if (!nodesById.has(to) && !itemIds.has(to)) {
       addNode({
         id: to,
         labels: ["ExternalPmItem"],
@@ -340,14 +345,10 @@ function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<st
       ...(item.dependencies ?? []),
       ...(depsByItem.get(item.id) ?? []),
     ];
-    const seenDeps = new Set<string>();
     for (const dep of deps) {
       const target = dependencyTarget(dep);
       if (!target) continue;
       const type = graphRelationshipType(dep.type ?? dep.kind ?? dep.relation ?? dep.rel ?? dep.relationship);
-      const key = `${item.id}->${target}:${type}`;
-      if (seenDeps.has(key)) continue;
-      seenDeps.add(key);
       addRelationship(item.id, target, type, { ...dep });
     }
 
@@ -385,11 +386,7 @@ function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<st
     generatedAt: new Date().toISOString(),
     source: "pm-web",
     nodes: Array.from(nodesById.values()),
-    relationships: relationships.filter((rel, index, all) =>
-      all.findIndex((candidate) =>
-        candidate.from === rel.from && candidate.to === rel.to && candidate.type === rel.type
-      ) === index
-    ),
+    relationships,
   };
 }
 
@@ -552,7 +549,7 @@ function itemsFromCompleteList(parsed: unknown): PmItem[] {
  * @returns A pm-web-sourced project graph.
  */
 async function fallbackGraphForProject(ownerUserId: string, slug: string): Promise<ProjectGraph> {
-  const itemsResult = await readCompletePmItems(ownerUserId, slug);
+  const itemsResult = await readCompletePmItems(ownerUserId, slug, false, true);
   if (!itemsResult.ok) throw new Error(itemsResult.stderr || "Failed to load items for graph");
 
   const items = itemsFromCompleteList(itemsResult.result);
@@ -564,8 +561,8 @@ async function fallbackGraphForProject(ownerUserId: string, slug: string): Promi
 /**
  * Fetch a project graph from the `pm-graph` extension, when installed.
  *
- * Ensures the extension is provisioned for the project (returning `{ error }`
- * if that fails), runs `pm-graph export --json`, and parses its output. Returns
+ * Used only by edit-protected graph sync. Provisions the extension if needed,
+ * then runs `pm-graph export --json` and parses its output. Returns
  * `{ graph }` when the extension produced valid JSON with a graph, otherwise an
  * `{ error }` so the caller can fall back to a pm-web-built graph.
  *
@@ -574,9 +571,7 @@ async function fallbackGraphForProject(ownerUserId: string, slug: string): Promi
  */
 async function pmGraphExtensionGraphForProject(project: ProjectRef): Promise<{ graph?: ProjectGraph; error?: string }> {
   const provision = await ensureGraphExtension(project.ownerUserId, project.slug);
-  if (!provision.ok) {
-    return { error: provision.error };
-  }
+  if (!provision.ok) return { error: provision.error };
 
   const extensionResult = await projectPm(project, ["pm-graph", "export", "--json"], false);
   let extensionData: { graph?: ProjectGraph } | undefined;
@@ -1520,22 +1515,11 @@ router.get("/graph", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
-  const extensionGraph = await pmGraphExtensionGraphForProject(project);
-  if (extensionGraph.graph) {
-    res.json({
-      ok: true,
-      graph: extensionGraph.graph,
-      extensionAvailable: true,
-    });
-    return;
-  }
-
   try {
     res.json({
       ok: true,
       graph: await fallbackGraphForProject(project.ownerUserId, project.slug),
       extensionAvailable: false,
-      extensionError: extensionGraph.error,
     });
   } catch (err: unknown) {
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
@@ -1582,19 +1566,31 @@ router.get("/graph/neighbors/:nodeId", async (req: AuthRequest, res) => {
   const nodeId = routeParam(req, "nodeId");
   if (!nodeId) { res.status(400).json({ error: "nodeId is required" }); return; }
 
-  const result = await projectPm(project, ["pm-graph", "neighbors", nodeId, "--json"], false);
-
-  if (!result.ok) {
-    // Extension not available — return empty neighbors
-    res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, error: result.stderr || "pm-graph extension not available" });
-    return;
-  }
-
   try {
-    const parsed = result.stdout ? JSON.parse(result.stdout) as unknown : null;
-    res.json({ ok: true, ...(parsed as Record<string, unknown>), extensionAvailable: true });
-  } catch {
-    res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, error: "pm-graph neighbors returned invalid JSON" });
+    const graph = await fallbackGraphForProject(project.ownerUserId, project.slug);
+    const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+    const center = nodesById.get(nodeId);
+    if (!center) {
+      res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, message: `No node found with id "${nodeId}".` });
+      return;
+    }
+    const neighbors = graph.relationships
+      .filter((edge) => edge.from === nodeId || edge.to === nodeId)
+      .map((edge) => {
+        // graphFromItems creates both endpoint nodes for every relationship.
+        const node = nodesById.get(edge.from === nodeId ? edge.to : edge.from)!;
+        return {
+          node: { ...node.properties, _labels: node.labels },
+          relationship: {
+            type: edge.type,
+            direction: edge.from === nodeId ? "outgoing" : "incoming",
+            properties: { ...edge.properties, _type: edge.type },
+          },
+        };
+      });
+    res.json({ ok: true, center: { ...center.properties, _labels: center.labels }, neighbors, extensionAvailable: false });
+  } catch (err: unknown) {
+    res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
