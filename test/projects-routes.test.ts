@@ -301,9 +301,7 @@ test("projects: create without a description defaults to empty", async (t) => {
 });
 
 test("projects: patch with only a name leaves the description untouched", async (t) => {
-  const { server, owner } = await setupOwnerProjectTest(t);
-  const fs = await setupFsHarness();
-  t.after(() => fs.restore());
+  const { server, owner } = await setupProjectsTest(t);
   // Seed a non-empty description: with an empty one the assertion below could
   // not distinguish "preserved" from "wiped".
   const project = await seedProject(owner.id, undefined, { description: "keep me" });
@@ -313,9 +311,7 @@ test("projects: patch with only a name leaves the description untouched", async 
 });
 
 test("projects: patching only the description preserves the name (partial update)", async (t) => {
-  const { server, owner } = await setupOwnerProjectTest(t);
-  const fs = await setupFsHarness();
-  t.after(() => fs.restore());
+  const { server, owner } = await setupProjectsTest(t);
   // Seed a non-empty name: with the default ("P") the assertion could not tell
   // "preserved" from "reset to default".
   const project = await seedProject(owner.id, undefined, { name: "OriginalName", description: "old" });

@@ -20,6 +20,7 @@ import {
   seedUser,
   seedUserShare,
   seedGroupShare,
+  setupOwnerAppTest,
   setupOwnerProjectTest,
   startApp,
   uniqueEmail,
@@ -244,11 +245,7 @@ test("sharing: shared-with-me lists user and group shares, excludes the unshared
 });
 
 test("sharing: a malformed project identifier is rejected with 400 before reaching SQL", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupOwnerAppTest(t);
   // A non-UUID id makes the ownership-check query throw a syntax error; the
   // requireUuidParams rejects the mount-path id first, so the client gets an
   // accurate 400 and the project's existence is never consulted.

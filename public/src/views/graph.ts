@@ -251,6 +251,13 @@ function degreeMap(rels: GraphRelationship[]): Map<string, number> {
   return m;
 }
 
+/** Retain relationship properties that have a visible value in either graph panel. */
+function visibleRelationshipProperties(rel: GraphRelationship): Array<[string, unknown]> {
+  return rel.properties
+    ? Object.entries(rel.properties).filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    : [];
+}
+
 function isDependencyRel(rel: GraphRelationship): boolean {
   return DEP_REL_TYPES.has(rel.type);
 }
@@ -568,7 +575,7 @@ function renderSelectedNode(
             const other   = byId.get(otherId);
             const dir     = r.from === node.id ? '→' : '←';
             // Show any non-trivial relationship properties (e.g. weight, since, note)
-            const relProps = r.properties ? Object.entries(r.properties).filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '') : [];
+            const relProps = visibleRelationshipProperties(r);
             const propHint = relProps.length > 0
               ? ` <span style="font-size:10px;color:var(--text-muted);opacity:0.8">[${relProps.slice(0,3).map(([k,v])=>`${k}:${escHtml(String(v))}`).join(', ')}]</span>`
               : '';
@@ -769,7 +776,7 @@ function renderRelList(data: GraphResponse): string {
   const rows = visRels.slice(0, 100).map((r) => {
     const from = byId.get(r.from);
     const to   = byId.get(r.to);
-    const relProps = r.properties ? Object.entries(r.properties).filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '') : [];
+    const relProps = visibleRelationshipProperties(r);
     const propHtml = relProps.length > 0
       ? `<div class="graph-rel-props">${relProps.slice(0, 4).map(([k, v]) => `<span><em>${escHtml(k)}</em> ${escHtml(String(v))}</span>`).join('')}</div>`
       : '';

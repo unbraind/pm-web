@@ -1,0 +1,31 @@
+id: pm-web-k77v
+title: Update pm-web production ip-address dependency past 10.5.0 advisories
+description: npm ci on pm-web PR #163 resolved express-rate-limit to ip-address 10.5.0. npm audit reported two moderate SSRF classifier advisories (GHSA-rpw4-54j3-4h4q and GHSA-2vr4-cq9g-pvrc); GitHub advisory confirms 10.5.1 is patched for the link-local finding.
+type: Issue
+status: in_progress
+priority: 1
+tags: []
+created_at: "2026-09-29T12:27:14.956Z"
+updated_at: "2026-09-29T12:45:00.583Z"
+assignee: codex
+claim_principal: codex
+author: codex
+estimated_minutes: 45
+acceptance_criteria: Lockfile resolves ip-address at a patched version; production and full npm audit report zero vulnerabilities; package release gates pass.
+reporter: codex
+severity: medium
+environment: pm-web PR #163 package-lock.json; express-rate-limit 8.7.0 transitive production dependency
+repro_steps: npm ci --ignore-scripts; npm ls ip-address; npm audit --omit=dev --json
+expected_result: Production dependency tree resolves a patched ip-address version; npm audit --omit=dev reports zero findings.
+actual_result: ip-address 10.5.0 resolved and npm audit reports one package with two moderate advisories.
+notes[2]{created_at,author,text}:
+  "2026-09-29T12:33:08.873Z",codex,"Official GitHub advisories GHSA-rpw4-54j3-4h4q and GHSA-2vr4-cq9g-pvrc affected transitive production ip-address 10.5.0 from express-rate-limit 8.7.0. npm audit fix --package-lock-only resolved ip-address 10.7.2; clean npm ci, full npm audit, and the PM-linked npm run audit:prod now each report zero vulnerabilities. Full package release gate is still being rerun before candidate PR push."
+  "2026-09-29T12:45:00.583Z",codex,"The exact candidate's PM-linked release:check now passes after clean npm ci on lockfile ip-address 10.7.2. It includes production audit with zero findings and packed acceptance. GitHub CI, bot review, and historical publication clearance remain unverified; this item stays in progress on PR #163."
+files[1]{path,scope,note}:
+  package-lock.json,project,Production transitive resolution
+tests[1]{command,path,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run audit:prod",package.json,project,300,codex,"2026-09-29T12:27:14.956Z",local_mutation,dependabot/npm_and_yarn/jscpd-5.3.2
+docs[2]{path,scope,note}:
+  "https://github.com/advisories/GHSA-2vr4-cq9g-pvrc",global,Second npm audit advisory
+  "https://github.com/advisories/GHSA-rpw4-54j3-4h4q",global,GitHub reviewed advisory; patched at 10.5.1
+body: ""

@@ -1,0 +1,23 @@
+id: pm-web-fy9a
+title: Expand pm-web coverage gate to every executable source file and all four 100% metrics
+description: "The current release:check passed 408 real-Postgres and other tests, but coverage-gate reported only 32 source files with several measured branch/function percentages below 100. This does not meet the requested all-source 100/100/100/100 quality gate. The existing pm-web-9ulj issue specifically owns route-layer real-Postgres integration; this item owns gate scope and all four metrics across every executable source file."
+type: Issue
+status: open
+priority: 1
+tags: []
+created_at: "2026-09-29T12:36:48.604Z"
+updated_at: "2026-09-29T12:36:48.604Z"
+author: codex
+estimated_minutes: 960
+acceptance_criteria: "Measure and require 100% statements, branches, functions, and lines for every executable source file; retain real integration and route tests; fail when a file is omitted or coverage data is missing; avoid artificial tests or coverage exclusions."
+reporter: codex
+severity: medium
+environment: "pm-web PR #163 release:check 2026-09-29; coverage-gate 32 reported source files"
+repro_steps: npm run coverage; inspect the per-file coverage table and scripts/coverage-gate.ts source inclusion and thresholds.
+expected_result: "All executable TypeScript source files are included and statements, branches, functions, and lines each measure 100% through real behavior tests."
+actual_result: Current gate says thresholds met for 32 source files while several per-file metrics are below 100 and executable source outside that declared set is unmeasured.
+files[1]{path,scope,note}:
+  scripts/coverage-gate.ts,project,Current scope and threshold enforcement
+docs[1]{path,scope,note}:
+  "https://github.com/unbraind/pm-web/pull/163",global,Measured 408-test candidate exposing the gap
+body: ""
