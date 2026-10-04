@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Auto-merge green Dependabot updates and group the pm toolchain into one daily PR ([pm-web-56no](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-56no.toon))
+
 ## 2026.9.26 - 2026-09-26
 
 ### Other
