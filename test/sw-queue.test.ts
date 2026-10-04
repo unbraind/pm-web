@@ -72,6 +72,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 async function withMockedFetch(
   fetchImpl: typeof globalThis.fetch,
   getAllImpl?: () => IDBRequest,
+  operation: () => Promise<void> = internals.flushMutationQueue,
 ): Promise<void> {
   const originalFetch = globalThis.fetch;
   const originalGetAll = mockStore.getAll;
@@ -80,7 +81,7 @@ async function withMockedFetch(
     if (getAllImpl) {
       (mockStore as unknown as Record<string, unknown>).getAll = getAllImpl;
     }
-    await internals.flushMutationQueue();
+    await operation();
   } finally {
     (mockStore as unknown as Record<string, unknown>).getAll = originalGetAll;
     (globalThis as unknown as Record<string, unknown>).fetch = originalFetch;
@@ -185,7 +186,7 @@ test("sw queue: a queued mutation is bound to the broadcast account, its workspa
   assert.notEqual(second.idempotencyKey, added.idempotencyKey, "each record gets a distinct key");
 
   // Account-level mutations (no /projects/<id> segment) have no workspace.
-  await internals.queueMutation("PATCH", "/auth/profile", { displayName: "Alice" });
+  await internals.queueMutation("PATCH", "/groups/profile", { displayName: "Alice" });
   const profile = swQueue.lastAdded as Record<string, unknown>;
   assert.equal(profile.ownerId, "user-alice");
   assert.equal(profile.workspace, null, "an account-level mutation has no workspace");
@@ -458,7 +459,8 @@ test("sw queue: explicit recovery rebinds unknown-owner records to the current s
   assert.equal(swQueue.deleteCallCount, 0, "the blocked record is not cleared");
 
   // Explicit recovery: the signed-in user adopts the unknown-owner record.
-  await internals.rebindRecords();
+  await withMockedFetch(async () => meResponse("user-bob", "current-token"), undefined,
+    () => internals.rebindRecords!(undefined, "user-bob"));
   assert.match(String((swQueue.putValues[0] as Record<string, unknown>).idempotencyKey), UUID_PATTERN);
   assert.deepEqual(
     swQueue.putValues,
@@ -494,7 +496,8 @@ test("sw queue: explicit recovery never adopts a record already owned by another
   swQueue.getAllShouldFail = false;
   swQueue.putValues.length = 0;
 
-  await internals.rebindRecords();
+  await withMockedFetch(async () => meResponse("user-bob", "current-token"), undefined,
+    () => internals.rebindRecords!(undefined, "user-bob"));
 
   assert.deepEqual(swQueue.putValues, [], "a foreign-owned record is never reassigned");
   const record = swQueue.getAllResult[0] as Record<string, unknown>;
@@ -611,4 +614,60 @@ test("sw queue: AUTH_SESSION extends event lifetime and handles storage failure"
     if (!fail) assert.deepEqual(swQueue.sessionRecord, { key: "current", userId: "user-lifetime" });
   }
   Object.assign(swQueue, { openShouldFail: false });
+});
+
+test("sw queue: auth requests are never keyed, queued or replayed from legacy records", async () => {
+  const originalFetch = globalThis.fetch;
+  const attempts: Request[] = [];
+  globalThis.fetch = async (input) => {
+    attempts.push(input as Request);
+    throw new TypeError("offline auth request");
+  };
+  try {
+    swQueue.addedValues.length = 0;
+    for (const path of ["login", "logout", "register", "session"]) {
+      let response: Promise<Response> | undefined;
+      swQueue.listeners.fetch({
+        request: new Request(`https://pm.example/api/auth/${path}`, { method: "POST", headers: { "idempotency-key": "caller-auth-key" } }),
+        respondWith: (promise: Promise<Response>) => { response = promise; },
+      });
+      assert.ok(response);
+      await assert.rejects(response, /offline auth request/);
+    }
+    assert.ok(attempts.every((request) => !request.headers.has("idempotency-key")));
+    assert.equal(swQueue.addedValues.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  swQueue.getAllResult = [queuedRecord({ id: 99, path: "/auth/logout", ownerId: "user-alice", idempotencyKey: "legacy-auth-key" })];
+  assert.deepEqual(await flushAs("user-alice"), []);
+  assert.equal(swQueue.getAllResult.length, 1, "legacy auth work is preserved for manual recovery");
+});
+
+test("sw queue: overlapping adoptions read and write in one transaction and keep existing keys", async () => {
+  swQueue.getAllResult = [
+    queuedRecord({ id: 101, path: "/groups", idempotencyKey: "existing-original-key" }),
+    queuedRecord({ id: 102, path: "/groups" }),
+    queuedRecord({ id: 103, path: "/groups" }),
+  ];
+  swQueue.putValues.length = 0;
+  swQueue.transactions.length = 0;
+  await withMockedFetch(async (_input, init) => {
+    assert.equal(new Headers(init?.headers).get("x-pm-expected-account"), "user-alice");
+    return meResponse("user-alice", "current-token");
+  }, undefined, async () => {
+    await Promise.all([
+      internals.rebindRecords!([101, 102], "user-alice"),
+      internals.rebindRecords!([101, 102], "user-alice"),
+    ]);
+  });
+  assert.equal(swQueue.putValues.length, 2, "one adoption write per selected record");
+  const records = swQueue.getAllResult as Array<Record<string, unknown>>;
+  assert.equal(records[0].idempotencyKey, "existing-original-key");
+  assert.equal(records[0].ownerId, "user-alice");
+  assert.equal(records[1].ownerId, "user-alice");
+  assert.equal(records[2].ownerId, undefined, "unselected work remains unknown");
+  assert.match(String(records[1].idempotencyKey), UUID_PATTERN);
+  assert.ok(swQueue.transactions.some((transaction) => transaction.mode === "readwrite"
+    && transaction.operations.join(",") === "getAll,put,put"));
 });

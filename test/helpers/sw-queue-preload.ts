@@ -33,6 +33,8 @@ export const swQueue = {
   postedMessages: [] as { type: string; [key: string]: unknown }[],
   /** Event listeners the worker registered, keyed by event type. */
   listeners: {} as Record<string, (event: unknown) => void>,
+  /** Store operations grouped by transaction, proving adoption reads and writes atomically. */
+  transactions: [] as Array<{ store: string; mode?: IDBTransactionMode; operations: string[] }>,
 };
 
 /**
@@ -60,7 +62,7 @@ export function mockRequest(result: unknown, shouldFail: boolean): IDBRequest {
  * IndexedDB store would, so a second flush within one test observes exactly
  * the records that survived the first one instead of the seeded snapshot. */
 export const mockStore: IDBObjectStore = {
-  getAll: () => mockRequest(swQueue.getAllResult, swQueue.getAllShouldFail),
+  getAll: () => mockRequest(structuredClone(swQueue.getAllResult), swQueue.getAllShouldFail),
   add: (value: unknown) => {
     swQueue.addCallCount += 1;
     swQueue.lastAdded = value;
@@ -121,19 +123,27 @@ const mockSessionStore: IDBObjectStore = {
  * assignment overwrite the earlier waiters', deadlocking every parallel
  * queue operation.
  */
-function openMockTransaction(name: string): IDBTransaction {
+function openMockTransaction(name: string, mode?: IDBTransactionMode): IDBTransaction {
+  const entry = { store: name, mode, operations: [] as string[] };
+  swQueue.transactions.push(entry);
+  const store = name === "session" ? mockSessionStore : Object.assign({}, mockStore, {
+    /** Log a transactional read without changing the fixture's request behavior. */
+    getAll: (): IDBRequest => { entry.operations.push("getAll"); return mockStore.getAll(); },
+    /** Log a transactional write without changing the fixture's persistence behavior. */
+    put: (value: unknown): IDBRequest => { entry.operations.push("put"); return mockStore.put(value); },
+  });
   const tx: IDBTransaction = {
-    objectStore: () => (name === "session" ? mockSessionStore : mockStore),
+    objectStore: () => store,
     oncomplete: null,
     onabort: null,
     onerror: null,
   } as unknown as IDBTransaction;
-  queueMicrotask(() => (tx.oncomplete as (() => void) | null)?.());
+  setTimeout(() => (tx.oncomplete as (() => void) | null)?.(), 0);
   return tx;
 }
 
 const mockDB: IDBDatabase = {
-  transaction: (storeName: string) => openMockTransaction(storeName),
+  transaction: (storeName: string, mode?: IDBTransactionMode) => openMockTransaction(storeName, mode),
   objectStoreNames: { contains: () => true } as unknown as DOMStringList,
   close: () => {},
 } as unknown as IDBDatabase;
@@ -183,8 +193,8 @@ export interface SwQueueInternals {
   queueMutation: (method: string, path: string, body: unknown) => Promise<boolean>;
   /** Persists the signed-in account the way the AUTH_SESSION message does. */
   saveSession?: (userId: string | null) => Promise<void>;
-  /** Rebinds unknown-owner records to the persisted session, as the page asks. */
-  rebindRecords?: (ids?: number[]) => Promise<void>;
+  /** Rebinds unknown-owner records only after verifying the page's approving account. */
+  rebindRecords?: (ids: number[] | undefined, ownerId: string) => Promise<void>;
 }
 
 /**

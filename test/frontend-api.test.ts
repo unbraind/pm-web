@@ -93,11 +93,38 @@ test("blocked legacy mutations have a visible explicit recovery action for the c
     assert.match(button.textContent, /adopt/i);
     assert.equal(messages.length, 1, "nothing is adopted until the user clicks");
     button.onclick();
-    assert.deepEqual(messages[1], { type: "REBIND_RECORDS", ids: [1] });
+    assert.deepEqual(messages[1], { type: "REBIND_RECORDS", ids: [1], ownerId: "alice" });
     syncServiceWorkerSession(null);
     button.onclick();
     assert.equal(messages.filter((msg) => (msg as { type: string }).type === "REBIND_RECORDS").length, 1, "an old action cannot run after logout");
   } finally {
+    globals.document = originalDocument;
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  }
+});
+
+test("the originating tab attaches its expected account before a worker reads shared session state", async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const globals = globalThis as unknown as Record<string, unknown>;
+  const originalDocument = globals.document;
+  const originalFetch = globalThis.fetch;
+  const workers = Object.assign(new EventTarget(), { controller: { postMessage: (_message: unknown): void => {} } });
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { serviceWorker: workers } });
+  globals.document = { cookie: "csrf_token=browser-token" };
+  const expected: Array<string | null> = [];
+  globalThis.fetch = async (_input, init) => {
+    expected.push(new Headers(init?.headers).get("x-pm-expected-account"));
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
+  try {
+    syncServiceWorkerSession({ id: "account-a" });
+    await api("POST", "/groups", { name: "from-tab-a" });
+    await api("POST", "/auth/logout");
+    await api("GET", "/groups");
+    assert.deepEqual(expected, ["account-a", null, null]);
+  } finally {
+    Object.assign(globalThis, { fetch: originalFetch });
     globals.document = originalDocument;
     if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
     else Reflect.deleteProperty(globalThis, "navigator");

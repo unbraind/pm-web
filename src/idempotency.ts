@@ -130,13 +130,20 @@ async function insertPendingKey(
 ): Promise<string | null> {
   const result = await pool.query<{ id: string }>(
     `INSERT INTO pm_idempotency_keys (user_id, idempotency_key, method, path, request_fingerprint)
-     VALUES ($1, $2, $3, $4, $5)
+     SELECT id, $2, $3, $4, $5 FROM pm_users WHERE id = $1 FOR KEY SHARE
      ON CONFLICT (user_id, idempotency_key) DO NOTHING
      RETURNING id`,
     [userId, key, method, path, fingerprint],
   );
   const row = result.rows[0] as { id: string } | undefined;
   return row?.id ?? null;
+}
+
+/** Check that a verified token still names an existing account before keying. */
+async function accountExists(userId: string): Promise<boolean> {
+  if (typeof userId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) return false;
+  const result = await pool.query("SELECT id FROM pm_users WHERE id = $1", [userId]);
+  return result.rows.length > 0;
 }
 
 /**
@@ -273,10 +280,10 @@ function captureOutcome(rowId: string, res: Response): void {
 /**
  * Build the middleware that makes keyed mutating requests at-most-once.
  *
- * Scope: every mutating (`POST`/`PATCH`/`PUT`/`DELETE`…) `/api` request that
- * carries an `Idempotency-Key` header. Requests without a key are untouched —
- * the header is opt-in, so ordinary clients keep the plain behaviour — and
- * safe methods never touch the store.
+ * Scope: keyed mutating `/api` requests outside `/api/auth`. Auth responses
+ * always execute live so session cookies are never lost to body-only replay.
+ * An expected-account header is checked against an existing authenticated user
+ * before execution or claiming, including recovery probes to `/api/auth/me`.
  *
  * Exactly-once per account: the key is stored together with the authenticated
  * user, so two accounts using the same key never interfere. The first
@@ -295,20 +302,14 @@ function captureOutcome(rowId: string, res: Response): void {
 export function idempotencyGuard(): RequestHandler {
   let nextSweepAt = 0;
   return async (req: Request, res: Response, next) => {
-    if (!isUnsafeMethod(req.method)) {
-      next();
-      return;
-    }
+    const authRoute = /^\/api\/auth(?:\/|$)/i.test(req.originalUrl.split("?")[0]);
+    const expectedAccount = req.get("x-pm-expected-account");
+    const checkExpected = expectedAccount !== undefined
+      && (!authRoute || /^\/api\/auth\/me\/?(?:\?|$)/i.test(req.originalUrl));
     const header = req.get("idempotency-key");
-    if (header === undefined) {
+    const keyed = isUnsafeMethod(req.method) && !authRoute && header !== undefined;
+    if (!keyed && !checkExpected) {
       next();
-      return;
-    }
-    const key = header.trim();
-    if (key.length < IDEMPOTENCY_KEY_MIN_LENGTH || key.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
-      res.status(400).json({
-        error: `Idempotency-Key must be between ${IDEMPOTENCY_KEY_MIN_LENGTH} and ${IDEMPOTENCY_KEY_MAX_LENGTH} characters`,
-      });
       return;
     }
     // Only record requests we can attribute to an account; an unauthenticated
@@ -323,9 +324,27 @@ export function idempotencyGuard(): RequestHandler {
         userId = null;
       }
     }
-    if (userId === null) {
+    if (userId !== null && !await accountExists(userId)) userId = null;
+    if (checkExpected && (userId === null || expectedAccount !== userId)) {
+      res.status(409).json({ code: "PM_EXPECTED_ACCOUNT_MISMATCH", error: "The signed-in account differs from the account that approved this work" });
+      return;
+    }
+    if (!keyed || userId === null) {
       next();
       return;
+    }
+    const key = header!.trim();
+    if (key.length < IDEMPOTENCY_KEY_MIN_LENGTH || key.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
+      res.status(400).json({
+        error: `Idempotency-Key must be between ${IDEMPOTENCY_KEY_MIN_LENGTH} and ${IDEMPOTENCY_KEY_MAX_LENGTH} characters`,
+      });
+      return;
+    }
+
+    if (Date.now() >= nextSweepAt) {
+      // Cleanup can fail only before an intent exists, leaving the key retryable.
+      nextSweepAt = Date.now() + 60_000;
+      await deleteExpiredKeys();
     }
 
     const fingerprint = requestFingerprint(req.method, req.originalUrl, req.body);
@@ -345,6 +364,12 @@ export function idempotencyGuard(): RequestHandler {
         return;
       }
       if (record === null) {
+        // Deletion can race token validation; the locked INSERT SELECT refuses
+        // a missing user without a foreign-key failure or a permanent wait.
+        if (!await accountExists(userId)) {
+          next();
+          return;
+        }
         rowId = await insertPendingKey(userId, key, req.method, req.originalUrl, fingerprint);
         continue;
       }
@@ -359,11 +384,6 @@ export function idempotencyGuard(): RequestHandler {
       await new Promise((resolve) => { setTimeout(resolve, envDurationMs("PM_WEB_IDEMPOTENCY_POLL_MS", DEFAULT_POLL_MS)); });
     }
 
-    if (Date.now() >= nextSweepAt) {
-      // Reserve the interval before awaiting so concurrent writes share one sweep.
-      nextSweepAt = Date.now() + 60_000;
-      await deleteExpiredKeys();
-    }
     captureOutcome(rowId, res);
     next();
   };

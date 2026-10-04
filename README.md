@@ -305,16 +305,26 @@ older blunt `pm history-repair --all` remains available as a lower-level primiti
 
 ### Offline mutation identity and recovery
 
-Each service-worker write gets an `Idempotency-Key` before its first network
-attempt. If that response is lost, the queued record keeps the same key and
-body. The session is resent when a worker first controls the page or changes;
+Each service-worker write outside `/api/auth` gets an `Idempotency-Key` and
+captures its originating account before its first network attempt. If that
+response is lost, the queued record keeps the same key, body and account.
+Every replay sends `X-PM-Expected-Account`; the server refuses a different or
+missing account with 409 before executing or claiming a key, and the worker
+keeps the record. The session is resent when a worker first controls the page or changes;
 session writes and explicit adoption extend the worker event lifetime.
 
 The SPA displays blocked offline records. For unknown-owner records, the
 signed-in user may click **These changes are mine — adopt for my signed-in
-account** after reviewing the listed paths. Adoption assigns any missing key
-in the same IndexedDB transaction as ownership, then retries the queue.
+account** after reviewing the listed paths. The recovery message carries the
+approving account and adoption verifies it against the current server session.
+Adoption and flush share one operation chain. Adoption reads and updates
+ownership in one IndexedDB transaction, preserves any existing key and assigns
+only missing keys, then retries the queue.
 Records owned by another account remain blocked until that account signs in.
+Auth routes always use live responses and are never keyed or queued; legacy
+auth records remain blocked. Deleted or unknown token accounts bypass keying
+and receive the route's normal authentication outcome. Retention cleanup runs
+before key claims so a cleanup failure leaves the request retryable.
 
 API rate limits apply before idempotency, including to replay attempts. Explicit
 pre-mutation refusals (425 and 429) release the intent and are never replayed.

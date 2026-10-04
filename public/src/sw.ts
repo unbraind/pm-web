@@ -152,7 +152,7 @@ interface MeBody {
 }
 
 /** Why one queued mutation was refused during a flush. */
-type ReplayBlockReason = 'no-session' | 'unknown-owner' | 'owner-mismatch';
+type ReplayBlockReason = 'no-session' | 'unknown-owner' | 'owner-mismatch' | 'auth-route';
 
 /** A queued mutation a flush refused, surfaced to the page for explicit recovery. */
 interface BlockedMutation {
@@ -300,16 +300,21 @@ async function saveSession(userId: string | null): Promise<void> {
  * recorded as unknown and the record is surfaced for explicit recovery
  * instead of being guessed (and replayed under whoever happens to be signed
  * in next).
+ *
+ * @param originatingAccount - Identity captured before the first attempt;
+ *   direct queue calls without an attempt read the current stored session.
  */
 async function queueMutation(
   method: string,
   path: string,
   body: unknown,
   idempotencyKey = newIdempotencyKey(),
+  originatingAccount?: string | null,
 ): Promise<boolean> {
+  if (/^\/auth(?:\/|\?|$)/i.test(path)) return false;
   try {
     const db = await openMutationDB();
-    const ownerId = await readSession();
+    const ownerId = originatingAccount === undefined ? await readSession() : originatingAccount;
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
     const store = tx.objectStore(MUTATION_STORE);
     const record: StoredMutation = {
@@ -400,6 +405,7 @@ function replayBlockReason(
   mut: QueuedMutation,
   currentUserId: string | null,
 ): ReplayBlockReason | null {
+  if (/^\/auth(?:\/|\?|$)/i.test(mut.path)) return 'auth-route';
   if (currentUserId === null) return 'no-session';
   // Legacy records queued before ownership tracking have no ownerId at all.
   if (mut.ownerId === undefined || mut.ownerId === null) return 'unknown-owner';
@@ -424,7 +430,7 @@ function replayBlockReason(
  * cannot wedge an entire queue. Replayed records carry their idempotency key,
  * so a retry after an ambiguous (lost) response is applied exactly once
  * server-side. */
-async function flushMutationQueue(): Promise<void> {
+async function replayQueuedMutations(): Promise<void> {
   const read = await getQueuedMutations();
   if (!read.ok) {
     console.warn('Failed to read mutation queue:', read.error);
@@ -481,6 +487,7 @@ async function flushMutationQueue(): Promise<void> {
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': replayCsrfToken,
+          'X-PM-Expected-Account': mut.ownerId!,
           ...(mut.idempotencyKey ? { 'Idempotency-Key': mut.idempotencyKey } : {}),
         },
         credentials: 'include',
@@ -547,6 +554,24 @@ async function flushMutationQueue(): Promise<void> {
   }
 }
 
+/** Pending queue operations share one chain across messages, sync and online events. */
+let queueOperation: Promise<void> = Promise.resolve();
+
+/** Serialize queue adoption and replay, recovering the chain after an operation fails. */
+function runQueueOperation(operation: () => Promise<void>): Promise<void> {
+  const pending = queueOperation.then(async () => {
+    await sessionUpdate.catch(() => {});
+    await operation();
+  });
+  queueOperation = pending.catch(() => {});
+  return pending;
+}
+
+/** Flush under the same single-flight chain used for explicit recovery. */
+function flushMutationQueue(): Promise<void> {
+  return runQueueOperation(replayQueuedMutations);
+}
+
 /**
  * Explicitly rebind unknown-owner records to the signed-in account.
  *
@@ -556,27 +581,40 @@ async function flushMutationQueue(): Promise<void> {
  * another account is never reassigned, because its true owner may still
  * return to replay it.
  *
- * @param ids - When given, only the records with these ids are adopted;
- *   otherwise every unknown-owner record is.
+ * @param ids - Only these record ids are adopted, or all unknown records when absent.
+ * @param ownerId - The approving page's account, verified against the server session.
+ * @returns Whether the current server session approved adoption.
  */
-async function rebindUnknownOwnerRecords(ids?: number[]): Promise<void> {
-  const ownerId = await readSession();
-  if (ownerId === null) return; // nobody to adopt the records for
-  const read = await getQueuedMutations();
-  if (!read.ok) return;
-  const targets = read.mutations.filter(
-    (mut) =>
-      (mut.ownerId === undefined || mut.ownerId === null)
-      && (ids === undefined || ids.includes(mut.id)),
-  );
-  if (targets.length === 0) return;
+async function adoptUnknownOwnerRecords(ids: number[] | undefined, ownerId: string): Promise<boolean> {
+  const approval = await fetch('/api/auth/me', {
+    credentials: 'include', cache: 'no-store', headers: { 'X-PM-Expected-Account': ownerId },
+  });
+  if (!approval.ok) return false;
+  const me = await approval.json().catch(() => null) as MeBody | null;
+  if (me?.user?.id !== ownerId) return false;
   const db = await openMutationDB();
   const tx = db.transaction(MUTATION_STORE, 'readwrite');
+  const done = transactionDone(tx);
   const store = tx.objectStore(MUTATION_STORE);
-  for (const mut of targets) {
-    store.put({ ...mut, ownerId, idempotencyKey: mut.idempotencyKey || newIdempotencyKey() });
-  }
-  await transactionDone(tx);
+  // Queue writes inside the read callback while this transaction is active.
+  // No pre-transaction snapshot can overwrite ownership or an existing key.
+  const request = store.getAll();
+  request.onsuccess = () => {
+    for (const mut of request.result as QueuedMutation[]) {
+      if ((mut.ownerId === undefined || mut.ownerId === null)
+        && (ids === undefined || ids.includes(mut.id))
+        && !/^\/auth(?:\/|\?|$)/i.test(mut.path)) {
+        store.put({ ...mut, ownerId, idempotencyKey: mut.idempotencyKey || newIdempotencyKey() });
+      }
+    }
+  };
+  await done;
+  return true;
+}
+
+/** Adopt records through the common queue-operation chain used by flushes. */
+function rebindUnknownOwnerRecords(ids: number[] | undefined, ownerId: string): Promise<void> {
+  return runQueueOperation(async () => { await adoptUnknownOwnerRecords(ids, ownerId); });
 }
 
 // ── Install ──
@@ -605,38 +643,53 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
 
   // API calls: try network, queue mutations if offline
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/healthz')) {
+    // Session responses must reach the browser with their live cookie changes.
+    // Remove caller keys too; failed auth requests are never queued.
+    if (/^\/api\/auth(?:\/|$)/i.test(url.pathname)) {
+      const headers = new Headers(event.request.headers);
+      headers.delete('Idempotency-Key');
+      headers.delete('X-PM-Expected-Account');
+      event.respondWith(fetch(new Request(event.request, { headers })));
+      return;
+    }
     // Queue write operations (POST, PUT, PATCH, DELETE) when offline
     if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
       const headers = new Headers(event.request.headers);
       if (!headers.has('Idempotency-Key')) headers.set('Idempotency-Key', newIdempotencyKey());
-      const request = new Request(event.request, { headers });
-      // Keep an unread copy even if the first network attempt consumes its body.
-      const queuedRequest = request.clone();
       event.respondWith(
-        fetch(request).catch(async () => {
-          // Network failed — queue the mutation for later.
-          let body: unknown = undefined;
-          try {
-            body = await queuedRequest.json();
-          } catch { /* no body */ }
-          const queued = await queueMutation(
-            event.request.method,
-            url.pathname.replace('/api', '') + url.search,
-            body,
-            headers.get('Idempotency-Key') ?? newIdempotencyKey(),
-          );
-          if (queued) {
-            return new Response(
-              JSON.stringify({ queued: true, message: 'Request queued for when you are back online' }),
-              { status: 202, headers: { 'Content-Type': 'application/json' } },
+        (async () => {
+          await sessionUpdate.catch(() => {});
+          // Capture identity before sending, never after a lost response.
+          const ownerId = headers.get('X-PM-Expected-Account') ?? await readSession();
+          if (ownerId !== null) headers.set('X-PM-Expected-Account', ownerId);
+          const request = new Request(event.request, { headers });
+          const queuedRequest = request.clone();
+          return fetch(request).catch(async () => {
+            // Network failed — queue the mutation for later.
+            let body: unknown = undefined;
+            try {
+              body = await queuedRequest.json();
+            } catch { /* no body */ }
+            const queued = await queueMutation(
+              event.request.method,
+              url.pathname.replace('/api', '') + url.search,
+              body,
+              headers.get('Idempotency-Key') ?? newIdempotencyKey(),
+              ownerId,
             );
-          }
-          // Persistence failed — do not claim the mutation was queued.
-          return new Response(
-            JSON.stringify({ error: 'Offline and unable to queue mutation', queued: false }),
-            { status: 503, headers: { 'Content-Type': 'application/json' } },
-          );
-        }),
+            if (queued) {
+              return new Response(
+                JSON.stringify({ queued: true, message: 'Request queued for when you are back online' }),
+                { status: 202, headers: { 'Content-Type': 'application/json' } },
+              );
+            }
+            // Persistence failed — do not claim the mutation was queued.
+            return new Response(
+              JSON.stringify({ error: 'Offline and unable to queue mutation', queued: false }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } },
+            );
+          });
+        })(),
       );
       return;
     }
@@ -741,7 +794,7 @@ let sessionUpdate: Promise<void> = Promise.resolve();
 // ── Messages ──
 sw.addEventListener('message', (event: ExtendableMessageEvent) => {
   const data = event.data as
-    | { type?: string; urls?: string[]; userId?: unknown; ids?: unknown }
+    | { type?: string; urls?: string[]; userId?: unknown; ids?: unknown; ownerId?: unknown }
     | null;
   if (data && data.type === 'SKIP_WAITING') {
     sw.skipWaiting();
@@ -772,7 +825,11 @@ sw.addEventListener('message', (event: ExtendableMessageEvent) => {
     const ids = Array.isArray(data.ids)
       ? data.ids.filter((id): id is number => typeof id === 'number')
       : undefined;
-    event.waitUntil(sessionUpdate.then(() => rebindUnknownOwnerRecords(ids)).then(() => flushMutationQueue()).catch(() => {
+    const ownerId = data.ownerId;
+    if (typeof ownerId !== 'string' || ownerId.length === 0) return;
+    event.waitUntil(runQueueOperation(async () => {
+      if (await adoptUnknownOwnerRecords(ids, ownerId)) await replayQueuedMutations();
+    }).catch(() => {
       console.warn('Failed to adopt offline mutations');
     }));
   }

@@ -23,6 +23,7 @@ import http from "node:http";
 import assert from "node:assert/strict";
 import type test from "node:test";
 import type { Express } from "express";
+import bcrypt from "bcryptjs";
 import { createApp } from "../../src/app.ts";
 import { signToken } from "../../src/auth.ts";
 import { startEphemeralServer } from "./ephemeral-server.ts";
@@ -236,6 +237,13 @@ export async function seedUser(
   );
   const row = result.rows[0] as UserRow;
   return { id: row.id, email: row.email };
+}
+
+/** Seed an account with a real password for synthetic HTTP login interleavings. */
+export async function seedPasswordUser(password = "synthetic-password"): Promise<SeedUser> {
+  const user = await seedUser();
+  await pool.query("UPDATE pm_users SET password_hash = $2 WHERE id = $1", [user.id, await bcrypt.hash(password, 4)]);
+  return user;
 }
 
 /**

@@ -35,10 +35,10 @@ export declare function requestFingerprint(method: string, path: string, body: u
 /**
  * Build the middleware that makes keyed mutating requests at-most-once.
  *
- * Scope: every mutating (`POST`/`PATCH`/`PUT`/`DELETE`…) `/api` request that
- * carries an `Idempotency-Key` header. Requests without a key are untouched —
- * the header is opt-in, so ordinary clients keep the plain behaviour — and
- * safe methods never touch the store.
+ * Scope: keyed mutating `/api` requests outside `/api/auth`. Auth responses
+ * always execute live so session cookies are never lost to body-only replay.
+ * An expected-account header is checked against an existing authenticated user
+ * before execution or claiming, including recovery probes to `/api/auth/me`.
  *
  * Exactly-once per account: the key is stored together with the authenticated
  * user, so two accounts using the same key never interfere. The first

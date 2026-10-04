@@ -29,6 +29,7 @@ import {
   authedFetch,
   ensureSchema,
   seedUser,
+  seedPasswordUser,
   setupOwnerAppTest,
   type AppServer,
   type SeedUser,
@@ -113,6 +114,21 @@ function keyedGroupPost(
   });
 }
 
+/** Exercise live session changes and assert cookie headers survive repeated caller keys. */
+async function assertLiveSessionChanges(server: AppServer, source: SeedUser, destination: SeedUser, key: string): Promise<void> {
+  const login = await authedFetch(server, source, "/api/auth/login", {
+    method: "POST", headers: { "idempotency-key": key, "content-type": "application/json" },
+    body: JSON.stringify({ email: destination.email, password: "synthetic-password" }),
+  });
+  assert.equal(login.status, 200);
+  assert.ok(login.headers.getSetCookie().some((value) => value.startsWith("pm_token=")));
+  assert.equal(login.headers.get("idempotency-replayed"), null);
+  const logout = await authedFetch(server, source, "/api/auth/logout", { method: "POST", headers: { "idempotency-key": key } });
+  assert.equal(logout.status, 200);
+  assert.ok(logout.headers.getSetCookie().some((value) => value.startsWith("pm_token=;")));
+  assert.equal(logout.headers.get("idempotency-replayed"), null);
+}
+
 test("a retried mutation with the same idempotency key is applied exactly once and replays the stored response", async (t) => {
   const { server, owner } = await setupOwnerAppTest(t);
   const key = uniqueKey("retry");
@@ -144,6 +160,7 @@ test("a key reused for a different request is rejected, not silently deduplicate
 
   const first = await keyedGroupPost(server, owner, key, firstName);
   assert.equal(first.status, 201);
+  const firstGroup = await first.json() as { group: { id: string } };
 
   // Same key, different body: must not be treated as a retry of the first.
   const otherBody = await keyedGroupPost(server, owner, key, `group-${RUN_ID}-second`);
@@ -151,10 +168,10 @@ test("a key reused for a different request is rejected, not silently deduplicate
   assert.equal(await groupCount(owner.id), 1, "the rejected request created nothing");
 
   // Same key, different route and method: also a different request.
-  const otherPath = await authedFetch(server, owner, "/api/auth/profile", {
+  const otherPath = await authedFetch(server, owner, `/api/groups/${firstGroup.group.id}`, {
     method: "PATCH",
     headers: { "content-type": "application/json", "idempotency-key": key },
-    body: JSON.stringify({ displayName: "Someone Else" }),
+    body: JSON.stringify({ name: "Someone Else" }),
   });
   assert.equal(otherPath.status, 422, "a key reused on a different route is rejected");
 });
@@ -495,11 +512,10 @@ test("idempotency records older than the retention window are cleaned up", async
   assert.equal((await keyRows(owner.id, freshKey)).length, 1, "the fresh record remains");
 });
 
-test("an idempotency store failure fails closed instead of double-applying", async (t) => {
+test("an unknown token account bypasses keying and gets the route's normal outcome", async (t) => {
   const { server } = await setupOwnerAppTest(t);
-  // A syntactically valid JWT for a user id that is not a UUID makes the
-  // store insert fail; the guard must surface that rather than execute the
-  // mutation unrecorded (which would allow a duplicate on retry).
+  // A verified token with no usable account bypasses keying; the normal route
+  // outcome must not be replaced by an idempotency insert failure.
   const forged = await fetch(server.url("/api/groups"), {
     method: "POST",
     headers: {
@@ -509,7 +525,8 @@ test("an idempotency store failure fails closed instead of double-applying", asy
     },
     body: JSON.stringify({ name: "nope" }),
   });
-  assert.equal(forged.status, 500, "a store failure is surfaced, not swallowed");
+  assert.equal(forged.status, 500);
+  assert.deepEqual(await forged.json(), { error: "Failed to create group" }, "the route receives the unknown account");
 });
 
 test("SQL bootstrap and runtime idempotency table definitions agree and retention is indexed", async () => {
@@ -582,4 +599,71 @@ test("a PostgreSQL outcome-write failure is caught and leaves a pending intent",
   assert.equal((await keyedGroupPost(server, owner, key, "outage")).status, 409);
   assert.equal(await groupCount(owner.id), 1);
   assert.ok(errors.some((entry) => String(entry[0]).includes("persist idempotency outcome")), "persistence failure is recorded");
+});
+
+test("expected account mismatches are refused before execution or key claims, even without a key", async (t) => {
+  const { server, owner } = await setupOwnerAppTest(t);
+  const other = await seedUser();
+  const key = uniqueKey("expected-account");
+  for (const keyed of [true, false]) {
+    const response = await authedFetch(server, other, "/api/groups", {
+      method: "POST", headers: { "content-type": "application/json", "x-pm-expected-account": owner.id,
+        ...(keyed ? { "idempotency-key": key } : {}) }, body: JSON.stringify({ name: "refused" }),
+    });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json() as { code: string }).code, "PM_EXPECTED_ACCOUNT_MISMATCH");
+  }
+  const approval = await authedFetch(server, other, "/api/auth/me", { headers: { "x-pm-expected-account": owner.id } });
+  assert.equal(approval.status, 409, "server refuses recovery approval for a different session");
+  assert.equal(await groupCount(other.id), 0);
+  assert.deepEqual(await keyRows(other.id, key), []);
+  assert.deepEqual(await keyRows(owner.id, key), []);
+});
+
+test("keyed login and repeated logout always deliver live cookie changes", async (t) => {
+  const { server, owner } = await setupOwnerAppTest(t);
+  const other = await seedPasswordUser();
+  const key = uniqueKey("auth-cookie");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await assertLiveSessionChanges(server, owner, other, key);
+  }
+  assert.deepEqual(await keyRows(owner.id, key), []);
+  assert.deepEqual(await keyRows(other.id, key), []);
+});
+
+test("deleted-user tokens bypass keying while login and logout remain usable", async (t) => {
+  const { server, owner } = await setupOwnerAppTest(t);
+  const other = await seedPasswordUser();
+  await pool.query("DELETE FROM pm_users WHERE id = $1", [owner.id]);
+  const key = uniqueKey("deleted-token");
+  const plain = await authedFetch(server, owner, `/api/groups/${other.id}`, { method: "DELETE" });
+  const keyed = await authedFetch(server, owner, `/api/groups/${other.id}`, { method: "DELETE", headers: { "idempotency-key": key } });
+  assert.equal(keyed.status, plain.status);
+  assert.deepEqual(await keyed.json(), await plain.json());
+  await assertLiveSessionChanges(server, owner, other, key);
+  assert.deepEqual(await keyRows(owner.id, key), []);
+});
+
+test("a real retention cleanup failure leaves no pending claim and the same key can retry", async (t) => {
+  const { server, owner } = await setupOwnerAppTest(t);
+  const key = uniqueKey("cleanup-retry");
+  const backend = await pool.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
+  const trigger = `cleanup_failure_${RUN_ID}`;
+  // A statement trigger fails this pool connection's sweep even when another
+  // test swept all expired rows first; other test processes are unaffected.
+  await pool.query(`CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF pg_backend_pid() = ${backend.rows[0]!.pid} THEN RAISE EXCEPTION 'synthetic retention outage'; END IF; RETURN NULL; END $$`);
+  await pool.query(`CREATE TRIGGER ${trigger} BEFORE DELETE ON pm_idempotency_keys FOR EACH STATEMENT EXECUTE FUNCTION ${trigger}()`);
+  t.after(async () => {
+    await pool.query(`DROP TRIGGER ${trigger} ON pm_idempotency_keys`);
+    await pool.query(`DROP FUNCTION ${trigger}()`);
+  });
+  const first = await keyedGroupPost(server, owner, key, "cleanup-safe");
+  assert.equal(first.status, 500);
+  assert.deepEqual(await keyRows(owner.id, key), [], "cleanup failed before any intent was claimed");
+  assert.equal(await groupCount(owner.id), 0);
+  const retry = await keyedGroupPost(server, owner, key, "cleanup-safe");
+  assert.equal(retry.status, 201);
+  assert.equal((await keyedGroupPost(server, owner, key, "cleanup-safe")).status, 201);
+  assert.equal(await groupCount(owner.id), 1);
 });

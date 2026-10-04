@@ -29,11 +29,16 @@ export function csrfTokenFromCookie(cookie = document.cookie): string | undefine
  */
 export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
   const csrfToken = csrfTokenFromCookie();
+  const session = typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+    ? workerSessions.get(navigator.serviceWorker) : undefined;
+  const expectedAccount = session?.userId;
   const opts: RequestInit = {
     method,
     headers: {
       'Content-Type': 'application/json',
       ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      ...(expectedAccount && !['GET', 'HEAD'].includes(method.toUpperCase()) && !/^\/auth(?:\/|\?|$)/i.test(path)
+        ? { 'X-PM-Expected-Account': expectedAccount } : {}),
     },
     credentials: 'include',
   };
@@ -80,7 +85,7 @@ export function syncServiceWorkerSession(user: { id: string } | null): void {
       current.recovery?.remove();
       current.recovery = showOfflineRecovery(data.blocked, current.userId, (ids, ownerId) => {
         if (current.userId !== ownerId) return;
-        workers.controller?.postMessage({ type: 'REBIND_RECORDS', ids });
+        workers.controller?.postMessage({ type: 'REBIND_RECORDS', ids, ownerId });
       });
     });
   }
