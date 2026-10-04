@@ -15,6 +15,7 @@ import { githubRouter } from "./routes/github.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { createTierLimiters, resolveTrustProxy } from "./rate-limit.ts";
 import { csrfProtection } from "./csrf.ts";
+import { idempotencyGuard } from "./idempotency.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "..", "public");
@@ -255,18 +256,20 @@ export function createApp(deps?: CreateAppDeps): Express {
   // /api/projects/... request matched the /api/projects prefix before its own
   // nested mount. Each shared prefix therefore carries its limiters once, and
   // the routers mount behind them.
-  app.use("/api/auth", limiters.auth);
+  // Charge every attempt (including replays) before touching the idempotency store.
+  const keyedWrites = idempotencyGuard();
+  app.use("/api/auth", limiters.auth, keyedWrites);
   app.use("/api/auth", oidcRouter);
   app.use("/api/auth", authRouter);
-  app.use("/api/projects", limiters.read, limiters.write);
+  app.use("/api/projects", limiters.read, limiters.write, keyedWrites);
   app.use("/api/projects", projectsRouter);
   app.use("/api/projects/:projectId/pm", pmRouter);
   app.use("/api/projects/:projectId/extensions", extensionsRouter);
   app.use("/api/projects/:id/shares", sharesRouter);
   app.use("/api/projects/:id/github", githubRouter);
-  app.use("/api/groups", limiters.read, limiters.write, groupsRouter);
-  app.use("/api/shared", limiters.read, limiters.write, sharedWithMeRouter);
-  app.use("/api/admin", limiters.admin, adminRouter);
+  app.use("/api/groups", limiters.read, limiters.write, keyedWrites, groupsRouter);
+  app.use("/api/shared", limiters.read, limiters.write, keyedWrites, sharedWithMeRouter);
+  app.use("/api/admin", limiters.admin, keyedWrites, adminRouter);
 
   // Unknown API routes get a JSON 404 instead of falling through to the SPA
   // shell, which would hand HTML to API clients expecting JSON.

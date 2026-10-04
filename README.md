@@ -301,3 +301,35 @@ itself lists each affected stream in its output; `pm history --verify <id>` spot
 content, so `reconcile` only re-greens the hash chain (no data loss) — see the authoritative
 [pm-cli merge-safety guide](https://github.com/unbraind/pm-cli/blob/main/docs/MERGE_SAFETY.md). The
 older blunt `pm history-repair --all` remains available as a lower-level primitive.
+
+
+### Offline mutation identity and recovery
+
+Each service-worker write gets an `Idempotency-Key` before its first network
+attempt. If that response is lost, the queued record keeps the same key and
+body. The session is resent when a worker first controls the page or changes;
+session writes and explicit adoption extend the worker event lifetime.
+
+The SPA displays blocked offline records. For unknown-owner records, the
+signed-in user may click **These changes are mine — adopt for my signed-in
+account** after reviewing the listed paths. Adoption assigns any missing key
+in the same IndexedDB transaction as ownership, then retries the queue.
+Records owned by another account remain blocked until that account signs in.
+
+API rate limits apply before idempotency, including to replay attempts. Explicit
+pre-mutation refusals (425 and 429) release the intent and are never replayed.
+A pending intent may represent a committed mutation whose response was lost
+before it could be stored. Pending intents and ambiguous server failures are
+never taken over or automatically expired: duplicates wait up to
+`PM_WEB_IDEMPOTENCY_WAIT_MS` (default 30 seconds), then receive 409. After
+`PM_WEB_IDEMPOTENCY_PENDING_TIMEOUT_MS` (default five minutes), they receive
+409 with **outcome unknown** immediately. Reconcile the original mutation
+before submitting new work with a new key; automatic retry must reuse its key.
+Outcome persistence failures are caught and logged without request contents.
+
+Completed responses are retained for `PM_WEB_IDEMPOTENCY_RETENTION_MS` (default
+seven days). Deduplication of completed requests is bounded by that window;
+a retry after expiry may execute again. Cleanup uses a partial `created_at`
+index and runs at most once per minute per guard instance. Unknown outcomes
+remain retained until explicitly reconciled, so operators must account for
+these records when managing database growth.

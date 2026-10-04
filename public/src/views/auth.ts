@@ -2,7 +2,7 @@
 // AUTH VIEW
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
-import { api } from '../api.js';
+import { api, syncServiceWorkerSession } from '../api.js';
 import { bootApp } from '../app.js';
 import { t, translateError } from '../i18n.js';
 import type { User } from '../types.js';
@@ -97,6 +97,7 @@ export async function submitAuth(e: Event): Promise<void> {
       data = await api('POST','/auth/register',{email,password,displayName:name||email.split('@')[0]});
     }
     rememberSignedInUser(data.user);
+    syncServiceWorkerSession(data.user);
     await bootApp();
   } catch(err: unknown) {
     errEl.textContent = translateError(err instanceof Error ? err.message : String(err));
@@ -115,6 +116,7 @@ export async function logout(): Promise<void> {
   state.user = null;
   state.projects = [];
   state.currentProject = null;
+  syncServiceWorkerSession(null);
   showAuth();
 }
 

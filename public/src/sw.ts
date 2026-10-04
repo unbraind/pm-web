@@ -24,6 +24,11 @@ const BUILD_TIMESTAMP: string = '__BUILD_TIME__';
 const CACHE_NAME = 'pm-web-' + (BUILD_TIMESTAMP !== '__BUILD_TIME__' ? BUILD_TIMESTAMP : Date.now().toString(36));
 const MUTATION_DB = 'pm-web-offline';
 const MUTATION_STORE = 'mutations';
+// The signed-in account the page broadcasts lives in its own store so the
+// mutation records and the session can be written and read independently,
+// exactly like a real browser would keep them.
+const SESSION_STORE = 'session';
+const SESSION_KEY = 'current';
 
 const STATIC_ASSETS: readonly string[] = [
   '/',
@@ -42,6 +47,7 @@ const STATIC_ASSETS: readonly string[] = [
   '/src/i18n.js',
   '/src/i18n/de.json',
   '/src/i18n/en.json',
+  '/src/offline-recovery.js',
   '/src/state.js',
   '/src/theme.js',
   '/src/types.js',
@@ -113,6 +119,12 @@ interface QueuedMutation {
   path: string;
   body: string | null;
   timestamp: number;
+  /** Account that queued the mutation. Absent on legacy records. */
+  ownerId?: string | null;
+  /** Workspace (project id) the queued path targets. Absent on legacy records. */
+  workspace?: string | null;
+  /** Server-enforced exactly-once identity for the replay. */
+  idempotencyKey?: string;
 }
 
 interface StoredMutation {
@@ -120,6 +132,72 @@ interface StoredMutation {
   path: string;
   body: string | null;
   timestamp: number;
+  /** Account that queued the mutation; `null` when no session was known. */
+  ownerId: string | null;
+  /** Workspace (project id) the queued path targets; `null` when account-level. */
+  workspace: string | null;
+  /** Server-enforced exactly-once identity for the replay. */
+  idempotencyKey: string;
+}
+
+/** The signed-in account as persisted in the `session` store. */
+interface StoredSession {
+  key: string;
+  userId: string | null;
+}
+
+/** Shape of the `/api/auth/me` response body the flush bootstrap reads. */
+interface MeBody {
+  user?: { id?: string };
+}
+
+/** Why one queued mutation was refused during a flush. */
+type ReplayBlockReason = 'no-session' | 'unknown-owner' | 'owner-mismatch';
+
+/** A queued mutation a flush refused, surfaced to the page for explicit recovery. */
+interface BlockedMutation {
+  id: number;
+  method: string;
+  path: string;
+  ownerId: string | null;
+  workspace: string | null;
+  reason: ReplayBlockReason;
+}
+
+/**
+ * Extract the workspace (project id) a queued API path targets, or `null` for
+ * account-level mutations.
+ *
+ * Every project-scoped mutation the SPA issues lives under
+ * `/projects/<projectId>/…`, so the first path segment after `/projects/` is
+ * the workspace the record is bound to. The value is stamped at queue time
+ * and replayed verbatim in MUTATIONS_BLOCKED reports, so an operator can see
+ * which workspace a stranded record belongs to without re-deriving it.
+ *
+ * @param path - The queued API path (relative to `/api`).
+ * @returns The project id the path targets, or `null` when the path is account-level.
+ */
+function workspaceFromPath(path: string): string | null {
+  const match = /^\/projects\/([^/]+)/.exec(path);
+  return match ? match[1] : null;
+}
+
+/**
+ * Generate a fresh idempotency key for one queued mutation.
+ *
+ * The key is a random UUID-shaped string so a replayed record can be
+ * deduplicated server-side even when the response to the first attempt was
+ * lost after the server committed. It is generated before the first attempt and
+ * persisted with the record so every retry of the same record reuses the
+ * same key and a genuinely different mutation never collides with it.
+ *
+ * @returns A random 128-bit key formatted as a UUID string.
+ */
+function newIdempotencyKey(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 // Minimal Background Sync event typing. The `WebWorker` lib does not ship
@@ -133,12 +211,17 @@ interface SyncEvent extends ExtendableEvent {
  * index exist. Resolves with the ready database handle. */
 function openMutationDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(MUTATION_DB, 1);
+    const request = indexedDB.open(MUTATION_DB, 2);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(MUTATION_STORE)) {
         const store = db.createObjectStore(MUTATION_STORE, { keyPath: 'id', autoIncrement: true });
         store.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+      // Version 2 added the session store; an existing version-1 database is
+      // upgraded in place so a returning browser keeps its queued mutations.
+      if (!db.objectStoreNames.contains(SESSION_STORE)) {
+        db.createObjectStore(SESSION_STORE, { keyPath: 'key' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -161,17 +244,72 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
 }
 
 /**
+ * Read the account the page last broadcast as signed in, or `null` when no
+ * session is known.
+ *
+ * The session lives in its own IndexedDB store so it survives service-worker
+ * restarts: a worker can be killed at any time, and a mutation queued after a
+ * restart must still be stamped with the account that is signed in, not with
+ * whatever in-memory state a freshly booted worker happens to have.
+ *
+ * @returns The persisted user id, or `null` when nothing was broadcast or the
+ *   store cannot be read (both mean ownership is unknown, never guessed).
+ */
+async function readSession(): Promise<string | null> {
+  try {
+    const db = await openMutationDB();
+    const tx = db.transaction(SESSION_STORE, 'readonly');
+    const store = tx.objectStore(SESSION_STORE);
+    const session = await new Promise<StoredSession | undefined>((resolve, reject) => {
+      const request = store.get(SESSION_KEY);
+      request.onsuccess = () => resolve(request.result as StoredSession | undefined);
+      request.onerror = () => reject(request.error);
+    });
+    return session?.userId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist the account the page reports as signed in (or `null` on logout).
+ *
+ * Called from the AUTH_SESSION message so every later queueMutation stamps its
+ * records with this account. A storage failure leaves the previous value in
+ * place rather than silently clearing ownership.
+ *
+ * @param userId - The signed-in user id, or `null` when nobody is signed in.
+ */
+async function saveSession(userId: string | null): Promise<void> {
+  const db = await openMutationDB();
+  const tx = db.transaction(SESSION_STORE, 'readwrite');
+  tx.objectStore(SESSION_STORE).put({ key: SESSION_KEY, userId });
+  await transactionDone(tx);
+}
+
+/**
  * Queue a mutation for later replay. Returns `true` only when the mutation has
  * been durably persisted to IndexedDB; `false` when persistence failed so the
  * caller can respond with an explicit error instead of claiming it was queued.
+ *
+ * The record is durably bound to the account the page last broadcast as signed
+ * in and to the workspace its path targets, and carries a fresh idempotency
+ * key, so a flush can never replay it under a different signed-in user and a
+ * retried record can never be applied twice server-side. When no session is
+ * known the record is still queued, with `ownerId: null`: ownership is
+ * recorded as unknown and the record is surfaced for explicit recovery
+ * instead of being guessed (and replayed under whoever happens to be signed
+ * in next).
  */
 async function queueMutation(
   method: string,
   path: string,
   body: unknown,
+  idempotencyKey = newIdempotencyKey(),
 ): Promise<boolean> {
   try {
     const db = await openMutationDB();
+    const ownerId = await readSession();
     const tx = db.transaction(MUTATION_STORE, 'readwrite');
     const store = tx.objectStore(MUTATION_STORE);
     const record: StoredMutation = {
@@ -179,6 +317,9 @@ async function queueMutation(
       path,
       body: body !== undefined ? JSON.stringify(body) : null,
       timestamp: Date.now(),
+      ownerId,
+      workspace: workspaceFromPath(path),
+      idempotencyKey,
     };
     store.add(record);
     // Await the transaction commit (not just the request dispatch) so the
@@ -240,12 +381,49 @@ async function clearMutation(id: number): Promise<boolean> {
   }
 }
 
+/**
+ * Decide whether one queued mutation may be replayed under the current
+ * session, and if not, why.
+ *
+ * The three refusals are deliberately distinct so a surfaced report tells the
+ * user what to do: `no-session` means nobody is signed in (log in and flush
+ * again), `unknown-owner` means the record predates ownership tracking (adopt
+ * it explicitly), and `owner-mismatch` means the record belongs to a different
+ * account and must wait for that account — it is never reassigned silently.
+ *
+ * @param mut - The queued mutation as IndexedDB returns it.
+ * @param currentUserId - The account `/api/auth/me` reports as signed in, or
+ *   `null` when nobody is.
+ * @returns The refusal reason, or `null` when the record may be replayed.
+ */
+function replayBlockReason(
+  mut: QueuedMutation,
+  currentUserId: string | null,
+): ReplayBlockReason | null {
+  if (currentUserId === null) return 'no-session';
+  // Legacy records queued before ownership tracking have no ownerId at all.
+  if (mut.ownerId === undefined || mut.ownerId === null) return 'unknown-owner';
+  if (mut.ownerId !== currentUserId) return 'owner-mismatch';
+  return null;
+}
+
 /** Replay queued mutations to the API in order, removing each on success and
  * stopping at the first failure so it can retry later, then post-message the
  * connected clients with how many were replayed or remain. A storage read
  * failure is never treated as a drained queue: the initial read failure
  * aborts the flush, and a final read failure reports a partial result rather
- * than claiming all mutations were replayed. */
+ * than claiming all mutations were replayed.
+ *
+ * Identity is authoritative from the server: `/api/auth/me` names the account
+ * that is signed in, and only records that account queued are replayed.
+ * Records owned by a different account, records whose ownership is unknown
+ * (legacy, or queued with no known session), and every record while logged
+ * out are never replayed and never deleted — they are kept and surfaced via
+ * MUTATIONS_BLOCKED so the page can offer explicit recovery. Skipping a
+ * blocked record never blocks the records behind it, so one stranded record
+ * cannot wedge an entire queue. Replayed records carry their idempotency key,
+ * so a retry after an ambiguous (lost) response is applied exactly once
+ * server-side. */
 async function flushMutationQueue(): Promise<void> {
   const read = await getQueuedMutations();
   if (!read.ok) {
@@ -256,6 +434,7 @@ async function flushMutationQueue(): Promise<void> {
   if (mutations.length === 0) return;
 
   let replayCsrfToken: string | null;
+  let currentUserId: string | null = null;
   try {
     const bootstrap = await fetch('/api/auth/me', {
       method: 'GET',
@@ -267,19 +446,42 @@ async function flushMutationQueue(): Promise<void> {
       console.warn('Cannot replay offline mutations without a CSRF bootstrap token');
       return;
     }
+    // The bootstrap response is also the authoritative identity check: the
+    // signed-in account decides which records may replay. A 401 (or any
+    // unparseable body) means nobody is signed in, so every record is kept.
+    const me = await bootstrap.json().catch(() => null) as MeBody | null;
+    const bootstrapUserId = me?.user?.id;
+    currentUserId = typeof bootstrapUserId === 'string' ? bootstrapUserId : null;
   } catch {
     // The network failed during token bootstrap; preserve the entire queue.
     return;
   }
 
+  const blocked: BlockedMutation[] = [];
   let replayed = 0;
   for (const mut of mutations) {
+    const reason = replayBlockReason(mut, currentUserId);
+    if (reason) {
+      // Never replayed, never deleted: kept for its owner and surfaced so the
+      // page can offer explicit recovery. Skipping does not stop the loop, so
+      // blocked records cannot wedge unrelated owned records behind them.
+      blocked.push({
+        id: mut.id,
+        method: mut.method,
+        path: mut.path,
+        ownerId: mut.ownerId ?? null,
+        workspace: mut.workspace ?? null,
+        reason,
+      });
+      continue;
+    }
     try {
       const opts: RequestInit = {
         method: mut.method,
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': replayCsrfToken,
+          ...(mut.idempotencyKey ? { 'Idempotency-Key': mut.idempotencyKey } : {}),
         },
         credentials: 'include',
       };
@@ -307,6 +509,12 @@ async function flushMutationQueue(): Promise<void> {
   // Notify clients about replayed mutations
   const remainingRead = await getQueuedMutations();
   const clients = await sw.clients.matchAll();
+  if (blocked.length > 0) {
+    // Surface refused records for explicit recovery — they are never dropped.
+    clients.forEach((client) => {
+      client.postMessage({ type: 'MUTATIONS_BLOCKED', blocked });
+    });
+  }
   if (!remainingRead.ok) {
     // Could not re-read the queue — do NOT claim all mutations were replayed.
     // Report a partial result with the known replayed count so unreplayed
@@ -332,11 +540,43 @@ async function flushMutationQueue(): Promise<void> {
     clients.forEach((client) => {
       client.postMessage({
         type: 'MUTATIONS_PARTIAL',
-        replayed: mutations.length - remaining.length,
+        replayed,
         remaining: remaining.length,
       });
     });
   }
+}
+
+/**
+ * Explicitly rebind unknown-owner records to the signed-in account.
+ *
+ * The page offers this after a flush surfaces records with the `unknown-owner`
+ * reason: the signed-in user states that this queued work is theirs. Only
+ * records whose ownership is unknown are adoptable — a record already owned by
+ * another account is never reassigned, because its true owner may still
+ * return to replay it.
+ *
+ * @param ids - When given, only the records with these ids are adopted;
+ *   otherwise every unknown-owner record is.
+ */
+async function rebindUnknownOwnerRecords(ids?: number[]): Promise<void> {
+  const ownerId = await readSession();
+  if (ownerId === null) return; // nobody to adopt the records for
+  const read = await getQueuedMutations();
+  if (!read.ok) return;
+  const targets = read.mutations.filter(
+    (mut) =>
+      (mut.ownerId === undefined || mut.ownerId === null)
+      && (ids === undefined || ids.includes(mut.id)),
+  );
+  if (targets.length === 0) return;
+  const db = await openMutationDB();
+  const tx = db.transaction(MUTATION_STORE, 'readwrite');
+  const store = tx.objectStore(MUTATION_STORE);
+  for (const mut of targets) {
+    store.put({ ...mut, ownerId, idempotencyKey: mut.idempotencyKey || newIdempotencyKey() });
+  }
+  await transactionDone(tx);
 }
 
 // ── Install ──
@@ -367,17 +607,23 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/healthz')) {
     // Queue write operations (POST, PUT, PATCH, DELETE) when offline
     if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+      const headers = new Headers(event.request.headers);
+      if (!headers.has('Idempotency-Key')) headers.set('Idempotency-Key', newIdempotencyKey());
+      const request = new Request(event.request, { headers });
+      // Keep an unread copy even if the first network attempt consumes its body.
+      const queuedRequest = request.clone();
       event.respondWith(
-        fetch(event.request).catch(async () => {
+        fetch(request).catch(async () => {
           // Network failed — queue the mutation for later.
           let body: unknown = undefined;
           try {
-            body = await event.request.clone().json();
+            body = await queuedRequest.json();
           } catch { /* no body */ }
           const queued = await queueMutation(
             event.request.method,
-            url.pathname.replace('/api', ''),
+            url.pathname.replace('/api', '') + url.search,
             body,
+            headers.get('Idempotency-Key') ?? newIdempotencyKey(),
           );
           if (queued) {
             return new Response(
@@ -489,9 +735,14 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
   );
 });
 
+// Serialise session writes and recovery so adoption cannot read an older login.
+let sessionUpdate: Promise<void> = Promise.resolve();
+
 // ── Messages ──
 sw.addEventListener('message', (event: ExtendableMessageEvent) => {
-  const data = event.data as { type?: string; urls?: string[] } | null;
+  const data = event.data as
+    | { type?: string; urls?: string[]; userId?: unknown; ids?: unknown }
+    | null;
   if (data && data.type === 'SKIP_WAITING') {
     sw.skipWaiting();
   }
@@ -500,7 +751,30 @@ sw.addEventListener('message', (event: ExtendableMessageEvent) => {
     caches.open(CACHE_NAME).then((cache) => cache.addAll(urls).catch(() => {}));
   }
   if (data && data.type === 'FLUSH_QUEUE') {
-    void flushMutationQueue();
+    event.waitUntil(sessionUpdate.then(() => flushMutationQueue()).catch(() => {
+      console.warn('Failed to flush offline mutations');
+    }));
+  }
+  if (data && data.type === 'AUTH_SESSION') {
+    // The page names the signed-in account so queued mutations are bound to
+    // it. `null` (logout) is a valid broadcast: it means ownership of later
+    // queues is unknown, never the next signed-in account.
+    const userId = typeof data.userId === 'string' ? data.userId : null;
+    sessionUpdate = sessionUpdate.catch(() => {}).then(() => saveSession(userId));
+    event.waitUntil(sessionUpdate.catch(() => {
+      console.warn('Failed to persist offline session');
+    }));
+  }
+  if (data && data.type === 'REBIND_RECORDS') {
+    // Explicit recovery: adopt unknown-owner records for the signed-in
+    // account. The ids are optional; without them every unknown-owner record
+    // is adopted.
+    const ids = Array.isArray(data.ids)
+      ? data.ids.filter((id): id is number => typeof id === 'number')
+      : undefined;
+    event.waitUntil(sessionUpdate.then(() => rebindUnknownOwnerRecords(ids)).then(() => flushMutationQueue()).catch(() => {
+      console.warn('Failed to adopt offline mutations');
+    }));
   }
 });
 
@@ -533,5 +807,12 @@ sw.addEventListener('online', () => {
 // rather than keeping both.
 const __testGlobals = globalThis as unknown as Record<string, unknown>;
 if (__testGlobals.__swTestHarness) {
-  __testGlobals.__swInternals = { getQueuedMutations, flushMutationQueue, queueMutation, clearMutation };
+  __testGlobals.__swInternals = {
+    getQueuedMutations,
+    flushMutationQueue,
+    queueMutation,
+    clearMutation,
+    saveSession,
+    rebindRecords: rebindUnknownOwnerRecords,
+  };
 }

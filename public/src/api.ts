@@ -1,3 +1,5 @@
+import { showOfflineRecovery } from './offline-recovery.js';
+
 // ═══════════════════════════════════════════════════════════════
 // API CLIENT
 // ═══════════════════════════════════════════════════════════════
@@ -42,6 +44,50 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
     throw new Error(String((data as Record<string, unknown>).error || `HTTP ${res.status}`));
   }
   return data;
+}
+
+/** Session bridge state belongs to one worker container and its current page. */
+const workerSessions = new WeakMap<ServiceWorkerContainer, { userId: string | null; recovery: HTMLElement | null }>();
+
+/**
+ * Tell the service worker which account is signed in, so offline-queued
+ * mutations are durably bound to it.
+ *
+ * The worker cannot read cookies, so the page is the only component that
+ * knows the session. It broadcasts the account on boot, on login and on
+ * logout; the worker persists the value and stamps every queued mutation
+ * with it, so a queued mutation can never be replayed under a different
+ * signed-in account (see public/src/sw.ts). Pass `null` when nobody is
+ * signed in. A controllerchange listener resends the latest identity after
+ * first activation or a worker replacement.
+ *
+ * @param user - The signed-in user, or `null` after logout or a failed probe.
+ */
+export function syncServiceWorkerSession(user: { id: string } | null): void {
+  if (!('serviceWorker' in navigator)) return;
+  const workers = navigator.serviceWorker;
+  let session = workerSessions.get(workers);
+  if (!session) {
+    session = { userId: null, recovery: null };
+    workerSessions.set(workers, session);
+    const current = session;
+    workers.addEventListener('controllerchange', () => {
+      workers.controller?.postMessage({ type: 'AUTH_SESSION', userId: current.userId });
+    });
+    workers.addEventListener('message', (event: MessageEvent<unknown>) => {
+      const data = event.data as { type?: string; blocked?: unknown } | null;
+      if (data?.type !== 'MUTATIONS_BLOCKED' || !Array.isArray(data.blocked)) return;
+      current.recovery?.remove();
+      current.recovery = showOfflineRecovery(data.blocked, current.userId, (ids, ownerId) => {
+        if (current.userId !== ownerId) return;
+        workers.controller?.postMessage({ type: 'REBIND_RECORDS', ids });
+      });
+    });
+  }
+  session.recovery?.remove();
+  session.recovery = null;
+  session.userId = user?.id ?? null;
+  workers.controller?.postMessage({ type: 'AUTH_SESSION', userId: session.userId });
 }
 
 /** Response from `GET /api/projects/:projectId/pm/guide` — see src/routes/pm.ts. */

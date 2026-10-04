@@ -10,11 +10,20 @@
  * budgets, and that the CSRF guard blocks only provably cross-site
  * cookie-authenticated mutations. The pure helpers (`resolveTrustProxy`,
  * `isValidEmail`, `buildGitHubIssuesUrl`) are exercised directly.
+ *
+ * The multi-user tests at the bottom drive the *real* application built by
+ * `createApp` with several seeded accounts: they pin the exact published
+ * budgets at the boundary (N admitted, N+1 refused — the historical bug
+ * counted a nested-route request twice and halved every budget), and they
+ * prove that concurrent, multi-account load cannot rotate a forwarded header
+ * into a fresh bucket under the default (trust-nothing) proxy configuration.
  */
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import test from "node:test";
 import { startEphemeralServer } from "./helpers/ephemeral-server.ts";
+import { authedFetch, seedUser, setupOwnerAppTest, type AppServer, type SeedUser } from "./helpers/pg-harness.ts";
 
 import express, { type Express, type Request } from "express";
 import cookieParser from "cookie-parser";
@@ -444,6 +453,164 @@ test("buildGitHubIssuesUrl encodes query parameters and whitelists state", () =>
     "https://api.github.com/repos/o/r/issues?state=open&per_page=7&page=1&pulls=false",
     "a numeric per_page is accepted",
   );
+});
+
+/**
+ * Override the rate-limit environment for the current test and restore it
+ * afterwards, so a boundary test can configure the exact budget it pins
+ * without leaking its limits into the other suites sharing this process.
+ *
+ * @param t - The test context whose `after` hook restores the environment.
+ * @param env - The `PM_WEB_RATE_LIMIT_*` overrides to apply.
+ */
+function setLimitEnv(t: test.TestContext, env: Record<string, string | undefined>): void {
+  const previous = new Map<string, string | undefined>();
+  for (const [key, value] of Object.entries(env)) {
+    previous.set(key, process.env[key]);
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  t.after(() => {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+}
+
+test("a nested project route request is counted exactly once — the published write budget holds at the boundary", async (t) => {
+  // The write tier is mounted once on the /api/projects prefix, and the nested
+  // routers (…/pm, …/extensions, …/shares, …/github) sit behind it. A limiter
+  // counts every request that traverses it, so when the same tier was also
+  // mounted on the nested path one request was charged twice and the 300/min
+  // published budget silently became 150/min. Pin the exact boundary against
+  // the real app: N admitted, N+1 refused.
+  setLimitEnv(t, {
+    PM_WEB_RATE_LIMIT_WRITE: "5",
+    PM_WEB_RATE_LIMIT_READ: "5",
+  });
+  const { server, owner } = await setupOwnerAppTest(t);
+  const nestedPath = `/api/projects/${randomUUID()}/pm/items`;
+
+  // Authenticated so the request traverses the prefix tier *and* the nested
+  // router (the prefix router's own auth guard stops anonymous requests
+  // before the nested mount, which would hide a nested double-mount).
+  for (let i = 0; i < 5; i++) {
+    const res = await authedFetch(server, owner, nestedPath, { method: "POST" });
+    assert.notEqual(res.status, 429, "each request within the budget is admitted");
+  }
+  const refused = await authedFetch(server, owner, nestedPath, { method: "POST" });
+  assert.equal(refused.status, 429, "the request past the budget is refused");
+  assert.equal(refused.headers.get("ratelimit-limit"), "5", "the tier reports its configured budget");
+});
+
+test("the published auth budget holds exactly: AUTH_LIMIT_PER_MINUTE admitted, one more refused", async (t) => {
+  // The auth tier guards /api/auth once, ahead of both mounted routers. Pin
+  // the production default at its boundary so a regression that halves (or
+  // doubles) the documented 20 requests per minute fails here.
+  setLimitEnv(t, { PM_WEB_RATE_LIMIT_AUTH: String(AUTH_LIMIT_PER_MINUTE) });
+  const { server } = await setupOwnerAppTest(t);
+
+  for (let i = 0; i < AUTH_LIMIT_PER_MINUTE; i++) {
+    const res = await fetch(server.url("/api/auth/login"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "nobody@e.test", password: "wrong-password" }),
+    });
+    assert.equal(res.status, 401, "a rejected login still consumes the auth budget");
+  }
+  const refused = await fetch(server.url("/api/auth/login"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "nobody@e.test", password: "wrong-password" }),
+  });
+  assert.equal(refused.status, 429, "the request past the published budget is refused");
+  assert.equal(
+    refused.headers.get("ratelimit-limit"),
+    String(AUTH_LIMIT_PER_MINUTE),
+    "the tier reports the published budget",
+  );
+});
+
+/**
+ * Drive `count` concurrent authenticated POSTs from four seeded accounts at a
+ * nested project route and assert exactly `budget` of them are admitted.
+ *
+ * Shared by the two multi-user budget tests: the load, the seeding and the
+ * exact-split assertion are the experiment; what differs is the attack being
+ * disproven, which each caller describes in its own test comment.
+ *
+ * @param t - Test context used for env restore and server teardown.
+ * @param options - `budget` is the configured per-minute limit to pin,
+ *   `count` the number of concurrent requests to fire, and
+ *   `rotateForwardedHeaders` names a different forged forwarded client on
+ *   every request (X-Forwarded-For, X-Real-IP and Forwarded in rotation).
+ */
+async function assertConcurrentBudget(
+  t: test.TestContext,
+  options: { budget: number; count: number; rotateForwardedHeaders?: boolean },
+): Promise<void> {
+  setLimitEnv(t, {
+    PM_WEB_RATE_LIMIT_WRITE: String(options.budget),
+    PM_WEB_RATE_LIMIT_READ: String(options.budget),
+  });
+  const { server } = await setupOwnerAppTest(t);
+  const accounts: SeedUser[] = [
+    await seedUser(),
+    await seedUser(),
+    await seedUser(),
+    await seedUser(),
+  ];
+  const nestedPath = `/api/projects/${randomUUID()}/pm/items`;
+
+  const responses = await Promise.all(
+    Array.from({ length: options.count }, (_, i) => {
+      const headers: Record<string, string> = {};
+      if (options.rotateForwardedHeaders) {
+        if (i % 3 === 0) headers["x-forwarded-for"] = `10.0.0.${i}`;
+        else if (i % 3 === 1) headers["x-real-ip"] = `10.1.0.${i}`;
+        else headers["forwarded"] = `for=10.2.0.${i}`;
+      }
+      return authedFetch(server, accounts[i % accounts.length], nestedPath, {
+        method: "POST",
+        headers,
+      });
+    }),
+  );
+  const admitted = responses.filter((res) => res.status !== 429).length;
+  const refused = responses.filter((res) => res.status === 429).length;
+  assert.equal(admitted, options.budget, "exactly the budget was admitted, once per request");
+  assert.equal(refused, options.count - options.budget, "the surplus was refused");
+}
+
+test("parallel requests from several accounts are each counted once against one shared budget", async (t) => {
+  // Several authenticated accounts hammer the same nested route concurrently.
+  // The tier keys on the client address, and every test request shares
+  // 127.0.0.1, so exactly the configured number of requests may pass — if any
+  // request were counted twice (the historical nested-mount bug), fewer than
+  // the budget would be admitted and the surplus would be refused early.
+  await assertConcurrentBudget(t, { budget: 12, count: 20 });
+});
+
+test("concurrent accounts rotating X-Forwarded-For cannot draw a fresh bucket under the default configuration", async (t) => {
+  // The default trusts no proxy hop, so req.ip is the socket address no
+  // matter what the caller writes into X-Forwarded-For, Forwarded or
+  // X-Real-IP. Several accounts fire concurrent requests, each naming a
+  // different forwarded client: if any of those headers were trusted, every
+  // request would land in its own bucket and the limit would enforce
+  // nothing. Instead exactly the budget is admitted, all from the one real
+  // client address the requests actually share.
+  const previousTrust = process.env.PM_WEB_TRUST_PROXY;
+  process.env.PM_WEB_TRUST_PROXY = "loopback";
+  t.after(() => {
+    if (previousTrust === undefined) delete process.env.PM_WEB_TRUST_PROXY;
+    else process.env.PM_WEB_TRUST_PROXY = previousTrust;
+  });
+  await t.test("default configuration preserves the caller's proxy environment", async (inner) => {
+    setLimitEnv(inner, { PM_WEB_TRUST_PROXY: undefined });
+    await assertConcurrentBudget(inner, { budget: 6, count: 20, rotateForwardedHeaders: true });
+  });
+  assert.equal(process.env.PM_WEB_TRUST_PROXY, "loopback");
 });
 
 test("the production app exposes rate-limit headers on an API route (wiring check)", async (t) => {

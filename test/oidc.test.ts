@@ -166,7 +166,6 @@ test("general schema includes the idempotent external identity contract", () => 
   // broke on a refactor that preserved it: the limiter now mounts on the prefix
   // once and the routers mount behind it, because repeating it on the prefix
   // and again on a nested path charged one request twice.
-  assert.match(app, /app\.use\("\/api\/auth", limiters\.auth\);/);
   assert.match(app, /app\.use\("\/api\/auth", oidcRouter\);/);
   // And the property that fix established: no path is given the same limiter
   // more than once, so every published budget is the enforced one.
@@ -175,6 +174,8 @@ test("general schema includes the idempotent external identity contract", () => 
       path,
       limiters: [...rest.matchAll(/limiters\.(\w+)/g)].map(([, tier]) => tier),
     }));
+  assert.ok(mounts.some((mount) => mount.path === "/api/auth" && mount.limiters.includes("auth")),
+    "OIDC's shared prefix is guarded by the auth tier even when other middleware follows it");
   for (const tier of ["auth", "read", "write", "admin"]) {
     const paths = mounts.filter((m) => m.limiters.includes(tier)).map((m) => m.path);
     assert.equal(
