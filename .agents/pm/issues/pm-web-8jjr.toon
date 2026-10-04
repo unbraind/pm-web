@@ -2,11 +2,13 @@ id: pm-web-8jjr
 title: jscpd 5.3.2 exposes pm-web zero-duplication failures
 description: "Dependabot PR #163 upgrades jscpd from 4.3.0 to 5.3.2. The unchanged zero-threshold gate reports ten clone pairs and 71 duplicated lines across graph rendering, PM routes, script entry guard, and HTTP/event tests."
 type: Issue
-status: blocked
+status: in_progress
 priority: 1
 tags: []
 created_at: "2026-09-29T12:21:34.777Z"
-updated_at: "2026-10-03T00:42:18.673Z"
+updated_at: "2026-10-04T12:36:41.418Z"
+assignee: codex-sol
+claim_principal: codex-sol
 author: codex
 estimated_minutes: 240
 acceptance_criteria: "Remove the detected duplication without relaxing the zero threshold; preserve graph, route, and realtime behavior; pass release and packed npm/Bun gates."
@@ -16,13 +18,14 @@ environment: "canonical pm-web checkout, PR #163 head dcb96dd, npm ci branch loc
 repro_steps: gh pr checkout 163; npm ci --ignore-scripts; npm run duplication
 expected_result: The unchanged zero-threshold duplication gate passes with zero clone pairs and the package release gate remains green.
 actual_result: duplication-gate reports 71/40295 duplicated lines across 141 sources and ten clone pairs; both PR Node CI jobs fail.
-comments[6]{created_at,author,text}:
+comments[7]{created_at,author,text}:
   "2026-10-03T00:08:52.370Z",codex-sol-land,"Resumed PR #163 from 42d86eb28e3d85b453a7292f4c5d92f2f297628f. Rebase onto current main yields 42d86eb28e3d85b453a7292f4c5d92f2f297628f. All existing bot artifacts and restart-era owner replies inspected; no new actionable finding. Preserve earlier fixes and technical refusals. Verifying unchanged CI gates under the shared heavy lock; no merge, release or closure."
   "2026-10-03T00:12:19.704Z",codex-sol-land,"The pinned CLI 2026.9.23 supports schema/tracker/auto linked PM contexts, not the newer none mode. Focused extension registration/entrypoint regressions are linked as schema/snapshot so the copied workspace uses a synthetic tracker. Tracker writes use the project-local CLI to retain pinned-format compatibility. No trust policy or gate changed."
   "2026-10-03T00:23:56.570Z",codex-sol-land,"The full release gate failed in the existing live-fleet freshness assertion: pm-ts-starter manifest now declares SDK 2026.9.29, while the committed fleet snapshot declares 2026.7.6. This is the only failing coverage test. Preserve the failing gate receipt as red evidence, regenerate with npm run fleet:snapshot against PM_FLEET_ROOT, rerun the unchanged catalog assertion, then the full gate with the disposable PostgreSQL 17 fixture. No threshold or skip changes."
   "2026-10-03T00:29:49.511Z",codex-sol-land,"The existing live-fleet freshness regression failed because pm-ts-starter now documents SDK 2026.9.29 while the snapshot documented 2026.7.6. Regenerated the 20-extension snapshot with npm run fleet:snapshot and real npm registry checks; only that public description changed. Direct and PM-linked catalog tests pass 12/12. The broader catalog owner pm-web-bw5d retains its prior history. New full release:check verification passes: 408 tests, 408 pass, 0 skips; PM-linked test/extension.test.ts, strict health, fresh dist equality and Bun install pass with unchanged gates. Exact-head CI/reviews and prior broader blockers remain separate. Local database tests used a disposable native PostgreSQL 17 cluster; GitHub CI uses PostgreSQL 17. PM_FLEET_ROOT was set as requested."
   "2026-10-03T00:35:45.233Z",codex-sol-land,Exact-head CI found an absolute fleet-root literal in my newly added then removed test-link history. The original catalog link already forwards PM_FLEET_ROOT correctly. Used local PM history redact with a caller-variable replacement and audited marker; retain every event and its provenance. Amend only my last commit so the per-commit identity audit does not keep the rejected literal in branch ancestry; rerun identity-audit and full release gate after the amendment.
   "2026-10-03T00:42:17.622Z",codex-sol-land,"Audited redaction and commit amendment now pass the direct identity audit 4/4 and the full release gate 408/408 against disposable PostgreSQL 17; required coverage, fresh dist, strict PM health, original PM-linked extension/catalog tests and Bun install pass. The attempted identity-only PM link cannot work in its bounded snapshot because .git is intentionally excluded; removed only that newly added inoperable link, retaining all history and the unchanged identity audit in the real full gate. Old published events remain present; one explicit path literal was replaced through official audited redaction, with operation/provenance retention proved."
+  "2026-10-04T12:36:41.418Z",codex-sol,"Rebase prerequisite PR #163 onto origin/main after #161, preserving the human jscpd, duplication, catalog and dependency repairs. npm ci completed and canonical merge drivers installed before rebase. Validate the rebased candidate with the unchanged full release gate and disposable native PostgreSQL, request fresh reviews, then hand off merge to orchestrator. PM CLI/SDK certification branch begins only after #163 is merged."
 notes[4]{created_at,author,text}:
   "2026-09-29T12:33:07.927Z",codex,"At PR #163 head dcb96dd, jscpd 5.3.2 reported 71/40295 duplicated lines across ten clone pairs after npm ci; CI Node 22/26 failed. Reused the canonical entry guard, shared graph property filtering, unified two paginated PM list handlers, and consolidated repeated real-Postgres/realtime test setup without weakening assertions. The unchanged gate now reports 0/40200 lines and zero clone pairs. Typecheck passed. Full release:check rerun is underway after an unrelated live-fleet catalog snapshot drift was found and repaired under pm-web-bw5d."
   "2026-09-29T12:37:27.892Z",codex,"After the catalog refresh, the direct full npm run release:check passed: typecheck, lint, zero-duplication gate (0/40199 lines across 141 sources), docstrings (599 declarations in 92 files), 408 tests with zero failures/skips, declared coverage gate (32 source files), production audit zero, pack, packed npm/Bun CLI 2026.9.23 acceptance, changelog and publish attestation. This is not all-source 100/100/100/100; separate pm-web-fy9a owns that gap. PM-linked full gate with tracker context is running to verify packed fixture isolation."
