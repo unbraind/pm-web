@@ -309,6 +309,26 @@ test("ambiguous HTTP failure needs attention, isolates workspace ordering, and c
   assert.equal(ordered.rows[0]?.n, 1);
 });
 
+test("discarding the last attention record reports an empty recovery set and stale actions cannot recreate it", async (t) => {
+  const { owner, worker, browser } = await setupWorkspaceRecovery(t);
+  await worker.queueMutation("POST", "/projects/a/mutate", { name: "ambiguous" });
+  swQueue.getAllResult.push({ ...(swQueue.lastAdded as object), id: 1 });
+  await worker.flushMutationQueue();
+  await worker.flushMutationQueue();
+  assert.equal((swQueue.getAllResult[0] as { state: string }).state, "needs-attention");
+  swQueue.postedMessages.length = 0;
+  await recoverRecord(owner.id, "discard");
+  assert.deepEqual(swQueue.getAllResult, []);
+  assert.deepEqual(swQueue.postedMessages, [{ type: "MUTATIONS_BLOCKED", blocked: [] }], "the page is told to remove its recovery notice");
+  const writes = browser.requests.filter((request) => request.method === "POST").length;
+  const deletes = swQueue.deleteCallCount;
+  await recoverRecord(owner.id, "retry-new");
+  await recoverRecord(owner.id, "discard");
+  assert.deepEqual(swQueue.getAllResult, [], "stale recovery does not recreate discarded records");
+  assert.equal(swQueue.deleteCallCount, deletes);
+  assert.equal(browser.requests.filter((request) => request.method === "POST").length, writes);
+});
+
 test("repeated pre-commit HTTP 5xx needs attention without starving other workspaces", async (t) => {
   const { owner, worker, browser } = await setupWorkspaceRecovery(t);
   const trigger = `worker_failure_${RUN_ID}`;

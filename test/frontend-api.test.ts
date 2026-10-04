@@ -206,6 +206,33 @@ test("needs-attention recovery offers confirmed retry-as-new and discard only to
   assert.equal(page.messages.length, 4, "stale controls cannot approve another account's recovery");
 });
 
+test("cleared or replaced recovery notices cannot act on removed records", (t) => {
+  const page = recoveryPage(t);
+  page.report([
+    { id: 4, method: "POST", path: "/groups", ownerId: "account-a", reason: "outcome-unknown" },
+    { id: 5, method: "POST", path: "/groups", reason: "unknown-owner" },
+  ]);
+  const notice = page.nodes[0];
+  const controls = notice.children.find((node) => node.tagName === "ul")?.children[0].children;
+  assert.equal(controls?.length, 2);
+  const adopt = notice.children.find((node) => /adopt/.test(node.textContent));
+  const dismiss = notice.children.find((node) => node.textContent === "Dismiss");
+  assert.ok(adopt);
+  assert.ok(dismiss);
+  page.confirm(true);
+  for (const blocked of [[], [{ id: 6, method: "POST", path: "/groups", reason: "owner-mismatch" }]]) {
+    page.report(blocked);
+    assert.equal(page.nodes.length, blocked.length === 0 ? 0 : 1, "the notice reflects remaining work");
+    const messageCount = page.messages.length;
+    for (const control of controls ?? []) control.onclick?.();
+    adopt.onclick?.();
+    dismiss.onclick?.();
+    assert.equal(page.messages.length, messageCount, "stale buttons cannot send recovery actions");
+    page.report(blocked);
+    assert.equal(page.nodes.length, blocked.length === 0 ? 0 : 1, "stale dismissal cannot suppress a replacement notice");
+  }
+});
+
 test("the originating tab attaches its expected account before a worker reads shared session state", async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   const globals = globalThis as unknown as Record<string, unknown>;

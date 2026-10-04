@@ -96,18 +96,23 @@ export function syncServiceWorkerSession(user: { id: string } | null): void {
       }).sort());
       if (current.dismissedSet !== blockedSet) current.dismissedSet = null;
       if (data.blocked.length === 0 || current.dismissedSet === blockedSet) return;
-      current.recovery = showOfflineRecovery(data.blocked, current.userId, (ids, ownerId) => {
-        if (current.userId !== ownerId) return;
+      const recovery = showOfflineRecovery(data.blocked, current.userId, (ids, ownerId) => {
+        if (current.userId !== ownerId || current.recovery !== recovery) return;
         workers.controller?.postMessage({ type: 'REBIND_RECORDS', ids, ownerId });
       }, {
         /** Carry explicit owner approval to the worker for one attention record. */
         recover: (id, ownerId, action) => {
-          if (current.userId !== ownerId) return;
+          if (current.userId !== ownerId || current.recovery !== recovery) return;
           workers.controller?.postMessage({ type: 'RECOVER_RECORD', id, ownerId, action });
         },
         /** Suppress repeated reports for this exact set until queued work changes. */
-        dismiss: () => { current.dismissedSet = blockedSet; current.recovery = null; },
+        dismiss: () => {
+          if (current.recovery !== recovery) return;
+          current.dismissedSet = blockedSet;
+          current.recovery = null;
+        },
       });
+      current.recovery = recovery;
     });
   }
   session.recovery?.remove();

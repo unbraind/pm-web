@@ -561,13 +561,42 @@ test("an unknown token account bypasses keying and gets the route's normal outco
   assert.deepEqual(await forged.json(), { error: "Failed to create group" }, "the route receives the unknown account");
 });
 
-test("SQL bootstrap and runtime idempotency table definitions agree and retention is indexed", async () => {
+test("SQL bootstrap and runtime idempotency definitions agree and both sweep ages are indexed", async () => {
+  await ensureSchema();
   const sql = readFileSync(new URL("../sql/schema.sql", import.meta.url), "utf8");
   const runtime = readFileSync(new URL("../src/db.ts", import.meta.url), "utf8");
   const table = /CREATE TABLE IF NOT EXISTS pm_idempotency_keys \([\s\S]*?\);/;
   assert.equal(sql.match(table)?.[0].replace(/\s+/g, " "), runtime.match(table)?.[0].replace(/\s+/g, " "));
-  const indexes = await pool.query<{ indexdef: string }>("SELECT indexdef FROM pg_indexes WHERE tablename = 'pm_idempotency_keys'");
-  assert.ok(indexes.rows.some((row) => row.indexdef.includes("(created_at)")), "retention has an index");
+  const indexPattern = /CREATE INDEX IF NOT EXISTS idx_pm_idempotency_\w+ ON pm_idempotency_keys \(\w+\) WHERE status_code IS (?:NOT )?NULL/g;
+  assert.deepEqual(sql.match(indexPattern)?.sort(), runtime.match(indexPattern)?.sort(), "every partial sweep index is identical in both setup paths");
+  const indexes = await pool.query<{ indexname: string; indexdef: string }>("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'pm_idempotency_keys'");
+  assert.match(indexes.rows.find((row) => row.indexname === "idx_pm_idempotency_pending_at")?.indexdef ?? "", /\(created_at\) WHERE \(status_code IS NULL\)/);
+  assert.match(indexes.rows.find((row) => row.indexname === "idx_pm_idempotency_settled_at")?.indexdef ?? "", /\(updated_at\) WHERE \(status_code IS NOT NULL\)/);
+});
+
+test("PostgreSQL can serve each real idempotency sweep query with its partial age index", async () => {
+  await ensureSchema();
+  const source = readFileSync(new URL("../src/idempotency.ts", import.meta.url), "utf8");
+  const sweep = source.match(/async function deleteExpiredKeys\(\): Promise<void> \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(sweep);
+  const queries = [...sweep.matchAll(/`([\s\S]*?)`/g)].map((match) => match[1]);
+  assert.equal(queries.length, 2, "check the actual pending UPDATE and settled DELETE");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL enable_seqscan = off");
+    for (const [index, query] of queries.entries()) {
+      const result = await client.query<{ "QUERY PLAN": string }>(`EXPLAIN ${query}`, index === 0 ? [300_000, "{}"] : [604_800_000]);
+      const plan = result.rows.map((row) => row["QUERY PLAN"]).join("\n");
+      const expected = index === 0 ? "idx_pm_idempotency_pending_at" : "idx_pm_idempotency_settled_at";
+      assert.ok(plan.includes(expected), `${expected} must serve the sweep: ${plan}`);
+      assert.doesNotMatch(plan, /Seq Scan/);
+      assert.match(plan, /Index Cond:.*(?:created_at|updated_at) </, "age cutoff is an index condition");
+    }
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
 });
 
 test("transient 425 and 429 refusals are not stored and the identical key can retry", async (t) => {

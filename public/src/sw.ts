@@ -445,7 +445,11 @@ async function replayQueuedMutations(): Promise<void> {
     return;
   }
   const mutations = read.mutations;
-  if (mutations.length === 0) return;
+  if (mutations.length === 0) {
+    const clients = await sw.clients.matchAll();
+    clients.forEach((client) => { client.postMessage({ type: 'MUTATIONS_BLOCKED', blocked: [] }); });
+    return;
+  }
 
   let replayCsrfToken: string | null;
   let currentUserId: string | null = null;

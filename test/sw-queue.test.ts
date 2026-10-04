@@ -145,7 +145,7 @@ test("sw queue: an empty queue is reported as ok:true with an empty array, not a
   assert.deepEqual(result.mutations, [], "empty queue must carry an empty mutations array");
 });
 
-test("sw queue: an empty queue flush is a no-op — the two outcomes do not collapse", async () => {
+test("sw queue: an empty queue flush clears blocked work without claiming a replay", async () => {
   swQueue.openShouldFail = false;
   swQueue.getAllResult = [];
   swQueue.getAllShouldFail = false;
@@ -153,7 +153,7 @@ test("sw queue: an empty queue flush is a no-op — the two outcomes do not coll
 
   await internals.flushMutationQueue();
 
-  assert.equal(postedMessages.length, 0, "empty queue flush must not post any messages");
+  assert.deepEqual(postedMessages, [{ type: "MUTATIONS_BLOCKED", blocked: [] }]);
 });
 
 test("sw queue: a queued mutation is bound to the broadcast account, its workspace and a fresh idempotency key", async () => {

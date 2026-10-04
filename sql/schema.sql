@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS pm_idempotency_keys (
 
 CREATE INDEX IF NOT EXISTS idx_pm_idempotency_created_at ON pm_idempotency_keys (created_at) WHERE status_code IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_pm_idempotency_settled_at ON pm_idempotency_keys (updated_at) WHERE status_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pm_idempotency_pending_at ON pm_idempotency_keys (created_at) WHERE status_code IS NULL;
 
 -- Bootstrap admin promotion is now applied at runtime via PM_WEB_BOOTSTRAP_ADMIN_EMAIL (see src/db.ts).
 

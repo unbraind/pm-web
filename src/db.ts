@@ -224,6 +224,7 @@ export async function initSchema(): Promise<void> {
   await pool.query("UPDATE pm_idempotency_keys SET outcome_state = 'completed' WHERE outcome_state = 'pending' AND status_code IS NOT NULL");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_created_at ON pm_idempotency_keys (created_at) WHERE status_code IS NOT NULL");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_settled_at ON pm_idempotency_keys (updated_at) WHERE status_code IS NOT NULL");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_pending_at ON pm_idempotency_keys (created_at) WHERE status_code IS NULL");
 
   if (bootstrapAdminEmail) {
     await pool.query(
