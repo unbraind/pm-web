@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -20,6 +20,45 @@ import {
   startApp,
   uniqueEmail,
 } from "./helpers/pg-harness.ts";
+
+/**
+ * Mutating pm actions that must never appear in a graph-read command log.
+ * Reads (list/get/context/search/`extension --json` listings/graph queries)
+ * stay allowed; anything that installs, provisions, creates, updates, closes,
+ * claims, releases, or rewrites workspace state is a mutation entry.
+ */
+const MUTATION_ACTIONS = new Set([
+  "install", "uninstall", "create", "update", "update-many", "close", "claim",
+  "release", "plan", "merge", "test", "test-all", "gc", "reindex", "init",
+  "upgrade", "snapshot", "comment", "note", "learning", "delete", "remove", "add",
+]);
+
+/** Mutating subcommands of the read-listing `pm extension` verb. */
+const MUTATION_EXTENSION_SUBCOMMANDS = new Set([
+  "activate", "deactivate", "install", "uninstall", "enable", "disable",
+]);
+
+/** Mutating subcommands of the `pm workspace` verb. */
+const MUTATION_WORKSPACE_SUBCOMMANDS = new Set([
+  "config", "schema", "profile", "snapshot", "merge", "init",
+]);
+
+/**
+ * Decide whether one logged pm command line is a mutation entry.
+ *
+ * The log records the exact argv pm-web spawned, so the first token is the pm
+ * action; `extension` and `workspace` carry their mutating subcommand second.
+ *
+ * @param line - One logged command line (space-joined argv).
+ * @returns True when the line records a mutating command.
+ */
+function isMutationCommandEntry(line: string): boolean {
+  const [first, second] = line.trim().split(/\s+/);
+  if (first !== undefined && MUTATION_ACTIONS.has(first)) return true;
+  if (first === "extension" && second !== undefined && MUTATION_EXTENSION_SUBCOMMANDS.has(second)) return true;
+  if (first === "workspace" && second !== undefined && MUTATION_WORKSPACE_SUBCOMMANDS.has(second)) return true;
+  return false;
+}
 
 test("graph GET and HEAD by a view-only collaborator leave extensions untouched", async (t) => {
   await ensureSchema();
@@ -43,6 +82,12 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
       else process.env.PROJECTS_ROOT = previousRoot;
       if (previousMarker === undefined) delete process.env.PM_WEB_GRAPH_READ_MARKER;
       else process.env.PM_WEB_GRAPH_READ_MARKER = previousMarker;
+      if (previousCliBin === undefined) delete process.env.PM_CLI_BIN;
+      else process.env.PM_CLI_BIN = previousCliBin;
+      if (previousCommandLog === undefined) delete process.env.PM_WEB_COMMAND_LOG;
+      else process.env.PM_WEB_COMMAND_LOG = previousCommandLog;
+      if (previousRealPmBin === undefined) delete process.env.PM_WEB_REAL_PM_BIN;
+      else process.env.PM_WEB_REAL_PM_BIN = previousRealPmBin;
       await rm(root, { recursive: true, force: true });
     }
   });
@@ -89,6 +134,30 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   const settingsFile = path.join(pmRoot, "settings.json");
   const settingsBefore = await readFile(settingsFile);
   assert.equal(existsSync(graphInstall), false);
+
+  // Command log: PM_CLI_BIN wraps the real pm and records every spawn pm-web
+  // makes (forwarding argv so a read spawn still succeeds). The acceptance is
+  // that graph reads leave this log free of mutation entries: if a GET/HEAD
+  // route ever provisions or mutates through a spawned pm command, the logged
+  // line fails the assertion below.
+  const commandLog = path.join(root, "commands.log");
+  const commandLoggingPm = path.join(root, "pm-command-log-wrapper");
+  await writeFile(commandLoggingPm, `#!/usr/bin/env node
+const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
+const log = process.env.PM_WEB_COMMAND_LOG;
+if (log) fs.appendFileSync(log, process.argv.slice(2).join(" ") + "\\n");
+const result = spawnSync(process.env.PM_WEB_REAL_PM_BIN || "pm", process.argv.slice(2), {
+  stdio: "inherit",
+});
+process.exit(result.status ?? (result.error ? 1 : 0));
+`);
+  await chmod(commandLoggingPm, 0o755);
+  const previousCliBin = process.env.PM_CLI_BIN;
+  const previousCommandLog = process.env.PM_WEB_COMMAND_LOG;
+  const previousRealPmBin = process.env.PM_WEB_REAL_PM_BIN;
+  process.env.PM_CLI_BIN = commandLoggingPm;
+  process.env.PM_WEB_COMMAND_LOG = commandLog;
 
   const server = await startApp();
   fixture.server = server;
@@ -159,6 +228,16 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   assert.equal(separateBody.center, null, "a project cannot read a node from another project");
   assert.deepEqual(separateBody.neighbors, []);
   assert.equal(existsSync(marker), false, "neighbor reads must not activate installed extensions");
+
+  // The acceptance criterion this regression pins: the graph read phase's
+  // command log must stay free of mutation entries. Reads (including an empty
+  // log, since the graph read path dispatches through the in-process SDK) are
+  // fine; any provisioning or tracker mutation recorded here fails.
+  const commandLogText = await readFile(commandLog, "utf8").catch(() => "");
+  const mutationEntries = commandLogText.split("\n").filter((line) => line.trim() !== "")
+    .filter(isMutationCommandEntry);
+  assert.deepEqual(mutationEntries, [],
+    "graph GET and HEAD requests must never spawn a mutating pm command");
 
   const deniedSync = await authedFetch(server, viewer, `${url}/sync`, { method: "POST" });
   assert.equal(deniedSync.status, 403);
