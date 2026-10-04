@@ -2,12 +2,15 @@ id: pm-web-25nv
 title: "The per-IP rate limiter trusted a client-supplied forwarded address by default, so any caller could rotate a header to a fresh bucket"
 description: "resolveTrustProxy returned one trusted hop when PM_WEB_TRUST_PROXY was unset. Every launch path this package documents exposes Express directly with no proxy: a docker run publishing the port, and npm start. Under that default Express takes the client address from the caller's own X-Forwarded-For header, so an attacker rotating the header draws a new bucket for every request and every per-route limit added by this change enforces nothing, while still reporting itself as enforcing them. The default is now to trust nothing, which fails in the visible direction instead: a genuinely proxied deployment sees all clients share the proxy address and an operator notices immediately. The hosted deployment behind Caddy declares its single hop explicitly in the compose file, and the variable is documented."
 type: Issue
-status: in_progress
+status: closed
 priority: 1
 tags[3]: "area:http","area:security","type:defect"
 created_at: "2026-08-28T14:54:28.347Z"
-updated_at: "2026-10-04T18:16:02.799Z"
+updated_at: "2026-10-04T21:33:08.698Z"
+closed_at: "2026-10-04T21:33:02.386Z"
+completed_at: "2026-10-04T21:33:02.386Z"
 author: claude
+resolution: completed
 comments[2]{created_at,author,text}:
   "2026-08-28T14:55:13.653Z",claude,"Revert-checked: restoring the one-hop default drops the new test from passing to failing, so it measures the fix rather than describing it. The complementary test that opts into one hop and asserts the limiter follows the real client behind a proxy still passes, so the proxied behaviour is unchanged. Fifteen tests in the suite pass. Raised by Greptile as a P1 security finding on PR 110."
   "2026-10-04T18:16:01.098Z",claude-orchestrator,"PR #170: four accounts fire 20 parallel POSTs with rotating forged X-Forwarded-For, X-Real-IP and Forwarded headers; exactly the 6-request budget is admitted with the default trust-nothing proxy setting; revert-checked against the one-hop default. Tests restore PM_WEB_TRUST_PROXY after themselves."
@@ -30,4 +33,5 @@ tests[2]:
 docs[2]{path,scope,note}:
   src/rate-limit.ts,project,resolveTrustProxy default
   test/rate-limit.test.ts,project,the header-rotation regression test
+close_reason: "PR #170: rotating forged X-Forwarded-For / X-Real-IP / Forwarded headers across four accounts never buys a fresh bucket under the default trust-nothing proxy setting; revert-checked."
 body: ""

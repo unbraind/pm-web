@@ -2,12 +2,15 @@ id: pm-web-s552
 title: "Two limiters counted one request twice, halving every published budget on the affected routes"
 description: "A limiter counts every request that traverses it, so mounting the same limiter on a prefix and again on a nested path charges one request twice. The auth limiter was mounted on slash api slash auth once for the OIDC router and again for the auth router, so any request the OIDC router did not handle fell through and was counted a second time, reducing twenty requests per minute to ten. The read and write limiters were mounted on slash api slash projects and again on each nested mount beneath it, so every nested project request was counted twice and the six hundred and three hundred per minute budgets became three hundred and one hundred and fifty. Legitimate collaboration would meet a premature 429 at half the documented limit. Each shared prefix now carries its limiters exactly once and the routers mount behind them."
 type: Issue
-status: in_progress
+status: closed
 priority: 1
 tags[2]: "area:http","type:defect"
 created_at: "2026-08-28T14:54:43.995Z"
-updated_at: "2026-10-04T18:16:02.186Z"
+updated_at: "2026-10-04T21:33:08.266Z"
+closed_at: "2026-10-04T21:33:01.925Z"
+completed_at: "2026-10-04T21:33:01.925Z"
 author: claude
+resolution: completed
 comments[2]{created_at,author,text}:
   "2026-08-28T14:55:15.721Z",claude,"Verified against Express prefix matching rather than assumed: a request to slash api slash projects slash ID slash pm matches the slash api slash projects mount before reaching its own, so both traversals incremented the same store. Raised by Greptile as a P1 finding on PR 110."
   "2026-10-04T18:16:00.482Z",claude-orchestrator,"PR #170: proof against the real app that a nested project request is counted once (5-request write budget: 5 admitted, 6th refused), the auth budget holds exactly (20 admitted, 21st refused), and 20 concurrent POSTs from four accounts admit exactly the 12-request budget; revert-checked against the historical double mount. Rate limiting now runs before the idempotency guard so refusals never claim a key."
@@ -30,4 +33,5 @@ tests[2]:
       source_ref: fix/bind-offline-queue-and-rate-limit-identity
 docs[1]{path,scope,note}:
   src/app.ts,project,router and limiter mounting
+close_reason: "PR #170: one request counts once; published budgets hold exactly at the boundary and under 20 concurrent POSTs from four accounts; revert-checked; rate limiting runs before the idempotency guard."
 body: ""
