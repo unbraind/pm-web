@@ -11,6 +11,7 @@ import { createTierLimiters } from "../src/rate-limit.ts";
 import { signToken } from "../src/auth.ts";
 import { pool } from "../src/db.ts";
 import { idempotencyGuard } from "../src/idempotency.ts";
+import { csrfProtection } from "../src/csrf.ts";
 import { groupsRouter } from "../src/routes/groups.ts";
 
 test("a real HTTP response lost after commit replays the queued write exactly once", async (t) => {
@@ -232,6 +233,11 @@ async function setupWorkspaceRecovery(t: test.TestContext): Promise<{
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
+  // The production middleware order: CSRF and the write-tier limiter run
+  // before the idempotency guard, so the recovery flows below are exercised
+  // through the same request path as the hosted app.
+  app.use(csrfProtection());
+  app.use(createTierLimiters(process.env).write);
   app.use(idempotencyGuard());
   app.get("/api/auth/me", (_req, res) => {
     res.setHeader("x-csrf-token", "pm-web-test-csrf");
