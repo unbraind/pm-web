@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "id": "6758a30c-7c40-44b3-a4df-5b21ba1af4c0",
+  "item_path": ".agents/pm/issues/pm-web-bw5d.toon",
+  "item_id": "pm-web-bw5d",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [],
+  "union_fields": [
+    "comments",
+    "docs",
+    "files",
+    "notes",
+    "tests"
+  ],
+  "merged_field_hashes": {
+    "comments": "387d4e1b9b71f70c49b1e93e35fe53b1db92adf6d52d6074d791a632f70feb7d",
+    "docs": "60880386e501800d9ed5dd41ee7ffc4d78973e433e82a59df9d73e0717d53363",
+    "files": "7ff52f235806dfec008435add634753655ddf5ec8018e3900dce19ace5d86eff",
+    "notes": "528d6b3ff75458e2f138372a1cc9c4955a71ec658fabf6c5b1cf9e91f543eb90",
+    "tests": "25d1eaf2f4182efb2194f68b3f56fa20bd20a8c0641973967ea602865f021efd",
+    "status": "957be85f89c8063a8842664f5a445db848b7325838be33eadb268c8d554ec887"
+  },
+  "decisions": [
+    {
+      "field": "status",
+      "base": null,
+      "ours": null,
+      "theirs": null,
+      "retained": {
+        "pm_value_hash": "957be85f89c8063a8842664f5a445db848b7325838be33eadb268c8d554ec887",
+        "pm_value": "in_progress"
+      },
+      "discarded": {
+        "pm_value_hash": "64e3b66a5c7e5d1f562210d9bb6c112cb4cb8e581ba6740916b1425bf03b26b1",
+        "pm_value": "blocked"
+      },
+      "retained_side": "theirs",
+      "resolution_basis": "document_updated_at"
+    }
+  ],
+  "operation": {
+    "kind": "rebase",
+    "original_head": "c2fe611c4dc037af6614911c7de1095e03ba5f4c",
+    "original_blob": "d6c89e3fd4cf0a2a21e9bbd565ddf603d17a76b0"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-04T13:00:38.392Z",
+  "value_availability": "bounded_inline",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-04T13:02:19.735Z"
+}

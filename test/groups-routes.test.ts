@@ -12,10 +12,9 @@ import test from "node:test";
 import {
   assertMalformedUuidMutating,
   authedFetch,
-  ensureSchema,
   seedGroup,
   seedUser,
-  startApp,
+  setupOwnerAppTest,
   uniqueEmail,
   type AppServer,
   type SeedGroup,
@@ -25,10 +24,7 @@ import {
 /** Common setup for group tests: ensure schema, start app, register cleanup,
  * and create an owner with a group. */
 async function setupGroupTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser; group: SeedGroup }> {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupOwnerAppTest(t);
   const group = await seedGroup(owner.id);
   return { server, owner, group };
 }
@@ -42,20 +38,29 @@ async function addMemberViaApi(server: AppServer, owner: SeedUser, groupId: stri
   });
 }
 
-
-test("groups: create, list, get, update, and delete as owner", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
-
-  // Create a group.
-  const created = await authedFetch(server, owner, "/api/groups", {
+/** Create a group through the public route so each test observes its HTTP contract. */
+async function createGroupViaApi(server: AppServer, owner: SeedUser, body: Record<string, unknown>): Promise<Response> {
+  return authedFetch(server, owner, "/api/groups", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "My Group", description: "initial" }),
+    body: JSON.stringify(body),
   });
+}
+
+/** Seed an owner and member through the same API route used in the removal tests. */
+async function setupMemberGroupTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser; group: SeedGroup; member: SeedUser }> {
+  const { server, owner, group } = await setupGroupTest(t);
+  const member = await seedUser(uniqueEmail("member"));
+  await addMemberViaApi(server, owner, group.id, member.email);
+  return { server, owner, group, member };
+}
+
+
+test("groups: create, list, get, update, and delete as owner", async (t) => {
+  const { server, owner } = await setupOwnerAppTest(t);
+
+  // Create a group.
+  const created = await createGroupViaApi(server, owner, { name: "My Group", description: "initial" });
   assert.equal(created.status, 201);
   const createdBody = (await created.json() as { group: { id: string; name: string; description: string; role: string; member_count: string } });
   assert.equal(createdBody.group.name, "My Group");
@@ -100,16 +105,8 @@ test("groups: create, list, get, update, and delete as owner", async (t) => {
 });
 
 test("groups: creating without a name is 400", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
-  const res = await authedFetch(server, owner, "/api/groups", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({}),
-  });
+  const { server, owner } = await setupOwnerAppTest(t);
+  const res = await createGroupViaApi(server, owner, {});
   assert.equal(res.status, 400);
 });
 
@@ -185,11 +182,7 @@ test("groups: inviting without an email is 400, and inviting a non-user is 404",
 });
 
 test("groups: owner removes a member, and removing a missing member is 404", async (t) => {
-  const { server, owner, group } = await setupGroupTest(t);
-  const member = await seedUser(uniqueEmail("member"));
-
-  // Add the member first via the API so the relationship exists.
-  await addMemberViaApi(server, owner, group.id, member.email);
+  const { server, owner, group, member } = await setupMemberGroupTest(t);
 
   const removed = await authedFetch(server, owner, `/api/groups/${group.id}/members/${member.id}`, {
     method: "DELETE",
@@ -204,10 +197,7 @@ test("groups: owner removes a member, and removing a missing member is 404", asy
 });
 
 test("groups: a non-owner member can remove themselves, but the owner cannot leave", async (t) => {
-  const { server, owner, group } = await setupGroupTest(t);
-  const member = await seedUser(uniqueEmail("member"));
-
-  await addMemberViaApi(server, owner, group.id, member.email);
+  const { server, owner, group, member } = await setupMemberGroupTest(t);
 
   // A member removing themselves is allowed even though they are not the owner.
   const self = await authedFetch(server, member, `/api/groups/${group.id}/members/${member.id}`, {
@@ -223,11 +213,7 @@ test("groups: a non-owner member can remove themselves, but the owner cannot lea
 });
 
 test("groups: a non-owner cannot remove another member", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupOwnerAppTest(t);
   const memberA = await seedUser(uniqueEmail("memberA"));
   const memberB = await seedUser(uniqueEmail("memberB"));
   const group = await seedGroup(owner.id);
@@ -249,16 +235,8 @@ test("groups: a non-owner cannot remove another member", async (t) => {
 });
 
 test("groups: create without a description defaults to empty", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
-  const created = await authedFetch(server, owner, "/api/groups", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "NoDesc" }),
-  });
+  const { server, owner } = await setupOwnerAppTest(t);
+  const created = await createGroupViaApi(server, owner, { name: "NoDesc" });
   assert.equal(created.status, 201);
   // Fetching the detail confirms the description defaulted to empty.
   const gid = (await created.json() as { group: { id: string } }).group.id;
@@ -267,11 +245,7 @@ test("groups: create without a description defaults to empty", async (t) => {
 });
 
 test("groups: patch with only a name leaves the description untouched", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupOwnerAppTest(t);
   // Seed a non-empty description: with an empty one the assertion below could
   // not distinguish "preserved" from "wiped".
   const group = await seedGroup(owner.id, undefined, "keep me");
@@ -299,11 +273,7 @@ test("groups: inviting with role 'owner' stores the owner role", async (t) => {
 });
 
 test("groups: a malformed group identifier is rejected with 400 before reaching SQL", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupOwnerAppTest(t);
   // A non-UUID id makes the membership-check query throw a syntax error, which
   // the uuidParamGuard rejects first, so the client gets an accurate 400 and the
   // group's state is never consulted.
@@ -317,11 +287,7 @@ test("groups: a malformed identifier is rejected with 400 on mutating routes", a
 });
 
 test("groups: a malformed identifier is rejected with 400 on member routes", async (t) => {
-  await ensureSchema();
-  const server = await startApp();
-  t.after(() => server.close());
-
-  const owner = await seedUser(uniqueEmail("owner"));
+  const { server, owner } = await setupOwnerAppTest(t);
   const invite = await authedFetch(server, owner, "/api/groups/not-a-uuid/members", {
     method: "POST",
     headers: { "content-type": "application/json" },

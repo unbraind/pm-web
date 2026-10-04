@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "bdaad0ad-e601-49d6-a7e6-a79f81496bc6",
+  "item_path": ".agents/pm/issues/pm-web-bw5d.toon",
+  "item_id": "pm-web-bw5d",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [
+    "assignee",
+    "claim_principal"
+  ],
+  "union_fields": [
+    "comments",
+    "docs"
+  ],
+  "merged_field_hashes": {
+    "assignee": "18de395866606fe80843d80346f8d0f1729c6c81aa6d8ca8f03264e99a808dff",
+    "claim_principal": "18de395866606fe80843d80346f8d0f1729c6c81aa6d8ca8f03264e99a808dff",
+    "comments": "387d4e1b9b71f70c49b1e93e35fe53b1db92adf6d52d6074d791a632f70feb7d",
+    "docs": "60880386e501800d9ed5dd41ee7ffc4d78973e433e82a59df9d73e0717d53363"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "rebase",
+    "original_head": "06ed3104f4c73bb1cd14999fbff01bc389f7a847",
+    "original_blob": "d6c89e3fd4cf0a2a21e9bbd565ddf603d17a76b0"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-04T12:43:01.082Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-04T12:54:28.531Z",
+  "settlement": "original_git_state_restored"
+}

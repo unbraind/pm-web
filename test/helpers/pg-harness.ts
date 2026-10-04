@@ -198,14 +198,18 @@ export async function startApp(): Promise<AppServer> {
   const { port, url, close } = await startEphemeralServer(createApp());
   return { port, url, close };
 }
-/** Common setup for route tests: ensure schema, start app, register cleanup,
- * and create an owner with a project. Used by sharing, groups and projects
- * route test suites. */
-export async function setupOwnerProjectTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser; project: SeedProject }> {
+/** Start a real route server and seed one owner, with cleanup bound to the test. */
+export async function setupOwnerAppTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser }> {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
   const owner = await seedUser(uniqueEmail("owner"));
+  return { server, owner };
+}
+
+/** Common setup for route tests that need a seeded owner and project. */
+export async function setupOwnerProjectTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser; project: SeedProject }> {
+  const { server, owner } = await setupOwnerAppTest(t);
   const project = await seedProject(owner.id);
   return { server, owner, project };
 }
