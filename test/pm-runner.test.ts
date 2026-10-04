@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,6 +10,7 @@ import {
   evictPmClient,
   EXIT_CODE,
   getPmClient,
+  initProject,
   PmWebCompleteListReceiptError,
   readCompletePmItems,
   runPm,
@@ -458,6 +460,43 @@ process.stdout.write(JSON.stringify({ argv: process.argv.slice(2) }));
     );
   } finally {
     evictPmClient(path.join(root, "user", "future", ".agents", "pm"));
+    restoreEnvVars(previousRoot, previousBin);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test("project initialization selects its own tracker beneath an ancestor tracker", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "pm-web-init-ancestor-"));
+  const previousRoot = process.env["PROJECTS_ROOT"];
+  const previousBin = process.env["PM_CLI_BIN"];
+  const cli = path.resolve("node_modules/@unbrained/pm-cli/dist/cli.js");
+  const ancestorSettings = path.join(root, ".agents", "pm", "settings.json");
+  try {
+    const initialized = spawnSync(process.execPath, [cli, "--pm-path", path.dirname(ancestorSettings),
+      "workspace", "init", "--prefix", "ancestor", "--defaults", "--agent-guidance", "skip", "--no-merge-fence"],
+    { cwd: root, encoding: "utf8" });
+    assert.equal(initialized.status, 0, initialized.stderr);
+    const before = await readFile(ancestorSettings, "utf8");
+    const wrapper = path.join(root, "pm-fixture.cjs");
+    // Only extension discovery is synthetic; init runs the actual pinned CLI.
+    await writeFile(wrapper, `#!/usr/bin/env node
+const { spawnSync } = require("node:child_process");
+if (process.argv[2] === "extension") {
+  process.stdout.write(JSON.stringify({details:{extensions:[{name:"pm-graph",active:true,enabled:true}]}}));
+} else {
+  const result = spawnSync(process.execPath, [${JSON.stringify(cli)}, ...process.argv.slice(2)], {stdio:"inherit"});
+  process.exit(result.status ?? 1);
+}
+`);
+    await chmod(wrapper, 0o755);
+    process.env["PROJECTS_ROOT"] = root;
+    process.env["PM_CLI_BIN"] = wrapper;
+    await initProject("owner", "nested", "child");
+    const childSettings = JSON.parse(await readFile(path.join(root, "owner", "nested", ".agents", "pm", "settings.json"), "utf8")) as { id_prefix: string };
+    assert.equal(childSettings.id_prefix, "child-");
+    assert.equal(await readFile(ancestorSettings, "utf8"), before, "ancestor settings stay byte-identical");
+  } finally {
     restoreEnvVars(previousRoot, previousBin);
     await rm(root, { recursive: true, force: true });
   }

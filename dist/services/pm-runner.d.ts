@@ -60,7 +60,7 @@ export declare function resolveProjectDir(projectId: string): Promise<string | n
 /**
  * Create and initialize a project workspace on disk.
  *
- * Makes the project directory, runs `pm init <prefix>` serialized against the
+ * Makes the project directory, explicitly initializes its own tracker serialized against the
  * workspace, configures local Ollama search, and ensures the graph extension is
  * installed. Throws when `pm init` fails.
  *
