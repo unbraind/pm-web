@@ -5,6 +5,7 @@ import { pool } from "../db.ts";
 import {
   certifyCompleteListResult,
   getItemAt,
+  listAllComplete,
   PM_TOOL_PARAMETERS_SCHEMA,
   PmClient,
   PmCliError,
@@ -772,20 +773,22 @@ export function certifyPmWebCompleteList(candidate: unknown): PmCompleteListResu
  * @param userId - The project owner's user id.
  * @param slug - The project slug.
  * @param includeBody - Whether complete rows must include item bodies.
+ * @param noExtensions - Disable extension activation for a strictly observational read.
  * @returns A discriminated success result with certified rows, or a failure.
  */
 export async function readCompletePmItems(
   userId: string,
   slug: string,
   includeBody = false,
+  noExtensions = false,
 ): Promise<PmCompleteListRunResult> {
   const dir = getProjectDir(userId, slug);
   return runSerialized(dir, async (): Promise<PmCompleteListRunResult> => {
     try {
       const pmRoot = path.join(dir, ".agents", "pm");
-      const result = certifyPmWebCompleteList(
-        await getPmClient(pmRoot).listAllComplete({ includeBody }),
-      );
+      const result = certifyPmWebCompleteList(noExtensions
+        ? await listAllComplete({ includeBody }, { pmRoot, cwd: dir, noExtensions: true })
+        : await getPmClient(pmRoot).listAllComplete({ includeBody }));
       return { ok: true, result };
     } catch (error) {
       const stderr = error instanceof Error ? error.message : String(error);

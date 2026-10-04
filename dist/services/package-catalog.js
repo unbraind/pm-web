@@ -51,7 +51,7 @@ export const PACKAGE_CATALOG = [
         name: "pm-ado",
         npmSpec: "npm:pm-ado",
         title: "Azure DevOps",
-        description: "Azure DevOps work-item sync for pm-cli. Every remote write carries a System.Rev assertion in its JSON Patch document, so a concurrent edit is rejected atomically instead of silently overwritten - the compare-and-swap that lets many agents sync one project at once. Maps work item revisions onto pm item history, typed work item relations onto pm parent and dependency kinds, and batches reads through the work item batch endpoint.",
+        description: "Azure DevOps client foundation for pm-cli. Its work-item updates assert System.Rev, batch reads surface missing items, and same-organization typed relations map to pm links. Full sync commands and revision-to-history reconciliation are planned.",
         capabilities: ["commands", "schema", "importers", "hooks", "preflight"],
         category: "extension",
         // Release-gated behind vars.PM_RELEASE_APPROVED and absent from npm, so no
