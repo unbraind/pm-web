@@ -23,6 +23,7 @@ import http from "node:http";
 import assert from "node:assert/strict";
 import type test from "node:test";
 import type { Express } from "express";
+import bcrypt from "bcryptjs";
 import { createApp } from "../../src/app.ts";
 import { signToken } from "../../src/auth.ts";
 import { startEphemeralServer } from "./ephemeral-server.ts";
@@ -39,6 +40,16 @@ import { initSchema, pool } from "../../src/db.ts";
  */
 export const RUN_ID =
   process.hrtime.bigint().toString(36) + Math.random().toString(36).slice(2);
+
+/** Bound duplicate polling in failure tests and restore the process configuration after each test. */
+export function configureIdempotencyWait(t: test.TestContext, milliseconds: number): void {
+  const previous = process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
+  process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = String(milliseconds);
+  t.after(() => {
+    if (previous === undefined) delete process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
+    else process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = previous;
+  });
+}
 
 /** A seeded user, carrying the fields the tests need to build requests. */
 export interface SeedUser {
@@ -236,6 +247,13 @@ export async function seedUser(
   );
   const row = result.rows[0] as UserRow;
   return { id: row.id, email: row.email };
+}
+
+/** Seed an account with a real password for synthetic HTTP login interleavings. */
+export async function seedPasswordUser(password = "synthetic-password"): Promise<SeedUser> {
+  const user = await seedUser();
+  await pool.query("UPDATE pm_users SET password_hash = $2 WHERE id = $1", [user.id, await bcrypt.hash(password, 4)]);
+  return user;
 }
 
 /**

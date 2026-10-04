@@ -22,8 +22,8 @@ export declare const pool: import("pg").Pool;
  *
  * Issues `CREATE TABLE IF NOT EXISTS` for users, projects, groups, group
  * members, project shares, external (OIDC) identities, the admin audit log,
- * and GitHub item links, plus their indexes; runs idempotent `ADD COLUMN IF
- * NOT EXISTS` migrations for later-added columns; and, when
+ * GitHub item links and idempotency keys, plus their indexes; runs idempotent
+ * `ADD COLUMN IF NOT EXISTS` migrations for later-added columns; and, when
  * `PM_WEB_BOOTSTRAP_ADMIN_EMAIL` is set, promotes that (lower-cased) user to
  * admin. Safe to call on every boot.
  */

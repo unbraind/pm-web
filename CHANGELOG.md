@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- Two limiters counted one request twice, halving every published budget on the affected routes ([pm-web-s552](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-s552.toon))
+
+### Security
+
+- The per-IP rate limiter trusted a client-supplied forwarded address by default, so any caller could rotate a header to a fresh bucket ([pm-web-25nv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-25nv.toon))
+- Offline mutation queue is not bound to the originating account or idempotency key ([pm-web-ccie](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-ccie.toon))
+
 ### Other
 
 - Auto-merge green Dependabot updates and group the pm toolchain into one daily PR ([pm-web-56no](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-56no.toon))

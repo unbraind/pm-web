@@ -77,8 +77,8 @@ const bootstrapAdminEmail = (process.env.PM_WEB_BOOTSTRAP_ADMIN_EMAIL || "")
  *
  * Issues `CREATE TABLE IF NOT EXISTS` for users, projects, groups, group
  * members, project shares, external (OIDC) identities, the admin audit log,
- * and GitHub item links, plus their indexes; runs idempotent `ADD COLUMN IF
- * NOT EXISTS` migrations for later-added columns; and, when
+ * GitHub item links and idempotency keys, plus their indexes; runs idempotent
+ * `ADD COLUMN IF NOT EXISTS` migrations for later-added columns; and, when
  * `PM_WEB_BOOTSTRAP_ADMIN_EMAIL` is set, promotes that (lower-cased) user to
  * admin. Safe to call on every boot.
  */
@@ -195,6 +195,36 @@ export async function initSchema(): Promise<void> {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS pm_github_item_links_project ON pm_github_item_links(project_id)`
   );
+
+  // Idempotency keys: one row per (account, key) recording the outcome of a
+  // mutating request that carried that key, so a retry after an ambiguous
+  // (lost) response replays the stored outcome instead of re-executing. A row
+  // with a NULL status_code marks an execution still in flight (or crashed
+  // before responding); see src/idempotency.ts for the unknown-outcome policy.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pm_idempotency_keys (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+      idempotency_key TEXT NOT NULL,
+      method TEXT NOT NULL,
+      path TEXT NOT NULL,
+      request_fingerprint TEXT NOT NULL,
+      outcome_state TEXT NOT NULL DEFAULT 'pending' CHECK (outcome_state IN ('pending', 'completed', 'outcome_unknown')),
+      status_code INTEGER,
+      response_body TEXT,
+      response_content_type TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, idempotency_key)
+    );
+  `);
+
+  await pool.query("ALTER TABLE pm_idempotency_keys ADD COLUMN IF NOT EXISTS response_content_type TEXT");
+  await pool.query("ALTER TABLE pm_idempotency_keys ADD COLUMN IF NOT EXISTS outcome_state TEXT NOT NULL DEFAULT 'pending' CHECK (outcome_state IN ('pending', 'completed', 'outcome_unknown'))");
+  await pool.query("UPDATE pm_idempotency_keys SET outcome_state = 'completed' WHERE outcome_state = 'pending' AND status_code IS NOT NULL");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_created_at ON pm_idempotency_keys (created_at) WHERE status_code IS NOT NULL");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_settled_at ON pm_idempotency_keys (updated_at) WHERE status_code IS NOT NULL");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_pending_at ON pm_idempotency_keys (created_at) WHERE status_code IS NULL");
 
   if (bootstrapAdminEmail) {
     await pool.query(

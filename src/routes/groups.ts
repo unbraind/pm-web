@@ -3,6 +3,7 @@ import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
 import { findUserByEmail, notFoundWhenEmpty, parseGroupInput } from "./route-helpers.ts";
+import { markIdempotencyPreCommitFailure } from "../idempotency.ts";
 
 const router = Router();
 router.use(requireAuth);
@@ -37,7 +38,11 @@ router.post("/", async (req: AuthRequest, res) => {
   if (!input) return;
   const { name, description } = input;
 
-  const client = await pool.connect();
+  const client = await pool.connect().catch((error: unknown) => {
+    markIdempotencyPreCommitFailure(res);
+    throw error;
+  });
+  let commitAttempted = false;
   try {
     await client.query("BEGIN");
     const groupResult = await client.query(
@@ -53,10 +58,13 @@ router.post("/", async (req: AuthRequest, res) => {
       `INSERT INTO pm_group_members (group_id, user_id, role) VALUES ($1, $2, 'owner')`,
       [group.id, req.user!.userId]
     );
+    commitAttempted = true;
     await client.query("COMMIT");
     res.status(201).json({ group: { ...groupResult.rows[0], role: "owner", member_count: "1" } });
   } catch (err) {
     await client.query("ROLLBACK");
+    // A failed COMMIT can have succeeded remotely; later ROLLBACK cannot prove otherwise.
+    if (!commitAttempted) markIdempotencyPreCommitFailure(res);
     console.error("Create group error:", err);
     res.status(500).json({ error: "Failed to create group" });
   } finally {

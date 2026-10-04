@@ -301,3 +301,66 @@ itself lists each affected stream in its output; `pm history --verify <id>` spot
 content, so `reconcile` only re-greens the hash chain (no data loss) — see the authoritative
 [pm-cli merge-safety guide](https://github.com/unbraind/pm-cli/blob/main/docs/MERGE_SAFETY.md). The
 older blunt `pm history-repair --all` remains available as a lower-level primitive.
+
+
+### Offline mutation identity and recovery
+
+Each service-worker write outside `/api/auth` gets an `Idempotency-Key` and
+captures its originating account before its first network attempt. If that
+response is lost, the queued record keeps the same key, body and account.
+Every replay sends `X-PM-Expected-Account`; the server refuses a different or
+missing account with 409 before executing or claiming a key, and the worker
+keeps the record. The session is resent when a worker first controls the page or changes;
+session writes and explicit adoption extend the worker event lifetime.
+
+The SPA displays blocked offline records. For unknown-owner records, the
+signed-in user may click **These changes are mine — adopt for my signed-in
+account** after reviewing the listed paths. The recovery message carries the
+approving account and adoption verifies it against the current server session.
+Adoption and flush share one operation chain. Adoption reads and updates
+ownership in one IndexedDB transaction, preserves any existing key and assigns
+only missing keys, then retries the queue.
+Records owned by another account remain blocked until that account signs in.
+Auth routes always use live responses and are never keyed or queued; legacy
+auth records remain blocked. Deleted or unknown token accounts bypass keying
+and receive the route's normal authentication outcome. Retention cleanup runs
+before key claims so a cleanup failure leaves the request retryable.
+
+API rate limits apply before idempotency, including to replay attempts. Explicit
+pre-mutation refusals (425 and 429) release the intent and are never replayed.
+Handlers may call `markIdempotencyPreCommitFailure` only when they can prove
+no mutation committed. Group creation does so on connection acquisition failure
+or a successful rollback before any COMMIT attempt. A later rollback cannot
+prove that an attempted COMMIT failed. Proven pre-commit 5xx failures release
+the claim, allowing the same key to retry. Every other 5xx and premature response
+close settles into terminal `outcome_unknown`, returning 409 with
+`PM_IDEMPOTENCY_OUTCOME_UNKNOWN` on retries without re-executing. Live duplicates
+wait up to `PM_WEB_IDEMPOTENCY_WAIT_MS` (default 30 seconds), then receive 409
+with `PM_IDEMPOTENCY_IN_FLIGHT`. After `PM_WEB_IDEMPOTENCY_PENDING_TIMEOUT_MS`
+(default five minutes), pending rows settle as unknown on duplicate lookup or
+the next retention sweep, including intents stranded by process termination.
+Outcome persistence failures are caught and logged without request contents.
+
+The worker durably marks unknown outcomes and three consecutive 5xx responses
+as **needs attention**, then stops automatic attempts for that record. Replays
+preserve FIFO within each owner's workspace; later records in other workspaces
+may continue. Paths under `/projects/<id>/` define a workspace, including legacy
+records. Account-level paths are barriers: they wait for earlier unresolved
+owned work and block all later owned work until resolved. Other accounts have
+separate ordering. Network or local persistence failures stop the flush.
+
+The recovery notice offers the originating owner **Retry as a new request**
+and **Discard**. Retrying requires a confirmation that the original might
+already have committed; it assigns a fresh key at the same queue position,
+then resumes ordered replay. Each new request is deduplicated separately:
+the user's approved retry can duplicate an unknown original commit. Discard
+removes only the queued record and does not undo any server commit. Recovery
+verifies the approving account against the server and updates IndexedDB in a
+single transaction. The keyboard-accessible **Dismiss** control hides the
+notice until the blocked record set changes; dismissing preserves all records.
+
+Completed responses and terminal unknown outcomes are retained for
+`PM_WEB_IDEMPOTENCY_RETENTION_MS` (default seven days) from settlement.
+Deduplication is bounded by that window; a retry after expiry may execute again.
+Cleanup uses a partial `updated_at` index and runs at most once per minute per
+guard instance. Pending intents are settled before retention can remove them.

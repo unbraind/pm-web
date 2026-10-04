@@ -101,6 +101,31 @@ CREATE TABLE IF NOT EXISTS pm_github_item_links (
 );
 CREATE INDEX IF NOT EXISTS pm_github_item_links_project ON pm_github_item_links(project_id);
 
+-- Idempotency keys: one row per (account, key) recording the outcome of a
+-- mutating request that carried that key, so a retry after an ambiguous (lost)
+-- response replays the stored outcome instead of re-executing. A NULL
+-- status_code marks an execution still in flight (or crashed before
+-- responding); see src/idempotency.ts for the unknown-outcome policy.
+CREATE TABLE IF NOT EXISTS pm_idempotency_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+  idempotency_key TEXT NOT NULL,
+  method TEXT NOT NULL,
+  path TEXT NOT NULL,
+  request_fingerprint TEXT NOT NULL,
+  outcome_state TEXT NOT NULL DEFAULT 'pending' CHECK (outcome_state IN ('pending', 'completed', 'outcome_unknown')),
+  status_code INTEGER,
+  response_body TEXT,
+  response_content_type TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, idempotency_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pm_idempotency_created_at ON pm_idempotency_keys (created_at) WHERE status_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pm_idempotency_settled_at ON pm_idempotency_keys (updated_at) WHERE status_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pm_idempotency_pending_at ON pm_idempotency_keys (created_at) WHERE status_code IS NULL;
+
 -- Bootstrap admin promotion is now applied at runtime via PM_WEB_BOOTSTRAP_ADMIN_EMAIL (see src/db.ts).
 
 -- Update trigger

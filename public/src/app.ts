@@ -2,7 +2,7 @@
 // APP — Main entry point
 // ═══════════════════════════════════════════════════════════════
 import { state } from './state.js';
-import { api, csrfTokenFromCookie } from './api.js';
+import { api, csrfTokenFromCookie, syncServiceWorkerSession } from './api.js';
 import type { AuthMeResponse, SearchResponse } from './api-types.js';
 import { showView, setOnViewChange, getViewForPath } from './views/router.js';
 import { loadProjects, onProjectSelect, loadItemsBadge, renderProjectsView, selectProject, deleteProject, buildCreateProjectModal, submitCreateProject, submitCreateProject2 } from './views/projects.js';
@@ -807,8 +807,10 @@ async function init(): Promise<void> {
   try {
     const data = await api<AuthMeResponse>('GET','/auth/me');
     state.user = data.user;
+    syncServiceWorkerSession(data.user);
     await bootApp();
   } catch(_) {
+    syncServiceWorkerSession(null);
     showAuth();
   }
 }
