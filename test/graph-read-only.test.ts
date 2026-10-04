@@ -65,6 +65,9 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-graph-read-"));
   const previousRoot = process.env.PROJECTS_ROOT;
   const previousMarker = process.env.PM_WEB_GRAPH_READ_MARKER;
+  const previousCliBin = process.env.PM_CLI_BIN;
+  const previousCommandLog = process.env.PM_WEB_COMMAND_LOG;
+  const previousRealPmBin = process.env.PM_WEB_REAL_PM_BIN;
   const fixture: { server?: Awaited<ReturnType<typeof startApp>> } = {};
   process.env.PROJECTS_ROOT = root;
   t.after(async () => {
@@ -153,9 +156,6 @@ const result = spawnSync(process.env.PM_WEB_REAL_PM_BIN || "pm", process.argv.sl
 process.exit(result.status ?? (result.error ? 1 : 0));
 `);
   await chmod(commandLoggingPm, 0o755);
-  const previousCliBin = process.env.PM_CLI_BIN;
-  const previousCommandLog = process.env.PM_WEB_COMMAND_LOG;
-  const previousRealPmBin = process.env.PM_WEB_REAL_PM_BIN;
   process.env.PM_CLI_BIN = commandLoggingPm;
   process.env.PM_WEB_COMMAND_LOG = commandLog;
 
