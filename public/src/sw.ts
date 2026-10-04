@@ -125,6 +125,12 @@ interface QueuedMutation {
   workspace?: string | null;
   /** Server-enforced exactly-once identity for the replay. */
   idempotencyKey?: string;
+  /** Durable recovery state; absence on legacy records means queued. */
+  state?: 'queued' | 'needs-attention';
+  /** Terminal replay problem requiring owner action. */
+  attentionReason?: 'outcome-unknown' | 'repeated-5xx';
+  /** Consecutive server failures survive worker restarts. */
+  serverFailures?: number;
 }
 
 interface StoredMutation {
@@ -152,7 +158,8 @@ interface MeBody {
 }
 
 /** Why one queued mutation was refused during a flush. */
-type ReplayBlockReason = 'no-session' | 'unknown-owner' | 'owner-mismatch' | 'auth-route';
+type ReplayBlockReason = 'no-session' | 'unknown-owner' | 'owner-mismatch' | 'auth-route'
+  | 'outcome-unknown' | 'repeated-5xx' | 'workspace-order';
 
 /** A queued mutation a flush refused, surfaced to the page for explicit recovery. */
 interface BlockedMutation {
@@ -413,8 +420,7 @@ function replayBlockReason(
   return null;
 }
 
-/** Replay queued mutations to the API in order, removing each on success and
- * stopping at the first failure so it can retry later, then post-message the
+/** Replay each workspace in FIFO order, removing successes, then post-message the
  * connected clients with how many were replayed or remain. A storage read
  * failure is never treated as a drained queue: the initial read failure
  * aborts the flush, and a final read failure reports a partial result rather
@@ -425,9 +431,11 @@ function replayBlockReason(
  * Records owned by a different account, records whose ownership is unknown
  * (legacy, or queued with no known session), and every record while logged
  * out are never replayed and never deleted — they are kept and surfaced via
- * MUTATIONS_BLOCKED so the page can offer explicit recovery. Skipping a
- * blocked record never blocks the records behind it, so one stranded record
- * cannot wedge an entire queue. Replayed records carry their idempotency key,
+ * MUTATIONS_BLOCKED so the page can offer explicit recovery. An owned failed
+ * or attention record blocks only later records in its workspace. Account-level
+ * work is a barrier across workspaces: it cannot overtake earlier unresolved
+ * owned work, and unresolved account-level work blocks all later owned work.
+ * Different owners have separate ordering. Replayed records carry their key,
  * so a retry after an ambiguous (lost) response is applied exactly once
  * server-side. */
 async function replayQueuedMutations(): Promise<void> {
@@ -464,9 +472,15 @@ async function replayQueuedMutations(): Promise<void> {
   }
 
   const blocked: BlockedMutation[] = [];
+  const blockedWorkspaces = new Set<string | null>();
   let replayed = 0;
   for (const mut of mutations) {
-    const reason = replayBlockReason(mut, currentUserId);
+    // Derive legacy scope from the path rather than assuming it is independent.
+    const workspace = workspaceFromPath(mut.path);
+    const reason = replayBlockReason(mut, currentUserId)
+      ?? (mut.state === 'needs-attention' ? mut.attentionReason ?? 'outcome-unknown' : null)
+      ?? (blockedWorkspaces.has(null) || (workspace === null ? blockedWorkspaces.size > 0 : blockedWorkspaces.has(workspace))
+        ? 'workspace-order' : null);
     if (reason) {
       // Never replayed, never deleted: kept for its owner and surfaced so the
       // page can offer explicit recovery. Skipping does not stop the loop, so
@@ -476,9 +490,10 @@ async function replayQueuedMutations(): Promise<void> {
         method: mut.method,
         path: mut.path,
         ownerId: mut.ownerId ?? null,
-        workspace: mut.workspace ?? null,
+        workspace,
         reason,
       });
+      if (mut.ownerId === currentUserId && currentUserId !== null) blockedWorkspaces.add(workspace);
       continue;
     }
     try {
@@ -504,8 +519,27 @@ async function replayQueuedMutations(): Promise<void> {
         replayed++;
       } else {
         console.warn('Offline mutation failed:', mut.method, mut.path, res.status);
-        // Stop processing on first failure — try again later
-        break;
+        const body = await res.json().catch(() => null) as { code?: unknown } | null;
+        let attention: QueuedMutation['attentionReason'];
+        if (body?.code === 'PM_IDEMPOTENCY_OUTCOME_UNKNOWN') attention = 'outcome-unknown';
+        if (res.status >= 500) {
+          mut.serverFailures = (mut.serverFailures ?? 0) + 1;
+          if (mut.serverFailures >= 3) attention = 'repeated-5xx';
+        } else if (!attention && mut.serverFailures) {
+          mut.serverFailures = 0;
+        }
+        if (attention) {
+          mut.state = 'needs-attention';
+          mut.attentionReason = attention;
+          blocked.push({ id: mut.id, method: mut.method, path: mut.path,
+            ownerId: mut.ownerId ?? null, workspace, reason: attention });
+        }
+        // Persist before allowing independent workspace replay; failure stops the flush.
+        const db = await openMutationDB();
+        const tx = db.transaction(MUTATION_STORE, 'readwrite');
+        tx.objectStore(MUTATION_STORE).put(mut);
+        await transactionDone(tx);
+        blockedWorkspaces.add(workspace);
       }
     } catch {
       // Network failed again — stop processing
@@ -516,12 +550,10 @@ async function replayQueuedMutations(): Promise<void> {
   // Notify clients about replayed mutations
   const remainingRead = await getQueuedMutations();
   const clients = await sw.clients.matchAll();
-  if (blocked.length > 0) {
-    // Surface refused records for explicit recovery — they are never dropped.
-    clients.forEach((client) => {
-      client.postMessage({ type: 'MUTATIONS_BLOCKED', blocked });
-    });
-  }
+  // Empty reports remove a previously rendered or dismissed recovery set.
+  clients.forEach((client) => {
+    client.postMessage({ type: 'MUTATIONS_BLOCKED', blocked });
+  });
   if (!remainingRead.ok) {
     // Could not re-read the queue — do NOT claim all mutations were replayed.
     // Report a partial result with the known replayed count so unreplayed
@@ -585,7 +617,32 @@ function flushMutationQueue(): Promise<void> {
  * @param ownerId - The approving page's account, verified against the server session.
  * @returns Whether the current server session approved adoption.
  */
-async function adoptUnknownOwnerRecords(ids: number[] | undefined, ownerId: string): Promise<boolean> {
+function adoptUnknownOwnerRecords(ids: number[] | undefined, ownerId: string): Promise<boolean> {
+  return updateRecoveryRecords(ownerId, (store, mut) => {
+    if ((mut.ownerId === undefined || mut.ownerId === null)
+      && (ids === undefined || ids.includes(mut.id))
+      && !/^\/auth(?:\/|\?|$)/i.test(mut.path)) {
+      store.put({ ...mut, ownerId, idempotencyKey: mut.idempotencyKey || newIdempotencyKey() });
+    }
+  });
+}
+
+/** Adopt records through the common queue-operation chain used by flushes. */
+function rebindUnknownOwnerRecords(ids: number[] | undefined, ownerId: string): Promise<void> {
+  return runQueueOperation(async () => { await adoptUnknownOwnerRecords(ids, ownerId); });
+}
+
+/** Apply owner-approved retry with a fresh key or discard atomically; never change another owner's work. */
+function recoverAttentionRecord(id: number, ownerId: string, action: 'retry-new' | 'discard'): Promise<boolean> {
+  return updateRecoveryRecords(ownerId, (store, mut) => {
+    if (mut.id !== id || mut.ownerId !== ownerId || mut.state !== 'needs-attention') return;
+    if (action === 'discard') store.delete(id);
+    else store.put({ ...mut, state: 'queued', attentionReason: undefined, serverFailures: 0, idempotencyKey: newIdempotencyKey() });
+  });
+}
+
+/** Verify the approving account, then read and update recovery records in one live IndexedDB transaction. */
+async function updateRecoveryRecords(ownerId: string, update: (store: IDBObjectStore, mut: QueuedMutation) => void): Promise<boolean> {
   const approval = await fetch('/api/auth/me', {
     credentials: 'include', cache: 'no-store', headers: { 'X-PM-Expected-Account': ownerId },
   });
@@ -596,25 +653,14 @@ async function adoptUnknownOwnerRecords(ids: number[] | undefined, ownerId: stri
   const tx = db.transaction(MUTATION_STORE, 'readwrite');
   const done = transactionDone(tx);
   const store = tx.objectStore(MUTATION_STORE);
-  // Queue writes inside the read callback while this transaction is active.
-  // No pre-transaction snapshot can overwrite ownership or an existing key.
   const request = store.getAll();
   request.onsuccess = () => {
     for (const mut of request.result as QueuedMutation[]) {
-      if ((mut.ownerId === undefined || mut.ownerId === null)
-        && (ids === undefined || ids.includes(mut.id))
-        && !/^\/auth(?:\/|\?|$)/i.test(mut.path)) {
-        store.put({ ...mut, ownerId, idempotencyKey: mut.idempotencyKey || newIdempotencyKey() });
-      }
+      update(store, mut);
     }
   };
   await done;
   return true;
-}
-
-/** Adopt records through the common queue-operation chain used by flushes. */
-function rebindUnknownOwnerRecords(ids: number[] | undefined, ownerId: string): Promise<void> {
-  return runQueueOperation(async () => { await adoptUnknownOwnerRecords(ids, ownerId); });
 }
 
 // ── Install ──
@@ -794,7 +840,7 @@ let sessionUpdate: Promise<void> = Promise.resolve();
 // ── Messages ──
 sw.addEventListener('message', (event: ExtendableMessageEvent) => {
   const data = event.data as
-    | { type?: string; urls?: string[]; userId?: unknown; ids?: unknown; ownerId?: unknown }
+    | { type?: string; urls?: string[]; userId?: unknown; ids?: unknown; ownerId?: unknown; id?: unknown; action?: unknown }
     | null;
   if (data && data.type === 'SKIP_WAITING') {
     sw.skipWaiting();
@@ -831,6 +877,16 @@ sw.addEventListener('message', (event: ExtendableMessageEvent) => {
       if (await adoptUnknownOwnerRecords(ids, ownerId)) await replayQueuedMutations();
     }).catch(() => {
       console.warn('Failed to adopt offline mutations');
+    }));
+  }
+  if (data && data.type === 'RECOVER_RECORD') {
+    const { id, ownerId, action } = data;
+    if (typeof id !== 'number' || !Number.isSafeInteger(id) || typeof ownerId !== 'string' || ownerId.length === 0
+      || (action !== 'retry-new' && action !== 'discard')) return;
+    event.waitUntil(runQueueOperation(async () => {
+      if (await recoverAttentionRecord(id, ownerId, action)) await replayQueuedMutations();
+    }).catch(() => {
+      console.warn('Failed to recover offline mutation');
     }));
   }
 });

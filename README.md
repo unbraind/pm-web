@@ -328,18 +328,39 @@ before key claims so a cleanup failure leaves the request retryable.
 
 API rate limits apply before idempotency, including to replay attempts. Explicit
 pre-mutation refusals (425 and 429) release the intent and are never replayed.
-A pending intent may represent a committed mutation whose response was lost
-before it could be stored. Pending intents and ambiguous server failures are
-never taken over or automatically expired: duplicates wait up to
-`PM_WEB_IDEMPOTENCY_WAIT_MS` (default 30 seconds), then receive 409. After
-`PM_WEB_IDEMPOTENCY_PENDING_TIMEOUT_MS` (default five minutes), they receive
-409 with **outcome unknown** immediately. Reconcile the original mutation
-before submitting new work with a new key; automatic retry must reuse its key.
+Handlers may call `markIdempotencyPreCommitFailure` only when they can prove
+no mutation committed. Group creation does so on connection acquisition failure
+or a successful rollback before any COMMIT attempt. A later rollback cannot
+prove that an attempted COMMIT failed. Proven pre-commit 5xx failures release
+the claim, allowing the same key to retry. Every other 5xx and premature response
+close settles into terminal `outcome_unknown`, returning 409 with
+`PM_IDEMPOTENCY_OUTCOME_UNKNOWN` on retries without re-executing. Live duplicates
+wait up to `PM_WEB_IDEMPOTENCY_WAIT_MS` (default 30 seconds), then receive 409
+with `PM_IDEMPOTENCY_IN_FLIGHT`. After `PM_WEB_IDEMPOTENCY_PENDING_TIMEOUT_MS`
+(default five minutes), pending rows settle as unknown on duplicate lookup or
+the next retention sweep, including intents stranded by process termination.
 Outcome persistence failures are caught and logged without request contents.
 
-Completed responses are retained for `PM_WEB_IDEMPOTENCY_RETENTION_MS` (default
-seven days). Deduplication of completed requests is bounded by that window;
-a retry after expiry may execute again. Cleanup uses a partial `created_at`
-index and runs at most once per minute per guard instance. Unknown outcomes
-remain retained until explicitly reconciled, so operators must account for
-these records when managing database growth.
+The worker durably marks unknown outcomes and three consecutive 5xx responses
+as **needs attention**, then stops automatic attempts for that record. Replays
+preserve FIFO within each owner's workspace; later records in other workspaces
+may continue. Paths under `/projects/<id>/` define a workspace, including legacy
+records. Account-level paths are barriers: they wait for earlier unresolved
+owned work and block all later owned work until resolved. Other accounts have
+separate ordering. Network or local persistence failures stop the flush.
+
+The recovery notice offers the originating owner **Retry as a new request**
+and **Discard**. Retrying requires a confirmation that the original might
+already have committed; it assigns a fresh key at the same queue position,
+then resumes ordered replay. Each new request is deduplicated separately:
+the user's approved retry can duplicate an unknown original commit. Discard
+removes only the queued record and does not undo any server commit. Recovery
+verifies the approving account against the server and updates IndexedDB in a
+single transaction. The keyboard-accessible **Dismiss** control hides the
+notice until the blocked record set changes; dismissing preserves all records.
+
+Completed responses and terminal unknown outcomes are retained for
+`PM_WEB_IDEMPOTENCY_RETENTION_MS` (default seven days) from settlement.
+Deduplication is bounded by that window; a retry after expiry may execute again.
+Cleanup uses a partial `updated_at` index and runs at most once per minute per
+guard instance. Pending intents are settled before retention can remove them.

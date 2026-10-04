@@ -52,7 +52,9 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
 }
 
 /** Session bridge state belongs to one worker container and its current page. */
-const workerSessions = new WeakMap<ServiceWorkerContainer, { userId: string | null; recovery: HTMLElement | null }>();
+const workerSessions = new WeakMap<ServiceWorkerContainer, {
+  userId: string | null; recovery: HTMLElement | null; dismissedSet: string | null;
+}>();
 
 /**
  * Tell the service worker which account is signed in, so offline-queued
@@ -73,7 +75,7 @@ export function syncServiceWorkerSession(user: { id: string } | null): void {
   const workers = navigator.serviceWorker;
   let session = workerSessions.get(workers);
   if (!session) {
-    session = { userId: null, recovery: null };
+    session = { userId: null, recovery: null, dismissedSet: null };
     workerSessions.set(workers, session);
     const current = session;
     workers.addEventListener('controllerchange', () => {
@@ -83,9 +85,28 @@ export function syncServiceWorkerSession(user: { id: string } | null): void {
       const data = event.data as { type?: string; blocked?: unknown } | null;
       if (data?.type !== 'MUTATIONS_BLOCKED' || !Array.isArray(data.blocked)) return;
       current.recovery?.remove();
+      current.recovery = null;
+      // Compare the set of actionable record identities, ignoring report order.
+      const blockedSet = JSON.stringify(data.blocked.map((value: unknown) => {
+        const record = typeof value === 'object' && value !== null ? value as Record<string, unknown> : {};
+        return JSON.stringify(['id', 'method', 'path', 'reason', 'ownerId', 'workspace'].map((field) => {
+          const entry = record[field];
+          return typeof entry === 'string' || typeof entry === 'number' ? entry : null;
+        }));
+      }).sort());
+      if (current.dismissedSet !== blockedSet) current.dismissedSet = null;
+      if (data.blocked.length === 0 || current.dismissedSet === blockedSet) return;
       current.recovery = showOfflineRecovery(data.blocked, current.userId, (ids, ownerId) => {
         if (current.userId !== ownerId) return;
         workers.controller?.postMessage({ type: 'REBIND_RECORDS', ids, ownerId });
+      }, {
+        /** Carry explicit owner approval to the worker for one attention record. */
+        recover: (id, ownerId, action) => {
+          if (current.userId !== ownerId) return;
+          workers.controller?.postMessage({ type: 'RECOVER_RECORD', id, ownerId, action });
+        },
+        /** Suppress repeated reports for this exact set until queued work changes. */
+        dismiss: () => { current.dismissedSet = blockedSet; current.recovery = null; },
       });
     });
   }

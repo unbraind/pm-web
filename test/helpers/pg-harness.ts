@@ -41,6 +41,16 @@ import { initSchema, pool } from "../../src/db.ts";
 export const RUN_ID =
   process.hrtime.bigint().toString(36) + Math.random().toString(36).slice(2);
 
+/** Bound duplicate polling in failure tests and restore the process configuration after each test. */
+export function configureIdempotencyWait(t: test.TestContext, milliseconds: number): void {
+  const previous = process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
+  process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = String(milliseconds);
+  t.after(() => {
+    if (previous === undefined) delete process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
+    else process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = previous;
+  });
+}
+
 /** A seeded user, carrying the fields the tests need to build requests. */
 export interface SeedUser {
   /** UUID primary key of the `pm_users` row. */

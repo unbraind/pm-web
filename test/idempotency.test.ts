@@ -26,6 +26,7 @@ import { signToken } from "../src/auth.ts";
 import { idempotencyGuard, requestFingerprint } from "../src/idempotency.ts";
 import {
   RUN_ID,
+  configureIdempotencyWait,
   authedFetch,
   ensureSchema,
   seedUser,
@@ -333,7 +334,7 @@ test("a committed mutation with a stale pending key returns outcome unknown with
   const response = await keyedGroupPost(server, owner, key, name);
   assert.equal(response.status, 409);
   assert.match(JSON.stringify(await response.json()), /outcome unknown/i);
-  assert.equal(response.headers.get("idempotency-replayed"), null);
+  assert.equal(response.headers.get("idempotency-replayed"), "true", "stale ambiguity becomes a stored terminal outcome");
   assert.equal(await groupCount(owner.id), 1);
 });
 
@@ -404,6 +405,7 @@ test("a pending execution that never settles refuses the duplicate at the deadli
 
   const response = await keyedGroupPost(server, owner, key, name);
   assert.equal(response.status, 409, "an unsettled duplicate is refused, not executed");
+  assert.equal((await response.json() as { code: string }).code, "PM_IDEMPOTENCY_IN_FLIGHT");
   assert.equal(await groupCount(owner.id), 0, "nothing was applied");
 });
 
@@ -430,16 +432,38 @@ test("an ambiguous 5xx after a commit never permits re-execution", async (t) => 
   const failure = await fetch(handle.url("/flaky"), { method: "POST", headers, body: "{}" });
   assert.equal(failure.status, 500, "the first attempt fails");
 
-  const previousWait = process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
-  process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = "50";
-  t.after(() => {
-    if (previousWait === undefined) delete process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
-    else process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = previousWait;
-  });
+  configureIdempotencyWait(t, 50);
   const retry = await fetch(handle.url("/flaky"), { method: "POST", headers, body: "{}" });
   assert.equal(retry.status, 409);
+  assert.equal((await retry.json() as { code: string }).code, "PM_IDEMPOTENCY_OUTCOME_UNKNOWN");
+  const state = await pool.query<{ outcome_state: string; status_code: number }>(
+    "SELECT outcome_state, status_code FROM pm_idempotency_keys WHERE user_id = $1 AND idempotency_key = $2",
+    [owner.id, headers["idempotency-key"]],
+  );
+  assert.deepEqual(state.rows[0], { outcome_state: "outcome_unknown", status_code: 409 });
   assert.equal(attempts, 1, "an ambiguous failure retains its intent");
   assert.equal(await groupCount(owner.id), 1, "the committed mutation is not repeated");
+});
+
+test("a proven pre-commit PostgreSQL rollback releases the key and retry succeeds exactly once", async (t) => {
+  const { server, owner } = await setupOwnerAppTest(t);
+  const key = uniqueKey("pre-commit");
+  const trigger = `pre_commit_${RUN_ID}`;
+  await pool.query(`CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.user_id = '${owner.id}' THEN RAISE EXCEPTION 'synthetic pre-commit failure'; END IF; RETURN NEW; END $$`);
+  await pool.query(`CREATE TRIGGER ${trigger} BEFORE INSERT ON pm_group_members FOR EACH ROW EXECUTE FUNCTION ${trigger}()`);
+  t.after(async () => {
+    await pool.query(`DROP TRIGGER IF EXISTS ${trigger} ON pm_group_members`);
+    await pool.query(`DROP FUNCTION ${trigger}()`);
+  });
+  configureIdempotencyWait(t, 100);
+  assert.equal((await keyedGroupPost(server, owner, key, "rollback-safe")).status, 500);
+  assert.equal(await groupCount(owner.id), 0, "the inserted group rolled back with its failed member write");
+  await pool.query(`DROP TRIGGER ${trigger} ON pm_group_members`);
+  const retry = await keyedGroupPost(server, owner, key, "rollback-safe");
+  assert.equal(retry.status, 201, "the same key may retry after a proven rollback");
+  assert.equal((await keyedGroupPost(server, owner, key, "rollback-safe")).status, 201);
+  assert.equal(await groupCount(owner.id), 1, "only the successful retry committed");
 });
 
 test("a response with no body and a plain-text response are replayed with their shape", async (t) => {
@@ -492,7 +516,7 @@ test("idempotency records older than the retention window are cleaned up", async
   assert.equal(first.status, 201);
   await pool.query(
     `UPDATE pm_idempotency_keys
-     SET created_at = NOW() - (30::double precision * interval '1 day')
+     SET created_at = NOW() - (30::double precision * interval '1 day'), updated_at = NOW() - interval '30 days'
      WHERE user_id = $1 AND idempotency_key = $2`,
     [owner.id, oldKey],
   );
@@ -508,8 +532,16 @@ test("idempotency records older than the retention window are cleaned up", async
   t.after(() => newServer.close());
   await keyedGroupPost(newServer, owner, uniqueKey("sweep"), "sweep");
   assert.equal((await keyRows(owner.id, oldKey)).length, 0, "a new instance sweeps completed expired records");
-  assert.equal((await keyRows(owner.id, pendingKey)).length, 1, "unknown outcomes never expire");
+  const unknown = await pool.query<{ outcome_state: string; status_code: number }>(
+    "SELECT outcome_state, status_code FROM pm_idempotency_keys WHERE user_id = $1 AND idempotency_key = $2", [owner.id, pendingKey],
+  );
+  assert.deepEqual(unknown.rows[0], { outcome_state: "outcome_unknown", status_code: 409 }, "stale pending rows settle before retention starts");
   assert.equal((await keyRows(owner.id, freshKey)).length, 1, "the fresh record remains");
+  await pool.query("UPDATE pm_idempotency_keys SET updated_at = NOW() - interval '30 days' WHERE user_id = $1 AND idempotency_key = $2", [owner.id, pendingKey]);
+  const sweepServer = await startEphemeralServer(createApp());
+  t.after(() => sweepServer.close());
+  await keyedGroupPost(sweepServer, owner, uniqueKey("sweep-unknown"), "sweep-unknown");
+  assert.deepEqual(await keyRows(owner.id, pendingKey), [], "terminal unknown outcomes are eligible for retention sweep");
 });
 
 test("an unknown token account bypasses keying and gets the route's normal outcome", async (t) => {

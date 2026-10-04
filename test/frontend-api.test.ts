@@ -89,7 +89,8 @@ test("blocked legacy mutations have a visible explicit recovery action for the c
       { id: 2, method: "PATCH", path: "/items/foreign", reason: "owner-mismatch" },
     ] } }));
     assert.equal(nodes.length, 1, "the SPA displays blocked work");
-    const button = nodes[0].children.find((child) => (child as { onclick?: unknown }).onclick) as { onclick(): void; textContent: string };
+    const button = nodes[0].children.find((child) => (child as { onclick?: unknown }).onclick
+      && /adopt/i.test((child as { textContent: string }).textContent)) as { onclick(): void; textContent: string };
     assert.match(button.textContent, /adopt/i);
     assert.equal(messages.length, 1, "nothing is adopted until the user clicks");
     button.onclick();
@@ -102,6 +103,107 @@ test("blocked legacy mutations have a visible explicit recovery action for the c
     if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
     else Reflect.deleteProperty(globalThis, "navigator");
   }
+});
+
+/** Browser nodes retain attributes, children and native button properties for recovery assertions. */
+interface RecoveryNode {
+  tagName: string;
+  textContent: string;
+  type: string;
+  tabIndex: number;
+  attributes: Record<string, string>;
+  children: RecoveryNode[];
+  onclick?: () => void;
+  remove(): void;
+}
+
+/** Install a browser event/DOM boundary while executing the real session bridge and notice code. */
+function recoveryPage(t: test.TestContext): {
+  nodes: RecoveryNode[]; messages: unknown[]; report: (blocked: unknown[]) => void; confirm: (answer: boolean) => void;
+} {
+  const globals = globalThis as unknown as Record<string, unknown>;
+  const originalDocument = globals.document;
+  const originalConfirm = globals.confirm;
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const nodes: RecoveryNode[] = [];
+  const messages: unknown[] = [];
+  const workers = Object.assign(new EventTarget(), { controller: { postMessage: (message: unknown) => { messages.push(message); } } });
+  globals.document = {
+    /** Model native buttons as keyboard focusable without changing application behavior. */
+    createElement: (tagName: string): RecoveryNode => {
+      const node = { tagName, textContent: "", type: "", tabIndex: tagName === "button" ? 0 : -1,
+        style: { cssText: "" }, attributes: {} as Record<string, string>, children: [] as RecoveryNode[],
+        /** Retain the rendered child tree for accessible control assertions. */
+        append: (...children: RecoveryNode[]) => { node.children.push(...children); },
+        /** Retain ARIA and native attributes as a browser would. */
+        setAttribute: (name: string, value: string) => { node.attributes[name] = value; },
+        /** Remove the notice from the rendered body. */
+        remove: () => { const index = nodes.indexOf(node); if (index >= 0) nodes.splice(index, 1); },
+      };
+      return node;
+    },
+    body: { append: (node: RecoveryNode) => { nodes.push(node); } },
+  };
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { serviceWorker: workers } });
+  t.after(() => {
+    globals.document = originalDocument;
+    if (originalConfirm === undefined) delete globals.confirm;
+    else globals.confirm = originalConfirm;
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  });
+  syncServiceWorkerSession({ id: "account-a" });
+  return { nodes, messages,
+    /** Dispatch worker reports through the real browser listener. */
+    report: (blocked) => { workers.dispatchEvent(new MessageEvent("message", { data: { type: "MUTATIONS_BLOCKED", blocked } })); },
+    /** Supply the user's answer to the browser confirmation dialog. */
+    confirm: (answer) => { globals.confirm = () => answer; },
+  };
+}
+
+test("recovery dismissal is accessible and lasts until the blocked set changes", (t) => {
+  const page = recoveryPage(t);
+  const blocked = [{ id: 1, method: "POST", path: "/groups", reason: "owner-mismatch" }];
+  page.report(blocked);
+  const dismiss = page.nodes[0].children.find((node) => node.textContent === "Dismiss");
+  assert.ok(dismiss, "the recovery overlay has a dismiss button");
+  assert.equal(dismiss.tagName, "button");
+  assert.equal(dismiss.attributes["aria-label"], "Dismiss offline recovery notice");
+  assert.equal(dismiss.tabIndex, 0, "native button is keyboard reachable");
+  dismiss.onclick?.();
+  assert.equal(page.nodes.length, 0);
+  page.report(structuredClone(blocked));
+  syncServiceWorkerSession({ id: "account-a" });
+  page.report(blocked);
+  assert.equal(page.nodes.length, 0, "repeated flushes and session sync do not reopen a dismissed notice");
+  page.report([...blocked, { id: 2, method: "PATCH", path: "/projects/a/pm/update", reason: "outcome-unknown" }]);
+  assert.equal(page.nodes.length, 1, "changed blocked work reopens the notice");
+  page.report([]);
+  assert.equal(page.nodes.length, 0, "resolved work removes the notice");
+  page.report(blocked);
+  assert.equal(page.nodes.length, 1, "a cleared set resets dismissal for later blocked work");
+});
+
+test("needs-attention recovery offers confirmed retry-as-new and discard only to its owner", (t) => {
+  const page = recoveryPage(t);
+  page.report([{ id: 4, method: "POST", path: "/projects/a/pm/create", ownerId: "account-a", reason: "outcome-unknown" }]);
+  const row = page.nodes[0].children.find((node) => node.tagName === "ul")?.children[0];
+  const retry = row?.children.find((node) => node.textContent === "Retry as a new request");
+  const discard = row?.children.find((node) => node.textContent === "Discard");
+  assert.ok(retry);
+  assert.ok(discard);
+  page.confirm(false);
+  retry.onclick?.();
+  assert.equal(page.messages.length, 1, "cancelling confirmation sends no recovery request");
+  page.confirm(true);
+  retry.onclick?.();
+  assert.deepEqual(page.messages[1], { type: "RECOVER_RECORD", action: "retry-new", id: 4, ownerId: "account-a" });
+  discard.onclick?.();
+  assert.deepEqual(page.messages[2], { type: "RECOVER_RECORD", action: "discard", id: 4, ownerId: "account-a" });
+  syncServiceWorkerSession({ id: "account-b" });
+  retry.onclick?.();
+  discard.onclick?.();
+  assert.equal(page.messages.length, 4, "stale controls cannot approve another account's recovery");
 });
 
 test("the originating tab attaches its expected account before a worker reads shared session state", async () => {

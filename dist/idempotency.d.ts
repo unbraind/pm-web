@@ -1,4 +1,4 @@
-import type { RequestHandler } from "express";
+import type { RequestHandler, Response } from "express";
 /**
  * Minimum length an `Idempotency-Key` header value may have.
  *
@@ -15,6 +15,8 @@ export declare const IDEMPOTENCY_KEY_MIN_LENGTH = 8;
  * strings into the unique index; real keys are 36-character UUID strings.
  */
 export declare const IDEMPOTENCY_KEY_MAX_LENGTH = 200;
+/** Mark a failure only after proving no mutation committed (for example, confirmed rollback before COMMIT was attempted). */
+export declare function markIdempotencyPreCommitFailure(res: Response): void;
 /**
  * Compute the fingerprint that binds one idempotency key to one request.
  *

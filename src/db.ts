@@ -209,6 +209,7 @@ export async function initSchema(): Promise<void> {
       method TEXT NOT NULL,
       path TEXT NOT NULL,
       request_fingerprint TEXT NOT NULL,
+      outcome_state TEXT NOT NULL DEFAULT 'pending' CHECK (outcome_state IN ('pending', 'completed', 'outcome_unknown')),
       status_code INTEGER,
       response_body TEXT,
       response_content_type TEXT,
@@ -219,7 +220,10 @@ export async function initSchema(): Promise<void> {
   `);
 
   await pool.query("ALTER TABLE pm_idempotency_keys ADD COLUMN IF NOT EXISTS response_content_type TEXT");
+  await pool.query("ALTER TABLE pm_idempotency_keys ADD COLUMN IF NOT EXISTS outcome_state TEXT NOT NULL DEFAULT 'pending' CHECK (outcome_state IN ('pending', 'completed', 'outcome_unknown'))");
+  await pool.query("UPDATE pm_idempotency_keys SET outcome_state = 'completed' WHERE outcome_state = 'pending' AND status_code IS NOT NULL");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_created_at ON pm_idempotency_keys (created_at) WHERE status_code IS NOT NULL");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_settled_at ON pm_idempotency_keys (updated_at) WHERE status_code IS NOT NULL");
 
   if (bootstrapAdminEmail) {
     await pool.query(

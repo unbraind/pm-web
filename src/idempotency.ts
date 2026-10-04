@@ -43,8 +43,8 @@ const DEFAULT_PENDING_TIMEOUT_MS = 300_000;
  * milliseconds. Override: `PM_WEB_IDEMPOTENCY_RETENTION_MS`.
  *
  * Completed outcomes are deduplicated within this window. A retry after expiry
- * can execute again. Pending intents have no expiry because their mutations
- * may have committed without a captured outcome.
+ * can execute again. Unknown outcomes have the same bounded retention, measured
+ * from settlement; stale pending intents must settle before they can expire.
  */
 const DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -68,7 +68,23 @@ interface IdempotencyRecord {
   response_content_type: string | null;
   /** When the intent was inserted; drives the unknown-outcome deadline. */
   created_at: Date;
+  /** Explicit terminal ambiguity is never automatically re-executed. */
+  outcome_state: 'pending' | 'completed' | 'outcome_unknown';
 }
+
+/** Handler assertions are process-local and cannot be forged through request headers. */
+const preCommitFailures = new WeakSet<Response>();
+
+/** Mark a failure only after proving no mutation committed (for example, confirmed rollback before COMMIT was attempted). */
+export function markIdempotencyPreCommitFailure(res: Response): void {
+  preCommitFailures.add(res);
+}
+
+/** Machine-readable refusal reused by failure settlement and stale-intent recovery. */
+const UNKNOWN_OUTCOME = JSON.stringify({
+  code: "PM_IDEMPOTENCY_OUTCOME_UNKNOWN",
+  error: "Idempotency outcome unknown; reconcile the original mutation before submitting new work",
+});
 
 /**
  * Compute the fingerprint that binds one idempotency key to one request.
@@ -155,7 +171,7 @@ async function accountExists(userId: string): Promise<boolean> {
  */
 async function selectKey(userId: string, key: string): Promise<IdempotencyRecord | null> {
   const result = await pool.query<IdempotencyRecord>(
-    `SELECT id, request_fingerprint, status_code, response_body, response_content_type, created_at
+    `SELECT id, request_fingerprint, status_code, response_body, response_content_type, created_at, outcome_state
      FROM pm_idempotency_keys
      WHERE user_id = $1 AND idempotency_key = $2`,
     [userId, key],
@@ -166,38 +182,47 @@ async function selectKey(userId: string, key: string): Promise<IdempotencyRecord
 /**
  * Sweep idempotency records past the retention window.
  *
- * Called at most once per minute per guard instance. Pending records are never
- * swept: they may represent committed mutations with an unknown outcome.
+ * Called at most once per minute per guard instance. Stale pending records first
+ * become terminal unknown outcomes; retention starts at that settlement time.
  */
 async function deleteExpiredKeys(): Promise<void> {
   await pool.query(
+    `UPDATE pm_idempotency_keys SET outcome_state = 'outcome_unknown', status_code = 409,
+     response_body = $2, response_content_type = 'application/json', updated_at = NOW()
+     WHERE status_code IS NULL AND outcome_state = 'pending'
+     AND created_at < NOW() - ($1::double precision * interval '1 ms')`,
+    [envDurationMs("PM_WEB_IDEMPOTENCY_PENDING_TIMEOUT_MS", DEFAULT_PENDING_TIMEOUT_MS), UNKNOWN_OUTCOME],
+  );
+  await pool.query(
     `DELETE FROM pm_idempotency_keys
-     WHERE status_code IS NOT NULL AND created_at < NOW() - ($1::double precision * interval '1 ms')`,
+     WHERE status_code IS NOT NULL AND updated_at < NOW() - ($1::double precision * interval '1 ms')`,
     [envDurationMs("PM_WEB_IDEMPOTENCY_RETENTION_MS", DEFAULT_RETENTION_MS)],
   );
 }
 
 /**
  * Store a definitive outcome. Release only explicit pre-mutation refusals
- * (425 Too Early and 429 Too Many Requests). Server failures retain the pending
- * intent because a handler may have committed before failing.
+ * (425, 429, or handler-proven pre-commit failures). All other server failures
+ * settle as terminal unknown outcomes because they may follow a commit.
  */
 async function persistOutcome(
   rowId: string,
   statusCode: number,
   body: string | null,
   contentType: string | null,
+  preCommit = false,
 ): Promise<void> {
-  if (statusCode >= 500) return;
-  if (statusCode === 425 || statusCode === 429) {
-    await pool.query(`DELETE FROM pm_idempotency_keys WHERE id = $1`, [rowId]);
+  if (statusCode === 425 || statusCode === 429 || (statusCode >= 500 && preCommit)) {
+    await pool.query(`DELETE FROM pm_idempotency_keys WHERE id = $1 AND outcome_state = 'pending'`, [rowId]);
     return;
   }
+  const unknown = statusCode >= 500;
   await pool.query(
     `UPDATE pm_idempotency_keys
-     SET status_code = $2, response_body = $3, response_content_type = $4, updated_at = NOW()
-     WHERE id = $1`,
-    [rowId, statusCode, body, contentType],
+     SET status_code = $2, response_body = $3, response_content_type = $4, outcome_state = $5, updated_at = NOW()
+     WHERE id = $1 AND outcome_state = 'pending'`,
+    [rowId, unknown ? 409 : statusCode, unknown ? UNKNOWN_OUTCOME : body,
+      unknown ? "application/json" : contentType, unknown ? "outcome_unknown" : "completed"],
   );
 }
 
@@ -251,6 +276,7 @@ function captureOutcome(rowId: string, res: Response): void {
   let capturedBody: string | null = null;
   const originalJson = res.json.bind(res);
   const originalSend = res.send.bind(res);
+  /** Capture the first response serialization without recording request content. */
   const capture = (body: unknown): void => {
     if (capturedBody !== null) return;
     capturedBody = typeof body === "string" ? body : JSON.stringify(body ?? null);
@@ -263,17 +289,27 @@ function captureOutcome(rowId: string, res: Response): void {
     capture(body);
     return originalSend(body);
   };
-  res.on("finish", () => {
+  let finished = false;
+  /** Finish and premature close share one persistence path, avoiding conflicting writes. */
+  const settle = (statusCode: number): void => {
     const contentType = res.getHeader("Content-Type");
     void persistOutcome(
       rowId,
-      res.statusCode,
+      statusCode,
       capturedBody,
       typeof contentType === "string" ? contentType : null,
+      preCommitFailures.has(res),
     ).catch((error: unknown) => {
       // Do not log response bodies, tokens or database error details.
       console.error("Failed to persist idempotency outcome; key remains pending", error instanceof Error ? error.name : "unknown error");
     });
+  };
+  res.on("finish", () => {
+    finished = true;
+    settle(res.statusCode);
+  });
+  res.on("close", () => {
+    if (!finished) settle(500);
   });
 }
 
@@ -374,11 +410,11 @@ export function idempotencyGuard(): RequestHandler {
         continue;
       }
       if (isStalePending(record)) {
-        res.status(409).json({ error: "Idempotency outcome unknown; reconcile the original mutation before submitting new work" });
-        return;
+        await persistOutcome(record.id, 500, null, null);
+        continue;
       }
       if (Date.now() >= deadline) {
-        res.status(409).json({ error: "The request with this Idempotency-Key is still executing or its outcome is unknown; retry later" });
+        res.status(409).json({ code: "PM_IDEMPOTENCY_IN_FLIGHT", error: "The request with this Idempotency-Key is still executing; retry later" });
         return;
       }
       await new Promise((resolve) => { setTimeout(resolve, envDurationMs("PM_WEB_IDEMPOTENCY_POLL_MS", DEFAULT_POLL_MS)); });

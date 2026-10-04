@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS pm_idempotency_keys (
   method TEXT NOT NULL,
   path TEXT NOT NULL,
   request_fingerprint TEXT NOT NULL,
+  outcome_state TEXT NOT NULL DEFAULT 'pending' CHECK (outcome_state IN ('pending', 'completed', 'outcome_unknown')),
   status_code INTEGER,
   response_body TEXT,
   response_content_type TEXT,
@@ -122,6 +123,7 @@ CREATE TABLE IF NOT EXISTS pm_idempotency_keys (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pm_idempotency_created_at ON pm_idempotency_keys (created_at) WHERE status_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pm_idempotency_settled_at ON pm_idempotency_keys (updated_at) WHERE status_code IS NOT NULL;
 
 -- Bootstrap admin promotion is now applied at runtime via PM_WEB_BOOTSTRAP_ADMIN_EMAIL (see src/db.ts).
 

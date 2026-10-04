@@ -298,7 +298,9 @@ test("sw queue: a stale mutation token is refreshed and replayed without data lo
     { input: "/api/items/stale", token: "migrated-token" },
   ]);
   assert.equal(swQueue.deleteCallCount, 1, "the successfully replayed stale record is cleared once");
-  assert.deepEqual(postedMessages, [{ type: "MUTATIONS_REPLAYED", count: 1 }]);
+  assert.deepEqual(postedMessages, [
+    { type: "MUTATIONS_BLOCKED", blocked: [] }, { type: "MUTATIONS_REPLAYED", count: 1 },
+  ]);
 });
 
 test("sw queue: a record owned by another account is never replayed and is kept for its owner", async () => {
