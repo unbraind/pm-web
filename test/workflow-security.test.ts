@@ -10,8 +10,8 @@ const TRUSTED_ACTION_COMMITS = new Map<string, string>([
   ["oven-sh/setup-bun", "0c5077e51419868618aeaa5fe8019c62421857d6"],
   // The CodeQL action is referenced twice, as distinct sub-actions sharing one
   // release commit, so both names must be listed for the gate to cover them.
-  ["github/codeql-action/init", "b96794f015dfd88f77b49b1c93e0fa7110f94c63"],
-  ["github/codeql-action/analyze", "b96794f015dfd88f77b49b1c93e0fa7110f94c63"],
+  ["github/codeql-action/init", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
+  ["github/codeql-action/analyze", "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"],
 ]);
 
 /** Workflow files shipped by this repository. */

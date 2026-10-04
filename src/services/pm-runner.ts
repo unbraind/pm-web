@@ -296,7 +296,7 @@ async function runSerialized<T>(workspace: string, work: () => Promise<T>): Prom
 /**
  * Create and initialize a project workspace on disk.
  *
- * Makes the project directory, runs `pm init <prefix>` serialized against the
+ * Makes the project directory, explicitly initializes its own tracker serialized against the
  * workspace, configures local Ollama search, and ensures the graph extension is
  * installed. Throws when `pm init` fails.
  *
@@ -307,7 +307,10 @@ async function runSerialized<T>(workspace: string, work: () => Promise<T>): Prom
 export async function initProject(userId: string, slug: string, prefix: string): Promise<void> {
   const dir = getProjectDir(userId, slug);
   fs.mkdirSync(dir, { recursive: true });
-  const result = await runSerialized(dir, () => runProcess(dir, ["init", prefix], { timeoutMs: 15_000 }));
+  const result = await runSerialized(dir, () => runProcess(dir, [
+    "workspace", "init", "--workspace", dir, "--prefix", prefix,
+    "--defaults", "--agent-guidance", "skip",
+  ], { timeoutMs: 15_000 }));
   if (!result.ok) throw new Error(result.stderr || "pm init failed");
   configureLocalOllamaSearch(dir);
   await ensureGraphExtension(userId, slug);

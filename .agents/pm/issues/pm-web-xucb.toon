@@ -1,0 +1,27 @@
+id: pm-web-xucb
+title: Resolve pm-web full development audit through unpatched braces and fast-glob
+description: "Certification on CLI/ops/changelog2026.10.4 has clean production audit but full npm audit reports four high development entries through fast-glob/micromatch/braces and pm-ops. GHSA-vfj7-8cjw-p6xm affects every published braces3 release; keep exact latest tool pins and unchanged audit/gate requirements. The application does not import fast-glob, but pm-ops10.4 duplication statically imports it without a declared direct dependency, so simply removing the repository dependency causes ERR_MODULE_NOT_FOUND instead of a valid gate."
+type: Issue
+status: open
+priority: 1
+tags: []
+created_at: "2026-10-04T13:45:56.448Z"
+updated_at: "2026-10-04T14:04:20.620Z"
+author: codex-sol
+acceptance_criteria: "Full npm audit and npm audit --omit=dev both zero on exact required pins; canonical pm-ops duplication and full package release gates pass without suppressions, skipped tests or forced breaking overrides."
+severity: high
+repro_steps: npm ci; npm audit --json; npm ls braces micromatch fast-glob pm-ops; npm view braces version
+expected_result: All audit requirements clean with functional canonical gates.
+actual_result: "Exact CLI/ops/changelog2026.10.4: direct and corrected linked full npm audit exit1/fourhigh throughbraces/micromatch/fastglob/pmops; production audit exit0/allzero; noopenDependabotalerts. Full functional gate411/411pass. Compatible patched braces3 release unavailable; simplyremovingfastglobbreakscanonicalpmopsduplication. Keepowneropen."
+comments[2]{created_at,author,text}:
+  "2026-10-04T13:56:03.219Z",codex-sol,"Exact installed CLI/ops/changelog2026.10.4: npm audit --omit=dev --json exits0 with allzero; npm audit --json exits1 with fourhigh deventries. GitHub open Dependabotalerts returns[]; no openalertsilentlyclosed. Published braceslatest3.0.3 affected by GHSA-vfj7-8cjw-p6xm; no3.0.4published. Removing direct unusedfastglob was independently attempted in pm-graph certification and auditsclean, but canonical pm-ops10.4 duplication then throws ERR_MODULE_NOT_FOUND because its dist/duplication.js staticallyimports undeclaredfastglob. Keep latestexactpins andfunctionalcanonicalgate; blockerownedhereuntilcompatibleupstreamtooltreeclean. Do not force downgrade/suppressaudit."
+  "2026-10-04T14:01:53.564Z",codex-sol,"The initial linked npm audit commands hit runner-injected EALLOWSCRIPTS, so their exit1 is execution failure, not vulnerability evidence. Direct same-source npm audit --omit=dev --json recheckexit0/allzero; full recheckexit1/fourhigh. Replace the two new linked commands with child-scoped env -u npm_config_allow_scripts -u NPM_CONFIG_ALLOW_SCRIPTS wrappers; this changes no audit selection/threshold and no project or user npm configuration."
+files[2]{path,scope}:
+  package-lock.json,project
+  package.json,project
+tests[2]{command,scope,timeout_seconds,pm_context_mode,workspace_context_mode,provenance{author,created_at,source_kind,source_ref}}:
+  env -u npm_config_allow_scripts -u NPM_CONFIG_ALLOW_SCRIPTS npm audit --json,project,300,tracker,source,codex-sol,"2026-10-04T14:01:56.799Z",local_mutation,chore/pm-web-pm-cli-2026-10-4
+  env -u npm_config_allow_scripts -u NPM_CONFIG_ALLOW_SCRIPTS npm audit --omit=dev --json,project,300,tracker,source,codex-sol,"2026-10-04T14:01:57.956Z",local_mutation,chore/pm-web-pm-cli-2026-10-4
+docs[1]{path,scope}:
+  docs/certification-2026.10.4.md,project
+body: ""

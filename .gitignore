@@ -27,3 +27,6 @@ coverage/
 
 # Scratch artifacts from delegated agent runs; never part of the package.
 .pi-subagents/
+
+# Downloaded managed extension implementation stays local.
+.agents/pm/extensions/pm-github/
