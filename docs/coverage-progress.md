@@ -9,9 +9,13 @@ Metric order throughout is **statements / branches / functions / lines**. c8 use
 | Measurement | Statements | Branches | Functions | Lines |
 | --- | ---: | ---: | ---: | ---: |
 | Resumed c8 baseline, after recovered route fixes | 86.39 | 80.46 | 92.11 | 86.39 |
-| Final verified c8 run | 90.22 | 79.34 | 93.90 | 90.22 |
+| Final verified c8 run (local, Node 26) | 90.22 | 79.34 | 93.90 | 90.22 |
+| CI, Node 22 | 90.19 | 79.46 | 92.90 | 90.19 |
+| CI, Node 26 | 90.22 | 79.38 | 93.90 | 90.22 |
 | Previous enforced floors | absent | 79 | 75 | 79 |
-| New enforced floors | 90 | 79 | 93 | 90 |
+| New enforced floors | 90 | 79 | 92 | 90 |
+
+The functions floor is 92, not 93: Node 22 counts 92.90% functions in CI while Node 26 counts 93.90%, and the floor must hold on both supported runtimes.
 
 The interrupted run also recorded Node built-in coverage: lines 85.00, branches 81.40, functions 78.58, with no independently enforced statements metric. Its function accounting differs from c8, so changing reporters must not be credited as test improvement. Branch coverage decreased against the resumed c8 baseline as additional paths entered the V8 denominator; no branch-floor increase is claimed. A preceding passing run measured 79.35 branches, illustrating a one-counter concurrency variation, and both runs exceed the retained floor of 79.
 

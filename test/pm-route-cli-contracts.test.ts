@@ -498,4 +498,15 @@ test("close-many closes only the project's open items, not terminal ones", async
     [...openIds].sort(),
     `close-many touched more than the open items: ${JSON.stringify(payload.rows)}`,
   );
+  // The response alone could report the right rows without persisting them, so
+  // read every item back from the tracker: the selected items are closed with the
+  // bulk reason and the pre-closed item keeps its original reason.
+  for (const id of openIds) {
+    const { item } = pmJson<{ item: { status: string; close_reason?: string } }>(harness.workspace, ["get", id]);
+    assert.equal(item.status, "closed", `${id} was reported closed but not persisted`);
+    assert.equal(item.close_reason, "Bulk close contract");
+  }
+  const { item: untouched } = pmJson<{ item: { status: string; close_reason?: string } }>(harness.workspace, ["get", closedId]);
+  assert.equal(untouched.status, "closed");
+  assert.equal(untouched.close_reason, "Closed before the bulk close");
 });
