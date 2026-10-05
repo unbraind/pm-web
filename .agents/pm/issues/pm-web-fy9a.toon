@@ -2,11 +2,13 @@ id: pm-web-fy9a
 title: Expand pm-web coverage gate to every executable source file and all four 100% metrics
 description: "The current release:check passed 408 real-Postgres and other tests, but coverage-gate reported only 32 source files with several measured branch/function percentages below 100. This does not meet the requested all-source 100/100/100/100 quality gate. The existing pm-web-9ulj issue specifically owns route-layer real-Postgres integration; this item owns gate scope and all four metrics across every executable source file."
 type: Issue
-status: open
+status: in_progress
 priority: 1
 tags: []
 created_at: "2026-09-29T12:36:48.604Z"
-updated_at: "2026-09-29T12:36:48.604Z"
+updated_at: "2026-10-05T05:13:31.541Z"
+assignee: codex-sol
+claim_principal: codex-sol
 author: codex
 estimated_minutes: 960
 acceptance_criteria: "Measure and require 100% statements, branches, functions, and lines for every executable source file; retain real integration and route tests; fail when a file is omitted or coverage data is missing; avoid artificial tests or coverage exclusions."
@@ -16,8 +18,14 @@ environment: "pm-web PR #163 release:check 2026-09-29; coverage-gate 32 reported
 repro_steps: npm run coverage; inspect the per-file coverage table and scripts/coverage-gate.ts source inclusion and thresholds.
 expected_result: "All executable TypeScript source files are included and statements, branches, functions, and lines each measure 100% through real behavior tests."
 actual_result: Current gate says thresholds met for 32 source files while several per-file metrics are below 100 and executable source outside that declared set is unmeasured.
+comments[3]{created_at,author,text}:
+  "2026-10-05T04:37:08.394Z",pi-glm,"Baseline recorded on branch test/full-source-coverage-gate (npm run coverage, real Postgres, V8 runtime coverage; note: statements are reported by V8 as lines for this runtime, so the line figure is the statement figure). Aggregate baseline: lines 85.00 / branches 81.40 / functions 78.58 across 33 reported src files. Per-file baselines (line%/branch%%, uncovered lines): app 95.45/80.00/90.91 (78-79 94-95 117-118 174-177 231-233); auth 96.36/87.50/100 (10-11); board 99.19/88.46/100 (49); crypto 100/100/100; csrf 100/96.00/100; db 94.47/66.67/100 (20-27 230-234); health 94.78/90.48/100 (117-118 222-226 228-229 355-365); ical 100/92.98/100; idempotency 96.14/92.38/100 (397-401 403-411 413-415); index 86.07/80.65/82.14 (27-30 196-211 277 297-298 344-399 460 491-494); middleware/auth 100; middleware/rate-limit 100; oidc 93.91/77.19/100 (136-138 161-165 170-171 229-230 299-300 315-328 404-405 434-435 441-452 567-572); routes/admin 87.04/66.67/100; routes/auth 91.22/88.68/100; routes/extensions 95.47/73.17/100 (235-246); routes/github 57.61/67.39/42.86 (130-140 157-159 193-217 257-264 289-325 330-381 429-470 475-608); routes/groups 91.45/84.78/87.50; routes/oidc 48.00/100/22.22 (46-52 65-78 91-108 147-156 163-247); routes/pm 64.20/70.14/53.47 (largest gap: ~1300 uncovered lines incl 1118-1152 1300-1355 1507-1540 1575-2538); routes/projects 85.93/85.71/100; route-helpers 100/87.50/100; route-params 100/100/100; routes/sharing 94.67/86.49/100; server 91.03/77.78/75 (48-50 54-55 76-77); fleet-snapshot 100; mutation-event-watcher 99.54/90.24/75 (90); package-catalog 100; pm-runner 94.91/82.10/87.50 (12 regions); project-watcher 98.74/86.21/78.95 (137-138 186-187); realtime-bus 93.64/76.79/78.95 (187-196 216-221); sse 93.68/94.44/91.67 (322-323 344-345 426-450); watcher-utils 100/90.91/100. Largest gaps first: routes/pm, routes/github, routes/oidc, index, pm-runner, realtime-bus, sse. Note for reproducing locally: the catalog tests derive the fleet from the package parent directory, which in a shared worktree farm holds sibling agent worktrees, so runs there need PM_FLEET_ROOT pointed at the real fleet root (documented env var in test/catalog.test.ts)."
+  "2026-10-05T05:03:35.798Z",codex-sol,"Resuming the interrupted pi-glm run. Preserving and verifying its four route-contract fixes and HTTP regression tests before a focused commit. Will remeasure coverage on real disposable PostgreSQL, prioritize concurrent collaboration behavior, enforce statements explicitly, and ratchet all four thresholds. No hosted resources are in scope."
+  "2026-10-05T05:13:31.541Z",codex-sol,"Fresh npm ci completed. The preserved route-contract regression suite passes 4/4 against disposable PostgreSQL and real HTTP/pm workspaces (about 36 seconds, including avoidable graph auto-sync teardown work tracked by pm-web-4fgv). The saved pre-fix run fails all four cases. Committing the recovered route fixes first; four-metric c8 measurement is in progress."
 files[1]{path,scope,note}:
   scripts/coverage-gate.ts,project,Current scope and threshold enforcement
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/pm-route-cli-contracts.test.ts,project,codex-sol,"2026-10-05T05:10:14.117Z",local_mutation,test/full-source-coverage-gate
 docs[1]{path,scope,note}:
   "https://github.com/unbraind/pm-web/pull/163",global,Measured 408-test candidate exposing the gap
 body: ""

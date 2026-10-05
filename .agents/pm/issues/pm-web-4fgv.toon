@@ -1,0 +1,12 @@
+id: pm-web-4fgv
+title: Graph auto-sync provisions an extension before checking whether Neo4j is configured
+description: "Every item mutation schedules graph synchronization. With no Neo4j credentials, syncProjectGraph still installs and activates pm-graph in the workspace before syncGraphToNeo4j refuses the operation. This causes unnecessary network work, workspace mutation, delayed failures, and slow test teardown. Validate graph configuration before provisioning; retain both existing failure notifications and prove the behavior over real HTTP and SSE."
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-05T05:07:55.330Z"
+updated_at: "2026-10-05T05:07:55.330Z"
+author: codex-sol
+parent: pm-web-fy9a
+body: ""

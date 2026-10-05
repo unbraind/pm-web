@@ -936,6 +936,11 @@ async function runPmInProcess(opts: PmRunOptions, dir: string): Promise<PmRunRes
   const pmRoot = path.join(dir, ".agents", "pm");
   const client = getPmClient(pmRoot);
   const { action, options, positionals } = parsePmArgs(opts.args);
+  // The linked-test runner consumes repeatable JSON entries as an array;
+  // unlike `add`, the SDK does not normalize a single `addJson` string.
+  if (action === "test" && typeof options.addJson === "string") {
+    options.addJson = [options.addJson];
+  }
   try {
     const result: unknown = await client.run(action, {
       options: withPositionals(action, positionals, options),
