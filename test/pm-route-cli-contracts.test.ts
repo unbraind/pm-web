@@ -524,7 +524,7 @@ test("close-many treats the caller's status filter as authoritative and refuses 
     });
 
   // A terminal filter would re-select closed items; it is refused before any listing.
-  for (const status of ["closed", "canceled"]) {
+  for (const status of ["closed", "canceled", "open,closed", " Closed", "in_progress, CANCELED"]) {
     const refused = await closeMany({ filterStatus: status });
     assert.equal(refused.status, 400, await refused.text());
   }

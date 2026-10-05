@@ -2033,7 +2033,9 @@ router.post("/close-many", async (req: AuthRequest, res) => {
   // narrow to another non-terminal status, but `pm` keeps only the last repeated
   // flag, so appending a second --filter-status could re-select terminal items.
   const statusFilter = body.filterStatus?.trim() || "open";
-  if (statusFilter === "closed" || statusFilter === "canceled") {
+  // `pm` accepts comma-separated status lists and matches them case- and
+  // whitespace-insensitively, so every token is normalised before the check.
+  if (statusFilter.split(",").some((status) => ["closed", "canceled", "cancelled"].includes(status.trim().toLowerCase()))) {
     res.status(400).json({ error: "close-many only selects non-terminal items; filterStatus cannot be closed or canceled" });
     return;
   }
