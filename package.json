@@ -68,6 +68,7 @@
     "@types/node": "26.6.4",
     "@types/pg": "8.23.1",
     "@types/uuid": "11.0.0",
+    "c8": "12.0.0",
     "eslint": "10.12.0",
     "fast-glob": "3.3.3",
     "jscpd": "5.4.0",
@@ -143,9 +144,10 @@
       "test/*.test.ts"
     ],
     "thresholds": {
-      "lines": 79,
+      "statements": 90,
+      "lines": 90,
       "branches": 79,
-      "functions": 75
+      "functions": 92
     },
     "ignore": []
   }

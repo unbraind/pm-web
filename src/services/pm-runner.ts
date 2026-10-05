@@ -184,6 +184,8 @@ function pmCliCommand(): PmCommand {
  * beyond `timeoutMs` terminates the child (SIGTERM then SIGKILL after 1 s) and
  * records the reason in stderr. Never throws: spawn failures and captured
  * output are returned in the {@link ProcessResult}.
+ * Pins PM_PATH to the requested workspace so inherited tracker context cannot
+ * redirect fallback commands or extension management into another project.
  *
  * @param cwd - Directory to run pm in.
  * @param args - pm arguments.
@@ -202,7 +204,7 @@ async function runProcess(
     try {
       child = spawn(pmCommand.command, [...pmCommand.prefixArgs, ...args], {
         cwd,
-        env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env },
+        env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env, PM_PATH: path.join(cwd, ".agents", "pm") },
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
       });
@@ -936,6 +938,11 @@ async function runPmInProcess(opts: PmRunOptions, dir: string): Promise<PmRunRes
   const pmRoot = path.join(dir, ".agents", "pm");
   const client = getPmClient(pmRoot);
   const { action, options, positionals } = parsePmArgs(opts.args);
+  // The linked-test runner consumes repeatable JSON entries as an array;
+  // unlike `add`, the SDK does not normalize a single `addJson` string.
+  if (action === "test" && typeof options.addJson === "string") {
+    options.addJson = [options.addJson];
+  }
   try {
     const result: unknown = await client.run(action, {
       options: withPositionals(action, positionals, options),

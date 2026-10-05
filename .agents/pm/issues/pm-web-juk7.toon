@@ -1,0 +1,21 @@
+id: pm-web-juk7
+title: Spawn fallback inherits a foreign PM_PATH and writes outside the requested project
+description: "runPm binds SDK actions to the requested workspace but its CLI fallback only changes cwd and inherits PM_PATH. Under a linked test or any configured foreign tracker root, plan creation can succeed in the foreign tracker while the requested project cannot read the created id. Bind the fallback CLI explicitly to the project tracker and prove owner and decoy workspaces remain isolated through real HTTP."
+type: Issue
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-05T05:39:59.559Z"
+updated_at: "2026-10-05T05:54:49.977Z"
+author: codex-sol
+estimated_minutes: 60
+acceptance_criteria: Spawned commands mutate only the requested project even when PM_PATH points at another scratch tracker.
+comments[2]{created_at,author,text}:
+  "2026-10-05T05:41:05.271Z",codex-sol,"Reproduced over real HTTP with two disposable trackers: with a foreign PM_PATH inherited, plan create returns 201 but the requested project get returns 404. The regression fails before the fix and verifies plan-step persistence plus an empty decoy tracker afterward. Pin every spawned CLI command to the requested workspace tracker, including extension management. This also repairs linked pm execution of the route suite."
+  "2026-10-05T05:43:00.341Z",codex-sol,"The isolated foreign-root regression now passes both directly and through pm test (1/1, approximately six seconds). Its pre-fix HTTP read failed with 404 after a successful plan create. Every spawn is now workspace-bound; direct fixture CLI assertions also name their tracker explicitly."
+files[2]{path,scope}:
+  src/services/pm-runner.ts,project
+  test/pm-route-cli-contracts.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test --test-name-pattern=foreign test/pm-route-cli-contracts.test.ts,project,codex-sol,"2026-10-05T05:41:06.929Z",local_mutation,test/full-source-coverage-gate
+body: ""

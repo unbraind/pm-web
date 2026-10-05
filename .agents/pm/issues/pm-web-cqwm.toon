@@ -1,0 +1,13 @@
+id: pm-web-cqwm
+title: Catalog fleet discovery misidentifies sibling package worktrees as extension packages
+description: "In a worktree farm, catalog.test.ts and readFleetExtensions derive extension identity from sibling directory names. A sibling worktree shipping the pm-web host manifest is counted as an installable extension despite pm-web being excluded by design. Reproduce with a real directory named pm-web-candidate containing the host manifest. Resolve canonical package identity before using directory names; retain live-fleet completeness checks."
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-05T05:20:08.853Z"
+updated_at: "2026-10-05T05:54:51.062Z"
+author: codex-sol
+estimated_minutes: 90
+acceptance_criteria: Fleet discovery resolves canonical package identity and a filesystem worktree fixture cannot appear as a separately named installable extension.
+body: ""

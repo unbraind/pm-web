@@ -1,0 +1,23 @@
+id: pm-web-sblf
+title: Coverage configuration failures leave stale accepted reports
+description: "The coverage gate invalidates reports after configuration parsing and source enumeration. A missing configured source or malformed manifest therefore leaves an older successful LCOV receipt in place. Move invalidation before any configuration read and verify the actual gate in a disposable package: passing report, failing source inventory, then no accepted artifacts."
+type: Issue
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-05T05:22:24.137Z"
+updated_at: "2026-10-05T05:54:50.540Z"
+author: codex-sol
+estimated_minutes: 60
+acceptance_criteria: Configuration and source failures clear all accepted coverage reports and actual gate subprocess tests enforce statements and unloaded-file accounting.
+comments[2]{created_at,author,text}:
+  "2026-10-05T05:36:40.300Z",codex-sol,"Real subprocess gate tests pass 2/2: independently enforced statement threshold, unloaded executable source at zero coverage, successful fresh reports, failure invalidation and missing-metric rejection. Invalidation now runs before manifest/config/source validation, so a failed inventory cannot preserve an old accepted report. The gate owns an isolated c8 counter/report directory and never publishes failed-run artifacts."
+  "2026-10-05T05:53:18.396Z",codex-sol,"The actual gate subprocess regression passes both cases: successful fresh receipt publication, untouched module inclusion at zero, independent statements rejection, missing metric rejection, and configuration/source failures clearing accepted evidence. Linked pm test passes. Full 487-test suite also passes at the ratcheted four-metric floors."
+files[2]{path,scope}:
+  scripts/coverage-gate.ts,project
+  test/coverage-gate.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/coverage-gate.test.ts,project,codex-sol,"2026-10-05T05:28:11.046Z",local_mutation,test/full-source-coverage-gate
+docs[1]{path,scope}:
+  docs/coverage-progress.md,project
+body: ""

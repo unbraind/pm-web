@@ -9,10 +9,14 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
+import { createProjectWatchCycle } from "../src/services/project-watcher.ts";
+import { connectLiveSSE } from "./helpers/live-sse.ts";
 
 import {
   authHeaders,
@@ -168,6 +172,143 @@ test("concurrent collaborators update one item without a lost write or malformed
   assert.ok(history.every((entry) => typeof entry === "object" && entry !== null));
   assert.match(historyText, /owner concurrent edit/);
   assert.match(historyText, /editor concurrent edit/);
+});
+
+/** Open owner/editor wire streams with their cleanup registered before server teardown. */
+async function setupLiveCollabTest(t: test.TestContext): Promise<{
+  harness: CollaborationHarness;
+  server: AppServer;
+  streams: Awaited<ReturnType<typeof connectLiveSSE>>[];
+}> {
+  const streams: Awaited<ReturnType<typeof connectLiveSSE>>[] = [];
+  t.after(async () => { await Promise.all(streams.map((stream) => stream.close())); });
+  const { harness, server } = await setupCollabTest(t);
+  streams.push(await connectLiveSSE(server, harness.owner, harness.projectId));
+  streams.push(await connectLiveSSE(server, harness.editor, harness.projectId));
+  return { harness, server, streams };
+}
+
+test("two live viewers receive one keyed create, replay emits nothing, and competing edits both persist", async (t) => {
+  const { harness, server, streams } = await setupLiveCollabTest(t);
+  const base = `/api/projects/${harness.projectId}/pm`;
+  const key = `collaboration-${harness.projectId}`;
+  const body = { title: "Exactly one shared record", type: "Task", description: "Keyed collaboration" };
+  const init = {
+    method: "POST", headers: { "content-type": "application/json", "idempotency-key": key },
+    body: JSON.stringify(body),
+  };
+  const responses = await Promise.all([
+    authedFetch(server, harness.owner, `${base}/create`, init),
+    authedFetch(server, harness.owner, `${base}/create`, init),
+  ]);
+  const ids = await Promise.all(responses.map(createdItemId));
+  assert.equal(ids[0], ids[1]);
+  assert.equal(responses.filter((response) => response.headers.get("idempotency-replayed") === "true").length, 1);
+  const itemId = ids[0];
+  await Promise.all(streams.map((stream) => stream.waitFor((events) => events.some((event) => event.type === "item-created"))));
+  const replay = await authedFetch(server, harness.owner, `${base}/create`, init);
+  assert.equal(await createdItemId(replay), itemId);
+  assert.equal(replay.headers.get("idempotency-replayed"), "true");
+  const wrongBody = await authedFetch(server, harness.owner, `${base}/create`, {
+    ...init, body: JSON.stringify({ ...body, title: "Rejected key reuse" }),
+  });
+  assert.equal(wrongBody.status, 422);
+  const edited = await Promise.all([harness.owner, harness.editor].map((user, index) => authedFetch(
+    server, user, `${base}/update/${itemId}`, {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: `Competing title ${index}`, message: `competing edit ${index}` }),
+    },
+  )));
+  for (const response of edited) assert.equal(response.status, 200, await response.clone().text());
+  await Promise.all(streams.map((stream) => stream.waitFor((events) => events.filter((event) => event.type === "item-updated").length === 2)));
+  for (const stream of streams) {
+    const creates = stream.events.filter((event) => event.type === "item-created");
+    assert.equal(creates.length, 1, "replay must not announce another mutation");
+    assert.equal((creates[0].data.result as { id: string }).id, itemId);
+    assert.equal(creates[0].data.userId, harness.owner.id);
+    const updates = stream.events.filter((event) => event.type === "item-updated");
+    assert.deepEqual(new Set(updates.map((event) => event.data.userId)), new Set([harness.owner.id, harness.editor.id]));
+    assert.ok(updates.every((event) => event.data.itemId === itemId));
+  }
+  const history = execFileSync("pm", ["history", itemId, "--pm-path", harness.pmRoot, "--verify", "--strict-exit", "--full", "--json"], {
+    cwd: path.dirname(path.dirname(harness.pmRoot)), encoding: "utf8",
+  });
+  assert.match(history, /competing edit 0/);
+  assert.match(history, /competing edit 1/);
+  assert.equal((JSON.parse(history) as { verification: { ok: boolean } }).verification.ok, true);
+  const fetched = await authedFetch(server, harness.editor, `${base}/get/${itemId}`);
+  const payload = await fetched.json() as { item: { title: string } };
+  assert.match(payload.item.title, /^Competing title [01]$/);
+  const items = await authedFetch(server, harness.owner, `${base}/list-all`);
+  assert.equal((await items.json() as { items: unknown[] }).items.length, 1);
+});
+
+test("unconfigured graph auto-sync leaves the workspace untouched and reports failure to both viewers", async (t) => {
+  const saved = new Map(["NEO4J_URI", "NEO4J_USER", "NEO4J_USERNAME", "NEO4J_PASSWORD"].map((key) => [key, process.env[key]]));
+  for (const key of saved.keys()) delete process.env[key];
+  t.after(() => {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const { harness, server, streams } = await setupLiveCollabTest(t);
+  const settingsFile = path.join(harness.pmRoot, "settings.json");
+  const before = await readFile(settingsFile, "utf8");
+  await createItem(server, harness.owner, harness.projectId, "Graph configuration guard");
+  await Promise.all(streams.map((stream) => stream.waitFor((events) => events.some((event) => event.type === "graph_sync_failed"))));
+  for (const stream of streams) {
+    for (const type of ["graph-sync-failed", "graph_sync_failed"]) {
+      const event = stream.events.find((candidate) => candidate.type === type);
+      assert.ok(event);
+      assert.equal(event.data.reason, "item-created");
+      assert.equal(event.data.error, "Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before syncing the graph.");
+    }
+    assert.ok(!stream.events.some((event) => event.type === "graph-synced"));
+  }
+  assert.equal(await readFile(settingsFile, "utf8"), before);
+  assert.equal(existsSync(path.join(harness.pmRoot, "extensions", "pm-graph")), false);
+});
+
+test("real watcher sweep reaches two HTTP streams and presence rejects another user's session", async (t) => {
+  const { harness, server, streams } = await setupLiveCollabTest(t);
+  const base = `/api/projects/${harness.projectId}/pm`;
+  const itemId = await createItem(server, harness.owner, harness.projectId, "Watched record");
+  await Promise.all(streams.map((stream) => stream.waitFor((events) => events.some((event) => event.type === "graph_sync_failed"))));
+  for (const stream of streams) await stream.waitFor((events) => events.some((event) => event.type === "connected"));
+  const clientId = streams[0].events.find((event) => event.type === "connected")?.data.clientId;
+  assert.equal(typeof clientId, "string");
+  const viewRequest = { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ view: "graph" }) };
+  const foreign = await authedFetch(server, harness.editor, `${base}/presence/${String(clientId)}`, viewRequest);
+  assert.equal(foreign.status, 404);
+  const invalid = await authedFetch(server, harness.owner, `${base}/presence/${String(clientId)}`, {
+    ...viewRequest, body: JSON.stringify({ view: "invalid view" }),
+  });
+  assert.equal(invalid.status, 400);
+  const changedView = await authedFetch(server, harness.owner, `${base}/presence/${String(clientId)}`, viewRequest);
+  assert.equal(changedView.status, 200);
+  const presence = await authedFetch(server, harness.editor, `${base}/presence`);
+  const users = (await presence.json() as { users: Array<{ userId: string; currentView: string }> }).users;
+  assert.equal(users.length, 2);
+  assert.equal(users.find((user) => user.userId === harness.owner.id)?.currentView, "graph");
+  const cycle = createProjectWatchCycle({ onError: (error) => { assert.fail(String(error)); } });
+  await cycle.tick();
+  // Attribute the earlier HTTP write before the external mutation, as production does.
+  await delay(20);
+  execFileSync("pm", ["update", itemId, "--pm-path", harness.pmRoot, "--title", "External CLI edit", "--message", "external change"], {
+    cwd: path.dirname(path.dirname(harness.pmRoot)), stdio: "ignore",
+  });
+  // A pending API signal can consume one delta. A second raw edit must still be announced.
+  await cycle.tick();
+  await delay(20);
+  const itemFile = path.join(harness.pmRoot, "tasks", `${itemId}.toon`);
+  const original = await readFile(itemFile, "utf8");
+  await writeFile(itemFile, original.replace("External CLI edit", "Raw restored title"));
+  await cycle.tick();
+  await Promise.all(streams.map((stream) => stream.waitFor((events) => events.some((event) => event.type === "workspace-changed"))));
+  for (const stream of streams) assert.equal(stream.events.filter((event) => event.type === "workspace-changed").length, 1);
+  const current = await authedFetch(server, harness.editor, `${base}/get/${itemId}`);
+  assert.match(await current.text(), /Raw restored title/);
 });
 
 test("the real HTTP command surface preserves an item's lifecycle and related records", async (t) => {

@@ -1,0 +1,19 @@
+id: pm-web-957x
+title: "pm-web test-add route passes a token shape the CLI rejects, so linking a test from the UI always fails"
+description: "POST /api/projects/:projectId/pm/tests/:itemId builds ['test', id, '--add', '--command', command], but pm item test --add takes ONE CSV/JSON argument; the two-token --command form is rejected with exit 2, and --description is not a valid option on that path. The route now passes --add-json with the command and the optional description as the note key, which keeps commands containing commas or equals signs intact."
+type: Issue
+status: in_progress
+priority: 2
+tags[3]: bug,http-semantics,linked-tests
+created_at: "2026-10-05T04:42:46.632Z"
+updated_at: "2026-10-05T05:54:48.074Z"
+author: pi-glm
+estimated_minutes: 45
+acceptance_criteria: HTTP linked-test mutation preserves a command containing commas and its optional note through an actual CLI read.
+comments[1]{created_at,author,text}:
+  "2026-10-05T05:08:29.695Z",codex-sol,"Resumed regression suite passes against real HTTP, disposable PostgreSQL, and a scratch pm project (4/4). Preserved the interrupted implementation. Linked-test JSON also needed a single-entry array at the SDK dispatch boundary. Explicit persisted-record and bulk membership assertions pin the behavior."
+files[3]{path,scope}:
+  src/routes/pm.ts,project
+  src/services/pm-runner.ts,project
+  test/pm-route-cli-contracts.test.ts,project
+body: ""

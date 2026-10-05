@@ -24,6 +24,17 @@ import { pool } from "../db.ts";
 let _neo4jDriver: ReturnType<typeof neo4j.driver> | null = null;
 let _neo4jDriverKey = "";
 
+/** Require complete graph credentials before provisioning extensions or opening a driver. */
+function requireNeo4jCredentials(): { uri: string; user: string; password: string } {
+  const uri = process.env.NEO4J_URI;
+  const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME;
+  const password = process.env.NEO4J_PASSWORD;
+  if (!uri || !user || !password) {
+    throw new Error("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before syncing the graph.");
+  }
+  return { uri, user, password };
+}
+
 /**
  * Return the process-wide Neo4j driver, recreating it when the connection key changes.
  *
@@ -40,9 +51,7 @@ let _neo4jDriverKey = "";
  * credential cannot leak through a value held for the lifetime of the process.
  */
 function getNeo4jDriver(): ReturnType<typeof neo4j.driver> {
-  const uri = process.env.NEO4J_URI ?? "";
-  const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME ?? "";
-  const password = process.env.NEO4J_PASSWORD ?? "";
+  const { uri, user, password } = requireNeo4jCredentials();
   const key = `${uri}:${user}:${createHash("sha256").update(password).digest("hex")}`;
   if (!_neo4jDriver || _neo4jDriverKey !== key) {
     if (_neo4jDriver) {
@@ -410,13 +419,6 @@ async function syncGraphToNeo4j(
   graph: ProjectGraph,
   projectKey: string
 ): Promise<{ syncedNodes: number; syncedRelationships: number }> {
-  const uri = process.env.NEO4J_URI;
-  const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME;
-  const password = process.env.NEO4J_PASSWORD;
-  if (!uri || !user || !password) {
-    throw new Error("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before syncing the graph.");
-  }
-
   const driver = getNeo4jDriver();
   const session = driver.session({ database: process.env.NEO4J_DATABASE });
   try {
@@ -449,7 +451,9 @@ async function syncGraphToNeo4j(
   return { syncedNodes: graph.nodes.length, syncedRelationships: graph.relationships.length };
 }
 
+/** Validate graph configuration before assembling a project graph or provisioning its extension. */
 async function syncProjectGraph(project: ProjectRef): Promise<{ syncedNodes: number; syncedRelationships: number }> {
+  requireNeo4jCredentials();
   const extensionGraph = await pmGraphExtensionGraphForProject(project);
   const graph = extensionGraph.graph ?? await fallbackGraphForProject(project.ownerUserId, project.slug);
   return syncGraphToNeo4j(graph, graphProjectKey(project));
@@ -1679,8 +1683,13 @@ router.post("/tests/:itemId", async (req: AuthRequest, res) => {
   const { command, description } = req.body as { command?: string; description?: string };
   if (!command?.trim()) { res.status(400).json({ error: "Test command is required" }); return; }
 
-  const args = ["test", routeParam(req, "itemId"), "--add", "--command", command.trim()];
-  if (description) args.push("--description", description.trim());
+  // `pm item test --add` takes one CSV/JSON argument; the historical
+  // `--add --command <value>` token shape is rejected by the CLI, so every
+  // add from the UI failed with a usage error. JSON keeps the user's command
+  // verbatim even when it contains commas or equals signs, and the optional
+  // description rides along as the `note` key.
+  const test = description?.trim() ? { command: command.trim(), note: description.trim() } : { command: command.trim() };
+  const args = ["test", routeParam(req, "itemId"), "--add-json", JSON.stringify(test)];
 
   const result = await runMutation(res, project, args, "Failed to add test");
   if (!result) return;
@@ -2016,10 +2025,23 @@ router.post("/close-many", async (req: AuthRequest, res) => {
 
   const targetStatus: string = body.targetStatus === "canceled" ? "canceled" : "closed";
 
-  // First, use update-many --dry-run to get the list of matched items
-  const listArgs = ["update-many", "--dry-run", "--status", "open"];
+  // First, use update-many --dry-run to get the list of matched items.
+  // --filter-status selects rows; --status would instead *set* every matched
+  // item's status in the preview, and with no other update flags present the
+  // match set silently widened to the whole project — closed items included.
+  // The status filter is authoritative and passed exactly once: the caller may
+  // narrow to another non-terminal status, but `pm` keeps only the last repeated
+  // flag, so appending a second --filter-status could re-select terminal items.
+  const statusFilter = body.filterStatus?.trim() || "open";
+  // `pm` accepts comma-separated status lists and matches them case- and
+  // whitespace-insensitively, so every token is normalised before the check.
+  if (statusFilter.split(",").some((status) => ["closed", "canceled", "cancelled"].includes(status.trim().toLowerCase()))) {
+    res.status(400).json({ error: "close-many only selects non-terminal items; filterStatus cannot be closed or canceled" });
+    return;
+  }
+  const listArgs = ["update-many", "--dry-run", "--filter-status", statusFilter];
   const filterFlags: Record<string, string> = {
-    filterStatus: "--filter-status", filterType: "--filter-type",
+    filterType: "--filter-type",
     filterTag: "--filter-tag", filterPriority: "--filter-priority",
     filterAssignee: "--filter-assignee", filterParent: "--filter-parent",
     filterSprint: "--filter-sprint", filterRelease: "--filter-release",
@@ -2320,8 +2342,12 @@ router.post("/plan/:planId/steps", async (req: AuthRequest, res) => {
   const { title, description, dependsOn } = req.body as Record<string, string>;
   if (!title?.trim()) { res.status(400).json({ error: "Title is required" }); return; }
 
-  const args = ["plan", "add-step", routeParam(req, "planId"), "--title", title.trim()];
-  if (description) args.push("--description", description);
+  // `pm plan add-step` takes the step title on --step-title and the step body
+  // on --step-body; --title/--description address the plan itself, so routing
+  // the request's fields there would fail the whole call (add-step rejects
+  // --title as a missing --step-title) or write to the wrong record.
+  const args = ["plan", "add-step", routeParam(req, "planId"), "--step-title", title.trim()];
+  if (description) args.push("--step-body", description);
   if (dependsOn) args.push("--depends-on", dependsOn);
 
   await runPlanMutation(req, res, project, args, "Failed to add step", 201);
@@ -2332,8 +2358,14 @@ router.patch("/plan/:planId/steps/:stepRef", async (req: AuthRequest, res) => {
   const project = await requireProject(req, res);
   if (!project) return;
 
+  // Step edits go to --step-title/--step-body. The plan-level --title/--
+  // --description flags are silently ignored by `pm plan update-step`, so
+  // routing a step edit through them returned success while dropping the
+  // user's change on the floor.
+  const body = req.body as Record<string, string>;
   const args = ["plan", "update-step", routeParam(req, "planId"), routeParam(req, "stepRef")];
-  pushTitleDescArgs(args, req.body as Record<string, string>);
+  if (body.title?.trim()) args.push("--step-title", body.title.trim());
+  if (body.description !== undefined) args.push("--step-body", body.description);
 
   await runPlanMutation(req, res, project, args, "Failed to update step");
 });
@@ -2410,34 +2442,28 @@ router.post("/plan/:planId/steps/:stepRef/reorder", async (req: AuthRequest, res
   await runPlanMutation(req, res, project, ["plan", "reorder-step", routeParam(req, "planId"), routeParam(req, "stepRef"), String(reorderTo)], "Failed to reorder step");
 });
 
-// POST /api/projects/:projectId/pm/plan/:planId/link
+/** Execute plan linking or unlinking with the CLI's required step positional. */
+async function mutatePlanLink(req: AuthRequest, res: Response, action: "link" | "unlink"): Promise<void> {
+  const project = await requireProject(req, res);
+  if (!project) return;
+  const { link, step } = req.body as Record<string, string>;
+  if (!link?.trim()) { res.status(400).json({ error: "link (item id) is required" }); return; }
+  if (!step?.trim()) { res.status(400).json({ error: "step (step id or order) is required" }); return; }
+  const { linkKind, linkNote, promoteToItemDep } = req.body as Record<string, string>;
+  const args = ["plan", action, routeParam(req, "planId"), step.trim(), "--link", link.trim()];
+  if (linkKind) args.push("--link-kind", linkKind);
+  if (action === "link") {
+    if (linkNote) args.push("--link-note", linkNote);
+    if (promoteToItemDep === "true") args.push("--promote-to-item-dep");
+  }
+  await runPlanMutation(req, res, project, args, `Failed to ${action} plan`, action === "link" ? 201 : 200);
+}
+
 router.post("/plan/:planId/link", async (req: AuthRequest, res) => {
-  const project = await requireProject(req, res);
-  if (!project) return;
-
-  const { link, linkKind, linkNote, promoteToItemDep } = req.body as Record<string, string>;
-  if (!link?.trim()) { res.status(400).json({ error: "link (item id) is required" }); return; }
-
-  const args = ["plan", "link", routeParam(req, "planId"), "--link", link.trim()];
-  if (linkKind) args.push("--link-kind", linkKind);
-  if (linkNote) args.push("--link-note", linkNote);
-  if (promoteToItemDep === "true") args.push("--promote-to-item-dep");
-
-  await runPlanMutation(req, res, project, args, "Failed to link plan", 201);
+  await mutatePlanLink(req, res, "link");
 });
-
-// DELETE /api/projects/:projectId/pm/plan/:planId/link
 router.delete("/plan/:planId/link", async (req: AuthRequest, res) => {
-  const project = await requireProject(req, res);
-  if (!project) return;
-
-  const { link, linkKind } = req.body as Record<string, string>;
-  if (!link?.trim()) { res.status(400).json({ error: "link (item id) is required" }); return; }
-
-  const args = ["plan", "unlink", routeParam(req, "planId"), "--link", link.trim()];
-  if (linkKind) args.push("--link-kind", linkKind);
-
-  await runPlanMutation(req, res, project, args, "Failed to unlink plan");
+  await mutatePlanLink(req, res, "unlink");
 });
 
 // GET /api/projects/:projectId/pm/upgrade

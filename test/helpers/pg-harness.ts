@@ -21,13 +21,17 @@
 
 import http from "node:http";
 import assert from "node:assert/strict";
-import type test from "node:test";
+import { after, type TestContext } from "node:test";
 import type { Express } from "express";
 import bcrypt from "bcryptjs";
 import { createApp } from "../../src/app.ts";
 import { signToken } from "../../src/auth.ts";
 import { startEphemeralServer } from "./ephemeral-server.ts";
 import { initSchema, pool } from "../../src/db.ts";
+
+// Each test file has its own process. Release its real pool after every test's
+// teardown instead of keeping the worker alive for the 30-second idle timeout.
+after(() => pool.end());
 
 /**
  * A per-process run id, mixed into every seeded identifier so that concurrent
@@ -42,7 +46,7 @@ export const RUN_ID =
   process.hrtime.bigint().toString(36) + Math.random().toString(36).slice(2);
 
 /** Bound duplicate polling in failure tests and restore the process configuration after each test. */
-export function configureIdempotencyWait(t: test.TestContext, milliseconds: number): void {
+export function configureIdempotencyWait(t: TestContext, milliseconds: number): void {
   const previous = process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
   process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = String(milliseconds);
   t.after(() => {
@@ -202,15 +206,15 @@ export async function ensureSchema(): Promise<void> {
  *
  * `createApp` starts no watchers and holds no event-loop handles, so closing
  * the `http.Server` returned here is all the cleanup a test needs. The pool
- * itself is never ended from a test — each file is its own process and exits
- * naturally once its tests finish.
+ * is ended by this module's file-level after hook once all tests and their
+ * server teardowns finish.
  */
 export async function startApp(): Promise<AppServer> {
   const { port, url, close } = await startEphemeralServer(createApp());
   return { port, url, close };
 }
 /** Start a real route server and seed one owner, with cleanup bound to the test. */
-export async function setupOwnerAppTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser }> {
+export async function setupOwnerAppTest(t: TestContext): Promise<{ server: AppServer; owner: SeedUser }> {
   await ensureSchema();
   const server = await startApp();
   t.after(() => server.close());
@@ -219,7 +223,7 @@ export async function setupOwnerAppTest(t: test.TestContext): Promise<{ server: 
 }
 
 /** Common setup for route tests that need a seeded owner and project. */
-export async function setupOwnerProjectTest(t: test.TestContext): Promise<{ server: AppServer; owner: SeedUser; project: SeedProject }> {
+export async function setupOwnerProjectTest(t: TestContext): Promise<{ server: AppServer; owner: SeedUser; project: SeedProject }> {
   const { server, owner } = await setupOwnerAppTest(t);
   const project = await seedProject(owner.id);
   return { server, owner, project };
