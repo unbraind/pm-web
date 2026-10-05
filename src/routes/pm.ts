@@ -2029,9 +2029,17 @@ router.post("/close-many", async (req: AuthRequest, res) => {
   // --filter-status selects rows; --status would instead *set* every matched
   // item's status in the preview, and with no other update flags present the
   // match set silently widened to the whole project — closed items included.
-  const listArgs = ["update-many", "--dry-run", "--filter-status", "open"];
+  // The status filter is authoritative and passed exactly once: the caller may
+  // narrow to another non-terminal status, but `pm` keeps only the last repeated
+  // flag, so appending a second --filter-status could re-select terminal items.
+  const statusFilter = body.filterStatus?.trim() || "open";
+  if (statusFilter === "closed" || statusFilter === "canceled") {
+    res.status(400).json({ error: "close-many only selects non-terminal items; filterStatus cannot be closed or canceled" });
+    return;
+  }
+  const listArgs = ["update-many", "--dry-run", "--filter-status", statusFilter];
   const filterFlags: Record<string, string> = {
-    filterStatus: "--filter-status", filterType: "--filter-type",
+    filterType: "--filter-type",
     filterTag: "--filter-tag", filterPriority: "--filter-priority",
     filterAssignee: "--filter-assignee", filterParent: "--filter-parent",
     filterSprint: "--filter-sprint", filterRelease: "--filter-release",

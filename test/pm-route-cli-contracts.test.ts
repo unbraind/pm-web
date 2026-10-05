@@ -510,3 +510,33 @@ test("close-many closes only the project's open items, not terminal ones", async
   assert.equal(untouched.status, "closed");
   assert.equal(untouched.close_reason, "Closed before the bulk close");
 });
+
+test("close-many treats the caller's status filter as authoritative and refuses terminal statuses", async (t) => {
+  const { harness, server } = await setupContractsTest(t);
+  const openId = await createRecord(server, harness, "create", "Stays open");
+  const activeId = await createRecord(server, harness, "create", "In progress");
+  pmJson(harness.workspace, ["update", activeId, "--status", "in_progress"]);
+  const closeMany = (filters: Record<string, string>): Promise<Response> =>
+    authedFetch(server, harness.owner, `/api/projects/${harness.projectId}/pm/close-many`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "Filtered bulk close", ...filters }),
+    });
+
+  // A terminal filter would re-select closed items; it is refused before any listing.
+  for (const status of ["closed", "canceled"]) {
+    const refused = await closeMany({ filterStatus: status });
+    assert.equal(refused.status, 400, await refused.text());
+  }
+
+  // A non-terminal filter replaces the default `open` filter rather than being appended
+  // after it, so exactly the in-progress item is closed and the open one is untouched.
+  const response = await closeMany({ filterStatus: "in_progress" });
+  const text = await response.text();
+  assert.equal(response.status, 200, text);
+  const payload = JSON.parse(text) as { failed_count?: number; rows?: ReadonlyArray<{ id: string }> };
+  assert.equal(payload.failed_count, 0, text);
+  assert.deepEqual((payload.rows ?? []).map((row) => row.id), [activeId]);
+  assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", activeId]).item.status, "closed");
+  assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", openId]).item.status, "open");
+});
