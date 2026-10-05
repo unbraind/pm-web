@@ -18,6 +18,16 @@ import { pool } from "../db.js";
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
 let _neo4jDriver = null;
 let _neo4jDriverKey = "";
+/** Require complete graph credentials before provisioning extensions or opening a driver. */
+function requireNeo4jCredentials() {
+    const uri = process.env.NEO4J_URI;
+    const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME;
+    const password = process.env.NEO4J_PASSWORD;
+    if (!uri || !user || !password) {
+        throw new Error("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before syncing the graph.");
+    }
+    return { uri, user, password };
+}
 /**
  * Return the process-wide Neo4j driver, recreating it when the connection key changes.
  *
@@ -34,9 +44,7 @@ let _neo4jDriverKey = "";
  * credential cannot leak through a value held for the lifetime of the process.
  */
 function getNeo4jDriver() {
-    const uri = process.env.NEO4J_URI ?? "";
-    const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME ?? "";
-    const password = process.env.NEO4J_PASSWORD ?? "";
+    const { uri, user, password } = requireNeo4jCredentials();
     const key = `${uri}:${user}:${createHash("sha256").update(password).digest("hex")}`;
     if (!_neo4jDriver || _neo4jDriverKey !== key) {
         if (_neo4jDriver) {
@@ -339,12 +347,6 @@ function graphProjectKey(project) {
  * @returns The number of nodes and relationships written from the graph.
  */
 async function syncGraphToNeo4j(graph, projectKey) {
-    const uri = process.env.NEO4J_URI;
-    const user = process.env.NEO4J_USER ?? process.env.NEO4J_USERNAME;
-    const password = process.env.NEO4J_PASSWORD;
-    if (!uri || !user || !password) {
-        throw new Error("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before syncing the graph.");
-    }
     const driver = getNeo4jDriver();
     const session = driver.session({ database: process.env.NEO4J_DATABASE });
     try {
@@ -362,7 +364,9 @@ async function syncGraphToNeo4j(graph, projectKey) {
     }
     return { syncedNodes: graph.nodes.length, syncedRelationships: graph.relationships.length };
 }
+/** Validate graph configuration before assembling a project graph or provisioning its extension. */
 async function syncProjectGraph(project) {
+    requireNeo4jCredentials();
     const extensionGraph = await pmGraphExtensionGraphForProject(project);
     const graph = extensionGraph.graph ?? await fallbackGraphForProject(project.ownerUserId, project.slug);
     return syncGraphToNeo4j(graph, graphProjectKey(project));
@@ -2326,29 +2330,22 @@ router.post("/plan/:planId/steps/:stepRef/reorder", async (req, res) => {
     }
     await runPlanMutation(req, res, project, ["plan", "reorder-step", routeParam(req, "planId"), routeParam(req, "stepRef"), String(reorderTo)], "Failed to reorder step");
 });
-/** Validate the step and item positionals shared by plan linking and unlinking. */
-function planLinkPositionals(req, res) {
-    const { link, step } = req.body;
-    if (!link?.trim()) {
-        res.status(400).json({ error: "link (item id) is required" });
-        return null;
-    }
-    if (!step?.trim()) {
-        res.status(400).json({ error: "step (step id or order) is required" });
-        return null;
-    }
-    return [routeParam(req, "planId"), step.trim(), "--link", link.trim()];
-}
 /** Execute plan linking or unlinking with the CLI's required step positional. */
 async function mutatePlanLink(req, res, action) {
     const project = await requireProject(req, res);
     if (!project)
         return;
-    const positionals = planLinkPositionals(req, res);
-    if (!positionals)
+    const { link, step } = req.body;
+    if (!link?.trim()) {
+        res.status(400).json({ error: "link (item id) is required" });
         return;
+    }
+    if (!step?.trim()) {
+        res.status(400).json({ error: "step (step id or order) is required" });
+        return;
+    }
     const { linkKind, linkNote, promoteToItemDep } = req.body;
-    const args = ["plan", action, ...positionals];
+    const args = ["plan", action, routeParam(req, "planId"), step.trim(), "--link", link.trim()];
     if (linkKind)
         args.push("--link-kind", linkKind);
     if (action === "link") {

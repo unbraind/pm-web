@@ -2,11 +2,22 @@ id: pm-web-4fgv
 title: Graph auto-sync provisions an extension before checking whether Neo4j is configured
 description: "Every item mutation schedules graph synchronization. With no Neo4j credentials, syncProjectGraph still installs and activates pm-graph in the workspace before syncGraphToNeo4j refuses the operation. This causes unnecessary network work, workspace mutation, delayed failures, and slow test teardown. Validate graph configuration before provisioning; retain both existing failure notifications and prove the behavior over real HTTP and SSE."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:07:55.330Z"
-updated_at: "2026-10-05T05:07:55.330Z"
+updated_at: "2026-10-05T05:30:38.388Z"
+assignee: codex-sol
+claim_principal: codex-sol
 author: codex-sol
 parent: pm-web-fy9a
+comments[2]{created_at,author,text}:
+  "2026-10-05T05:19:30.701Z",codex-sol,"Regression fails before the fix: unconfigured auto-sync cannot report its expected failure to both HTTP SSE viewers within five seconds because it first provisions pm-graph. Validate credentials before any graph assembly/provisioning and retain both failure event spellings. The regression also checks byte-identical workspace settings and no installed graph extension."
+  "2026-10-05T05:30:38.388Z",codex-sol,"Verified fix with real HTTP/SSE and two viewers: graph-sync-failed and its legacy spelling carry the same configuration error, settings stay byte-identical, and no graph package is provisioned. The linked pm test passes. Concurrent same-key requests/replay, competing item edits with verified history, presence session ownership, and default filesystem watcher delivery also pass. Test-pool teardown removes the former 30-second idle wait without changing production pool settings."
+files[3]{path,scope}:
+  src/routes/pm.ts,project
+  test/helpers/live-sse.ts,project
+  test/pm-collaboration.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test --test-name-pattern=unconfigured test/pm-collaboration.test.ts,project,codex-sol,"2026-10-05T05:27:33.681Z",local_mutation,test/full-source-coverage-gate
 body: ""
