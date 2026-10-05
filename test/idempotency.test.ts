@@ -514,12 +514,20 @@ test("idempotency records older than the retention window are cleaned up", async
   // A completed record from long before the retention window.
   const first = await keyedGroupPost(server, owner, oldKey, oldName);
   assert.equal(first.status, 201);
-  await pool.query(
+  // The guard persists the outcome on the response's `finish` event, after the
+  // client already holds its 201. Backdating before that write lands would be
+  // overwritten by the settlement's `updated_at = NOW()`, so wait for it first.
+  for (let attempt = 0; ((await keyRows(owner.id, oldKey))[0]?.status_code ?? null) === null; attempt++) {
+    assert.ok(attempt < 100, "the completed request settles its idempotency record");
+    await sleep(20);
+  }
+  const backdated = await pool.query(
     `UPDATE pm_idempotency_keys
      SET created_at = NOW() - (30::double precision * interval '1 day'), updated_at = NOW() - interval '30 days'
-     WHERE user_id = $1 AND idempotency_key = $2`,
+     WHERE user_id = $1 AND idempotency_key = $2 AND status_code IS NOT NULL`,
     [owner.id, oldKey],
   );
+  assert.equal(backdated.rowCount, 1, "the settled record is backdated");
 
   // A second execution in the same middleware instance does not sweep again.
   const fresh = await keyedGroupPost(server, owner, freshKey, `group-${RUN_ID}-fresh`);
