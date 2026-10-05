@@ -6,10 +6,10 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:07:55.330Z"
-updated_at: "2026-10-05T05:30:38.388Z"
-assignee: codex-sol
-claim_principal: codex-sol
+updated_at: "2026-10-05T05:54:49.286Z"
 author: codex-sol
+estimated_minutes: 90
+acceptance_criteria: An unconfigured graph sync delivers both established SSE error aliases to two clients without creating extension state or changing workspace settings.
 parent: pm-web-fy9a
 comments[2]{created_at,author,text}:
   "2026-10-05T05:19:30.701Z",codex-sol,"Regression fails before the fix: unconfigured auto-sync cannot report its expected failure to both HTTP SSE viewers within five seconds because it first provisions pm-graph. Validate credentials before any graph assembly/provisioning and retain both failure event spellings. The regression also checks byte-identical workspace settings and no installed graph extension."

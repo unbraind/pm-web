@@ -1,0 +1,13 @@
+id: pm-web-s99c
+title: Refresh the package catalog and fleet snapshot for pm-jev
+description: "The optional live-fleet catalog integration now discovers pm-jev, but the package catalog and committed fleet snapshot omit it. Four assertions fail against that live fleet. Refresh package metadata and registry publication evidence in a separate catalog change; coverage work must retain those assertions."
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-05T05:18:01.915Z"
+updated_at: "2026-10-05T05:54:51.505Z"
+author: codex-sol
+estimated_minutes: 90
+acceptance_criteria: Current package catalog and committed fleet snapshot include verified pm-jev metadata and all optional live-fleet completeness assertions pass.
+body: ""

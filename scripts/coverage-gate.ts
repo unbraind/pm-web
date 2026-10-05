@@ -1,7 +1,7 @@
 /**
  * Coverage gate for the package test suite.
  *
- * Runs `node --test` with the runtime's built-in V8 coverage against the
+ * Runs `node --test` under c8 with the runtime's built-in V8 coverage against the
  * TypeScript sources directly (Node executes `.ts` natively, so the reported
  * line numbers are the ones an author edits, not compiled output), enforces a
  * per-dimension threshold, and reconciles the reported file list against the
@@ -10,12 +10,10 @@
  * That last step is the reason this script exists rather than a bare
  * `node --test --test-coverage-lines=...` invocation. Node only reports files
  * that were loaded during the run: a source module with no test at all is
- * omitted from the report entirely rather than reported at zero. The published
- * percentage is therefore computed over the tested subset, and a package can
- * satisfy a 100% threshold while an entire module goes unexercised. Comparing
- * the report against a directory walk turns that silent omission into a failure
- * naming the missing files, so the threshold cannot be passed by narrowing what
- * the suite touches.
+ * omitted from the report entirely rather than reported at zero. c8's `--all`
+ * includes unloaded modules at zero, so they contribute to the denominator.
+ * Comparing the resulting report against a directory walk independently checks
+ * that every required file was included before publishing accepted receipts.
  *
  * Configuration lives in `package.json` under `coverageGate` so the numbers the
  * gate enforces are visible in the same file that declares the scripts, and a
@@ -28,16 +26,13 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
-/**
- * Minimum acceptable percentage for each coverage dimension Node reports.
- *
- * Statement coverage is not listed because V8 reports statements as lines; the
- * line figure is the statement figure for this runtime.
- */
+/** Minimum aggregate percentages measured by c8's Istanbul reporters. */
 interface CoverageThresholds {
+  /** Minimum percentage of statements that must be executed. */
+  readonly statements: number;
   /** Minimum percentage of executable lines that must be covered. */
   readonly lines: number;
   /** Minimum percentage of branch arms that must be taken. */
@@ -82,6 +77,11 @@ interface PackageManifest {
 }
 
 const repoRoot = resolve(import.meta.dirname, "..");
+const coverageDir = join(repoRoot, "coverage");
+mkdirSync(coverageDir, { recursive: true });
+const reportNames = ["lcov.info", "coverage-summary.json", "coverage-final.json"] as const;
+// Invalidate accepted evidence before configuration reads or source inventory can fail.
+for (const name of reportNames) rmSync(join(coverageDir, name), { force: true });
 const manifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as PackageManifest;
 const config = manifest.coverageGate;
 
@@ -137,9 +137,10 @@ function resolveEmitPaths(): { outDir: string; rootDir: string } {
  * Directories never treated as source, so that `sources: ["."]` works for a
  * package whose entrypoint sits at the repository root.
  *
- * These hold tests, build output, tooling and installed dependencies. None of
- * them contain shipped source, and several would otherwise make the required
- * set unsatisfiable — a test file cannot appear in its own coverage report.
+ * These hold tests, build output, tooling, browser assets and dependencies.
+ * Tooling and browser source need their own explicit `sources` entries when
+ * included in a package's gate; this default walk does not measure them.
+ * A test file cannot appear in its own coverage report.
  */
 const DEFAULT_SKIP_DIRS: readonly string[] = [
   "node_modules",
@@ -196,7 +197,7 @@ function collectSources(target: string): string[] {
   return found;
 }
 
-const expected = config.sources.flatMap((source) => collectSources(join(repoRoot, source)));
+const expected = [...new Set(config.sources.flatMap((source) => collectSources(join(repoRoot, source))))].sort();
 const exempt = new Set(config.ignore ?? []);
 const required = expected.filter((file) => !exempt.has(file));
 
@@ -249,58 +250,55 @@ if (required.length === 0) {
   process.exit(1);
 }
 
-const lcovPath = join(repoRoot, "coverage", "lcov.info");
-mkdirSync(join(repoRoot, "coverage"), { recursive: true });
-// Delete any previous report first. If this run writes none, a leftover file
-// from an earlier, broader run would satisfy the presence check on stale data —
-// the gate would pass by reading history rather than by measuring anything.
-rmSync(lcovPath, { force: true });
+for (const metric of ["statements", "lines", "branches", "functions"] as const) {
+  const threshold = config.thresholds[metric];
+  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+    console.error(`coverage-gate: thresholds.${metric} must be a number from 0 to 100.`);
+    process.exit(1);
+  }
+}
 
+// Each measurement owns its reports and counters, including spawned CLI processes.
+// c8's --all records unexecuted files at zero rather than dropping the denominator.
+const runDir = mkdtempSync(join(coverageDir, ".run-"));
+const measuredLcov = join(runDir, "lcov.info");
+const runnerEnv: NodeJS.ProcessEnv = { ...process.env, TZ: "UTC" };
+delete runnerEnv.NODE_V8_COVERAGE;
 const result = spawnSync(
   process.execPath,
   [
+    join(repoRoot, "node_modules", "c8", "bin", "c8.js"),
+    "--config=package.json",
+    "--all",
+    `--src=${repoRoot}`,
+    "--extension=.ts",
+    ...required.map((file) => `--include=${file}`),
+    "--reporter=text",
+    "--reporter=json-summary",
+    "--reporter=json",
+    "--reporter=lcovonly",
+    `--reports-dir=${runDir}`,
+    `--temp-directory=${join(runDir, "v8")}`,
+    "--check-coverage",
+    `--statements=${config.thresholds.statements}`,
+    `--lines=${config.thresholds.lines}`,
+    `--branches=${config.thresholds.branches}`,
+    `--functions=${config.thresholds.functions}`,
+    process.execPath,
     "--test",
-    "--experimental-test-coverage",
-    // Scope the report to exactly the files the presence check requires. Passing
-    // the enumerated paths rather than a directory glob keeps the two in step by
-    // construction, and keeps test files and tooling out of the percentages even
-    // when the source root is the repository root.
-    ...required.map((file) => `--test-coverage-include=${file}`),
-    `--test-coverage-lines=${config.thresholds.lines}`,
-    `--test-coverage-branches=${config.thresholds.branches}`,
-    `--test-coverage-functions=${config.thresholds.functions}`,
     "--test-reporter=spec",
-    "--test-reporter-destination=stdout",
-    "--test-reporter=lcov",
-    `--test-reporter-destination=${lcovPath}`,
     ...config.tests,
   ],
-  {
-    cwd: repoRoot,
-    stdio: "inherit",
-    // Pin the timezone so the measurement is reproducible on any machine.
-    // Code that branches on a timestamp's UTC offset takes different paths under
-    // a local offset than under UTC, which moves the reported percentage between
-    // a contributor's machine and CI. A threshold pinned to one machine's number
-    // then fails on the other for reasons unrelated to the change under review.
-    env: { ...process.env, TZ: "UTC" },
-  },
+  { cwd: repoRoot, stdio: "inherit", env: runnerEnv },
 );
 
-if (result.error) {
-  console.error(`coverage-gate: failed to start the test runner: ${result.error.message}`);
-  process.exit(1);
-}
-
-// Surface a runner failure before touching the report at all. A failing suite,
-// an unmet threshold, or a test file that will not load can each leave the lcov
-// output absent or incomplete, and every diagnostic below would then describe a
-// coverage-configuration problem the author does not have — burying the test
-// failure they need to act on.
-if (result.status !== 0) {
+if (result.error || result.status !== 0) {
+  if (result.error) console.error(`coverage-gate: failed to start the test runner: ${result.error.message}`);
+  rmSync(runDir, { recursive: true, force: true });
   process.exit(result.status ?? 1);
 }
 
+const lcovPath = measuredLcov;
 /**
  * Source files the run actually reported on, read back from the lcov output.
  *
@@ -322,6 +320,7 @@ try {
   }
 } catch {
   console.error(`coverage-gate: no coverage report was written to ${relative(repoRoot, lcovPath)}.`);
+  rmSync(runDir, { recursive: true, force: true });
   process.exit(1);
 }
 
@@ -331,16 +330,19 @@ if (missing.length > 0) {
   console.error(
     [
       "",
-      `coverage-gate: ${missing.length} source file(s) never loaded during the run and were`,
-      "omitted from the coverage report, so the reported percentages exclude them entirely:",
+      `coverage-gate: ${missing.length} required source file(s) were omitted from the coverage report:`,
       ...missing.map((file) => `  - ${file}`),
       "",
-      "Import each file from a test (or exercise it through the CLI entrypoint under test).",
+      "Check reporter inclusion and exercise each executable file through real tests.",
       "A file that is genuinely type-only belongs in `coverageGate.ignore` in package.json.",
       "",
     ].join("\n"),
   );
+  rmSync(runDir, { recursive: true, force: true });
   process.exit(1);
 }
+
+for (const name of reportNames) copyFileSync(join(runDir, name), join(coverageDir, name));
+rmSync(runDir, { recursive: true, force: true });
 
 console.log(`\ncoverage-gate: ${required.length} source file(s) reported, thresholds met.`);
