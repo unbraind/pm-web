@@ -13,10 +13,11 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { parse as parseYaml } from "yaml";
 
 import {
   authedFetch,
@@ -93,20 +94,21 @@ async function setupContractsTest(
 ): Promise<{ harness: ContractsHarness; server: AppServer }> {
   const previousRoot = process.env.PROJECTS_ROOT;
   const harness = await createContractsHarness();
-  let server: AppServer | undefined;
+  const started: { server?: AppServer } = {};
   t.after(async () => {
-    await server?.close();
+    await started.server?.close();
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
     else process.env.PROJECTS_ROOT = previousRoot;
     await rm(harness.root, { recursive: true, force: true });
   });
-  server = await startApp();
+  const server = await startApp();
+  started.server = server;
   return { harness, server };
 }
 
 /** Run pm directly inside the workspace and parse its JSON output. */
 function pmJson<T>(workspace: string, args: string[]): T {
-  const stdout = execFileSync("pm", [...args, "--json"], { cwd: workspace, encoding: "utf8" });
+  const stdout = execFileSync("pm", [...args, "--pm-path", path.join(workspace, ".agents", "pm"), "--json"], { cwd: workspace, encoding: "utf8" });
   return JSON.parse(stdout) as T;
 }
 
@@ -175,6 +177,220 @@ test("plan step routes drive the CLI's step flags and step edits actually land",
   assert.ok(step, `plan show did not list the added step: ${JSON.stringify(shown.plan.steps)}`);
   assert.equal(step.title, "Renamed step");
   assert.equal(step.body, "Replaced body");
+});
+
+/** Send a JSON mutation through the real project command route. */
+function contractsRequest(server: AppServer, harness: ContractsHarness, route: string, body: Record<string, unknown>, method = "POST"): Promise<Response> {
+  return authedFetch(server, harness.owner, `/api/projects/${harness.projectId}/pm/${route}`, {
+    method, headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+}
+
+test("linked files, docs, learnings, claims and settings survive real route round trips", async (t) => {
+  const { harness, server } = await setupContractsTest(t);
+  const itemId = await createRecord(server, harness, "create", "Linked records");
+  const base = `/api/projects/${harness.projectId}/pm`;
+  await writeFile(path.join(harness.workspace, "fixture.ts"), "export const fixture = true;\n");
+  await writeFile(path.join(harness.workspace, "fixture.md"), "# Route fixture\n");
+  for (const [route, body, status] of [
+    [`files/${itemId}`, { path: "fixture.ts", scope: "project" }, 201],
+    [`docs/${itemId}`, { path: "fixture.md", scope: "project", note: "Reference document" }, 200],
+    [`learnings/${itemId}`, { text: "Linked records must persist" }, 201],
+    [`claim/${itemId}`, {}, 200],
+    [`release/${itemId}`, {}, 200],
+  ] as const) {
+    const result = await contractsRequest(server, harness, route, body);
+    assert.equal(result.status, status, await result.clone().text());
+  }
+  for (const [route, field, expected] of [
+    ["files", "path", "fixture.ts"], ["docs", "path", "fixture.md"], ["learnings", "text", "Linked records must persist"],
+  ]) {
+    const read = await authedFetch(server, harness.owner, `${base}/${route}/${itemId}`);
+    assert.equal(read.status, 200);
+    const payload = await read.json() as Record<string, Array<Record<string, unknown>>>;
+    assert.ok(payload[route].some((record) => record[field] === expected), JSON.stringify(payload));
+  }
+  const removed = await contractsRequest(server, harness, `docs/${itemId}`, { remove: "fixture.md" });
+  assert.equal(removed.status, 200, await removed.clone().text());
+  const remaining = await authedFetch(server, harness.owner, `${base}/docs/${itemId}`);
+  assert.deepEqual((await remaining.json() as { docs: unknown[] }).docs, []);
+  const configured = await contractsRequest(server, harness, "config/definition-of-done", { value: "Route configuration" }, "PATCH");
+  assert.equal(configured.status, 200);
+  assert.ok(!("error" in (await configured.json() as Record<string, unknown>)));
+  const readConfig = await authedFetch(server, harness.owner, `${base}/config/definition-of-done`);
+  assert.match(await readConfig.text(), /Route configuration/);
+  for (const invalid of [
+    [`files/${itemId}`, {}], [`docs/${itemId}`, {}], [`learnings/${itemId}`, { text: " " }],
+    [`tests/${itemId}`, {}], [`restore/${itemId}`, {}],
+  ] as const) {
+    const result = await contractsRequest(server, harness, invalid[0], invalid[1]);
+    assert.equal(result.status, 400);
+  }
+});
+
+test("import and three real export formats preserve data and filtered bulk edits leave other items alone", async (t) => {
+  const { harness, server } = await setupContractsTest(t);
+  const base = `/api/projects/${harness.projectId}/pm`;
+  const empty = await authedFetch(server, harness.owner, `${base}/export?format=csv`);
+  assert.equal(empty.status, 200);
+  assert.equal(await empty.text(), "");
+  const title = 'Quoted, "task"';
+  const description = "First line\nsecond: line # details";
+  const imported = await contractsRequest(server, harness, "import", { items: [
+    { title, description, type: "Task", tags: "batch,fixture", priority: "1", assignee: "test-agent", sprint: "s1", release: "r1", deadline: "2026-12-31", body: "Full body" },
+    { title: "Other import", type: "Task" }, { description: "Missing title" },
+    { title: "Rejected type", type: "NoSuchType" },
+  ] });
+  assert.equal(imported.status, 200);
+  const result = await imported.json() as { created: string[]; errors: string[]; total: number };
+  assert.equal(result.created.length, 2);
+  assert.equal(result.errors.length, 2);
+  assert.equal(result.total, 4);
+  for (const format of ["json", "yaml", "csv"]) {
+    const exported = await authedFetch(server, harness.owner, `${base}/export?format=${format}`);
+    assert.equal(exported.status, 200);
+    assert.match(exported.headers.get("content-disposition") ?? "", new RegExp(`export\\.${format}`));
+    const raw = await exported.text();
+    if (format === "csv") {
+      assert.ok(raw.startsWith("id,title,description,type,status,priority,tags"));
+      assert.ok(raw.includes('"Quoted, ""task"""'));
+      assert.ok(raw.includes('"First line\nsecond: line # details"'));
+    } else {
+      const parsed = (format === "json" ? JSON.parse(raw) : parseYaml(raw)) as { items: Array<{ id: string; title: string; description: string; tags: string[] }> };
+      assert.equal(parsed.items.length, 2);
+      const record = parsed.items.find((item) => item.id === result.created[0]);
+      assert.ok(record);
+      assert.equal(record.title, title);
+      assert.equal(record.description, description);
+      assert.deepEqual(record.tags, ["batch", "fixture"]);
+    }
+  }
+  const filter = { filterTag: "batch", priority: "0", description: "Only the selected record" };
+  const preview = await contractsRequest(server, harness, "update-many", { ...filter, dryRun: "true" });
+  assert.equal(preview.status, 200, await preview.clone().text());
+  const before = pmJson<{ item: { priority: number } }>(harness.workspace, ["get", result.created[0]]);
+  assert.equal(before.item.priority, 1);
+  const update = await contractsRequest(server, harness, "update-many", filter);
+  assert.equal(update.status, 200, await update.clone().text());
+  const selected = pmJson<{ item: { priority: number; description: string } }>(harness.workspace, ["get", result.created[0]]).item;
+  assert.equal(selected.priority, 0);
+  assert.equal(selected.description, filter.description);
+  const other = pmJson<{ item: { priority: number; description: string } }>(harness.workspace, ["get", result.created[1]]).item;
+  assert.equal(other.priority, 2);
+  assert.equal(other.description, "Other import");
+  for (const items of [[], Array.from({ length: 501 }, () => ({ title: "Too many" }))]) {
+    const rejected = await contractsRequest(server, harness, "import", { items });
+    assert.equal(rejected.status, 400);
+  }
+});
+
+test("plan lifecycle routes preserve step order, blocked state, completion and materialized links", async (t) => {
+  const { harness, server } = await setupContractsTest(t);
+  const planId = await createRecord(server, harness, "plan", "Lifecycle plan");
+  const base = `/api/projects/${harness.projectId}/pm`;
+  for (const title of ["First step", "Second step", "Disposable step"]) {
+    const added = await addPlanStep(server, harness.owner, harness.projectId, planId, title);
+    assert.equal(added.status, 201, await added.clone().text());
+  }
+  const prefix = `plan/${planId}`;
+  const edited = await contractsRequest(server, harness, prefix, { title: "Updated plan", description: "Plan body remains distinct" }, "PATCH");
+  assert.equal(edited.status, 200, await edited.clone().text());
+  const reordered = await contractsRequest(server, harness, `${prefix}/steps/3/reorder`, { reorderTo: 1 });
+  assert.equal(reordered.status, 200, await reordered.clone().text());
+  let plan = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]).plan;
+  assert.equal(plan.title, "Updated plan");
+  assert.equal(plan.steps[0].title, "Disposable step");
+  const removed = await contractsRequest(server, harness, `${prefix}/steps/1`, {}, "DELETE");
+  assert.equal(removed.status, 200, await removed.clone().text());
+  const approved = await contractsRequest(server, harness, `${prefix}/approve`, {});
+  assert.equal(approved.status, 200, await approved.clone().text());
+  const materialized = await contractsRequest(server, harness, `${prefix}/materialize`, { materializeType: "Task", steps: "1" });
+  assert.equal(materialized.status, 200, await materialized.clone().text());
+  plan = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]).plan;
+  const linkedId = plan.steps[0].linked_items?.[0]?.id;
+  assert.ok(linkedId, JSON.stringify(plan));
+  const linked = pmJson<{ item: { type: string; title: string } }>(harness.workspace, ["get", linkedId]).item;
+  assert.equal(linked.type, "Task");
+  assert.equal(linked.title, "First step");
+  const blocked = await contractsRequest(server, harness, `${prefix}/steps/2/block`, { reason: "Awaiting fixture dependency" });
+  assert.equal(blocked.status, 200, await blocked.clone().text());
+  const completed = await contractsRequest(server, harness, `${prefix}/steps/1/complete`, {});
+  assert.equal(completed.status, 200, await completed.clone().text());
+  const read = await authedFetch(server, harness.owner, `${base}/${prefix}`);
+  assert.equal(read.status, 200);
+  plan = (await read.json() as PlanShowResult).plan;
+  assert.equal(plan.steps.length, 2);
+  assert.equal(plan.steps[0].status, "completed");
+  assert.equal(plan.steps[1].status, "blocked");
+  for (const [route, body] of [
+    ["steps", {}], ["steps/1/block", {}], ["steps/1/reorder", {}],
+  ] as const) {
+    const invalid = await contractsRequest(server, harness, `${prefix}/${route}`, body);
+    assert.equal(invalid.status, 400);
+  }
+  const deleted = await contractsRequest(server, harness, prefix, {}, "DELETE");
+  assert.equal(deleted.status, 200, await deleted.clone().text());
+  const missing = await authedFetch(server, harness.owner, `${base}/${prefix}`);
+  assert.equal(missing.status, 404);
+});
+
+test("a foreign inherited tracker cannot redirect HTTP plan mutations outside the requested workspace", async (t) => {
+  const { harness, server } = await setupContractsTest(t);
+  const decoy = path.join(harness.root, "decoy");
+  const decoyPm = path.join(decoy, ".agents", "pm");
+  await mkdir(decoy, { recursive: true });
+  execFileSync("pm", ["init", "--pm-path", decoyPm], { stdio: "ignore" });
+  const previousPath = process.env.PM_PATH;
+  process.env.PM_PATH = decoyPm;
+  t.after(() => {
+    if (previousPath === undefined) delete process.env.PM_PATH;
+    else process.env.PM_PATH = previousPath;
+  });
+  const planId = await createRecord(server, harness, "plan", "Owned plan despite foreign environment");
+  const read = await authedFetch(server, harness.owner, `/api/projects/${harness.projectId}/pm/get/${planId}`);
+  assert.equal(read.status, 200, await read.clone().text());
+  const added = await addPlanStep(server, harness.owner, harness.projectId, planId, "Owned step");
+  assert.equal(added.status, 201, await added.clone().text());
+  const owned = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "standard"]);
+  assert.equal(owned.plan.steps[0].title, "Owned step");
+  const foreign = pmJson<{ items: unknown[] }>(decoy, ["list-all"]);
+  assert.deepEqual(foreign.items, [], "neither fallback command may mutate the decoy tracker");
+});
+
+test("task transitions, status shortcuts and required-input errors agree with persisted PM state", async (t) => {
+  const { harness, server } = await setupContractsTest(t);
+  const itemId = await createRecord(server, harness, "create", "Task transition record");
+  const base = `/api/projects/${harness.projectId}/pm`;
+  for (const [action, expected] of [["start-task", "in_progress"], ["pause-task", "open"]]) {
+    const response = await contractsRequest(server, harness, `${action}/${itemId}`, {});
+    assert.equal(response.status, 200, await response.clone().text());
+    assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", itemId]).item.status, expected);
+  }
+  for (const route of ["list-draft", "list-open", "list-in-progress", "list-blocked", "list-closed", "list-canceled"]) {
+    const response = await authedFetch(server, harness.owner, `${base}/${route}?type=Task&limit=10&offset=0`);
+    assert.equal(response.status, 200);
+    const listed = await response.json() as { items: Array<{ id: string }> };
+    assert.deepEqual(listed.items.map((item) => item.id), route === "list-open" ? [itemId] : []);
+    const invalid = await authedFetch(server, harness.owner, `${base}/${route}?after=invalid%2Bcursor`);
+    assert.equal(invalid.status, 400);
+    assert.match((await invalid.json() as { error: string }).error, /base64url/);
+  }
+  for (const [route, error] of [
+    ["plan", /Title is required/], ["graph/query", /cypher query is required/],
+    ["close-many", /reason/i], [`close-task/${itemId}`, /Close reason is required/],
+  ] as const) {
+    const invalid = await contractsRequest(server, harness, route, {});
+    assert.equal(invalid.status, 400);
+    assert.match((await invalid.json() as { error: string }).error, error);
+  }
+  const closed = await contractsRequest(server, harness, `close-task/${itemId}`, { reason: "Task lifecycle verified" });
+  assert.equal(closed.status, 200, await closed.clone().text());
+  assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", itemId]).item.status, "closed");
+  const noChange = await contractsRequest(server, harness, `docs/${itemId}`, { remove: "not-linked.md" });
+  assert.equal(noChange.status, 200);
+  assert.equal((await noChange.json() as { changed: boolean }).changed, false);
+  const failed = await contractsRequest(server, harness, "docs/pm-missing", { path: "fixture.md" });
+  assert.equal(failed.status, 404, await failed.clone().text());
 });
 
 test("plan link and unlink routes pass the step positional the CLI requires", async (t) => {

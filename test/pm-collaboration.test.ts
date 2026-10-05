@@ -230,7 +230,7 @@ test("two live viewers receive one keyed create, replay emits nothing, and compe
     assert.deepEqual(new Set(updates.map((event) => event.data.userId)), new Set([harness.owner.id, harness.editor.id]));
     assert.ok(updates.every((event) => event.data.itemId === itemId));
   }
-  const history = execFileSync("pm", ["history", itemId, "--verify", "--strict-exit", "--full", "--json"], {
+  const history = execFileSync("pm", ["history", itemId, "--pm-path", harness.pmRoot, "--verify", "--strict-exit", "--full", "--json"], {
     cwd: path.dirname(path.dirname(harness.pmRoot)), encoding: "utf8",
   });
   assert.match(history, /competing edit 0/);
@@ -295,7 +295,7 @@ test("real watcher sweep reaches two HTTP streams and presence rejects another u
   await cycle.tick();
   // Attribute the earlier HTTP write before the external mutation, as production does.
   await delay(20);
-  execFileSync("pm", ["update", itemId, "--title", "External CLI edit", "--message", "external change"], {
+  execFileSync("pm", ["update", itemId, "--pm-path", harness.pmRoot, "--title", "External CLI edit", "--message", "external change"], {
     cwd: path.dirname(path.dirname(harness.pmRoot)), stdio: "ignore",
   });
   // A pending API signal can consume one delta. A second raw edit must still be announced.
