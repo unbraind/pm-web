@@ -29,7 +29,9 @@ executable variable expansions, compound executable words, partially expanded
 executable names and paths, dynamic
 `eval`/shell payloads (including variable-routed aliases and evaluators), unknown
 publisher subcommands and forwarded function
-arguments. These unsupported forms fail even with a provenance-looking argument.
+arguments, and publishers spawned by `xargs` or `parallel`. Their input arguments
+can append `--no-provenance`, including when the publisher is a literal scalar
+variable. These unsupported forms fail even with a provenance-looking argument.
 Use a literal function body or a readable unquoted scalar command instead.
 Literal `eval "npm publish --provenance"` and quoted scalar provenance flags remain
 supported. Unknown arguments on a resolved publish also fail because they could
@@ -60,7 +62,7 @@ node --test test/publish-indirection.test.ts test/verify-release-publish-attesta
 Move these conservative rejection rules and their adversarial corpus into
 `pm-ops/attestation`. Its shell model needs proofs for alias invocations, partially
 expanded command positions, forwarded publisher subcommands, quoted executable
-word boundaries, executable arrays, unknown flags and independent workflow shell
+word boundaries, executable arrays, unknown flags, spawning-wrapper input and independent workflow shell
 scopes. Then publish a canonical auditor and update this consumer's exact pin.
 The consumer guard can be removed only after its behavioral corpus passes through
 the canonical export. This change updates only the public package gate and has no
@@ -68,10 +70,10 @@ hosted deployment component.
 
 ## Verification evidence and limits
 
-The focused consumer suite passes **71 tests**, with no skips. Replacing only
+The focused consumer suite passes **75 tests**, with no skips. Replacing only
 `auditPublishAttestation` with the canonical call leaves imports, the launcher and
-tests intact: the targeted corpus executes **62 tests**, with **32 assertion
-failures** and **30 passes**. Alias and forwarded-function scenarios fail after
+tests intact: the targeted corpus executes **66 tests**, with **35 assertion
+failures** and **31 passes**. Alias and forwarded-function scenarios fail after
 actually reaching the inert publisher. Restoring the implementation restores the
 focused suite.
 

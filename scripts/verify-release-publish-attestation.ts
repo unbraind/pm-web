@@ -22,6 +22,7 @@ import {
   commandCandidates,
   commandName,
   joinContinuations,
+  spawnedAsCommand,
   tokenizeCommands,
   type SourceFile,
 } from "pm-ops/shell-scan";
@@ -89,6 +90,7 @@ function shellBodies(source: SourceFile): string[] {
  * variables and function bodies continue through the canonical shell model.
  * An unresolved argument on a recognized publish may override provenance at
  * runtime and therefore cannot be accepted merely because a literal flag exists.
+ * Spawning wrappers also have unresolved input arguments, even with literal flags.
  *
  * @param sources - Tracked executable sources, with repository-relative paths.
  * @returns Canonical recognition and notes plus any indirection failures.
@@ -100,7 +102,8 @@ export function auditPublishAttestation(sources: SourceFile[]): PublishAttestati
     const reasons = new Set<string>();
     try {
       for (const invocation of publishInvocationsIn(source)) {
-        if (commandArguments(invocation.command).some((token) => token.unresolved)) {
+        if (spawnedAsCommand(invocation.command)
+            || commandArguments(invocation.command).some((token) => token.unresolved)) {
           reasons.add("unresolved publish arguments may change provenance");
         }
       }
@@ -112,7 +115,8 @@ export function auditPublishAttestation(sources: SourceFile[]): PublishAttestati
           reasons.add("an independent shell body cannot prove every publish attested");
         }
         for (const invocation of publishInvocationsIn(isolated)) {
-          if (commandArguments(invocation.command).some((token) => token.unresolved)) {
+          if (spawnedAsCommand(invocation.command)
+              || commandArguments(invocation.command).some((token) => token.unresolved)) {
             reasons.add("unresolved publish arguments may change provenance");
           }
         }
@@ -138,6 +142,10 @@ export function auditPublishAttestation(sources: SourceFile[]): PublishAttestati
             const args = commandArguments(candidate);
             const primary = program === commandName(command);
             const publisher = program === "npm" || (program !== undefined && FOREIGN_PUBLISHERS.has(program));
+            if ((publisher || (primary && (program?.startsWith("$") || program === "")))
+                && (spawnedAsCommand(command) || spawnedAsCommand(candidate))) {
+              reasons.add("spawned publisher arguments from input cannot be proved");
+            }
             if (primary && program?.startsWith("$")) {
               const reference = /^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$/u.exec(program);
               if (reference === null) {
