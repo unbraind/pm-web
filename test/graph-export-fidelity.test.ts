@@ -140,6 +140,17 @@ test("round-trip property: generated real graphs preserve the installed export a
   }
 });
 
+test("built graph reads serialize a real concurrent create between the SDK reads", async () => {
+  for (const mode of ["queued", "external"]) {
+    const owner = `fixture-concurrent-${mode}`;
+    const slug = "concurrent";
+    await generatedTracker(owner, slug, 91, 3);
+    execFileSync(process.execPath, ["--experimental-test-module-mocks", "test/helpers/graph-concurrent-write.ts", owner, slug, mode], {
+      env: process.env, stdio: "pipe", timeout: 30_000,
+    });
+  }
+});
+
 test("built GET/HEAD and neighbor reads preserve exports for viewers without running project code", async (t) => {
   await ensureSchema();
   const owner = await seedUser(uniqueEmail("export-owner"));

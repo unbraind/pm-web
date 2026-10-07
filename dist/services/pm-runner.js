@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { certifyCompleteListResult, getItemAt, listAllComplete, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadata, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -628,9 +628,10 @@ export function certifyPmWebCompleteList(candidate) {
  * @param slug - The project slug.
  * @param includeBody - Whether complete rows must include item bodies.
  * @param noExtensions - Disable extension activation for a strictly observational read.
+ * @param sourceOrder - Preserve native store ordering under the same workspace lock.
  * @returns A discriminated success result with certified rows, or a failure.
  */
-export async function readCompletePmItems(userId, slug, includeBody = false, noExtensions = false) {
+export async function readCompletePmItems(userId, slug, includeBody = false, noExtensions = false, sourceOrder = false) {
     const dir = getProjectDir(userId, slug);
     return runSerialized(dir, async () => {
         try {
@@ -638,6 +639,21 @@ export async function readCompletePmItems(userId, slug, includeBody = false, noE
             const result = certifyPmWebCompleteList(noExtensions
                 ? await listAllComplete({ includeBody }, { pmRoot, cwd: dir, noExtensions: true })
                 : await getPmClient(pmRoot).listAllComplete({ includeBody }));
+            if (sourceOrder) {
+                // Only the ordering comes from this scan; every returned row is certified.
+                const sourceItems = await listAllItemMetadata(pmRoot);
+                const certifiedById = new Map(result.items.map((item) => [item.id, item]));
+                const items = sourceItems.map((item) => {
+                    const certified = certifiedById.get(item.id);
+                    if (!certified)
+                        throw new Error("Graph source changed during the certified read");
+                    certifiedById.delete(item.id);
+                    return certified;
+                });
+                if (certifiedById.size > 0)
+                    throw new Error("Graph source changed during the certified read");
+                return { ok: true, result: { ...result, items } };
+            }
             return { ok: true, result };
         }
         catch (error) {

@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { graphFromItems } from "pm-graph";
-import { listAllItemMetadata } from "@unbrained/pm-cli/sdk";
 import { getProjectDir, readCompletePmItems } from "./pm-runner.js";
 /**
  * Read the complete project graph without invoking extension hooks or commands.
@@ -13,23 +12,10 @@ import { getProjectDir, readCompletePmItems } from "./pm-runner.js";
  * Uncertified item reads fail instead of returning a partial graph.
  */
 export async function readProjectGraph(ownerUserId, slug) {
-    const itemsResult = await readCompletePmItems(ownerUserId, slug, false, true);
+    const itemsResult = await readCompletePmItems(ownerUserId, slug, false, true, true);
     if (!itemsResult.ok)
         throw new Error(itemsResult.stderr || "Failed to load items for graph");
     const workspace = path.resolve(getProjectDir(ownerUserId, slug));
-    // The certified list sorts for interactive use; the exporter consumes native
-    // store order. Use that public reader only to order the certified records.
-    const sourceItems = await listAllItemMetadata(path.join(workspace, ".agents", "pm"));
-    const certifiedById = new Map(itemsResult.result.items.map((item) => [item.id, item]));
-    const items = sourceItems.map((item) => {
-        const certified = certifiedById.get(item.id);
-        if (!certified)
-            throw new Error("Graph source changed during the certified read");
-        certifiedById.delete(item.id);
-        return certified;
-    });
-    if (certifiedById.size > 0)
-        throw new Error("Graph source changed during the certified read");
     let extensionAvailable = false;
     try {
         const manifest = JSON.parse(await readFile(path.join(workspace, ".agents", "pm", "extensions", "pm-graph", "manifest.json"), "utf8"));
@@ -42,7 +28,7 @@ export async function readProjectGraph(ownerUserId, slug) {
     }
     return {
         graph: {
-            ...graphFromItems(items, workspace, new Map()),
+            ...graphFromItems(itemsResult.result.items, workspace, new Map()),
             source: extensionAvailable ? "pm-graph" : "pm-web",
         },
         extensionAvailable,

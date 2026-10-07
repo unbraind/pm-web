@@ -1,14 +1,17 @@
 id: pm-web-mep7
 title: Update the production proxy-addr dependency past GHSA-jqcg-44mw-7w3h
-description: "The supplemental npm audit:prod check for the graph-export feature reports a critical IPv4-mapped IPv6 trust-subnet IP spoofing advisory in proxy-addr 2.0.7, inherited through Express. The base and feature lockfiles both resolve the same proxy-addr version; this is independent of the added pure pm-graph dependency. Review the patched dependency and verify trust-proxy behavior without changing hosted deployments."
+description: "The supplemental npm audit:prod check for the graph-export feature reported a critical IPv4-mapped IPv6 trust-subnet IP spoofing advisory for proxy-addr, inherited through Express. The base and feature revisions both resolve proxy-addr 2.0.8 in their tracked package-lock.json files, following PR #174; Express declares the ^2.0.7 range, not the resolved version. This is independent of the added pure pm-graph dependency. Verify the patched dependency and trust-proxy behavior without changing hosted deployments."
 type: Issue
 status: open
 priority: 1
 tags: []
 created_at: "2026-10-07T20:29:36.109Z"
-updated_at: "2026-10-07T20:30:37.135Z"
+updated_at: "2026-10-07T22:52:10.252Z"
 author: codex-sol
 acceptance_criteria: Production npm audit no longer reports GHSA-jqcg-44mw-7w3h; supported runtime and packed consumer tests pass with the patched dependency and trust-proxy behavior remains covered.
+comments[2]{created_at,author,text}:
+  "2026-10-07T22:38:00.593Z",codex-sol,Corrected the recorded resolved version to 2.0.8 after checking package-lock.json at the feature head and its base revision containing PR #174. The earlier pm-web-38n5 audit comment incorrectly named 2.0.7; that historical statement is superseded by this correction. Dependency remediation itself is outside this review round.
+  "2026-10-07T22:50:39.313Z",codex-sol,"Supplemental npm run audit:prod passed with zero vulnerabilities after the recorded-version correction. package-lock.json resolves proxy-addr 2.0.8; the ^2.0.7 Express range is not the installed version. This receipt is separate from the full release gate, which stopped earlier at coverage. The item remains open for orchestrator verification."
 files[2]{path,scope}:
   package-lock.json,project
   package.json,project

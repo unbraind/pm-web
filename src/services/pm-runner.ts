@@ -6,6 +6,7 @@ import {
   certifyCompleteListResult,
   getItemAt,
   listAllComplete,
+  listAllItemMetadata,
   PM_TOOL_PARAMETERS_SCHEMA,
   PmClient,
   PmCliError,
@@ -779,6 +780,7 @@ export function certifyPmWebCompleteList(candidate: unknown): PmCompleteListResu
  * @param slug - The project slug.
  * @param includeBody - Whether complete rows must include item bodies.
  * @param noExtensions - Disable extension activation for a strictly observational read.
+ * @param sourceOrder - Preserve native store ordering under the same workspace lock.
  * @returns A discriminated success result with certified rows, or a failure.
  */
 export async function readCompletePmItems(
@@ -786,6 +788,7 @@ export async function readCompletePmItems(
   slug: string,
   includeBody = false,
   noExtensions = false,
+  sourceOrder = false,
 ): Promise<PmCompleteListRunResult> {
   const dir = getProjectDir(userId, slug);
   return runSerialized(dir, async (): Promise<PmCompleteListRunResult> => {
@@ -794,6 +797,19 @@ export async function readCompletePmItems(
       const result = certifyPmWebCompleteList(noExtensions
         ? await listAllComplete({ includeBody }, { pmRoot, cwd: dir, noExtensions: true })
         : await getPmClient(pmRoot).listAllComplete({ includeBody }));
+      if (sourceOrder) {
+        // Only the ordering comes from this scan; every returned row is certified.
+        const sourceItems = await listAllItemMetadata(pmRoot);
+        const certifiedById = new Map(result.items.map((item) => [item.id, item]));
+        const items = sourceItems.map((item) => {
+          const certified = certifiedById.get(item.id);
+          if (!certified) throw new Error("Graph source changed during the certified read");
+          certifiedById.delete(item.id);
+          return certified;
+        });
+        if (certifiedById.size > 0) throw new Error("Graph source changed during the certified read");
+        return { ok: true, result: { ...result, items } };
+      }
       return { ok: true, result };
     } catch (error) {
       const stderr = error instanceof Error ? error.message : String(error);

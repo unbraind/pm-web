@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { graphFromItems, type Graph } from "pm-graph";
-import { listAllItemMetadata } from "@unbrained/pm-cli/sdk";
 import { getProjectDir, readCompletePmItems } from "./pm-runner.ts";
 
 /** The complete pm-graph export with an additive web provenance indicator. */
@@ -20,20 +19,9 @@ export async function readProjectGraph(
   ownerUserId: string,
   slug: string,
 ): Promise<{ graph: ProjectGraph; extensionAvailable: boolean }> {
-  const itemsResult = await readCompletePmItems(ownerUserId, slug, false, true);
+  const itemsResult = await readCompletePmItems(ownerUserId, slug, false, true, true);
   if (!itemsResult.ok) throw new Error(itemsResult.stderr || "Failed to load items for graph");
   const workspace = path.resolve(getProjectDir(ownerUserId, slug));
-  // The certified list sorts for interactive use; the exporter consumes native
-  // store order. Use that public reader only to order the certified records.
-  const sourceItems = await listAllItemMetadata(path.join(workspace, ".agents", "pm"));
-  const certifiedById = new Map(itemsResult.result.items.map((item) => [item.id, item]));
-  const items = sourceItems.map((item) => {
-    const certified = certifiedById.get(item.id);
-    if (!certified) throw new Error("Graph source changed during the certified read");
-    certifiedById.delete(item.id);
-    return certified;
-  });
-  if (certifiedById.size > 0) throw new Error("Graph source changed during the certified read");
   let extensionAvailable = false;
   try {
     const manifest: unknown = JSON.parse(await readFile(
@@ -47,7 +35,7 @@ export async function readProjectGraph(
   }
   return {
     graph: {
-      ...graphFromItems(items, workspace, new Map()),
+      ...graphFromItems(itemsResult.result.items, workspace, new Map()),
       source: extensionAvailable ? "pm-graph" : "pm-web",
     },
     extensionAvailable,

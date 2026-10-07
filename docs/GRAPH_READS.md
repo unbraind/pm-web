@@ -16,7 +16,10 @@ the overview does not apply the extension CLI's optional shaping flags.
 The certified list uses display ordering. A second public SDK metadata read
 supplies the export's native storage order; each identifier must match exactly
 one certified row or the request fails. The builder uses the certified rows,
-never the second reader's uncertified payload. There are no per-item commands.
+never the second reader's uncertified payload. Both reads share one workspace
+serialized section, so mutations submitted through the web runner wait until
+ordering is complete. The identity check still rejects changes from writers
+outside that process queue. There are no per-item commands.
 The SDK can refresh reconstructible `runtime/metadata-cache*` files on reads;
 item content, history, settings, schema and extension files remain unchanged.
 The SDK currently has no certified source-order or cache-free read option.
@@ -46,6 +49,13 @@ have their own valid `generatedAt` timestamps; only that timestamp and the
 additive `source` are excluded from equality. A real PostgreSQL and built-package
 HTTP test covers view-only GET/HEAD, neighbors, access denial and unchanged
 tracker state, with a project entry that would write and throw if executed.
+
+An isolated SDK boundary seam submits a real queued create after certification
+and before the ordering scan. The built reader returns the certified snapshot,
+the writer then commits, and the next graph includes the new item. A separate
+external CLI create bypasses the process queue and must trigger the identity
+guard. The helper uses module mocks only to control this interleaving; reads
+and writes execute the real SDK and CLI implementations.
 
 A separate 2,000-item synthetic tracker must return every item in under ten
 seconds, excluding fixture construction. This is a bounded regression budget,

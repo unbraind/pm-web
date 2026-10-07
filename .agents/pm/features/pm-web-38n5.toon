@@ -6,18 +6,26 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-09-26T16:28:19.017Z"
-updated_at: "2026-10-07T20:30:38.544Z"
+updated_at: "2026-10-07T22:52:11.577Z"
 author: codex
 acceptance_criteria: "The installed pm-graph and built-in graph paths have documented, measured node/edge/metadata parity on realistic workspaces; graph GET/HEAD remains observational for view-only users and does not activate extensions; the extensionAvailable/source response accurately describes the data returned; large-corpus latency is bounded and tested; no private hosted data enters public fixtures."
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-jpa6,related,"2026-09-26T16:28:30.233Z",codex,"cli:update:dep",detected
-comments[5]{created_at,author,text}:
+comments[13]{created_at,author,text}:
   "2026-10-07T20:00:06.216Z",codex-sol,"Built-package acceptance baseline: a scratch tracker initialized with the packaged CLI, one tagged task and npm pm-graph 2026.10.5, served by dist/app.js over authenticated HTTP. The real pm-graph export contained generatedAt, workspace, projectKey, nodes and relationships (5 nodes, 4 edges); GET returned 200 but omitted workspace and projectKey, reported extensionAvailable=false and source=pm-web despite installation. Plan: exact-pin the public pure graph builder, consume certified complete rows with noExtensions=true, preserve export fields and ordering, statically observe the project manifest without importing its code, and test generated real trackers, built HTTP parity, observational snapshots and bounded large-corpus reads. Universal output flags on pm-graph export are rejected by the host; report this gap without filing upstream."
   "2026-10-07T20:11:44.067Z",codex-sol,"Implementation uses exact-pinned pm-graph 2026.10.5 graphFromItems for both installed and built-in reads. Generated comparisons exposed the SDK display-order difference; a second public metadata scan now restores export order using only certified rows and rejects identity mismatches. Built overview and neighbor responses retain all export fields and edge attributes. Static manifest observation never imports project code. SDK reads may refresh reconstructible runtime metadata caches even with noExtensions=true; observational snapshots exclude only those named caches and fixture dependency links, while checking item, history, schema, settings and extension bytes. This SDK limitation and the missing certified source-order option are documented and will be reported, not filed upstream."
   "2026-10-07T20:17:30.029Z",codex-sol,"Behavioral revert proof: restoring only the read-model function to the original built-in builder (tests and imports unchanged; build succeeded) made both the generated round-trip and built HTTP assertions fail: workspace/projectKey disappeared and node/edge order differed. Restoring only the old neighbor relationship projection made the built HTTP test fail on missing from/to fields and overwritten custom _type provenance. Both changes are restored. The first linked acceptance run timed out at its 120-second orchestration limit after the property, HTTP and 2000-item checks had passed; rerun uses a 300-second process budget, with the 10-second graph latency assertion unchanged."
   "2026-10-07T20:19:32.094Z",codex-sol,"Restored acceptance passed through pm test --run --progress --timeout 300: all 5 graph tests passed, including 20 generated installed/built-in round trips, built-package viewer GET/HEAD and neighbors, poisoned-entry nonexecution, unchanged authoritative tracker bytes, malformed manifest fallback and malformed tracker rejection. The 2000-item model returned 2022 nodes and 23063 edges within the unchanged 10-second budget. Lint, docstrings, duplication and TypeScript checks also passed. Remaining pre-PR validation is the complete npm and Bun release gates at unchanged thresholds; final gate receipts will be included in the PR body. This item stays open for orchestrator verification."
   "2026-10-07T20:30:37.877Z",codex-sol,"Final gate receipts: npm run release:check and bun run release:check each stopped at coverage with 481/492 tests passing and the same 11 failures outside this feature. All 5 graph tests passed in both full runs; 2000-item graph reads took 6074 ms (npm) and 4145 ms (Bun). Three catalog failures reproduce pm-web-cqwm; eight unchanged extension/runner/project fixture failures inherit type=module and are tracked by pm-web-sspv, independently reproduced without pm-web or SDK imports. Coverage thresholds remain statements=90, lines=90, branches=79, functions=92; failing suites mean no accepted coverage receipt despite diagnostic metrics exceeding thresholds. Supplemental npm run audit:prod failed on existing proxy-addr 2.0.7 GHSA-jqcg-44mw-7w3h (same version in the base lockfile), tracked by pm-web-mep7. npm run pack:dry-run, npm run accept:packed (fresh npm and Bun consumers), release-changelog-date and publish-attestation checks passed. The PR will be draft with those independent release blockers; no release or hosted acceptance is claimed."
-files[9]{path,scope}:
+  "2026-10-07T22:36:48.297Z",codex-sol,"Review round for PR #173: verify and serialize the certified item read with native ordering, retain the ID-set guard, add a deterministic concurrent-write regression with rebuilt revert proof, correct the proxy-addr tracker version through pm, and run npm/Bun release checks. No hosted changes or review-thread actions."
+  "2026-10-07T22:39:39.137Z",codex-sol,"Both certified and native-order SDK reads now execute in one runSerialized section. The graph selects source ordering through readCompletePmItems; certified payloads and the identity guard are retained. A built-package SDK seam delegates all reads and writes to real implementations, submits a real concurrent create after certification, proves it waits through ordering, checks the next graph includes it, and verifies an external CLI write still fails closed. The new regression passes with the rebuilt fix; reverted-source proof is underway."
+  "2026-10-07T22:39:57.872Z",codex-sol,"Revert proof complete: restored both affected source files to the PR head while retaining the new test, rebuilt with npm run build, and ran env -u DATABASE_URL node scripts/with-test-db.ts node --test --test-name-pattern=\"real concurrent create\" test/graph-export-fidelity.test.ts. It failed (exit 1, 0 passed / 1 failed) with Graph source changed during the certified read after the real queued create committed between scans. The fixed sources are restored and rebuilding before acceptance."
+  "2026-10-07T22:41:37.347Z",codex-sol,"The tracker correction for pm-web-mep7 identifies proxy-addr 2.0.8 in both base and feature lockfile revisions. Its prior 2.0.7 statement is incorrect and superseded. Rebuilt revert proof and restored focused acceptance are complete; lint passes, duplication is 0%, and all 624 declarations pass the docstring gate. Temporary revert source copies were removed before final gates."
+  "2026-10-07T22:42:19.563Z",codex-sol,"Restored linked acceptance passed via pm test pm-web-38n5 --run --progress --timeout 300 --env-clear DATABASE_URL: 6/6 graph tests and 1/1 focused seam test passed, zero skipped. The 2000-item graph read took 2513 ms under the unchanged 10000 ms limit. All tests used the wrapper default throwaway database. npm run release:check is running; bun run release:check will follow at unchanged thresholds."
+  "2026-10-07T22:48:37.903Z",codex-sol,"npm run release:check stopped at coverage (exit 1): 481/493 tests passed, 12 failed, zero skipped. Eleven failures match the previously recorded catalog and inherited-ESM fixture blockers (pm-web-cqwm and pm-web-sspv). The additional failure was the unchanged 2000-item 10000 ms budget, observed at 10959 ms versus 2513 ms standalone. The new real concurrent-create test, external-write consistency guard, export round trips and built HTTP checks passed. No accepted coverage receipt was produced; thresholds are unchanged. Bun release validation is running."
+  "2026-10-07T22:48:56.308Z",codex-sol,"The full-suite graph latency discrepancy is tracked separately in pm-web-hqqp, with related ownership and repo-relative source/test evidence. This review round keeps the 10000 ms limit and all coverage floors unchanged."
+  "2026-10-07T22:52:09.487Z",codex-sol,"Final review-round receipts: bun run release:check stopped at coverage (exit 1), 482/493 passed, 11 failed, zero skipped, matching pm-web-cqwm and pm-web-sspv. All 6 graph tests passed in that run; the 2000-item graph read took 8297 ms. npm stopped at coverage with 481/493 passed and the same 11 failures plus the 10959 ms latency failure tracked in pm-web-hqqp. The new concurrency regression passed in both full runs and failed with the fix reverted after rebuilding. Standalone linked acceptance passed 6/6 plus 1/1 focused; npm run audit:prod passed with zero vulnerabilities. Type checks, lint, zero-duplication and docstrings passed; all thresholds remain unchanged. Neither full gate yields an accepted release or coverage receipt. Preparing one SteveBot commit with source, regenerated dist, tests, docs and audited tracker histories; all items stay open for orchestrator verification."
+files[10]{path,scope}:
   package-lock.json,project
   package.json,project
   public/src/types.ts,project
@@ -27,8 +35,23 @@ files[9]{path,scope}:
   src/services/project-graph.ts,project
   test/graph-export-fidelity.test.ts,project
   test/graph-read-only.test.ts,project
-tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
-  node scripts/with-test-db.ts node --test test/graph-export-fidelity.test.ts test/graph-read-only.test.ts,project,codex-sol,"2026-10-07T20:11:47.146Z",local_mutation,feat/graph-export-fidelity
+  test/helpers/graph-concurrent-write.ts,project
+tests[2]:
+  - command: node scripts/with-test-db.ts node --test test/graph-export-fidelity.test.ts test/graph-read-only.test.ts
+    scope: project
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-07T20:11:47.146Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-export-fidelity
+  - command: "env -u DATABASE_URL node scripts/with-test-db.ts node --test --test-name-pattern=\"real concurrent create\" test/graph-export-fidelity.test.ts"
+    scope: project
+    timeout_seconds: 300
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-07T22:39:37.559Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-export-fidelity
 docs[2]{path,scope}:
   docs/GRAPH_READS.md,project
   README.md,project
