@@ -530,7 +530,7 @@ async function runExtensionCommand(
  * — never built from a user-supplied string — so the install target is always
  * the verified `npm:pm-graph` constant.
  *
- * The graph routes in src/routes/pm.ts call this before `pm pm-graph export`,
+ * Explicit graph sync in src/routes/pm.ts calls this before `pm pm-graph export`,
  * and {@link initProject} calls it on project creation, so the user-facing
  * graph behaviour is unchanged.
  */

@@ -1,0 +1,15 @@
+id: pm-web-mep7
+title: Update the production proxy-addr dependency past GHSA-jqcg-44mw-7w3h
+description: "The supplemental npm audit:prod check for the graph-export feature reports a critical IPv4-mapped IPv6 trust-subnet IP spoofing advisory in proxy-addr 2.0.7, inherited through Express. The base and feature lockfiles both resolve the same proxy-addr version; this is independent of the added pure pm-graph dependency. Review the patched dependency and verify trust-proxy behavior without changing hosted deployments."
+type: Issue
+status: open
+priority: 1
+tags: []
+created_at: "2026-10-07T20:29:36.109Z"
+updated_at: "2026-10-07T20:30:37.135Z"
+author: codex-sol
+acceptance_criteria: Production npm audit no longer reports GHSA-jqcg-44mw-7w3h; supported runtime and packed consumer tests pass with the patched dependency and trust-proxy behavior remains covered.
+files[2]{path,scope}:
+  package-lock.json,project
+  package.json,project
+body: ""

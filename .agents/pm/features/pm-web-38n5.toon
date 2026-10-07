@@ -2,13 +2,34 @@ id: pm-web-38n5
 title: Preserve pm-graph export fidelity in observational graph reads
 description: "The security fix for pm-web-jpa6 serves the built-in graph on every overview GET, even when pm-graph is installed. This preserves safe-method semantics but may omit pm-graph-specific nodes, relationships, filtering, or metadata. Define a pure read API over certified PM items in pm-graph or an equivalent no-activation integration, compare real extension exports and web responses, and retain explicit POST synchronization only for writes."
 type: Feature
-status: open
+status: in_progress
 priority: 1
 tags: []
 created_at: "2026-09-26T16:28:19.017Z"
-updated_at: "2026-09-26T16:28:30.274Z"
+updated_at: "2026-10-07T20:30:38.544Z"
 author: codex
 acceptance_criteria: "The installed pm-graph and built-in graph paths have documented, measured node/edge/metadata parity on realistic workspaces; graph GET/HEAD remains observational for view-only users and does not activate extensions; the extensionAvailable/source response accurately describes the data returned; large-corpus latency is bounded and tested; no private hosted data enters public fixtures."
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-jpa6,related,"2026-09-26T16:28:30.233Z",codex,"cli:update:dep",detected
+comments[5]{created_at,author,text}:
+  "2026-10-07T20:00:06.216Z",codex-sol,"Built-package acceptance baseline: a scratch tracker initialized with the packaged CLI, one tagged task and npm pm-graph 2026.10.5, served by dist/app.js over authenticated HTTP. The real pm-graph export contained generatedAt, workspace, projectKey, nodes and relationships (5 nodes, 4 edges); GET returned 200 but omitted workspace and projectKey, reported extensionAvailable=false and source=pm-web despite installation. Plan: exact-pin the public pure graph builder, consume certified complete rows with noExtensions=true, preserve export fields and ordering, statically observe the project manifest without importing its code, and test generated real trackers, built HTTP parity, observational snapshots and bounded large-corpus reads. Universal output flags on pm-graph export are rejected by the host; report this gap without filing upstream."
+  "2026-10-07T20:11:44.067Z",codex-sol,"Implementation uses exact-pinned pm-graph 2026.10.5 graphFromItems for both installed and built-in reads. Generated comparisons exposed the SDK display-order difference; a second public metadata scan now restores export order using only certified rows and rejects identity mismatches. Built overview and neighbor responses retain all export fields and edge attributes. Static manifest observation never imports project code. SDK reads may refresh reconstructible runtime metadata caches even with noExtensions=true; observational snapshots exclude only those named caches and fixture dependency links, while checking item, history, schema, settings and extension bytes. This SDK limitation and the missing certified source-order option are documented and will be reported, not filed upstream."
+  "2026-10-07T20:17:30.029Z",codex-sol,"Behavioral revert proof: restoring only the read-model function to the original built-in builder (tests and imports unchanged; build succeeded) made both the generated round-trip and built HTTP assertions fail: workspace/projectKey disappeared and node/edge order differed. Restoring only the old neighbor relationship projection made the built HTTP test fail on missing from/to fields and overwritten custom _type provenance. Both changes are restored. The first linked acceptance run timed out at its 120-second orchestration limit after the property, HTTP and 2000-item checks had passed; rerun uses a 300-second process budget, with the 10-second graph latency assertion unchanged."
+  "2026-10-07T20:19:32.094Z",codex-sol,"Restored acceptance passed through pm test --run --progress --timeout 300: all 5 graph tests passed, including 20 generated installed/built-in round trips, built-package viewer GET/HEAD and neighbors, poisoned-entry nonexecution, unchanged authoritative tracker bytes, malformed manifest fallback and malformed tracker rejection. The 2000-item model returned 2022 nodes and 23063 edges within the unchanged 10-second budget. Lint, docstrings, duplication and TypeScript checks also passed. Remaining pre-PR validation is the complete npm and Bun release gates at unchanged thresholds; final gate receipts will be included in the PR body. This item stays open for orchestrator verification."
+  "2026-10-07T20:30:37.877Z",codex-sol,"Final gate receipts: npm run release:check and bun run release:check each stopped at coverage with 481/492 tests passing and the same 11 failures outside this feature. All 5 graph tests passed in both full runs; 2000-item graph reads took 6074 ms (npm) and 4145 ms (Bun). Three catalog failures reproduce pm-web-cqwm; eight unchanged extension/runner/project fixture failures inherit type=module and are tracked by pm-web-sspv, independently reproduced without pm-web or SDK imports. Coverage thresholds remain statements=90, lines=90, branches=79, functions=92; failing suites mean no accepted coverage receipt despite diagnostic metrics exceeding thresholds. Supplemental npm run audit:prod failed on existing proxy-addr 2.0.7 GHSA-jqcg-44mw-7w3h (same version in the base lockfile), tracked by pm-web-mep7. npm run pack:dry-run, npm run accept:packed (fresh npm and Bun consumers), release-changelog-date and publish-attestation checks passed. The PR will be draft with those independent release blockers; no release or hosted acceptance is claimed."
+files[9]{path,scope}:
+  package-lock.json,project
+  package.json,project
+  public/src/types.ts,project
+  public/src/views/graph.ts,project
+  src/routes/pm.ts,project
+  src/services/pm-runner.ts,project
+  src/services/project-graph.ts,project
+  test/graph-export-fidelity.test.ts,project
+  test/graph-read-only.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/graph-export-fidelity.test.ts test/graph-read-only.test.ts,project,codex-sol,"2026-10-07T20:11:47.146Z",local_mutation,feat/graph-export-fidelity
+docs[2]{path,scope}:
+  docs/GRAPH_READS.md,project
+  README.md,project
 body: ""

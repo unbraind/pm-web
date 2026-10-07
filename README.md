@@ -156,7 +156,7 @@ was disconnected. These recovery signals contain no item content and stay
 local to the recovering process; PostgreSQL notifications are transient and
 are not a durable event replay mechanism.
 
-Whole-project graph fallback, board, local search, iCalendar, and export reads
+Whole-project graph, board, local search, iCalendar, and export reads
 use the SDK's high-level `listAllComplete` operation. pm-web accepts those rows
 only after the shared SDK certificate agrees. Since pm CLI 2026.8.31, the SDK
 certifies the source counters, omission receipt, output receipt, and truncation
@@ -166,7 +166,7 @@ means the rows may be short of the whole corpus. The public `/pm/list-all`
 HTTP compatibility route remains deliberately paginated for interactive clients,
 but invokes canonical `list --all` internally; consumers that need the whole
 workspace must use a complete-read endpoint rather than assembling a page as if
-it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.9.7, and
+it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.10.4, and
 the extension manifest refuses older hosts through the same compatibility floor.
 Commands that render their own text or JSON (`web status`, `web stop`, and
 `web doctor`) return the public SDK output-suppression marker, so the host never
@@ -238,7 +238,8 @@ live `pm contracts` statuses for its columns:
 - `GET /api/projects/:projectId/pm/search?q=<text>` — case-insensitive full-text
   search over id, title, tags and body.
 - `GET /api/projects/:projectId/pm/schema` — runtime types/statuses (existing).
-- `GET /api/projects/:projectId/pm/graph` — dependency graph (existing).
+- `GET /api/projects/:projectId/pm/graph` — complete observational graph matching
+  the pinned pm-graph default export; see [graph export fidelity](docs/GRAPH_READS.md).
 - `GET /api/projects/:projectId/pm/calendar.ics` — RFC 5545 iCalendar feed of
   item deadlines (see below).
 
