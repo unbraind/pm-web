@@ -92,12 +92,14 @@ declare their own module type, select their tracker path explicitly and initiali
 their own Git repository before pm, keeping automatic merge-driver configuration
 inside the fixture.
 
-The implementation at commit `a7233d1` passes both `npm run release:check` and
-`bun run release:check` in a standalone CI layout. Each runs **551 tests**, with
+The implementation at commit `2f2652d` passes both `npm run release:check` and
+`bun run release:check` in independent standalone CI layouts. Each runs **555 tests**, with
 zero failures or skips. Configured coverage measures **33 source files** at
-**90.23% statements/lines**, **79.41% npm branches / 79.42% Bun branches** and
+**90.23% statements/lines**, **79.41% branches** and
 **93.90% functions**, against unchanged **90/90/79/92** thresholds. Duplication is
 zero, production audit is clean, and packed npm and native Bun consumer
 acceptance passes. Typechecking, lint, docstrings, pack dry run, changelog/date
 checks and attestation verification also pass. This receipt covers the public
 package and committed snapshot; the live-fleet blockers above remain separate.
+The subsequent verification receipt changes only tracker records and this
+documentation; executable inputs remain identical to the tested implementation.
