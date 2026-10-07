@@ -2,12 +2,31 @@ id: pm-web-s99c
 title: Refresh the package catalog and fleet snapshot for pm-jev
 description: "The optional live-fleet catalog integration now discovers pm-jev, but the package catalog and committed fleet snapshot omit it. Four assertions fail against that live fleet. Refresh package metadata and registry publication evidence in a separate catalog change; coverage work must retain those assertions."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:18:01.915Z"
-updated_at: "2026-10-05T05:54:51.505Z"
+updated_at: "2026-10-07T22:17:03.313Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Current package catalog and committed fleet snapshot include verified pm-jev metadata and all optional live-fleet completeness assertions pass.
+comments[4]{created_at,author,text}:
+  "2026-10-07T20:23:20.330Z",codex-sol,"Baseline acceptance against the built package and a real scratch tracker: findCatalogEntry('pm-jev') is undefined. The canonical live-fleet catalog suite passes 8/12 and fails four assertions, including missing pm-jev membership and stale snapshot. Verified current manifest capabilities commands/schema, local-first Ollama default and optional hosted privacy opt-in. Registry lookup npm view pm-jev version returns E404, so availability must be unreleased despite publishConfig intent. Plan: refresh verified metadata and links, regenerate the registry-backed snapshot, retain every completeness assertion."
+  "2026-10-07T21:52:30.765Z",codex-sol,"Implementation includes manifest-exact metadata, verified docs/npm/repository/report links, visible local-provider and optional hosted credential requirements, and unreleased availability based on E404. The online generator refreshed the complete 21-extension snapshot. Canonical live-fleet catalog checks now pass 12/12. Behavioral revert removing only the Jev catalog entry from the built implementation fails acceptance with an AssertionError for missing pm-jev; restored behavior passes."
+  "2026-10-07T22:09:11.976Z",codex-sol,"The final npm coverage phase passes all 484 tests against the complete canonical fleet, with 33 src files reported: statements/lines 90.25%, branches 79.57%, functions 93.90%. Configured thresholds remain 90/90/79/92, and discovery/catalog services are 100% in all four dimensions. The production audit is clean. Packed acceptance and final policy checks are still running; this is a scoped src coverage receipt, not a whole-repository or hosted readiness claim."
+  "2026-10-07T22:16:57.480Z",codex-sol,"Close-ready: both complete npm run release:check and bun run release:check pass against the complete canonical fleet with isolated external scratch fixtures. Each passes 484/484 tests and packed npm/Bun consumers on pm host 2026.10.4; audit reports zero production vulnerabilities. Configured src inventory is 33 files: npm statements/lines 90.25%, branches 79.57%, functions 93.90%; Bun 90.27%, 79.63%, 93.90%. Thresholds stay 90/90/79/92, duplication is zero, and all type/lint/docstring/changelog/workflow gates pass. Final registry lookup still returns E404 for pm-jev. Linked pm acceptance passes 13/13. Metadata, links, snapshot, README and acceptance documentation are complete; no hosted deployment validation is claimed."
+files[7]{path,scope}:
+  public/src/views/packages.ts,project
+  src/services/fleet-snapshot.ts,project
+  src/services/package-catalog.ts,project
+  test/catalog-built.test.ts,project
+  test/catalog.test.ts,project
+  test/fleet-extensions.snapshot.json,project
+  test/fleet-snapshot.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/catalog.test.ts test/catalog-built.test.ts,project,codex-sol,"2026-10-07T21:52:27.080Z",local_mutation,feat/catalog-pm-jev
+docs[3]{path,scope}:
+  docs/catalog-pm-jev.md,project
+  docs/coverage-progress.md,project
+  README.md,project
 body: ""

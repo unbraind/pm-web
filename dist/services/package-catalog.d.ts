@@ -99,6 +99,8 @@ export interface PackageCatalogEntry {
      * were representable. See {@link PackageAvailability}.
      */
     readonly availability?: PackageAvailability;
+    /** Verified public documentation, registry, repository and issue links. */
+    readonly links?: Readonly<Record<"docs" | "npm" | "repository" | "report", string>>;
     /** Backing service the package needs (optional). */
     readonly requiresService?: ServiceRequirement;
     /** Credentials the user must configure (optional). */

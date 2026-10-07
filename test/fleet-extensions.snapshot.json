@@ -115,6 +115,17 @@
     "npmPublished": true
   },
   {
+    "name": "pm-jev",
+    "description": "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev ask, jev gate, jev models, jev doctor.",
+    "packageDescription": "Typed, local-first System One decisions for pm-cli items (Jev-style models via @typesafe-ai/sdk)",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": true,
+    "npmPublished": false
+  },
+  {
     "name": "pm-jira",
     "description": "Jira issue sync for pm-cli",
     "packageDescription": "Jira issue sync for pm-cli",

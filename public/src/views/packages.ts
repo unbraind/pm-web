@@ -42,6 +42,8 @@ interface PackageRow {
    * version, so no install can succeed and the card must not offer one.
    */
   availability?: 'published' | 'unreleased';
+  /** Public package links supplied by the verified catalog. */
+  links?: Record<'docs' | 'npm' | 'repository' | 'report', string>;
   requiresService?: { name: string; optional?: boolean };
   requiresCredentials?: Array<{ label: string; envVars: string[]; optional?: boolean }>;
   installed: boolean;
@@ -208,6 +210,10 @@ function renderPackageCard(row: PackageRow): string {
       </div>`;
   }
 
+  const links = row.links ? Object.entries(row.links).map(([label, url]) =>
+    `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${escHtml(label)}</a>`,
+  ).join(' · ') : '';
+
   return `
     <div class="card" style="cursor:default">
       <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -220,6 +226,7 @@ function renderPackageCard(row: PackageRow): string {
       <div class="card-body" style="padding-top:0">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${escHtml(row.description)}</div>
         ${unreleasedNote}${serviceNote}${credNotes}${caps}
+        ${links ? `<div style="margin-top:8px">${links}</div>` : ''}
         ${actions ? `<div style="margin-top:12px">${actions}</div>` : ''}
       </div>
     </div>`;

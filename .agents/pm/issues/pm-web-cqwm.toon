@@ -2,12 +2,31 @@ id: pm-web-cqwm
 title: Catalog fleet discovery misidentifies sibling package worktrees as extension packages
 description: "In a worktree farm, catalog.test.ts and readFleetExtensions derive extension identity from sibling directory names. A sibling worktree shipping the pm-web host manifest is counted as an installable extension despite pm-web being excluded by design. Reproduce with a real directory named pm-web-candidate containing the host manifest. Resolve canonical package identity before using directory names; retain live-fleet completeness checks."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:20:08.853Z"
-updated_at: "2026-10-05T05:54:51.062Z"
+updated_at: "2026-10-07T22:17:05.943Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Fleet discovery resolves canonical package identity and a filesystem worktree fixture cannot appear as a separately named installable extension.
+comments[4]{created_at,author,text}:
+  "2026-10-07T20:23:20.953Z",codex-sol,"Baseline acceptance against the built package and a real scratch tracker: a directory named pm-web-candidate containing the actual host manifest and package metadata is returned as an extension with that directory name. Plan: derive identity from manifest name and matching package/repository metadata, exclude hosts by canonical identity, deduplicate equivalent worktrees, and reject unreadable or conflicting metadata. Add a real sibling git-worktree regression and make catalog assertions consume the shared derivation."
+  "2026-10-07T21:52:32.352Z",codex-sol,"Discovery now validates canonical manifest identity against npm identity and public repository, excludes renamed host/CLI checkouts, collapses equivalent worktrees and reports conflicts. Tests use real files and a real sibling Git worktree, then run the actual catalog completeness and metadata assertions against renamed package checkouts. Reverting only readFleetExtensions to its baseline body and rebuilding produces assertion failures, including built host exclusion and sibling worktree identity. Modules load and execute; restored behavior passes."
+  "2026-10-07T21:59:39.908Z",codex-sol,The final regression builds a complete synthetic 21-package fleet with renamed checkout directories and a real sibling Git worktree of pm-graph. It invokes all 12 live-fleet catalog assertions against that fixture. Reverting only the discovery function to the original behavior makes the final worktree regression fail with an identity AssertionError; restoring the function passes all four focused filesystem/built acceptance tests.
+  "2026-10-07T22:16:58.617Z",codex-sol,"Close-ready: all four linked filesystem/built acceptance tests pass, including a complete renamed 21-package fleet with a real sibling Git worktree of another extension and all 12 nested live-fleet assertions. The exact final sibling-worktree regression fails with an AssertionError when only the discovery body is behaviorally reverted, and passes when restored. Both full release gates pass 484/484 with unchanged thresholds and fresh packed npm/Bun consumers. README and acceptance evidence describe canonical identity, repository normalization, duplicate collapse and conflict reporting."
+files[7]{path,scope}:
+  public/src/views/packages.ts,project
+  src/services/fleet-snapshot.ts,project
+  src/services/package-catalog.ts,project
+  test/catalog-built.test.ts,project
+  test/catalog.test.ts,project
+  test/fleet-extensions.snapshot.json,project
+  test/fleet-snapshot.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/fleet-snapshot.test.ts test/catalog-built.test.ts,project,codex-sol,"2026-10-07T21:52:28.282Z",local_mutation,feat/catalog-pm-jev
+docs[3]{path,scope}:
+  docs/catalog-pm-jev.md,project
+  docs/coverage-progress.md,project
+  README.md,project
 body: ""
