@@ -1,19 +1,9 @@
 /**
- * Convergence tests for the publish-attestation gate.
+ * Consumer contract for the canonical scanner and the local fail-closed guard.
  *
- * This repository no longer implements the gate; it consumes the canonical
- * auditor from `pm-ops/attestation`. So these tests deliberately do NOT
- * re-test the shell model - that suite lives with the implementation, where a
- * fix reaches every consumer at once. What they assert instead is that this
- * repository is still a consumer: that the gate resolves to the package export
- * rather than to a local copy, and that it still refuses an unattested publish
- * through that resolved path.
- *
- * The first is the one that matters over time. Fifteen fail-open constructions
- * have been found in this gate, three of them introduced by the fix for an
- * earlier one, and a copy frozen at any point in that sequence still admits
- * every construction closed after it. A hand-edit that re-forks the lineage
- * would otherwise be invisible.
+ * Supported literal paths retain canonical reports. Supplemental adversarial
+ * indirection tests live in publish-indirection.test.ts, including real trackers
+ * and behavioral reversion of the guard.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -30,7 +20,7 @@ import { auditPublishAttestation as launcherAudit, runIfMain, verify as launcher
 
 const root = resolve(import.meta.dirname, "..");
 
-test("the gate is the resolved package export, not a local copy", async () => {
+test("the gate consumes canonical scanning with a supplemental fail-closed boundary", async () => {
   // Identity, not similarity. A vendored copy that happens to behave the same
   // today is exactly what this fleet spent a session removing, because it stops
   // behaving the same the moment the canonical implementation is fixed again.
@@ -48,12 +38,12 @@ test("the gate is the resolved package export, not a local copy", async () => {
     "the gate must not resolve any part of its shell model locally",
   );
 
-  // The functions the launcher re-exports are the package's own, by reference.
+  // The boundary must be distinct so it can reject unsupported indirection.
   assert.equal(typeof launcherVerify, "function");
   assert.equal(typeof launcherAudit, "function");
   assert.equal(typeof report, "function");
-  assert.equal(launcherVerify, verify, "the launcher must re-export the package's own verify");
-  assert.equal(launcherAudit, auditPublishAttestation, "the launcher must re-export the package's own audit");
+  assert.notEqual(launcherVerify, verify, "verification must apply the supplemental guard");
+  assert.notEqual(launcherAudit, auditPublishAttestation, "auditing must apply the supplemental guard");
 });
 
 test("the resolved gate still refuses an unattested publish", () => {
@@ -124,11 +114,12 @@ test("the fail-open guard still admits a genuinely attested publish", () => {
 });
 
 test("this repository's own workflows pass the gate", () => {
-  // The gate pointed at this checkout, which is what CI runs. Reported through
+  // The guarded verifier pointed at this checkout, which is what CI runs.
+  // Reported through
   // captured streams rather than the process ones so a failure is readable.
   const lines: string[] = [];
   let exitCode = 0;
-  report(verify(root), (line) => lines.push(line), (code) => { exitCode = code; });
+  report(launcherVerify(root), (line) => lines.push(line), (code) => { exitCode = code; });
   assert.equal(exitCode, 0, `the gate must pass on this repository:\n${lines.join("\n")}`);
   assert.ok(lines.some((line) => line.includes("every publish invocation is attested")));
 });
@@ -251,21 +242,9 @@ const ENTRY_PATH_FIXTURES: readonly PublishShape[] = [
   },
 ];
 
-test("the entry path produces the package verifier's own report for every publish shape", () => {
-  // The positive branch of the entry-point guard: argv[1] and moduleUrl both
-  // resolve to the launcher's own path, so isMainInvocation answers true and
-  // runIfMain executes the gate for real - writing to process.stdout and
-  // setting process.exitCode.
-  //
-  // Re-export identity pins the IMPORTED binding, not the one runIfMain calls,
-  // so a future edit could divert the executed path alone and leave every other
-  // assertion green. Comparing what the entry path writes against the package's
-  // own report(verify(...)) binds the two.
-  //
-  // What this does NOT establish, stated so it is not over-read: ESM gives no
-  // way to observe the call target from outside the module, so this is agreement
-  // across a shape space, not call-site identity. It is why the space is varied
-  // rather than a single fixture.
+test("the entry path applies the exported verifier for every publish shape", () => {
+  // Exercise the entry point against the exported guarded verifier. This binds
+  // its process output and exit code to the same behavior callers import.
   const launcherPath = resolve(root, "scripts/verify-release-publish-attestation.ts");
   const launcherUrl = pathToFileURL(launcherPath).href;
 
@@ -353,12 +332,12 @@ test("the entry path produces the package verifier's own report for every publis
 
         process.exitCode = savedExitCode;
         const packageOutput = capture(() => {
-          report(verify(fixture), (line) => process.stdout.write(`${line}\n`), (code) => { process.exitCode = code; });
+          report(launcherVerify(fixture), (line) => process.stdout.write(`${line}\n`), (code) => { process.exitCode = code; });
         });
         assert.equal(
           launcherOutput,
           packageOutput,
-          `${shape.name}: the entry path must produce the package verifier's own report, not a local equivalent`,
+          `${shape.name}: the entry path must produce the guarded verifier report`,
         );
         if (shape.failing && shape.unnamed !== true) {
           // Name the file. `report` sets exit code 1 for ANY failure, so

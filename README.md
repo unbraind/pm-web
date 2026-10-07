@@ -293,6 +293,13 @@ that maps those tracker artifacts to pm-cli's field-aware Git merge drivers, so 
 tracker edits merge cleanly instead of hard-conflicting. The driver **definitions** live in
 per-clone Git config; `npm install` / `npm ci` from a clone wires them automatically via the `prepare` script, `scripts/prepare-merge-driver.ts`: the launcher template pm-ops ships, copied unchanged, which a test compares byte for byte with the pinned template. It runs pm-ops's installer, which calls `pm merge install` when the `pm` CLI is on `PATH` and skips with a notice when it is not. A production install of a clone (`npm ci --omit=dev`) has no `pm-ops`, so the launcher skips with one notice, while a stale or broken `pm-ops` fails the install. Registry installs of this package never run `prepare`. Being Node-based, it behaves identically on POSIX shells and Windows `cmd.exe`. To (re)run manually: `npm run merge:install`.
 
+The publish-attestation gate combines the canonical pm-ops auditor with fail-closed
+checks for unresolved shell indirection. Readable scalar commands with literal
+arguments and attested
+function bodies pass; aliases, argument forwarding and other unsupported dynamic
+publish paths fail even when an attested sibling exists. See
+[the gate's supported syntax and regression evidence](docs/publish-attestation.md).
+
 After merging a branch that touched `.agents/pm/`, reconcile any residual history-hash drift with
 **`pm merge reconcile`** (pm-cli ≥ 2026.7.22): preview with `pm merge reconcile --dry-run`, apply with
 `pm merge reconcile --message "post-merge reconcile"`, then confirm with `pm validate`, which scans the
