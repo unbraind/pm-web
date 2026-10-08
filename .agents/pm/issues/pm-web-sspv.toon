@@ -1,0 +1,18 @@
+id: pm-web-sspv
+title: Make temporary CLI fixtures independent of inherited ESM package scope
+description: "Extensionless synthetic CLI scripts in the extension, runner and project route suites use require but inherit a parent package scope with type=module. Eight npm release-gate tests fail before their stub behavior runs. A minimal independent probe reproduced exit 1 for the extensionless script and exit 0 for the identical explicit .cjs script. Define fixture module format explicitly or isolate its package scope; keep the real SDK graph acceptance tests unchanged."
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-07T20:26:21.194Z"
+updated_at: "2026-10-07T20:27:45.444Z"
+author: codex-sol
+acceptance_criteria: The route and runner suites pass with a parent temporary-directory package scope declaring type=module; fixture scripts run their intended behavior and the release gate retains every configured threshold.
+comments[1]{created_at,author,text}:
+  "2026-10-07T20:27:45.444Z",codex-sol,"Independent module-scope probe, without importing pm-web or the PM SDK: the identical require-based script exits 1 when extensionless and exits 0 with an explicit .cjs suffix under a parent type=module package scope. The failing fixture files and runner behavior are unchanged from the graph feature base. This explains the existing extension install/state, spawn fallback and project creation harness failures; keep repair separate from graph-export fidelity."
+files[3]{path,scope}:
+  test/extensions-routes.test.ts,project
+  test/pm-runner.test.ts,project
+  test/projects-routes.test.ts,project
+body: ""

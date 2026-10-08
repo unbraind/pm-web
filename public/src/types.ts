@@ -102,6 +102,10 @@ export interface GraphRelationship {
 }
 
 export interface ProjectGraph {
+  /** Logical workspace recorded by the pinned graph exporter. */
+  workspace?: string;
+  /** Project key recorded by the pinned graph exporter. */
+  projectKey?: string;
   generatedAt?: string;
   source?: string;
   nodes?: GraphNode[];

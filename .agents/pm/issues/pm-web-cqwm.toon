@@ -6,8 +6,13 @@ status: open
 priority: 2
 tags: []
 created_at: "2026-10-05T05:20:08.853Z"
-updated_at: "2026-10-05T05:54:51.062Z"
+updated_at: "2026-10-07T20:27:44.096Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Fleet discovery resolves canonical package identity and a filesystem worktree fixture cannot appear as a separately named installable extension.
+comments[1]{created_at,author,text}:
+  "2026-10-07T20:26:19.928Z",codex-sol,"The npm release gate for the graph-export feature reproduced three catalog failures in the package worktree. Inventory treated sibling feature-worktree directory names, including the pm-web host worktree, as installable package identities and disagreed with the committed fleet snapshot. The catalog, fleet reader and catalog tests are byte-unchanged from the base; retain this separate existing follow-up instead of changing inventory or snapshots in the graph feature."
+files[2]{path,scope}:
+  src/services/fleet-snapshot.ts,project
+  test/catalog.test.ts,project
 body: ""
