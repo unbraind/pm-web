@@ -6,13 +6,13 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-10-04T13:45:56.448Z"
-updated_at: "2026-10-10T04:08:30.465Z"
+updated_at: "2026-10-10T17:22:27.997Z"
 author: codex-sol
 acceptance_criteria: "Full npm audit and npm audit --omit=dev both zero on exact required pins; canonical pm-ops duplication and full package release gates pass without suppressions, skipped tests or forced breaking overrides."
 severity: high
 repro_steps: npm ci; npm audit --json; npm ls braces micromatch fast-glob pm-ops; npm view braces version
 expected_result: All audit requirements clean with functional canonical gates.
-actual_result: "SDK2026.10.9 candidate: production audit0; current-author linked full npm audit executes and rejects four high development entries for GHSA-vfj7-8cjw-p6xm. Installed and registry-latest compatible chain is pm-ops2026.10.6,fast-glob3.3.3,micromatch4.0.8,braces3.0.3. No safe patched compatible version is available; suggested pm-ops2026.9.13 is a downgrade. Retain required peer and all gates; owner remains unclosed."
+actual_result: "SDK2026.10.10 candidate: production audit0; current-author linked full npm audit executes and rejects four high development entries for GHSA-vfj7-8cjw-p6xm. Installed and registry-latest compatible chain is pm-ops2026.10.6,fast-glob3.3.3,micromatch4.0.8,braces3.0.3. No safe patched compatible version is available; suggested pm-ops2026.9.13 is a downgrade. Retain required peer and all gates; owner remains unclosed."
 comments[4]{created_at,author,text}:
   "2026-10-04T13:56:03.219Z",codex-sol,"Exact installed CLI/ops/changelog2026.10.4: npm audit --omit=dev --json exits0 with allzero; npm audit --json exits1 with fourhigh deventries. GitHub open Dependabotalerts returns[]; no openalertsilentlyclosed. Published braceslatest3.0.3 affected by GHSA-vfj7-8cjw-p6xm; no3.0.4published. Removing direct unusedfastglob was independently attempted in pm-graph certification and auditsclean, but canonical pm-ops10.4 duplication then throws ERR_MODULE_NOT_FOUND because its dist/duplication.js staticallyimports undeclaredfastglob. Keep latestexactpins andfunctionalcanonicalgate; blockerownedhereuntilcompatibleupstreamtooltreeclean. Do not force downgrade/suppressaudit."
   "2026-10-04T14:01:53.564Z",codex-sol,"The initial linked npm audit commands hit runner-injected EALLOWSCRIPTS, so their exit1 is execution failure, not vulnerability evidence. Direct same-source npm audit --omit=dev --json recheckexit0/allzero; full recheckexit1/fourhigh. Replace the two new linked commands with child-scoped env -u npm_config_allow_scripts -u NPM_CONFIG_ALLOW_SCRIPTS wrappers; this changes no audit selection/threshold and no project or user npm configuration."

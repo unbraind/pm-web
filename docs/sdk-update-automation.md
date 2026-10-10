@@ -1,7 +1,7 @@
 # SDK update automation
 
-Dependabot PR #181 changed the exact standalone SDK from 2026.10.4 to
-2026.10.6 while leaving `manifest.json` at 2026.10.4. The packaging test
+Historical origin: Dependabot PR #181 changed the exact standalone SDK from
+2026.10.4 to 2026.10.6 while leaving `manifest.json` at 2026.10.4. The packaging test
 incorrectly treated a supported extension-host minimum as a duplicate SDK pin.
 
 The standalone server continues to depend on an exact runtime SDK. The manifest
@@ -14,7 +14,7 @@ standalone SDK version and executes the extension's real `web status` handler.
 An incompatible future update fails acceptance; changing the floor requires a
 deliberate manifest edit and the same acceptance checks.
 
-The candidate pins published SDK 2026.10.9, pm-ops 2026.10.6 and pm-changelog
+The current candidate pins published SDK 2026.10.10, pm-ops 2026.10.6 and pm-changelog
 2026.10.5. The supported extension-host minimum remains 2026.10.4. The behavioral
 automation regression simulates dependency-only updates, including a year
 rollover, and rejects old SDKs, ranges and malformed floors. Restoring the
@@ -26,7 +26,7 @@ Package owner: [pm-web-8pml](https://github.com/unbraind/pm-web/blob/main/.agent
 Companion session: `../../.agents/pm/tasks/pm-cli-website-session-2026-10-10.toon`
 (relative to this package root).
 
-## Independent pending-PR assessment
+## Historical independent pending-PR assessment
 
 PR #175 at `d883781d6d134694bedddd65ad37011aa2cbcdea` passes 16 extracted
 catalog/discovery tests against the installed published SDK. Canonical identity,
@@ -50,7 +50,7 @@ both heads, but GitHub reports both branches as conflicting. Neither PR is
 declared safe to merge until conflicts and missing required review evidence are
 resolved. No review bot was requested.
 
-## Repair of the release failures
+## Historical repair of the release failures (SDK 2026.10.9)
 
 PR182 selectively incorporates the catalog implementation from
 [PR175](https://github.com/unbraind/pm-web/pull/175) at
@@ -84,7 +84,8 @@ The installed SDK's `GetResult.item` is the selected flat metadata projection;
 `PmCompleteListResult.items` is the certified full list. The genuine SDK dispatch
 test verifies both shapes, item bodies, positionals, pagination and fail-closed
 receipts. No speculative metadata wrappers are introduced. These reads use the
-installed 2026.10.9 SDK types and behavior.
+then-installed 2026.10.9 SDK types and behavior. The unchanged contracts are
+renewed on SDK 2026.10.10 in the [current exact-source receipts](sdk-renewal-2026.10.10-receipts.md).
 
 The original standalone 2,000-item graph test passes at 6,355 ms for the actual
 read (2,022 nodes and 23,063 relationships); its 21,099 ms whole-test duration

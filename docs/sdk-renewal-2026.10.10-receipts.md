@@ -1,5 +1,12 @@
 # SDK 2026.10.10 exact-tree receipts
 
+These executed receipts identify source `01b82d6` and frozen metadata head
+`df2e7aa6ae0469965bf2e858027d60a250fd0329`. The later review follow-up changes
+only documentation and the paired 8pml/xucb tracker histories. The inventory
+below remains the immutable tested-tree inventory, rather than claiming that
+its digest describes the later documentation edits. Runtime source, tests,
+gates, package metadata, lockfile and all 262 archived files are unchanged.
+
 Source commit: `01b82d6f111b80b0b1412abb0707f79c3b1bd44e`. The final metadata head is the commit containing this
 receipt and its paired PM update; it is reported at handoff. Only pm-web-8pml is
 touched, under author `codex-sol-8pml-20261010`; the claim remains released and
@@ -55,7 +62,9 @@ through braces, fast-glob, micromatch and pm-ops. Existing pm-web-xucb remains o
 
 Both release runs use byte-identical actual acceptance archives, captured read-only
 while the existing consumer checks execute: 681064 bytes, package
-2026.10.9, standalone dependency SDK 2026.10.10.
+2026.10.9, standalone dependency SDK 2026.10.10. The package version intentionally
+differs from the SDK dependency pin; this document title names the SDK renewal,
+not a package release.
 
 SHA-256: `e903c1d65775bd1089bbfda7f478c158405bcf271eb114688b45bcf9c49b0b9e`.
 
