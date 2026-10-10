@@ -392,3 +392,73 @@ PR body changes, merge, publication or deployment.
 | Complete decoded linked release output | `fc540f551a869bdf7ea471ebbed29e65736dcd1d635fd195a8dabe5f3fbb8bb7` |
 | Four-scenario packed receipt JSON | `8a8342a44093833d1e70edc0aeb59bd46c94bcc622c573acb75a4ebff3a1eae9` |
 | Accepted coverage summary | `cb0e3a546c773eeeb566d8ccf60d6fdc91f0252f8b47adb9fdadcc1c2bd52c83` |
+
+## Published SDK 2026.10.10 renewal
+
+This dependency-only renewal starts at `f85d3d03740b783d0397e35fc6402862d97a3e0d`
+on the existing PR #182 branch. The exact runtime and development host SDK now
+resolves published `@unbrained/pm-cli` 2026.10.10. Only the SDK dependency pin and
+its lockfile version, registry URL and integrity change. Installed public
+`GetResult`, certified complete-list and light metadata declarations, and Node
+filesystem/module declarations, remain compatible with the existing strict
+TypeScript consumer. Source, tests and generated distribution bytes are unchanged.
+No new test or dependency-only source-revert claim is introduced.
+
+The package and manifest version remain 2026.10.9; the independently tested
+minimum extension host remains 2026.10.4. Registry checks confirm the existing
+pm-ops 2026.10.6 and pm-changelog 2026.10.5 pins remain current. pm-graph remains
+2026.10.5. Node 24.19.0, npm 11.17.0 and native Bun 1.3.5 run the checks.
+
+The first renewed linked release passes in 407.479 seconds, retaining the
+original 1800-second limit; its complete suite takes 247.244 seconds. The older
+2400-second release link also remains unchanged. All runs explicitly select the
+canonical fleet, never the synthetic tracker sandbox as fleet inventory. Heavy
+checks share the existing flock. A new disposable native PostgreSQL 17.10
+cluster supplies the existing schema/HTTP/SSE helpers and is stopped and removed.
+No Docker, hosted service, tenant data or telemetry resource is changed.
+
+| Existing command / measurement | First renewed result |
+| --- | --- |
+| Reproducible `npm ci`, `npm run typecheck`, `npm run build:test` | Pass; installed SDK 2026.10.10. |
+| `pm test pm-web-8pml --run --only-index 7 --progress --json` | Complete unchanged release: 492/492, zero skips, exit 0. |
+| `pm test pm-web-8pml --run --only-index 8 --progress --json` | Six real disposable PostgreSQL collaboration cases pass, zero skips. |
+| `pm test pm-web-8pml --run --only-index 9 --progress --json` | Six existing graph/observational cases pass, zero skips; 2000-item read 2489 ms, 2022 nodes, 23063 edges. |
+| `pm test pm-web-8pml --run --only-index 6 --progress --json` | Existing packaging/SDK automation assertions 5/5, zero skips. |
+| Production audit in the unchanged release | Zero vulnerabilities. |
+| `pm test pm-web-8pml --run --only-index 10 --progress --json` | Genuine full-development audit exits 1: four high entries, braces/fast-glob/micromatch/pm-ops; existing pm-web-xucb stays open. |
+| Strict pinned PM health with required merge drivers | Pass; 13 stale-item advisories. |
+| PM validation | `ok: true` with existing metadata, link, resolution and linked-test warnings. |
+
+The configured c8 denominator remains all 34 server files under `src`:
+statements/lines 10325/11430 (90.33%), branches 1768/2207 (80.10%), functions
+256/274 (93.43%). Uncovered counters are 1105 statements/lines, 439 branches
+and 18 functions. Thresholds remain S/L 90, B 79, F 92, with no ignore entries.
+Browser and tooling source is excluded from this denominator, so coverage is
+PARTIAL. Docstrings cover the analyzer's selected 95 files / 625 declarations,
+excluding tests, installed packages and compiled output; this is not whole-source
+or whole-documentation certification. Duplication remains zero over 45033 lines /
+156 sources, with zero clone pairs and the unchanged zero threshold.
+
+All four fresh packed npm/Node and native-Bun scenarios pass on hosts 2026.10.4
+and 2026.10.10. Each independently resolves standalone SDK 2026.10.10, preserves
+its original status/port/config assertions, and exercises installed catalog/card
+contracts. Status is `down` at ports 61113–61116; these receipts do not establish
+service startup or hosted readiness. The full-suite 2000-item graph read is
+2429 ms within its unchanged 10000 ms limit. Collaboration and graph checks are
+bounded synthetic measurements, without production capacity or recovery claims.
+
+Only owner pm-web-8pml is touched by unique author `codex-sol-8pml-20261010`.
+All 152 previous history-file prefixes, including its original 98 events, are
+preserved. Eleven relevant owner chains verify strictly with matching current
+item hashes. The own claim is released without closing before changelog
+regeneration and source freeze. Previous timeout, catalog/fixture, native npm
+launcher and graph timing failures remain above as dated receipts. Historical
+revert proofs are not reused as proof of this dependency-only renewal.
+
+The committed [inventory](sdk-renewal-2026.10.10-inventory.json) records frozen
+relative paths, Git blob SHA-1 and byte SHA-256. The separate
+[final receipt](sdk-renewal-2026.10.10-receipts.md) records exact source commit,
+renewed exact-tree gates, archive identity and evidence freshness. Whole-source,
+whole-docs, development-audit, privacy, scale, review and hosted boundaries remain
+open. No deployment, merge, publication, review request or PR-description edit
+belongs to this renewal.
