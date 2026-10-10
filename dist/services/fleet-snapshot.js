@@ -34,6 +34,8 @@ const CATALOG_HOSTS = new Set(["pm-web", "pm-cli"]);
  * second hardcoded list would. Identity comes from the manifest name and
  * matching package/repository metadata, never the directory name. Equivalent
  * worktrees are collapsed; conflicting metadata is reported as a problem.
+ * Directory names determine which conflicting record is retained, using
+ * lexicographic order independent of filesystem enumeration and locale.
  *
  * @param fleetRoot - Directory holding the sibling package directories.
  * @param fs - Filesystem accessors to read the tree with.
@@ -46,7 +48,9 @@ export function readFleetExtensions(fleetRoot, fs) {
         return { extensions: [], problems: [] };
     const found = new Map();
     const problems = [];
-    for (const entry of fs.readdirSync(fleetRoot, { withFileTypes: true })) {
+    const entries = fs.readdirSync(fleetRoot, { withFileTypes: true })
+        .sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    for (const entry of entries) {
         if (!entry.isDirectory())
             continue;
         const manifestPath = `${fleetRoot}/${entry.name}/manifest.json`;

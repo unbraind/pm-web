@@ -322,3 +322,73 @@ four packed receipts belong to `af430dd`, before this test-only correction;
 production and distribution bytes remain identical. Renewed exact-head review
 and CI remain required, and the whole-source quality and deployment gaps stay
 open.
+
+## PR #182 deterministic discovery follow-up
+
+Renewed review 5477988575, against `97de322`, confirms that the first retained
+conflicting record depended on filesystem enumeration. Discovery now sorts
+directory entries by string name with locale-independent lexicographic
+comparison before the existing loop. Installed Node declarations define the
+default `withFileTypes: true` result as `Dirent<string>[]`; buffer names require
+an explicit buffer encoding. Candidate metadata and conflict refusal are
+unchanged.
+
+The existing real-filesystem test swaps the same incomplete and conflicting
+records between `first` and `second`. It now requires the exact complete record
+from `first` and the exact conflict diagnostic for `second`, alongside every
+malformed-metadata diagnostic. It uses real filesystem calls, with no mocked
+enumeration or read counts and no duplicate test.
+
+The tightened test passes 3/3 on the old production source on this host, whose
+enumeration already selects `first`. This is a cross-platform contract
+correction, without a claimed fail-on-revert result. The corrected linked test
+also passes 3/3, zero skips; source/browser and test typechecks and lint pass.
+The production change makes the `af430dd` 492-test and four packed receipts
+historical. New full-gate and packed receipts are required for this candidate.
+
+The new complete gate passes on the corrected source, using Node 24.19.0,
+npm 11.17.0, native Bun 1.3.5 and an own disposable PostgreSQL 17.10 database.
+The shared heavy-gate lock serializes this run; canonical fleet metadata is
+read without modifying sibling packages. The database is stopped and removed.
+
+| Command / measurement | Current candidate result |
+| --- | --- |
+| `pm test pm-web-s99c --run --only-last --progress` | Existing discovery file 3/3, zero skips. |
+| `npm run typecheck` and `npm run build:test` | Source, browser and test typechecks pass. |
+| `pm test pm-web-8pml --run --only-last --progress` | Linked `env -u npm_config_allow_scripts -u NPM_CONFIG_ALLOW_SCRIPTS npm run release:check` exits 0; 492/492 tests, zero skips. |
+| Configured server coverage | All 34 `src` files reported: statements/lines 90.33% (10325/11430), branches 80.10% (1768/2207), functions 93.43% (256/274). Remaining counters: 1105, 439, 18. Browser/tooling are excluded from this denominator. |
+| Real graph corpus within the full suite | 2,000 items read in 4,748 ms; 2,022 nodes and 23,063 edges. Existing timing limits remain intact. |
+| Real collaboration within the full suite | All six HTTP/SSE, concurrent edit, keyed replay, nonmutation, watcher/presence and lifecycle cases pass against the disposable database. |
+| Quality / release checks within the full gate | Lint passes; duplication 0% over 45,033 lines / 156 sources; 95 files / 625 declarations documented; production audit 0 vulnerabilities; package, changelog, release date and publish attestation pass. |
+| `npm run accept:packed` within the full gate | All four fresh installed-tarball scenarios pass, including existing catalog/card contracts and no deprecated diagnostics. |
+
+| Packed scenario | Host version | Standalone SDK | Status / port |
+| --- | --- | --- | --- |
+| npm-current | 2026.10.9 | 2026.10.9 | down / 61113 |
+| bun-current | 2026.10.9 | 2026.10.9 | down / 61114 |
+| npm-minimum | 2026.10.4 | 2026.10.9 | down / 61115 |
+| bun-minimum | 2026.10.4 | 2026.10.9 | down / 61116 |
+
+The source/test/package/distribution fingerprint is
+`6f02e7d92d3b78c1e68e284f3b78d7983ed4c45889693573e3fa26102f6ec7a8`
+over 283 sorted tracked paths: `src`, `public`, `scripts`, `test`, `dist`,
+package/lock/manifest and server/test compiler configuration, using path NUL
+bytes NUL. It is unchanged after the full gate. These packed status checks do
+not certify service startup or deployment.
+
+Strict pinned PM health separately fails local extension-host skew:
+SDK 2026.10.9 versus managed pm-github 2026.10.10, with 13 stale-item advisories.
+PM validation reports `ok:true` with existing warnings. Both owner history chains
+verify with current hashes matching their latest entries. No extension or tool
+pin is changed by this correction. Development audit four-high debt,
+whole-source coverage, review, historical privacy, graph/concurrency and hosted
+readiness gates remain open. The hosted SDK 4 deployment is unchanged; this
+candidate must not be deployed. Owners pm-web-s99c and pm-web-8pml remain open
+for the orchestrator; release their claims at handoff, with no review messages,
+PR body changes, merge, publication or deployment.
+
+| Receipt | SHA-256 |
+| --- | --- |
+| Complete decoded linked release output | `fc540f551a869bdf7ea471ebbed29e65736dcd1d635fd195a8dabe5f3fbb8bb7` |
+| Four-scenario packed receipt JSON | `8a8342a44093833d1e70edc0aeb59bd46c94bcc622c573acb75a4ebff3a1eae9` |
+| Accepted coverage summary | `cb0e3a546c773eeeb566d8ccf60d6fdc91f0252f8b47adb9fdadcc1c2bd52c83` |

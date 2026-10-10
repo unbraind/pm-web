@@ -4,7 +4,6 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { isDeepStrictEqual } from "node:util";
 
 import { readFleetExtensions, type FleetExtension } from "../src/services/fleet-snapshot.ts";
 
@@ -85,13 +84,15 @@ test("discovery reports malformed, missing and conflicting identity metadata wit
       writePackage(root, incomplete!, { description: null }, { description: 42, publishConfig: undefined });
       writePackage(root, conflicting!, { description: "conflict" });
       const result = readFleetExtensions(root, { existsSync, readdirSync, readFileSync });
-      assert.ok([
-        { name: "pm-thing", description: "", packageDescription: "",
-          capabilities: ["commands", "schema"], publishable: false },
-        { name: "pm-thing", description: "conflict", packageDescription: "concise",
-          capabilities: ["commands", "schema"], publishable: true },
-      ].some((expected) => isDeepStrictEqual(result.extensions, [expected])));
-      assert.ok(result.problems.some((problem) => problem.reason === "conflicting worktree metadata for pm-thing"));
+      assert.deepEqual(result.extensions, [incomplete === "first"
+        ? { name: "pm-thing", description: "", packageDescription: "",
+          capabilities: ["commands", "schema"], publishable: false }
+        : { name: "pm-thing", description: "conflict", packageDescription: "concise",
+          capabilities: ["commands", "schema"], publishable: true }]);
+      assert.deepEqual(result.problems, [
+        ...invalid.map(([name, reason]) => ({ name, reason })),
+        { name: "second", reason: "conflicting worktree metadata for pm-thing" },
+      ].sort((a, b) => a.name!.localeCompare(b.name!)));
     }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
