@@ -2,22 +2,32 @@ id: pm-web-hqqp
 title: Investigate intermittent 2000-item graph latency failures in full coverage runs
 description: "During the PR #173 review round, npm run release:check failed the unchanged 10000 ms large-corpus graph read assertion at 10959 ms. The same rebuilt package passed standalone linked graph acceptance at 2513 ms. The deterministic concurrent-create and external-writer consistency tests passed in the full npm run. Investigate instrumented-suite load and graph read cost without weakening the latency assertion or coverage thresholds; this measurement discrepancy is separate from the two requested review corrections."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-07T22:48:36.158Z"
-updated_at: "2026-10-10T03:00:46.447Z"
+updated_at: "2026-10-10T04:08:26.697Z"
 author: codex-sol
 acceptance_criteria: Explain and reproduce the full-suite latency discrepancy; retain the 10000 ms budget and repository coverage thresholds; record standalone and full npm/Bun graph receipts.
+actual_result: "Combined full ordering reader10918ms rejected; public light reader ordering proven equal to full SDK scan, payloads remain certified with same lock and external-writer guard. Focused read5586ms,linked4639ms,final fullgate3230ms for2000items/2022nodes/23063relationships. Fixed10000ms limit retained; coverage files serial, operation-window timestamps, allsource inventory/thresholds unchanged. No capacity/deployment claim."
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-38n5,related,"2026-10-07T22:48:36.158Z",codex-sol,"cli:create:dep",detected
-comments[2]{created_at,author,text}:
+comments[6]{created_at,author,text}:
   "2026-10-07T22:52:07.806Z",codex-sol,"Comparison receipt: standalone pm-linked graph acceptance passed at 2513 ms; npm run release:check failed the 10000 ms read budget at 10959 ms; bun run release:check passed that same assertion at 8297 ms. Both full runs executed 493 tests with zero skips. Root cause is unproven; investigate suite instrumentation and read cost without changing thresholds. Existing fixture failures are separately tracked in pm-web-cqwm and pm-web-sspv."
   "2026-10-10T03:00:46.447Z",codex-sol,"SDK update candidate full unchanged coverage run fails large-corpus graph acceptance before reaching its 10000 ms assertion: the generatedAt parity assertion exceeds its 30000 ms tolerance. Whole test duration is 118193 ms, including fixture generation, so that is not a measured graph-read duration. Small generated graph parity and deterministic concurrent-create tests pass. Preserve both timing assertions; raw failed-run coverage is 90.04% statements/lines, 79.50% branches, 92.33% functions and no accepted coverage receipt remains."
-files[3]{path,scope}:
-  test/graph-export-fidelity.test.ts,project
-  src/services/pm-runner.ts,project
+  "2026-10-10T03:17:08.699Z",codex-sol,"Prior full run failed a 30-second cross-call timestamp tolerance before checking measured read latency. Standalone unchanged baseline reads 2000 real items in 6355 ms (2022 nodes, 23063 edges); total 21099 ms includes construction. Validate generatedAt against actual operation windows and check the unchanged 10000 ms read limit before payload parity. No production deadline or coverage inventory changes."
+  "2026-10-10T03:23:17.622Z",codex-sol,"Focused combined acceptance exposes the unchanged read limit directly: 10918 ms, rejected (original standalone 6355 ms). Installed SDK source and declarations show listAllItemMetadataLight delegates to the same canonical candidate ordering as the full reader while skipping heavy collection hydration. Use light rows only for ID ordering; graph payloads still come exclusively from certified full rows, under the same workspace lock and external-writer guard. Real 2000-item full/light ordering equality and original payload/interleaving regressions are required. Serialize coverage test files to avoid suite fanout competing with its own latency measurement; retain every test, source and threshold."
+  "2026-10-10T03:23:59.234Z",codex-sol,"Focused green after the public light ordering reader: 2/2 pass, zero skips; real queued/external writer guards pass, actual 2000-item read5586ms,2022nodes,23063relationships; full/light SDK ID ordering deep-equal. Prior combined full-reader run10918ms rejected by unchanged10000ms limit. Run complete serial coverage gate next; no capacity or deployment claim."
+  "2026-10-10T04:08:06.156Z",codex-sol,"Verification receipt is recorded in docs/sdk-update-automation.md and linked from pm-web-8pml: complete release490/490,zero skips; packed npm/nativeBun4/4, six real disposablePostgreSQL collaboration tests. Keep item unclosed for independent orchestrator verification."
+files[4]{path,scope}:
   scripts/coverage-gate.ts,project
-docs[1]{path,scope}:
+  src/services/pm-runner.ts,project
+  test/graph-export-fidelity.test.ts,project
+  test/helpers/graph-concurrent-write.ts,project
+tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/graph-export-fidelity.test.ts test/graph-read-only.test.ts test/pm-collaboration.test.ts,project,600,codex-sol,"2026-10-10T03:21:31.953Z",local_mutation,fix/sdk-manifest-automation-2026-10-9
+  node scripts/with-test-db.ts node --test --test-name-pattern=large-corpus test/graph-export-fidelity.test.ts,project,120,codex-sol,"2026-10-10T03:36:00.409Z",local_mutation,fix/sdk-manifest-automation-2026-10-9
+docs[2]{path,scope}:
   docs/GRAPH_READS.md,project
+  docs/sdk-update-automation.md,project
 body: ""

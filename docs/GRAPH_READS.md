@@ -13,8 +13,8 @@ renaming or filtering. The web response adds `source`. This contract covers
 the full default export, including terminal items and external references;
 the overview does not apply the extension CLI's optional shaping flags.
 
-The certified list uses display ordering. A second public SDK metadata read
-supplies the export's native storage order; each identifier must match exactly
+The certified list uses display ordering. A second public SDK light metadata read
+supplies the export's native storage order without rehydrating heavy collections; each identifier must match exactly
 one certified row or the request fails. The builder uses the certified rows,
 never the second reader's uncertified payload. Both reads share one workspace
 serialized section, so mutations submitted through the web runner wait until
@@ -45,8 +45,10 @@ exports with JSON round trips of the web model on 20 reproducible generated
 trackers, including empty graphs, mixed item types and lifecycle states,
 cycles, external targets, facets, duplicate edges, custom edge types and nested
 provenance. Every export field and array position must agree. Independent reads
-have their own valid `generatedAt` timestamps; only that timestamp and the
-additive `source` are excluded from equality. A real PostgreSQL and built-package
+have their own valid `generatedAt` timestamps. The CLI export timestamp and web
+timestamp must each fall inside their actual operation window; elapsed time
+between independent calls has no fixed tolerance. Only those timestamps and
+the additive `source` are excluded from payload equality. A real PostgreSQL and built-package
 HTTP test covers view-only GET/HEAD, neighbors, access denial and unchanged
 tracker state, with a project entry that would write and throw if executed.
 

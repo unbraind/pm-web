@@ -2,17 +2,23 @@ id: pm-web-cqwm
 title: Catalog fleet discovery misidentifies sibling package worktrees as extension packages
 description: "In a worktree farm, catalog.test.ts and readFleetExtensions derive extension identity from sibling directory names. A sibling worktree shipping the pm-web host manifest is counted as an installable extension despite pm-web being excluded by design. Reproduce with a real directory named pm-web-candidate containing the host manifest. Resolve canonical package identity before using directory names; retain live-fleet completeness checks."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:20:08.853Z"
-updated_at: "2026-10-07T20:27:44.096Z"
+updated_at: "2026-10-10T04:08:19.594Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Fleet discovery resolves canonical package identity and a filesystem worktree fixture cannot appear as a separately named installable extension.
-comments[1]{created_at,author,text}:
+actual_result: PR175 canonical identity/readability validation and equivalent-worktree deduplication reused with attribution; malformed/conflicting metadata fails. Three real filesystem/Git-worktree tests retain meaningful prior assertions and add identity/conflict cases; built-catalog acceptance and live21-extension snapshot pass. Linked catalog16/16 and final490/490 release tests pass; no divergent catalog proposal or owner closure.
+comments[3]{created_at,author,text}:
   "2026-10-07T20:26:19.928Z",codex-sol,"The npm release gate for the graph-export feature reproduced three catalog failures in the package worktree. Inventory treated sibling feature-worktree directory names, including the pm-web host worktree, as installable package identities and disagreed with the committed fleet snapshot. The catalog, fleet reader and catalog tests are byte-unchanged from the base; retain this separate existing follow-up instead of changing inventory or snapshots in the graph feature."
-files[2]{path,scope}:
+  "2026-10-10T03:15:14.820Z",codex-sol,"Reuse PR175 canonical identity validation, host exclusion, equivalent-worktree deduplication and conflicting-metadata failures with its real filesystem/worktree regressions. Baseline focused catalog suite reproduced four failures; added PR175 regressions fail against the original discovery and built catalog. Attribution and superseding PR relationship will be documented."
+  "2026-10-10T04:07:54.182Z",codex-sol,"Verification receipt is recorded in docs/sdk-update-automation.md and linked from pm-web-8pml: complete release490/490,zero skips; packed npm/nativeBun4/4, six real disposablePostgreSQL collaboration tests. Keep item unclosed for independent orchestrator verification."
+files[3]{path,scope}:
   src/services/fleet-snapshot.ts,project
   test/catalog.test.ts,project
+  test/fleet-snapshot.test.ts,project
+docs[1]{path,scope}:
+  docs/sdk-update-automation.md,project
 body: ""

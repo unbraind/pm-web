@@ -2,14 +2,26 @@ id: pm-web-s99c
 title: Refresh the package catalog and fleet snapshot for pm-jev
 description: "The optional live-fleet catalog integration now discovers pm-jev, but the package catalog and committed fleet snapshot omit it. Four assertions fail against that live fleet. Refresh package metadata and registry publication evidence in a separate catalog change; coverage work must retain those assertions."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:18:01.915Z"
-updated_at: "2026-10-10T03:00:48.106Z"
+updated_at: "2026-10-10T04:08:15.486Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Current package catalog and committed fleet snapshot include verified pm-jev metadata and all optional live-fleet completeness assertions pass.
-comments[1]{created_at,author,text}:
+actual_result: "Selectively reuse PR175 at d883781: pm-jev current metadata and verified links, unreleased install refusal; regenerate21-extension registry-backed snapshot. Imported regressions0/4 red, focused42/42 green; linked catalog16/16; final full gate490/490 and both npm/nativeBun packed hosts pass. Same proposal as PR175; reconcile overlapping branch before merge, keep owners unclosed."
+comments[3]{created_at,author,text}:
   "2026-10-10T03:00:48.106Z",codex-sol,"SDK update candidate full unchanged release run still fails four catalog checks: membership, resolvable fleet manifests, missing pm-jev, and snapshot fidelity. Independent PR #175 source/discovery/built-catalog tests pass 16/16, and npm still returns 404 for pm-jev. GitHub reports #175 conflicting at d883781d6d134694bedddd65ad37011aa2cbcdea; CodeRabbit reports no actionable findings while other requested reviews are unavailable. Do not conflate this bounded isolated check with live fleet freshness or merge approval."
+  "2026-10-10T03:15:11.510Z",codex-sol,"PR175 at d883781d6d134694bedddd65ad37011aa2cbcdea already implements pm-jev metadata, registry availability, UI links and built real-SDK acceptance. Reuse those relevant hunks on PR182; no independent catalog design or imported tracker owners. Regenerate the snapshot from current canonical metadata and registry instead of copying a dated receipt."
+  "2026-10-10T04:07:49.305Z",codex-sol,"Verification receipt is recorded in docs/sdk-update-automation.md and linked from pm-web-8pml: complete release490/490,zero skips; packed npm/nativeBun4/4, six real disposablePostgreSQL collaboration tests. Keep item unclosed for independent orchestrator verification."
+files[4]{path,scope}:
+  public/src/views/packages.ts,project
+  src/services/package-catalog.ts,project
+  test/catalog-built.test.ts,project
+  test/fleet-extensions.snapshot.json,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/catalog.test.ts test/catalog-built.test.ts test/fleet-snapshot.test.ts,project,codex-sol,"2026-10-10T03:18:47.259Z",local_mutation,fix/sdk-manifest-automation-2026-10-9
+docs[1]{path,scope}:
+  docs/sdk-update-automation.md,project
 body: ""

@@ -44,7 +44,6 @@ if (!minimumHostVersion || !/^\d+\.\d+\.\d+$/u.test(minimumHostVersion)) {
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
 const bunCommand = process.platform === "win32" ? "bun.exe" : "bun";
-const bunxCommand = process.platform === "win32" ? "bunx.exe" : "bunx";
 const npmCli = process.env.npm_execpath?.endsWith(".js") ? process.env.npm_execpath : undefined;
 const npmLauncher = npmCli === undefined
   ? { command: npmCommand, prefix: [] as string[] }
@@ -93,16 +92,23 @@ function run(
   return result;
 }
 
-/** Invoke the scenario-local pm host through the package manager's public launcher. */
+/** Invoke the installed host with npm's launcher or directly in the native Bun runtime. */
 function runPm(
   scenario: AcceptanceScenario,
   cwd: string,
   env: NodeJS.ProcessEnv,
   args: string[],
 ): SpawnSyncReturns<string> {
-  return scenario.manager === "npm"
-    ? run(npxLauncher.command, [...npxLauncher.prefix, "--no-install", "pm", ...args], cwd, env)
-    : run(bunxCommand, ["--bun", "--no-install", "pm", ...args], cwd, env);
+  if (scenario.manager === "npm") {
+    return run(npxLauncher.command, [...npxLauncher.prefix, "--no-install", "pm", ...args], cwd, env);
+  }
+  const installedRequire = createRequire(join(cwd, "package.json"));
+  const packagePath = installedRequire.resolve(`${cliPackage}/package.json`);
+  const installed = JSON.parse(readFileSync(packagePath, "utf8")) as { bin?: { pm?: string } };
+  if (typeof installed.bin?.pm !== "string") throw new Error("Installed host does not declare its pm binary");
+  // bunx --bun also redirects child `node` commands to Bun, including npm.
+  // Execute the genuine PM entry with Bun while retaining Node for its npm child.
+  return run(bunCommand, [resolve(dirname(packagePath), installed.bin.pm), ...args], cwd, env);
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));

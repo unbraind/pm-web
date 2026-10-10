@@ -41,13 +41,13 @@ mock.module("@unbrained/pm-cli/sdk", {
       }
       return result;
     },
-    listAllItemMetadata: async (...args: Parameters<typeof sdk.listAllItemMetadata>) => {
+    listAllItemMetadataLight: async (...args: Parameters<typeof sdk.listAllItemMetadataLight>) => {
       // Drain queued promise continuations. With the old lock boundary the real
       // writer enters here; await its commit to deterministically expose the mismatch.
       await setImmediate();
       enteredDuringOrderRead = writeEntered;
       if (writeEntered) assert.equal((await write!).ok, true);
-      return sdk.listAllItemMetadata(...args);
+      return sdk.listAllItemMetadataLight(...args);
     },
   },
 });

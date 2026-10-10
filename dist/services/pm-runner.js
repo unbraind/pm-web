@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadata, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadataLight, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -640,8 +640,8 @@ export async function readCompletePmItems(userId, slug, includeBody = false, noE
                 ? await listAllComplete({ includeBody }, { pmRoot, cwd: dir, noExtensions: true })
                 : await getPmClient(pmRoot).listAllComplete({ includeBody }));
             if (sourceOrder) {
-                // Only the ordering comes from this scan; every returned row is certified.
-                const sourceItems = await listAllItemMetadata(pmRoot);
+                // Only identifiers/order come from this light scan; heavy collections stay in certified rows.
+                const sourceItems = await listAllItemMetadataLight(pmRoot);
                 const certifiedById = new Map(result.items.map((item) => [item.id, item]));
                 const items = sourceItems.map((item) => {
                     const certified = certifiedById.get(item.id);
