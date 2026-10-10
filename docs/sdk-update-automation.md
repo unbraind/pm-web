@@ -304,3 +304,21 @@ Eight failures reproduce the extensionless synthetic CLI module-scope defect
 tolerance before reaching its 10-second read-budget assertion (pm-web-hqqp).
 Its 118193 ms whole-test duration includes fixture generation and must not be
 reported as measured graph-read latency. All assertions remain intact.
+
+## PR #182 directory enumeration review correction
+
+CodeRabbit finding 4236540807 is valid: the conflict assertion selected the
+metadata from the directory named `first`, although discovery accepts the first
+record the filesystem enumerates. The existing real-filesystem case now swaps
+both records between `first` and `second` and requires exactly one complete
+retained record from those two valid alternatives plus the conflict diagnostic.
+The scanner's ordering and production source are unchanged.
+
+Keeping the original assertion while swapping the records fails with the
+`conflict` record retained. The corrected complete fleet-snapshot file passes
+3/3 with zero skips, including a real sibling Git worktree and its nested catalog
+assertions. Test typechecking and lint pass. The earlier 492-test coverage and
+four packed receipts belong to `af430dd`, before this test-only correction;
+production and distribution bytes remain identical. Renewed exact-head review
+and CI remain required, and the whole-source quality and deployment gaps stay
+open.
