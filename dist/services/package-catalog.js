@@ -139,7 +139,6 @@ export const PACKAGE_CATALOG = [
         availability: "unreleased",
         links: {
             docs: "https://github.com/unbraind/pm-jev#readme",
-            npm: "https://www.npmjs.com/package/pm-jev",
             repository: "https://github.com/unbraind/pm-jev",
             report: "https://github.com/unbraind/pm-jev/issues",
         },

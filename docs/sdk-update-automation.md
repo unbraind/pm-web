@@ -174,6 +174,97 @@ review, historical privacy work, whole-source coverage and hosted readiness
 remain separate. No deployment, tenant-data access, publication, bot requests
 or owner closure occurs. Claims are released for independent verification.
 
+## PR #182 unpublished npm link repair
+
+[CodeRabbit inline 4236357377](https://github.com/unbraind/pm-web/pull/182#discussion_r4236357377)
+is valid at base `4ff3ec41fff7ea4e25d3155978f1bdf4bdc7ca9e`: Jev is
+`unreleased`, its committed registry receipt is `npmPublished: false`, and a
+fresh registry request returns HTTP 404. Its explicit npm URL nevertheless
+renders because the Packages card enumerates every supplied link.
+
+The server catalog and browser row contracts now make only `npm` optional.
+Jev omits that property and retains documentation, repository and issue links.
+The existing renderer is exported so tests can execute the production card
+function without substituting browser dependencies. Published package links
+still render. No SDK/dependency pin, application deadline, coverage threshold,
+source inventory or telemetry setup changes.
+
+`test/catalog-ui.test.ts` uses the real Jev entry and committed registry receipt.
+Its published control combines the real Graph entry with the installed
+published Graph package's own catalog links. Neither test mocks modules,
+network calls, DOM or database behavior. The snapshot assertion also rejects
+any npm link on an entry whose registry receipt says unpublished; the built
+catalog test requires Jev's exact remaining links. Each of the four existing
+packed scenarios additionally imports the installed catalog and browser card
+using its actual Node or native Bun runtime and checks rendered Jev links.
+All original host, standalone SDK, status, port and diagnostic checks remain.
+
+| Command or control | Result |
+| --- | --- |
+| `node --test test/catalog-ui.test.ts` before the catalog repair | 1/2 pass; Jev fails because the npm URL is present; published Graph passes. |
+| Restore only `src/services/package-catalog.ts` from base and run the same UI test | Exit 1, 1/2 pass; actual card HTML contains the forbidden npm anchor. Candidate source bytes are restored afterward. |
+| `node --test test/catalog.test.ts test/catalog-built.test.ts test/catalog-ui.test.ts` | 15/15 pass, zero skips. |
+| `pm test pm-web-s99c --run --only-last --progress` with the focused command linked | 15/15 pass, zero skips. |
+| `npm run build`, `npm run typecheck`, `npm run build:test`, `npm run lint` | Pass; generated server catalog JS, declaration and map match the source repair. |
+| `npm run duplication` and `npm run docstring` | Pass: zero duplicate lines across 45,021 lines and 156 sources; 95 files and 625 declarations documented. |
+| `pm test pm-web-s99c --run --only-last --progress` with `npm run accept:packed` linked | All four npm/native-Bun current/minimum-host scenarios pass, including installed catalog/card assertions. Hosts are 2026.10.9/2026.10.4; standalone SDK is 2026.10.9 throughout; all real status handlers return `down` on the expected ports without deprecated diagnostics. |
+| `pm test pm-web-hqqp --run --only-last --progress` | Existing focused graph check passes 1/1, zero skips; 2,000-item read is 4,495 ms. |
+| Final `npm run coverage` with the disposable database and canonical fleet environment | Exit 0; 492/492 tests, zero skips; all 34 configured server files reported and thresholds met. Instrumented 2,000-item read is 3,257 ms. |
+
+The initial linked `npm run coverage` invocation hits the PM runner's default
+120-second budget and exits with a timeout, so it supplies no accepted coverage
+evidence. The same coverage command is rerun directly against the newly created
+disposable PostgreSQL 17.10 fixture. Application test deadlines remain unchanged.
+The first complete direct run is 491/492, zero skips, and exits 1 solely on the
+unchanged ten-second graph assertion: 15,811 ms, 2,022 nodes and 23,063 edges.
+Its raw c8 totals are S/L 90.38%, B 80.25%, F 93.43% across the configured
+34 server files. These are rejected diagnostic figures; canonical reports are
+removed. The focused graph success does not accept that failed coverage run.
+Only coverage is repeated afterward, without packed-installation overlap.
+
+The final accepted report is 90.32% statements/lines, 80.18% branches and
+93.43% functions. Statements and lines are 10,321/11,426, leaving 1,105
+uncovered reporter counters each; branches are 1,768/2,205, leaving 437;
+functions are 256/274, leaving 18. Browser TypeScript and operational scripts
+remain outside the configured 34-server-file denominator. This is not all-source
+100% coverage. The base receipt at `4ff3ec` was S/L 90.32%, B 80.17%, F 93.43%
+with the same file count. All six genuine HTTP/SSE/PostgreSQL collaboration
+tests pass in the final suite. The earlier full-suite timing failure remains a
+separate measurement under pm-web-hqqp; final success does not erase it.
+
+Source/test/package/distribution SHA-256 is
+`fb5c50fef054e353db7e15434dc715226c60658e8defa71b4dd1597cd371648f`.
+It hashes each sorted repository-relative path, NUL, file bytes, NUL for 285
+tracked paths under `src`, `public`, `scripts`, `test`, `dist`, plus
+`package.json`, `package-lock.json`, `manifest.json`, `tsconfig.json`,
+`tsconfig.test.json`, `README.md` and `CHANGELOG.md`. The new UI test is included;
+PM metadata and this receipt document are outside the fingerprint. Source bytes
+remain identical through all checks and the negative-control restoration.
+
+| Receipt | SHA-256 |
+| --- | --- |
+| Initial red UI run | `76359f2afd1231110b64763abebd461f04a2b59c285379a0ec6337dfcb19d0c6` |
+| Source revert UI failure | `5d82c3fc1d5d0fa83f55a2094ff71601f2102cf937a02b2746accaa1ab583f10` |
+| Focused direct green | `b09c1c0533ee8762abb4fe1a8c6b6d71a365c929450bf56848dd8d3c36200d44` |
+| Focused linked green | `1e26b5b6061a246e466dba01fa65decc10b68bc743ca9f2df16acb8e0343f1ff` |
+| Four-scenario packed linked green | `4b5fbfccd47bd6ab85ed09a77d6b0dd6e9a0bb1902440cc25fe272571ed84b68` |
+| First complete, rejected coverage run | `356ea1b5031537b71ef8b8869d9a9dc6fd1e4f694d9f00cf4e4918a043c79f78` |
+| Focused graph linked green | `e6948a8eae234f0ca45fd70fbd4a89348f00f12d755e610a4dd3d9e3d9e8e622` |
+| Final accepted coverage run | `d36dded13b679d0bd053becfe608b1d558fde9105d85e09ad9c5afff766a21da` |
+| Accepted LCOV | `bed3f41e85781ce5ae356f36e51acaea989d56ab2b9f58b4a63ea39e7189dbf8` |
+| Accepted coverage summary | `9e7dac5def722b4e45e06b076b93516f0e4afaad35d773f42770d5eb1b837998` |
+
+Owner [pm-web-s99c](../.agents/pm/issues/pm-web-s99c.toon) retains the evidence.
+Feature owner pm-web-8pml, whole-source quality owner pm-web-fy9a, existing sync
+owners and companion crosslink owner pm-cli-website-session-2026-10-10 remain
+open. Required exact-head reviews, historical privacy work, development audit
+debt and hosted readiness are separate gates. No bot replies, PR description
+edits, merge, publication or deployment are part of this repair.
+Claims on pm-web-s99c, pm-web-hqqp and pm-web-8pml are released without closing.
+`pm history <id> --verify --strict-exit --json` passes for all three items with
+current hashes matching their latest history entries. The disposable database
+and packed fixtures are removed after verification.
+
 ## Prior baseline validation and limits
 
 The six production collaboration tests pass without skips on a new disposable

@@ -136,8 +136,8 @@ export interface PackageCatalogEntry {
    * were representable. See {@link PackageAvailability}.
    */
   readonly availability?: PackageAvailability;
-  /** Verified public documentation, registry, repository and issue links. */
-  readonly links?: Readonly<Record<"docs" | "npm" | "repository" | "report", string>>;
+  /** Public links; npm is present only when the registry serves the package. */
+  readonly links?: Readonly<Record<"docs" | "repository" | "report", string> & { npm?: string }>;
   /** Backing service the package needs (optional). */
   readonly requiresService?: ServiceRequirement;
   /** Credentials the user must configure (optional). */
@@ -262,7 +262,6 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     availability: "unreleased",
     links: {
       docs: "https://github.com/unbraind/pm-jev#readme",
-      npm: "https://www.npmjs.com/package/pm-jev",
       repository: "https://github.com/unbraind/pm-jev",
       report: "https://github.com/unbraind/pm-jev/issues",
     },

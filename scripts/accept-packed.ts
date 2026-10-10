@@ -26,6 +26,7 @@ interface AcceptanceReceipt {
   readonly command_status: "up" | "down";
   readonly command_port: number;
   readonly deprecated_diagnostic: false;
+  readonly unpublished_npm_link_omitted: true;
 }
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -199,6 +200,19 @@ try {
     if (/deprecated|list-all|list-open/iu.test(status.stderr)) {
       throw new Error(`${scenario.name} emitted a deprecated-command diagnostic: ${status.stderr.trim()}`);
     }
+    // Exercise the shipped catalog and browser card under the consumer's real
+    // runtime, after installation; local build imports cannot prove tarball contents.
+    run(scenario.manager === "bun" ? bunCommand : process.execPath, ["--input-type=module", "-e", `
+      import assert from "node:assert/strict";
+      import { findCatalogEntry } from "@unbrained/pm-web/dist/services/package-catalog.js";
+      import { renderPackageCard } from "@unbrained/pm-web/public/src/views/packages.js";
+      const jev = findCatalogEntry("pm-jev");
+      assert.equal(jev.availability, "unreleased");
+      assert.equal(jev.links.npm, undefined);
+      const html = renderPackageCard({ ...jev, installed: false });
+      assert.ok(!html.includes("npmjs.com"));
+      for (const url of Object.values(jev.links)) assert.ok(html.includes(url));
+    `], scenarioRoot, scenarioEnvironment);
     receipts.push({
       scenario: scenario.name,
       host_version: actualVersion,
@@ -206,6 +220,7 @@ try {
       command_status: result["status"],
       command_port: scenario.port,
       deprecated_diagnostic: false,
+      unpublished_npm_link_omitted: true,
     });
   }
 

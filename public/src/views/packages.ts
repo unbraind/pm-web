@@ -42,8 +42,8 @@ interface PackageRow {
    * version, so no install can succeed and the card must not offer one.
    */
   availability?: 'published' | 'unreleased';
-  /** Public package links supplied by the verified catalog. */
-  links?: Record<'docs' | 'npm' | 'repository' | 'report', string>;
+  /** Public links; npm is omitted until the registry serves the package. */
+  links?: Record<'docs' | 'repository' | 'report', string> & { npm?: string };
   requiresService?: { name: string; optional?: boolean };
   requiresCredentials?: Array<{ label: string; envVars: string[]; optional?: boolean }>;
   installed: boolean;
@@ -140,7 +140,7 @@ async function fetchAndRenderPackages(): Promise<void> {
  * @param row - The package catalog row to render.
  * @returns The card markup string.
  */
-function renderPackageCard(row: PackageRow): string {
+export function renderPackageCard(row: PackageRow): string {
   const statusChip = row.installed
     ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
     : `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.notInstalled'))}</span>`;

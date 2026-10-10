@@ -260,6 +260,10 @@ test("the catalog covers every fleet extension in the committed snapshot", () =>
   for (const extension of fleetSnapshot) {
     const entry = findCatalogEntry(extension.name);
     assert.ok(entry, `${extension.name} must be catalogued`);
+    if (!extension.npmPublished) {
+      assert.equal(entry.links?.npm, undefined,
+        `${extension.name}: an npm link requires a published registry receipt`);
+    }
     // Same rule the live-fleet assertion applies: a product extension mirrors
     // the manifest description, an authoring template mirrors the concise
     // package.json one.
