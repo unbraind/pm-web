@@ -166,8 +166,11 @@ means the rows may be short of the whole corpus. The public `/pm/list-all`
 HTTP compatibility route remains deliberately paginated for interactive clients,
 but invokes canonical `list --all` internally; consumers that need the whole
 workspace must use a complete-read endpoint rather than assembling a page as if
-it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.10.4, and
-the extension manifest refuses older hosts through the same compatibility floor.
+it were the corpus. The standalone server exact-pins its pm CLI/SDK in
+`package.json`. The extension manifest declares a separate supported-host minimum;
+packed acceptance exercises that minimum and the current SDK host under npm and
+native Bun. Dependency-only updates preserve the minimum unless those checks
+require a deliberate compatibility change. See [SDK update automation](docs/sdk-update-automation.md).
 Commands that render their own text or JSON (`web status`, `web stop`, and
 `web doctor`) return the public SDK output-suppression marker, so the host never
 appends a second payload to stdout.

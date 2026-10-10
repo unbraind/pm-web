@@ -1,0 +1,91 @@
+# SDK update automation
+
+Dependabot PR #181 changed the exact standalone SDK from 2026.10.4 to
+2026.10.6 while leaving `manifest.json` at 2026.10.4. The packaging test
+incorrectly treated a supported extension-host minimum as a duplicate SDK pin.
+
+The standalone server continues to depend on an exact runtime SDK. The manifest
+declares the oldest supported extension host separately. Dependency automation
+can update the SDK and lockfile without rewriting or generating a manifest.
+Packaging rejects missing or ranged versions and an SDK older than that floor.
+`accept:packed` reads the shipped manifest and tests npm and native Bun installs
+on both the minimum and current hosts. It checks the independently resolved
+standalone SDK version and executes the extension's real `web status` handler.
+An incompatible future update fails acceptance; changing the floor requires a
+deliberate manifest edit and the same acceptance checks.
+
+The candidate pins published SDK 2026.10.9, pm-ops 2026.10.6 and pm-changelog
+2026.10.5. The supported extension-host minimum remains 2026.10.4. The behavioral
+automation regression simulates dependency-only updates, including a year
+rollover, and rejects old SDKs, ranges and malformed floors. Restoring the
+original equality assertion makes the regression fail on the real SDK update.
+The future-version fixture proves packaging policy, not compatibility with an
+unpublished SDK; real packed acceptance remains mandatory for each update.
+
+Package owner: [pm-web-8pml](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-8pml.toon).
+Companion session: `../../.agents/pm/tasks/pm-cli-website-session-2026-10-10.toon`
+(relative to this package root).
+
+## Independent pending-PR assessment
+
+PR #175 at `d883781d6d134694bedddd65ad37011aa2cbcdea` passes 16 extracted
+catalog/discovery tests against the installed published SDK. Canonical identity,
+renamed checkouts, duplicate worktrees, conflicting metadata and built-catalog
+behavior are covered. The npm registry still returns 404 for pm-jev, consistent
+with the proposed unreleased entry. This isolated run does not establish current
+live-fleet snapshot fidelity.
+
+PR #176 at `bd233d67c55b8e7b2624143c3048ce628ab78d95` passes 74 extracted
+attestation tests, including its real Git/PM/inert-publisher indirection corpus.
+The extracted own-repository test initially failed because that scratch source
+directory had no tracked publish sources. Running the proposed verifier against
+the canonical package passes with one recognized, attested publish. This checks
+the supplemental guard with current pm-ops without changing either PR branch.
+
+All available review bodies and inline/issue comments were read, including the
+review-body material outside changed lines. The latest CodeRabbit bodies report
+no actionable findings. Greptile reports an expired trial, Sourcery reports an
+exhausted review budget, and cubic skipped. Recorded Node 22/26 CI is green for
+both heads, but GitHub reports both branches as conflicting. Neither PR is
+declared safe to merge until conflicts and missing required review evidence are
+resolved. No review bot was requested.
+
+## Validation limits
+
+The six production collaboration tests pass without skips on a new disposable
+PostgreSQL database and synthetic PM workspaces. They exercise real HTTP/SSE,
+concurrent writes, idempotent replay, graph failure nonmutation, watcher fanout,
+presence access control and the command lifecycle. These bounded tests do not
+establish hosted deployment, load capacity or production recovery.
+
+The existing coverage gate measures `src` only. Browser TypeScript and operational
+scripts remain outside that denominator; pm-web-fy9a owns whole-source coverage.
+Thresholds and source inclusion are unchanged. Strict PM health succeeds with
+stale-item advisories; PM validation separately reports existing metadata,
+resolution, file-link and linked-test trust warnings. Full development audit
+debt remains owned by pm-web-xucb.
+
+| Command | Result |
+| --- | --- |
+| `node --test test/packaging.test.ts test/sdk-update-automation.test.ts` | 5/5 pass, zero skips; restoring the original packaging assertion fails the new regression. |
+| `pm test pm-web-8pml --run --only-last --progress` | Linked automation test passes 1/1. |
+| `node scripts/with-test-db.ts node --test test/pm-collaboration.test.ts` | 6/6 pass, zero skips, with the externally supplied disposable database URL. |
+| `npm run release:check` | Exit 1 at coverage: 481/494 pass, 13 fail, zero skips. |
+| `npm run accept:packed` | Four scenarios pass: npm and native Bun, each on hosts 2026.10.4 and 2026.10.9, with independently resolved standalone SDK 2026.10.9. |
+| `npm run audit:prod` | Pass, zero vulnerabilities. Full development audit has four high findings. |
+| `npm run pack:dry-run` | Pass; build output remains identical to committed `dist`. |
+| `npm run changelog:full` and `npm run changelog:check` | Regenerated bytes are unchanged; check passes. |
+| `npm run verify:release-changelog-date` and `npm run verify:release-publish-attestation` | Both pass. |
+
+The failed release run's raw c8 totals are 90.04% statements, 90.04% lines,
+79.50% branches and 92.33% functions across 34 server source files. All configured
+numerical thresholds are met, but failed tests reject the measurement and remove
+the canonical reports. These figures are diagnostic evidence, not an accepted
+coverage receipt or all-source coverage.
+
+Four failures belong to catalog/snapshot work (pm-web-s99c and pm-web-cqwm).
+Eight failures reproduce the extensionless synthetic CLI module-scope defect
+(pm-web-sspv). The large graph case fails the 30-second generated-time parity
+tolerance before reaching its 10-second read-budget assertion (pm-web-hqqp).
+Its 118193 ms whole-test duration includes fixture generation and must not be
+reported as measured graph-read latency. All assertions remain intact.

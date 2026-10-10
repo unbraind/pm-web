@@ -6,13 +6,14 @@ status: open
 priority: 2
 tags: []
 created_at: "2026-10-07T22:48:36.158Z"
-updated_at: "2026-10-07T22:52:08.563Z"
+updated_at: "2026-10-10T03:00:46.447Z"
 author: codex-sol
 acceptance_criteria: Explain and reproduce the full-suite latency discrepancy; retain the 10000 ms budget and repository coverage thresholds; record standalone and full npm/Bun graph receipts.
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-38n5,related,"2026-10-07T22:48:36.158Z",codex-sol,"cli:create:dep",detected
-comments[1]{created_at,author,text}:
+comments[2]{created_at,author,text}:
   "2026-10-07T22:52:07.806Z",codex-sol,"Comparison receipt: standalone pm-linked graph acceptance passed at 2513 ms; npm run release:check failed the 10000 ms read budget at 10959 ms; bun run release:check passed that same assertion at 8297 ms. Both full runs executed 493 tests with zero skips. Root cause is unproven; investigate suite instrumentation and read cost without changing thresholds. Existing fixture failures are separately tracked in pm-web-cqwm and pm-web-sspv."
+  "2026-10-10T03:00:46.447Z",codex-sol,"SDK update candidate full unchanged coverage run fails large-corpus graph acceptance before reaching its 10000 ms assertion: the generatedAt parity assertion exceeds its 30000 ms tolerance. Whole test duration is 118193 ms, including fixture generation, so that is not a measured graph-read duration. Small generated graph parity and deterministic concurrent-create tests pass. Preserve both timing assertions; raw failed-run coverage is 90.04% statements/lines, 79.50% branches, 92.33% functions and no accepted coverage receipt remains."
 files[3]{path,scope}:
   test/graph-export-fidelity.test.ts,project
   src/services/pm-runner.ts,project

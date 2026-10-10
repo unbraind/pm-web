@@ -1,7 +1,9 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
+import type { ExtensionManifest } from "@unbrained/pm-cli/sdk";
 
 /** Package fields that define the packed standalone-host acceptance contract. */
 interface PackageContract {
@@ -13,12 +15,14 @@ interface AcceptanceScenario {
   readonly name: string;
   readonly manager: "npm" | "bun";
   readonly port: number;
+  readonly hostVersion: string;
 }
 
 /** Machine-readable proof emitted for a successful packed installation. */
 interface AcceptanceReceipt {
   readonly scenario: string;
   readonly host_version: string;
+  readonly standalone_sdk_version: string;
   readonly command_status: "up" | "down";
   readonly command_port: number;
   readonly deprecated_diagnostic: false;
@@ -28,8 +32,13 @@ const repoRoot = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as PackageContract;
 const cliPackage = "@unbrained/pm-cli";
 const hostVersion = manifest.dependencies[cliPackage];
+const extension = JSON.parse(readFileSync(join(repoRoot, "manifest.json"), "utf8")) as ExtensionManifest;
+const minimumHostVersion = extension.pm_min_version;
 if (!/^\d+\.\d+\.\d+$/u.test(hostVersion ?? "")) {
   throw new Error(`package.json must exact-pin ${cliPackage} as a runtime dependency`);
+}
+if (!minimumHostVersion || !/^\d+\.\d+\.\d+$/u.test(minimumHostVersion)) {
+  throw new Error("manifest.json must declare an exact minimum host version for packed acceptance");
 }
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -93,7 +102,7 @@ function runPm(
 ): SpawnSyncReturns<string> {
   return scenario.manager === "npm"
     ? run(npxLauncher.command, [...npxLauncher.prefix, "--no-install", "pm", ...args], cwd, env)
-    : run(bunxCommand, ["--no-install", "pm", ...args], cwd, env);
+    : run(bunxCommand, ["--bun", "--no-install", "pm", ...args], cwd, env);
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));
@@ -112,8 +121,10 @@ try {
   }
   const tarball = join(packRoot, packedNames[0]!);
   const scenarios: readonly AcceptanceScenario[] = [
-    { name: "npm-current", manager: "npm", port: 61113 },
-    { name: "bun-current", manager: "bun", port: 61114 },
+    { name: "npm-current", manager: "npm", port: 61113, hostVersion },
+    { name: "bun-current", manager: "bun", port: 61114, hostVersion },
+    { name: "npm-minimum", manager: "npm", port: 61115, hostVersion: minimumHostVersion },
+    { name: "bun-minimum", manager: "bun", port: 61116, hostVersion: minimumHostVersion },
   ];
   const receipts: AcceptanceReceipt[] = [];
 
@@ -137,18 +148,27 @@ try {
       run(npmLauncher.command, [...npmLauncher.prefix, "init", "-y"], scenarioRoot, scenarioEnvironment);
       run(
         npmLauncher.command,
-        [...npmLauncher.prefix, "install", "--ignore-scripts", tarball],
+        [...npmLauncher.prefix, "install", "--omit=dev", "--ignore-scripts", tarball, `${cliPackage}@${scenario.hostVersion}`],
         scenarioRoot,
         scenarioEnvironment,
       );
     } else {
       run(bunCommand, ["init", "-y"], scenarioRoot, scenarioEnvironment);
-      run(bunCommand, ["add", "--ignore-scripts", tarball], scenarioRoot, scenarioEnvironment);
+      run(bunCommand, ["add", "--ignore-scripts", tarball, `${cliPackage}@${scenario.hostVersion}`], scenarioRoot, scenarioEnvironment);
     }
 
     const actualVersion = runPm(scenario, scenarioRoot, scenarioEnvironment, ["--version"]).stdout.trim();
-    if (actualVersion !== hostVersion) {
-      throw new Error(`${scenario.name} resolved pm ${actualVersion}, expected ${hostVersion}`);
+    if (actualVersion !== scenario.hostVersion) {
+      throw new Error(`${scenario.name} resolved pm ${actualVersion}, expected ${scenario.hostVersion}`);
+    }
+    // Resolve from the installed server, not the consumer's host. A minimum
+    // host install may intentionally carry a separate, newer standalone SDK.
+    const serverRequire = createRequire(join(scenarioRoot, "node_modules", "@unbrained", "pm-web", "package.json"));
+    const standaloneCli = resolve(dirname(serverRequire.resolve(`${cliPackage}/sdk`)), "..", "cli.js");
+    const standaloneVersion = run(scenario.manager === "bun" ? bunCommand : process.execPath,
+      [standaloneCli, "--version"], scenarioRoot, scenarioEnvironment).stdout.trim();
+    if (standaloneVersion !== hostVersion) {
+      throw new Error(`${scenario.name} standalone SDK resolved ${standaloneVersion}, expected ${hostVersion}`);
     }
     runPm(scenario, scenarioRoot, scenarioEnvironment, [
       "init",
@@ -176,6 +196,7 @@ try {
     receipts.push({
       scenario: scenario.name,
       host_version: actualVersion,
+      standalone_sdk_version: standaloneVersion,
       command_status: result["status"],
       command_port: scenario.port,
       deprecated_diagnostic: false,
