@@ -7,20 +7,27 @@ below remains the immutable tested-tree inventory, rather than claiming that
 its digest describes the later documentation edits. Runtime source, tests,
 gates, package metadata, lockfile and all 262 archived files are unchanged.
 
-Source commit: `01b82d6f111b80b0b1412abb0707f79c3b1bd44e`. The final metadata head is the commit containing this
-receipt and its paired PM update; it is reported at handoff. Only pm-web-8pml is
-touched, under author `codex-sol-8pml-20261010`; the claim remains released and
-all items remain unclosed. No source, test, gate or distribution edit was needed.
+At tested head `df2e7aa6ae0469965bf2e858027d60a250fd0329`, source commit
+`01b82d6f111b80b0b1412abb0707f79c3b1bd44e` was followed by the original receipt
+and pm-web-8pml metadata under author `codex-sol-8pml-20261010`. That original
+renewal touched only the SDK owner. Later review follow-ups update documentation
+and the paired pm-web-8pml/pm-web-xucb records under author `codex`; they are
+identified separately in Git history and the PR. Claims remain released and all
+items remain unclosed. Runtime, tests, gates and distribution bytes are unchanged.
 
 Frozen inventory: `613` paths, byte SHA-256
 `2ed20c143671f2b08370444b01f7b3fc94b666c76e837343ba5a94c76689bb3c`. Inventory artifact SHA-256:
 `635ac25e59b8ea578990e49773e92c9367a6518b79c2b13397854f1cb56da9fa`.
 The inventory contains each relative path, Git blob SHA-1 and file SHA-256.
-Only the own mutable TOON/history, inventory itself and this receipt are outside
-its recursive digest. The inventory is itself committed and separately hashed;
-all other tracked bytes, including other PM owners, remain frozen. The source
-commit and final metadata commit differ only in this receipt and paired own PM
-metadata. Fresh builds produce identical committed distribution bytes.
+At tested head `df2e7aa6ae0469965bf2e858027d60a250fd0329`, only the original
+pm-web-8pml TOON/history, inventory itself and this receipt are outside its
+recursive digest. The inventory is committed and separately hashed. The
+original source-to-tested-head metadata delta contains this receipt and paired
+SDK-owner metadata. Later documentation and paired 8pml/xucb updates have
+separate byte-comparison receipts; the frozen inventory does not certify their
+metadata bytes. Runtime, tests, gates, package/lock and all 262 archived files
+retain their tested bytes. Fresh builds at the tested tree reproduced the
+committed distribution bytes.
 
 Both unchanged release links run on the exact source commit. Original limits
 remain 1800 seconds (link 7) and 2400 seconds (link 3); packed commands retain
@@ -101,13 +108,15 @@ certification for hosted resources.
 All 152 starting history-file byte prefixes are preserved. The SDK owner's
 original prefix is 98 events / 163816 bytes, SHA-256
 `fd0eb9eda8d70f91a9ac3c570794674d6f02b8495ed75e26b91d0691f448e0bb`.
-Eleven related owner chains verify strictly with matching latest/current hashes;
-only the SDK owner changes. Own claim release precedes source freeze and the
+At the tested head, eleven related owner chains verify strictly with matching
+latest/current hashes; only the SDK owner changed in that renewal. Subsequent
+review follow-ups update both 8pml and xucb, with their paired histories verified
+separately. The original claim release precedes source freeze and the
 package-owned `npm run changelog:full`; regenerated changelog bytes are unchanged.
 Strict pinned health passes with 13 stale-item advisories; validation returns
 `ok: true` with existing metadata, resolution, file-link and trust warnings.
 
-Final owner strict history: 114 events, item hash
+Tested-head SDK-owner strict history: 114 events, item hash
 `7c07a23f324ab748143c7055275f47c9e595d74dfddf96e10c717d2ab3998507`, latest/current match.
 
 Raw outputs and deadlines remain local; tracked receipts contain hashes and
