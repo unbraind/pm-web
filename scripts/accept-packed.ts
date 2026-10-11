@@ -1,7 +1,9 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
+import type { ExtensionManifest } from "@unbrained/pm-cli/sdk";
 
 /** Package fields that define the packed standalone-host acceptance contract. */
 interface PackageContract {
@@ -13,29 +15,36 @@ interface AcceptanceScenario {
   readonly name: string;
   readonly manager: "npm" | "bun";
   readonly port: number;
+  readonly hostVersion: string;
 }
 
 /** Machine-readable proof emitted for a successful packed installation. */
 interface AcceptanceReceipt {
   readonly scenario: string;
   readonly host_version: string;
+  readonly standalone_sdk_version: string;
   readonly command_status: "up" | "down";
   readonly command_port: number;
   readonly deprecated_diagnostic: false;
+  readonly unpublished_npm_link_omitted: true;
 }
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as PackageContract;
 const cliPackage = "@unbrained/pm-cli";
 const hostVersion = manifest.dependencies[cliPackage];
+const extension = JSON.parse(readFileSync(join(repoRoot, "manifest.json"), "utf8")) as ExtensionManifest;
+const minimumHostVersion = extension.pm_min_version;
 if (!/^\d+\.\d+\.\d+$/u.test(hostVersion ?? "")) {
   throw new Error(`package.json must exact-pin ${cliPackage} as a runtime dependency`);
+}
+if (!minimumHostVersion || !/^\d+\.\d+\.\d+$/u.test(minimumHostVersion)) {
+  throw new Error("manifest.json must declare an exact minimum host version for packed acceptance");
 }
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
 const bunCommand = process.platform === "win32" ? "bun.exe" : "bun";
-const bunxCommand = process.platform === "win32" ? "bunx.exe" : "bunx";
 const npmCli = process.env.npm_execpath?.endsWith(".js") ? process.env.npm_execpath : undefined;
 const npmLauncher = npmCli === undefined
   ? { command: npmCommand, prefix: [] as string[] }
@@ -84,16 +93,23 @@ function run(
   return result;
 }
 
-/** Invoke the scenario-local pm host through the package manager's public launcher. */
+/** Invoke the installed host with npm's launcher or directly in the native Bun runtime. */
 function runPm(
   scenario: AcceptanceScenario,
   cwd: string,
   env: NodeJS.ProcessEnv,
   args: string[],
 ): SpawnSyncReturns<string> {
-  return scenario.manager === "npm"
-    ? run(npxLauncher.command, [...npxLauncher.prefix, "--no-install", "pm", ...args], cwd, env)
-    : run(bunxCommand, ["--no-install", "pm", ...args], cwd, env);
+  if (scenario.manager === "npm") {
+    return run(npxLauncher.command, [...npxLauncher.prefix, "--no-install", "pm", ...args], cwd, env);
+  }
+  const installedRequire = createRequire(join(cwd, "package.json"));
+  const packagePath = installedRequire.resolve(`${cliPackage}/package.json`);
+  const installed = JSON.parse(readFileSync(packagePath, "utf8")) as { bin?: { pm?: string } };
+  if (typeof installed.bin?.pm !== "string") throw new Error("Installed host does not declare its pm binary");
+  // bunx --bun also redirects child `node` commands to Bun, including npm.
+  // Execute the genuine PM entry with Bun while retaining Node for its npm child.
+  return run(bunCommand, [resolve(dirname(packagePath), installed.bin.pm), ...args], cwd, env);
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));
@@ -112,8 +128,10 @@ try {
   }
   const tarball = join(packRoot, packedNames[0]!);
   const scenarios: readonly AcceptanceScenario[] = [
-    { name: "npm-current", manager: "npm", port: 61113 },
-    { name: "bun-current", manager: "bun", port: 61114 },
+    { name: "npm-current", manager: "npm", port: 61113, hostVersion },
+    { name: "bun-current", manager: "bun", port: 61114, hostVersion },
+    { name: "npm-minimum", manager: "npm", port: 61115, hostVersion: minimumHostVersion },
+    { name: "bun-minimum", manager: "bun", port: 61116, hostVersion: minimumHostVersion },
   ];
   const receipts: AcceptanceReceipt[] = [];
 
@@ -137,18 +155,27 @@ try {
       run(npmLauncher.command, [...npmLauncher.prefix, "init", "-y"], scenarioRoot, scenarioEnvironment);
       run(
         npmLauncher.command,
-        [...npmLauncher.prefix, "install", "--ignore-scripts", tarball],
+        [...npmLauncher.prefix, "install", "--omit=dev", "--ignore-scripts", tarball, `${cliPackage}@${scenario.hostVersion}`],
         scenarioRoot,
         scenarioEnvironment,
       );
     } else {
       run(bunCommand, ["init", "-y"], scenarioRoot, scenarioEnvironment);
-      run(bunCommand, ["add", "--ignore-scripts", tarball], scenarioRoot, scenarioEnvironment);
+      run(bunCommand, ["add", "--ignore-scripts", tarball, `${cliPackage}@${scenario.hostVersion}`], scenarioRoot, scenarioEnvironment);
     }
 
     const actualVersion = runPm(scenario, scenarioRoot, scenarioEnvironment, ["--version"]).stdout.trim();
-    if (actualVersion !== hostVersion) {
-      throw new Error(`${scenario.name} resolved pm ${actualVersion}, expected ${hostVersion}`);
+    if (actualVersion !== scenario.hostVersion) {
+      throw new Error(`${scenario.name} resolved pm ${actualVersion}, expected ${scenario.hostVersion}`);
+    }
+    // Resolve from the installed server, not the consumer's host. A minimum
+    // host install may intentionally carry a separate, newer standalone SDK.
+    const serverRequire = createRequire(join(scenarioRoot, "node_modules", "@unbrained", "pm-web", "package.json"));
+    const standaloneCli = resolve(dirname(serverRequire.resolve(`${cliPackage}/sdk`)), "..", "cli.js");
+    const standaloneVersion = run(scenario.manager === "bun" ? bunCommand : process.execPath,
+      [standaloneCli, "--version"], scenarioRoot, scenarioEnvironment).stdout.trim();
+    if (standaloneVersion !== hostVersion) {
+      throw new Error(`${scenario.name} standalone SDK resolved ${standaloneVersion}, expected ${hostVersion}`);
     }
     runPm(scenario, scenarioRoot, scenarioEnvironment, [
       "init",
@@ -173,12 +200,27 @@ try {
     if (/deprecated|list-all|list-open/iu.test(status.stderr)) {
       throw new Error(`${scenario.name} emitted a deprecated-command diagnostic: ${status.stderr.trim()}`);
     }
+    // Exercise the shipped catalog and browser card under the consumer's real
+    // runtime, after installation; local build imports cannot prove tarball contents.
+    run(scenario.manager === "bun" ? bunCommand : process.execPath, ["--input-type=module", "-e", `
+      import assert from "node:assert/strict";
+      import { findCatalogEntry } from "@unbrained/pm-web/dist/services/package-catalog.js";
+      import { renderPackageCard } from "@unbrained/pm-web/public/src/views/packages.js";
+      const jev = findCatalogEntry("pm-jev");
+      assert.equal(jev.availability, "unreleased");
+      assert.equal(jev.links.npm, undefined);
+      const html = renderPackageCard({ ...jev, installed: false });
+      assert.ok(!html.includes("npmjs.com"));
+      for (const url of Object.values(jev.links)) assert.ok(html.includes(url));
+    `], scenarioRoot, scenarioEnvironment);
     receipts.push({
       scenario: scenario.name,
       host_version: actualVersion,
+      standalone_sdk_version: standaloneVersion,
       command_status: result["status"],
       command_port: scenario.port,
       deprecated_diagnostic: false,
+      unpublished_npm_link_omitted: true,
     });
   }
 

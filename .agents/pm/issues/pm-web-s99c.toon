@@ -2,14 +2,87 @@ id: pm-web-s99c
 title: Refresh the package catalog and fleet snapshot for pm-jev
 description: "The optional live-fleet catalog integration now discovers pm-jev, but the package catalog and committed fleet snapshot omit it. Four assertions fail against that live fleet. Refresh package metadata and registry publication evidence in a separate catalog change; coverage work must retain those assertions."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:18:01.915Z"
-updated_at: "2026-10-07T21:10:40.030Z"
+updated_at: "2026-10-10T07:12:47.462Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Current package catalog and committed fleet snapshot include verified pm-jev metadata and all optional live-fleet completeness assertions pass.
-comments[1]{created_at,author,text}:
+actual_result: "PR182 renewed directory-order nit5477988575 fixed with locale-independent lexicographic sort before existing discovery; same2 real assignments assert exact first-folder full metadata and second-folder conflict. Host old-source baseline3/3 passes, so cross-platform contract correction without fabricated revert failure. New full linked release492/492 zero skips; configured34 src S/L90.33 B80.10 F93.43; packed npm/nativeBun4/4 hosts10.4/10.9, standaloneSDK10.9. Source/distribution rebuilt and fingerprint stable. Strict owner history verified; local pinned health blocked by managed extension10.10 versusSDK10.9. Owners/reviews/whole-source/privacy/dev4high/graph/concurrency/hosted gates open, SDK4 hosting unchanged; no closure/deployment."
+comments[15]{created_at,author,text}:
   "2026-10-07T21:10:40.030Z",codex-sol,Read-only canonical fleet validation during the attestation task confirms pm-jev is present in the fleet but absent from the committed 20-extension catalog/snapshot. The live fleet comparison fails. No catalog or snapshot change is included in the attestation task.
+  "2026-10-10T03:00:48.106Z",codex-sol,"SDK update candidate full unchanged release run still fails four catalog checks: membership, resolvable fleet manifests, missing pm-jev, and snapshot fidelity. Independent PR #175 source/discovery/built-catalog tests pass 16/16, and npm still returns 404 for pm-jev. GitHub reports #175 conflicting at d883781d6d134694bedddd65ad37011aa2cbcdea; CodeRabbit reports no actionable findings while other requested reviews are unavailable. Do not conflate this bounded isolated check with live fleet freshness or merge approval."
+  "2026-10-10T03:15:11.510Z",codex-sol,"PR175 at d883781d6d134694bedddd65ad37011aa2cbcdea already implements pm-jev metadata, registry availability, UI links and built real-SDK acceptance. Reuse those relevant hunks on PR182; no independent catalog design or imported tracker owners. Regenerate the snapshot from current canonical metadata and registry instead of copying a dated receipt."
+  "2026-10-10T04:07:49.305Z",codex-sol,"Verification receipt is recorded in docs/sdk-update-automation.md and linked from pm-web-8pml: complete release490/490,zero skips; packed npm/nativeBun4/4, six real disposablePostgreSQL collaboration tests. Keep item unclosed for independent orchestrator verification."
+  "2026-10-10T04:47:33.719Z",codex-sol,"Continue existing PR #182 at clean base 4ff3ec41fff7ea4e25d3155978f1bdf4bdc7ca9e. Verify CodeRabbit inline 4236357377 against real catalog, UI contracts and registry snapshot; repair only unsupported npm links, preserve published links, add real catalog/UI regression and source revert proof. Feature owner pm-web-8pml and whole-source quality owner pm-web-fy9a remain open; companion owner pm-cli-website-session-2026-10-10 owns crosslinks. No dependency, threshold, deadline, telemetry or hosted change."
+  "2026-10-10T04:49:24.888Z",codex-sol,"Finding confirmed: live registry GET pm-jev returns 404; committed snapshot npmPublished:false and availability:unreleased. Both link contracts required npm and the renderer enumerated Jev's explicit URL. New real catalog/UI regression fails baseline (1/2), while published Graph links from the installed package metadata pass. Make only npm optional, omit Jev URL, retain docs/repository/report, and preserve published links and four packed npm/native-Bun scenarios. Quota refreshed: codex forecast 44 percent, 70 percent remaining; no subagent launch needed."
+  "2026-10-10T04:51:51.208Z",codex-sol,"Source revert proof restores only package-catalog.ts from base 4ff3ec; the new real UI regression fails on the rendered Jev npm anchor (1/2), while published Graph control still passes. Restoring candidate bytes yields 15/15 focused catalog/built/UI tests, zero skips. Build, lint, server/browser and test typechecks pass. Extend the existing four packed scenarios with imports of the installed tarball catalog/browser renderer under each actual Node/native-Bun runtime; retain all original SDK/host/status checks."
+  "2026-10-10T04:53:08.024Z",codex-sol,"The linked coverage invocation exhausted pm test's default 120-second runner budget and returned a timeout; this is missing coverage evidence, not an assertion pass. Run the same npm run coverage command directly against the own disposable PostgreSQL fixture. Application deadlines, coverage thresholds and source inventory remain unchanged. Packed acceptance is independently running with all four original scenarios and the new installed-catalog/UI contract checks."
+  "2026-10-10T04:55:43.119Z",codex-sol,"Final source/test/package/distribution fingerprint is fb5c50fef054e353db7e15434dc715226c60658e8defa71b4dd1597cd371648f over 285 sorted repository-relative paths (path NUL bytes NUL, SHA-256). Build and both source/test typechecks pass; lint passes; duplication remains 0 percent over 45021 lines and 156 sources; docstring gate passes 95 files and 625 declarations. PM health ok with 13 stale-item advisories; validation ok with existing metadata/file-link/linked-trust warnings. Full coverage and four-scenario installed tarball checks remain pending; do not infer release readiness."
+  "2026-10-10T05:05:31.803Z",codex-sol,"First complete direct coverage run exits 1: 491/492 tests pass, zero skips; sole failure is unchanged 2000-item graph bound at 15811 ms (pm-web-hqqp). All catalog/UI, built package, snapshot, route and six real collaboration tests pass. Focused existing large-corpus check subsequently passes 1/1 at 4495 ms after all four packed scenarios pass. Canonical coverage reports are correctly invalidated. Repeat only unchanged coverage now, without packed installation overlap; no source, deadline, threshold or exclusion changes."
+  "2026-10-10T05:13:10.938Z",codex-sol,"Final unchanged coverage retry exits 0: 492/492 tests, zero skips, all 34 configured server files present. Accepted c8 S/L 90.32 percent (10321/11426, 1105 remaining each), B 80.18 (1768/2205, 437 remaining), F 93.43 (256/274, 18 remaining). Browser/tooling source remains outside the denominator; no all-source 100-percent claim. Instrumented 2000-item graph read 3257 ms; all six genuine collaboration tests pass. Retain earlier linked timeout and complete 491/492 timing-failure receipts, focused 4495 ms success, all four packed passes and real source-revert failure. Source fingerprint fb5c50fef054e353db7e15434dc715226c60658e8defa71b4dd1597cd371648f remains unchanged. Receipts are in docs/sdk-update-automation.md. Required exact-head reviews, whole-source quality, development audit, historical privacy and hosted readiness stay open. Release claim without closing; no bots, merge, publication or deployment."
+  "2026-10-10T05:35:32.684Z",codex-sol,"CodeRabbit4236540807 verified on real filesystem. With two directory/name assignments, the prior assertion fails because the conflict record can be retained. Corrected assertion accepts exactly either full metadata record and still requires a conflict diagnostic. Complete existing discovery file3/3, zero skips; test typechecking and lint pass. No scanner, production, distribution, dependencies, timing bounds, coverage thresholds or exclusions changed. Earlier492/492 and4 packed gates are receipts for af430dd; renewed exact-head CI/review remains required. docs/sdk-update-automation.md records this correction."
+  "2026-10-10T06:59:26.253Z",codex-sol,"Renewed PR182 review 5477988575 verified on 97de322: directory enumeration controls the retained conflicting worktree record. Sort actual string-named Dirent entries lexicographically before the existing loop; preserve complete metadata and explicit conflict refusal. Tighten the existing two real folder assignments without mocked filesystem counts or duplicate tests. Check real host ordering honestly before asserting old-behavior failure; rerun full current-source and four packed host/runtime gates under pm-web-8pml."
+  "2026-10-10T06:59:58.863Z",codex-sol,"The tightened real-layout baseline passes 3/3 on this host: actual directory enumeration already selects first lexicographically in both assignments. This is an explicit cross-platform contract correction, not fabricated fail-on-revert proof. Installed Node types define Dirent<Name extends string | Buffer = string>; the withFileTypes:true default encoding overload returns Dirent<string>[]. Sort string names using code-unit comparisons without locale dependence; preserve every candidate field and require the exact second-folder conflict plus all malformed diagnostics."
+  "2026-10-10T07:12:43.213Z",codex-sol,"Renewed review5477988575 repaired: locale-independent lexicographic entry sort before the existing discovery loop, complete retained metadata and conflict refusal unchanged. Existing two real folder assignments now select exact first-folder metadata and require exact second-folder conflict plus all malformed diagnostics. Tightened baseline3/3 already passes on this host: honest cross-platform contract correction, no fail-on-revert claim. New full linked release gate passes492/492 zero skips; configured34-source S/L90.33 B80.10 F93.43; all4 packed npm/nativeBun minimum/current hosts pass. Source fingerprint6f02e7d92d3b78c1e68e284f3b78d7983ed4c45889693573e3fa26102f6ec7a8 unchanged. docs/sdk-update-automation.md records commands and receipts. Keep owner open; historical af430dd receipts superseded only for this candidate, independent gates remain."
+files[15]{path,scope}:
+  dist/services/fleet-snapshot.d.ts,project
+  dist/services/fleet-snapshot.js,project
+  dist/services/fleet-snapshot.js.map,project
+  dist/services/package-catalog.d.ts,project
+  dist/services/package-catalog.js,project
+  dist/services/package-catalog.js.map,project
+  public/src/views/packages.ts,project
+  scripts/accept-packed.ts,project
+  src/services/fleet-snapshot.ts,project
+  src/services/package-catalog.ts,project
+  test/catalog-built.test.ts,project
+  test/catalog-ui.test.ts,project
+  test/catalog.test.ts,project
+  test/fleet-extensions.snapshot.json,project
+  test/fleet-snapshot.test.ts,project
+tests[5]:
+  - command: node --test test/catalog.test.ts test/catalog-built.test.ts test/fleet-snapshot.test.ts
+    scope: project
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-10T03:18:47.259Z"
+      source_kind: merge_union
+      source_ref: fix/sdk-manifest-automation-2026-10-9
+  - command: node --test test/catalog.test.ts test/catalog-built.test.ts test/catalog-ui.test.ts
+    scope: project
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-10T04:49:27.832Z"
+      source_kind: merge_union
+      source_ref: fix/sdk-manifest-automation-2026-10-9
+  - command: npm run coverage
+    scope: project
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-10T04:50:48.351Z"
+      source_kind: merge_union
+      source_ref: fix/sdk-manifest-automation-2026-10-9
+  - command: "npm run accept:packed"
+    scope: project
+    timeout_seconds: 2400
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-10T04:52:04.771Z"
+      source_kind: merge_union
+      source_ref: fix/sdk-manifest-automation-2026-10-9
+  - command: node --test test/fleet-snapshot.test.ts
+    path: test/fleet-snapshot.test.ts
+    scope: project
+    timeout_seconds: 120
+    pm_context_mode: none
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-10T05:35:32.176Z"
+      source_kind: merge_union
+      source_ref: fix/sdk-manifest-automation-2026-10-9
+docs[1]{path,scope}:
+  docs/sdk-update-automation.md,project
 body: ""

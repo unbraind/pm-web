@@ -134,6 +134,16 @@ pm web doctor --json
 
 New pm-web projects configure local Ollama search automatically and install the `pm-graph` package into the project workspace (from npm, via the per-project package catalog). Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
 
+The Packages view lists [pm-jev](https://github.com/unbraind/pm-jev#readme)
+with its `commands` and `schema` capabilities and verified public links.
+It remains **unreleased**, with installation disabled while the registry answers
+404. Ollama is the local default; the optional TypeSafe hosted provider requires
+credentials and explicit `jev.allow_external: true`.
+Catalog discovery validates canonical manifest/package/repository identity and
+collapses equivalent worktrees; conflicting metadata fails the gate. See
+[SDK and catalog certification](docs/sdk-update-automation.md), including the
+relationship to the existing catalog PR.
+
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
 
 Latency-bounded native pm operations run through the typed `PmClient` SDK in the
@@ -156,7 +166,7 @@ was disconnected. These recovery signals contain no item content and stay
 local to the recovering process; PostgreSQL notifications are transient and
 are not a durable event replay mechanism.
 
-Whole-project graph fallback, board, local search, iCalendar, and export reads
+Whole-project graph, board, local search, iCalendar, and export reads
 use the SDK's high-level `listAllComplete` operation. pm-web accepts those rows
 only after the shared SDK certificate agrees. Since pm CLI 2026.8.31, the SDK
 certifies the source counters, omission receipt, output receipt, and truncation
@@ -166,8 +176,11 @@ means the rows may be short of the whole corpus. The public `/pm/list-all`
 HTTP compatibility route remains deliberately paginated for interactive clients,
 but invokes canonical `list --all` internally; consumers that need the whole
 workspace must use a complete-read endpoint rather than assembling a page as if
-it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.9.7, and
-the extension manifest refuses older hosts through the same compatibility floor.
+it were the corpus. The standalone server exact-pins its pm CLI/SDK in
+`package.json`. The extension manifest declares a separate supported-host minimum;
+packed acceptance exercises that minimum and the current SDK host under npm and
+native Bun. Dependency-only updates preserve the minimum unless those checks
+require a deliberate compatibility change. See [SDK update automation](docs/sdk-update-automation.md).
 Commands that render their own text or JSON (`web status`, `web stop`, and
 `web doctor`) return the public SDK output-suppression marker, so the host never
 appends a second payload to stdout.
@@ -238,7 +251,8 @@ live `pm contracts` statuses for its columns:
 - `GET /api/projects/:projectId/pm/search?q=<text>` — case-insensitive full-text
   search over id, title, tags and body.
 - `GET /api/projects/:projectId/pm/schema` — runtime types/statuses (existing).
-- `GET /api/projects/:projectId/pm/graph` — dependency graph (existing).
+- `GET /api/projects/:projectId/pm/graph` — complete observational graph matching
+  the pinned pm-graph default export; see [graph export fidelity](docs/GRAPH_READS.md).
 - `GET /api/projects/:projectId/pm/calendar.ics` — RFC 5545 iCalendar feed of
   item deadlines (see below).
 

@@ -31,81 +31,12 @@ const FLEET_ROOT = process.env.PM_FLEET_ROOT
   ? path.resolve(process.env.PM_FLEET_ROOT)
   : path.resolve(packageRoot, "..");
 
-interface Manifest {
-  name?: string;
-  description?: string;
-  capabilities?: string[];
-}
-
-interface PackageJson {
-  name?: string;
-  description?: string;
-  /**
-   * Present exactly on the fleet packages that are publishable to npm; `npm
-   * publish` reads it, so its presence is the local fact that decides whether
-   * a released version can exist for this package at all.
-   */
-  publishConfig?: { access?: string };
-}
-
-function readManifest(pkg: string): Manifest | null {
-  const manifestPath = path.join(FLEET_ROOT, pkg, "manifest.json");
-  if (!existsSync(manifestPath)) return null;
-  try {
-    return JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
-  } catch {
-    return null;
-  }
-}
-
-function readPackageJson(pkg: string): PackageJson | null {
-  const pkgPath = path.join(FLEET_ROOT, pkg, "package.json");
-  if (!existsSync(pkgPath)) return null;
-  try {
-    return JSON.parse(readFileSync(pkgPath, "utf8")) as PackageJson;
-  } catch {
-    return null;
-  }
-}
-
-// The exhaustive set of every published pm package the catalog must expose,
-// per the product requirement that pm-web offers ALL available pm packages.
-// `pm-web` itself is the host and is deliberately absent. The two starter
-// packages are authoring reference templates (category "template") that sort
-// last; the rest are user-facing product extensions (category "extension").
-// The expected catalog membership is DERIVED, never restated. A second
-// hardcoded list would drift from the fleet exactly as the catalog itself
-// can, so it would move the bug rather than catch it. A pm extension is a
-// fleet directory shipping a `manifest.json` that declares `capabilities`;
-// pm-web is the host and pm-cli is the CLI, so neither is an extension of it.
-const CATALOG_HOSTS = new Set(["pm-web", "pm-cli"]);
-
-/**
- * Every pm extension resolvable as a sibling of this package, or an empty
- * array when the siblings are not present.
- *
- * `FLEET_ROOT` defaults to this package's parent directory, which EXISTS in a
- * standalone checkout too — it is just some unrelated directory that holds no
- * pm packages. Testing for the directory is therefore not a test for the
- * fleet; only finding pm extensions in it is. An empty result means "siblings
- * unavailable here", never "the fleet is empty".
- */
-function fleetExtensionNames(): readonly string[] {
-  if (!existsSync(FLEET_ROOT)) return [];
-  let entries;
-  try {
-    entries = readdirSync(FLEET_ROOT, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  return entries
-    .filter((entry) => entry.isDirectory() && !CATALOG_HOSTS.has(entry.name))
-    .map((entry) => entry.name)
-    .filter((name) => Array.isArray(readManifest(name)?.capabilities))
-    .sort();
-}
-
-const FLEET_EXTENSIONS = fleetExtensionNames();
+// Canonical metadata, shared with the snapshot generator: checkout names are
+// never package names, including in a worktree farm.
+const { extensions: liveFleet, problems: fleetProblems } = readFleetExtensions(FLEET_ROOT, {
+  existsSync, readdirSync, readFileSync,
+});
+const FLEET_EXTENSIONS = liveFleet.map((extension) => extension.name);
 
 // An operator who sets PM_FLEET_ROOT has asserted where the fleet is. If that
 // path resolves no pm extensions they have configured it wrongly, and silently
@@ -131,6 +62,7 @@ const EXPECTED_NAMES: readonly string[] =
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
 
 test("catalog exposes exactly every published pm package, no duplicates, pm-web absent", () => {
+  assert.deepEqual(fleetProblems, [], "fleet metadata must be readable and consistent");
   const names = catalogNames();
   assert.deepEqual([...names].sort(), [...EXPECTED_NAMES].sort());
   // No duplicate names.
@@ -224,7 +156,7 @@ test("catalog entries mirror each package's real manifest.json claims", () => {
   let checked = 0;
   let skipped = 0;
   for (const entry of PACKAGE_CATALOG) {
-    const manifest = readManifest(entry.name);
+    const manifest = liveFleet.find((extension) => extension.name === entry.name);
     if (!manifest) {
       skipped++;
       continue;
@@ -243,10 +175,10 @@ test("catalog entries mirror each package's real manifest.json claims", () => {
     // (the manifest carries a longer, capability-enumerating blurb that is
     // too verbose for a one-line catalog card, while package.json holds the
     // concise summary the task requires verbatim).
-    const pkgJson = readPackageJson(entry.name);
-    if (entry.category === "template" && pkgJson?.description) {
+    const pkgJson = manifest;
+    if (entry.category === "template" && pkgJson?.packageDescription) {
       assert.equal(
-        pkgJson.description,
+        pkgJson.packageDescription,
         entry.description,
         `${entry.name}: template description must match package.json description verbatim`,
       );
@@ -328,6 +260,10 @@ test("the catalog covers every fleet extension in the committed snapshot", () =>
   for (const extension of fleetSnapshot) {
     const entry = findCatalogEntry(extension.name);
     assert.ok(entry, `${extension.name} must be catalogued`);
+    if (!extension.npmPublished) {
+      assert.equal(entry.links?.npm, undefined,
+        `${extension.name}: an npm link requires a published registry receipt`);
+    }
     // Same rule the live-fleet assertion applies: a product extension mirrors
     // the manifest description, an authoring template mirrors the concise
     // package.json one.
@@ -389,23 +325,18 @@ test("the committed snapshot still matches the live fleet, and the fleet is read
 });
 
 test("every catalog entry declares an availability the fleet agrees with", () => {
-  // The declaration is checked against the fleet, not merely against itself.
-  // A publishable fleet package declares `publishConfig.access` in its
-  // package.json — that is what `npm publish` reads, so it is the local fact
-  // that decides whether a release can exist at all, and it is present for
-  // every published fleet extension and absent for exactly the release-gated
-  // ones. Consulting the npm registry instead would make this gate fail on an
-  // offline runner rather than on a real drift.
+  // Publication intent cannot prove availability: pm-jev declares publishConfig
+  // but npm still returns 404. Use the deliberately generated registry receipt.
   if (FLEET_EXTENSIONS.length === 0) return; // siblings not resolvable here
   for (const entry of PACKAGE_CATALOG) {
-    const pkg = readPackageJson(entry.name);
+    const pkg = liveFleet.find((extension) => extension.name === entry.name);
     if (!pkg) continue; // sibling not resolvable in this environment
     const declared = entry.availability ?? "published";
-    const publishable = pkg.publishConfig?.access !== undefined;
+    const published = fleetSnapshot.find((extension) => extension.name === entry.name)?.npmPublished;
     assert.equal(
       declared === "published",
-      publishable,
-      `${entry.name}: catalogued as ${declared}, but its package.json ${publishable ? "declares" : "does not declare"} publishConfig.access — a catalogue that promises an install for an unpublishable package renders an install button that cannot work`,
+      published,
+      `${entry.name}: availability must agree with the registry receipt, not publication intent`,
     );
     assert.equal(
       resolveNpmSpec(entry.name),
@@ -422,7 +353,7 @@ test("template entries carry all nine capability types from their manifests", ()
     const entry = findCatalogEntry(name);
     assert.ok(entry, `${name} must be in the catalog`);
     assert.equal(entry!.category, "template", `${name} must be category "template"`);
-    const manifest = readManifest(name);
+    const manifest = liveFleet.find((extension) => extension.name === name);
     if (manifest) {
       assert.deepEqual(
         [...(manifest.capabilities ?? [])].sort(),

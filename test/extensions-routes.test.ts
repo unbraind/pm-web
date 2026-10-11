@@ -65,7 +65,7 @@ interface HarnessOptions {
 
 async function setupHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-ext-routes-"));
-  const fakePm = path.join(root, "fake-pm");
+  const fakePm = path.join(root, "fake-pm.cjs");
   const logPath = path.join(root, "commands.log");
 
   // The fake pm binary records every invocation. The success variant returns

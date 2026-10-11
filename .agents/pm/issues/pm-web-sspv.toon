@@ -1,0 +1,26 @@
+id: pm-web-sspv
+title: Make temporary CLI fixtures independent of inherited ESM package scope
+description: "Extensionless synthetic CLI scripts in the extension, runner and project route suites use require but inherit a parent package scope with type=module. Eight npm release-gate tests fail before their stub behavior runs. A minimal independent probe reproduced exit 1 for the extensionless script and exit 0 for the identical explicit .cjs script. Define fixture module format explicitly or isolate its package scope; keep the real SDK graph acceptance tests unchanged."
+type: Issue
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-07T20:26:21.194Z"
+updated_at: "2026-10-10T04:08:23.262Z"
+author: codex-sol
+acceptance_criteria: The route and runner suites pass with a parent temporary-directory package scope declaring type=module; fixture scripts run their intended behavior and the release gate retains every configured threshold.
+actual_result: Require-based CLI fixture binaries now explicit.cjs under inherited ESM scope. Real SDK concurrency uses an independent-write release handshake instead of400ms assumption; metadata get assertion uses installed GetResult. Focused26/26 linked fixture/route/SDK tests and full490/490 pass with no skips; deadlines and assertions retained.
+comments[4]{created_at,author,text}:
+  "2026-10-07T20:27:45.444Z",codex-sol,"Independent module-scope probe, without importing pm-web or the PM SDK: the identical require-based script exits 1 when extensionless and exits 0 with an explicit .cjs suffix under a parent type=module package scope. The failing fixture files and runner behavior are unchanged from the graph feature base. This explains the existing extension install/state, spawn fallback and project creation harness failures; keep repair separate from graph-export fidelity."
+  "2026-10-10T03:00:44.465Z",codex-sol,"SDK update candidate on published CLI 2026.10.9 reproduces the same eight ambient module-scope fixture failures: three extension route tests, the spawn fallback test, and four project creation tests. Diagnostic output shows require is not defined in ES module scope in the extensionless synthetic CLI, before fixture behavior executes. Full unchanged release run: 481/494 pass, 13 fail, zero skips. Keep fixture repair separate; no test assertions or coverage thresholds changed."
+  "2026-10-10T03:17:04.639Z",codex-sol,"Focused baseline under explicit parent type=module: eight require-based CLI fixture failures, plus a timing-only concurrency assertion under load. Explicit .cjs paths preserve the fixture programs and route assertions; focused catalog/runner/project/extension set now passes 42/42 with no skips. Replace the 400 ms independent-writer timing assumption with a release-file handshake after the real independent SDK mutation; retain serialization, overlap and timeout assertions."
+  "2026-10-10T04:08:00.719Z",codex-sol,"Verification receipt is recorded in docs/sdk-update-automation.md and linked from pm-web-8pml: complete release490/490,zero skips; packed npm/nativeBun4/4, six real disposablePostgreSQL collaboration tests. Keep item unclosed for independent orchestrator verification."
+files[3]{path,scope}:
+  test/extensions-routes.test.ts,project
+  test/pm-runner.test.ts,project
+  test/projects-routes.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/extensions-routes.test.ts test/projects-routes.test.ts test/pm-runner.test.ts,project,codex-sol,"2026-10-10T03:18:49.890Z",local_mutation,fix/sdk-manifest-automation-2026-10-9
+docs[1]{path,scope}:
+  docs/sdk-update-automation.md,project
+body: ""

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import type { ExtensionManifest } from "@unbrained/pm-cli/sdk";
 
 /**
  * Shape of the fields this suite asserts on. Only the dependency maps matter
@@ -12,11 +13,6 @@ interface DependencyManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
   readonly devDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
-}
-
-/** Compatibility metadata published for extension-host consumers. */
-interface ExtensionManifest {
-  readonly pm_min_version?: string;
 }
 
 /** The published manifest, read from disk rather than imported so the assertions run against the same bytes npm publishes. */
@@ -97,13 +93,20 @@ test("the host CLI is pinned to an exact version rather than a range", () => {
   );
 });
 
-test("the extension compatibility floor matches the standalone runtime SDK", () => {
+test("the standalone runtime SDK meets the separately certified extension host floor", () => {
   const runtimeVersion = manifest.dependencies?.[HOST_CLI];
   assert.ok(runtimeVersion, `${HOST_CLI} must be declared for the standalone server`);
-  assert.equal(
-    extensionManifest.pm_min_version,
-    runtimeVersion,
-    "manifest.json must refuse extension hosts older than the exact SDK exercised by the standalone server",
+  const floor = extensionManifest.pm_min_version;
+  assert.ok(floor, "manifest.json must declare the minimum extension host exercised by packed acceptance");
+  assert.match(floor, EXACT_VERSION, "the certified extension host floor must be an exact version");
+  assert.match(runtimeVersion, EXACT_VERSION);
+  const floorParts = floor.split(".").map(Number);
+  const difference = runtimeVersion.split(".").map(Number)
+    .map((part, index) => part - floorParts[index]!)
+    .find((part) => part !== 0) ?? 0;
+  assert.ok(
+    difference >= 0,
+    "the standalone SDK cannot be older than the minimum supported extension host; packed acceptance must exercise both versions",
   );
 });
 
