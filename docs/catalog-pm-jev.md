@@ -10,7 +10,7 @@ tracker was initialized with the installed CLI and populated with a synthetic
 item. The canonical live-fleet catalog assertions passed 8/12 before the fix.
 
 The catalog now mirrors pm-jev's current manifest description and its
-`commands`/`schema` capabilities. Verified documentation, repository and
+`commands`/`hooks`/`schema` capabilities. Verified documentation, repository and
 issue links are rendered on its card; the unpublished npm link is omitted. Ollama is the local default; hosted
 TypeSafe credentials are optional and require a separate privacy opt-in.
 The 2026-10-07 registry lookup returned E404, so `resolveNpmSpec('pm-jev')`

@@ -135,7 +135,7 @@ pm web doctor --json
 New pm-web projects configure local Ollama search automatically and install the `pm-graph` package into the project workspace (from npm, via the per-project package catalog). Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
 
 The Packages view also lists [pm-jev](https://github.com/unbraind/pm-jev#readme),
-with `commands` and `schema` capabilities and links to its documentation,
+with `commands`, `hooks` and `schema` capabilities and links to its documentation,
 repository and
 [issue tracker](https://github.com/unbraind/pm-jev/issues). It is shown as
 **unreleased**, with installation disabled: the registry answered 404 when the
