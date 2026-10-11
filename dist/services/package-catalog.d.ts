@@ -7,8 +7,8 @@
  */
 export type PackageCapability = string;
 /**
- * Catalog grouping: user-facing product extensions vs. authoring reference
- * templates.
+ * Catalog grouping: product extensions, authoring reference templates,
+ * and independent native packages.
  *
  * - `"extension"` — a product extension a user installs for its functionality
  *   (e.g. pm-graph, pm-jira). This is the default and the only category the
@@ -21,7 +21,7 @@ export type PackageCapability = string;
  *   badges template entries so a user can tell a learning scaffold from a
  *   product extension.
  */
-export type PackageCategory = "extension" | "template";
+export type PackageCategory = "extension" | "template" | "native";
 /**
  * Whether a catalogued package can actually be installed right now.
  *
@@ -76,10 +76,16 @@ export interface CredentialRequirement {
     optional?: boolean;
 }
 export interface PackageCatalogEntry {
-    /** Canonical npm package name, e.g. `pm-graph`. */
+    /** Canonical public fleet identity, e.g. `pm-graph` or `pm-rust`. */
     readonly name: string;
-    /** The install spec passed to `pm install`, always `npm:<name>`. */
-    readonly npmSpec: string;
+    /** The install spec passed to `pm install`; null for native packages. */
+    readonly npmSpec: string | null;
+    /** npm identity, absent for independent native packages. */
+    readonly npmName: string | null;
+    /** Documented CLI command paths, including their executable. */
+    readonly commands: readonly string[];
+    /** Why project installation is unavailable, when applicable. */
+    readonly unavailableReason?: string;
     /** Human-friendly title, e.g. `Graph`. */
     readonly title: string;
     /** One-line description, mirrored from the package's manifest/package.json. */

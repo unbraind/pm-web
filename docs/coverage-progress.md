@@ -184,7 +184,13 @@ The four recovered CLI contract regressions failed on the original implementatio
 
 Run `npm ci`. The existing `scripts/with-test-db.ts` runner owns disposable database setup; use its dedicated test database configuration. Never point these commands at deployment resources.
 
-Catalog tests support an optional external fleet read. A package worktree farm is misidentified by implicit sibling discovery (pm-web-cqwm), while the current external fleet has pm-jev absent from this package's committed catalog/snapshot (pm-web-s99c). Those assertions are preserved. The passing scoped run supplies a disposable filesystem fixture from the independent committed snapshot, proving package/snapshot consistency, not current external-fleet freshness:
+Catalog tests support an optional external fleet read. The catalog refresh in
+[pm-jev catalog acceptance](catalog-pm-jev.md) resolves pm-web-cqwm and
+pm-web-s99c with canonical identity discovery, a 21-extension snapshot, and
+real sibling Git-worktree regressions. All external-fleet completeness assertions
+are retained. The earlier coverage receipt below used a disposable fixture from
+the independent committed snapshot; it proves package/snapshot consistency,
+not external-fleet freshness:
 
 ```bash
 node --input-type=module <<'JS'
@@ -198,6 +204,7 @@ for (const entry of snapshot) {
   }));
   writeFileSync(`${dir}/package.json`, JSON.stringify({
     name: entry.name, description: entry.packageDescription,
+    repository: `https://github.com/unbraind/${entry.name}`,
     ...(entry.publishable ? { publishConfig: { access: 'public' } } : {}),
   }));
 }

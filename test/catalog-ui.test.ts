@@ -49,3 +49,37 @@ test("real published Graph metadata retains its npm link and install action in t
     assert.ok(html.includes(`href="${links[label]}"`), `${label} link must remain visible`);
   }
 });
+
+test("all public fleet cards expose verified command and documentation metadata", () => {
+  for (const pkg of snapshot) {
+    const entry = findCatalogEntry(pkg.name);
+    assert.ok(entry);
+    const html = card(entry);
+    assert.ok(entry.commands.length > 0);
+    for (const command of entry.commands) assert.ok(html.includes(command));
+    assert.equal(Boolean(entry.links?.npm), pkg.npmPublished);
+    for (const label of ["docs", "repository", "report"] as const) assert.ok(entry.links?.[label]);
+  }
+});
+
+test("native Rust card explains its boundary without an install or enable control", () => {
+  const entry = findCatalogEntry("pm-rust");
+  assert.ok(entry);
+  assert.equal(entry.npmName, null);
+  assert.equal(entry.npmSpec, null);
+  assert.deepEqual(entry.capabilities, []);
+  const html = card(entry);
+  assert.match(html, /native CLI, not an npm extension/);
+  assert.doesNotMatch(html, /npmjs\.com|data-pkg-action|Run package command/);
+});
+
+test("enabled package card exposes labelled keyboard controls and command feedback", () => {
+  const entry = findCatalogEntry("pm-presets");
+  assert.ok(entry);
+  const html = renderPackageCard({ ...entry, commands: [...entry.commands], capabilities: [...entry.capabilities], installed: true, active: true, enabled: true, runtimeActive: true,
+    version: "synthetic", activationStatus: "active", managed: true, sourceKind: "npm" });
+  assert.match(html, /<label>.*<select/);
+  assert.match(html, /<label>.*<input/);
+  assert.match(html, /data-pkg-action="run"/);
+  assert.match(html, /aria-live="polite"/);
+});

@@ -144,8 +144,8 @@ jobs:
           fi
           echo "Committed dist/ matches a fresh build."
 
-      - name: Test with coverage gate
-        run: npm run coverage
+      - name: Full npm release gate with isolated Git identity
+        run: env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 npm run release:check
 
       - name: Production dependency audit
         run: npm run audit:prod
@@ -167,3 +167,6 @@ jobs:
 
       - name: Verify Bun can install package dependencies
         run: bun install --no-save
+
+      - name: Full Bun release gate with isolated Git identity
+        run: env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 bun run release:check

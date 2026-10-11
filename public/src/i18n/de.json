@@ -139,5 +139,10 @@
   "packages.changedByOther": "Paket {name} von einem anderen Benutzer {operation}",
   "packages.templateBadge": "Vorlage",
   "packages.unreleasedBadge": "Noch nicht veröffentlicht",
-  "packages.unreleased": "Dieses Paket wird offen entwickelt, ist aber noch nicht auf npm veröffentlicht und kann daher nicht installiert werden."
+  "packages.unreleased": "Dieses Paket wird offen entwickelt, ist aber noch nicht auf npm veröffentlicht und kann daher nicht installiert werden.",
+  "packages.runCommand": "Paketbefehl ausführen",
+  "packages.command": "Befehl",
+  "packages.arguments": "Argumente (JSON-Array)",
+  "packages.run": "Ausführen",
+  "packages.invalidArguments": "Argumente müssen ein JSON-Array aus Zeichenketten sein."
 }

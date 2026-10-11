@@ -10,7 +10,7 @@
 // pm command is ever spawned. A user-supplied name can never reach an install
 // target — a catalog lookup miss must 400 before any process spawn.
 //
-// The catalog is exhaustive over every published pm package except `pm-web`
+// The catalog lists every public fleet package except `pm-web`
 // itself (this package IS the host, so it cannot install itself). The
 // `category` field distinguishes user-facing product extensions
 // (`"extension"`) from authoring reference templates (`"template"`): the
@@ -40,8 +40,8 @@
 export type PackageCapability = string;
 
 /**
- * Catalog grouping: user-facing product extensions vs. authoring reference
- * templates.
+ * Catalog grouping: product extensions, authoring reference templates,
+ * and independent native packages.
  *
  * - `"extension"` — a product extension a user installs for its functionality
  *   (e.g. pm-graph, pm-jira). This is the default and the only category the
@@ -54,7 +54,7 @@ export type PackageCapability = string;
  *   badges template entries so a user can tell a learning scaffold from a
  *   product extension.
  */
-export type PackageCategory = "extension" | "template";
+export type PackageCategory = "extension" | "template" | "native";
 
 /**
  * Whether a catalogued package can actually be installed right now.
@@ -113,10 +113,16 @@ export interface CredentialRequirement {
 }
 
 export interface PackageCatalogEntry {
-  /** Canonical npm package name, e.g. `pm-graph`. */
+  /** Canonical public fleet identity, e.g. `pm-graph` or `pm-rust`. */
   readonly name: string;
-  /** The install spec passed to `pm install`, always `npm:<name>`. */
-  readonly npmSpec: string;
+  /** The install spec passed to `pm install`; null for native packages. */
+  readonly npmSpec: string | null;
+  /** npm identity, absent for independent native packages. */
+  readonly npmName: string | null;
+  /** Documented CLI command paths, including their executable. */
+  readonly commands: readonly string[];
+  /** Why project installation is unavailable, when applicable. */
+  readonly unavailableReason?: string;
   /** Human-friendly title, e.g. `Graph`. */
   readonly title: string;
   /** One-line description, mirrored from the package's manifest/package.json. */
@@ -155,20 +161,24 @@ export interface PackageCatalogEntry {
 export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   {
     name: "pm-graph",
+    npmName: "pm-graph",
+    commands: ["pm pm-graph ping", "pm pm-graph export", "pm pm-graph cypher", "pm pm-graph sync", "pm pm-graph status", "pm pm-graph query", "pm pm-graph neighbors", "pm pm-graph analyze", "pm pm-graph cycles", "pm pm-graph path", "pm pm-graph explain", "pm pm-graph critical-path", "pm pm-graph topo-sort", "pm pm-graph impact", "pm graph-export export"],
+    links: {"docs": "https://github.com/unbraind/pm-graph#readme", "npm": "https://www.npmjs.com/package/pm-graph", "repository": "https://github.com/unbraind/pm-graph", "report": "https://github.com/unbraind/pm-graph/issues"},
     npmSpec: "npm:pm-graph",
     title: "Graph",
-    description:
-      "Knowledge graph and dependency graph extension for pm CLI workspaces, with optional Neo4j sync.",
+    description: "Knowledge graph and dependency graph extension for pm CLI workspaces, with optional Neo4j sync.",
     capabilities: ["commands", "importers", "services"],
     category: "extension",
     requiresService: { name: "Neo4j", optional: true },
   },
   {
     name: "pm-ado",
+    npmName: "pm-ado",
+    commands: ["pm ado validate"],
+    links: {"docs": "https://github.com/unbraind/pm-ado#readme", "repository": "https://github.com/unbraind/pm-ado", "report": "https://github.com/unbraind/pm-ado/issues"},
     npmSpec: "npm:pm-ado",
     title: "Azure DevOps",
-    description:
-      "Azure DevOps client foundation for pm-cli. Its work-item updates assert System.Rev, batch reads surface missing items, and same-organization typed relations map to pm links. Full sync commands and revision-to-history reconciliation are planned.",
+    description: "Azure DevOps client foundation for pm-cli. Its work-item updates assert System.Rev, batch reads surface missing items, and same-organization typed relations map to pm links. Full sync commands and revision-to-history reconciliation are planned.",
     capabilities: ["commands", "schema", "importers", "hooks", "preflight"],
     category: "extension",
     // Release-gated behind vars.PM_RELEASE_APPROVED and absent from npm, so no
@@ -185,24 +195,31 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-beads",
+    npmName: "pm-beads",
+    commands: ["pm beads import", "pm beads export", "pm beads validate", "pm beads diff", "pm beads-import", "pm beads-export", "pm beads-validate", "pm beads-diff"],
+    links: {"docs": "https://github.com/unbraind/pm-beads#readme", "npm": "https://www.npmjs.com/package/pm-beads", "repository": "https://github.com/unbraind/pm-beads", "report": "https://github.com/unbraind/pm-beads/issues"},
     npmSpec: "npm:pm-beads",
     title: "Beads",
-    description:
-      "Beads JSONL importer/exporter. Import work items from the Beads JSONL format into pm and export pm items back to Beads JSONL, preserving ids and dependency edges.",
+    description: "Beads JSONL importer/exporter. Import work items from the Beads JSONL format into pm and export pm items back to Beads JSONL, preserving ids and dependency edges.",
     capabilities: ["commands", "schema", "importers"],
     category: "extension",
   },
   {
     name: "pm-brief",
+    npmName: "pm-brief",
+    commands: ["pm brief", "pm brief prompt", "pm brief next", "pm brief stale", "pm brief since", "pm brief diverge", "pm brief duplicates"],
+    links: {"docs": "https://github.com/unbraind/pm-brief#readme", "npm": "https://www.npmjs.com/package/pm-brief", "repository": "https://github.com/unbraind/pm-brief", "report": "https://github.com/unbraind/pm-brief/issues"},
     npmSpec: "npm:pm-brief",
     title: "Brief",
-    description:
-      "Token-budgeted agent briefs and next-work plans for pm workspaces",
+    description: "Token-budgeted agent briefs and next-work plans for pm workspaces",
     capabilities: ["commands", "renderers", "schema"],
     category: "extension",
   },
   {
     name: "pm-changelog",
+    npmName: "pm-changelog",
+    commands: ["pm changelog generate", "pm changelog export"],
+    links: {"docs": "https://github.com/unbraind/pm-changelog#readme", "npm": "https://www.npmjs.com/package/pm-changelog", "repository": "https://github.com/unbraind/pm-changelog", "report": "https://github.com/unbraind/pm-changelog/issues"},
     npmSpec: "npm:pm-changelog",
     title: "Changelog",
     description: "Generate CHANGELOG.md release notes from pm-cli items",
@@ -211,15 +228,20 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-context",
+    npmName: "pm-context",
+    commands: ["pm context-pack", "pm context-handoff", "pm context-usage"],
+    links: {"docs": "https://github.com/unbraind/pm-context#readme", "repository": "https://github.com/unbraind/pm-context", "report": "https://github.com/unbraind/pm-context/issues", "npm": "https://www.npmjs.com/package/pm-context"},
     npmSpec: "npm:pm-context",
     title: "Context",
-    description:
-      "Generate deterministic pm context packs for agent handoffs, reviews, and status briefs",
+    description: "Generate deterministic pm context packs for agent handoffs, reviews, and status briefs",
     capabilities: ["commands", "renderers", "schema"],
     category: "extension",
   },
   {
     name: "pm-csv",
+    npmName: "pm-csv",
+    commands: ["pm csv import", "pm csv export", "pm csv validate", "pm csv-export export"],
+    links: {"docs": "https://github.com/unbraind/pm-csv#readme", "npm": "https://www.npmjs.com/package/pm-csv", "repository": "https://github.com/unbraind/pm-csv", "report": "https://github.com/unbraind/pm-csv/issues"},
     npmSpec: "npm:pm-csv",
     title: "CSV",
     description: "CSV importer and exporter for pm-cli",
@@ -228,19 +250,23 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-gantt-chart",
+    npmName: "pm-gantt-chart",
+    commands: ["pm gantt", "pm gantt export"],
+    links: {"docs": "https://github.com/unbraind/pm-gantt-chart#readme", "npm": "https://www.npmjs.com/package/pm-gantt-chart", "repository": "https://github.com/unbraind/pm-gantt-chart", "report": "https://github.com/unbraind/pm-gantt-chart/issues"},
     npmSpec: "npm:pm-gantt-chart",
     title: "Gantt Chart",
-    description:
-      "ASCII Gantt chart renderer + multi-format exporter for pm-cli",
+    description: "ASCII Gantt chart renderer + multi-format exporter for pm-cli",
     capabilities: ["commands", "schema", "importers", "preflight"],
     category: "extension",
   },
   {
     name: "pm-github",
+    npmName: "pm-github",
+    commands: ["pm github import", "pm github export", "pm github sync", "pm github validate", "pm github gate", "pm github project list", "pm github project fields", "pm github project import", "pm github project sync"],
+    links: {"docs": "https://github.com/unbraind/pm-github#readme", "npm": "https://www.npmjs.com/package/pm-github", "repository": "https://github.com/unbraind/pm-github", "report": "https://github.com/unbraind/pm-github/issues"},
     npmSpec: "npm:pm-github",
     title: "GitHub",
-    description:
-      "GitHub Issues + Projects v2 integration. Imports issues as pm items (`pm github import`), exports pm items as GitHub issues, syncs issue state, and bidirectionally syncs pm items with a GitHub Projects v2 board (`pm github project import/sync/list/fields`) — mapping pm status to the board Status column with idempotent, no-data-loss provenance.",
+    description: "GitHub Issues + Projects v2 integration. Imports issues as pm items (`pm github import`), exports pm items as GitHub issues, syncs issue state, and bidirectionally syncs pm items with a GitHub Projects v2 board (`pm github project import/sync/list/fields`) — mapping pm status to the board Status column with idempotent, no-data-loss provenance.",
     capabilities: ["commands", "importers", "schema", "hooks", "preflight", "search"],
     category: "extension",
     requiresCredentials: [
@@ -253,18 +279,15 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-jev",
+    npmName: "pm-jev",
+    commands: ["pm jev triage", "pm jev dedupe", "pm jev ask", "pm jev gate", "pm jev models", "pm jev doctor"],
+    links: {"docs": "https://github.com/unbraind/pm-jev#readme", "repository": "https://github.com/unbraind/pm-jev", "report": "https://github.com/unbraind/pm-jev/issues"},
     npmSpec: "npm:pm-jev",
     title: "Jev",
-    description:
-      "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev ask, jev gate, jev models, jev doctor.",
+    description: "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev ask, jev gate, jev models, jev doctor.",
     capabilities: ["commands", "schema"],
     category: "extension",
     availability: "unreleased",
-    links: {
-      docs: "https://github.com/unbraind/pm-jev#readme",
-      repository: "https://github.com/unbraind/pm-jev",
-      report: "https://github.com/unbraind/pm-jev/issues",
-    },
     requiresService: { name: "Ollama (tev1:4b), or TypeSafe Jev with explicit privacy opt-in" },
     requiresCredentials: [{
       label: "TypeSafe hosted provider only (also requires jev.allow_external: true)",
@@ -274,6 +297,9 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-jira",
+    npmName: "pm-jira",
+    commands: ["pm jira sync", "pm jira import", "pm jira export", "pm jira validate"],
+    links: {"docs": "https://github.com/unbraind/pm-jira#readme", "npm": "https://www.npmjs.com/package/pm-jira", "repository": "https://github.com/unbraind/pm-jira", "report": "https://github.com/unbraind/pm-jira/issues"},
     npmSpec: "npm:pm-jira",
     title: "Jira",
     description: "Jira issue sync for pm-cli",
@@ -288,6 +314,9 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-linear",
+    npmName: "pm-linear",
+    commands: ["pm linear sync", "pm linear import", "pm linear export", "pm linear validate"],
+    links: {"docs": "https://github.com/unbraind/pm-linear#readme", "npm": "https://www.npmjs.com/package/pm-linear", "repository": "https://github.com/unbraind/pm-linear", "report": "https://github.com/unbraind/pm-linear/issues"},
     npmSpec: "npm:pm-linear",
     title: "Linear",
     description: "Linear.app issue sync for pm-cli",
@@ -302,6 +331,9 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-ops",
+    npmName: "pm-ops",
+    commands: ["pm ops scan", "pm ops policy", "pm ops verify-release", "pm ops report", "pm ops status", "pm ops outdated", "pm ops audit", "pm ops metrics"],
+    links: {"docs": "https://github.com/unbraind/pm-ops#readme", "npm": "https://www.npmjs.com/package/pm-ops", "repository": "https://github.com/unbraind/pm-ops", "report": "https://github.com/unbraind/pm-ops/issues"},
     npmSpec: "npm:pm-ops",
     title: "Ops",
     description: "Multi-repo fleet operations for pm-cli",
@@ -310,15 +342,20 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-presets",
+    npmName: "pm-presets",
+    commands: ["pm presets", "pm presets list", "pm presets show", "pm presets diff", "pm presets validate", "pm presets apply", "pm presets export"],
+    links: {"docs": "https://github.com/unbraind/pm-presets#readme", "npm": "https://www.npmjs.com/package/pm-presets", "repository": "https://github.com/unbraind/pm-presets", "report": "https://github.com/unbraind/pm-presets/issues"},
     npmSpec: "npm:pm-presets",
     title: "Presets",
-    description:
-      "All 7 official pm-cli workspace presets in one package: bug-triage, indie-dev, open-source, software-sprint, startup-roadmap, kanban, agent-workflow",
+    description: "All 7 official pm-cli workspace presets in one package: bug-triage, indie-dev, open-source, software-sprint, startup-roadmap, kanban, agent-workflow",
     capabilities: ["commands", "schema"],
     category: "extension",
   },
   {
     name: "pm-slack",
+    npmName: "pm-slack",
+    commands: ["pm slack notify", "pm slack test", "pm slack digest"],
+    links: {"docs": "https://github.com/unbraind/pm-slack#readme", "npm": "https://www.npmjs.com/package/pm-slack", "repository": "https://github.com/unbraind/pm-slack", "report": "https://github.com/unbraind/pm-slack/issues"},
     npmSpec: "npm:pm-slack",
     title: "Slack",
     description: "Slack notifications for pm item lifecycle events",
@@ -333,6 +370,9 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-slack-standup",
+    npmName: "pm-slack-standup",
+    commands: ["pm slack-standup", "pm standup", "pm standup export"],
+    links: {"docs": "https://github.com/unbraind/pm-slack-standup#readme", "npm": "https://www.npmjs.com/package/pm-slack-standup", "repository": "https://github.com/unbraind/pm-slack-standup", "report": "https://github.com/unbraind/pm-slack-standup/issues"},
     npmSpec: "npm:pm-slack-standup",
     title: "Slack Standup",
     description: "Post pm context as a Slack standup message",
@@ -347,19 +387,23 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-todos",
+    npmName: "pm-todos",
+    commands: ["pm todos import", "pm todos export", "pm todos sync", "pm todos context", "pm todos validate"],
+    links: {"docs": "https://github.com/unbraind/pm-todos#readme", "npm": "https://www.npmjs.com/package/pm-todos", "repository": "https://github.com/unbraind/pm-todos", "report": "https://github.com/unbraind/pm-todos/issues"},
     npmSpec: "npm:pm-todos",
     title: "Todos",
-    description:
-      "TODO round-trip. Import/export/sync markdown checkboxes, todo.txt, jsonl, checkbox, and pi coding-agent todo JSON as pm items.",
+    description: "TODO round-trip. Import/export/sync markdown checkboxes, todo.txt, jsonl, checkbox, and pi coding-agent todo JSON as pm items.",
     capabilities: ["commands", "schema", "importers", "preflight"],
     category: "extension",
   },
   {
     name: "pm-starter",
+    npmName: "pm-starter",
+    commands: ["pm starter greet", "pm starter summary", "pm starter demo", "pm starter plan", "pm starter context", "pm starter search", "pm starter setup", "pm starter-demo import", "pm starter-demo export"],
+    links: {"docs": "https://github.com/unbraind/pm-starter#readme", "npm": "https://www.npmjs.com/package/pm-starter", "repository": "https://github.com/unbraind/pm-starter", "report": "https://github.com/unbraind/pm-starter/issues"},
     npmSpec: "npm:pm-starter",
     title: "Starter",
-    description:
-      "Complete starter/scaffold extension for pm-cli showing all capability types",
+    description: "Complete starter/scaffold extension for pm-cli showing all capability types",
     capabilities: [
       "commands",
       "renderers",
@@ -375,10 +419,12 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-ts-starter",
+    npmName: "pm-ts-starter",
+    commands: ["pm hello", "pm ts-starter info", "pm ts-starter-demo import", "pm ts-starter-demo export", "pm ts-starter plan-demo", "pm ts-starter context-demo", "pm ts-starter search-demo", "pm ts-starter history-compact-demo", "pm ts-starter setup"],
+    links: {"docs": "https://github.com/unbraind/pm-ts-starter#readme", "npm": "https://www.npmjs.com/package/pm-ts-starter", "repository": "https://github.com/unbraind/pm-ts-starter", "report": "https://github.com/unbraind/pm-ts-starter/issues"},
     npmSpec: "npm:pm-ts-starter",
     title: "TypeScript Starter",
-    description:
-      "TypeScript reference extension for pm-cli covering all capability types",
+    description: "TypeScript reference extension for pm-cli covering all capability types",
     capabilities: [
       "commands",
       "renderers",
@@ -394,23 +440,44 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
   },
   {
     name: "pm-vcs",
+    npmName: "pm-vcs",
+    commands: ["pm vcs init", "pm vcs status", "pm vcs add", "pm vcs commit", "pm vcs log", "pm vcs diff", "pm vcs branch", "pm vcs switch", "pm vcs merge", "pm vcs tag", "pm vcs undo", "pm vcs oplog", "pm vcs export", "pm vcs import", "pm vcs remote", "pm vcs clone", "pm vcs fetch", "pm vcs push", "pm vcs serve", "pm vcs verify", "pm vcs trace", "pm vcs files", "pm vcs changes", "pm vcs items", "pm vcs authority", "pm vcs layer", "pm vcs layer local", "pm vcs link", "pm vcs link resolve", "pm vcs obliterate", "pm vcs recover-lock", "pm vcs git items", "pm vcs git preflight", "pm vcs git preview"],
+    links: {"docs": "https://github.com/unbraind/pm-vcs#readme", "repository": "https://github.com/unbraind/pm-vcs", "report": "https://github.com/unbraind/pm-vcs/issues"},
     npmSpec: "npm:pm-vcs",
     title: "VCS",
-    description:
-      "A general version control system written from scratch on the pm SDK for arbitrary files and structured records, with stable file and change identities, native PM attribution, its own object store, refs, merge, operation log and bundles, and no Git dependency in its engine.",
+    description: "A general version control system written from scratch on the pm SDK for arbitrary files and structured records, with stable file and change identities, native PM attribution, its own object store, refs, merge, operation log and bundles, and no Git dependency in its engine.",
     capabilities: ["commands", "schema"],
     category: "extension",
     availability: "unreleased",
   },
   {
     name: "pm-rl",
+    npmName: "pm-rl",
+    commands: ["pm rl env register", "pm rl env list", "pm rl env show", "pm rl benchmark register", "pm rl eval record", "pm rl leaderboard", "pm rl run start", "pm rl run log", "pm rl run show", "pm rl run finish", "pm rl run verify", "pm rl generation register", "pm rl generation promote", "pm rl generation show", "pm rl lineage", "pm rl invalidate", "pm rl compare", "pm rl sweep plan", "pm rl sweep status", "pm rl transfer record", "pm rl transfer gap", "pm rl episode env register", "pm rl episode record", "pm rl episode replay", "pm rl outcome record", "pm rl simreal gap", "pm rl loop run", "pm rl loop status", "pm rl loop resume"],
+    links: {"docs": "https://github.com/unbraind/pm-rl#readme", "repository": "https://github.com/unbraind/pm-rl", "report": "https://github.com/unbraind/pm-rl/issues"},
     npmSpec: "npm:pm-rl",
     title: "RL",
-    description:
-      "Reinforcement-learning programme management on the pm SDK. Content-addressed environments and benchmarks keep runs and evaluations attributable; fail-closed leaderboards refuse mixed environments and contaminated suites. Commands: `pm rl env register/list/show`, `pm rl benchmark register`, `pm rl eval record`, `pm rl leaderboard`, `pm rl run start/log/show/finish`, `pm rl generation register/promote/show`, `pm rl lineage`, `pm rl invalidate`, and `pm rl compare`.",
+    description: "Reinforcement-learning programme management on the pm SDK. Content-addressed environments and benchmarks keep runs and evaluations attributable; fail-closed leaderboards refuse mixed environments and contaminated suites. Commands: `pm rl env register/list/show`, `pm rl benchmark register`, `pm rl eval record`, `pm rl leaderboard`, `pm rl run start/log/show/finish`, `pm rl generation register/promote/show`, `pm rl lineage`, `pm rl invalidate`, and `pm rl compare`.",
     capabilities: ["commands", "hooks", "schema"],
     category: "extension",
     availability: "unreleased",
+  },
+  {
+    name: "pm-rust",
+    npmName: null,
+    npmSpec: null,
+    title: "Rust native CLI",
+    description: "Independent Rust-native implementation of public pm workspace contracts",
+    capabilities: [],
+    commands: ["pm-rust list", "pm-rust get", "pm-rust create", "pm-rust update", "pm-rust comment", "pm-rust close"],
+    category: "native",
+    availability: "unreleased",
+    unavailableReason: "pm-rust is a pre-release native CLI, not an npm extension. It cannot be installed or enabled in a project by pm-web; see its documentation for native setup and supported workspace contracts.",
+    links: {
+      docs: "https://github.com/unbraind/pm-rust#readme",
+      repository: "https://github.com/unbraind/pm-rust",
+      report: "https://github.com/unbraind/pm-rust/issues",
+    },
   },
 ];
 

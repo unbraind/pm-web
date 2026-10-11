@@ -134,15 +134,32 @@ pm web doctor --json
 
 New pm-web projects configure local Ollama search automatically and install the `pm-graph` package into the project workspace (from npm, via the per-project package catalog). Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
 
-The Packages view lists [pm-jev](https://github.com/unbraind/pm-jev#readme)
-with its `commands` and `schema` capabilities and verified public links.
-It remains **unreleased**, with installation disabled while the registry answers
-404. Ollama is the local default; the optional TypeSafe hosted provider requires
-credentials and explicit `jev.allow_external: true`.
-Catalog discovery validates canonical manifest/package/repository identity and
-collapses equivalent worktrees; conflicting metadata fails the gate. See
-[SDK and catalog certification](docs/sdk-update-automation.md), including the
-relationship to the existing catalog PR.
+The Packages view also lists [pm-jev](https://github.com/unbraind/pm-jev#readme),
+with `commands` and `schema` capabilities and links to its documentation,
+repository and
+[issue tracker](https://github.com/unbraind/pm-jev/issues). It is shown as
+**unreleased**, with installation disabled: the registry answered 404 when the
+fleet snapshot was refreshed. Its local default uses Ollama with
+`tev1:4b`; the optional hosted TypeSafe provider requires `TYPESAFE_API_KEY` and
+explicit `jev.allow_external: true`. Its manifest requires pm CLI 2026.10.5.
+
+Catalog completeness uses a committed registry-backed fleet snapshot in CI.
+Live discovery validates manifest identity against npm package identity and the
+canonical public repository, excludes the host/CLI by identity, and collapses
+equivalent sibling worktrees. Missing, invalid, or conflicting metadata fails
+the gate. To refresh, set `PM_FLEET_ROOT` to a fleet directory and run
+`npm run fleet:snapshot`, then `node --test test/catalog.test.ts` with the same
+variable. See [catalog acceptance evidence](docs/catalog-pm-jev.md).
+
+The SDK upgrade retains these catalog guarantees; see
+[SDK and catalog certification](docs/sdk-update-automation.md).
+
+The Packages view covers all 22 public fleet identities with verified descriptions,
+capabilities, command paths and links. Published extensions support project
+installation, activation and documented command execution. Unpublished extensions
+show an explanation instead of an Install button; the independent native
+`pm-rust` CLI links to native setup and has no npm install spec. See the
+[fleet package catalog and HTTP acceptance](docs/fleet-package-catalog.md).
 
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
 

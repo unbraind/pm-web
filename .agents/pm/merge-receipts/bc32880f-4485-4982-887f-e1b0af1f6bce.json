@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "bc32880f-4485-4982-887f-e1b0af1f6bce",
+  "item_path": ".agents/pm/issues/pm-web-cqwm.toon",
+  "item_id": "pm-web-cqwm",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [
+    "actual_result"
+  ],
+  "union_fields": [
+    "comments",
+    "docs"
+  ],
+  "merged_field_hashes": {
+    "actual_result": "7b354ce224d6bf4e3775cdc982fd91c50bd0bff6cb06939e4e110c52dcffbd06",
+    "comments": "664aaf4ff6a0882f335f559ce53fc57704f1dabd4bf3b43223924bcf1f12e4de",
+    "docs": "e1aaa28d0d62bfc2b1b411388fc5c7714d572eed23e5818909c9cf053bdd9164"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "d883781d6d134694bedddd65ad37011aa2cbcdea",
+    "original_blob": "398cb39b5ef7313806d390cffd486e1f13a98cc5"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-11T04:58:27.059Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-11T05:15:46.080Z"
+}

@@ -140,9 +140,9 @@ router.post("/:name/install", async (req, res) => {
     // install spec resolves for it. Refuse here with a reason rather than
     // spawning a `pm install` that would fail against the registry with an
     // opaque 404 the user cannot act on.
-    if (entry.availability === "unreleased") {
+    if (entry.availability === "unreleased" || entry.npmSpec === null) {
         res.status(409).json({
-            error: `${entry.name} is not published to npm yet, so it cannot be installed.`,
+            error: entry.unavailableReason ?? `${entry.name} is not published to npm yet, so it cannot be installed.`,
         });
         return;
     }
@@ -182,6 +182,10 @@ async function runExtensionCommand(req, res, subcommand) {
     if (!project)
         return;
     const entry = catalogEntry(res);
+    if (entry.category === "native") {
+        res.status(409).json({ error: entry.unavailableReason });
+        return;
+    }
     const result = await runPm({
         args: ["extension", subcommand, entry.name, "--project"],
         userId: project.ownerUserId,
@@ -195,6 +199,43 @@ async function runExtensionCommand(req, res, subcommand) {
     broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, subcommand);
     res.json(result.parsed || { ok: true, name: entry.name });
 }
+/** Execute a documented extension command in the editable project's real runtime. */
+router.post("/:name/run", async (req, res) => {
+    const project = await requireEditableProject(req, res);
+    if (!project)
+        return;
+    const entry = catalogEntry(res);
+    const body = (req.body ?? {});
+    if (entry.category === "native" || typeof body.command !== "string"
+        || !entry.commands.includes(body.command) || !Array.isArray(body.args)
+        || body.args.some((arg) => typeof arg !== "string")) {
+        res.status(400).json({ error: "Choose a documented extension command and supply arguments as a string array." });
+        return;
+    }
+    const args = body.args;
+    // Global selectors would escape the project pinned by the runner. Extension
+    // arguments otherwise retain their documented syntax, passed without a shell.
+    const selectors = new Set(["--workspace", "--cwd", "--pm-root", "--pm-path", "--global"]);
+    if (args.some((arg) => selectors.has(arg.split("=", 1)[0]))) {
+        res.status(400).json({ error: "Commands must use the current project workspace." });
+        return;
+    }
+    const dir = getProjectDir(project.ownerUserId, project.slug);
+    const states = await readProjectExtensionStates(dir);
+    const state = states.states.get(entry.name);
+    if (!states.ok || !state?.active || !state.enabled) {
+        res.status(409).json({ error: states.error || `Install and enable ${entry.name} before running its commands.` });
+        return;
+    }
+    const result = await runPm({
+        args: [...body.command.slice(3).split(" "), ...args],
+        userId: project.ownerUserId, slug: project.slug, jsonOutput: true,
+        // Preserve extension subcommands and flags: the in-process adapter derives
+        // positional/boolean arity only from the core tool schema.
+        timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
+    });
+    res.status(result.ok ? 200 : 400).json({ ok: result.ok, output: result.parsed ?? result.stdout, error: result.stderr });
+});
 // POST /api/projects/:projectId/extensions/:name/activate
 router.post("/:name/activate", async (req, res) => {
     await runExtensionCommand(req, res, "activate");

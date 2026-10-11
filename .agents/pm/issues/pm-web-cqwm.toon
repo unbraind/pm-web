@@ -6,19 +6,40 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:20:08.853Z"
-updated_at: "2026-10-10T04:08:19.594Z"
+updated_at: "2026-10-11T06:05:23.130Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Fleet discovery resolves canonical package identity and a filesystem worktree fixture cannot appear as a separately named installable extension.
 actual_result: PR175 canonical identity/readability validation and equivalent-worktree deduplication reused with attribution; malformed/conflicting metadata fails. Three real filesystem/Git-worktree tests retain meaningful prior assertions and add identity/conflict cases; built-catalog acceptance and live21-extension snapshot pass. Linked catalog16/16 and final490/490 release tests pass; no divergent catalog proposal or owner closure.
-comments[3]{created_at,author,text}:
+comments[13]{created_at,author,text}:
+  "2026-10-07T20:23:20.953Z",codex-sol,"Baseline acceptance against the built package and a real scratch tracker: a directory named pm-web-candidate containing the actual host manifest and package metadata is returned as an extension with that directory name. Plan: derive identity from manifest name and matching package/repository metadata, exclude hosts by canonical identity, deduplicate equivalent worktrees, and reject unreadable or conflicting metadata. Add a real sibling git-worktree regression and make catalog assertions consume the shared derivation."
   "2026-10-07T20:26:19.928Z",codex-sol,"The npm release gate for the graph-export feature reproduced three catalog failures in the package worktree. Inventory treated sibling feature-worktree directory names, including the pm-web host worktree, as installable package identities and disagreed with the committed fleet snapshot. The catalog, fleet reader and catalog tests are byte-unchanged from the base; retain this separate existing follow-up instead of changing inventory or snapshots in the graph feature."
+  "2026-10-07T21:52:32.352Z",codex-sol,"Discovery now validates canonical manifest identity against npm identity and public repository, excludes renamed host/CLI checkouts, collapses equivalent worktrees and reports conflicts. Tests use real files and a real sibling Git worktree, then run the actual catalog completeness and metadata assertions against renamed package checkouts. Reverting only readFleetExtensions to its baseline body and rebuilding produces assertion failures, including built host exclusion and sibling worktree identity. Modules load and execute; restored behavior passes."
+  "2026-10-07T21:59:39.908Z",codex-sol,The final regression builds a complete synthetic 21-package fleet with renamed checkout directories and a real sibling Git worktree of pm-graph. It invokes all 12 live-fleet catalog assertions against that fixture. Reverting only the discovery function to the original behavior makes the final worktree regression fail with an identity AssertionError; restoring the function passes all four focused filesystem/built acceptance tests.
+  "2026-10-07T22:16:58.617Z",codex-sol,"Close-ready: all four linked filesystem/built acceptance tests pass, including a complete renamed 21-package fleet with a real sibling Git worktree of another extension and all 12 nested live-fleet assertions. The exact final sibling-worktree regression fails with an AssertionError when only the discovery body is behaviorally reverted, and passes when restored. Both full release gates pass 484/484 with unchanged thresholds and fresh packed npm/Bun consumers. README and acceptance evidence describe canonical identity, repository normalization, duplicate collapse and conflict reporting."
   "2026-10-10T03:15:14.820Z",codex-sol,"Reuse PR175 canonical identity validation, host exclusion, equivalent-worktree deduplication and conflicting-metadata failures with its real filesystem/worktree regressions. Baseline focused catalog suite reproduced four failures; added PR175 regressions fail against the original discovery and built catalog. Attribution and superseding PR relationship will be documented."
   "2026-10-10T04:07:54.182Z",codex-sol,"Verification receipt is recorded in docs/sdk-update-automation.md and linked from pm-web-8pml: complete release490/490,zero skips; packed npm/nativeBun4/4, six real disposablePostgreSQL collaboration tests. Keep item unclosed for independent orchestrator verification."
-files[3]{path,scope}:
+  "2026-10-11T05:12:26.360Z",codex-sol,"Compared both branch item documents before auditing the merged history. The field-aware driver retained the union of comments, files, docs and tests, but ordinary reconciliation rejected generated receipt evidence for this item. Reviewed the force preview: one replayed files event and one sibling tests event differed from the merged collection values; the current documents retain both branches evidence. Applied audited reconciliation without dropping history events. Main deterministic filesystem ordering and canonical identity tests are preserved."
+  "2026-10-11T05:16:45.794Z",codex-sol,"CLI reconciliation audited both current item snapshots and strict history verification passed, but left two lossless receipts pending although the merge_reconcile history event already represented their exact identities. Verified those history references, then used the installed SDK receipt-settlement helper to mark only those represented receipts reconciled. No item values or history events were rewritten by settlement. This is a CLI receipt-settlement gap; no upstream report was filed."
+  "2026-10-11T05:25:14.927Z",codex-sol,Reviewed and acknowledged the existing linked filesystem/Git-worktree command inherited from the PR branch. It passes 4/4 with zero skips against the restored built server and canonical fleet. Strict history verification passed; audited merge receipt settlement is complete with zero pending receipts.
+  "2026-10-11T05:28:43.573Z",codex-sol,"Release validation is running with unchanged tests and thresholds. The independent attestation branch recorded a main graph timing failure at 33115 ms against the existing 10000 ms bound. Shared resource contention is suspected, not established; retain this evidence and avoid overlapping heavy retries. No graph limits or assertions will be relaxed."
+  "2026-10-11T05:49:20.576Z",codex-sol,"Independent CI on catalog head fb88798 passes literal npm run release:check and bun run release:check on both Node 22 and 26, each 496/496 tests, zero failures/skips. All 34 configured server sources meet unchanged thresholds; all four packed npm/Bun current/minimum-host scenarios pass. This is catalog source-subset evidence, not whole-source coverage or live credentialed integration. The final feedback correction and extended real-SSE test will receive a new exact-head CI run."
+  "2026-10-11T06:05:11.542Z",codex-sol,"Orchestrator final verification: both main-merged PR worktrees retain SDK 2026.10.10 and deterministic canonical discovery. Catalog CI run 38116214351 passes all four isolated-identity npm/Bun matrix gates with 496/496 tests each and zero skips; attestation CI run 38116108000 passes 559/559 each. Canonical discovery/built-catalog PM-linked acceptance passes 4/4. Tracker reconciliation has zero drift and zero pending receipts. Preserve separate evidence boundaries for local extension skew, external credentials/services and the inherited tracker advisory items."
+files[8]{path,scope}:
+  public/src/views/packages.ts,project
   src/services/fleet-snapshot.ts,project
+  src/services/package-catalog.ts,project
+  test/catalog-built.test.ts,project
+  test/catalog-ui.test.ts,project
   test/catalog.test.ts,project
+  test/fleet-extensions.snapshot.json,project
   test/fleet-snapshot.test.ts,project
-docs[1]{path,scope}:
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/fleet-snapshot.test.ts test/catalog-built.test.ts,project,codex-sol,"2026-10-07T21:52:28.282Z",local_mutation,feat/catalog-pm-jev
+docs[5]{path,scope}:
+  docs/catalog-pm-jev.md,project
+  docs/coverage-progress.md,project
+  docs/fleet-package-catalog.md,project
   docs/sdk-update-automation.md,project
+  README.md,project
 body: ""
