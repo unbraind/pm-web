@@ -52,7 +52,7 @@ export interface FleetProblem {
  * snapshot type.
  */
 export interface LocalFleetExtension {
-  /** Directory and package name, e.g. `pm-ado`. */
+  /** Canonical manifest identity, independent of checkout name, e.g. `pm-ado`. */
   name: string;
   /** The manifest's description, which a product extension's catalog entry mirrors exactly. */
   description: string;
@@ -106,11 +106,15 @@ export interface FleetFs {
 /**
  * Derive every pm extension present under `fleetRoot`.
  *
- * A directory is a pm extension exactly when it ships a `manifest.json`
+ * A package is a pm extension exactly when it ships a `manifest.json`
  * declaring a non-empty `capabilities` array. That rule is the definition
  * rather than a heuristic: it is what makes a package installable into pm at
  * all, so deriving membership from it cannot drift from reality the way a
- * second hardcoded list would.
+ * second hardcoded list would. Identity comes from the manifest name and
+ * matching package/repository metadata, never the directory name. Equivalent
+ * worktrees are collapsed; conflicting metadata is reported as a problem.
+ * Directory names determine which conflicting record is retained, using
+ * lexicographic order independent of filesystem enumeration and locale.
  *
  * @param fleetRoot - Directory holding the sibling package directories.
  * @param fs - Filesystem accessors to read the tree with.
@@ -123,15 +127,18 @@ export function readFleetExtensions(
   fs: FleetFs,
 ): { extensions: LocalFleetExtension[]; problems: FleetProblem[] } {
   if (!fs.existsSync(fleetRoot)) return { extensions: [], problems: [] };
-  const found: LocalFleetExtension[] = [];
+  const found = new Map<string, LocalFleetExtension>();
   const problems: FleetProblem[] = [];
-  for (const entry of fs.readdirSync(fleetRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !entry.name.startsWith("pm-") || CATALOG_HOSTS.has(entry.name)) continue;
+  const entries = fs.readdirSync(fleetRoot, { withFileTypes: true })
+    .sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
     const manifestPath = `${fleetRoot}/${entry.name}/manifest.json`;
     if (!fs.existsSync(manifestPath)) continue;
-    let manifest: { description?: unknown; capabilities?: unknown };
+    let manifest: { name?: unknown; description?: unknown; capabilities?: unknown };
     try {
       manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as typeof manifest;
+      if (!manifest || typeof manifest !== "object") throw new Error("Invalid manifest object");
     } catch {
       // A manifest that exists and does not parse is a defect in that package,
       // not evidence that it is not an extension. Reporting it is the whole
@@ -139,39 +146,60 @@ export function readFleetExtensions(
       problems.push({ name: entry.name, reason: "manifest.json exists but is not valid JSON" });
       continue;
     }
+    const name = manifest.name;
+    if (typeof name !== "string" || !/^pm-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) {
+      problems.push({ name: entry.name, reason: "manifest.json declares no canonical pm package name" });
+      continue;
+    }
+    if (CATALOG_HOSTS.has(name)) continue;
     const capabilities = manifest.capabilities;
     if (!Array.isArray(capabilities)) {
       problems.push({ name: entry.name, reason: "manifest.json declares no capabilities array" });
       continue;
     }
     if (capabilities.length === 0) continue;
-    let publishable = false;
-    let packageDescription = "";
-    const packageJsonPath = `${fleetRoot}/${entry.name}/package.json`;
-    if (fs.existsSync(packageJsonPath)) {
-      try {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as {
-          publishConfig?: unknown;
-          description?: unknown;
-        };
-        publishable = packageJson.publishConfig !== undefined;
-        packageDescription =
-          typeof packageJson.description === "string" ? packageJson.description : "";
-      } catch {
-        publishable = false;
-        problems.push({ name: entry.name, reason: "package.json exists but is not valid JSON" });
-      }
+    if (capabilities.some((capability) => typeof capability !== "string" || capability.length === 0)) {
+      problems.push({ name: entry.name, reason: "manifest.json capabilities must be non-empty strings" });
+      continue;
     }
-    found.push({
-      name: entry.name,
+    const packageJsonPath = `${fleetRoot}/${entry.name}/package.json`;
+    let packageJson: {
+      name?: unknown; repository?: string | { url?: unknown };
+      publishConfig?: unknown; description?: unknown;
+    };
+    try {
+      packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as typeof packageJson;
+      if (!packageJson || typeof packageJson !== "object") throw new Error("Invalid package object");
+    } catch {
+      problems.push({ name: entry.name, reason: "package.json is missing or is not valid JSON metadata" });
+      continue;
+    }
+    const repository = typeof packageJson.repository === "string"
+      ? packageJson.repository : packageJson.repository?.url;
+    const canonicalRepository = typeof repository === "string"
+      ? repository.replace(/^git\+/, "").replace(/^git@github\.com:/, "https://github.com/")
+        .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/").replace(/(?:\.git)?\/?$/, "")
+      : "";
+    if (packageJson.name !== name || canonicalRepository !== `https://github.com/unbraind/${name}`) {
+      problems.push({ name: entry.name, reason: "package name/repository does not match the canonical manifest identity" });
+      continue;
+    }
+    const extension: LocalFleetExtension = {
+      name,
       description: typeof manifest.description === "string" ? manifest.description : "",
-      packageDescription,
-      capabilities: [...capabilities].map(String).sort(),
-      publishable,
-    });
+      packageDescription: typeof packageJson.description === "string" ? packageJson.description : "",
+      capabilities: [...new Set(capabilities as string[])].sort(),
+      publishable: packageJson.publishConfig !== undefined,
+    };
+    const previous = found.get(name);
+    if (previous && JSON.stringify(previous) !== JSON.stringify(extension)) {
+      problems.push({ name: entry.name, reason: `conflicting worktree metadata for ${name}` });
+      continue;
+    }
+    found.set(name, extension);
   }
   return {
-    extensions: found.sort((a, b) => a.name.localeCompare(b.name)),
+    extensions: [...found.values()].sort((a, b) => a.name.localeCompare(b.name)),
     problems: problems.sort((a, b) => a.name.localeCompare(b.name)),
   };
 }

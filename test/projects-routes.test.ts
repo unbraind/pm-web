@@ -103,7 +103,7 @@ async function patchProject(
  */
 async function setupFsHarness(): Promise<{ restore: () => Promise<void>; logPath: string }> {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-projects-"));
-  const fakePm = path.join(root, "fake-pm");
+  const fakePm = path.join(root, "fake-pm.cjs");
   const logPath = path.join(root, "commands.log");
   await writeFile(
     fakePm,

@@ -42,6 +42,8 @@ interface PackageRow {
    * version, so no install can succeed and the card must not offer one.
    */
   availability?: 'published' | 'unreleased';
+  /** Public links; npm is omitted until the registry serves the package. */
+  links?: Record<'docs' | 'repository' | 'report', string> & { npm?: string };
   requiresService?: { name: string; optional?: boolean };
   requiresCredentials?: Array<{ label: string; envVars: string[]; optional?: boolean }>;
   installed: boolean;
@@ -138,7 +140,7 @@ async function fetchAndRenderPackages(): Promise<void> {
  * @param row - The package catalog row to render.
  * @returns The card markup string.
  */
-function renderPackageCard(row: PackageRow): string {
+export function renderPackageCard(row: PackageRow): string {
   const statusChip = row.installed
     ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
     : `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.notInstalled'))}</span>`;
@@ -208,6 +210,10 @@ function renderPackageCard(row: PackageRow): string {
       </div>`;
   }
 
+  const links = row.links ? Object.entries(row.links).map(([label, url]) =>
+    `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${escHtml(label)}</a>`,
+  ).join(' · ') : '';
+
   return `
     <div class="card" style="cursor:default">
       <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -220,6 +226,7 @@ function renderPackageCard(row: PackageRow): string {
       <div class="card-body" style="padding-top:0">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${escHtml(row.description)}</div>
         ${unreleasedNote}${serviceNote}${credNotes}${caps}
+        ${links ? `<div style="margin-top:8px">${links}</div>` : ''}
         ${actions ? `<div style="margin-top:12px">${actions}</div>` : ''}
       </div>
     </div>`;

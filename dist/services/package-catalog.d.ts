@@ -99,6 +99,10 @@ export interface PackageCatalogEntry {
      * were representable. See {@link PackageAvailability}.
      */
     readonly availability?: PackageAvailability;
+    /** Public links; npm is present only when the registry serves the package. */
+    readonly links?: Readonly<Record<"docs" | "repository" | "report", string> & {
+        npm?: string;
+    }>;
     /** Backing service the package needs (optional). */
     readonly requiresService?: ServiceRequirement;
     /** Credentials the user must configure (optional). */

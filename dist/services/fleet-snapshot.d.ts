@@ -41,7 +41,7 @@ export interface FleetProblem {
  * snapshot type.
  */
 export interface LocalFleetExtension {
-    /** Directory and package name, e.g. `pm-ado`. */
+    /** Canonical manifest identity, independent of checkout name, e.g. `pm-ado`. */
     name: string;
     /** The manifest's description, which a product extension's catalog entry mirrors exactly. */
     description: string;
@@ -97,11 +97,15 @@ export interface FleetFs {
 /**
  * Derive every pm extension present under `fleetRoot`.
  *
- * A directory is a pm extension exactly when it ships a `manifest.json`
+ * A package is a pm extension exactly when it ships a `manifest.json`
  * declaring a non-empty `capabilities` array. That rule is the definition
  * rather than a heuristic: it is what makes a package installable into pm at
  * all, so deriving membership from it cannot drift from reality the way a
- * second hardcoded list would.
+ * second hardcoded list would. Identity comes from the manifest name and
+ * matching package/repository metadata, never the directory name. Equivalent
+ * worktrees are collapsed; conflicting metadata is reported as a problem.
+ * Directory names determine which conflicting record is retained, using
+ * lexicographic order independent of filesystem enumeration and locale.
  *
  * @param fleetRoot - Directory holding the sibling package directories.
  * @param fs - Filesystem accessors to read the tree with.

@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { graphFromItems, type Graph } from "pm-graph";
-import { listAllItemMetadata, serializeItemDocument, type ItemMetadata } from "@unbrained/pm-cli/sdk";
+import { listAllItemMetadata, listAllItemMetadataLight, serializeItemDocument, type ItemMetadata } from "@unbrained/pm-cli/sdk";
 import { readProjectGraph, type ProjectGraph } from "../src/services/project-graph.ts";
 import { createApp } from "../dist/app.js";
 import { pool as builtPool } from "../dist/db.js";
@@ -90,20 +90,26 @@ async function installFixtureGraph(workspace: string): Promise<string> {
 
 /** Run the genuine installed extension command, with the real CLI and SDK readers. */
 function extensionExport(workspace: string): Graph {
-  return (JSON.parse(execFileSync(path.resolve("node_modules/.bin/pm"), ["pm-graph", "export", "--json"], {
+  const started = Date.now();
+  const graph = (JSON.parse(execFileSync(path.resolve("node_modules/.bin/pm"), ["pm-graph", "export", "--json"], {
     cwd: workspace, encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
     env: { ...process.env, PM_PATH: path.join(workspace, ".agents", "pm") },
   })) as { graph: Graph }).graph;
+  assert.ok(Date.parse(graph.generatedAt) >= started && Date.parse(graph.generatedAt) <= Date.now(),
+    "export timestamp must fall inside the actual CLI operation");
+  return graph;
 }
 
-/** Compare every export field and array position, allowing only per-call generation time and web source. */
-function assertExportParity(exported: Graph, model: ProjectGraph): void {
+/** Compare ordered export payloads and prove the web timestamp belongs to its actual read. */
+function assertExportParity(exported: Graph, model: ProjectGraph, readStarted: number): void {
   assert.ok(Number.isFinite(Date.parse(model.generatedAt)));
   assert.ok(Number.isFinite(Date.parse(exported.generatedAt)));
   const { source, generatedAt: webTime, ...actual } = model;
   const { generatedAt: exportTime, ...expected } = exported;
   assert.ok(source === "pm-web" || source === "pm-graph");
-  assert.ok(Math.abs(Date.parse(webTime) - Date.parse(exportTime)) < 30_000);
+  assert.ok(Date.parse(webTime) >= readStarted && Date.parse(webTime) <= Date.now(),
+    "web timestamp must fall inside its read, independently of earlier export timing");
+  assert.ok(Date.parse(exportTime) <= Date.now(), "reference export cannot be generated in the future");
   assert.deepEqual(JSON.parse(JSON.stringify(actual)), JSON.parse(JSON.stringify(expected)));
 }
 
@@ -128,15 +134,17 @@ test("round-trip property: generated real graphs preserve the installed export a
     const workspace = await generatedTracker(owner, slug, seed, seed === 1 ? 0 : seed * 3);
     await installFixtureGraph(workspace);
     const exported = extensionExport(workspace);
+    const installedStarted = Date.now();
     const installed = await readProjectGraph(owner, slug);
-    assertExportParity(exported, JSON.parse(JSON.stringify(installed.graph)) as ProjectGraph);
+    assertExportParity(exported, JSON.parse(JSON.stringify(installed.graph)) as ProjectGraph, installedStarted);
     assert.equal(installed.extensionAvailable, true);
     assert.equal(installed.graph.source, "pm-graph");
     await rm(path.join(workspace, ".agents", "pm", "extensions", "pm-graph"), { recursive: true });
+    const builtInStarted = Date.now();
     const builtIn = await readProjectGraph(owner, slug);
     assert.equal(builtIn.extensionAvailable, false);
     assert.equal(builtIn.graph.source, "pm-web");
-    assertExportParity(exported, builtIn.graph);
+    assertExportParity(exported, builtIn.graph, builtInStarted);
   }
 });
 
@@ -168,10 +176,11 @@ test("built GET/HEAD and neighbor reads preserve exports for viewers without run
   const server = await startEphemeralServer(createApp());
   t.after(() => server.close());
   const url = `/api/projects/${project.id}/pm/graph`;
+  const readStarted = Date.now();
   const response = await authedFetch(server, viewer, url);
   assert.equal(response.status, 200);
   const body = await response.json() as { graph: ProjectGraph; extensionAvailable: boolean };
-  assertExportParity(exported, body.graph);
+  assertExportParity(exported, body.graph, readStarted);
   assert.equal(body.extensionAvailable, true);
   assert.equal((await authedFetch(server, viewer, url, { method: "HEAD" })).status, 200);
   assert.equal((await authedFetch(server, outsider, url)).status, 404);
@@ -210,13 +219,17 @@ test("large-corpus certified graph reads are bounded without per-item commands",
   const workspace = await generatedTracker("fixture-large", "large", 73, 2000);
   const items = await listAllItemMetadata(path.join(workspace, ".agents", "pm"));
   const exported = graphFromItems(items, workspace, new Map());
+  const readStarted = Date.now();
   const started = performance.now();
   const model = await readProjectGraph("fixture-large", "large");
   const elapsed = performance.now() - started;
-  assertExportParity(exported, model.graph);
-  assert.equal(model.graph.nodes.filter((node) => node.labels.includes("PmItem")).length, 2000);
-  assert.ok(elapsed < 10_000, `2000-item read exceeded 10 seconds: ${elapsed.toFixed(0)} ms`);
   t.diagnostic(`2000 items: ${elapsed.toFixed(0)} ms, ${model.graph.nodes.length} nodes, ${model.graph.relationships.length} edges`);
+  assert.ok(elapsed < 10_000, `2000-item read exceeded 10 seconds: ${elapsed.toFixed(0)} ms`);
+  assertExportParity(exported, model.graph, readStarted);
+  assert.equal(model.graph.nodes.filter((node) => node.labels.includes("PmItem")).length, 2000);
+  const lightItems = await listAllItemMetadataLight(path.join(workspace, ".agents", "pm"));
+  assert.deepEqual(lightItems.map((item) => item.id), items.map((item) => item.id),
+    "actual installed SDK light and full scans must supply identical native ordering");
 });
 
 test("invalid graph manifests use the built-in model and malformed tracker data fails closed", async () => {

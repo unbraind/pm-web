@@ -4,6 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { GetResult } from "@unbrained/pm-cli/sdk";
 
 import {
   certifyPmWebCompleteList,
@@ -57,7 +58,7 @@ test("semaphore hands a released slot directly to the oldest waiter", async () =
 
 test("spawn fallback stays non-blocking, serializes a workspace, and overlaps independent workspaces", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-runner-"));
-  const fakePm = path.join(root, "fake-pm");
+  const fakePm = path.join(root, "fake-pm.cjs");
   const logPath = path.join(root, "commands.log");
   const previousRoot = process.env["PROJECTS_ROOT"];
   const previousBin = process.env["PM_CLI_BIN"];
@@ -134,17 +135,17 @@ setTimeout(() => {
 // Both paths share one queue per workspace (`workspaceTails`), so the
 // discriminator is an interleave: a slow SPAWN action submitted first must hold
 // the workspace, and an in-process action submitted second must not complete
-// until the spawn has finished. If the in-process path bypasses the queue it
-// returns almost immediately, inverting the order — a difference of the full
-// spawn delay, not a timing tolerance.
+// until the spawn has finished. The spawn remains held until the independent
+// SDK mutation completes, so order proves queue isolation without assuming
+// either operation's scheduling time.
 test("in-process dispatch waits behind the same workspace queue as the spawn path", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-sdk-concurrency-"));
-  const fakePm = path.join(root, "fake-pm");
+  const fakePm = path.join(root, "fake-pm.cjs");
   const previousRoot = process.env["PROJECTS_ROOT"];
   const previousBin = process.env["PM_CLI_BIN"];
   process.env["PROJECTS_ROOT"] = root;
 
-  const SPAWN_DELAY_MS = 400;
+  const releasePath = path.join(root, "release-spawn");
 
   try {
     await Promise.all([
@@ -159,7 +160,12 @@ test("in-process dispatch waits behind the same workspace queue as the spawn pat
     }
 
     await writeFile(fakePm, `#!/usr/bin/env node
-setTimeout(() => process.stdout.write("done"), ${SPAWN_DELAY_MS});
+const fs = require("node:fs");
+const timer = setInterval(() => {
+  if (!fs.existsSync(${JSON.stringify(releasePath)})) return;
+  clearInterval(timer);
+  process.stdout.write("done");
+}, 10);
 `);
     await chmod(fakePm, 0o755);
     process.env["PM_CLI_BIN"] = fakePm;
@@ -174,14 +180,18 @@ setTimeout(() => process.stdout.write("done"), ${SPAWN_DELAY_MS});
       });
 
     // `calendar` is a spawn-fallback action, so this one shells out to the slow
-    // fake binary and holds the `busy` workspace for SPAWN_DELAY_MS.
+    // fake binary and holds `busy` until the independent SDK write completes.
     const slowSpawn = runPm({ userId: "user", slug: "busy", args: ["calendar", "1", "slow"] })
       .then((r) => { order.push("spawn:busy"); return r; });
     const queuedInProcess = createIn("busy", "queued behind the spawn")
       .then((r) => { order.push("in-process:busy"); return r; });
     // A different workspace must NOT be blocked by the busy one.
     const independent = createIn("idle", "independent workspace")
-      .then((r) => { order.push("in-process:idle"); return r; });
+      .then(async (r) => {
+        order.push("in-process:idle");
+        await writeFile(releasePath, "release");
+        return r;
+      });
 
     const [spawnResult, queuedResult, independentResult] = await Promise.all([
       slowSpawn,
@@ -271,7 +281,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     });
     assert.equal(afterUpdate.ok, true, afterUpdate.stderr);
     assert.equal(
-      (afterUpdate.parsed as { item?: { description?: string } }).item?.description,
+      (afterUpdate.parsed as GetResult).item.description,
       "--not-a-flag",
     );
 
@@ -433,7 +443,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
 
 test("an SDK-unsupported action falls back once to the original CLI argv", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-unsupported-runner-"));
-  const fakePm = path.join(root, "fake-pm");
+  const fakePm = path.join(root, "fake-pm.cjs");
   const previousRoot = process.env["PROJECTS_ROOT"];
   const previousBin = process.env["PM_CLI_BIN"];
 

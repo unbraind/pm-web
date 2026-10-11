@@ -130,6 +130,26 @@ export const PACKAGE_CATALOG = [
         ],
     },
     {
+        name: "pm-jev",
+        npmSpec: "npm:pm-jev",
+        title: "Jev",
+        description: "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev ask, jev gate, jev models, jev doctor.",
+        capabilities: ["commands", "schema"],
+        category: "extension",
+        availability: "unreleased",
+        links: {
+            docs: "https://github.com/unbraind/pm-jev#readme",
+            repository: "https://github.com/unbraind/pm-jev",
+            report: "https://github.com/unbraind/pm-jev/issues",
+        },
+        requiresService: { name: "Ollama (tev1:4b), or TypeSafe Jev with explicit privacy opt-in" },
+        requiresCredentials: [{
+                label: "TypeSafe hosted provider only (also requires jev.allow_external: true)",
+                envVars: ["TYPESAFE_API_KEY"],
+                optional: true,
+            }],
+    },
+    {
         name: "pm-jira",
         npmSpec: "npm:pm-jira",
         title: "Jira",
