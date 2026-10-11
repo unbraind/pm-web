@@ -1,0 +1,20 @@
+id: pm-web-6ama
+title: Refresh proxy-addr lockfile to clear the critical production audit advisory
+description: Release preflight reports GHSA-jqcg-44mw-7w3h in locked proxy-addr 2.0.7. Registry offers compatible 2.0.8. Validate the minimal transitive lockfile refresh with the public package release gates; deployment remediation is separate.
+type: Issue
+status: in_progress
+priority: 1
+tags: []
+created_at: "2026-10-07T21:50:18.097Z"
+updated_at: "2026-10-07T22:17:07.473Z"
+author: codex-sol
+comments[2]{created_at,author,text}:
+  "2026-10-07T21:51:45.454Z",codex-sol,"Release preflight reproduced GHSA-jqcg-44mw-7w3h with proxy-addr 2.0.7. A minimal npm update proxy-addr --ignore-scripts refresh changes only that transitive lockfile resolution to 2.0.8. No dependency ranges, gate thresholds or hosted resources change; validating with both release runners."
+  "2026-10-07T22:16:59.754Z",codex-sol,"Close-ready: locked proxy-addr is now 2.0.8, and npm run audit:prod reports zero production vulnerabilities. Both full release gates pass, including packed npm/Bun acceptance. The lockfile refresh changes no dependency range or gate threshold. Existing development-audit work remains separate; no hosted remediation is claimed."
+files[1]{path,scope}:
+  package-lock.json,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run audit:prod",project,codex-sol,"2026-10-07T21:52:29.631Z",local_mutation,feat/catalog-pm-jev
+docs[1]{path,scope}:
+  docs/catalog-pm-jev.md,project
+body: ""

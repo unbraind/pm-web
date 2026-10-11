@@ -1,5 +1,17 @@
 import { showOfflineRecovery } from './offline-recovery.js';
 
+/** HTTP failure retaining its parsed response for command output displays. */
+export class ApiError extends Error {
+  /** Parsed server payload, including stdout and stderr on command failures. */
+  readonly response: unknown;
+
+  /** Preserve the response body alongside the existing user-facing message. */
+  constructor(message: string, response: unknown) {
+    super(message);
+    this.response = response;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // API CLIENT
 // ═══════════════════════════════════════════════════════════════
@@ -46,7 +58,7 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   const res = await fetch('/api' + path, opts);
   const data = await res.json().catch((): Record<string, unknown> => ({})) as T;
   if (!res.ok) {
-    throw new Error(String((data as Record<string, unknown>).error || `HTTP ${res.status}`));
+    throw new ApiError(String((data as Record<string, unknown>).error || `HTTP ${res.status}`), data);
   }
   return data;
 }

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "d515e057-7696-4303-9cab-9f3448b630df",
+  "item_path": ".agents/pm/issues/pm-web-cqwm.toon",
+  "item_id": "pm-web-cqwm",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [],
+  "union_fields": [
+    "comments"
+  ],
+  "merged_field_hashes": {
+    "comments": "921efab7131b8303b8cab8cfd0a5bdb5e620d637146c289133def48c592d0dfd"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "879c3647a44690c22f2e9ba907475b5f2ad2c714",
+    "original_blob": "25bf50a2ce4dfa5d0424399161ba8a5f3205f447"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-11T12:33:23.132Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-11T16:09:28.492Z"
+}

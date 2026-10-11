@@ -92,6 +92,12 @@ export interface PmRunOptions {
     input?: string;
     jsonOutput?: boolean;
     timeoutMs?: number;
+    /** Require the runtime winner for this command, and for every path its positional args extend it to, to be the catalog package. */
+    commandOwner?: {
+        command: string;
+        name: string;
+        args?: readonly string[];
+    };
 }
 /** Transport-neutral result shared by in-process SDK and child-process calls. */
 export interface PmRunResult {
@@ -101,6 +107,8 @@ export interface PmRunResult {
     parsed?: unknown;
     /** pm CLI exit code from either the SDK dispatcher or spawned CLI fallback. */
     exitCode?: number;
+    /** Ownership could not be established or belonged to another package; no command ran. */
+    ownershipRefused?: boolean;
 }
 /** Stable pm-web checks that supplement the pm CLI SDK complete-list certificate. */
 export declare const PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS: readonly ["budget_disclosure_present"];

@@ -120,6 +120,7 @@
     "packageDescription": "Typed, local-first System One decisions for pm-cli items (Jev-style models via @typesafe-ai/sdk)",
     "capabilities": [
       "commands",
+      "hooks",
       "schema"
     ],
     "publishable": true,

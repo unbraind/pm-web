@@ -139,5 +139,10 @@
   "packages.changedByOther": "软件包 {name} 已被其他用户{operation}",
   "packages.templateBadge": "模板",
   "packages.unreleasedBadge": "尚未发布",
-  "packages.unreleased": "该软件包公开开发，但尚未发布到 npm，因此无法安装。"
+  "packages.unreleased": "该软件包公开开发，但尚未发布到 npm，因此无法安装。",
+  "packages.runCommand": "运行软件包命令",
+  "packages.command": "命令",
+  "packages.arguments": "参数（JSON 数组）",
+  "packages.run": "运行",
+  "packages.invalidArguments": "参数必须是字符串组成的 JSON 数组。"
 }

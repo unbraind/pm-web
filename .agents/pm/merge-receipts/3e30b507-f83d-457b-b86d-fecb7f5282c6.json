@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "id": "3e30b507-f83d-457b-b86d-fecb7f5282c6",
+  "item_path": ".agents/pm/issues/pm-web-s99c.toon",
+  "item_id": "pm-web-s99c",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [
+    "actual_result"
+  ],
+  "union_fields": [
+    "comments",
+    "docs",
+    "files",
+    "tests"
+  ],
+  "merged_field_hashes": {
+    "actual_result": "96a78b24afe39ed0f7e161ddf1e7838c781266a455499a32d0c3b6733498341c",
+    "comments": "f708906a95e965f19a39119614b92a3080eb2304e296fae6c1cebc56855595e2",
+    "docs": "e1aaa28d0d62bfc2b1b411388fc5c7714d572eed23e5818909c9cf053bdd9164",
+    "files": "4de03a8a0f79f7c1e5cd6edde8a4d824e651ae81aef4e16c6158d929f22c6f60",
+    "tests": "1881b13125ee774c4fb3d588f8551c4550d58f7bf3dbe31e76acf71ba5a8bec2"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "d883781d6d134694bedddd65ad37011aa2cbcdea",
+    "original_blob": "613d0769c421cc9eb92ecd97d31c6ea2f63d5527"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-11T04:58:20.333Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-11T05:10:59.616Z"
+}

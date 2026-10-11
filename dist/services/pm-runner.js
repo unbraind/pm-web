@@ -828,6 +828,7 @@ export async function runPm(opts) {
     const action = opts.args[0] ?? "";
     // Supported actions run in-process through the cached PmClient — no spawn.
     const useInProcess = !SPAWN_FALLBACK_ACTIONS.has(action) &&
+        opts.commandOwner === undefined &&
         opts.input === undefined &&
         opts.timeoutMs === undefined;
     // Both the in-process SDK dispatch and the spawn fallback must honour the
@@ -840,6 +841,12 @@ export async function runPm(opts) {
     // spawn fallback — in a single `runSerialized` restores the guarantee for
     // every action regardless of which path serves it.
     return runSerialized(dir, async () => {
+        const env = { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` };
+        if (opts.commandOwner) {
+            const error = await commandOwnershipError(dir, opts.commandOwner, env);
+            if (error)
+                return { ok: false, stdout: "", stderr: error, ownershipRefused: true };
+        }
         if (useInProcess) {
             const sdkResult = await runPmInProcess(opts, dir);
             if (sdkResult)
@@ -850,7 +857,7 @@ export async function runPm(opts) {
         const result = await runProcess(dir, args, {
             input: opts.input,
             timeoutMs: opts.timeoutMs,
-            env: { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` },
+            env,
         });
         const { stdout, stderr, ok, exitCode } = result;
         let parsed;
@@ -864,6 +871,47 @@ export async function runPm(opts) {
         }
         return { stdout, stderr, ok, parsed, exitCode };
     });
+}
+/** Verify exact-path runtime winners using the pinned CLI's public package-describe contract. */
+async function commandOwnershipError(dir, expected, env) {
+    const unknownOwner = `Cannot establish the effective owner of pm ${expected.command}; refusing to run ${expected.name}.`;
+    const result = await runProcess(dir, ["package", "describe", "--project", "--json"], { timeoutMs: 15_000, env });
+    if (!result.ok)
+        return unknownOwner;
+    try {
+        const receipt = JSON.parse(result.stdout);
+        const ownership = receipt.details?.command_ownership;
+        if (receipt.ok !== true || !Array.isArray(ownership))
+            return unknownOwner;
+        if (!ownership.some((row) => row.command === expected.command))
+            return unknownOwner;
+        // Positional arguments can extend the dispatched path (`pm presets` + `list`
+        // dispatches `presets list`), so every owned path the argv could resolve to
+        // must be won by the selected package, not only the selected base command.
+        const paths = new Set([expected.command]);
+        let path = expected.command;
+        for (const token of expected.args ?? []) {
+            if (token.startsWith("-"))
+                continue;
+            path = `${path} ${token}`;
+            paths.add(path);
+        }
+        for (const row of ownership.filter((candidate) => paths.has(candidate.command))) {
+            if (row.policy !== "last_activated_wins" || !["handler", "override"].includes(row.surface))
+                return unknownOwner;
+            const winners = row.claimants.filter((claimant) => claimant.winner === true);
+            const winner = winners[0];
+            if (winners.length !== 1 || !winner || typeof winner.name !== "string")
+                return unknownOwner;
+            if (winner.name !== expected.name) {
+                return `pm ${row.command} is owned by ${winner.name} (${row.surface}), not ${expected.name}; refusing to run.`;
+            }
+        }
+        return null;
+    }
+    catch {
+        return unknownOwner;
+    }
 }
 /**
  * Reconstruct a single item at a one-based version or ISO timestamp using the

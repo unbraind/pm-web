@@ -139,5 +139,10 @@
   "packages.changedByOther": "Paquete {name} {operation} por otro usuario",
   "packages.templateBadge": "Plantilla",
   "packages.unreleasedBadge": "Aún no publicado",
-  "packages.unreleased": "Este paquete se desarrolla de forma abierta, pero todavía no está publicado en npm, por lo que no se puede instalar."
+  "packages.unreleased": "Este paquete se desarrolla de forma abierta, pero todavía no está publicado en npm, por lo que no se puede instalar.",
+  "packages.runCommand": "Ejecutar comando del paquete",
+  "packages.command": "Comando",
+  "packages.arguments": "Argumentos (array JSON)",
+  "packages.run": "Ejecutar",
+  "packages.invalidArguments": "Los argumentos deben ser un array JSON de cadenas."
 }

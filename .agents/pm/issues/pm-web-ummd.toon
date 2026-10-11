@@ -1,0 +1,23 @@
+id: pm-web-ummd
+title: Isolate CommonJS test executables from ambient scratch-root package metadata
+description: "Release fixtures depend on ambient scratch-root context: extensionless CommonJS fake CLI scripts inherit an ESM package scope, failing eight assertions across extension routes, spawn fallback and project routes. A scratch root nested inside the checkout instead leaks ancestor pm-ops into two omit-dev scenarios. A dedicated external root with explicit CommonJS scope and scratch Git isolation passes the suite. Harden fixture isolation in a separate test-infrastructure change."
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-07T21:55:33.919Z"
+updated_at: "2026-10-07T22:17:01.464Z"
+author: codex-sol
+comments[4]{created_at,author,text}:
+  "2026-10-07T21:59:42.443Z",codex-sol,"The first full release run failed eight assertions across extension routes, spawn fallback and project routes because extensionless CommonJS fixture scripts inherited an ambient ESM package scope. Focused extension-route validation passes 9/9 using an isolated scratch root with an explicit CommonJS package scope. Both full release runners use that isolation without changing fixtures or weakening assertions."
+  "2026-10-07T22:02:46.842Z",codex-sol,"A full run with the scratch root nested inside the checkout resolves the ESM failures but exposes two omit-dev fixture failures: Node resolves pm-ops from the ancestor node_modules. Final gate isolation uses a dedicated external scratch root with explicit CommonJS scope and its own Git repository. The scratch Git repository also contains automatic merge-driver registration from tracker initialization. Generated package attributes from the nested attempt were restored; no upstream issue was filed."
+  "2026-10-07T22:09:13.654Z",codex-sol,"External scratch-root validation passes all seven prepare-merge-driver tests, including omit-dev and malformed lookup cases. The final full coverage run passes 484/484 with the same isolation and no fixture edits. PM SDK catalog acceptance found no new defect; CLI tracker initialization's automatic ancestor Git attribute registration must be contained by scratch Git isolation."
+  "2026-10-07T22:17:01.464Z",codex-sol,Both full release gates now pass 484/484 using external scratch-root CommonJS and Git isolation. Fixture hardening remains open and unclaimed as follow-up work; no assertions were weakened or fixtures changed in this catalog PR.
+files[4]{path,scope}:
+  test/extensions-routes.test.ts,project
+  test/pm-runner.test.ts,project
+  test/prepare-merge-driver.test.ts,project
+  test/projects-routes.test.ts,project
+docs[1]{path,scope}:
+  docs/catalog-pm-jev.md,project
+body: ""
