@@ -221,9 +221,13 @@ test("large-corpus certified graph reads are bounded without per-item commands",
   const exported = graphFromItems(items, workspace, new Map());
   const readStarted = Date.now();
   const started = performance.now();
+  const cpu = process.cpuUsage();
+  const resources = process.resourceUsage();
   const model = await readProjectGraph("fixture-large", "large");
   const elapsed = performance.now() - started;
-  t.diagnostic(`2000 items: ${elapsed.toFixed(0)} ms, ${model.graph.nodes.length} nodes, ${model.graph.relationships.length} edges`);
+  const usedCpu = process.cpuUsage(cpu);
+  const involuntarySwitches = process.resourceUsage().involuntaryContextSwitches - resources.involuntaryContextSwitches;
+  t.diagnostic(`2000 items: ${elapsed.toFixed(0)} ms wall, ${((usedCpu.user + usedCpu.system) / 1000).toFixed(0)} ms CPU, ${involuntarySwitches} involuntary context switches, ${model.graph.nodes.length} nodes, ${model.graph.relationships.length} edges`);
   assert.ok(elapsed < 10_000, `2000-item read exceeded 10 seconds: ${elapsed.toFixed(0)} ms`);
   assertExportParity(exported, model.graph, readStarted);
   assert.equal(model.graph.nodes.filter((node) => node.labels.includes("PmItem")).length, 2000);
