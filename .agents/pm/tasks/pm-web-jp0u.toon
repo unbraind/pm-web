@@ -1,0 +1,19 @@
+id: pm-web-jp0u
+title: Make spawned test fixtures independent of ancestor package module type
+description: "Extensionless Node fixtures containing require inherit an ancestor package.json type=module in a shared scratch tree, making extension, runner and project-route tests fail before exercising their assertions. An isolated CommonJS scratch root restores the affected 26-test subset. Use explicit CommonJS fixture filenames or local fixture metadata; retain real SDK acceptance on initialized trackers."
+type: Task
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-07T21:10:41.098Z"
+updated_at: "2026-10-07T21:12:50.967Z"
+author: codex-sol
+comments[1]{created_at,author,text}:
+  "2026-10-07T21:12:05.317Z",codex-sol,"Reproduction: the default shared scratch root has ancestor module metadata, so extensionless Node fixture executables using require fail with require is not defined in ES module scope. Pointing scratch creation at an isolated root with explicit CommonJS metadata restores the affected 26-test subset, with zero skipped. This is test-fixture isolation debt, not a reproduced SDK API failure."
+files[3]{path,scope}:
+  test/extensions-routes.test.ts,project
+  test/pm-runner.test.ts,project
+  test/projects-routes.test.ts,project
+docs[1]{path,scope}:
+  docs/publish-attestation.md,project
+body: ""

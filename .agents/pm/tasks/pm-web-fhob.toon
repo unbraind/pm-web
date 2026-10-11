@@ -1,0 +1,17 @@
+id: pm-web-fhob
+title: Make spawn-overlap regression independent of process startup scheduling
+description: "The unchanged spawn-fallback regression in test/pm-runner.test.ts failed during PR #176 standalone validation with SDK 2026.10.10. It observed start first, end first, start independent, end independent, start second, end second. Same-workspace serialization held, but the independent child did not start within the first child 120 ms delay under heavy shared verification load. Use an explicit ready/release protocol to prove independent dispatch without depending on process startup order; preserve real subprocess assertions and timeout behavior. This is a test-reliability follow-up, not an established SDK dispatch defect. Do not relax coverage, duplication or graph timing gates."
+type: Task
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-11T05:41:15.955Z"
+updated_at: "2026-10-11T05:46:04.382Z"
+author: codex-attestation
+comments[1]{created_at,author,text}:
+  "2026-10-11T05:46:04.382Z",codex-attestation,The completed first standalone npm run preserves the startup-order failure receipt; the attempted local Bun gate was intentionally interrupted by the orchestrator to avoid further shared-host contention. No runner production code or assertion is changed in PR #176. Independent CI on the pushed head remains the next evidence source; keep this follow-up open.
+files[1]{path,scope}:
+  test/pm-runner.test.ts,project
+docs[1]{path,scope}:
+  docs/publish-attestation.md,project
+body: ""
