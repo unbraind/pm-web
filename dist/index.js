@@ -262,7 +262,7 @@ function processAlive(pid) {
 }
 export default defineExtension({
     name: "pm-web",
-    version: "2026.10.9",
+    version: "2026.10.11",
     activate(api) {
         // -----------------------------------------------------------------------
         // Command: pm web [--port <port>] [--detach]
