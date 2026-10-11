@@ -2,12 +2,17 @@ id: pm-web-szow
 title: The publish-attestation gate misses a publish routed through an unquoted shell variable
 description: ""
 type: Issue
-status: in_progress
+status: closed
 priority: 1
 tags: []
 created_at: "2026-08-28T22:12:22.108Z"
-updated_at: "2026-10-11T08:30:42.539Z"
+updated_at: "2026-10-11T23:28:32.144Z"
+closed_at: "2026-10-11T23:28:32.100Z"
+completed_at: "2026-10-11T23:28:32.100Z"
 author: claude
+resolution: "Implemented and merged in https://github.com/unbraind/pm-web/pull/176: publish-attestation gate fails closed on unresolved publish indirection"
+expected_result: The acceptance criteria recorded on pm-web-szow are met on main.
+actual_result: "Merged in https://github.com/unbraind/pm-web/pull/176 after its full CI, an isolated release gate and a CodeRabbit full review with every finding resolved; publish-attestation gate fails closed on unresolved publish indirection"
 comments[36]{created_at,author,text}:
   "2026-10-07T20:54:19.962Z",codex-sol,"Baseline reproduction before code changes: built the package with npm run build, initialized a scratch pm project through the installed real CLI, created a synthetic issue, and dispatched the built web status extension through the real SDK testing engine. The staged workflow had an attested sibling plus an unattested path. pm-ops 2026.10.4 rejects PUB=\"npm publish\"; $PUB --access public, but returns zero failures for an enabled alias ship=\"npm publish\" followed by ship --access public and for ship() { npm \"$@\"; } followed by ship publish --access public. These are live publish paths masked by the attested sibling. Preserve canonical resolution, add fail-closed checks at the consumer boundary, and cover both verdicts where supported; unsupported indirection must fail even with a provenance-looking argument."
   "2026-10-07T21:05:35.956Z",codex-sol,"Behavioral revert proof: replaced only auditPublishAttestation with return canonicalAudit(sources), leaving imports, verify, launcher and test files unchanged. The targeted suite loaded and ran 45 tests: 27 passed and 18 failed with assertion failures, including alias and forwarded-function publishing; no module-loading or syntax failures. Restored the exact implementation bytes and reran the complete focused suite. Supplemental checks also reject partial executable substitutions, unknown publish flags, executable arrays and cross-step provenance evidence; supported attested scalar commands, literal functions/evaluators and quoted provenance flags remain accepted. pm test --run --progress passed; automatic test-result persistence is disabled by repository policy, so evidence is recorded in comments."
@@ -60,4 +65,5 @@ tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
   "node --test --test-name-pattern=\"workflow shell extraction follows only jobs steps run bodies\" test/publish-indirection.test.ts",project,900,codex-agent,"2026-10-11T07:40:07.723Z",local_mutation,fix/attestation-unquoted-var
 docs[1]{path,scope}:
   docs/publish-attestation.md,project
+close_reason: "Delivered by https://github.com/unbraind/pm-web/pull/176 (merged); publish-attestation gate fails closed on unresolved publish indirection"
 body: ""

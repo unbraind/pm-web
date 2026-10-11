@@ -2,16 +2,19 @@ id: pm-web-s99c
 title: Expose every public fleet package and run enabled extension commands
 description: "List all 22 public fleet identities with canonical npm, manifest, README and native Cargo facts. Distinguish 17 npm-published extensions, four unpublished extensions and the pre-release native Rust CLI. Install and enable published packages per project, expose documented commands with exact argument handling and retain command output. Verify compiled HTTP behavior with real tracker, registry and SSE acceptance plus behavioral revert proofs; preserve SDK 2026.10.10 and strict canonical discovery when merging main."
 type: Issue
-status: in_progress
+status: closed
 priority: 2
 tags: []
 created_at: "2026-10-05T05:18:01.915Z"
-updated_at: "2026-10-11T16:10:14.680Z"
+updated_at: "2026-10-11T23:28:30.352Z"
+closed_at: "2026-10-11T23:28:30.340Z"
+completed_at: "2026-10-11T23:28:30.340Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: "The package catalog and committed fleet snapshot list all 22 public fleet packages with verified npm, manifest, README and native Cargo facts. Published packages install and enable per project, and their documented commands run with exact argument handling, retained output and refusal (409 naming the owner) whenever another package owns the command or any path its positional arguments extend to. Unpublished and native packages show no install or enable control. All optional live-fleet completeness assertions pass against the canonical fleet root."
-expected_result: "Users can browse every fleet package, install and enable published ones, and run their documented commands safely from pm-web."
-actual_result: "PR182 renewed directory-order nit5477988575 fixed with locale-independent lexicographic sort before existing discovery; same2 real assignments assert exact first-folder full metadata and second-folder conflict. Host old-source baseline3/3 passes, so cross-platform contract correction without fabricated revert failure. New full linked release492/492 zero skips; configured34 src S/L90.33 B80.10 F93.43; packed npm/nativeBun4/4 hosts10.4/10.9, standaloneSDK10.9. Source/distribution rebuilt and fingerprint stable. Strict owner history verified; local pinned health blocked by managed extension10.10 versusSDK10.9. Owners/reviews/whole-source/privacy/dev4high/graph/concurrency/hosted gates open, SDK4 hosting unchanged; no closure/deployment."
+resolution: "Implemented and merged in https://github.com/unbraind/pm-web/pull/175: catalog lists all 22 fleet packages with install, enable and ownership-bound command runs"
+expected_result: The acceptance criteria recorded on pm-web-s99c are met on main.
+actual_result: "Merged in https://github.com/unbraind/pm-web/pull/175 after its full CI, an isolated release gate and a CodeRabbit full review with every finding resolved; catalog lists all 22 fleet packages with install, enable and ownership-bound command runs"
 comments[51]{created_at,author,text}:
   "2026-10-07T20:23:20.330Z",codex-sol,"Baseline acceptance against the built package and a real scratch tracker: findCatalogEntry('pm-jev') is undefined. The canonical live-fleet catalog suite passes 8/12 and fails four assertions, including missing pm-jev membership and stale snapshot. Verified current manifest capabilities commands/schema, local-first Ollama default and optional hosted privacy opt-in. Registry lookup npm view pm-jev version returns E404, so availability must be unreleased despite publishConfig intent. Plan: refresh verified metadata and links, regenerate the registry-backed snapshot, retain every completeness assertion."
   "2026-10-07T21:10:40.030Z",codex-sol,Read-only canonical fleet validation during the attestation task confirms pm-jev is present in the fleet but absent from the committed 20-extension catalog/snapshot. The live fleet comparison fails. No catalog or snapshot change is included in the attestation task.
@@ -161,4 +164,5 @@ docs[6]{path,scope}:
   docs/fleet-package-catalog.md,project
   docs/sdk-update-automation.md,project
   README.md,project
+close_reason: "Delivered by https://github.com/unbraind/pm-web/pull/175 (merged); catalog lists all 22 fleet packages with install, enable and ownership-bound command runs"
 body: ""
