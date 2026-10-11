@@ -100,7 +100,14 @@ test("the standalone runtime SDK meets the separately certified extension host f
   assert.ok(floor, "manifest.json must declare the minimum extension host exercised by packed acceptance");
   assert.match(floor, EXACT_VERSION, "the certified extension host floor must be an exact version");
   assert.match(runtimeVersion, EXACT_VERSION);
+  // 2026.10.4 is the published minimum exercised by packed acceptance after
+  // the production SDK moved off its vulnerable fast-glob dependency chain.
+  // Lowering both pins together must not silently erase that certified baseline.
+  const apiMinimum = [2026, 10, 4];
   const floorParts = floor.split(".").map(Number);
+  const minimumDifference = floorParts.map((part, index) => part - apiMinimum[index]!)
+    .find((part) => part !== 0) ?? 0;
+  assert.ok(minimumDifference >= 0, "the extension host floor cannot precede the certified SDK API minimum 2026.10.4");
   const difference = runtimeVersion.split(".").map(Number)
     .map((part, index) => part - floorParts[index]!)
     .find((part) => part !== 0) ?? 0;
