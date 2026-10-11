@@ -196,3 +196,66 @@ jobs:
   }]);
   assert.deepEqual(result.failures, []);
 });
+
+
+test("workflow shell extraction follows only jobs steps run bodies", async (t) => {
+  await withReleaseFixture(async (fixture) => {
+    const file = ".github/workflows/release.yml";
+    const scenarios = [
+      {
+        name: "env run keys are data beside an attested publish",
+        metadata: `env: { run: 'alias ship="npm publish"' }`,
+        jobMetadata: `    env: { run: 'alias ship="npm publish"' }`,
+        stepMetadata: `        env: { run: 'alias ship="npm publish"' }`,
+        body: "npm publish --provenance",
+        accepted: true,
+      },
+      {
+        name: "a real unattested publish step is refused",
+        metadata: "",
+        jobMetadata: "",
+        stepMetadata: "",
+        body: "npm publish --access public",
+        accepted: false,
+      },
+      {
+        name: "a real alias step remains unprovable",
+        metadata: "",
+        jobMetadata: "",
+        stepMetadata: "",
+        body: `alias ship="npm publish"; ship --access public`,
+        accepted: false,
+      },
+      {
+        name: "workflow and job defaults run mappings are ignored",
+        metadata: "defaults: { run: { shell: bash, working-directory: . } }",
+        jobMetadata: "    defaults: { run: { shell: bash, working-directory: . } }",
+        stepMetadata: "",
+        body: "npm publish --provenance",
+        accepted: true,
+      },
+    ];
+    for (const scenario of scenarios) {
+      await t.test(scenario.name, () => {
+        const workflow = `${scenario.metadata}
+jobs:
+  release:
+${scenario.jobMetadata}
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm publish --provenance
+      - run: '${scenario.body}'
+${scenario.stepMetadata}
+`;
+        writeFileSync(resolve(fixture, file), workflow);
+        execFileSync("git", ["add", file], { cwd: fixture });
+        const result = verify(fixture);
+        assert.equal(result.recognition.kind, "recognized");
+        assert.equal(result.failures.length === 0, scenario.accepted, result.failures.join("\n"));
+        const cli = spawnSync(process.execPath, [resolve(fixture, "scripts/verify-release-publish-attestation.ts")], { cwd: fixture, encoding: "utf8" });
+        assert.equal(cli.status, scenario.accepted ? 0 : 1, `${cli.stdout}${cli.stderr}`);
+        assert.doesNotMatch(cli.stderr, /ERR_MODULE_NOT_FOUND|SyntaxError/u);
+      });
+    }
+  });
+});

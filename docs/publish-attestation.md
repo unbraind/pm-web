@@ -37,8 +37,11 @@ Literal `eval "npm publish --provenance"` and quoted scalar provenance flags rem
 supported. Unknown arguments on a resolved publish also fail because they could
 supply a later disabling flag.
 
-The supplemental guard parses workflow YAML and manifest scripts as data. Each `run` body and each
-package script is checked separately, preventing one shell process's bindings
+The supplemental guard parses workflow YAML and manifest scripts as data. Only
+`jobs.*.steps[*].run` string values are workflow shell bodies; environment keys
+named `run` and workflow/job `defaults.run` mappings remain metadata. Non-string
+step bodies still fail closed. Each step body and each package script is checked
+separately, preventing one shell process's bindings
 from attesting another process's publish. Invalid executable data fails closed;
 the supplemental guard skips displayed shell text and workflow metadata, and
 handles cyclic YAML references without looping. The canonical recognition count remains the original
@@ -198,3 +201,60 @@ excuse a health gate; the independent checkout runs the committed managed
 extension installer. The source and test inputs remain identical to merge
 commit `58ebab7`, so the completed focused and PM-linked acceptance receipts are
 retained without another heavy local suite.
+
+
+## Workflow body extraction review correction
+
+PR #176 review identified a false positive: an `env.run` value containing
+`alias ship="npm publish"` was scanned as an alias command beside an attested
+publish step. The supplemental extractor now reads only
+`jobs.*.steps[*].run` string values. Workflow and job `defaults.run` mappings
+are ignored. Canonical audit failures, manifest scripts and non-string step
+validation retain their existing behavior.
+
+The new real-tracker/Git fixture exercises both `verify` and the launcher:
+workflow/job/step environment `run` keys and workflow/job defaults pass;
+actual unattested publish and alias steps remain rejected. Its five tests pass
+directly and via `pm test pm-web-szow --run --only-last --progress`, with no skips.
+Reverting only `shellBodies` to its parent implementation makes the environment
+and defaults assertions fail (including their parent: **2 passes, 3 failures**,
+zero skips, exit 1), while both unsafe-step cases retain their expected rejection.
+There are no module-load or syntax failures, and the fixed source is restored
+byte-for-byte. The initial runtime/frontend build and test typecheck pass.
+
+
+The complete isolated-identity standalone npm release gate passes: **564/564
+tests**, zero failures/skips, all **34 configured server sources** reported,
+**90.33% statements/lines**, **80.13% branches** and **93.43% functions** against
+unchanged **90/90/79/92** thresholds. Duplication remains zero; production audit
+finds zero vulnerabilities. Packed npm and native Bun acceptance passes for
+both current host **2026.10.10** and minimum host **2026.10.4**, retaining the
+standalone SDK **2026.10.10**. Changelog, date and attestation verification pass.
+The configured coverage denominator remains server sources, and these receipts
+do not establish hosted or whole-repository readiness.
+
+
+The first complete Bun release attempt executes **564 tests: 563 pass, 1 fails**,
+zero skips. The sole failure is the unchanged independent-workspace process
+overlap assertion: `start first, end first, start independent, end independent,
+start second, end second`. Same-workspace serialization holds;
+[pm-web-fhob](../.agents/pm/tasks/pm-web-fhob.toon) tracks the scheduling issue.
+The 2,000-item graph read passes at **4,596 ms** against the unchanged
+**10,000 ms** bound. This attempt fails at coverage and does not establish an
+accepted coverage report or a verdict for the subsequent release steps.
+
+
+One full Bun repeat, with unchanged executable inputs and a fresh isolated Git
+identity, passes the complete release gate: **564/564 tests**, zero failures/skips,
+all **34 configured sources** reported, **90.31% statements/lines**,
+**80.07% branches** and **93.43% functions**. The existing overlap assertion passes
+and the graph read measures **7,312 ms**. All four packed acceptance scenarios,
+production audit, changelog/date and attestation checks pass. The first failed
+Bun attempt remains a separate receipt; the scheduling follow-up remains open.
+
+These standalone validation layouts reuse the pinned dependencies installed by
+`npm ci` in the package worktree. Each gate receives a fresh `HOME`, disabled
+global/system Git configuration and an external scratch directory without
+ancestor package/tracker metadata. The verifier, regression file, manifest and
+lockfile match the package worktree byte-for-byte. Subsequent documentation and
+tracker receipts do not change those executable inputs.

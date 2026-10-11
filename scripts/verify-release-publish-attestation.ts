@@ -39,9 +39,10 @@ const EVALUATORS = new Set(["eval", "bash", "sh", "dash", "zsh", "ksh"]);
  * Extract independently executed shell bodies without scanning YAML prose.
  *
  * Manifests and workflows are parsed as data, so a displayed alias or dollar
- * expression cannot become executable evidence. Each manifest script and run
- * step is inspected independently. Parse errors propagate to the caller, which
- * records a failure instead of accepting an unreadable source.
+ * expression cannot become executable evidence. Each manifest script and
+ * jobs.*.steps[*].run string is inspected independently; defaults.run is
+ * metadata. Parse errors propagate to the caller, which records a failure
+ * instead of accepting an unreadable source.
  *
  * @param source - Tracked path and source text.
  * @returns Shell scripts whose indirection must be checked.
@@ -52,6 +53,24 @@ function shellBodies(source: SourceFile): string[] {
   const manifest = /(?:^|\/)package\.json$/u.test(source.file);
   const data: unknown = manifest ? JSON.parse(source.text) : parse(source.text);
   const bodies: string[] = [];
+  if (!manifest) {
+    if (data === null || typeof data !== "object" || Array.isArray(data)) return bodies;
+    const jobs = (data as Record<string, unknown>).jobs;
+    if (jobs === null || typeof jobs !== "object" || Array.isArray(jobs)) return bodies;
+    for (const job of Object.values(jobs as Record<string, unknown>)) {
+      if (job === null || typeof job !== "object" || Array.isArray(job)) continue;
+      const steps = (job as Record<string, unknown>).steps;
+      if (!Array.isArray(steps)) continue;
+      for (const step of steps as unknown[]) {
+        if (step === null || typeof step !== "object" || Array.isArray(step)
+            || !Object.hasOwn(step, "run")) continue;
+        const body = (step as Record<string, unknown>).run;
+        if (typeof body !== "string") throw new Error("non-string workflow run body");
+        bodies.push(body);
+      }
+    }
+    return bodies;
+  }
   const pending: unknown[] = [data];
   const visited = new Set<object>();
   while (pending.length > 0) {
@@ -69,11 +88,6 @@ function shellBodies(source: SourceFile): string[] {
             if (typeof body !== "string") throw new Error("non-string package script");
             bodies.push(body);
           }
-        } else if (!manifest && key === "run") {
-          if (typeof child !== "string") throw new Error("non-string workflow run body");
-          bodies.push(child);
-        } else if (!manifest) {
-          pending.push(child);
         }
       }
     }
