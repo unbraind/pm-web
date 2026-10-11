@@ -104,6 +104,8 @@ export interface FleetFs {
  * second hardcoded list would. Identity comes from the manifest name and
  * matching package/repository metadata, never the directory name. Equivalent
  * worktrees are collapsed; conflicting metadata is reported as a problem.
+ * Directory names determine which conflicting record is retained, using
+ * lexicographic order independent of filesystem enumeration and locale.
  *
  * @param fleetRoot - Directory holding the sibling package directories.
  * @param fs - Filesystem accessors to read the tree with.

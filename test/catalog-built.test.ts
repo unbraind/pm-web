@@ -32,7 +32,7 @@ test("built catalog exposes Jev truthfully beside a real scratch tracker and exc
     assert.equal(entry.availability, "unreleased");
     assert.equal(resolveNpmSpec("pm-jev"), null, "npm returns 404; do not promise installation");
     assert.deepEqual(entry.links, {
-      docs: "https://github.com/unbraind/pm-jev#readme", npm: "https://www.npmjs.com/package/pm-jev",
+      docs: "https://github.com/unbraind/pm-jev#readme",
       repository: "https://github.com/unbraind/pm-jev", report: "https://github.com/unbraind/pm-jev/issues",
     });
     assert.match(entry.description, /local Ollama tev1 model by default/);

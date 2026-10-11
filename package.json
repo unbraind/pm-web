@@ -1,6 +1,6 @@
 {
   "name": "@unbrained/pm-web",
-  "version": "2026.10.5",
+  "version": "2026.10.9",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
@@ -48,7 +48,7 @@
     "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.10.4",
+    "@unbrained/pm-cli": "2026.10.10",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -57,6 +57,7 @@
     "neo4j-driver": "^6.2.0",
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
+    "pm-graph": "2026.10.5",
     "uuid": "^14.0.2"
   },
   "devDependencies": {
@@ -72,8 +73,8 @@
     "eslint": "10.12.0",
     "fast-glob": "3.3.3",
     "jscpd": "5.4.0",
-    "pm-changelog": "2026.10.4",
-    "pm-ops": "2026.10.4",
+    "pm-changelog": "2026.10.5",
+    "pm-ops": "2026.10.6",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "yaml": "2.9.1"

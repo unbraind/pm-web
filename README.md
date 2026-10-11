@@ -136,10 +136,10 @@ New pm-web projects configure local Ollama search automatically and install the 
 
 The Packages view also lists [pm-jev](https://github.com/unbraind/pm-jev#readme),
 with `commands` and `schema` capabilities and links to its documentation,
-repository, [registry page](https://www.npmjs.com/package/pm-jev), and
+repository and
 [issue tracker](https://github.com/unbraind/pm-jev/issues). It is shown as
 **unreleased**, with installation disabled: the registry answered 404 when the
-fleet snapshot was refreshed on 2026-10-07. Its local default uses Ollama with
+fleet snapshot was refreshed. Its local default uses Ollama with
 `tev1:4b`; the optional hosted TypeSafe provider requires `TYPESAFE_API_KEY` and
 explicit `jev.allow_external: true`. Its manifest requires pm CLI 2026.10.5.
 
@@ -150,6 +150,16 @@ equivalent sibling worktrees. Missing, invalid, or conflicting metadata fails
 the gate. To refresh, set `PM_FLEET_ROOT` to a fleet directory and run
 `npm run fleet:snapshot`, then `node --test test/catalog.test.ts` with the same
 variable. See [catalog acceptance evidence](docs/catalog-pm-jev.md).
+
+The SDK upgrade retains these catalog guarantees; see
+[SDK and catalog certification](docs/sdk-update-automation.md).
+
+The Packages view covers all 22 public fleet identities with verified descriptions,
+capabilities, command paths and links. Published extensions support project
+installation, activation and documented command execution. Unpublished extensions
+show an explanation instead of an Install button; the independent native
+`pm-rust` CLI links to native setup and has no npm install spec. See the
+[fleet package catalog and HTTP acceptance](docs/fleet-package-catalog.md).
 
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
 
@@ -173,7 +183,7 @@ was disconnected. These recovery signals contain no item content and stay
 local to the recovering process; PostgreSQL notifications are transient and
 are not a durable event replay mechanism.
 
-Whole-project graph fallback, board, local search, iCalendar, and export reads
+Whole-project graph, board, local search, iCalendar, and export reads
 use the SDK's high-level `listAllComplete` operation. pm-web accepts those rows
 only after the shared SDK certificate agrees. Since pm CLI 2026.8.31, the SDK
 certifies the source counters, omission receipt, output receipt, and truncation
@@ -183,8 +193,11 @@ means the rows may be short of the whole corpus. The public `/pm/list-all`
 HTTP compatibility route remains deliberately paginated for interactive clients,
 but invokes canonical `list --all` internally; consumers that need the whole
 workspace must use a complete-read endpoint rather than assembling a page as if
-it were the corpus. The standalone server exact-pins pm CLI/SDK 2026.9.7, and
-the extension manifest refuses older hosts through the same compatibility floor.
+it were the corpus. The standalone server exact-pins its pm CLI/SDK in
+`package.json`. The extension manifest declares a separate supported-host minimum;
+packed acceptance exercises that minimum and the current SDK host under npm and
+native Bun. Dependency-only updates preserve the minimum unless those checks
+require a deliberate compatibility change. See [SDK update automation](docs/sdk-update-automation.md).
 Commands that render their own text or JSON (`web status`, `web stop`, and
 `web doctor`) return the public SDK output-suppression marker, so the host never
 appends a second payload to stdout.
@@ -255,7 +268,8 @@ live `pm contracts` statuses for its columns:
 - `GET /api/projects/:projectId/pm/search?q=<text>` — case-insensitive full-text
   search over id, title, tags and body.
 - `GET /api/projects/:projectId/pm/schema` — runtime types/statuses (existing).
-- `GET /api/projects/:projectId/pm/graph` — dependency graph (existing).
+- `GET /api/projects/:projectId/pm/graph` — complete observational graph matching
+  the pinned pm-graph default export; see [graph export fidelity](docs/GRAPH_READS.md).
 - `GET /api/projects/:projectId/pm/calendar.ics` — RFC 5545 iCalendar feed of
   item deadlines (see below).
 

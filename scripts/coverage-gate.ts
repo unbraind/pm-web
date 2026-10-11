@@ -286,6 +286,9 @@ const result = spawnSync(
     `--functions=${config.thresholds.functions}`,
     process.execPath,
     "--test",
+    // Each file can spawn real SDK/CLI and database work. Run files serially so
+    // the graph budget measures its operation rather than this suite's fanout.
+    "--test-concurrency=1",
     "--test-reporter=spec",
     ...config.tests,
   ],

@@ -863,7 +863,7 @@ function renderGraphShell(data: GraphResponse): string {
             <div class="graph-hud-title">
               ◎ Knowledge Graph
               <span class="graph-mode-chip${data.extensionAvailable ? ' neo4j' : ''}">
-                ${data.extensionAvailable ? 'neo4j' : 'built-in'}
+                ${data.extensionAvailable ? 'pm-graph' : 'built-in'}
               </span>
             </div>
           </div>

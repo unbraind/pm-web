@@ -190,7 +190,7 @@ export declare const INSTALL_COMMAND_TIMEOUT_MS = 180000;
  * — never built from a user-supplied string — so the install target is always
  * the verified `npm:pm-graph` constant.
  *
- * The graph routes in src/routes/pm.ts call this before `pm pm-graph export`,
+ * Explicit graph sync in src/routes/pm.ts calls this before `pm pm-graph export`,
  * and {@link initProject} calls it on project creation, so the user-facing
  * graph behaviour is unchanged.
  */
@@ -243,9 +243,10 @@ export declare function certifyPmWebCompleteList(candidate: unknown): PmComplete
  * @param slug - The project slug.
  * @param includeBody - Whether complete rows must include item bodies.
  * @param noExtensions - Disable extension activation for a strictly observational read.
+ * @param sourceOrder - Preserve native store ordering under the same workspace lock.
  * @returns A discriminated success result with certified rows, or a failure.
  */
-export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean, noExtensions?: boolean): Promise<PmCompleteListRunResult>;
+export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean, noExtensions?: boolean, sourceOrder?: boolean): Promise<PmCompleteListRunResult>;
 /**
  * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
  * Returns `{}` when absent so resolvers fall back to their built-in defaults.

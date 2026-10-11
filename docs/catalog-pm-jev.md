@@ -1,6 +1,8 @@
 # pm-jev catalog acceptance
 
-pm-web-s99c and pm-web-cqwm are implemented together for the public package.
+This document retains the 2026-10-07 acceptance receipt for pm-web-s99c and
+pm-web-cqwm before the later SDK upgrade. Current full-fleet catalog and command
+acceptance is documented in [the fleet package catalog](fleet-package-catalog.md).
 
 The baseline built package omitted pm-jev and returned `pm-web-candidate` as an
 extension when that directory contained the host manifest. A real scratch
@@ -8,8 +10,8 @@ tracker was initialized with the installed CLI and populated with a synthetic
 item. The canonical live-fleet catalog assertions passed 8/12 before the fix.
 
 The catalog now mirrors pm-jev's current manifest description and its
-`commands`/`schema` capabilities. Verified public docs, npm, repository and
-issue links are rendered on its card. Ollama is the local default; hosted
+`commands`/`schema` capabilities. Verified documentation, repository and
+issue links are rendered on its card; the unpublished npm link is omitted. Ollama is the local default; hosted
 TypeSafe credentials are optional and require a separate privacy opt-in.
 The 2026-10-07 registry lookup returned E404, so `resolveNpmSpec('pm-jev')`
 returns null and the card offers no installation. Publication intent remains

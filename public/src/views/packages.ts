@@ -29,12 +29,15 @@ import { t, applyTranslations } from '../i18n.js';
  */
 interface PackageRow {
   name: string;
-  npmSpec: string;
+  npmSpec: string | null;
+  npmName: string | null;
+  commands: readonly string[];
+  unavailableReason?: string;
   title: string;
   description: string;
-  capabilities: string[];
-  /** "extension" (product) or "template" (authoring reference scaffold). */
-  category: 'extension' | 'template';
+  capabilities: readonly string[];
+  /** Product extension, authoring reference template or independent native CLI. */
+  category: 'extension' | 'template' | 'native';
   /**
    * Whether the package can be installed today. Absent means published, which
    * is the state of every package that has a release on npm. "unreleased"
@@ -42,10 +45,10 @@ interface PackageRow {
    * version, so no install can succeed and the card must not offer one.
    */
   availability?: 'published' | 'unreleased';
-  /** Public package links supplied by the verified catalog. */
-  links?: Record<'docs' | 'npm' | 'repository' | 'report', string>;
+  /** Public links; npm is omitted until the registry serves the package. */
+  links?: Record<'docs' | 'repository' | 'report', string> & { npm?: string };
   requiresService?: { name: string; optional?: boolean };
-  requiresCredentials?: Array<{ label: string; envVars: string[]; optional?: boolean }>;
+  requiresCredentials?: readonly { label: string; envVars: readonly string[]; optional?: boolean }[];
   installed: boolean;
   version: string | null;
   active: boolean;
@@ -140,7 +143,7 @@ async function fetchAndRenderPackages(): Promise<void> {
  * @param row - The package catalog row to render.
  * @returns The card markup string.
  */
-function renderPackageCard(row: PackageRow): string {
+export function renderPackageCard(row: PackageRow): string {
   const statusChip = row.installed
     ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
     : `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.notInstalled'))}</span>`;
@@ -187,7 +190,7 @@ function renderPackageCard(row: PackageRow): string {
   // a raw DOM string — and the server validates it against the catalog again
   // before any pm command is spawned.
   let actions = '';
-  if (unreleased && !row.installed) {
+  if (row.category === 'native' || (unreleased && !row.installed)) {
     // Nothing to install: there is no published version to install from. An
     // unreleased package that IS installed — from a local path or a
     // preexisting install — keeps its full management controls below, because
@@ -225,8 +228,16 @@ function renderPackageCard(row: PackageRow): string {
       </div>
       <div class="card-body" style="padding-top:0">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${escHtml(row.description)}</div>
-        ${unreleasedNote}${serviceNote}${credNotes}${caps}
+        ${row.unavailableReason ? `<div class="pkg-req">${escHtml(row.unavailableReason)}</div>` : unreleasedNote}${serviceNote}${credNotes}${caps}
+        <div style="font-size:11px;margin-top:8px">${row.commands.map((command) => `<code>${escHtml(command)}</code>`).join(' · ')}</div>
         ${links ? `<div style="margin-top:8px">${links}</div>` : ''}
+        ${row.active && row.enabled && row.category !== 'native' ? `
+          <details style="margin-top:8px"><summary>${escHtml(t('packages.runCommand'))}</summary>
+            <label>${escHtml(t('packages.command'))}<select data-pkg-command aria-label="${escHtml(t('packages.command'))}" style="width:100%">${row.commands.map((command) => `<option>${escHtml(command)}</option>`).join('')}</select></label>
+            <label>${escHtml(t('packages.arguments'))}<input data-pkg-args aria-label="${escHtml(t('packages.arguments'))}" style="width:100%" placeholder='["--help"]' value='["--help"]'></label>
+            <button class="btn btn-secondary btn-sm" data-pkg-action="run" data-pkg-name="${escHtml(row.name)}">${escHtml(t('packages.run'))}</button>
+            <pre data-pkg-output role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+          </details>` : ''}
         ${actions ? `<div style="margin-top:12px">${actions}</div>` : ''}
       </div>
     </div>`;
@@ -288,6 +299,17 @@ async function handlePackageAction(name: string, action: string, btn: HTMLButton
         return;
       }
     }
+    if (action === 'run') {
+      const card = btn.closest('.card');
+      const command = card?.querySelector<HTMLSelectElement>('[data-pkg-command]')?.value;
+      const args: unknown = JSON.parse(card?.querySelector<HTMLInputElement>('[data-pkg-args]')?.value ?? '[]');
+      if (!Array.isArray(args) || args.some((arg: unknown) => typeof arg !== 'string')) throw new Error(t('packages.invalidArguments'));
+      const result = await api('POST', `/projects/${pid}/extensions/${encodeURIComponent(name)}/run`, { command, args });
+      const output = card?.querySelector<HTMLElement>('[data-pkg-output]');
+      if (output) output.textContent = JSON.stringify(result, null, 2);
+      restorePackageButton(btn, original);
+      return;
+    }
     const method = action === 'uninstall' ? 'DELETE' : 'POST';
     const suffix = action === 'uninstall' ? '' : `/${action}`;
     await api(method, `/projects/${pid}/extensions/${encodeURIComponent(name)}${suffix}`);
@@ -295,6 +317,10 @@ async function handlePackageAction(name: string, action: string, btn: HTMLButton
     await fetchAndRenderPackages();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (action === 'run') {
+      const output = btn.closest('.card')?.querySelector<HTMLElement>('[data-pkg-output]');
+      if (output) output.textContent = msg;
+    }
     toast(t('packages.actionFailed', { action: actionLabel[action] ?? action, error: msg }), 'error');
     restorePackageButton(btn, original);
   }

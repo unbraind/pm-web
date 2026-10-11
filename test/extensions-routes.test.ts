@@ -65,7 +65,7 @@ interface HarnessOptions {
 
 async function setupHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-ext-routes-"));
-  const fakePm = path.join(root, "fake-pm");
+  const fakePm = path.join(root, "fake-pm.cjs");
   const logPath = path.join(root, "commands.log");
 
   // The fake pm binary records every invocation. The success variant returns
@@ -347,7 +347,7 @@ test("the realtime extensions-changed event fires on a successful install mutati
   });
 });
 
-test("the GET list includes the category field so the UI can group extensions vs templates", async () => {
+test("the GET list distinguishes extensions, templates and native packages", async () => {
   await withExtensionsHarness(async (_harness, app) => {
     const { status, body } = await request(
       app,
@@ -360,8 +360,8 @@ test("the GET list includes the category field so the UI can group extensions vs
     assert.ok(packages.length > 0, "the catalog list must not be empty");
     // Every row must carry a category field.
     for (const row of packages) {
-      assert.ok(row.category === "extension" || row.category === "template",
-        `row ${row.name} must have category "extension" or "template", got ${row.category}`);
+      assert.ok(["extension", "template", "native"].includes(row.category),
+        `row ${row.name} must have a supported package category, got ${row.category}`);
     }
     // The two template entries must be present with category "template".
     const byName = new Map(packages.map((r) => [r.name, r.category]));
@@ -372,6 +372,8 @@ test("the GET list includes the category field so the UI can group extensions vs
     // pm-graph must be an extension.
     assert.equal(byName.get("pm-graph"), "extension",
       "pm-graph must be listed as an extension");
+    assert.equal(byName.get("pm-rust"), "native",
+      "pm-rust must be listed as a native package");
   });
 });
 
@@ -464,7 +466,7 @@ test("an unreleased package is listed but refuses install without spawning pm", 
       );
       assert.match(
         (body as { error: string }).error,
-        /not published to npm/,
+        name === "pm-rust" ? /pre-release native CLI, not an npm extension/ : /not published to npm/,
         `${name}: the refusal must say why, not just fail`,
       );
     }

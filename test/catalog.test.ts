@@ -56,7 +56,7 @@ if (process.env.PM_FLEET_ROOT && FLEET_EXTENSIONS.length === 0) {
 // standalone checkout. The structural invariants still run there; only the
 // membership comparison degrades to a self-check, and it says so.
 const EXPECTED_NAMES: readonly string[] =
-  FLEET_EXTENSIONS.length > 0 ? FLEET_EXTENSIONS : catalogNames();
+  FLEET_EXTENSIONS.length > 0 ? [...FLEET_EXTENSIONS, "pm-rust"] : catalogNames();
 
 // The two authoring reference templates that must be in the catalog.
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
@@ -75,14 +75,14 @@ test("catalog exposes exactly every published pm package, no duplicates, pm-web 
 test("every catalog entry has non-empty name/npmSpec/title/description/capabilities/category", () => {
   for (const entry of PACKAGE_CATALOG) {
     assert.ok(entry.name, `${entry.name}: name is required`);
-    assert.equal(entry.npmSpec, `npm:${entry.name}`,
+    assert.equal(entry.npmSpec, entry.category === "native" ? null : `npm:${entry.name}`,
       `${entry.name}: npmSpec must be npm:<name>, never a raw user string`);
     assert.ok(entry.title, `${entry.name}: title is required`);
     assert.ok(entry.description, `${entry.name}: description is required`);
-    assert.ok(Array.isArray(entry.capabilities) && entry.capabilities.length > 0,
+    assert.ok(Array.isArray(entry.capabilities) && (entry.capabilities.length > 0 || entry.category === "native"),
       `${entry.name}: capabilities must be a non-empty array`);
     assert.ok(
-      entry.category === "extension" || entry.category === "template",
+      entry.category === "extension" || entry.category === "template" || entry.category === "native",
       `${entry.name}: category must be "extension" or "template", got ${entry.category}`,
     );
     // resolveNpmSpec round-trips a published name and refuses an unreleased
@@ -111,7 +111,7 @@ test("category partition: exactly 2 templates (pm-starter, pm-ts-starter), the r
   // this suite exists to catch.
   assert.equal(
     extensions.length,
-    PACKAGE_CATALOG.length - templates.length,
+    PACKAGE_CATALOG.length - templates.length - 1,
     "every non-template entry must be categorised as an extension",
   );
   assert.ok(extensions.length > 0, "the catalog must contain product extensions");
@@ -260,6 +260,10 @@ test("the catalog covers every fleet extension in the committed snapshot", () =>
   for (const extension of fleetSnapshot) {
     const entry = findCatalogEntry(extension.name);
     assert.ok(entry, `${extension.name} must be catalogued`);
+    if (!extension.npmPublished) {
+      assert.equal(entry.links?.npm, undefined,
+        `${extension.name}: an npm link requires a published registry receipt`);
+    }
     // Same rule the live-fleet assertion applies: a product extension mirrors
     // the manifest description, an authoring template mirrors the concise
     // package.json one.
@@ -411,12 +415,12 @@ test("an unreleased package that is already installed keeps its management actio
     assert.ok(entry.title, `${entry.name}: an unreleased entry still needs a title`);
     assert.ok(entry.description, `${entry.name}: an unreleased entry still needs a description`);
     assert.ok(
-      entry.capabilities.length > 0,
+      (entry.capabilities.length > 0 || entry.category === "native"),
       `${entry.name}: an unreleased entry still declares its capabilities`,
     );
     assert.equal(
       entry.category,
-      "extension",
+      entry.name === "pm-rust" ? "native" : "extension",
       `${entry.name}: an unreleased entry is still categorised, not special-cased out of the catalog`,
     );
     assert.ok(

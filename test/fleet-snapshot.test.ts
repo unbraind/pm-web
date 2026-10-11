@@ -80,12 +80,20 @@ test("discovery reports malformed, missing and conflicting identity metadata wit
     assert.deepEqual(readFleetExtensions(root, { existsSync, readdirSync, readFileSync }), {
       extensions: [], problems: invalid.map(([name, reason]) => ({ name, reason })).sort((a, b) => a.name!.localeCompare(b.name!)),
     });
-    writePackage(root, "first", { description: null }, { description: 42, publishConfig: undefined });
-    writePackage(root, "second", { description: "conflict" });
-    const result = readFleetExtensions(root, { existsSync, readdirSync, readFileSync });
-    assert.deepEqual(result.extensions, [{ name: "pm-thing", description: "", packageDescription: "",
-      capabilities: ["commands", "schema"], publishable: false }]);
-    assert.ok(result.problems.some((problem) => problem.reason === "conflicting worktree metadata for pm-thing"));
+    for (const [incomplete, conflicting] of [["first", "second"], ["second", "first"]]) {
+      writePackage(root, incomplete!, { description: null }, { description: 42, publishConfig: undefined });
+      writePackage(root, conflicting!, { description: "conflict" });
+      const result = readFleetExtensions(root, { existsSync, readdirSync, readFileSync });
+      assert.deepEqual(result.extensions, [incomplete === "first"
+        ? { name: "pm-thing", description: "", packageDescription: "",
+          capabilities: ["commands", "schema"], publishable: false }
+        : { name: "pm-thing", description: "conflict", packageDescription: "concise",
+          capabilities: ["commands", "schema"], publishable: true }]);
+      assert.deepEqual(result.problems, [
+        ...invalid.map(([name, reason]) => ({ name, reason })),
+        { name: "second", reason: "conflicting worktree metadata for pm-thing" },
+      ].sort((a, b) => a.name!.localeCompare(b.name!)));
+    }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

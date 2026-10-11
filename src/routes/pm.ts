@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { readProjectGraph, type ProjectGraph } from "../services/project-graph.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
 import { ensureGraphExtension, readCompletePmItems, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE, type PmRunResult } from "../services/pm-runner.ts";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
@@ -138,26 +139,6 @@ type PmItem = {
   blockedReason?: string;
 };
 
-type GraphNode = {
-  id: string;
-  labels: string[];
-  properties: Record<string, unknown>;
-};
-
-type GraphRelationship = {
-  from: string;
-  to: string;
-  type: string;
-  properties: Record<string, unknown>;
-};
-
-type ProjectGraph = {
-  generatedAt: string;
-  source: "pm-graph" | "pm-web";
-  nodes: GraphNode[];
-  relationships: GraphRelationship[];
-};
-
 type ProjectRef = {
   slug: string;
   prefix: string;
@@ -193,32 +174,9 @@ router.use(async (req: AuthRequest, res, next) => {
   }
 });
 
-function graphNodeId(kind: string, value: string): string {
-  return `${kind}:${value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-")}`;
-}
-
 function graphRelationshipType(rawType: unknown): string {
   const text = typeof rawType === "string" && rawType.trim().length > 0 ? rawType : "relates-to";
   return text.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
-}
-
-/**
- * Extract the target item id from a dependency record.
- *
- * Checks a list of likely keys (`id`, `target`, `target_id`, `targetId`,
- * `item`, `item_id`, `itemId`) in order and returns the first non-empty trimmed
- * string value, so dependency rows shaped by different pm versions/extensions
- * all resolve. Returns `null` when no usable id is present.
- *
- * @param dep - One dependency record from item deps or a graph extension.
- * @returns The target id, trimmed, or `null`.
- */
-function dependencyTarget(dep: Record<string, unknown>): string | null {
-  for (const key of ["id", "target", "target_id", "targetId", "item", "item_id", "itemId"]) {
-    const value = dep[key];
-    if (typeof value === "string" && value.trim().length > 0) return value.trim();
-  }
-  return null;
 }
 
 /**
@@ -278,127 +236,6 @@ function normalizeDependencyKind(input: string | undefined): string {
   return allowed.has(normalized) ? normalized : normalized;
 }
 
-/**
- * Build a project graph (nodes + relationships) from pm items.
- *
- * Creates one `PmItem` node per item plus `PmFacet` nodes for type, status,
- * assignee, sprint, release, and each tag, deduplicating nodes by id (first one
- * wins). Adds `CHILD_OF`/`BLOCKED_BY` edges from item fields and typed edges
- * from embedded/extension dependencies, synthesizing `ExternalPmItem` nodes for
- * targets not in the item set. Relationships are deduplicated by
- * `(from, to, type)`, keeping the first occurrence. The result is tagged
- * `source: "pm-web"`.
- *
- * @param items - The pm items.
- * @param depsByItem - Extra per-item dependency records (e.g. from an extension).
- * @returns The assembled project graph.
- */
-function graphFromItems(items: PmItem[], depsByItem: Map<string, Array<Record<string, unknown>>>): ProjectGraph {
-  const nodesById = new Map<string, GraphNode>();
-  const itemIds = new Set(items.map((item) => item.id));
-  const relationships: GraphRelationship[] = [];
-  const relationshipKeys = new Set<string>();
-
-  const addNode = (node: GraphNode) => {
-    if (!nodesById.has(node.id)) nodesById.set(node.id, node);
-  };
-
-  const addRelationship = (from: string, to: string, type: string, properties: Record<string, unknown>) => {
-    const key = JSON.stringify([from, to, type]);
-    if (relationshipKeys.has(key)) return;
-    relationshipKeys.add(key);
-    if (!nodesById.has(to) && !itemIds.has(to)) {
-      addNode({
-        id: to,
-        labels: ["ExternalPmItem"],
-        properties: { id: to, title: to, type: "ExternalPmItem" },
-      });
-    }
-    relationships.push({ from, to, type, properties });
-  };
-
-  for (const item of items) {
-    addNode({
-      id: item.id,
-      labels: ["PmItem", item.type ?? "Item"],
-      properties: {
-        id: item.id,
-        title: item.title ?? "",
-        type: item.type ?? "Item",
-        status: item.status ?? "unknown",
-        priority: item.priority ?? null,
-        tags: item.tags ?? [],
-        assignee: item.assignee ?? null,
-        sprint: item.sprint ?? null,
-        release: item.release ?? null,
-        deadline: item.deadline ?? null,
-        created_at: item.created_at ?? null,
-        updated_at: item.updated_at ?? null,
-      },
-    });
-
-    if (item.parent) {
-      addRelationship(item.id, item.parent, "CHILD_OF", { source: "parent" });
-    }
-
-    const blockedBy = item.blocked_by ?? item.blockedBy;
-    if (typeof blockedBy === "string" && blockedBy.trim().length > 0) {
-      addRelationship(item.id, blockedBy.trim(), "BLOCKED_BY", {
-        source: "blocked_by",
-        reason: item.blocked_reason ?? item.blockedReason ?? null,
-      });
-    }
-
-    const deps = [
-      ...(item.deps ?? []),
-      ...(item.dependencies ?? []),
-      ...(depsByItem.get(item.id) ?? []),
-    ];
-    for (const dep of deps) {
-      const target = dependencyTarget(dep);
-      if (!target) continue;
-      const type = graphRelationshipType(dep.type ?? dep.kind ?? dep.relation ?? dep.rel ?? dep.relationship);
-      addRelationship(item.id, target, type, { ...dep });
-    }
-
-    const facetLinks: Array<{ kind: string; value?: unknown; label: string; rel: string }> = [
-      { kind: "type", value: item.type, label: "ItemType", rel: "HAS_TYPE" },
-      { kind: "status", value: item.status, label: "Status", rel: "HAS_STATUS" },
-      { kind: "assignee", value: item.assignee, label: "Person", rel: "ASSIGNED_TO" },
-      { kind: "sprint", value: item.sprint, label: "Sprint", rel: "IN_SPRINT" },
-      { kind: "release", value: item.release, label: "Release", rel: "IN_RELEASE" },
-    ];
-    for (const link of facetLinks) {
-      if (typeof link.value !== "string" || link.value.trim().length === 0) continue;
-      const id = graphNodeId(link.kind, link.value);
-      addNode({
-        id,
-        labels: ["PmFacet", link.label],
-        properties: { id, title: link.value, kind: link.kind, value: link.value },
-      });
-      addRelationship(item.id, id, link.rel, { source: link.kind });
-    }
-
-    for (const tag of item.tags ?? []) {
-      if (!tag.trim()) continue;
-      const id = graphNodeId("tag", tag);
-      addNode({
-        id,
-        labels: ["PmFacet", "Tag"],
-        properties: { id, title: tag, kind: "tag", value: tag },
-      });
-      addRelationship(item.id, id, "TAGGED_WITH", { source: "tags" });
-    }
-  }
-
-  return {
-    generatedAt: new Date().toISOString(),
-    source: "pm-web",
-    nodes: Array.from(nodesById.values()),
-    relationships,
-  };
-}
-
 function graphProjectKey(project: ProjectRef): string {
   return `${project.ownerUserId}:${project.slug}`;
 }
@@ -455,7 +292,7 @@ async function syncGraphToNeo4j(
 async function syncProjectGraph(project: ProjectRef): Promise<{ syncedNodes: number; syncedRelationships: number }> {
   requireNeo4jCredentials();
   const extensionGraph = await pmGraphExtensionGraphForProject(project);
-  const graph = extensionGraph.graph ?? await fallbackGraphForProject(project.ownerUserId, project.slug);
+  const graph = extensionGraph.graph ?? (await readProjectGraph(project.ownerUserId, project.slug)).graph;
   return syncGraphToNeo4j(graph, graphProjectKey(project));
 }
 
@@ -539,27 +376,6 @@ function broadcastDependencyEvent(
 
 function itemsFromCompleteList(parsed: unknown): PmItem[] {
   return ((((parsed as { items?: PmItem[] } | undefined)?.items) ?? []) as PmItem[]);
-}
-
-/**
- * Build a project graph from a certified complete pm read when no graph extension is available.
- *
- * Reads every item through the public SDK's high-level complete-list operation
- * and assembles the graph from embedded `deps`/`dependencies` (no per-item
- * calls), avoiding an N+1 fan-out. Throws when the corpus cannot be certified.
- *
- * @param ownerUserId - The project owner's user id.
- * @param slug - The project slug.
- * @returns A pm-web-sourced project graph.
- */
-async function fallbackGraphForProject(ownerUserId: string, slug: string): Promise<ProjectGraph> {
-  const itemsResult = await readCompletePmItems(ownerUserId, slug, false, true);
-  if (!itemsResult.ok) throw new Error(itemsResult.stderr || "Failed to load items for graph");
-
-  const items = itemsFromCompleteList(itemsResult.result);
-  // Deps are already embedded in the full item rows (item.deps / item.dependencies).
-  // Avoid N+1 subprocess calls by using only the embedded data.
-  return graphFromItems(items, new Map());
 }
 
 /**
@@ -1504,8 +1320,7 @@ router.get("/graph", async (req: AuthRequest, res) => {
   try {
     res.json({
       ok: true,
-      graph: await fallbackGraphForProject(project.ownerUserId, project.slug),
-      extensionAvailable: false,
+      ...await readProjectGraph(project.ownerUserId, project.slug),
     });
   } catch (err: unknown) {
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
@@ -1553,11 +1368,11 @@ router.get("/graph/neighbors/:nodeId", async (req: AuthRequest, res) => {
   if (!nodeId) { res.status(400).json({ error: "nodeId is required" }); return; }
 
   try {
-    const graph = await fallbackGraphForProject(project.ownerUserId, project.slug);
+    const { graph, extensionAvailable } = await readProjectGraph(project.ownerUserId, project.slug);
     const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
     const center = nodesById.get(nodeId);
     if (!center) {
-      res.json({ ok: true, center: null, neighbors: [], extensionAvailable: false, message: `No node found with id "${nodeId}".` });
+      res.json({ ok: true, center: null, neighbors: [], extensionAvailable, source: graph.source, message: `No node found with id "${nodeId}".` });
       return;
     }
     const neighbors = graph.relationships
@@ -1566,15 +1381,14 @@ router.get("/graph/neighbors/:nodeId", async (req: AuthRequest, res) => {
         // graphFromItems creates both endpoint nodes for every relationship.
         const node = nodesById.get(edge.from === nodeId ? edge.to : edge.from)!;
         return {
-          node: { ...node.properties, _labels: node.labels },
+          node: { ...node.properties, _labels: node.labels, ...node },
           relationship: {
-            type: edge.type,
+            ...edge,
             direction: edge.from === nodeId ? "outgoing" : "incoming",
-            properties: { ...edge.properties, _type: edge.type },
           },
         };
       });
-    res.json({ ok: true, center: { ...center.properties, _labels: center.labels }, neighbors, extensionAvailable: false });
+    res.json({ ok: true, center: { ...center.properties, _labels: center.labels, ...center }, neighbors, extensionAvailable, source: graph.source });
   } catch (err: unknown) {
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
   }
