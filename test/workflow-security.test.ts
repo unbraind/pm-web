@@ -52,12 +52,28 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
   return pins;
 }
 
+/** CodeQL sub-actions must share one commit and release across every workflow file, not only within one. */
+function assertSingleCodeqlRelease(pins: ReadonlyArray<{ action: string; revision: string; version: string }>): void {
+  const releases = new Set(pins.filter((pin) => pin.action.startsWith("github/codeql-action/")).map((pin) => `${pin.revision} ${pin.version}`));
+  assert.ok(releases.size <= 1, `CodeQL sub-actions must use one commit and version across all workflows: ${[...releases].join(", ")}`);
+}
+
 test("every external workflow action has an immutable pin, release version and approved supplier", () => {
   assert.ok(WORKFLOW_FILES.length > 0, "workflow discovery cannot pass vacuously");
+  const pins: Array<{ action: string; revision: string; version: string }> = [];
   for (const file of WORKFLOW_FILES) {
     const workflow = readFileSync(new URL(`../.github/workflows/${file}`, import.meta.url), "utf8");
-    assertWorkflowActionPins(workflow, file);
+    pins.push(...assertWorkflowActionPins(workflow, file));
   }
+  assertSingleCodeqlRelease(pins);
+});
+
+test("CodeQL pins that differ between workflow files are refused", () => {
+  const step = (revision: string, version: string) => `jobs:\n  scan:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: github/codeql-action/init@${revision} # ${version}\n`;
+  const first = assertWorkflowActionPins(step("a".repeat(40), "v4.31.0"), "first.yml");
+  const second = assertWorkflowActionPins(step("b".repeat(40), "v4.32.0"), "second.yml");
+  assert.doesNotThrow(() => assertSingleCodeqlRelease(first));
+  assert.throws(() => assertSingleCodeqlRelease([...first, ...second]), /one commit and version across all workflows/);
 });
 
 test("action policy rejects unsafe pins, missing releases and unapproved suppliers", () => {
