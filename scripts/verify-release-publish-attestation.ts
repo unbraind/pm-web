@@ -1,54 +1,221 @@
 /**
- * Refuse a release whose `npm publish` would run without `--provenance`.
+ * Require --provenance on every npm publish, including indirect invocations.
  *
- * Thin launcher over the canonical auditor published as `pm-ops/attestation`,
- * so the fleet enforces one shell model rather than a vendored copy per
- * repository. That distinction is not stylistic. This gate decides whether an
- * artefact may reach the registry, so a *false pass* is the failure that
- * matters, and the canonical implementation has had fifteen separate fail-open
- * constructions found and closed in it - three of them introduced by the fix
- * for an earlier one. A copy of this file frozen at any point in that sequence
- * is a copy that still admits every construction closed after it.
- *
- * Every rule lives in the auditor: which files GitHub Actions executes as
- * shell, how YAML block scalars are dedented and folded before bash sees them,
- * how a scalar binding becomes visible or stops being visible across
- * conditional arms, and what counts as a publish. This file only chooses the
- * root, maps the report onto the process streams, and sets the exit code.
- *
-
- * Deliberately carries no shebang. The auditor reads a shebang naming a SHELL
- * interpreter as saying the file's body is shell, so `#!/bin/bash` or
- * `#!/usr/bin/env sh` pulls this file into its own scan - and its prose, which
- * necessarily names the command it is guarding, then reads as an unattested
- * invocation. A shebang naming a non-shell interpreter does not: a shebang says
- * a file executes, it does not say it executes AS shell, so `#!/usr/bin/env node`
- * leaves this file unscanned. The suite ASSERTS the outcome for six shebang
- * cases - five interpreter forms and the absence of one - by running each
- * through the auditor, rather than restating the rule here, because two
- * earlier wordings of this paragraph each stated a rule the auditor does not
- * have. The vendored predecessor had no shebang for the same reason.
+ * pm-ops owns tokenization, scalar/array resolution, flag semantics and tracked
+ * source discovery. The pinned auditor still misses aliases and publishers
+ * forwarding unknown function arguments. This consumer guard rejects those
+ * unsupported paths until the canonical auditor can prove their behavior.
  */
-
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-
-import { auditPublishAttestation, report, verify } from "pm-ops/attestation";
-
-export { auditPublishAttestation, verify };
-
+import { parse } from "yaml";
+import {
+  auditPublishAttestation as canonicalAudit,
+  FOREIGN_PUBLISHERS,
+  publishInvocationsIn,
+  report,
+  trackedPublishSources,
+  type PublishAttestationResult,
+} from "pm-ops/attestation";
+import {
+  commandArguments,
+  commandCandidates,
+  commandName,
+  joinContinuations,
+  spawnedAsCommand,
+  tokenizeCommands,
+  type SourceFile,
+} from "pm-ops/shell-scan";
 import { isMainInvocation } from "./main-invocation.ts";
 
+/** Non-publishing npm verbs; package runner bodies are audited independently. */
+const NON_PUBLISH_VERBS = new Set([
+  "add", "audit", "ci", "config", "install", "ls", "pack", "pkg", "run", "test", "version", "view",
+]);
+/** Shell interpreters whose dynamic command strings cannot be statically proved. */
+const EVALUATORS = new Set(["eval", "bash", "sh", "dash", "zsh", "ksh"]);
+
 /**
- * Verify and report, but only when this module is the process entry point.
+ * Extract independently executed shell bodies without scanning YAML prose.
  *
- * The guard is a function rather than a bare `if` at module scope so the suite
- * can execute both answers. A bare `if` leaves its own body unreachable from any
- * in-process test, which is how an entry point quietly stops running.
+ * Manifests and workflows are parsed as data, so a displayed alias or dollar
+ * expression cannot become executable evidence. Each manifest script and run
+ * step is inspected independently. Parse errors propagate to the caller, which
+ * records a failure instead of accepting an unreadable source.
  *
- * @param argv - The process argv to judge.
- * @param moduleUrl - This module's `import.meta.url`.
+ * @param source - Tracked path and source text.
+ * @returns Shell scripts whose indirection must be checked.
+ */
+function shellBodies(source: SourceFile): string[] {
+  if (!/(?:^|\/)package\.json$/u.test(source.file)
+      && !/^\.github\/workflows\/.*\.ya?ml$/u.test(source.file)) return [source.text];
+  const manifest = /(?:^|\/)package\.json$/u.test(source.file);
+  const data: unknown = manifest ? JSON.parse(source.text) : parse(source.text);
+  const bodies: string[] = [];
+  const pending: unknown[] = [data];
+  const visited = new Set<object>();
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (value !== null && typeof value === "object") {
+      if (visited.has(value)) continue;
+      visited.add(value);
+    }
+    if (Array.isArray(value)) {
+      pending.push(...value as unknown[]);
+    } else if (value !== null && typeof value === "object") {
+      for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+        if (manifest && key === "scripts" && child !== null && typeof child === "object") {
+          for (const body of Object.values(child as Record<string, unknown>)) {
+            if (typeof body !== "string") throw new Error("non-string package script");
+            bodies.push(body);
+          }
+        } else if (!manifest && key === "run") {
+          if (typeof child !== "string") throw new Error("non-string workflow run body");
+          bodies.push(child);
+        } else if (!manifest) {
+          pending.push(child);
+        }
+      }
+    }
+  }
+  return bodies;
+}
+
+/**
+ * Audit resolved publishes and reject indirection the pinned auditor omits.
+ *
+ * This adds failures, never removes canonical failures or invents attesting
+ * evidence. Aliases and quoted executable expansions are unsupported; dynamic
+ * evaluator payloads and npm argument forwarding also fail closed. Literal
+ * variables and function bodies continue through the canonical shell model.
+ * An unresolved argument on a recognized publish may override provenance at
+ * runtime and therefore cannot be accepted merely because a literal flag exists.
+ * Spawning wrappers also have unresolved input arguments, even with literal flags.
+ *
+ * @param sources - Tracked executable sources, with repository-relative paths.
+ * @returns Canonical recognition and notes plus any indirection failures.
+ */
+export function auditPublishAttestation(sources: SourceFile[]): PublishAttestationResult {
+  const result = canonicalAudit(sources);
+  const failures = [...result.failures];
+  for (const source of sources) {
+    const reasons = new Set<string>();
+    try {
+      for (const invocation of publishInvocationsIn(source)) {
+        if (spawnedAsCommand(invocation.command)
+            || commandArguments(invocation.command).some((token) => token.unresolved)) {
+          reasons.add("unresolved publish arguments may change provenance");
+        }
+      }
+      for (const body of shellBodies(source)) {
+        const isolated = { file: "scripts/indirection-body.sh", text: body };
+        const bodyAudit = canonicalAudit([isolated]);
+        if (bodyAudit.recognition.kind === "recognized" && bodyAudit.failures.length > 0
+            && !result.failures.some((failure) => failure.startsWith(`${source.file}:`))) {
+          reasons.add("an independent shell body cannot prove every publish attested");
+        }
+        for (const invocation of publishInvocationsIn(isolated)) {
+          if (spawnedAsCommand(invocation.command)
+              || commandArguments(invocation.command).some((token) => token.unresolved)) {
+            reasons.add("unresolved publish arguments may change provenance");
+          }
+        }
+        const commands = tokenizeCommands(joinContinuations(body));
+        const opaqueVariables = new Set<string>();
+        for (const command of commands) {
+          const assignmentOnly = commandName(command) === undefined;
+          for (const token of command) {
+            const binding = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/su.exec(token.value);
+            if (binding === null || token.startsQuoted) {
+              if (assignmentOnly) continue;
+              break;
+            }
+            if (tokenizeCommands(binding[2]).some((bound) => {
+              const name = commandName(bound);
+              return name === "alias" || (name !== undefined && EVALUATORS.has(name));
+            })) opaqueVariables.add(binding[1]);
+          }
+        }
+        for (const command of commands) {
+          for (const candidate of commandCandidates(command)) {
+            const program = commandName(candidate);
+            const args = commandArguments(candidate);
+            const primary = program === commandName(command);
+            const publisher = program === "npm" || (program !== undefined && FOREIGN_PUBLISHERS.has(program));
+            if ((publisher || (primary && (program?.startsWith("$") || program === "")))
+                && (spawnedAsCommand(command) || spawnedAsCommand(candidate))) {
+              reasons.add("spawned publisher arguments from input cannot be proved");
+            }
+            if (primary && program?.startsWith("$")) {
+              const reference = /^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$/u.exec(program);
+              if (reference === null) {
+                reasons.add("compound executable expansion cannot be proved");
+              }
+              if (reference !== null && opaqueVariables.has(reference[1])) {
+                reasons.add("variable-routed alias or evaluator cannot be proved");
+              }
+              if (args.some((token) => token.unresolved)) {
+                reasons.add("variable-routed publisher arguments cannot be proved");
+              }
+            }
+            if (program === "alias") reasons.add("shell aliases are not a provable publish path");
+            if (primary && (program?.startsWith("$") || program === "")
+                && candidate.some((token) => commandName([token]) === program && token.quoted && token.unresolved)) {
+              reasons.add("quoted executable expansion has unproven word boundaries");
+            }
+            if (primary && program !== undefined && !program.startsWith("$") && !program.includes("\n")
+                && candidate.some((token) => commandName([token]) === program && token.unresolved)) {
+              reasons.add("partially expanded executable cannot be proved");
+            }
+            if ((primary && program?.startsWith("$") && /\[[ @*]*\]/u.test(program))
+                || (publisher && args.some((token) => token.unresolved && /\[[ @*]*\]/u.test(token.value)))) {
+              reasons.add("array expansion in a publisher path cannot be proved");
+            }
+            if (program !== undefined && EVALUATORS.has(program)
+                && args.some((token) => token.unresolved)) {
+              reasons.add("dynamic shell evaluator payload cannot be proved");
+            }
+            if (publisher
+                && args.some((token) => token.unresolved)
+                && !NON_PUBLISH_VERBS.has(args[0]?.value ?? "")) {
+              // Resolved ordinary publishes are checked above. A raw publisher
+              // with a literal publish verb has a canonical invocation; one with
+              // unknown subcommand/forwarded arguments can disappear entirely.
+              if (!args.some((token) => token.value === "publish")) {
+                reasons.add("publisher subcommand or function arguments cannot be proved");
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      reasons.add("executable source cannot be parsed for indirection");
+    }
+    for (const reason of reasons) failures.push(`${source.file}: ${reason}; refusing an unresolvable publish-like invocation`);
+  }
+  return { ...result, failures, notes: failures.length > 0 ? [] : result.notes };
+}
+
+/**
+ * Apply both checks to every executable source discovered by the canonical gate.
+ *
  * @param root - Repository root to verify.
- * @returns True when the verifier ran.
+ * @returns Audit result, retaining the canonical non-vacuity check.
+ */
+export function verify(root: string): PublishAttestationResult {
+  return auditPublishAttestation(trackedPublishSources(root).map((file) => ({
+    file,
+    text: readFileSync(resolve(root, file), "utf8"),
+  })));
+}
+
+/**
+ * Run the gate only when this module is the process entry point.
+ *
+ * @param argv - Process arguments used to locate the entry point.
+ * @param moduleUrl - This module's URL.
+ * @param root - Repository root to verify.
+ * @returns Whether the verifier ran.
  */
 export function runIfMain(argv: string[], moduleUrl: string, root: string): boolean {
   if (!isMainInvocation(argv, moduleUrl)) return false;

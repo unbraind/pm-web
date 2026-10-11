@@ -11,7 +11,8 @@ author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Current package catalog and committed fleet snapshot include verified pm-jev metadata and all optional live-fleet completeness assertions pass.
 actual_result: "PR182 renewed directory-order nit5477988575 fixed with locale-independent lexicographic sort before existing discovery; same2 real assignments assert exact first-folder full metadata and second-folder conflict. Host old-source baseline3/3 passes, so cross-platform contract correction without fabricated revert failure. New full linked release492/492 zero skips; configured34 src S/L90.33 B80.10 F93.43; packed npm/nativeBun4/4 hosts10.4/10.9, standaloneSDK10.9. Source/distribution rebuilt and fingerprint stable. Strict owner history verified; local pinned health blocked by managed extension10.10 versusSDK10.9. Owners/reviews/whole-source/privacy/dev4high/graph/concurrency/hosted gates open, SDK4 hosting unchanged; no closure/deployment."
-comments[14]{created_at,author,text}:
+comments[15]{created_at,author,text}:
+  "2026-10-07T21:10:40.030Z",codex-sol,Read-only canonical fleet validation during the attestation task confirms pm-jev is present in the fleet but absent from the committed 20-extension catalog/snapshot. The live fleet comparison fails. No catalog or snapshot change is included in the attestation task.
   "2026-10-10T03:00:48.106Z",codex-sol,"SDK update candidate full unchanged release run still fails four catalog checks: membership, resolvable fleet manifests, missing pm-jev, and snapshot fidelity. Independent PR #175 source/discovery/built-catalog tests pass 16/16, and npm still returns 404 for pm-jev. GitHub reports #175 conflicting at d883781d6d134694bedddd65ad37011aa2cbcdea; CodeRabbit reports no actionable findings while other requested reviews are unavailable. Do not conflate this bounded isolated check with live fleet freshness or merge approval."
   "2026-10-10T03:15:11.510Z",codex-sol,"PR175 at d883781d6d134694bedddd65ad37011aa2cbcdea already implements pm-jev metadata, registry availability, UI links and built real-SDK acceptance. Reuse those relevant hunks on PR182; no independent catalog design or imported tracker owners. Regenerate the snapshot from current canonical metadata and registry instead of copying a dated receipt."
   "2026-10-10T04:07:49.305Z",codex-sol,"Verification receipt is recorded in docs/sdk-update-automation.md and linked from pm-web-8pml: complete release490/490,zero skips; packed npm/nativeBun4/4, six real disposablePostgreSQL collaboration tests. Keep item unclosed for independent orchestrator verification."
@@ -48,21 +49,21 @@ tests[5]:
     provenance:
       author: codex-sol
       created_at: "2026-10-10T03:18:47.259Z"
-      source_kind: local_mutation
+      source_kind: merge_union
       source_ref: fix/sdk-manifest-automation-2026-10-9
   - command: node --test test/catalog.test.ts test/catalog-built.test.ts test/catalog-ui.test.ts
     scope: project
     provenance:
       author: codex-sol
       created_at: "2026-10-10T04:49:27.832Z"
-      source_kind: local_mutation
+      source_kind: merge_union
       source_ref: fix/sdk-manifest-automation-2026-10-9
   - command: npm run coverage
     scope: project
     provenance:
       author: codex-sol
       created_at: "2026-10-10T04:50:48.351Z"
-      source_kind: local_mutation
+      source_kind: merge_union
       source_ref: fix/sdk-manifest-automation-2026-10-9
   - command: "npm run accept:packed"
     scope: project
@@ -70,7 +71,7 @@ tests[5]:
     provenance:
       author: codex-sol
       created_at: "2026-10-10T04:52:04.771Z"
-      source_kind: local_mutation
+      source_kind: merge_union
       source_ref: fix/sdk-manifest-automation-2026-10-9
   - command: node --test test/fleet-snapshot.test.ts
     path: test/fleet-snapshot.test.ts
@@ -80,7 +81,7 @@ tests[5]:
     provenance:
       author: codex-sol
       created_at: "2026-10-10T05:35:32.176Z"
-      source_kind: local_mutation
+      source_kind: merge_union
       source_ref: fix/sdk-manifest-automation-2026-10-9
 docs[1]{path,scope}:
   docs/sdk-update-automation.md,project
