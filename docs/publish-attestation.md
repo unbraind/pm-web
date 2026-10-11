@@ -174,12 +174,20 @@ literal `npm run release:check` and `bun run release:check` with fresh `HOME`,
 `GIT_CONFIG_GLOBAL=/dev/null` and `GIT_CONFIG_NOSYSTEM=1`. Workflow YAML, both
 literal gate commands and the fail-closed audit verdict are checked locally.
 Original runtime sources, test lists, assertions, thresholds and auditor
-behavior remain unchanged. Full independent **PR #176 CI is pending**; evidence
-from other PRs cannot establish a passing verdict for this head.
+behavior remain unchanged. Independent **PR #176 CI run 38116108000 passes**
+on implementation head `06f50e6`: both Node matrix lines pass literal npm and
+Bun release checks, each **559/559 tests**, zero failures/skips, all 34 configured
+server sources meeting the unchanged thresholds, all four packed current/minimum
+npm/Bun scenarios, strict fresh-checkout PM health and committed dist checks.
 
 The follow-ups remain open, and the implementation item remains `in_progress`
 with its claim released for independent verification. No new PM CLI or SDK API
 defect is established by these shared-host timing observations.
+
+The orchestrator's independent focused repeat also passes **75/75** without
+skips. Recording this completed verdict changes documentation and tracker
+evidence only; the implementation and test inputs remain identical. The final
+receipt commit receives its own exact-head CI verification.
 
 
 Final lightweight reconciliation passes with **zero drift**, **zero repairs** and
