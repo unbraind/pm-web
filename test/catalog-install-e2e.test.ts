@@ -17,6 +17,44 @@ after(() => pool.end());
 /** All public fleet identities requested for the Packages view, including the native CLI. */
 const FLEET_NAMES = "pm-ado pm-beads pm-brief pm-changelog pm-context pm-csv pm-gantt-chart pm-github pm-graph pm-jev pm-jira pm-linear pm-ops pm-presets pm-rl pm-rust pm-slack pm-slack-standup pm-starter pm-todos pm-ts-starter pm-vcs".split(" ");
 
+/** Reject a missing deactivation event promptly so the acceptance reaches cleanup. */
+async function waitForDeactivation(observed: Promise<void>, timeoutMs = 5_000): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([observed, new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error("Deactivation SSE event deadline exceeded")), timeoutMs);
+    })]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+test("missing deactivation SSE rejects before the outer deadline and runs finally cleanup", async () => {
+  let cleaned = false;
+  let watchdog: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      (async () => {
+        try {
+          await waitForDeactivation(new Promise<void>(() => {}), 10);
+          return "resolved";
+        } catch (error) {
+          assert.match(String(error), /Deactivation SSE event deadline exceeded/);
+          return "rejected";
+        } finally {
+          cleaned = true;
+        }
+      })(),
+      new Promise<string>((resolve) => { watchdog = setTimeout(() => resolve("unbounded"), 1_000); }),
+    ]);
+    assert.equal(result, "rejected");
+    assert.equal(cleaned, true);
+    await waitForDeactivation(Promise.resolve());
+  } finally {
+    clearTimeout(watchdog);
+  }
+});
+
 test("built server lists the full fleet, installs and enables npm Presets, executes it, and refuses unpublished packages", { timeout: 300_000 }, async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-install-e2e-"));
   const previousRoot = process.env.PROJECTS_ROOT;
@@ -86,6 +124,8 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
       { command: "pm presets list", args: [1] },
       { command: "pm init", args: [] },
       { command: "pm presets list", args: ["--workspace=other"] },
+      { command: "pm presets list", args: ["--path", "other"] },
+      { command: "pm presets list", args: ["--path=other"] },
     ]) {
       const invalid = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify(body) });
       assert.equal(invalid.status, 400, await invalid.text());
@@ -109,7 +149,7 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
     assert.match(await run.text(), /software-sprint/);
     const deactivate = await fetch(`${base}/pm-presets/deactivate`, { method: "POST", headers });
     assert.equal(deactivate.status, 200, await deactivate.text());
-    await deactivationObserved;
+    await waitForDeactivation(deactivationObserved);
     assert.match(eventText, /"operation":"install"/);
     assert.match(eventText, /"operation":"activate"/);
     assert.doesNotMatch(eventText, /"operation":"run"/, "command output must survive package-state refreshes");

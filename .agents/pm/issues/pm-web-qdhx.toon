@@ -1,0 +1,25 @@
+id: pm-web-qdhx
+title: Investigate full-coverage process startup and overlap timing failures
+description: "During PR #175 round-1 validation, the unchanged missing-database server entrypoint test exceeded its 10000 ms execFileSync deadline under full npm coverage; focused execution passes 1/1 at 9065 ms. The corrected full Bun coverage run also failed the unchanged independent-workspace spawn overlap test, which passed in the npm run. Capture exact failure details, distinguish resource contention or fixture scheduling assumptions from runtime regressions, and preserve every existing assertion/deadline while investigating. The correction patch changes package command UI, one extension-route selector guard and catalog SSE test cleanup; it changes neither startup nor runner implementation. Graph latency is tracked separately by pm-web-hqqp."
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-11T07:18:59.939Z"
+updated_at: "2026-10-11T07:42:37.056Z"
+author: codex-sol
+comments[3]{created_at,author,text}:
+  "2026-10-11T07:21:13.813Z",codex-sol,"PM-linked focused missing-database startup check passes 1/1 with zero skips and reports 9065 ms against the unchanged 10000 ms subprocess deadline. The full coverage run timed out instead and returned a nonnumeric status. This difference supports investigating instrumentation/resource contention; it does not establish a server or SDK root cause. Linked result tracking is disabled, so this comment records the focused receipt. No startup code, guard or test deadline was changed."
+  "2026-10-11T07:39:25.686Z",codex-sol,"Corrected full Bun coverage completes 496/498, zero skips. The independent-workspace overlap assertion fails with log order: start first, end first, start independent, end independent, start second, end second. Same-workspace serialization and command success assertions passed before this check. The missing-database startup test passes in this full run. Retain both contrasting full-suite results; no process/startup code or timing assertion was changed."
+  "2026-10-11T07:42:37.056Z",codex-sol,"The PM-linked focused independent-workspace spawn test passes 1/1, zero skips, at 674 ms. This contrasts with its full Bun coverage ordering failure. Retain the failing full-run log and the passing focused receipt, and investigate scheduling/instrumentation before changing any assertion. The result is recorded manually because linked-test persistence is disabled."
+files[4]{path,scope}:
+  src/server.ts,project
+  src/services/pm-runner.ts,project
+  test/pm-runner.test.ts,project
+  test/smoke.test.ts,project
+tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test --test-name-pattern='server entrypoint exits non-zero without DATABASE_URL' test/smoke.test.ts,project,120,codex-sol,"2026-10-11T07:20:01.089Z",local_mutation,task/finish-catalog-175
+  node --test --test-name-pattern='spawn fallback stays non-blocking' test/pm-runner.test.ts,project,120,codex-sol,"2026-10-11T07:39:19.519Z",local_mutation,task/finish-catalog-175
+docs[1]{path,scope}:
+  README.md,project
+body: ""

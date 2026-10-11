@@ -16,7 +16,7 @@
 // re-renders translations on locale change via applyTranslations().
 
 import { state } from '../state.js';
-import { api } from '../api.js';
+import { api, ApiError } from '../api.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { t, applyTranslations } from '../i18n.js';
@@ -234,7 +234,7 @@ export function renderPackageCard(row: PackageRow): string {
         ${row.active && row.enabled && row.category !== 'native' ? `
           <details style="margin-top:8px"><summary>${escHtml(t('packages.runCommand'))}</summary>
             <label>${escHtml(t('packages.command'))}<select data-pkg-command aria-label="${escHtml(t('packages.command'))}" style="width:100%">${row.commands.map((command) => `<option>${escHtml(command)}</option>`).join('')}</select></label>
-            <label>${escHtml(t('packages.arguments'))}<input data-pkg-args aria-label="${escHtml(t('packages.arguments'))}" style="width:100%" placeholder='["--help"]' value='["--help"]'></label>
+            <label>${escHtml(t('packages.arguments'))}<input data-pkg-args aria-label="${escHtml(t('packages.arguments'))}" style="width:100%" placeholder='["--help"]' value='[]'></label>
             <button class="btn btn-secondary btn-sm" data-pkg-action="run" data-pkg-name="${escHtml(row.name)}">${escHtml(t('packages.run'))}</button>
             <pre data-pkg-output role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
           </details>` : ''}
@@ -319,7 +319,7 @@ async function handlePackageAction(name: string, action: string, btn: HTMLButton
     const msg = err instanceof Error ? err.message : String(err);
     if (action === 'run') {
       const output = btn.closest('.card')?.querySelector<HTMLElement>('[data-pkg-output]');
-      if (output) output.textContent = msg;
+      if (output) output.textContent = err instanceof ApiError ? JSON.stringify(err.response, null, 2) : msg;
     }
     toast(t('packages.actionFailed', { action: actionLabel[action] ?? action, error: msg }), 'error');
     restorePackageButton(btn, original);

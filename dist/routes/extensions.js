@@ -215,7 +215,7 @@ router.post("/:name/run", async (req, res) => {
     const args = body.args;
     // Global selectors would escape the project pinned by the runner. Extension
     // arguments otherwise retain their documented syntax, passed without a shell.
-    const selectors = new Set(["--workspace", "--cwd", "--pm-root", "--pm-path", "--global"]);
+    const selectors = new Set(["--workspace", "--cwd", "--pm-root", "--pm-path", "--path", "--global"]);
     if (args.some((arg) => selectors.has(arg.split("=", 1)[0]))) {
         res.status(400).json({ error: "Commands must use the current project workspace." });
         return;

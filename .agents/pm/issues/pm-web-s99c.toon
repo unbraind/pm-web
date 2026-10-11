@@ -6,12 +6,12 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-05T05:18:01.915Z"
-updated_at: "2026-10-11T06:05:17.331Z"
+updated_at: "2026-10-11T07:46:23.865Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: Current package catalog and committed fleet snapshot include verified pm-jev metadata and all optional live-fleet completeness assertions pass.
 actual_result: "PR182 renewed directory-order nit5477988575 fixed with locale-independent lexicographic sort before existing discovery; same2 real assignments assert exact first-folder full metadata and second-folder conflict. Host old-source baseline3/3 passes, so cross-platform contract correction without fabricated revert failure. New full linked release492/492 zero skips; configured34 src S/L90.33 B80.10 F93.43; packed npm/nativeBun4/4 hosts10.4/10.9, standaloneSDK10.9. Source/distribution rebuilt and fingerprint stable. Strict owner history verified; local pinned health blocked by managed extension10.10 versusSDK10.9. Owners/reviews/whole-source/privacy/dev4high/graph/concurrency/hosted gates open, SDK4 hosting unchanged; no closure/deployment."
-comments[31]{created_at,author,text}:
+comments[40]{created_at,author,text}:
   "2026-10-07T20:23:20.330Z",codex-sol,"Baseline acceptance against the built package and a real scratch tracker: findCatalogEntry('pm-jev') is undefined. The canonical live-fleet catalog suite passes 8/12 and fails four assertions, including missing pm-jev membership and stale snapshot. Verified current manifest capabilities commands/schema, local-first Ollama default and optional hosted privacy opt-in. Registry lookup npm view pm-jev version returns E404, so availability must be unreleased despite publishConfig intent. Plan: refresh verified metadata and links, regenerate the registry-backed snapshot, retain every completeness assertion."
   "2026-10-07T21:52:30.765Z",codex-sol,"Implementation includes manifest-exact metadata, verified docs/npm/repository/report links, visible local-provider and optional hosted credential requirements, and unreleased availability based on E404. The online generator refreshed the complete 21-extension snapshot. Canonical live-fleet catalog checks now pass 12/12. Behavioral revert removing only the Jev catalog entry from the built implementation fails acceptance with an AssertionError for missing pm-jev; restored behavior passes."
   "2026-10-07T22:09:11.976Z",codex-sol,"The final npm coverage phase passes all 484 tests against the complete canonical fleet, with 33 src files reported: statements/lines 90.25%, branches 79.57%, functions 93.90%. Configured thresholds remain 90/90/79/92, and discovery/catalog services are 100% in all four dimensions. The production audit is clean. Packed acceptance and final policy checks are still running; this is a scoped src coverage receipt, not a whole-repository or hosted readiness claim."
@@ -43,14 +43,26 @@ comments[31]{created_at,author,text}:
   "2026-10-11T05:49:15.430Z",codex-sol,"All three behavioral revert experiments were refreshed against the extended built HTTP/SSE acceptance. Removing only native Rust fails the exact 22-identity assertion; removing only explicit process selection fails Presets execution (400 versus 200); restoring only the former command package-state broadcast fails the real SSE feedback assertion. Each executes one test with one behavioral AssertionError, no syntax/module-load failures. Original source bytes were restored and the compiled server rebuilt after each experiment."
   "2026-10-11T05:51:14.676Z",codex-sol,Final PM-linked real HTTP/SSE acceptance passes 1/1 with zero failures/skips after all three source variants were restored and rebuilt. Current strict local PM health reports a managed GitHub extension host/SDK skew (2026.10.10 versus 2026.10.11); tracked integrity/history checks remain clean. Independent CI installs the pinned managed extension in a fresh checkout and passed strict health and both full release commands on Node 22/26. Preserve the local health boundary; do not alter global extension state or claim that local health is green.
   "2026-10-11T06:05:06.742Z",codex-sol,"Final catalog implementation head f4f7dc1 is verified by independent CI run 38116214351. Literal npm run release:check and bun run release:check pass on both Node 22 and 26, each 496/496 tests, zero failures/skips. This includes the extended real HTTP/SSE registry install, activation and command acceptance plus all main regressions. All 34 configured server sources meet unchanged thresholds, all four packed current/minimum npm/Bun scenarios pass, and fresh-checkout strict PM health and committed dist checks pass. Record-only follow-up preserves identical runtime, tests, dependencies, dist and workflow inputs; local failed/stopped attempts and managed-extension skew remain documented."
-files[19]{path,scope}:
+  "2026-10-11T06:36:48.557Z",codex-sol,"Verified all four round-1 findings on PR #175. Plan: empty command arguments with the help placeholder retained; preserve structured failed-command output; reject legacy --path selectors before runner dispatch; bound the deactivation SSE wait so cleanup executes. Add behavioral regression and revert evidence, then rebuild and run unchanged npm and Bun release gates."
+  "2026-10-11T06:42:16.909Z",codex-sol,Implemented the four round-1 fixes. UI regression passes 6/6 after correcting its compiled-state import. Empty-argument and failed-output behavioral reverts each execute one test and fail with one AssertionError; the original sources are restored and rebuilt between experiments. The initial combined acceptance passed the real HTTP/SSE install/run test and deadline test; its new UI test fixture needed the compiled singleton correction. Pinned CLI help confirms --pm-path is preferred over legacy --path.
+  "2026-10-11T06:42:30.486Z",codex-sol,"All four behavioral revert proofs completed: restoring the help default fails the enabled-card assertion; restoring output-discarding catch fails stdout feedback; removing only --path from the selector set fails the real HTTP assertion (409 versus 400); removing only the SSE deadline fails the watchdog assertion (unbounded versus rejected). Each run executes one test with one AssertionError and no module-load failure. Restored every source and rebuilt affected output. Both legacy selector forms are covered by the acceptance, and the missing-event regression verifies finally cleanup."
+  "2026-10-11T07:02:01.386Z",codex-sol,"Restored PM-linked acceptance passes 8/8 with zero failures or skips; linked-result recording is disabled by project policy, so this comment records the receipt. Full isolated-identity npm coverage hit the existing pm-web-hqqp graph latency boundary: the 2000-item certified read took 23045 ms. Leave the limit and graph implementation unchanged; both requested full runs continue, with the local failure preserved."
+  "2026-10-11T07:11:45.094Z",codex-sol,Canonical fleet validation passes 12/12 with zero skips when PM_FLEET_ROOT explicitly selects the canonical package inventory. The initial complete npm run defaulted to the sibling worktree farm and therefore reports two expected metadata-consistency failures in addition to the existing graph latency failure. Preserve the unsuccessful run and select the canonical inventory for subsequent validation; do not refresh the verified snapshot from worktree candidates.
+  "2026-10-11T07:17:52.040Z",codex-sol,"Initial isolated-identity npm release run completes 498 tests: 494 pass, 4 fail, zero skips/cancellations. Failures are two catalog assertions from the implicit sibling-worktree fleet root, the existing 23045 ms versus 10000 ms graph read budget, and the unchanged server-entrypoint test timing out at its 10000 ms subprocess deadline. All new correction regressions and built install/run/SSE acceptance pass. Replaced the automatic Bun preflight before coverage with a complete Bun run selecting the canonical fleet root. The earlier Bun preflight is interrupted evidence, not a passing gate."
+  "2026-10-11T07:20:41.667Z",codex-sol,Created follow-up pm-web-qdhx after searching existing startup/entrypoint work. It records the full-coverage missing-database subprocess deadline failure without asserting an SDK defect or changing the guard/deadline. Graph timing evidence remains on existing pm-web-hqqp. All follow-ups remain open.
+  "2026-10-11T07:39:27.936Z",codex-sol,"Both requested full release commands completed their coverage suites with unchanged source inventories and thresholds. Initial npm: 494/498, four failures (two implicit worktree-farm catalog assertions plus graph/startup budgets), zero skips. Corrected canonical-root Bun: 496/498, two failures (12565 ms graph read versus 10000 ms and independent-process fixture overlap), zero skips. New correction regressions and built acceptance pass in both. Production audit independently passes with zero vulnerabilities. Remaining packaging and release-policy checks are being executed directly; these results cannot make either unsuccessful full command a passing gate."
+  "2026-10-11T07:46:21.413Z",codex-sol,"Round-1 work is ready for review: command args default to [] with the help placeholder retained; ApiError preserves failed-command JSON so stdout and stderr remain visible; legacy --path and --path=value selectors are rejected before extension-state reads and runner dispatch; a 5000 ms deactivation deadline rejects missing SSE and clears its timer so acceptance cleanup runs. Regression acceptance passes 8/8; canonical catalog passes 12/12; each of four behavior-only reverts executes one test and produces one AssertionError, with restored sources rebuilt afterward. Both complete release commands retain failed results: npm 494/498 (initial fleet-root setup plus graph/startup failures), canonical-root Bun 496/498 (graph and process-overlap failures), zero skips. Follow-ups pm-web-hqqp and pm-web-qdhx preserve timing evidence; focused startup and process tests each pass 1/1. Independent remaining checks pass: production audit zero vulnerabilities, packed current/minimum npm/native-Bun consumers 4/4, pack dry-run, changelog date and publish attestation. Types, lint, zero duplication and docstrings pass. No thresholds or inventories changed; no passing full-gate receipt is claimed. Linked-test persistence is disabled, so results are recorded in comments. Leave every item open."
+files[22]{path,scope}:
   .github/workflows/ci.yml,project
+  dist/routes/extensions.js,project
+  dist/routes/extensions.js.map,project
   dist/services/fleet-snapshot.d.ts,project
   dist/services/fleet-snapshot.js,project
   dist/services/fleet-snapshot.js.map,project
   dist/services/package-catalog.d.ts,project
   dist/services/package-catalog.js,project
   dist/services/package-catalog.js.map,project
+  public/src/api.ts,project
   public/src/views/packages.ts,project
   scripts/accept-packed.ts,project
   src/routes/extensions.ts,project
@@ -63,7 +75,7 @@ files[19]{path,scope}:
   test/extensions-routes.test.ts,project
   test/fleet-extensions.snapshot.json,project
   test/fleet-snapshot.test.ts,project
-tests[7]:
+tests[8]:
   - command: node --test test/catalog.test.ts test/catalog-built.test.ts
     scope: project
     provenance:
@@ -118,7 +130,16 @@ tests[7]:
       created_at: "2026-10-11T05:21:14.567Z"
       source_kind: local_mutation
       source_ref: task/finish-catalog-175
-docs[5]{path,scope}:
+  - command: npm run build && node scripts/with-test-db.ts node --test test/catalog-ui.test.ts test/catalog-install-e2e.test.ts
+    scope: project
+    timeout_seconds: 600
+    provenance:
+      author: codex-sol
+      created_at: "2026-10-11T06:38:50.268Z"
+      source_kind: local_mutation
+      source_ref: task/finish-catalog-175
+docs[6]{path,scope}:
+  CHANGELOG.md,project
   docs/catalog-pm-jev.md,project
   docs/coverage-progress.md,project
   docs/fleet-package-catalog.md,project
