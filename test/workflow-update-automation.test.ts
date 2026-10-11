@@ -48,6 +48,12 @@ test("workflow-only pin updates pass the real policy while unsafe or inconsisten
   assert.match(unsafe.stdout, /must pin a full 40-character commit SHA/);
 
   const codeql = workflows.get("codeql.yml")!;
+  const duplicateInit = codeql.replace("github/codeql-action/analyze@", "github/codeql-action/init@");
+  assert.notEqual(duplicateInit, codeql, "the fixture must replace the analyze action");
+  const missingAnalyze = runScenario(original, duplicateInit);
+  assert.equal(missingAnalyze.status, 1, "CodeQL must retain analyze when init is duplicated");
+  assert.match(missingAnalyze.stdout, /must include init and analyze actions/);
+
   const quotedCodeql = codeql
     .replace(/(uses: )(github\/codeql-action\/init@[0-9a-f]{40})/, '$1"$2"')
     .replace(/(uses: )(github\/codeql-action\/analyze@[0-9a-f]{40})/, "$1'$2'");

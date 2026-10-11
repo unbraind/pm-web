@@ -12,7 +12,8 @@
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -106,11 +107,32 @@ async function setupContractsTest(
   return { harness, server };
 }
 
-/** Run pm directly inside the workspace and parse its JSON output. */
-function pmJson<T>(workspace: string, args: string[]): T {
-  const stdout = execFileSync("pm", [...args, "--pm-path", path.join(workspace, ".agents", "pm"), "--json"], { cwd: workspace, encoding: "utf8" });
+/** Nonblocking real CLI execution for verification while HTTP sockets are live. */
+const execFileAsync = promisify(execFile);
+
+/**
+ * Run the real CLI and parse JSON without blocking the shared HTTP
+ * event loop. Synchronous child execution delays socket idle-close callbacks
+ * and can make the next pooled fetch race a closed connection under load.
+ */
+async function pmJson<T>(workspace: string, args: string[]): Promise<T> {
+  const { stdout } = await execFileAsync("pm", [...args, "--pm-path", path.join(workspace, ".agents", "pm"), "--json"], { cwd: workspace, encoding: "utf8" });
   return JSON.parse(stdout) as T;
 }
+
+test("real CLI verification allows the live HTTP fixture to make progress", async (t) => {
+  const { harness, server } = await setupContractsTest(t);
+  const id = await createRecord(server, harness, "create", "Responsive verification fixture");
+  let probe: Promise<Response> | undefined;
+  const scheduled = setImmediate(() => {
+    probe = authedFetch(server, harness.owner, "/api/projects");
+  });
+  t.after(() => clearImmediate(scheduled));
+  const shown = await pmJson<{ item: { id: string } }>(harness.workspace, ["get", id]);
+  assert.ok(probe, "CLI verification must let the live HTTP event loop run before it completes");
+  assert.equal((await probe).status, 200);
+  assert.equal(shown.item.id, id);
+});
 
 /** Create an item or plan over HTTP, requiring the actual persisted record id. */
 async function createRecord(
@@ -172,7 +194,7 @@ test("plan step routes drive the CLI's step flags and step edits actually land",
   // With the historical plan-level --title/--description flags the request
   // returned 200 while the CLI silently ignored them, so the record itself —
   // not the response status — pins the fix.
-  const shown = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "standard"]);
+  const shown = await pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "standard"]);
   const step = shown.plan.steps.find((candidate) => candidate.order === 1);
   assert.ok(step, `plan show did not list the added step: ${JSON.stringify(shown.plan.steps)}`);
   assert.equal(step.title, "Renamed step");
@@ -268,14 +290,14 @@ test("import and three real export formats preserve data and filtered bulk edits
   const filter = { filterTag: "batch", priority: "0", description: "Only the selected record" };
   const preview = await contractsRequest(server, harness, "update-many", { ...filter, dryRun: "true" });
   assert.equal(preview.status, 200, await preview.clone().text());
-  const before = pmJson<{ item: { priority: number } }>(harness.workspace, ["get", result.created[0]]);
+  const before = await pmJson<{ item: { priority: number } }>(harness.workspace, ["get", result.created[0]]);
   assert.equal(before.item.priority, 1);
   const update = await contractsRequest(server, harness, "update-many", filter);
   assert.equal(update.status, 200, await update.clone().text());
-  const selected = pmJson<{ item: { priority: number; description: string } }>(harness.workspace, ["get", result.created[0]]).item;
+  const selected = (await pmJson<{ item: { priority: number; description: string } }>(harness.workspace, ["get", result.created[0]])).item;
   assert.equal(selected.priority, 0);
   assert.equal(selected.description, filter.description);
-  const other = pmJson<{ item: { priority: number; description: string } }>(harness.workspace, ["get", result.created[1]]).item;
+  const other = (await pmJson<{ item: { priority: number; description: string } }>(harness.workspace, ["get", result.created[1]])).item;
   assert.equal(other.priority, 2);
   assert.equal(other.description, "Other import");
   for (const items of [[], Array.from({ length: 501 }, () => ({ title: "Too many" }))]) {
@@ -297,7 +319,7 @@ test("plan lifecycle routes preserve step order, blocked state, completion and m
   assert.equal(edited.status, 200, await edited.clone().text());
   const reordered = await contractsRequest(server, harness, `${prefix}/steps/3/reorder`, { reorderTo: 1 });
   assert.equal(reordered.status, 200, await reordered.clone().text());
-  let plan = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]).plan;
+  let plan = (await pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"])).plan;
   assert.equal(plan.title, "Updated plan");
   assert.equal(plan.steps[0].title, "Disposable step");
   const removed = await contractsRequest(server, harness, `${prefix}/steps/1`, {}, "DELETE");
@@ -306,10 +328,10 @@ test("plan lifecycle routes preserve step order, blocked state, completion and m
   assert.equal(approved.status, 200, await approved.clone().text());
   const materialized = await contractsRequest(server, harness, `${prefix}/materialize`, { materializeType: "Task", steps: "1" });
   assert.equal(materialized.status, 200, await materialized.clone().text());
-  plan = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]).plan;
+  plan = (await pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"])).plan;
   const linkedId = plan.steps[0].linked_items?.[0]?.id;
   assert.ok(linkedId, JSON.stringify(plan));
-  const linked = pmJson<{ item: { type: string; title: string } }>(harness.workspace, ["get", linkedId]).item;
+  const linked = (await pmJson<{ item: { type: string; title: string } }>(harness.workspace, ["get", linkedId])).item;
   assert.equal(linked.type, "Task");
   assert.equal(linked.title, "First step");
   const blocked = await contractsRequest(server, harness, `${prefix}/steps/2/block`, { reason: "Awaiting fixture dependency" });
@@ -351,9 +373,9 @@ test("a foreign inherited tracker cannot redirect HTTP plan mutations outside th
   assert.equal(read.status, 200, await read.clone().text());
   const added = await addPlanStep(server, harness.owner, harness.projectId, planId, "Owned step");
   assert.equal(added.status, 201, await added.clone().text());
-  const owned = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "standard"]);
+  const owned = await pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "standard"]);
   assert.equal(owned.plan.steps[0].title, "Owned step");
-  const foreign = pmJson<{ items: unknown[] }>(decoy, ["list-all"]);
+  const foreign = await pmJson<{ items: unknown[] }>(decoy, ["list-all"]);
   assert.deepEqual(foreign.items, [], "neither fallback command may mutate the decoy tracker");
 });
 
@@ -364,7 +386,7 @@ test("task transitions, status shortcuts and required-input errors agree with pe
   for (const [action, expected] of [["start-task", "in_progress"], ["pause-task", "open"]]) {
     const response = await contractsRequest(server, harness, `${action}/${itemId}`, {});
     assert.equal(response.status, 200, await response.clone().text());
-    assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", itemId]).item.status, expected);
+    assert.equal((await pmJson<{ item: { status: string } }>(harness.workspace, ["get", itemId])).item.status, expected);
   }
   for (const route of ["list-draft", "list-open", "list-in-progress", "list-blocked", "list-closed", "list-canceled"]) {
     const response = await authedFetch(server, harness.owner, `${base}/${route}?type=Task&limit=10&offset=0`);
@@ -385,7 +407,7 @@ test("task transitions, status shortcuts and required-input errors agree with pe
   }
   const closed = await contractsRequest(server, harness, `close-task/${itemId}`, { reason: "Task lifecycle verified" });
   assert.equal(closed.status, 200, await closed.clone().text());
-  assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", itemId]).item.status, "closed");
+  assert.equal((await pmJson<{ item: { status: string } }>(harness.workspace, ["get", itemId])).item.status, "closed");
   const noChange = await contractsRequest(server, harness, `docs/${itemId}`, { remove: "not-linked.md" });
   assert.equal(noChange.status, 200);
   assert.equal((await noChange.json() as { changed: boolean }).changed, false);
@@ -416,7 +438,7 @@ test("plan link and unlink routes pass the step positional the CLI requires", as
 
   // `pm plan link` attaches the linked item to the step, which only the deep
   // plan view reports, so the record is verified through the CLI itself.
-  const linked = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]);
+  const linked = await pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]);
   const linkedStep = linked.plan.steps.find((candidate) => candidate.order === 1);
   assert.ok(linkedStep, `deep plan show did not list the step: ${JSON.stringify(linked.plan.steps)}`);
   assert.ok(
@@ -431,7 +453,7 @@ test("plan link and unlink routes pass the step positional the CLI requires", as
   });
   assert.equal(unlink.status, 200, await unlink.text());
 
-  const unlinked = pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]);
+  const unlinked = await pmJson<PlanShowResult>(harness.workspace, ["plan", "show", planId, "--depth", "deep"]);
   const unlinkedStep = unlinked.plan.steps.find((candidate) => candidate.order === 1);
   assert.ok(unlinkedStep, `deep plan show did not list the step: ${JSON.stringify(unlinked.plan.steps)}`);
   assert.equal(
@@ -455,7 +477,7 @@ test("linked-test route stores the command verbatim through the CLI's JSON add",
   });
   assert.equal(response.status, 201, await response.text());
 
-  const listed = pmJson<ItemTestsResult>(harness.workspace, ["test", itemId]);
+  const listed = await pmJson<ItemTestsResult>(harness.workspace, ["test", itemId]);
   const linked = listed.tests.find((entry) => entry.command === command);
   assert.ok(linked, `linked tests did not contain the command verbatim: ${JSON.stringify(listed.tests)}`);
   assert.equal(linked.note, "Contract note");
@@ -502,11 +524,11 @@ test("close-many closes only the project's open items, not terminal ones", async
   // read every item back from the tracker: the selected items are closed with the
   // bulk reason and the pre-closed item keeps its original reason.
   for (const id of openIds) {
-    const { item } = pmJson<{ item: { status: string; close_reason?: string } }>(harness.workspace, ["get", id]);
+    const { item } = await pmJson<{ item: { status: string; close_reason?: string } }>(harness.workspace, ["get", id]);
     assert.equal(item.status, "closed", `${id} was reported closed but not persisted`);
     assert.equal(item.close_reason, "Bulk close contract");
   }
-  const { item: untouched } = pmJson<{ item: { status: string; close_reason?: string } }>(harness.workspace, ["get", closedId]);
+  const { item: untouched } = await pmJson<{ item: { status: string; close_reason?: string } }>(harness.workspace, ["get", closedId]);
   assert.equal(untouched.status, "closed");
   assert.equal(untouched.close_reason, "Closed before the bulk close");
 });
@@ -515,7 +537,7 @@ test("close-many treats the caller's status filter as authoritative and refuses 
   const { harness, server } = await setupContractsTest(t);
   const openId = await createRecord(server, harness, "create", "Stays open");
   const activeId = await createRecord(server, harness, "create", "In progress");
-  pmJson(harness.workspace, ["update", activeId, "--status", "in_progress"]);
+  await pmJson(harness.workspace, ["update", activeId, "--status", "in_progress"]);
   const closeMany = (filters: Record<string, string>): Promise<Response> =>
     authedFetch(server, harness.owner, `/api/projects/${harness.projectId}/pm/close-many`, {
       method: "POST",
@@ -537,6 +559,6 @@ test("close-many treats the caller's status filter as authoritative and refuses 
   const payload = JSON.parse(text) as { failed_count?: number; rows?: ReadonlyArray<{ id: string }> };
   assert.equal(payload.failed_count, 0, text);
   assert.deepEqual((payload.rows ?? []).map((row) => row.id), [activeId]);
-  assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", activeId]).item.status, "closed");
-  assert.equal(pmJson<{ item: { status: string } }>(harness.workspace, ["get", openId]).item.status, "open");
+  assert.equal((await pmJson<{ item: { status: string } }>(harness.workspace, ["get", activeId])).item.status, "closed");
+  assert.equal((await pmJson<{ item: { status: string } }>(harness.workspace, ["get", openId])).item.status, "open");
 });

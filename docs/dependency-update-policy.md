@@ -23,7 +23,8 @@ auto-merge workflow. The YAML parser inspects every `uses` field, including
 quoted references and compact steps. CodeQL sub-actions must share both commit
 and release comment, and remain grouped in the dependency updater. The group check uses parsed
 action references, so quoted pins are supported and comments cannot substitute
-for executable scanning steps. CI checkout
+for executable scanning steps. Both `init` and `analyze` must be present;
+duplicating `init` cannot substitute for analysis even when pins and comments agree. CI checkout
 must still disable persisted credentials. New suppliers require policy changes;
 updates to existing suppliers need only their workflow references changed.
 Version comments document releases; the local gate does not independently
@@ -53,3 +54,11 @@ refusal. Scheduling investigations belong to the existing
 [pm-web-hqqp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-hqqp.toon) item.
 
 Tracker: [pm-web-8pml](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-8pml.toon).
+
+The HTTP contract fixtures await their real CLI verification subprocesses.
+Synchronous verification blocked the shared server/client event loop and
+produced intermittent loopback connection resets under load. A real-tracker
+regression requires an authenticated HTTP probe to start while CLI verification
+is pending. Reverting only the verification helper fails that regression;
+the fixture retains every persisted-data assertion and the original HTTP
+connection handling, without retries or longer deadlines.

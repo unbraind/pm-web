@@ -90,10 +90,13 @@ test("action policy rejects unsafe pins, missing releases and unapproved supplie
 
 test("CodeQL sub-actions stay on one release and update as one Dependabot group", () => {
   const workflow = readFileSync(new URL("../.github/workflows/codeql.yml", import.meta.url), "utf8");
-  const revisions = assertWorkflowActionPins(workflow, "codeql.yml")
-    .filter((pin) => pin.action.startsWith("github/codeql-action/"))
-    .map((pin) => pin.revision);
+  const codeqlPins = assertWorkflowActionPins(workflow, "codeql.yml")
+    .filter((pin) => pin.action.startsWith("github/codeql-action/"));
+  const revisions = codeqlPins.map((pin) => pin.revision);
   assert.ok(revisions.length > 1, "the CodeQL workflow must keep every sub-action under this gate");
+  const actions = new Set(codeqlPins.map((pin) => pin.action));
+  assert.ok(actions.has("github/codeql-action/init") && actions.has("github/codeql-action/analyze"),
+    "the CodeQL workflow must include init and analyze actions");
   assert.equal(new Set(revisions).size, 1, "every CodeQL sub-action must use the same release commit");
 
   const dependabot = parse(
