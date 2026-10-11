@@ -229,7 +229,7 @@ router.post("/:name/run", async (req, res) => {
     }
     const result = await runPm({
         args: [...body.command.slice(3).split(" "), ...args],
-        commandOwner: { command: body.command.slice(3), name: entry.name },
+        commandOwner: { command: body.command.slice(3), name: entry.name, args },
         userId: project.ownerUserId, slug: project.slug, jsonOutput: true,
         // Preserve extension subcommands and flags: the in-process adapter derives
         // positional/boolean arity only from the core tool schema.

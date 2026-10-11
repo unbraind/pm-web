@@ -883,10 +883,20 @@ async function commandOwnershipError(dir, expected, env) {
         const ownership = receipt.details?.command_ownership;
         if (receipt.ok !== true || !Array.isArray(ownership))
             return unknownOwner;
-        const matches = ownership.filter((row) => row.command === expected.command);
-        if (matches.length === 0)
+        if (!ownership.some((row) => row.command === expected.command))
             return unknownOwner;
-        for (const row of matches) {
+        // Positional arguments can extend the dispatched path (`pm presets` + `list`
+        // dispatches `presets list`), so every owned path the argv could resolve to
+        // must be won by the selected package, not only the selected base command.
+        const paths = new Set([expected.command]);
+        let path = expected.command;
+        for (const token of expected.args ?? []) {
+            if (token.startsWith("-"))
+                continue;
+            path = `${path} ${token}`;
+            paths.add(path);
+        }
+        for (const row of ownership.filter((candidate) => paths.has(candidate.command))) {
             if (row.policy !== "last_activated_wins" || !["handler", "override"].includes(row.surface))
                 return unknownOwner;
             const winners = row.claimants.filter((claimant) => claimant.winner === true);
@@ -894,7 +904,7 @@ async function commandOwnershipError(dir, expected, env) {
             if (winners.length !== 1 || !winner || typeof winner.name !== "string")
                 return unknownOwner;
             if (winner.name !== expected.name) {
-                return `pm ${expected.command} is owned by ${winner.name} (${row.surface}), not ${expected.name}; refusing to run.`;
+                return `pm ${row.command} is owned by ${winner.name} (${row.surface}), not ${expected.name}; refusing to run.`;
             }
         }
         return null;

@@ -92,10 +92,11 @@ export interface PmRunOptions {
     input?: string;
     jsonOutput?: boolean;
     timeoutMs?: number;
-    /** Require the runtime winner for this exact command to match the catalog package. */
+    /** Require the runtime winner for this command, and for every path its positional args extend it to, to be the catalog package. */
     commandOwner?: {
         command: string;
         name: string;
+        args?: readonly string[];
     };
 }
 /** Transport-neutral result shared by in-process SDK and child-process calls. */

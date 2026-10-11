@@ -195,6 +195,13 @@ export function activate(api: ExtensionApi): void {
     assert.match(collisionBody.error, /presets list is owned by scratch-shadow.*not pm-presets/);
     await assert.rejects(readFile(marker), { code: "ENOENT" });
     assert.equal(await readFile(path.join(pmRoot, "settings.json"), "utf8"), trackerBeforeCollision);
+    // Selecting the owned base command must not authorize a positional token
+    // that extends dispatch into the shadowed `presets list` path.
+    const extended = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets", args: ["list", "--json"] }) });
+    const extendedBody = await extended.json() as { ok: boolean; output: string; error: string };
+    assert.equal(extended.status, 409, JSON.stringify(extendedBody));
+    assert.match(extendedBody.error, /presets list is owned by scratch-shadow.*not pm-presets/);
+    await assert.rejects(readFile(marker), { code: "ENOENT" });
     execFileSync(process.execPath, [cli, "package", "deactivate", "scratch-shadow", "--project", "--json"], { cwd: project, env, stdio: "pipe" });
     const restored = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets list", args: ["--json"] }) });
     assert.equal(restored.status, 200, await restored.clone().text());

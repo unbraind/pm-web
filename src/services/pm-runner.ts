@@ -390,8 +390,8 @@ export interface PmRunOptions {
   input?: string;
   jsonOutput?: boolean;
   timeoutMs?: number;
-  /** Require the runtime winner for this exact command to match the catalog package. */
-  commandOwner?: { command: string; name: string };
+  /** Require the runtime winner for this command, and for every path its positional args extend it to, to be the catalog package. */
+  commandOwner?: { command: string; name: string; args?: readonly string[] };
 }
 
 /** Transport-neutral result shared by in-process SDK and child-process calls. */
@@ -1054,7 +1054,7 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
 }
 
 /** Verify exact-path runtime winners using the pinned CLI's public package-describe contract. */
-async function commandOwnershipError(dir: string, expected: { command: string; name: string }, env: NodeJS.ProcessEnv): Promise<string | null> {
+async function commandOwnershipError(dir: string, expected: { command: string; name: string; args?: readonly string[] }, env: NodeJS.ProcessEnv): Promise<string | null> {
   const unknownOwner = `Cannot establish the effective owner of pm ${expected.command}; refusing to run ${expected.name}.`;
   const result = await runProcess(dir, ["package", "describe", "--project", "--json"], { timeoutMs: 15_000, env });
   if (!result.ok) return unknownOwner;
@@ -1062,15 +1062,24 @@ async function commandOwnershipError(dir: string, expected: { command: string; n
     const receipt = JSON.parse(result.stdout) as { ok?: unknown; details?: Partial<ExtensionDescribeResult> };
     const ownership = receipt.details?.command_ownership;
     if (receipt.ok !== true || !Array.isArray(ownership)) return unknownOwner;
-    const matches = ownership.filter((row) => row.command === expected.command);
-    if (matches.length === 0) return unknownOwner;
-    for (const row of matches) {
+    if (!ownership.some((row) => row.command === expected.command)) return unknownOwner;
+    // Positional arguments can extend the dispatched path (`pm presets` + `list`
+    // dispatches `presets list`), so every owned path the argv could resolve to
+    // must be won by the selected package, not only the selected base command.
+    const paths = new Set([expected.command]);
+    let path = expected.command;
+    for (const token of expected.args ?? []) {
+      if (token.startsWith("-")) continue;
+      path = `${path} ${token}`;
+      paths.add(path);
+    }
+    for (const row of ownership.filter((candidate) => paths.has(candidate.command))) {
       if (row.policy !== "last_activated_wins" || !["handler", "override"].includes(row.surface)) return unknownOwner;
       const winners = row.claimants.filter((claimant) => claimant.winner === true);
       const winner = winners[0];
       if (winners.length !== 1 || !winner || typeof winner.name !== "string") return unknownOwner;
       if (winner.name !== expected.name) {
-        return `pm ${expected.command} is owned by ${winner.name} (${row.surface}), not ${expected.name}; refusing to run.`;
+        return `pm ${row.command} is owned by ${winner.name} (${row.surface}), not ${expected.name}; refusing to run.`;
       }
     }
     return null;
