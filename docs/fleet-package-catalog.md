@@ -77,20 +77,23 @@ experiment. The restored acceptance passes, including actual npm installation.
 
 ## Release receipts
 
-Independent CI on `fb88798` executes the literal `npm run release:check` and
+Independent CI run 38116214351 on implementation head `f4f7dc1` executes the literal `npm run release:check` and
 `bun run release:check` with fresh HOME and disabled global/system Git
 configuration on both existing Node matrix lines. Each of the four runs passes
 496/496 tests with zero failures or skips. All 34 configured server sources meet
 the unchanged statements/lines 90, branches 79 and functions 92 thresholds.
 Each runner also accepts all four packed npm/Bun current/minimum-host scenarios.
 
-The feedback correction and extended SSE acceptance follow that receipt and
-receive another exact-head CI run. Restored PM-linked HTTP/SSE acceptance passes
+This receipt includes the feedback correction and extended SSE acceptance.
+Restored PM-linked HTTP/SSE acceptance passes
 1/1; canonical discovery/built-catalog acceptance passes 4/4, focused catalog/UI
 and filesystem discovery passes 20/20, and corrected route acceptance passes 9/9.
 The first local full attempt exposed two historical assertions, corrected
 without weakening unpublished no-spawn or category checks. A second local
 attempt was stopped for the feedback correction; neither is a full gate pass.
+The final receipt commit changes documentation and tracker evidence only;
+runtime, tests, dependencies, dist and workflow inputs remain identical. It
+receives its own exact-head CI verification.
 
 Current strict local PM health reports managed GitHub host/SDK version skew
 between 2026.10.10 and 2026.10.11. Tracked integrity/history remains clean and
