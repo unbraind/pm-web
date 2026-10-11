@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "id": "332acd26-c904-43b3-81fb-399d9b72458e",
+  "item_path": ".agents/pm/issues/pm-web-hqqp.toon",
+  "item_id": "pm-web-hqqp",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [
+    "actual_result"
+  ],
+  "union_fields": [
+    "comments",
+    "docs",
+    "tests"
+  ],
+  "merged_field_hashes": {
+    "actual_result": "a93ef7dcf993d5a4104ffdc76068273ba37243e12cf4e531d8cc319dec5aa6a8",
+    "comments": "7212acbb365b35e9838963279f48dff7840899a4fc806ed2bd570368e99b2193",
+    "docs": "156399a22614d0b9bc8a0cf8e9f0c1f42b40bfe3daea23b621b463e021ddecee",
+    "tests": "e4919acdf83a34a38d2364be4acb904c7d17628c0595a9321c8fbd2c66112754"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "db73137c876484e1a3f54cdc7caa43c4244c66dd",
+    "original_blob": "b322862e4ba7f0553e1fdf095017aafc9618348d"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-11T18:27:18.714Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-11T18:27:33.920Z"
+}
