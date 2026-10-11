@@ -229,12 +229,13 @@ router.post("/:name/run", async (req, res) => {
     }
     const result = await runPm({
         args: [...body.command.slice(3).split(" "), ...args],
+        commandOwner: { command: body.command.slice(3), name: entry.name },
         userId: project.ownerUserId, slug: project.slug, jsonOutput: true,
         // Preserve extension subcommands and flags: the in-process adapter derives
         // positional/boolean arity only from the core tool schema.
         timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
     });
-    res.status(result.ok ? 200 : 400).json({ ok: result.ok, output: result.parsed ?? result.stdout, error: result.stderr });
+    res.status(result.ownershipRefused ? 409 : result.ok ? 200 : 400).json({ ok: result.ok, output: result.parsed ?? result.stdout, error: result.stderr });
 });
 // POST /api/projects/:projectId/extensions/:name/activate
 router.post("/:name/activate", async (req, res) => {

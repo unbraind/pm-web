@@ -1,18 +1,21 @@
 /** Built HTTP acceptance over a real project tracker, registry install and activated extension. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../dist/app.js";
+import { createApp as createSourceApp } from "../src/app.ts";
 import { signToken } from "../dist/auth.js";
 import { pool } from "../dist/db.js";
+import { pool as sourcePool } from "../src/db.ts";
 import type { PackageCatalogRow } from "../dist/routes/extensions.js";
+import type { ExtensionDescribeResult } from "@unbrained/pm-cli/sdk";
 
-after(() => pool.end());
+after(() => Promise.all([pool.end(), sourcePool.end()]));
 
 /** All public fleet identities requested for the Packages view, including the native CLI. */
 const FLEET_NAMES = "pm-ado pm-beads pm-brief pm-changelog pm-context pm-csv pm-gantt-chart pm-github pm-graph pm-jev pm-jira pm-linear pm-ops pm-presets pm-rl pm-rust pm-slack pm-slack-standup pm-starter pm-todos pm-ts-starter pm-vcs".split(" ");
@@ -55,7 +58,8 @@ test("missing deactivation SSE rejects before the outer deadline and runs finall
   }
 });
 
-test("built server lists the full fleet, installs and enables npm Presets, executes it, and refuses unpublished packages", { timeout: 300_000 }, async () => {
+for (const [runtime, app] of [["built", createApp], ["source", createSourceApp]] as const) {
+test(`${runtime} server executes npm Presets, refuses a later local command owner collision, and lists the full fleet`, { timeout: 300_000 }, async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-install-e2e-"));
   const previousRoot = process.env.PROJECTS_ROOT;
   const owner = randomUUID();
@@ -65,13 +69,13 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
   const project = path.join(root, owner, slug);
   const pmRoot = path.join(project, ".agents", "pm");
   const cli = path.resolve("node_modules/@unbrained/pm-cli/dist/cli.js");
-  const server = http.createServer(createApp());
+  const server = http.createServer(app());
   const eventsAbort = new AbortController();
   let collectedEvents: Promise<void> | undefined;
   try {
     process.env.PROJECTS_ROOT = root;
     await mkdir(project, { recursive: true });
-    const env = { ...process.env, PM_PATH: pmRoot, PM_AUTHOR: "synthetic-catalog", HOME: root };
+    const env = { ...process.env, PM_PATH: pmRoot, PM_AUTHOR: "synthetic-catalog", HOME: root, PM_GRAPH_PROJECT_KEY: `${owner}:${slug}` };
     execFileSync(process.execPath, [cli, "workspace", "init", "--workspace", project, "--prefix", "scratch", "--defaults", "--agent-guidance", "skip"], { cwd: project, env, stdio: "pipe" });
     execFileSync(process.execPath, [cli, "create", "Synthetic catalog item", "--type", "Task"], { cwd: project, env, stdio: "pipe" });
     await pool.query("INSERT INTO pm_users (id, email, password_hash) VALUES ($1, $2, 'synthetic')", [owner, `${owner}@example.test`]);
@@ -147,6 +151,54 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
     const run = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets list", args: ["--json"] }) });
     assert.equal(run.status, 200, await run.clone().text());
     assert.match(await run.text(), /software-sprint/);
+    // A real local install competes for the identical path. Higher priority
+    // activates it after Presets, independent of install or alphabetical order.
+    const shadow = path.join(project, "shadow-package");
+    await mkdir(shadow);
+    await writeFile(path.join(shadow, "package.json"), JSON.stringify({ name: "scratch-shadow", version: "1.0.0", type: "module", pm: { extensions: ["."] } }));
+    await writeFile(path.join(shadow, "manifest.json"), JSON.stringify({
+      name: "scratch-shadow", version: "1.0.0", manifest_version: 1,
+      entry: "./index.ts", priority: 1000, capabilities: ["commands"],
+    }));
+    await writeFile(path.join(shadow, "index.ts"), `import type { ExtensionApi } from "@unbrained/pm-cli/sdk";
+import { writeFileSync } from "node:fs";
+/** Register a conflicting handler whose execution leaves a detectable receipt. */
+export function activate(api: ExtensionApi): void {
+  if (!process.env.PM_GRAPH_PROJECT_KEY) return;
+  api.registerCommand({ name: "presets list", description: "Synthetic collision", run() {
+    writeFileSync("collision-executed.txt", "scratch-shadow ran");
+    return { ok: true, owner: "scratch-shadow" };
+  } });
+}
+`);
+    execFileSync(process.execPath, [cli, "package", "install", "./shadow-package", "--project", "--json"], { cwd: project, env, stdio: "pipe" });
+    execFileSync(process.execPath, [cli, "package", "activate", "scratch-shadow", "--project", "--json"], { cwd: project, env, stdio: "pipe" });
+    const described = JSON.parse(execFileSync(process.execPath, [cli, "package", "describe", "--project", "--json"], { cwd: project, env, encoding: "utf8" })) as { details: ExtensionDescribeResult };
+    const ownership = described.details.command_ownership.find((row) => row.command === "presets list" && row.surface === "handler");
+    assert.equal(ownership?.policy, "last_activated_wins");
+    assert.equal(ownership?.collision, true);
+    assert.deepEqual(ownership?.claimants.map(({ name, winner }) => ({ name, winner })), [
+      { name: "pm-presets", winner: false }, { name: "scratch-shadow", winner: true },
+    ]);
+    // Prove this is a dispatchable duplicate, then erase only its synthetic
+    // execution receipt before asking the HTTP route to refuse it.
+    execFileSync(process.execPath, [cli, "presets", "list", "--json"], { cwd: project, env, stdio: "pipe" });
+    const marker = path.join(project, "collision-executed.txt");
+    assert.equal(await readFile(marker, "utf8"), "scratch-shadow ran");
+    await rm(marker);
+    const trackerBeforeCollision = await readFile(path.join(pmRoot, "settings.json"), "utf8");
+    const collision = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets list", args: ["--json"] }) });
+    const collisionBody = await collision.json() as { ok: boolean; output: string; error: string };
+    assert.equal(collision.status, 409, JSON.stringify(collisionBody));
+    assert.equal(collisionBody.ok, false);
+    assert.equal(collisionBody.output, "");
+    assert.match(collisionBody.error, /presets list is owned by scratch-shadow.*not pm-presets/);
+    await assert.rejects(readFile(marker), { code: "ENOENT" });
+    assert.equal(await readFile(path.join(pmRoot, "settings.json"), "utf8"), trackerBeforeCollision);
+    execFileSync(process.execPath, [cli, "package", "deactivate", "scratch-shadow", "--project", "--json"], { cwd: project, env, stdio: "pipe" });
+    const restored = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets list", args: ["--json"] }) });
+    assert.equal(restored.status, 200, await restored.clone().text());
+    assert.match(await restored.text(), /software-sprint/);
     const deactivate = await fetch(`${base}/pm-presets/deactivate`, { method: "POST", headers });
     assert.equal(deactivate.status, 200, await deactivate.text());
     await waitForDeactivation(deactivationObserved);
@@ -173,3 +225,4 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
     await rm(root, { recursive: true, force: true });
   }
 });
+}

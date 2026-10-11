@@ -82,7 +82,7 @@ An isolated scratch Git repository contains those generated attributes. No
 pm SDK defect was found in the catalog acceptance; this CLI initialization
 side effect is an isolation consideration, and no upstream issue was filed.
 
-Both complete release gates passed on the implemented source tree with the
+Earlier catalog validation passed both complete release gates with the
 complete canonical live fleet and external scratch isolation:
 
 | Command | Tests | Statements / lines | Branches | Functions |
@@ -99,3 +99,59 @@ The packed status is `down`; acceptance does not start or validate a hosted
 service. Changelog and release-policy checks pass. A final registry lookup
 still returns E404 for pm-jev. The hosted deployment remains outside this
 package-only change.
+
+## Round 2: command ownership
+
+Catalog text and package enablement alone do not establish dispatch identity.
+The runner now calls `pm package describe --project --json` with the same
+binary, environment and tracker as execution. The pinned published CLI
+2026.10.10 documents `details.command_ownership` in `docs/EXTENSIONS.md`
+(lines 289 and 355); its exported SDK contract is
+`dist/sdk/extension/describe.d.ts` (`ExtensionCommandOwnership`). Each exact
+command path has handler/override claimants in activation order, one `winner`,
+and the `last_activated_wins` policy. The check reads the whole table without
+a package-name filter and requires every matching surface's winner to equal
+the selected catalog identity. Missing, malformed or failed ownership reads
+also refuse execution. HTTP 409 names a conflicting actual owner; ownership
+refusals have empty command output.
+
+Ownership inspection and process dispatch share the runner's workspace queue,
+so web-managed lifecycle changes cannot interleave between them. Owned calls
+use the process runner to preserve extension argument syntax and the same CLI
+runtime as the probe. This is a snapshot check: external processes changing
+installed packages or executable code are outside the in-process queue.
+Runtime inspection activates installed extension modules; it does not invoke
+the requested command handler.
+
+The same HTTP acceptance runs against the built and source apps, installing
+real npm Presets, then a local TypeScript
+package registering `presets list` with a later activation priority. The
+fixture requires the dispatch project key during activation, proving that the
+ownership probe and execution share their environment. It checks
+the published ownership receipt, proves direct CLI dispatch executes the local
+handler, clears that synthetic marker, and asserts the web request returns
+409 without recreating the marker or changing tracker settings. Disabling the
+local package restores normal Presets execution. No SDK mock is involved.
+
+The focused acceptance passes 3/3 with zero skips or cancellations. Restoring
+only the previous `runPm` implementation, rebuilding, and selecting the built
+collision test produces one assertion failure: HTTP 200 instead of 409, with
+`owner: scratch-shadow` in command output. Fixed source bytes are restored and
+server output rebuilt after the experiment. The PM-linked acceptance also
+passes; project policy disables automatic linked-result persistence, so
+verification receipts remain in comments on pm-web-s99c.
+
+Final round-two release validation uses isolated Git identity, canonical fleet
+metadata and an external scratch root. Both complete release chains pass:
+
+| Command | Tests | Statements / lines | Branches | Functions |
+| --- | --- | --- | --- | --- |
+| `npm run release:check` | 499/499 | 90.51% | 80.50% | 93.45% |
+| `bun run release:check` | 499/499 | 90.51% | 80.50% | 93.45% |
+
+Both runs have zero skips/cancellations and report all 34 configured source
+files at unchanged thresholds. Each passes four packed npm/native-Bun
+current/minimum-host scenarios (2026.10.10 and 2026.10.4), production audit
+with zero vulnerabilities, type checks, lint, zero duplication, docstrings,
+pack dry-run, changelog and release-policy checks. Exact-head CI/review and
+external processes changing package code remain separate boundaries.
