@@ -285,7 +285,6 @@ router.post("/:name/run", async (req: AuthRequest, res) => {
     // positional/boolean arity only from the core tool schema.
     timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
   });
-  broadcastExtensionsChanged(routeParam(req, "projectId"), req.user!.userId, entry.name, "run");
   res.status(result.ok ? 200 : 400).json({ ok: result.ok, output: result.parsed ?? result.stdout, error: result.stderr });
 });
 

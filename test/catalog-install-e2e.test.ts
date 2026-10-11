@@ -28,6 +28,8 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
   const pmRoot = path.join(project, ".agents", "pm");
   const cli = path.resolve("node_modules/@unbrained/pm-cli/dist/cli.js");
   const server = http.createServer(createApp());
+  const eventsAbort = new AbortController();
+  let collectedEvents: Promise<void> | undefined;
   try {
     process.env.PROJECTS_ROOT = root;
     await mkdir(project, { recursive: true });
@@ -41,6 +43,27 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
     assert.ok(address && typeof address !== "string");
     const base = `http://127.0.0.1:${address.port}/api/projects/${projectId}/extensions`;
     const headers = { authorization: `Bearer ${signToken({ userId: owner, email: `${owner}@example.test` })}`, "content-type": "application/json" };
+    const events = await fetch(`http://127.0.0.1:${address.port}/api/projects/${projectId}/pm/events?view=packages`, { headers, signal: eventsAbort.signal });
+    assert.equal(events.status, 200);
+    assert.ok(events.body);
+    const reader = events.body.getReader();
+    const decoder = new TextDecoder();
+    let eventText = "";
+    let observeDeactivation: (() => void) | undefined;
+    const deactivationObserved = new Promise<void>((resolve) => { observeDeactivation = resolve; });
+    /** Collect real package SSE events until the acceptance closes its connection. */
+    collectedEvents = (async () => {
+      try {
+        for (;;) {
+          const next = await reader.read();
+          if (next.done) break;
+          eventText += decoder.decode(next.value, { stream: true });
+          if (eventText.includes('"operation":"deactivate"')) observeDeactivation?.();
+        }
+      } catch (error) {
+        if (!eventsAbort.signal.aborted) throw error;
+      }
+    })();
     const initial = await fetch(base, { headers });
     assert.equal(initial.status, 200);
     const listing = await initial.json() as { packages: PackageCatalogRow[]; stateError?: string };
@@ -84,6 +107,12 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
     const run = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets list", args: ["--json"] }) });
     assert.equal(run.status, 200, await run.clone().text());
     assert.match(await run.text(), /software-sprint/);
+    const deactivate = await fetch(`${base}/pm-presets/deactivate`, { method: "POST", headers });
+    assert.equal(deactivate.status, 200, await deactivate.text());
+    await deactivationObserved;
+    assert.match(eventText, /"operation":"install"/);
+    assert.match(eventText, /"operation":"activate"/);
+    assert.doesNotMatch(eventText, /"operation":"run"/, "command output must survive package-state refreshes");
     const before = await readFile(path.join(pmRoot, "settings.json"), "utf8");
     for (const name of ["pm-ado", "pm-rust"]) {
       const refused = await fetch(`${base}/${name}/install`, { method: "POST", headers });
@@ -94,6 +123,8 @@ test("built server lists the full fleet, installs and enables npm Presets, execu
     const trackerItems = execFileSync(process.execPath, [cli, "list", "--all", "--json", "--output-budget", "unbounded", "--output-limit", "unbounded"], { cwd: project, env, encoding: "utf8" });
     assert.match(trackerItems, /Synthetic catalog item/);
   } finally {
+    eventsAbort.abort();
+    await collectedEvents;
     server.closeAllConnections();
     await new Promise<void>((resolve) => { server.close(() => resolve()); });
     await pool.query("DELETE FROM pm_users WHERE id = ANY($1::uuid[])", [[owner, viewer]]);

@@ -49,6 +49,8 @@ and downloads published Presets from npm. It checks all 22 identities and their
 metadata, installs and activates Presets, verifies installed/enabled/runtime
 active state, executes its documented nested command, and proves unpublished ADO and
 native Rust return distinct 409 explanations without changing tracker settings.
+The real SSE connection observes install, activation and deactivation events;
+command execution does not emit a package-state event that redraws its output.
 It also rejects malformed arguments, undeclared commands and workspace escapes.
 No SDK mocks or hosted deployment are involved.
 
@@ -67,5 +69,31 @@ assertion. Restoring that entry, then removing only the command route's explicit
 timeout/process selection fails Presets command execution: the in-process
 adapter returns 400 instead of 200. Each experiment executes one test and
 produces one behavioral AssertionError, with no syntax or module-load failure.
+Restoring the former command package-state broadcast fails the same test's
+real SSE assertion: a `run` refresh would discard command output. Install,
+activation and deactivation still appear before the decisive assertion.
 Original source bytes are restored and the compiled server rebuilt after each
 experiment. The restored acceptance passes, including actual npm installation.
+
+## Release receipts
+
+Independent CI on `fb88798` executes the literal `npm run release:check` and
+`bun run release:check` with fresh HOME and disabled global/system Git
+configuration on both existing Node matrix lines. Each of the four runs passes
+496/496 tests with zero failures or skips. All 34 configured server sources meet
+the unchanged statements/lines 90, branches 79 and functions 92 thresholds.
+Each runner also accepts all four packed npm/Bun current/minimum-host scenarios.
+
+The feedback correction and extended SSE acceptance follow that receipt and
+receive another exact-head CI run. Restored PM-linked HTTP/SSE acceptance passes
+1/1; canonical discovery/built-catalog acceptance passes 4/4, focused catalog/UI
+and filesystem discovery passes 20/20, and corrected route acceptance passes 9/9.
+The first local full attempt exposed two historical assertions, corrected
+without weakening unpublished no-spawn or category checks. A second local
+attempt was stopped for the feedback correction; neither is a full gate pass.
+
+Current strict local PM health reports managed GitHub host/SDK version skew
+between 2026.10.10 and 2026.10.11. Tracked integrity/history remains clean and
+reviewed reconciliation leaves no drift or pending receipts. Fresh independent
+CI's pinned managed-extension setup passes strict PM health. This does not
+establish health of inherited local extension state or a hosted deployment.
