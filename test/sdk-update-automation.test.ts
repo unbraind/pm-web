@@ -40,6 +40,14 @@ test("dependency-only SDK updates preserve a tested host floor without generated
     const result = spawnSync(process.execPath, ["--test", "test/packaging.test.ts"], { cwd: root, encoding: "utf8", env });
     assert.equal(result.status, 1, result.stdout + result.stderr);
   }
+  // Even matching old pins must not lower the separately justified API minimum.
+  inputs.dependencies["@unbrained/pm-cli"] = "2020.1.1";
+  writeFileSync(join(root, "package.json"), JSON.stringify(inputs));
+  writeFileSync(join(root, "manifest.json"), JSON.stringify({ pm_min_version: "2020.1.1" }));
+  const oldApi = spawnSync(process.execPath, ["--test", "test/packaging.test.ts"], { cwd: root, encoding: "utf8", env });
+  assert.equal(oldApi.status, 1, oldApi.stdout + oldApi.stderr);
+  assert.match(oldApi.stdout, /certified SDK API minimum/);
+
   inputs.dependencies["@unbrained/pm-cli"] = "2027.1.1";
   writeFileSync(join(root, "package.json"), JSON.stringify(inputs));
   writeFileSync(join(root, "manifest.json"), JSON.stringify({ pm_min_version: "unverified" }));
