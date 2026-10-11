@@ -27,7 +27,7 @@ test("built catalog exposes Jev truthfully beside a real scratch tracker and exc
     const before = fs.readFileSync(path.join(pmRoot, "settings.json"), "utf8");
     const entry = findCatalogEntry("pm-jev");
     assert.ok(entry, "pm-jev must appear in the built catalog");
-    assert.deepEqual(entry.capabilities, ["commands", "schema"]);
+    assert.deepEqual(entry.capabilities, ["commands", "hooks", "schema"]);
     assert.equal(entry.category, "extension");
     assert.equal(entry.availability, "unreleased");
     assert.equal(resolveNpmSpec("pm-jev"), null, "npm returns 404; do not promise installation");

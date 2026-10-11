@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "id": "a2eb06dd-41ef-4685-93e1-4eb2fbebb2fe",
+  "item_path": ".agents/pm/issues/pm-web-s99c.toon",
+  "item_id": "pm-web-s99c",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [],
+  "union_fields": [
+    "comments"
+  ],
+  "merged_field_hashes": {
+    "comments": "eeb73c30daa85afaf0c6fe2e7892bb3b807a4c19456032a366cce6607e0de0bd"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "879c3647a44690c22f2e9ba907475b5f2ad2c714",
+    "original_blob": "7fb0312dcd5023cdcc8abedcf8bed8826479d965"
+  },
+  "state": "pending",
+  "created_at": "2026-10-11T12:33:22.426Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1"
+}

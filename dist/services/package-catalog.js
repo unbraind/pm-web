@@ -164,7 +164,7 @@ export const PACKAGE_CATALOG = [
         npmSpec: "npm:pm-jev",
         title: "Jev",
         description: "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev ask, jev gate, jev models, jev doctor.",
-        capabilities: ["commands", "schema"],
+        capabilities: ["commands", "hooks", "schema"],
         category: "extension",
         availability: "unreleased",
         requiresService: { name: "Ollama (tev1:4b), or TypeSafe Jev with explicit privacy opt-in" },
