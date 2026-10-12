@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Refresh connected project viewers after the realtime database listener reconnects ([pm-web-gixc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-gixc.toon))
+
 ## 2026.10.12 - 2026-10-12
 
 ### Added
@@ -8,7 +14,6 @@
 
 ### Fixed
 
-- Refresh connected project viewers after the realtime database listener reconnects ([pm-web-gixc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-gixc.toon))
 - The publish-attestation gate misses a publish routed through an unquoted shell variable ([pm-web-szow](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-szow.toon))
 - Catalog fleet discovery misidentifies sibling package worktrees as extension packages ([pm-web-cqwm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-cqwm.toon))
 - Expose every public fleet package and run enabled extension commands ([pm-web-s99c](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-s99c.toon))
