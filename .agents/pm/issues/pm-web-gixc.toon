@@ -2,15 +2,19 @@ id: pm-web-gixc
 title: Refresh connected project viewers after the realtime database listener reconnects
 description: "The PostgreSQL LISTEN connection retries after a disconnect but notifications during that interval are transient and lost while browser SSE streams stay open. Workspace and Packages views can remain stale until an unrelated event or reload. After successful re-LISTEN, deliver bounded local workspace-changed and extensions-changed invalidations to every active project without publishing them to the shared bus. Reproduce lost item and package notifications using a dedicated throwaway PostgreSQL listener and real HTTP event streams."
 type: Issue
-status: in_progress
+status: closed
 priority: 1
 tags: []
 created_at: "2026-09-07T22:58:28.455Z"
-updated_at: "2026-09-07T23:45:37.485Z"
-assignee: codex-hosted-collaboration
+updated_at: "2026-10-12T10:45:41.112Z"
+closed_at: "2026-10-12T10:45:41.103Z"
+completed_at: "2026-10-12T10:45:41.103Z"
 claim_principal: codex-hosted-collaboration
 author: codex-hosted-collaboration
 acceptance_criteria: A real PostgreSQL disconnect followed by item and package notifications during the gap yields one workspace and one extension-catalog refresh on every still-connected project stream after LISTEN succeeds; later project notifications retain tenant isolation; initial startup and stopped listeners do not emit reconnect refreshes; installed CLI 2026.9.7 real SDK tests and release checks remain green; report remaining whole-source coverage and hosted rollout gates accurately.
+resolution: "Implemented and merged in https://github.com/unbraind/pm-web/pull/127: connected project streams receive one workspace and one Packages refresh after the PostgreSQL realtime listener recovers"
+expected_result: "Meets its recorded acceptance criteria: A real PostgreSQL disconnect followed by item and package notifications during the gap yields one workspace and one extension-catalog refresh on every still-connected project stream after LISTEN succeeds; later project notifications retain tenant isolation; initial startup and stopped listeners do not emit reconnect refreshes; installed CLI 2026.9.7 real SDK tests and release checks remain green; report remaining whole-source coverage and hosted rollout gates accurately."
+actual_result: "Merged in https://github.com/unbraind/pm-web/pull/127 with every required check green at its merged head and no unresolved review thread; connected project streams receive one workspace and one Packages refresh after the PostgreSQL realtime listener recovers"
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-2rek,related,"2026-09-07T22:58:28.455Z",codex-hosted-collaboration,"cli:create:dep",detected
 comments[5]{created_at,author,text}:
@@ -27,4 +31,5 @@ tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
   node scripts/with-test-db.ts node --test test/realtime-recovery.test.ts,project,60,codex-hosted-collaboration,"2026-09-07T23:01:20.903Z",local_mutation,fix/align-shared-workspace-cli-2026-9-4,Real PostgreSQL disconnect and real HTTP event streams; synthetic projects only
 docs[1]{path,scope}:
   README.md,project
+close_reason: "Delivered by https://github.com/unbraind/pm-web/pull/127 (merged); connected project streams receive one workspace and one Packages refresh after the PostgreSQL realtime listener recovers"
 body: ""
