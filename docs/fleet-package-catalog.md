@@ -47,9 +47,13 @@ global options with the public SDK bootstrap contract, so separate values such
 as `--author synthetic` and `--output-format json` cannot hide a competing
 `presets list` handler. Equals forms and global boolean options follow the same
 contract before or after nested command tokens. Ambiguous extension-local
-option arity with later operands, and terminators carrying operands that an
-extension could dispatch itself, return HTTP 409. An empty trailing terminator
-and owned commands such as `pm presets --list` remain supported.
+option arity branches between a value and a positional token; only candidate
+paths with a competing or unverifiable owned command return HTTP 409. Harmless
+values such as `list --limit 5` and `--display-name 7d --list` remain allowed.
+Candidate prefixes are pruned against the ownership table to bound the search.
+Terminators carrying operands that an extension could dispatch itself return
+HTTP 409. An empty trailing terminator and owned commands such as
+`pm presets --list` remain supported.
 
 ## Acceptance and scope
 
@@ -68,6 +72,11 @@ Issue [#189](https://github.com/unbraind/pm-web/issues/189) extends both source
 and compiled HTTP acceptance with a real higher-priority synthetic collision.
 Each global-option form first executes the shadow through the pinned CLI, then
 must return HTTP 409 through Web without an execution marker or settings change.
+Local valued options execute successfully when all candidate owned prefixes
+belong to Presets, including while the shadow is active if the value cannot
+reach its sub-path. A separate `list` value is refused while an equals-form
+value remains an option value. Multiple unknown options retain every candidate
+prefix, so consuming their values cannot hide the shadow command.
 Deactivating the shadow restores successful selected-package execution. The
 original finding concerns current source after #175; the published Web
 2026.10.11 tarball predates that change. No published Web or hosted exposure is

@@ -1054,7 +1054,7 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
   });
 }
 
-/** Verify exact-path runtime winners using the pinned CLI's public package-describe contract. */
+/** Verify every possible owned command prefix using the pinned CLI's public package-describe contract. */
 async function commandOwnershipError(dir: string, expected: { command: string; name: string; args?: readonly string[] }, env: NodeJS.ProcessEnv): Promise<string | null> {
   const unknownOwner = `Cannot establish the effective owner of pm ${expected.command}; refusing to run ${expected.name}.`;
   const result = await runProcess(dir, ["package", "describe", "--project", "--json"], { timeoutMs: 15_000, env });
@@ -1068,7 +1068,17 @@ async function commandOwnershipError(dir: string, expected: { command: string; n
     // dispatches `presets list`), so every owned path the argv could resolve to
     // must be won by the selected package, not only the selected base command.
     const paths = new Set([expected.command]);
-    let path = expected.command;
+    let candidates = new Set([expected.command]);
+    // Only prefixes of receipt commands can reach an owned path. Pruning and
+    // deduplication bound the search by the receipt rather than argv branches.
+    const ownedPrefixes = new Set<string>();
+    for (const row of ownership) {
+      const parts = row.command.split(" ");
+      for (let length = 1; length <= parts.length; length += 1) {
+        ownedPrefixes.add(parts.slice(0, length).join(" "));
+      }
+    }
+    let uncertain = false;
     // Use the dispatcher's public arity contract, including equals forms and
     // terminators. A global option's value is not a command-path component.
     const args = [...(expected.args ?? [])];
@@ -1078,14 +1088,20 @@ async function commandOwnershipError(dir: string, expected: { command: string; n
     if (terminator >= 0 && terminator < args.length - 1) return unknownOwner;
     const tokens = stripGlobalBootstrapTokens(args);
     for (const [index, token] of tokens.entries()) {
-      if (token.startsWith("-")) {
-        // Extension-local option arity is unavailable here. Do not guess which
-        // later operands can extend the command while validating its owner.
-        if (tokens.slice(index + 1).some((arg) => !arg.startsWith("-"))) return unknownOwner;
-        continue;
+      if (token.startsWith("-")) continue;
+      const previous = tokens[index - 1];
+      const possibleValue = previous?.startsWith("-") === true && !previous.includes("=");
+      uncertain ||= possibleValue;
+      // An unknown local option may consume its next token. Keep both that
+      // branch and the branch where the token extends the command path.
+      const next = new Set<string>(possibleValue ? candidates : []);
+      for (const candidate of candidates) {
+        const extended = `${candidate} ${token}`;
+        if (!ownedPrefixes.has(extended)) continue;
+        next.add(extended);
+        paths.add(extended);
       }
-      path = `${path} ${token}`;
-      paths.add(path);
+      candidates = next;
     }
     for (const row of ownership.filter((candidate) => paths.has(candidate.command))) {
       if (row.policy !== "last_activated_wins" || !["handler", "override"].includes(row.surface)) return unknownOwner;
@@ -1093,6 +1109,7 @@ async function commandOwnershipError(dir: string, expected: { command: string; n
       const winner = winners[0];
       if (winners.length !== 1 || !winner || typeof winner.name !== "string") return unknownOwner;
       if (winner.name !== expected.name) {
+        if (uncertain) return unknownOwner;
         return `pm ${row.command} is owned by ${winner.name} (${row.surface}), not ${expected.name}; refusing to run.`;
       }
     }

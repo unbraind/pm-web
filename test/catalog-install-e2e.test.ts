@@ -151,6 +151,24 @@ test(`${runtime} server executes npm Presets, refuses a later local command owne
     const run = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets list", args: ["--json"] }) });
     assert.equal(run.status, 200, await run.clone().text());
     assert.match(await run.text(), /software-sprint/);
+    /** Require a real base-command request to execute under Presets ownership. */
+    async function expectOwned(args: string[]): Promise<void> {
+      const response = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets", args }) });
+      assert.equal(response.status, 200, JSON.stringify({ args, result: await response.text() }));
+    }
+    // Local values must not be rejected when every possible owned prefix still
+    // belongs to Presets. Exercise the real extension through both HTTP builds.
+    const valuedArgs = [
+      ["list", "--limit", "5"],
+      ["--display-name", "7d", "--list"],
+      ["--display-name", "unowned-value", "--list"],
+      ["--display-name", "list", "--list"],
+      ["--display-name", "unowned-value", "list", "--json"],
+      ["--display-name=unowned-value", "list", "--json"],
+    ];
+    for (const args of valuedArgs) {
+      await expectOwned(args);
+    }
     // A real local install competes for the identical path. Higher priority
     // activates it after Presets, independent of install or alphabetical order.
     const shadow = path.join(project, "shadow-package");
@@ -230,10 +248,19 @@ export function activate(api: ExtensionApi): void {
       await assert.rejects(readFile(marker), { code: "ENOENT" });
       assert.equal(await readFile(path.join(pmRoot, "settings.json"), "utf8"), trackerBeforeCollision);
     }
-    const ambiguous = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets", args: ["--synthetic-option", "value", "list"] }) });
-    assert.equal(ambiguous.status, 409, await ambiguous.clone().text());
-    assert.match(await ambiguous.text(), /Cannot establish the effective owner/);
-    await assert.rejects(readFile(marker), { code: "ENOENT" });
+    for (const args of [["--synthetic-option", "value", "list"], ["--synthetic-option", "list"], ["--display-name", "list"], ["--first", "value", "--second", "value", "list"]]) {
+      const ambiguous = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets", args }) });
+      assert.equal(ambiguous.status, 409, await ambiguous.clone().text());
+      assert.match(await ambiguous.text(), /Cannot establish the effective owner/);
+      await assert.rejects(readFile(marker), { code: "ENOENT" });
+      assert.equal(await readFile(path.join(pmRoot, "settings.json"), "utf8"), trackerBeforeCollision);
+    }
+    // Harmless values remain allowed even while a different owner is active.
+    for (const args of [["--display-name", "7d", "--list"], ["--display-name", "unowned-value", "--list"], ["--display-name=list", "--list"]]) {
+      await expectOwned(args);
+      await assert.rejects(readFile(marker), { code: "ENOENT" });
+      assert.equal(await readFile(path.join(pmRoot, "settings.json"), "utf8"), trackerBeforeCollision);
+    }
     // Presets can interpret terminator operands itself. The public bootstrap
     // contract cannot establish that secondary dispatch, so refuse it closed.
     for (const args of [["--", "list", "--json"], ["list", "--", "--author", "synthetic"]]) {
@@ -247,9 +274,8 @@ export function activate(api: ExtensionApi): void {
     const restored = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets list", args: ["--json"] }) });
     assert.equal(restored.status, 200, await restored.clone().text());
     assert.match(await restored.text(), /software-sprint/);
-    for (const args of [...collisionArgs, ["list", "--json", "--"], ["--list", "--json"]]) {
-      const owned = await fetch(`${base}/pm-presets/run`, { method: "POST", headers, body: JSON.stringify({ command: "pm presets", args }) });
-      assert.equal(owned.status, 200, JSON.stringify({ args, result: await owned.text() }));
+    for (const args of [...collisionArgs, ...valuedArgs, ["list", "--json", "--"], ["--list", "--json"]]) {
+      await expectOwned(args);
     }
     const deactivate = await fetch(`${base}/pm-presets/deactivate`, { method: "POST", headers });
     assert.equal(deactivate.status, 200, await deactivate.text());
