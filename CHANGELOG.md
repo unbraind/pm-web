@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Preserve pm-graph export fidelity in observational graph reads ([pm-web-38n5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-38n5.toon))
+
+### Fixed
+
+- The publish-attestation gate misses a publish routed through an unquoted shell variable ([pm-web-szow](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-szow.toon))
+- Catalog fleet discovery misidentifies sibling package worktrees as extension packages ([pm-web-cqwm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-cqwm.toon))
+- Expose every public fleet package and run enabled extension commands ([pm-web-s99c](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-s99c.toon))
+
 ## 2026.10.5 - 2026-10-05
 
 ### Fixed
