@@ -6,12 +6,14 @@ status: open
 priority: 2
 tags: []
 created_at: "2026-10-11T07:18:59.939Z"
-updated_at: "2026-10-11T07:42:37.056Z"
+updated_at: "2026-10-12T11:49:53.827Z"
 author: codex-sol
-comments[3]{created_at,author,text}:
+comments[5]{created_at,author,text}:
   "2026-10-11T07:21:13.813Z",codex-sol,"PM-linked focused missing-database startup check passes 1/1 with zero skips and reports 9065 ms against the unchanged 10000 ms subprocess deadline. The full coverage run timed out instead and returned a nonnumeric status. This difference supports investigating instrumentation/resource contention; it does not establish a server or SDK root cause. Linked result tracking is disabled, so this comment records the focused receipt. No startup code, guard or test deadline was changed."
   "2026-10-11T07:39:25.686Z",codex-sol,"Corrected full Bun coverage completes 496/498, zero skips. The independent-workspace overlap assertion fails with log order: start first, end first, start independent, end independent, start second, end second. Same-workspace serialization and command success assertions passed before this check. The missing-database startup test passes in this full run. Retain both contrasting full-suite results; no process/startup code or timing assertion was changed."
   "2026-10-11T07:42:37.056Z",codex-sol,"The PM-linked focused independent-workspace spawn test passes 1/1, zero skips, at 674 ms. This contrasts with its full Bun coverage ordering failure. Retain the failing full-run log and the passing focused receipt, and investigate scheduling/instrumentation before changing any assertion. The result is recorded manually because linked-test persistence is disabled."
+  "2026-10-12T11:34:29.011Z",codex-sol,"Issue 189 first clean-HOME Bun release attempt finished 575 tests: 573 pass, 2 failures, 0 skips. Existing independent-workspace overlap assertion observed start first, end first, start independent, end independent, start second, end second; no independent overlap despite successful child processes. The other failure is graph wall-time tracked by pm-web-hqqp. Passing clean-HOME npm gate has 575/575. Ownership source/built regressions pass both attempts. Retrying the complete Bun gate with unchanged source, assertions, and thresholds."
+  "2026-10-12T11:49:53.827Z",codex-sol,"Unchanged full Bun release-gate retry passes the independent-workspace spawn overlap assertion and complete coverage suite 575/575 with zero failures/skips. First attempt recorded end first before start independent and remains failed evidence. No runner scheduling source, fixture, assertion or deadline changed; existing follow-up remains open."
 files[4]{path,scope}:
   src/server.ts,project
   src/services/pm-runner.ts,project

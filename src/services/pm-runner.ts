@@ -7,6 +7,7 @@ import {
   getItemAt,
   listAllComplete,
   listAllItemMetadataLight,
+  stripGlobalBootstrapTokens,
   PM_TOOL_PARAMETERS_SCHEMA,
   PmClient,
   PmCliError,
@@ -1068,8 +1069,21 @@ async function commandOwnershipError(dir: string, expected: { command: string; n
     // must be won by the selected package, not only the selected base command.
     const paths = new Set([expected.command]);
     let path = expected.command;
-    for (const token of expected.args ?? []) {
-      if (token.startsWith("-")) continue;
+    // Use the dispatcher's public arity contract, including equals forms and
+    // terminators. A global option's value is not a command-path component.
+    const args = [...(expected.args ?? [])];
+    // Extensions can interpret terminator operands themselves, beyond the CLI
+    // bootstrap contract. Their dispatch cannot be established from this receipt.
+    const terminator = args.indexOf("--");
+    if (terminator >= 0 && terminator < args.length - 1) return unknownOwner;
+    const tokens = stripGlobalBootstrapTokens(args);
+    for (const [index, token] of tokens.entries()) {
+      if (token.startsWith("-")) {
+        // Extension-local option arity is unavailable here. Do not guess which
+        // later operands can extend the command while validating its owner.
+        if (tokens.slice(index + 1).some((arg) => !arg.startsWith("-"))) return unknownOwner;
+        continue;
+      }
       path = `${path} ${token}`;
       paths.add(path);
     }
