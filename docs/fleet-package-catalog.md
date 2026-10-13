@@ -41,6 +41,20 @@ positionals and extension-only boolean flags. Preserving the exact argument
 array fixes both documented `pm presets list` and unified `pm presets --list`
 forms without changing core action dispatch.
 
+Before dispatch, the runner binds the effective command owner to the selected
+package using the pinned CLI's real package-describe receipt. It normalizes
+global options with the public SDK bootstrap contract, so separate values such
+as `--author synthetic` and `--output-format json` cannot hide a competing
+`presets list` handler. Equals forms and global boolean options follow the same
+contract before or after nested command tokens. Ambiguous extension-local
+option arity branches between a value and a positional token; only candidate
+paths with a competing or unverifiable owned command return HTTP 409. Harmless
+values such as `list --limit 5` and `--display-name 7d --list` remain allowed.
+Candidate prefixes are pruned against the ownership table to bound the search.
+Terminators carrying operands that an extension could dispatch itself return
+HTTP 409. An empty trailing terminator and owned commands such as
+`pm presets --list` remain supported.
+
 ## Acceptance and scope
 
 `test/catalog-install-e2e.test.ts` serves the compiled application over HTTP,
@@ -53,6 +67,20 @@ The real SSE connection observes install, activation and deactivation events;
 command execution does not emit a package-state event that redraws its output.
 It also rejects malformed arguments, undeclared commands and workspace escapes.
 No SDK mocks or hosted deployment are involved.
+
+Issue [#189](https://github.com/unbraind/pm-web/issues/189) extends both source
+and compiled HTTP acceptance with a real higher-priority synthetic collision.
+Each global-option form first executes the shadow through the pinned CLI, then
+must return HTTP 409 through Web without an execution marker or settings change.
+Local valued options execute successfully when all candidate owned prefixes
+belong to Presets, including while the shadow is active if the value cannot
+reach its sub-path. A separate `list` value is refused while an equals-form
+value remains an option value. Multiple unknown options retain every candidate
+prefix, so consuming their values cannot hide the shadow command.
+Deactivating the shadow restores successful selected-package execution. The
+original finding concerns current source after #175; the published Web
+2026.10.11 tarball predates that change. No published Web or hosted exposure is
+asserted by these tests.
 
 `test/catalog-ui.test.ts` checks metadata links, the native boundary and labelled
 keyboard controls with live result feedback. The existing filesystem and Git
@@ -75,7 +103,36 @@ activation and deactivation still appear before the decisive assertion.
 Original source bytes are restored and the compiled server rebuilt after each
 experiment. The restored acceptance passes, including actual npm installation.
 
+For #189, replacing only `commandOwnershipError` with its baseline implementation
+and rebuilding leaves the regression tests intact. Both source and built flows
+fail the separate-value author case: HTTP 200 returns `scratch-shadow` output
+instead of HTTP 409. That run executes three tests, with one pass, two behavioral
+assertion failures and zero skips. Restoring the fix and rebuilding passes all
+three tests.
+
 ## Release receipts
+
+The #189 candidate starts at `f5b90ac7bc8a8cf895af754a6fbfdb235dd438d7`,
+keeps CLI 2026.10.10 and Web version 2026.10.11, and passes both local release
+gates with a scratch HOME and disabled global/system Git configuration:
+
+| Command | Tests | Statements / lines | Branches | Functions |
+| --- | --- | --- | --- | --- |
+| `npm run release:check` | 575/575 | 90.54% | 80.47% | 93.45% |
+| `bun run release:check` (retry) | 575/575 | 90.61% | 80.62% | 93.45% |
+
+Both report all 34 configured sources at unchanged 90/90/79/92 thresholds,
+zero skipped tests, zero duplication and zero production audit findings, and
+accept all four packed npm/Bun current/minimum-host scenarios. Changelog,
+release-date and publish-attestation checks pass. Both packed candidate tarballs
+have SHA-1 `d3184c08bc542634a5666e3628fc0d8865d66694`; these are local artifacts,
+not registry publication receipts. PM-linked HTTP acceptance passes 3/3.
+
+The first Bun attempt remains failed evidence: 573/575, with the existing graph
+wall-time assertion at 10277 ms and independent-child startup overlap failure.
+They remain tracked by `pm-web-hqqp` and `pm-web-qdhx`. The unchanged retry passes
+the graph bound at 7983 ms and the overlap assertion. No graph implementation,
+timing assertion or threshold was changed; scheduling risk remains open.
 
 Independent CI run 38116214351 on implementation head `f4f7dc1` executes the literal `npm run release:check` and
 `bun run release:check` with fresh HOME and disabled global/system Git
