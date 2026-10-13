@@ -6,11 +6,13 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-09-26T16:15:15.599Z"
-updated_at: "2026-10-11T10:04:05.114Z"
+updated_at: "2026-10-13T12:29:00.844Z"
+assignee: codex-agent
+claim_principal: codex-agent
 author: codex
 acceptance_criteria: "Exact published CLI/SDK 2026.10.10 and current published pm-ops/pm-changelog pins, all devDependencies exact; dependency-only automated SDK updates keep a separately certified exact extension-host floor, exercised by packed npm/native Bun acceptance on minimum and current hosts without generated tracked edits; red-first and behavioral fail-on-revert proof; full unchanged CI/release gate and strict pinned health, both audits clean, real disposable PostgreSQL collaboration checks; retain independent whole-source/privacy/hosted/reviewer boundaries and keep this item open for orchestrator verification."
 actual_result: "Self-syncing SDK floor and immutable workflow pin policies verified. Seven complete local release scenarios pass495/495, zero failures/skips/cancellations: restored current npm with clean HOME/Git identity and current Bun, actual #183 npm, actual #184 npm, historical #181 npm/Bun, combined #181/#183/#184 Bun. All34 server sources exceed unchanged S/L90 B79 F92 thresholds; each gate has real packed4/4, production audit0 and final release checks. Final restored npm S/L90.33 B80.10 F93.43. Function/callback-only reverts fail; restored focused policies10/10 and real route contracts11/11. SDK2026.10.10 and all workflow/package files restored byte-exact; PR185, no merge, publication or item closure."
-comments[76]{created_at,author,text}:
+comments[78]{created_at,author,text}:
   "2026-09-28T06:26:30.268Z",claude-hub,"2026-09-28: pinned pm-ops 2026.9.28 and re-copied its templates/prepare-merge-driver.ts (pm-ops#124: the omit-dev skip now checks every Node resolution path for an incomplete hoisted pm-ops, so a broken ancestor install fails instead of silently skipping the merge drivers). release:check and changelog:check pass on this branch."
   "2026-10-02T22:11:44.555Z",codex-sol,"Restart: current branch is already rebased on main; previous bot replies were inspected without repeating them. Greptile graph-export finding is an acknowledged security trade-off: GET/HEAD cannot run extension activation; pure export fidelity stays tracked in pm-web-38n5. Add a current graph regression receipt and run the unchanged full locked CI gate using PM_FLEET_ROOT. Existing coverage target and substantive reviews stay open; no Docker or hosted service changes."
   "2026-10-02T23:03:20.822Z",codex-sol,"Catalog fixes now yield 409/409 tests and unchanged configured coverage, but full gate fails production audit on transitive ip-address 10.5.0 via express-rate-limit ^10.2.0. GHSA-h3mg-xc3c-68pw affects <=10.7.0 and is patched >=10.7.1. Refresh only the transitive lockfile resolution within the existing range, retain all audit thresholds and SDK pins, reinstall reproducibly and rerun full locked gate. No hosted or telemetry/config changes."
@@ -87,6 +89,8 @@ comments[76]{created_at,author,text}:
   "2026-10-11T09:25:11.590Z",codex-agent,"Orchestrator handoff: the fresh Codex quota forecast exceeded the user limit and other approved providers are exhausted. Further CLI model requests are stopped. Complete current Bun, actual #183 npm and actual #184 npm receipts remain valid: each 495/495, zero skips, four packed consumer cases. The agent interrupted historical #181 npm during its test suite, then restored all five overlay files and reinstalled current SDK; that canceled attempt is not complete evidence and its partial coverage is rejected. Orchestrator will run the remaining unchanged full gates directly, preserving existing source, exact dependency bytes and all thresholds."
   "2026-10-11T09:45:33.348Z",codex-agent,"Orchestrator completed exact historical #181 package/lock replay on Node26.7.0: npm run release:check exit0 in582.697s and bun run release:check exit0 in471.254s, each495/495 tests with zero failures/skips/cancellations, real packed acceptance4/4, audit0 and all final release checks. npm S/L90.31 B80.05 F93.43; Bun S/L90.33 B80.10 F93.43 across34 server sources at unchanged thresholds. Combined historical #181+#183+#184 Bun is now running; restored clean-HOME/Git-identity npm will follow. Current package replay is evidence only; final branch retains main SDK2026.10.10."
   "2026-10-11T10:03:59.410Z",codex-agent,"Final orchestrator full-gate receipts: combined exact #181+#183+#184 bun run release:check exit0 in561.844s; final restored clean-HOME/Git-identity npm run release:check exit0 in451.328s. Each495/495 tests, zero failures/skips/cancellations,34 sources S/L90.33 B80.10 F93.43, packed4/4, audit0 and every final changelog/date/publish-attestation check. Together with actual #183 and #184 npm gates, historical #181 npm/Bun and current Bun, all seven independent local scenarios are complete and green. Verified all five package/lock/workflow files byte-exact to source headda18996 and installed SDK2026.10.10. Known earlier graph-wall failures and the quota-interrupted historical attempt remain failed/missing evidence; these accepted receipts use unchanged10000ms graph guard and coverage thresholds. Behavioral-only action, API-floor, named-CodeQL and async CLI-helper reverts each fail0/1; fixed focused policies10/10 and route contracts11/11, no skips. Claims released; items stay open and manual review remains separate."
+  "2026-10-13T12:07:36.620Z",codex-agent,"Preparing the explicitly authorized SDK 2026.10.13 pin in a package worktree; no open Dependabot bump exists. Reviewed 10.11 through 10.13 release notes. Will run unchanged npm and Bun release gates, full suite/build and a disposable Docker boot with synthetic storage. PR only; no deployment."
+  "2026-10-13T12:17:16.064Z",codex-agent,"Fresh candidate Docker image built and isolated boot passed with SDK 2026.10.13, health 200 (PostgreSQL and writable projects healthy) and page 200. Disposable PostgreSQL and tmpfs projects used on an internal network. The pre-existing linked release command needed separate explicit trust acknowledgement for this branch before execution."
 notes[1]{created_at,author,text}:
   "2026-09-26T16:23:28.535Z",codex,"2026-09-26: package runtime dependency and lock now exact-pin @unbrained/pm-cli 2026.9.26; dev tools pin pm-changelog 2026.9.25 and pm-ops 2026.9.26. Installed node_modules versions read back match. Extension manifest minimum host version is 2026.9.26. Copied the canonical pm-ops prepare launcher byte for byte after the first full gate correctly found drift. Focused real Git launcher tests passed 6/6, linked PM packaging/launcher test passed 1/1, and full npm run release:check passed including packed npm and Bun host versions 2026.9.26. pm-cli 2026.9.26 requires @sentry/node 10.75.1 transitively; the lockfile reflects that dependency while no telemetry source or configuration was changed. PR review, merge, hosted rollout, and 100% coverage remain separate gates."
 files[25]:
@@ -252,13 +256,15 @@ tests[13]:
       created_at: "2026-10-11T08:13:30.409Z"
       source_kind: local_mutation
       source_ref: fix/self-syncing-dependency-bumps
-docs[7]:
+docs[8]:
   - path: "https://github.com/unbraind/pm-web/pull/185"
     scope: global
     note: Self-syncing dependency bump candidate
   - path: docs/certification-2026.10.4.md
     scope: project
   - path: docs/dependency-update-policy.md
+    scope: project
+  - path: docs/sdk-2026.10.13-candidate.md
     scope: project
   - path: docs/sdk-renewal-2026.10.10-inventory.json
     scope: project
