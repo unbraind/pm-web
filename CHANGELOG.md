@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Refresh connected project viewers after the realtime database listener reconnects ([pm-web-gixc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-gixc.toon))
+
 ## 2026.10.12 - 2026-10-12
 
 ### Added
