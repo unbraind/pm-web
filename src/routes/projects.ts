@@ -1,3 +1,4 @@
+import { logError } from "../observability.ts";
 import { Router } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
@@ -76,7 +77,7 @@ router.get("/", async (req: AuthRequest, res) => {
     );
     res.json({ projects: result.rows });
   } catch (err) {
-    console.error("List projects error:", err);
+    logError("list_projects_error", err);
     res.status(500).json({ error: "Failed to fetch projects" });
   }
 });
@@ -120,10 +121,7 @@ router.post("/", async (req: AuthRequest, res) => {
       try {
         deleteProjectDir(req.user!.userId, project.slug);
       } catch (cleanupError) {
-        console.error(
-          "Failed to clean up project directory after initialization error:",
-          cleanupError instanceof Error ? cleanupError.name : typeof cleanupError,
-        );
+        logError("project_cleanup_error", cleanupError);
       }
       await pool.query("DELETE FROM pm_projects WHERE id = $1", [project.id]);
       throw err;
@@ -134,7 +132,7 @@ router.post("/", async (req: AuthRequest, res) => {
     if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A project with this name already exists" });
     } else {
-      console.error("Create project error:", err);
+      logError("create_project_error", err);
       res.status(500).json({ error: "Failed to create project" });
     }
   }
@@ -149,7 +147,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
     }
     res.json({ project: access });
   } catch (err) {
-    console.error("Get project error:", err);
+    logError("get_project_error", err);
     res.status(500).json({ error: "Failed to fetch project" });
   }
 });
@@ -172,7 +170,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
     if (notFoundWhenEmpty(res, result.rows, "Project not found")) return;
     res.json({ project: result.rows[0] });
   } catch (err) {
-    console.error("Update project error:", err);
+    logError("update_project_error", err);
     res.status(500).json({ error: "Failed to update project" });
   }
 });
@@ -191,7 +189,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
     deleteProjectDir(req.user!.userId, slug);
     res.json({ ok: true });
   } catch (err) {
-    console.error("Delete project error:", err);
+    logError("delete_project_error", err);
     res.status(500).json({ error: "Failed to delete project" });
   }
 });

@@ -1,3 +1,4 @@
+import { logError } from "../observability.js";
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -22,7 +23,7 @@ router.get("/", async (req, res) => {
         res.json({ groups: result.rows });
     }
     catch (err) {
-        console.error("List groups error:", err);
+        logError("list_groups_error", err);
         res.status(500).json({ error: "Failed to fetch groups" });
     }
 });
@@ -54,7 +55,7 @@ router.post("/", async (req, res) => {
         // A failed COMMIT can have succeeded remotely; later ROLLBACK cannot prove otherwise.
         if (!commitAttempted)
             markIdempotencyPreCommitFailure(res);
-        console.error("Create group error:", err);
+        logError("create_group_error", err);
         res.status(500).json({ error: "Failed to create group" });
     }
     finally {
@@ -83,7 +84,7 @@ router.get("/:id", async (req, res) => {
         res.json({ group: { ...group, members: membersResult.rows } });
     }
     catch (err) {
-        console.error("Get group error:", err);
+        logError("get_group_error", err);
         res.status(500).json({ error: "Failed to fetch group" });
     }
 });
@@ -102,7 +103,7 @@ router.patch("/:id", async (req, res) => {
         res.json({ group: result.rows[0] });
     }
     catch (err) {
-        console.error("Update group error:", err);
+        logError("update_group_error", err);
         res.status(500).json({ error: "Failed to update group" });
     }
 });
@@ -115,7 +116,7 @@ router.delete("/:id", async (req, res) => {
         res.json({ ok: true });
     }
     catch (err) {
-        console.error("Delete group error:", err);
+        logError("delete_group_error", err);
         res.status(500).json({ error: "Failed to delete group" });
     }
 });
@@ -153,7 +154,7 @@ router.post("/:id/members", async (req, res) => {
         });
     }
     catch (err) {
-        console.error("Invite member error:", err);
+        logError("invite_member_error", err);
         res.status(500).json({ error: "Failed to invite member" });
     }
 });
@@ -181,7 +182,7 @@ router.delete("/:id/members/:userId", async (req, res) => {
         res.json({ ok: true });
     }
     catch (err) {
-        console.error("Remove member error:", err);
+        logError("remove_member_error", err);
         res.status(500).json({ error: "Failed to remove member" });
     }
 });

@@ -1,3 +1,4 @@
+import { logError } from "./observability.ts";
 import crypto from "node:crypto";
 import type { Request, RequestHandler, Response } from "express";
 import { pool } from "./db.ts";
@@ -301,7 +302,7 @@ function captureOutcome(rowId: string, res: Response): void {
       preCommitFailures.has(res),
     ).catch((error: unknown) => {
       // Do not log response bodies, tokens or database error details.
-      console.error("Failed to persist idempotency outcome; key remains pending", error instanceof Error ? error.name : "unknown error");
+      logError("idempotency_persist_error", error);
     });
   };
   res.on("finish", () => {

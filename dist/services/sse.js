@@ -1,3 +1,5 @@
+import { recordConnection, recordDisconnection, recordBroadcast } from "./realtime-observability.js";
+import { logError } from "../observability.js";
 // Clients are indexed two ways so that per-event work scales with the number of
 // clients on the *affected project*, not the total number of connected clients.
 // This is what lets a single project sustain many concurrent viewers without an
@@ -150,9 +152,11 @@ export function configureProjectEventPublisher(publisher) {
  * project set entirely when it becomes empty so {@link getActiveProjectIds}
  * stops reporting a project with no viewers.
  */
-function removeClient(client) {
-    if (byId.get(client.id) === client)
-        byId.delete(client.id);
+function removeClient(client, reason = "client_closed") {
+    if (byId.get(client.id) !== client)
+        return;
+    byId.delete(client.id);
+    recordDisconnection(client.projectId, Math.max(0, Date.now() - client.connectedAt.getTime()), reason);
     const set = byProject.get(client.projectId);
     if (set) {
         set.delete(client);
@@ -210,7 +214,11 @@ function schedulePresence(projectId) {
  * @returns A function that unregisters the client.
  */
 export function addSSEClient(client) {
+    const previous = byId.get(client.id);
+    if (previous)
+        removeClient(previous, "replaced");
     byId.set(client.id, client);
+    recordConnection(client.projectId, client.userId);
     let set = byProject.get(client.projectId);
     if (!set) {
         set = new Set();
@@ -273,6 +281,7 @@ export function broadcastProjectEvent(projectId, event) {
 export function deliverProjectEvent(projectId, event) {
     noteSignaledMutation(projectId);
     const set = byProject.get(projectId);
+    recordBroadcast(projectId, event.type, set?.size ?? 0);
     if (!set || set.size === 0)
         return;
     const payload = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
@@ -297,6 +306,7 @@ export function broadcastPresence(projectId) {
     const set = byProject.get(projectId);
     if (!set || set.size === 0)
         return;
+    recordBroadcast(projectId, "presence", set.size);
     const users = presenceUsers(set);
     const payload = `event: presence\ndata: ${JSON.stringify({ users })}\n\n`;
     for (const client of set) {
@@ -367,10 +377,10 @@ export function closeAllSSEClients() {
             // One response that cannot end (e.g. its socket already failed) must not
             // abort shutdown: the remaining streams still have to close, and the
             // caller still has to reach server.close().
-            console.error(`SSE client ${client.id} failed to end during shutdown:`, error instanceof Error ? error.message : error);
+            logError("sse_shutdown_error", error);
         }
         finally {
-            removeClient(client);
+            removeClient(client, "server_shutdown");
         }
     }
 }
@@ -393,7 +403,7 @@ export function cleanupStaleClients() {
             catch {
                 // Already closed
             }
-            removeClient(client);
+            removeClient(client, "max_age");
             staleProjectIds.add(client.projectId);
         }
     }

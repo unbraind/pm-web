@@ -147,7 +147,7 @@ test("production server bootstrap listens on an ephemeral port and answers HTTP"
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`server did not start; stdout=${stdout} stderr=${stderr}`)), 20_000);
       const inspect = () => {
-        if (stdout.includes(`pm-web running on :${port}`)) {
+        if (stdout.includes('"event":"server_started"') && stdout.includes(`"port":${port}`)) {
           clearTimeout(timer);
           resolve();
         }

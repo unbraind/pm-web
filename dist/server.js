@@ -1,3 +1,5 @@
+import { logEvent, logError } from "./observability.js";
+import { realtimeHealth } from "./services/realtime-observability.js";
 import { initSchema, assertDbConfigured, pool } from "./db.js";
 import { createApp, readPackageVersion } from "./app.js";
 import { projectsRoot } from "./services/pm-runner.js";
@@ -6,6 +8,13 @@ import { startRealtimeBus } from "./services/realtime-bus.js";
 import { startProjectWatcher } from "./services/project-watcher.js";
 import { startMutationEventWatcher } from "./services/mutation-event-watcher.js";
 import { assertOidcConfiguration } from "./oidc.js";
+/** Preserve fatal semantics while emitting privacy-safe structured diagnostics. */
+function fatalError(error) {
+    logError("unhandled_error", error);
+    process.exit(1);
+}
+process.once("uncaughtException", fatalError);
+process.once("unhandledRejection", fatalError);
 const PORT = parseInt(process.env.PORT || "4000", 10);
 // Wire the real `/healthz` probing handler with the production dependencies:
 // the shared PostgreSQL pool (probed with `SELECT 1`) and the host-mounted
@@ -15,6 +24,7 @@ const PORT = parseInt(process.env.PORT || "4000", 10);
 const app = createApp({
     health: {
         pool,
+        realtime: realtimeHealth,
         projectsRoot: projectsRoot(),
         version: readPackageVersion(),
     },
@@ -27,7 +37,7 @@ try {
     assertOidcConfiguration();
 }
 catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    logError("configuration_error", err);
     process.exit(1);
 }
 // Init DB schema, then start server
@@ -42,13 +52,14 @@ initSchema()
     // forever without owning the port.
     const server = app.listen(PORT, (err) => {
         if (err) {
-            console.error(`Failed to bind :${PORT}:`, err.message);
+            logError("bind_error", err);
             process.exit(1);
         }
-        console.log(`pm-web running on :${PORT}`);
+        const address = server.address();
+        logEvent("server_started", { port: typeof address === "object" && address ? address.port : PORT });
     });
     server.on("error", (err) => {
-        console.error(`Server error on :${PORT}:`, err.message);
+        logError("server_error", err);
         process.exit(1);
     });
     // Periodic cleanup of stale SSE clients
@@ -70,7 +81,7 @@ initSchema()
     process.once("SIGTERM", shutdown);
 })
     .catch((err) => {
-    console.error("Failed to initialize pm-web runtime:", err instanceof Error ? err.message : err);
+    logError("initialization_error", err);
     process.exit(1);
 });
 //# sourceMappingURL=server.js.map

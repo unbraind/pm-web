@@ -1,0 +1,50 @@
+id: pm-web-m3d4
+title: Observable real-time collaboration with privacy-safe logs and live counters
+description: "Companion pm-cli-website-8kqg. Add structured request and SSE lifecycle logs, watcher sweep instrumentation, aggregate health counters and stale watcher degradation. Prove a separate pm process write reaches a real SSE subscriber and prove stdout excludes request secrets and content."
+type: Feature
+status: in_progress
+priority: 1
+tags: []
+created_at: "2026-10-14T08:23:39.226Z"
+updated_at: "2026-10-14T09:15:22.834Z"
+author: codex-agent
+acceptance_criteria: External shared-project writes reach SSE in a bounded real-server test; lifecycle counters are operator-visible; logs contain no request secrets or content.
+comments[7]{created_at,author,text}:
+  "2026-10-14T08:23:54.483Z",codex-agent,"Duplicate search found historical delivery proofs but no active observability item. Companion: pm-cli-website-8kqg. Plan: aggregate process-local health counters with freshness checked on every request, HMAC pseudonyms, safe route templates, lifecycle and sweep logs, real PostgreSQL and temp-root SSE proof plus behavioural link-break verification. Hosted services and telemetry configuration remain outside this work."
+  "2026-10-14T08:33:05.663Z",codex-agent,"Implemented JSON stdout logs, registered route templates, HMAC user/project pseudonyms, and aggregate process-local health counters. Three missed filesystem sweep intervals (45 seconds by default), disabled sweeps or last-tick errors degrade health; freshness is read after cached dependency probes. Existing HTTP error log sites also use sanitized structured diagnostics to avoid leaking request-derived values. Focused new real-server and watchdog/privacy tests passed 8/8; delivery requires filesystem-origin SSE and uses a separate pinned pm process."
+  "2026-10-14T08:34:43.434Z",codex-agent,"Behavioural revert proof: replacing only the filesystem cycle default emit binding with a no-op makes the real production-server external-pm SSE test fail (1 failure); removing requestLogging from createApp makes the real-server privacy/request test fail (1 failure); forcing realtimeHealth to return healthy makes the cached-health stale-watcher test fail (1 failure). All mutations restored. Focused instrumentation, real-server and idempotency suites passed 34/34 with zero fail, skip, cancel or todo. The linked 8/8 tests passed via pm test --run --progress; this tracker has result recording disabled, so outcomes are recorded here."
+  "2026-10-14T08:45:19.776Z",codex-agent,"Initial isolated npm release:check completed 583 tests: 578 passed, 5 failed, zero skip/cancel/todo; aggregate coverage was 90.73% statements/lines, 81.50% branches and 93.42% functions at unchanged thresholds. Four failures are unchanged live catalog drift (missing pm-lint/pm-review and pm-brief capability/snapshot drift), overlapping PR #197. One OIDC source-text mount assertion required adjustment for the logging middleware; the existing real OIDC HTTP proof remains intact. Strengthened the real-server privacy case to perform a successful item update; hardened invalid LOG_LEVEL fallback and retained only allowlisted code-module stack locations. Final gates are rerunning after these corrections. Companion link: https://github.com/unbraind/pm-cli-companion/search?q=pm-cli-website-8kqg&type=code"
+  "2026-10-14T08:47:01.038Z",codex-agent,"Corrected OIDC mount assertion and strengthened successful-write privacy coverage: focused command node scripts/with-test-db.ts node --test test/observability.test.ts test/observable-realtime.test.ts test/oidc.test.ts passed 22/22, zero fail/skip/cancel/todo. Repeated all three behavioural mutations on the final implementation; each targeted regression failed exactly once and every mutation was restored. No known host-load flakes occurred in the initial full gate."
+  "2026-10-14T09:10:38.727Z",codex-agent,"Final isolated release gates: npm run release:check and bun run release:check each completed 583 tests, 579 passed and 4 failed, with zero skipped/cancelled/todo. Both stop at coverage because of the same unchanged live catalog failures: absent pm-lint/pm-review, pm-brief capability drift and stale fleet snapshot (PR #197 owns catalog renewal). All observability and OIDC regressions passed. Observed npm coverage: 90.75% statements/lines, 81.42% branches, 93.42% functions; Bun: 90.74% statements/lines, 81.36% branches, 93.42% functions, above unchanged thresholds. No known host-load flakes appeared, so no flake retry was needed. Separate isolated production audit passed with 0 vulnerabilities. Downstream packaging checks are running separately because release gates stopped before them. Full release certification remains blocked; delivery will be a draft PR with deployment held for the orchestrator."
+  "2026-10-14T09:15:17.848Z",codex-agent,"Remaining release phases passed separately with isolated identity: npm run pack:dry-run; npm run accept:packed (4/4 actual npm/native-Bun minimum/current-host receipts); npm run changelog:check; npm run verify:release-changelog-date; npm run verify:release-publish-attestation. Production audit found 0 vulnerabilities. Both complete release checks remain nonzero solely for 4 live catalog drift tests. Feature implementation and privacy/delivery/watchdog proofs are ready for review; PR will be draft and hosted deployment is held. All links and evidence are package-owned; no companion tracker or hosted service was changed. No new pm CLI/SDK defect was found; linked test-result tracking is disabled, so test results are recorded in comments."
+files[25]{path,scope}:
+  src/app.ts,project
+  src/health.ts,project
+  src/idempotency.ts,project
+  src/observability.ts,project
+  src/routes/admin.ts,project
+  src/routes/auth.ts,project
+  src/routes/github.ts,project
+  src/routes/groups.ts,project
+  src/routes/oidc.ts,project
+  src/routes/pm.ts,project
+  src/routes/projects.ts,project
+  src/routes/sharing.ts,project
+  src/server.ts,project
+  src/services/mutation-event-watcher.ts,project
+  src/services/project-watcher.ts,project
+  src/services/realtime-bus.ts,project
+  src/services/realtime-observability.ts,project
+  src/services/sse.ts,project
+  test/helpers/observable-server.ts,project
+  test/helpers/stdout-logs.ts,project
+  test/idempotency.test.ts,project
+  test/observability.test.ts,project
+  test/observable-realtime.test.ts,project
+  test/oidc.test.ts,project
+  test/smoke.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/observability.test.ts test/observable-realtime.test.ts,project,codex-agent,"2026-10-14T08:33:07.850Z",local_mutation,feat/observable-realtime
+docs[1]{path,scope}:
+  README.md,project
+body: ""

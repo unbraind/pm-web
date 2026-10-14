@@ -1,3 +1,4 @@
+import { logError } from "../observability.ts";
 import { Router } from "express";
 import { readProjectGraph, type ProjectGraph } from "../services/project-graph.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
@@ -169,7 +170,7 @@ router.use(async (req: AuthRequest, res, next) => {
     }
     next();
   } catch (err) {
-    console.error("Project permission check failed:", err);
+    logError("project_permission_check_failed", err);
     res.status(500).json({ error: "Failed to verify project permission" });
   }
 });
@@ -325,7 +326,7 @@ function scheduleGraphSync(projectId: string, project: ProjectRef, reason: strin
         // Use `%s` specifiers and pass the values as arguments instead of
         // interpolating them into the format string, so a tainted `reason` or
         // `projectId` cannot inject `console` format specifiers.
-        console.error("Neo4j graph auto-sync failed for %s after %s:", projectId, reason, err);
+        logError("graph_auto_sync_error", err);
         broadcastProjectEvent(projectId, {
           type: "graph-sync-failed",
           data: { reason, error: err instanceof Error ? err.message : String(err) },
@@ -967,7 +968,7 @@ router.get("/at/:itemId/:ref", async (req: AuthRequest, res) => {
       }
       return;
     }
-    console.error("Point-in-time item read failed:", err);
+    logError("point_in_time_item_read_failed", err);
     res.status(500).json({ error: "Failed to reconstruct historical item state" });
   }
 });
@@ -2334,7 +2335,7 @@ router.get("/events", async (req: AuthRequest, res) => {
     const project = await requireProject(req, res);
     if (!project) return;
   } catch (err) {
-    console.error("SSE project verification failed:", err);
+    logError("sse_project_verification_failed", err);
     res.status(500).json({ error: "Failed to verify project for real-time sync" });
     return;
   }
@@ -2350,7 +2351,7 @@ router.get("/events", async (req: AuthRequest, res) => {
     );
     displayName = userResult.rows[0]?.display_name?.trim() || "Project member";
   } catch (error) {
-    console.error("SSE presence lookup failed", error instanceof Error ? error.name : typeof error);
+    logError("sse_presence_error", error);
     res.status(500).json({ error: "Failed to initialize real-time presence" });
     return;
   }
