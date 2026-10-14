@@ -6,14 +6,24 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-10-14T04:44:35.979Z"
-updated_at: "2026-10-14T06:10:12.649Z"
+updated_at: "2026-10-14T07:03:39.289Z"
 author: pi-agent
-comments[4]{created_at,author,text}:
+comments[5]{created_at,author,text}:
   "2026-10-14T04:44:58.261Z",pi-agent,"Plan: (1) add catalog entries for pm-lint (commands: pm lint, pm lint rules; capabilities commands+schema from its manifest) and pm-review (commands: pm review import/verdict/round/precedents; capabilities commands+schema), both availability \"unreleased\" like pm-ado, descriptions mirrored verbatim from each manifest on origin/main, pm-review declaring the GitHub token it reads (GITHUB_TOKEN, then GH_TOKEN, then the gh CLI) as its import/round credentials. (2) regenerate the committed fleet snapshot so the existing snapshot-based completeness and availability gates cover both packages (they ship manifest.json with capabilities, so the live-fleet freshness gate would otherwise fail). (3) add an explicit checked-in fixture list of every public unbraind/pm-* repository (pm-ado .. pm-web, minus pm-cli and the pm-web host) and a drift test asserting the catalog contains every fixture name, with a cross-check that the fixture cannot go stale against the regenerated snapshot."
   "2026-10-14T04:47:31.031Z",pi-agent,"Regenerating the committed fleet snapshot (the gate's freshness assertion re-derives it from the fleet checkouts, which are clean on main) added pm-lint and pm-review as expected, and also surfaced a pre-existing drift the stale snapshot had hidden: pm-brief's manifest now declares capabilities [commands, schema, services] (dropped renderers, gained services) and its command list grew to nine commands (brief, brief prompt, brief next, brief stale, brief momentum, brief since, brief diverge, brief duplicates, brief governance). Fixing the pm-brief entry in the same change, because the snapshot-based capability mirror gate fails otherwise and the catalog's truthfulness contract requires mirroring the real manifest."
   "2026-10-14T04:51:31.599Z",pi-agent,"Behavioural revert proof (catalog suite, standalone mode, no fleet env needed for the failing assertion): with only the pm-review catalog entry removed, the drift test fails with \"these public unbraind/pm-* repositories are in the fixture list but absent from the catalog ... pm-review\" plus the snapshot completeness gate; with only the pm-lint entry removed, the same drift test fails naming pm-lint. Both entries restored; catalog suite green afterwards (21/21 with the fleet env var pointed at the fleet checkouts)."
   "2026-10-14T04:53:24.489Z",pi-agent,"Test note: the first linked command variant (no fleet env var) fails in this environment only because the package worktree sits in a shared worktree farm where sibling worktrees of other fleet repos are picked up as the implicit fleet root, so the live-fleet freshness gate compares them against the committed snapshot. In a standalone CI checkout the same derivation finds no siblings and skips, which is the environment that guards the merge; the fleet-root variant (command 2/2) passes 21/21 with the live-fleet gates fully active. This is an environment-sensitivity gap in the implicit fleet-root default, not a catalog defect; reported to the orchestrator in the final summary rather than changed here."
+  "2026-10-14T07:03:39.289Z",pi-agent,"Gates on the final state: npm release:check and bun release:check both passed 577/577 under the isolated identity (fresh HOME, no global git config), with the fleet root resolved so the live-fleet gates ran fully active; changelog:full and changelog:check both pass (this item enters the changelog when the orchestrator closes it after verification, matching the existing Unreleased-section pattern). The three intermittent failures seen during retries (catalog install acceptance spawn ENOTDIR / 300s timeout, and the 2000-item graph read over 10s) are the documented environment-load flakes tracked in pm-web-qdhx, pm-web-fhob and pm-web-hqqp; each passed on the very next run and clean main shows the same sensitivity."
+files[5]{path,scope}:
+  src/services/package-catalog.ts,project
+  test/catalog-install-e2e.test.ts,project
+  test/catalog.test.ts,project
+  test/fleet-extensions.snapshot.json,project
+  test/fleet-package-repos.fixture.ts,project
 tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test test/catalog.test.ts test/catalog-ui.test.ts test/catalog-built.test.ts,project,pi-agent,"2026-10-14T04:51:35.476Z",local_mutation,feat/catalog-lint-review
   PM_FLEET_ROOT=$(cd ../../fleet && pwd) node scripts/with-test-db.ts node --test test/catalog.test.ts test/catalog-ui.test.ts test/catalog-built.test.ts,project,pi-agent,"2026-10-14T04:52:30.044Z",local_mutation,feat/catalog-lint-review
+docs[2]{path,scope}:
+  "https://github.com/unbraind/pm-lint#readme",project
+  "https://github.com/unbraind/pm-review#readme",project
 body: ""
