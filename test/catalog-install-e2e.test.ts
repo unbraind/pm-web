@@ -14,11 +14,14 @@ import { pool } from "../dist/db.js";
 import { pool as sourcePool } from "../src/db.ts";
 import type { PackageCatalogRow } from "../dist/routes/extensions.js";
 import type { ExtensionDescribeResult } from "@unbrained/pm-cli/sdk";
+import { FLEET_PACKAGE_REPOS } from "./fleet-package-repos.fixture.ts";
 
 after(() => Promise.all([pool.end(), sourcePool.end()]));
 
-/** All public fleet identities requested for the Packages view, including the native CLI. */
-const FLEET_NAMES = "pm-ado pm-beads pm-brief pm-changelog pm-context pm-csv pm-gantt-chart pm-github pm-graph pm-jev pm-jira pm-linear pm-ops pm-presets pm-rl pm-rust pm-slack pm-slack-standup pm-starter pm-todos pm-ts-starter pm-vcs".split(" ");
+/** All public fleet identities requested for the Packages view, including the
+ * native CLI. Derived from the checked-in fleet roster so this acceptance
+ * cannot restate the package list a second time and drift from it. */
+const FLEET_NAMES = FLEET_PACKAGE_REPOS;
 
 /** Reject a missing deactivation event promptly so the acceptance reaches cleanup. */
 async function waitForDeactivation(observed: Promise<void>, timeoutMs = 5_000): Promise<void> {
