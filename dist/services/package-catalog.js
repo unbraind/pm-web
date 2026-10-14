@@ -362,7 +362,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-review",
         npmName: "pm-review",
-        commands: ["pm review import", "pm review verdict", "pm review round", "pm review precedents"],
+        commands: ["pm review find", "pm review import", "pm review verdict", "pm review round", "pm review precedents"],
         links: { "docs": "https://github.com/unbraind/pm-review#readme", "repository": "https://github.com/unbraind/pm-review", "report": "https://github.com/unbraind/pm-review/issues" },
         npmSpec: "npm:pm-review",
         title: "Review",
@@ -375,8 +375,9 @@ export const PACKAGE_CATALOG = [
         availability: "unreleased",
         requiresCredentials: [
             {
-                label: "GitHub token for review imports and the round gate (GITHUB_TOKEN or GH_TOKEN; the gh CLI's stored login is also accepted)",
+                label: "GitHub token for review import, round and verdict --apply (GITHUB_TOKEN or GH_TOKEN; the gh CLI's stored login is also accepted)",
                 envVars: ["GITHUB_TOKEN", "GH_TOKEN"],
+                optional: true,
             },
         ],
     },

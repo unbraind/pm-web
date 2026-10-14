@@ -62,6 +62,27 @@ const EXPECTED_NAMES: readonly string[] =
 // The two authoring reference templates that must be in the catalog.
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
 
+test("pm-review catalog exposes all five commands registered on main", () => {
+  const entry = findCatalogEntry("pm-review");
+  assert.ok(entry);
+  assert.deepEqual([...(entry.commands ?? [])].sort(), [
+    "pm review find", "pm review import", "pm review precedents", "pm review round", "pm review verdict",
+  ]);
+});
+
+test("pm-review credentials are optional and identify the authenticated commands", () => {
+  const entry = findCatalogEntry("pm-review");
+  assert.ok(entry);
+  assert.ok(entry.requiresCredentials);
+  assert.equal(entry.requiresCredentials.length, 1);
+  const credential = entry.requiresCredentials[0];
+  assert.ok(credential);
+  assert.equal(credential.optional, true, "find, precedents and local verdicts need no GitHub token");
+  assert.deepEqual(credential.envVars, ["GITHUB_TOKEN", "GH_TOKEN"]);
+  assert.match(credential.label, /review import, round and verdict --apply/);
+  assert.match(credential.label, /gh CLI's stored login/);
+});
+
 test("catalog exposes exactly every published pm package, no duplicates, pm-web absent", () => {
   assert.deepEqual(fleetProblems, [], "fleet metadata must be readable and consistent");
   const names = catalogNames();
