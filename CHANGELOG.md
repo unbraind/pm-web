@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Observable real-time collaboration with privacy-safe logs and live counters ([pm-web-m3d4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-m3d4.toon))
+- List pm-lint and pm-review in the package catalog and fail on catalog drift ([pm-web-s2zw](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-s2zw.toon))
+
 ## 2026.10.14 - 2026-10-14
 
 ### Fixed

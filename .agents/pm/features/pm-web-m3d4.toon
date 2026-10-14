@@ -2,13 +2,18 @@ id: pm-web-m3d4
 title: Observable real-time collaboration with privacy-safe logs and live counters
 description: "Companion pm-cli-website-8kqg. Add structured request and SSE lifecycle logs, watcher sweep instrumentation, aggregate health counters and stale watcher degradation. Prove a separate pm process write reaches a real SSE subscriber and prove stdout excludes request secrets and content."
 type: Feature
-status: in_progress
+status: closed
 priority: 1
 tags: []
 created_at: "2026-10-14T08:23:39.226Z"
-updated_at: "2026-10-14T13:42:57.065Z"
+updated_at: "2026-10-14T15:26:13.922Z"
+closed_at: "2026-10-14T15:26:13.900Z"
+completed_at: "2026-10-14T15:26:13.900Z"
 author: codex-agent
 acceptance_criteria: External shared-project writes reach SSE in a bounded real-server test; lifecycle counters are operator-visible; logs contain no request secrets or content.
+resolution: Implemented and merged in #199 (96d0c54).
+expected_result: The change described by this item is on main.
+actual_result: "Merged in #199 as 96d0c54; checks successful at head 4a6557d: CodeQL, codeql, test (22), test (26)."
 comments[18]{created_at,author,text}:
   "2026-10-14T08:23:54.483Z",codex-agent,"Duplicate search found historical delivery proofs but no active observability item. Companion: pm-cli-website-8kqg. Plan: aggregate process-local health counters with freshness checked on every request, HMAC pseudonyms, safe route templates, lifecycle and sweep logs, real PostgreSQL and temp-root SSE proof plus behavioural link-break verification. Hosted services and telemetry configuration remain outside this work."
   "2026-10-14T08:33:05.663Z",codex-agent,"Implemented JSON stdout logs, registered route templates, HMAC user/project pseudonyms, and aggregate process-local health counters. Three missed filesystem sweep intervals (45 seconds by default), disabled sweeps or last-tick errors degrade health; freshness is read after cached dependency probes. Existing HTTP error log sites also use sanitized structured diagnostics to avoid leaking request-derived values. Focused new real-server and watchdog/privacy tests passed 8/8; delivery requires filesystem-origin SSE and uses a separate pinned pm process."
@@ -93,4 +98,5 @@ docs[3]{path,scope}:
   CHANGELOG.md,project
   docs/observable-realtime-main-sync.md,project
   README.md,project
+close_reason: "Delivered by #199 \"Observable real-time collaboration: structured privacy-safe logs, SSE and watcher counters, degraded health on a stale watcher\" (merged as 96d0c54). Checks successful at the PR head 4a6557d: CodeQL, codeql, test (22), test (26)."
 body: ""
