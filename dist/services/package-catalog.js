@@ -86,12 +86,12 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-brief",
         npmName: "pm-brief",
-        commands: ["pm brief", "pm brief prompt", "pm brief next", "pm brief stale", "pm brief since", "pm brief diverge", "pm brief duplicates"],
+        commands: ["pm brief", "pm brief prompt", "pm brief next", "pm brief stale", "pm brief momentum", "pm brief since", "pm brief diverge", "pm brief duplicates", "pm brief governance"],
         links: { "docs": "https://github.com/unbraind/pm-brief#readme", "npm": "https://www.npmjs.com/package/pm-brief", "repository": "https://github.com/unbraind/pm-brief", "report": "https://github.com/unbraind/pm-brief/issues" },
         npmSpec: "npm:pm-brief",
         title: "Brief",
         description: "Token-budgeted agent briefs and next-work plans for pm workspaces",
-        capabilities: ["commands", "renderers", "schema"],
+        capabilities: ["commands", "schema", "services"],
         category: "extension",
     },
     {
@@ -340,6 +340,45 @@ export const PACKAGE_CATALOG = [
         capabilities: ["commands", "hooks", "schema"],
         category: "extension",
         availability: "unreleased",
+    },
+    {
+        name: "pm-lint",
+        npmName: "pm-lint",
+        commands: ["pm lint", "pm lint rules"],
+        links: { "docs": "https://github.com/unbraind/pm-lint#readme", "repository": "https://github.com/unbraind/pm-lint", "report": "https://github.com/unbraind/pm-lint/issues" },
+        npmSpec: "npm:pm-lint",
+        title: "Lint",
+        description: "Authoring-quality lint rules for useful pm item context",
+        capabilities: ["commands", "schema"],
+        category: "extension",
+        // Release-gated behind maintainer-approved publication (the release
+        // workflow additionally requires PM_LINT_RELEASE_ENABLED) and absent from
+        // npm, so no install spec resolves. Listed rather than hidden for the
+        // same reason as pm-ado: a user reading the fleet on GitHub can plainly
+        // see this package, and omitting it would make the catalogue look
+        // complete while the UI never mentioned it.
+        availability: "unreleased",
+    },
+    {
+        name: "pm-review",
+        npmName: "pm-review",
+        commands: ["pm review import", "pm review verdict", "pm review round", "pm review precedents"],
+        links: { "docs": "https://github.com/unbraind/pm-review#readme", "repository": "https://github.com/unbraind/pm-review", "report": "https://github.com/unbraind/pm-review/issues" },
+        npmSpec: "npm:pm-review",
+        title: "Review",
+        description: "Durable bot review findings, verdict precedents and exact-head round gates for pm-cli",
+        capabilities: ["commands", "schema"],
+        category: "extension",
+        // Release-gated behind maintainer-approved, dispatch-only publication and
+        // absent from npm, so no install spec resolves — listed rather than hidden
+        // for the same reason as pm-ado.
+        availability: "unreleased",
+        requiresCredentials: [
+            {
+                label: "GitHub token for review imports and the round gate (GITHUB_TOKEN or GH_TOKEN; the gh CLI's stored login is also accepted)",
+                envVars: ["GITHUB_TOKEN", "GH_TOKEN"],
+            },
+        ],
     },
     {
         name: "pm-rust",
