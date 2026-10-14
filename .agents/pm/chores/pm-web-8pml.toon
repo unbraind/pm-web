@@ -2,18 +2,14 @@ id: pm-web-8pml
 title: "Repair SDK update automation, certify pm-web on CLI 2026.10.10, and validate the 2026.10.13 hosted candidate"
 description: "Update PM CLI/SDK, pm-changelog, and pm-ops package and lockfile pins from 2026.9.23 to current registry releases, verify installed runtime versions, then rerun the complete release and packed npm/Bun acceptance gates. Keep the public package and private hosted deployment boundaries separate."
 type: Chore
-status: closed
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-09-26T16:15:15.599Z"
-updated_at: "2026-10-13T22:22:23.473Z"
-closed_at: "2026-10-13T22:22:23.459Z"
-completed_at: "2026-10-13T22:22:23.459Z"
+updated_at: "2026-10-14T04:10:21.203Z"
 author: codex
 acceptance_criteria: "Exact published CLI/SDK 2026.10.10 and current published pm-ops/pm-changelog pins, all devDependencies exact; dependency-only automated SDK updates keep a separately certified exact extension-host floor, exercised by packed npm/native Bun acceptance on minimum and current hosts without generated tracked edits; red-first and behavioral fail-on-revert proof; full unchanged CI/release gate and strict pinned health, both audits clean, real disposable PostgreSQL collaboration checks; retain independent whole-source/privacy/hosted/reviewer boundaries and keep this item open for orchestrator verification."
-resolution: Implemented and merged in #194 (5005f85).
-expected_result: The change described by this item is on main.
-actual_result: "Merged in #194 as 5005f85; checks successful at head 5629ee5: CodeQL, codeql, test (22), test (26)."
+expected_result: Full npm audit and production audit are both clean once pm-ops drops the fast-glob/jscpd4 braces chain (pm-ops ops-braces-audit) and pm-web removes its fast-glob devDependency
 comments[81]{created_at,author,text}:
   "2026-09-28T06:26:30.268Z",claude-hub,"2026-09-28: pinned pm-ops 2026.9.28 and re-copied its templates/prepare-merge-driver.ts (pm-ops#124: the omit-dev skip now checks every Node resolution path for an incomplete hoisted pm-ops, so a broken ancestor install fails instead of silently skipping the merge drivers). release:check and changelog:check pass on this branch."
   "2026-10-02T22:11:44.555Z",codex-sol,"Restart: current branch is already rebased on main; previous bot replies were inspected without repeating them. Greptile graph-export finding is an acknowledged security trade-off: GET/HEAD cannot run extension activation; pure export fidelity stays tracked in pm-web-38n5. Add a current graph regression receipt and run the unchanged full locked CI gate using PM_FLEET_ROOT. Existing coverage target and substantive reviews stay open; no Docker or hosted service changes."
@@ -293,5 +289,4 @@ docs[8]:
     scope: project
   - path: README.md
     scope: project
-close_reason: "Delivered by #194 \"Run hosted pm-web on pm CLI/SDK 2026.10.13\" (merged as 5005f85). Checks successful at the PR head 5629ee5: CodeQL, codeql, test (22), test (26)."
 body: ""

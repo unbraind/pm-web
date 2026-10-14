@@ -2,10 +2,6 @@
 
 ## Unreleased
 
-### Changed
-
-- Repair SDK update automation, certify pm-web on CLI 2026.10.10, and validate the 2026.10.13 hosted candidate ([pm-web-8pml](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-8pml.toon))
-
 ### Fixed
 
 - Refresh connected project viewers after the realtime database listener reconnects ([pm-web-gixc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-gixc.toon))
