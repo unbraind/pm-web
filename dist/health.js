@@ -1,3 +1,4 @@
+import { logError } from "./observability.js";
 import { readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -25,7 +26,7 @@ function errorMessage(error) {
         ? String(error.code)
         : "";
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[healthz] probe failed", { code, message });
+    logError("health_probe_error", error);
     if (message === "probe timed out")
         return "timed out";
     if (code === "ENOENT")
@@ -270,14 +271,23 @@ export function createHealthHandler(deps) {
         cached = { result, at: Date.now() };
         return result;
     }
+    /** Overlay uncached collaboration health on the dependency probe result. */
+    const respond = (res, result) => {
+        const live = deps.realtime?.();
+        const ok = result.ok && (live?.ok ?? true);
+        res.status(ok ? 200 : 503).json({ ...result, ok, ...(live ? {
+                status: ok ? "ok" : "degraded", realtime: live.counters,
+                dependencies: { ...result.dependencies, project_watcher: { ok: live.ok, latency_ms: 0 } },
+            } : {}) });
+    };
     const handler = async (_req, res) => {
         if (cached && Date.now() - cached.at < cacheTtlMs) {
-            res.status(cached.result.ok ? 200 : 503).json(cached.result);
+            respond(res, cached.result);
             return;
         }
         inFlight ??= compute().finally(() => { inFlight = null; });
         const result = await inFlight;
-        res.status(result.ok ? 200 : 503).json(result);
+        respond(res, result);
     };
     return handler;
 }

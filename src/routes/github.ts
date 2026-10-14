@@ -1,3 +1,4 @@
+import { logError } from "../observability.ts";
 import { Router, type Response as ExpressResponse } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
@@ -348,7 +349,7 @@ router.patch("/", async (req: AuthRequest, res) => {
     );
     res.json({ ok: true });
   } catch (err) {
-    console.error("GitHub link error:", err);
+    logError("github_link_error", err);
     res.status(500).json({ error: "Failed to link GitHub repository" });
   }
 });
@@ -376,7 +377,7 @@ router.get("/issues", async (req: AuthRequest, res) => {
     // Filter out pull requests (GitHub issues API returns PRs too)
     res.json({ issues: issues.filter(i => !("pull_request" in i)) });
   } catch (err) {
-    console.error("GitHub issues error:", err);
+    logError("github_issues_error", err);
     res.status(500).json({ error: "Failed to fetch GitHub issues" });
   }
 });
@@ -603,7 +604,7 @@ router.get("/repo-info", async (req: AuthRequest, res) => {
     const data = await resp.json() as { full_name: string; description: string | null; private: boolean; open_issues_count: number };
     res.json({ name: data.full_name, description: data.description, private: data.private, openIssues: data.open_issues_count });
   } catch (err) {
-    console.error("Repo info error:", err);
+    logError("repo_info_error", err);
     res.status(500).json({ error: "Failed to fetch repo info" });
   }
 });

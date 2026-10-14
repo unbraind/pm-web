@@ -402,3 +402,73 @@ Completed responses and terminal unknown outcomes are retained for
 Deduplication is bounded by that window; a retry after expiry may execute again.
 Cleanup uses a partial `updated_at` index and runs at most once per minute per
 guard instance. Pending intents are settled before retention can remove them.
+
+### Real-time operational visibility
+
+The server emits one JSON line per operational event to stdout. `LOG_LEVEL`
+accepts `debug`, `info` (default), `warn`, `error`, or `silent`; invalid values
+fall back to `info`. No log shipping or telemetry configuration is required.
+Every line has `timestamp`, `level`, and `event`:
+
+| Event | Additional fields |
+| --- | --- |
+| `request` | `method`, `route`, `status`, `duration_ms`, `request_id`, `user_hash` |
+| `sse_connect` | `project_hash`, `user_hash` |
+| `sse_disconnect` | `project_hash`, `reason`, `duration_ms` |
+| `sse_broadcast` | `project_hash`, `event_type`, `recipient_count` |
+| `watcher_sweep` | `completed`, `duration_ms`, `files_scanned`, `changes_detected`, `errors` |
+| Error events, including `unhandled_error` | `name`, redacted `message`, sanitized `stack` locations |
+| `server_started` | `port` |
+
+Request routes are registered templates such as
+`/api/projects/:projectId/pm/update/:itemId`. Static responses and pre-routing
+failures use `/unmatched`; router-level failures use the mount template plus
+`/unmatched`. Raw paths, query strings, headers, cookies, bodies, item content,
+user ids and email addresses are excluded. Unknown methods and SSE event types
+use fixed labels. The server generates `X-Request-Id`; incoming ids are ignored.
+`/healthz` request lines are suppressed. Streaming request durations end when
+the connection closes; an interrupted response has log status `499`.
+
+User and project pseudonyms use HMAC-SHA256 with separate domains. Set
+`LOG_HMAC_SECRET` to a server-only random secret of at least 32 bytes for stable
+pseudonyms across replicas/restarts. Otherwise the server uses `JWT_SECRET`,
+or a random per-process secret when neither is configured. Rotating the secret
+changes pseudonyms. Treat pseudonyms as restricted operational metadata.
+Free-form error messages can embed SQL values, tokens or request content, so
+error logs replace their text, whitelist error names, and retain allowlisted server module names and stack
+line/column locations. They never serialize error properties or request data.
+
+`/healthz` exposes a `realtime` object containing aggregate, process-local
+counters only: `sse_clients`, `sse_connections_total`,
+`sse_disconnections_total`, `broadcasts_total`, `watcher_last_sweep_at`,
+`watcher_last_sweep_ms`, `watcher_changes_total`, and `watcher_errors_total`.
+These values are read on every health request even when database/mount probes
+are cached. Counters reset on restart and are not cluster totals. Broadcasts
+count local delivery attempts (including zero-recipient project events), plus
+presence broadcasts; the recipient count is the number of targeted clients.
+Disconnects count once, with `client_closed`, `max_age`, `replaced`, or
+`server_shutdown` as the reason.
+
+The filesystem watcher reports completion of each bounded timer tick, including
+idle ticks with no subscribers. `files_scanned` counts file stat attempts in that
+tick; large project scans can span several ticks. `changes_detected` counts
+completed project signature changes, including changes suppressed as already
+announced. Missing optional item directories and files that vanish during a
+scan are normal; other filesystem errors are reported. The service answers
+HTTP 503 with `ok: false`, `status: "degraded"` and
+`dependencies.project_watcher.ok: false` after **three** missed sweep intervals
+(default interval 15 seconds, stale after 45 seconds), or if the last tick
+reported errors. Startup has the same three-interval grace; disabling the
+watcher also reports degraded. A healthy sweep restores health. Freshness is a
+scheduler signal, not proof that all projects or mutation subscriptions are
+healthy. The counters expose no tenant identifiers or per-user data, so they
+extend the existing health endpoint without requiring an operator token.
+
+The real-server regression in `test/observable-realtime.test.ts` uses the test
+PostgreSQL harness and a temporary projects root. It connects through the
+production SSE route, writes with a separate pinned pm CLI process, requires a
+filesystem-origin event within five seconds, and checks live counter changes.
+The mutation watcher is disabled for this case so it cannot mask a broken
+filesystem watcher-to-broadcast link. A separate real-server privacy case checks
+stdout against synthetic credentials, ids, cookies, query and item-content
+sentinels during a successful item update and a malformed JSON request.

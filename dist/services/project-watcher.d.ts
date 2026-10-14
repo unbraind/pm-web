@@ -32,6 +32,7 @@ export declare function newSweepState(): WorkspaceSweepState;
 export declare function stepWorkspaceSweep(dir: string, state: WorkspaceSweepState, maxFilesPerTick: number): Promise<{
     completed: boolean;
     signature?: string;
+    filesScanned: number;
 }>;
 export interface ProjectWatcherDeps {
     intervalMs?: number;
@@ -43,6 +44,7 @@ export interface ProjectWatcherDeps {
     stepSignature?: (projectDir: string, state: WorkspaceSweepState, maxFilesPerTick: number) => Promise<{
         completed: boolean;
         signature?: string;
+        filesScanned?: number;
     }>;
     wasSignaledWithin?: (projectId: string, windowMs: number) => boolean;
     consumeSignal?: (projectId: string) => void;

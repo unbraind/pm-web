@@ -1,0 +1,24 @@
+import type test from "node:test";
+import type { LogLevel } from "../../src/observability.ts";
+
+/** Set a test's logging threshold and restore the caller's environment on cleanup. */
+export function setLogLevel(t: test.TestContext, level: LogLevel): void {
+  const previous = process.env.LOG_LEVEL;
+  process.env.LOG_LEVEL = level;
+  t.after(() => {
+    if (previous === undefined) delete process.env.LOG_LEVEL;
+    else process.env.LOG_LEVEL = previous;
+  });
+}
+
+/** Capture exactly what the stdout writer emits; restore through the test context. */
+export function captureLogs(t: test.TestContext): string[] {
+  const output: string[] = [];
+  const original = process.stdout.write;
+  t.mock.method(process.stdout, "write", (...args: Parameters<typeof process.stdout.write>) => {
+    const chunk = args[0];
+    if (typeof chunk === "string" && chunk.startsWith("{")) { output.push(chunk); return true; }
+    return Reflect.apply(original, process.stdout, args);
+  });
+  return output;
+}

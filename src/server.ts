@@ -1,3 +1,5 @@
+import { logEvent, logError } from "./observability.ts";
+import { realtimeHealth } from "./services/realtime-observability.ts";
 import { initSchema, assertDbConfigured, pool } from "./db.ts";
 import { createApp, readPackageVersion } from "./app.ts";
 import { projectsRoot } from "./services/pm-runner.ts";
@@ -6,6 +8,15 @@ import { startRealtimeBus } from "./services/realtime-bus.ts";
 import { startProjectWatcher } from "./services/project-watcher.ts";
 import { startMutationEventWatcher } from "./services/mutation-event-watcher.ts";
 import { assertOidcConfiguration } from "./oidc.ts";
+
+/** Preserve fatal semantics while emitting privacy-safe structured diagnostics. */
+function fatalError(error: unknown): void {
+  logError("unhandled_error", error);
+  // A piped stdout write may still be queued. Exit only after earlier writes finish.
+  process.stdout.write("", () => process.exit(1));
+}
+process.once("uncaughtException", fatalError);
+process.once("unhandledRejection", fatalError);
 
 const PORT = parseInt(process.env.PORT || "4000", 10);
 
@@ -17,6 +28,7 @@ const PORT = parseInt(process.env.PORT || "4000", 10);
 const app = createApp({
   health: {
     pool,
+    realtime: realtimeHealth,
     projectsRoot: projectsRoot(),
     version: readPackageVersion(),
   },
@@ -29,7 +41,7 @@ try {
   assertDbConfigured();
   assertOidcConfiguration();
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  logError("configuration_error", err);
   process.exit(1);
 }
 
@@ -45,13 +57,14 @@ initSchema()
     // forever without owning the port.
     const server = app.listen(PORT, (err?: Error) => {
       if (err) {
-        console.error(`Failed to bind :${PORT}:`, err.message);
+        logError("bind_error", err);
         process.exit(1);
       }
-      console.log(`pm-web running on :${PORT}`);
+      const address = server.address();
+      logEvent("server_started", { port: typeof address === "object" && address ? address.port : PORT });
     });
     server.on("error", (err: Error) => {
-      console.error(`Server error on :${PORT}:`, err.message);
+      logError("server_error", err);
       process.exit(1);
     });
     // Periodic cleanup of stale SSE clients
@@ -73,6 +86,6 @@ initSchema()
     process.once("SIGTERM", shutdown);
   })
   .catch((err) => {
-    console.error("Failed to initialize pm-web runtime:", err instanceof Error ? err.message : err);
+    logError("initialization_error", err);
     process.exit(1);
   });

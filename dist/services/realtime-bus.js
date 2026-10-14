@@ -1,3 +1,4 @@
+import { logError, logEvent, opaqueHash } from "../observability.js";
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { configureProjectEventPublisher, deliverProjectEvent, getActiveProjectIds, } from "./sse.js";
@@ -117,15 +118,6 @@ export async function startRealtimeBus(database = pool) {
     let hasConnected = false;
     let connecting = null;
     const handlers = new Map();
-    const safeDiagnostic = (error) => {
-        if (!(error instanceof Error))
-            return { name: typeof error };
-        const code = error.code;
-        return {
-            name: error.name,
-            ...(code && /^[A-Z0-9_]{1,32}$/i.test(String(code)) ? { code: String(code) } : {}),
-        };
-    };
     const releaseClient = (client, destroy) => {
         const registered = handlers.get(client);
         if (!registered)
@@ -138,7 +130,7 @@ export async function startRealtimeBus(database = pool) {
     const scheduleReconnect = (error) => {
         if (stopped || reconnectTimer)
             return;
-        console.error("Realtime PostgreSQL listener disconnected", safeDiagnostic(error));
+        logError("realtime_listener_disconnected", error);
         const delay = reconnectDelayMs;
         reconnectDelayMs = Math.min(reconnectDelayMs * 2, 30_000);
         reconnectTimer = setTimeout(() => {
@@ -201,7 +193,7 @@ export async function startRealtimeBus(database = pool) {
             await database.query("SELECT pg_notify($1, $2)", [CHANNEL, payload]);
         }
         else {
-            console.warn(`Realtime event payload exceeded size limit: ${projectId}/${event.type}`);
+            logEvent("realtime_payload_oversize", { project_hash: opaqueHash("project", projectId) }, "warn");
         }
     });
     return async () => {

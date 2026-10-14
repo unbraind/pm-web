@@ -1,3 +1,4 @@
+import { logError } from "../observability.ts";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { pool } from "../db.ts";
@@ -81,7 +82,7 @@ router.post("/register", async (req, res) => {
     if (isUniqueViolation(err)) {
       res.status(409).json({ error: "An account with this email already exists" });
     } else {
-      console.error("Register error:", err);
+      logError("register_error", err);
       res.status(500).json({ error: "Registration failed" });
     }
   }
@@ -120,7 +121,7 @@ router.post("/login", async (req, res) => {
       user: { id: user.id, email: user.email, display_name: user.display_name, is_admin: user.is_admin, created_at: user.created_at },
     });
   } catch (err) {
-    console.error("Login error:", err);
+    logError("login_error", err);
     res.status(500).json({ error: "Login failed" });
   }
 });
@@ -142,7 +143,7 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
     }
     res.json({ user: result.rows[0] });
   } catch (err) {
-    console.error("Me error:", err);
+    logError("me_error", err);
     res.status(500).json({ error: "Failed to fetch user" });
   }
 });
@@ -158,7 +159,7 @@ router.patch("/profile", requireAuth, async (req: AuthRequest, res) => {
     );
     res.json({ user: result.rows[0] });
   } catch (err) {
-    console.error("Update profile error:", err);
+    logError("update_profile_error", err);
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -183,7 +184,7 @@ router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
     await pool.query(`UPDATE pm_users SET password_hash = $1 WHERE id = $2`, [hash, req.user!.userId]);
     res.json({ ok: true });
   } catch (err) {
-    console.error("Change password error:", err);
+    logError("change_password_error", err);
     res.status(500).json({ error: "Failed to change password" });
   }
 });
@@ -197,7 +198,7 @@ router.patch("/github-token", requireAuth, async (req: AuthRequest, res) => {
     await pool.query(`UPDATE pm_users SET github_token = $1 WHERE id = $2`, [encryptedToken, req.user!.userId]);
     res.json({ ok: true, hasToken: Boolean(trimmedToken) });
   } catch (err) {
-    console.error("GitHub token error:", err);
+    logError("github_token_error", err);
     res.status(500).json({ error: "Failed to save GitHub token" });
   }
 });

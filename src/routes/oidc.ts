@@ -1,3 +1,4 @@
+import { logError } from "../observability.ts";
 import crypto from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import type { PoolClient } from "pg";
@@ -228,19 +229,7 @@ router.get("/oidc/callback", async (req, res) => {
       res.status(error.status).json({ error: error.message, code: error.code });
       return;
     }
-    // Never log the full exception: OAuth failures may contain authorization
-    // codes or token data. A class + PostgreSQL-style code is sufficient to
-    // distinguish infrastructure/schema faults without exposing the payload.
-    const diagnostic = error instanceof Error
-      ? {
-          name: error.name,
-          ...((error as Error & { code?: unknown }).code &&
-          /^[A-Z0-9_]{1,32}$/i.test(String((error as Error & { code?: unknown }).code))
-            ? { code: String((error as Error & { code?: unknown }).code) }
-            : {}),
-        }
-      : { name: typeof error };
-    console.error("OIDC callback failed", diagnostic);
+    logError("oidc_callback_error", error);
     res.status(400).json({ error: "OpenID Connect login failed." });
   } finally {
     client?.release();

@@ -1,3 +1,4 @@
+import { logError } from "../observability.js";
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -31,7 +32,7 @@ async function requireAdmin(req, res, next) {
         res.status(403).json({ error: "Admin access is required" });
     }
     catch (err) {
-        console.error("Admin auth check failed:", err);
+        logError("admin_auth_check_failed", err);
         res.status(500).json({ error: "Failed to verify admin access" });
     }
 }
@@ -81,7 +82,7 @@ router.get("/overview", async (_req, res) => {
         });
     }
     catch (err) {
-        console.error("Admin overview failed:", err);
+        logError("admin_overview_failed", err);
         res.status(500).json({ error: "Failed to load admin overview" });
     }
 });
@@ -111,7 +112,7 @@ router.patch("/users/:id", async (req, res) => {
         res.json({ user: result.rows[0] });
     }
     catch (err) {
-        console.error("Admin user update failed:", err);
+        logError("admin_user_update_failed", err);
         res.status(500).json({ error: "Failed to update user" });
     }
 });
@@ -134,7 +135,7 @@ router.delete("/users/:id", async (req, res) => {
         res.json({ ok: true, deleted: result.rows[0] });
     }
     catch (err) {
-        console.error("Admin user delete failed:", err);
+        logError("admin_user_delete_failed", err);
         res.status(500).json({ error: "Failed to delete user" });
     }
 });
@@ -150,7 +151,7 @@ router.delete("/projects/:id", async (req, res) => {
         res.json({ ok: true, deleted: result.rows[0] });
     }
     catch (err) {
-        console.error("Admin project delete failed:", err);
+        logError("admin_project_delete_failed", err);
         res.status(500).json({ error: "Failed to delete project" });
     }
 });
@@ -167,7 +168,7 @@ router.post("/groups", async (req, res) => {
         res.status(201).json({ group: result.rows[0] });
     }
     catch (err) {
-        console.error("Admin group create failed:", err);
+        logError("admin_group_create_failed", err);
         res.status(500).json({ error: "Failed to create group" });
     }
 });
@@ -183,7 +184,7 @@ router.delete("/groups/:id", async (req, res) => {
         res.json({ ok: true, deleted: result.rows[0] });
     }
     catch (err) {
-        console.error("Admin group delete failed:", err);
+        logError("admin_group_delete_failed", err);
         res.status(500).json({ error: "Failed to delete group" });
     }
 });
@@ -203,7 +204,7 @@ router.get("/audit", async (req, res) => {
         res.json({ entries: entries.rows, total: countResult.rows[0]?.count ?? 0, limit, offset });
     }
     catch (err) {
-        console.error("Admin audit log failed:", err);
+        logError("admin_audit_log_failed", err);
         res.status(500).json({ error: "Failed to load audit log" });
     }
 });
@@ -219,7 +220,7 @@ async function logAudit(actorId, action, description) {
         await pool.query(`INSERT INTO pm_admin_audit (actor_id, action, description) VALUES ($1, $2, $3)`, [actorId, action, description]);
     }
     catch (err) {
-        console.error("Audit log write failed:", err);
+        logError("audit_log_write_failed", err);
     }
 }
 export { router as adminRouter };

@@ -1,3 +1,4 @@
+import { logError } from "../observability.ts";
 import { Router, type Response } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
@@ -78,7 +79,7 @@ sharesRouter.get("/", async (req: AuthRequest, res) => {
 
     res.json({ shares: result.rows });
   } catch (err) {
-    console.error("List shares error:", err);
+    logError("list_shares_error", err);
     res.status(500).json({ error: "Failed to fetch shares" });
   }
 });
@@ -167,7 +168,7 @@ sharesRouter.post("/", async (req: AuthRequest, res) => {
       });
     }
   } catch (err) {
-    console.error("Create share error:", err);
+    logError("create_share_error", err);
     res.status(500).json({ error: "Failed to share project" });
   }
 });
@@ -188,7 +189,7 @@ sharesRouter.delete("/:shareId", async (req: AuthRequest, res) => {
     }
     res.json({ ok: true });
   } catch (err) {
-    console.error("Delete share error:", err);
+    logError("delete_share_error", err);
     res.status(500).json({ error: "Failed to remove share" });
   }
 });
@@ -217,7 +218,7 @@ sharedWithMeRouter.get("/", async (req: AuthRequest, res) => {
     );
     res.json({ projects: result.rows });
   } catch (err) {
-    console.error("List shared projects error:", err);
+    logError("list_shared_projects_error", err);
     res.status(500).json({ error: "Failed to fetch shared projects" });
   }
 });

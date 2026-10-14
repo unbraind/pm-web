@@ -1,3 +1,4 @@
+import { logError } from "../observability.js";
 import crypto from "node:crypto";
 import { Router } from "express";
 import { authorizationCodeGrant, buildAuthorizationUrl, ClientSecretBasic, Configuration, discovery, } from "openid-client";
@@ -175,19 +176,7 @@ router.get("/oidc/callback", async (req, res) => {
             res.status(error.status).json({ error: error.message, code: error.code });
             return;
         }
-        // Never log the full exception: OAuth failures may contain authorization
-        // codes or token data. A class + PostgreSQL-style code is sufficient to
-        // distinguish infrastructure/schema faults without exposing the payload.
-        const diagnostic = error instanceof Error
-            ? {
-                name: error.name,
-                ...(error.code &&
-                    /^[A-Z0-9_]{1,32}$/i.test(String(error.code))
-                    ? { code: String(error.code) }
-                    : {}),
-            }
-            : { name: typeof error };
-        console.error("OIDC callback failed", diagnostic);
+        logError("oidc_callback_error", error);
         res.status(400).json({ error: "OpenID Connect login failed." });
     }
     finally {

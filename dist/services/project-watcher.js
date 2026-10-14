@@ -1,3 +1,5 @@
+import { configureWatcherHealth, recordSweep } from "./realtime-observability.js";
+import { logError } from "../observability.js";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { resolveProjectDir } from "./pm-runner.js";
@@ -73,8 +75,10 @@ async function enumerateEligibleFiles(pmDir) {
         try {
             entries = await readdir(path.join(pmDir, subdir), { withFileTypes: true });
         }
-        catch {
-            return; // ENOENT etc — subdir may not exist
+        catch (error) {
+            if (error.code !== "ENOENT")
+                throw error;
+            return; // absent item-type directories are normal
         }
         const names = entries
             .filter((e) => e.isFile() && e.name.endsWith(ext))
@@ -138,6 +142,7 @@ export async function stepWorkspaceSweep(dir, state, maxFilesPerTick) {
     const pmDir = path.join(dir, ".agents", "pm");
     const files = await enumerateEligibleFiles(pmDir);
     const total = files.length;
+    const initialCursor = state.cursor;
     const end = Math.min(state.cursor + maxFilesPerTick, total);
     for (let i = state.cursor; i < end; i += 1) {
         const f = files[i];
@@ -148,8 +153,9 @@ export async function stepWorkspaceSweep(dir, state, maxFilesPerTick) {
             state.xor ^= h;
             state.sum = (state.sum + h) >>> 0;
         }
-        catch {
-            // file vanished between readdir and stat — ignore
+        catch (error) {
+            if (error.code !== "ENOENT")
+                throw error;
         }
     }
     state.cursor = end;
@@ -157,9 +163,9 @@ export async function stepWorkspaceSweep(dir, state, maxFilesPerTick) {
     // shrink moved `total` at or below the cursor). Small projects (<= cap files)
     // finish in a single tick — identical to the one-shot signature, no latency.
     if (state.cursor >= total) {
-        return { completed: true, signature: `${state.count}:${state.xor >>> 0}:${state.sum}` };
+        return { filesScanned: Math.max(0, end - initialCursor), completed: true, signature: `${state.count}:${state.xor >>> 0}:${state.sum}` };
     }
-    return { completed: false };
+    return { filesScanned: Math.max(0, end - initialCursor), completed: false };
 }
 /** Adapt a one-shot signature reader into a sweep step that always completes. */
 function bindLegacySignature(readSignature) {
@@ -194,6 +200,10 @@ export function createProjectWatchCycle(deps = {}) {
         if (inFlight)
             return; // never overlap ticks
         inFlight = true;
+        const started = performance.now();
+        let filesScanned = 0;
+        let changes = 0;
+        let errors = 0;
         try {
             const ids = getIds();
             const active = new Set(ids);
@@ -210,7 +220,9 @@ export function createProjectWatchCycle(deps = {}) {
                         state = newSweepState();
                         sweeps.set(projectId, state);
                     }
-                    const { completed, signature } = await stepSig(dir, state, maxFilesPerTick);
+                    const result = await stepSig(dir, state, maxFilesPerTick);
+                    filesScanned += result.filesScanned ?? 0;
+                    const { completed, signature } = result;
                     if (!completed || signature === undefined)
                         continue; // mid-sweep — resume next tick
                     sweeps.set(projectId, newSweepState()); // reset for the next sweep
@@ -221,6 +233,7 @@ export function createProjectWatchCycle(deps = {}) {
                         continue;
                     }
                     if (sig !== prev) {
+                        changes += 1;
                         lastSeen.set(projectId, sig);
                         if (signaled(projectId, suppressWindowMs)) {
                             // Attribute this one delta to the signaled write and consume the
@@ -234,22 +247,31 @@ export function createProjectWatchCycle(deps = {}) {
                     }
                 }
                 catch (err) {
+                    sweeps.delete(projectId);
+                    errors += 1;
                     onError(err);
                 }
             }
         }
+        catch (err) {
+            errors += 1;
+            onError(err);
+        }
         finally {
+            recordSweep(Math.round(performance.now() - started), filesScanned, changes, errors);
             inFlight = false;
         }
     };
     return { tick, suppressWindowMs };
 }
 export function startProjectWatcher(deps = {}) {
-    if (process.env.PM_WATCH_PROJECTS === "false")
-        return () => undefined;
+    const enabled = process.env.PM_WATCH_PROJECTS !== "false";
     const intervalMs = Math.max(MIN_INTERVAL_MS, deps.intervalMs ?? positiveIntEnv("PM_WATCH_INTERVAL_MS", DEFAULT_INTERVAL_MS));
+    configureWatcherHealth(intervalMs, enabled);
+    if (!enabled)
+        return () => undefined;
     const maxFilesPerTick = deps.maxFilesPerTick ?? positiveIntEnv("PM_WATCH_MAX_FILES_PER_TICK", DEFAULT_MAX_FILES_PER_TICK);
-    const onError = deps.onError ?? ((err) => console.error("Project watcher tick failed", err instanceof Error ? err.message : err));
+    const onError = deps.onError ?? ((err) => logError("watcher_error", err));
     const { tick } = createProjectWatchCycle({ ...deps, intervalMs, maxFilesPerTick, onError });
     const timer = setInterval(() => { void tick().catch(onError); }, intervalMs);
     timer.unref();

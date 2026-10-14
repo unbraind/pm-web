@@ -166,7 +166,7 @@ test("general schema includes the idempotent external identity contract", () => 
   // broke on a refactor that preserved it: the limiter now mounts on the prefix
   // once and the routers mount behind it, because repeating it on the prefix
   // and again on a nested path charged one request twice.
-  assert.match(app, /app\.use\("\/api\/auth", oidcRouter\);/);
+  assert.match(app, /app\.use\("\/api\/auth", (?:logRoutePrefix\("\/api\/auth"\), )?oidcRouter\);/);
   // And the property that fix established: no path is given the same limiter
   // more than once, so every published budget is the enforced one.
   const mounts = [...app.matchAll(/app\.use\("([^"]+)",([^)]*)\)/g)]
