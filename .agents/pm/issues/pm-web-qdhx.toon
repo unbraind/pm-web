@@ -6,23 +6,28 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-11T07:18:59.939Z"
-updated_at: "2026-10-14T06:26:22.821Z"
+updated_at: "2026-10-14T13:19:31.085Z"
 author: codex-sol
-comments[6]{created_at,author,text}:
+comments[9]{created_at,author,text}:
   "2026-10-11T07:21:13.813Z",codex-sol,"PM-linked focused missing-database startup check passes 1/1 with zero skips and reports 9065 ms against the unchanged 10000 ms subprocess deadline. The full coverage run timed out instead and returned a nonnumeric status. This difference supports investigating instrumentation/resource contention; it does not establish a server or SDK root cause. Linked result tracking is disabled, so this comment records the focused receipt. No startup code, guard or test deadline was changed."
   "2026-10-11T07:39:25.686Z",codex-sol,"Corrected full Bun coverage completes 496/498, zero skips. The independent-workspace overlap assertion fails with log order: start first, end first, start independent, end independent, start second, end second. Same-workspace serialization and command success assertions passed before this check. The missing-database startup test passes in this full run. Retain both contrasting full-suite results; no process/startup code or timing assertion was changed."
   "2026-10-11T07:42:37.056Z",codex-sol,"The PM-linked focused independent-workspace spawn test passes 1/1, zero skips, at 674 ms. This contrasts with its full Bun coverage ordering failure. Retain the failing full-run log and the passing focused receipt, and investigate scheduling/instrumentation before changing any assertion. The result is recorded manually because linked-test persistence is disabled."
   "2026-10-12T11:34:29.011Z",codex-sol,"Issue 189 first clean-HOME Bun release attempt finished 575 tests: 573 pass, 2 failures, 0 skips. Existing independent-workspace overlap assertion observed start first, end first, start independent, end independent, start second, end second; no independent overlap despite successful child processes. The other failure is graph wall-time tracked by pm-web-hqqp. Passing clean-HOME npm gate has 575/575. Ownership source/built regressions pass both attempts. Retrying the complete Bun gate with unchanged source, assertions, and thresholds."
   "2026-10-12T11:49:53.827Z",codex-sol,"Unchanged full Bun release-gate retry passes the independent-workspace spawn overlap assertion and complete coverage suite 575/575 with zero failures/skips. First attempt recorded end first before start independent and remains failed evidence. No runner scheduling source, fixture, assertion or deadline changed; existing follow-up remains open."
   "2026-10-14T06:26:21.712Z",codex-agent,"Reuse existing process-startup/overlap follow-up for SDK2026.10.14 candidate acceptance. Full CI-identity npm completes570/576 with built Presets case cancelled at unchanged300s and the next source case failing spawnENOTDIR. This remains unaccepted and needs a standalone baseline/cancellation investigation; no deadline was increased. The isolated production Docker artifact separately passes real tracker init/create/get and authenticated package catalog200 with22 entries/no stateError, which does not replace the full Presets collision case."
-files[4]{path,scope}:
+  "2026-10-14T12:15:44.969Z",codex-agent,"Synchronizing PR #196 with main after catalog PR #197. Will retain SDK 2026.10.14 pins, regenerate the changelog, and run isolated npm and Bun release gates sequentially with disposable PostgreSQL and canonical fleet context. Known load failures will receive one retry without deadline changes."
+  "2026-10-14T12:38:33.096Z",codex-agent,"First isolated npm release gate after main 06958bd: 580 tests, 578 pass, 1 fail, 1 cancelled, 0 skip/todo; exit 1 at coverage. Built Presets acceptance exhausted the unchanged 300-second deadline. Source acceptance then failed at its initial state listing with spawn ENOTDIR. All canonical catalog assertions passed. Failed-run coverage was 89.68 statements/lines, 80.15 branches, 93.09 functions; not accepted evidence, downstream phases blocked. One full retry is running with scratch-only child-command sampling to diagnose the repeatable acceptance budget and cleanup cascade."
+  "2026-10-14T13:19:29.632Z",codex-agent,"PR #196 synchronization complete against main 06958bd. npm release first attempt: 580 tests, 578 pass/1 fail/1 cancelled; one unchanged retry green 580/580, 0 fail/cancel/skip/todo. Bun first attempt fully green 580/580, 0 fail/cancel/skip/todo. Each full green gate includes production audit 0, packed consumers 4/4 and all release metadata checks. npm coverage S/L 90.60, B 80.61, F 93.45; Bun S/L 90.58, B 80.55, F 93.45; all 34 configured source files. The original Presets aggregate 300-second deadline failure is load-sensitive: retry built/source 263.036/256.095 seconds, Bun 218.519/121.904; source ENOTDIR did not recur after normal completion. Repeated CLI ownership/state/execution startups consume the budget; no deterministic defect reproduced. Timing risk remains open. Prior behavioural revert proofs retained, no new implementation changes. Details and exact commands in docs/SDK_2026_10_14.md. Claims released for verification; no items closed."
+files[5]{path,scope}:
   src/server.ts,project
   src/services/pm-runner.ts,project
+  test/catalog-install-e2e.test.ts,project
   test/pm-runner.test.ts,project
   test/smoke.test.ts,project
 tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test --test-name-pattern='server entrypoint exits non-zero without DATABASE_URL' test/smoke.test.ts,project,120,codex-sol,"2026-10-11T07:20:01.089Z",local_mutation,task/finish-catalog-175
   node --test --test-name-pattern='spawn fallback stays non-blocking' test/pm-runner.test.ts,project,120,codex-sol,"2026-10-11T07:39:19.519Z",local_mutation,task/finish-catalog-175
-docs[1]{path,scope}:
+docs[2]{path,scope}:
+  docs/SDK_2026_10_14.md,project
   README.md,project
 body: ""

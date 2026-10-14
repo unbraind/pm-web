@@ -31,8 +31,8 @@
     "packageDescription": "Token-budgeted agent briefs and next-work plans for pm workspaces",
     "capabilities": [
       "commands",
-      "renderers",
-      "schema"
+      "schema",
+      "services"
     ],
     "publishable": true,
     "npmPublished": true
@@ -154,6 +154,17 @@
     "npmPublished": true
   },
   {
+    "name": "pm-lint",
+    "description": "Authoring-quality lint rules for useful pm item context",
+    "packageDescription": "Authoring-quality lint rules for useful pm item context",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": true,
+    "npmPublished": false
+  },
+  {
     "name": "pm-ops",
     "description": "Multi-repo fleet operations for pm-cli",
     "packageDescription": "Multi-repo fleet operations for pm-cli",
@@ -177,6 +188,17 @@
     ],
     "publishable": true,
     "npmPublished": true
+  },
+  {
+    "name": "pm-review",
+    "description": "Durable bot review findings, verdict precedents and exact-head round gates for pm-cli",
+    "packageDescription": "Durable bot review findings, verdict precedents and exact-head round gates for pm-cli",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": true,
+    "npmPublished": false
   },
   {
     "name": "pm-rl",

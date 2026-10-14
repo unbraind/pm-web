@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-08-28T23:25:38.715Z"
-updated_at: "2026-10-14T06:08:47.249Z"
+updated_at: "2026-10-14T13:19:28.729Z"
 author: claude
-comments[6]:
+comments[9]:
   - created_at: "2026-10-02T22:28:15.925Z"
     author: codex-sol
     text: "Reusing existing catalog-drift item for PR #161 gate repair. PM_FLEET_ROOT full gate failed two existing assertions (407/409 pass): pm-ado description overclaims sync/revision reconciliation, and live snapshot has changed pm-ado / TS Starter descriptions. Preserve capabilities/publication constraints and all assertions; align catalog to real manifest and regenerate snapshot with own script. No canonical fleet source edits or hosted operations."
@@ -28,18 +28,25 @@ comments[6]:
   - created_at: "2026-10-14T05:47:09.165Z"
     author: codex-agent
     text: "Correction to the immediately preceding focused-run count: the exact canonical catalog log reports12 tests,8 passed,4 failed (zero cancelled/skipped/todo), not30/27/3. Failures are membership, manifest-claim fidelity, fleet coverage and snapshot freshness. All four are catalog drift; the earlier counts were a transcription error. The log and full-gate receipts remain the evidence source."
+  - created_at: "2026-10-14T12:15:33.659Z"
+    author: codex-agent
+    text: "Synchronizing PR #196 with main after catalog PR #197. Will retain SDK 2026.10.14 pins, regenerate the changelog, and run isolated npm and Bun release gates sequentially with disposable PostgreSQL and canonical fleet context. Known load failures will receive one retry without deadline changes."
+  - created_at: "2026-10-14T12:22:25.360Z"
+    author: codex-agent
+    text: Main 06958bd from PR #197 merged cleanly into PR #196; SDK remains exactly 2026.10.14. The focused catalog and merge-driver suite passed 23/23 with canonical fleet context. An initial linked run omitted that context and passed 21/23 with two worktree-discovery assertions; rerunning with canonical context removed both failures. Full isolated release validation is running; no thresholds changed.
+  - created_at: "2026-10-14T13:19:27.102Z"
+    author: codex-agent
+    text: "PR #196 synchronization complete against main 06958bd. npm release first attempt: 580 tests, 578 pass/1 fail/1 cancelled; one unchanged retry green 580/580, 0 fail/cancel/skip/todo. Bun first attempt fully green 580/580, 0 fail/cancel/skip/todo. Each full green gate includes production audit 0, packed consumers 4/4 and all release metadata checks. npm coverage S/L 90.60, B 80.61, F 93.45; Bun S/L 90.58, B 80.55, F 93.45; all 34 configured source files. The original Presets aggregate 300-second deadline failure is load-sensitive: retry built/source 263.036/256.095 seconds, Bun 218.519/121.904; source ENOTDIR did not recur after normal completion. Repeated CLI ownership/state/execution startups consume the budget; no deterministic defect reproduced. Timing risk remains open. Prior behavioural revert proofs retained, no new implementation changes. Details and exact commands in docs/SDK_2026_10_14.md. Claims released for verification; no items closed."
 notes[3]{created_at,author,text}:
   "2026-08-28T23:25:39.165Z",claude,"pm-rl merged an extension mutation guard on 2026-08-28 (unbraind/pm-rl#18), which added a hooks capability to its manifest.json. The catalog entry in src/services/package-catalog.ts still declared capabilities [commands, schema], so test/catalog.test.ts failed with: pm-rl: catalog capabilities must match manifest capabilities, actual [commands, hooks, schema] against expected [commands, schema]. Updated the entry to [commands, hooks, schema]. Worth noting the test did its job: this is a hand-maintained mirror of another repository's manifest, so it goes stale whenever any of the 20 packages changes its declared capabilities, and only this repository's own test notices. The catalog test is therefore the fleet's only detector for capability drift, and it can only run here."
   "2026-09-29T12:33:09.583Z",codex,"The live canonical pm-ado manifest changed its description to a client-foundation statement and explicitly says full sync/revision-to-history work is planned. This made pm-web's existing catalog test and snapshot freshness gate fail. Refreshed the 20-extension snapshot with npm run fleet:snapshot and aligned the user-facing pm-ado catalog description to the manifest. Direct and PM-linked catalog tests now pass 12/12; package release gate rerun is pending."
   "2026-09-29T12:45:01.300Z",codex,"The refreshed 20-extension snapshot and accurate pm-ado client-foundation description passed targeted catalog tests 12/12 and the PM-linked full release:check. The catalog is still a hand-maintained mirror; future manifest changes require regeneration and review. This fix is on unmerged pm-web PR #163."
-files[4]:
-  - path: src/services/package-catalog.ts
-    scope: project
-  - path: test/fleet-extensions.snapshot.json
-    scope: project
+files[3]:
   - path: src/services/package-catalog.ts
     scope: project
     note: User-facing package description matches current manifest
+  - path: test/catalog.test.ts
+    scope: project
   - path: test/fleet-extensions.snapshot.json
     scope: project
     note: Complete 20-extension snapshot regenerated from canonical sibling repos
@@ -60,7 +67,8 @@ tests[2]:
       created_at: "2026-09-29T12:32:19.888Z"
       source_kind: merge_union
       source_ref: dependabot/npm_and_yarn/jscpd-5.3.2
-docs[2]{path,scope}:
+docs[3]{path,scope}:
+  docs/SDK_2026_10_14.md,project
   "https://github.com/unbraind/pm-web/pull/163",project
   README.md,project
 body: ""
