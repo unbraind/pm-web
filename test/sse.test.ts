@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Response } from "express";
+import { realtimeHealth } from "../src/services/realtime-observability.ts";
 
 import {
   addSSEClient,
@@ -23,6 +24,42 @@ function fakeResponse() {
     writes,
     response: { write: (value: string) => { writes.push(value); return true; } } as unknown as Response,
   };
+}
+
+for (const endFails of [false, true]) {
+  test(`replacing an SSE client closes the old response and preserves the gauge (end fails: ${endFails})`, (t) => {
+    const before = realtimeHealth().counters;
+    let ended = 0;
+    const oldResponse = {
+      write: () => true,
+      end: () => { ended += 1; if (endFails) throw new Error("synthetic closed socket"); },
+    } as unknown as Response;
+    const client = {
+      id: "replaced-client", projectId, userId: "user-a", displayName: "User A",
+      currentView: "items", connectedAt: new Date(),
+    };
+    const unsubscribeOld = addSSEClient({ ...client, res: oldResponse });
+    t.after(unsubscribeOld);
+    assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients + 1);
+    const current = fakeResponse();
+    const unsubscribeNew = addSSEClient({ ...client, projectId: otherProjectId, res: current.response });
+    t.after(unsubscribeNew);
+    assert.equal(ended, 1, "replacement must attempt to close the prior response");
+    assert.equal(getSSEClientCount(), before.sse_clients + 1);
+    assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients + 1);
+    assert.equal(realtimeHealth().counters.sse_connections_total, before.sse_connections_total + 2);
+    assert.equal(realtimeHealth().counters.sse_disconnections_total, before.sse_disconnections_total + 1);
+    assert.deepEqual(getProjectPresence(projectId), []);
+    assert.equal(getProjectPresence(otherProjectId).length, 1);
+    unsubscribeOld();
+    assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients + 1, "late old cleanup must preserve the new client");
+    broadcastProjectEvent(otherProjectId, { type: "workspace-changed", data: {} });
+    assert.match(current.writes.join(""), /event: workspace-changed/);
+    unsubscribeNew();
+    assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients);
+    assert.equal(getSSEClientCount(), before.sse_clients);
+    assert.equal(realtimeHealth().counters.sse_disconnections_total, before.sse_disconnections_total + 2);
+  });
 }
 
 test("presence view updates require the exact user and project session", async () => {

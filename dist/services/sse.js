@@ -215,8 +215,18 @@ function schedulePresence(projectId) {
  */
 export function addSSEClient(client) {
     const previous = byId.get(client.id);
-    if (previous)
-        removeClient(previous, "replaced");
+    if (previous) {
+        try {
+            previous.res.end();
+        }
+        catch (error) {
+            logError("sse_replacement_error", error);
+        }
+        finally {
+            removeClient(previous, "replaced");
+            schedulePresence(previous.projectId);
+        }
+    }
     byId.set(client.id, client);
     recordConnection(client.projectId, client.userId);
     let set = byProject.get(client.projectId);

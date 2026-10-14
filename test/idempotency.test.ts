@@ -1,4 +1,4 @@
-import { captureLogs } from "./helpers/stdout-logs.ts";
+import { captureLogs, setLogLevel } from "./helpers/stdout-logs.ts";
 /**
  * Real-Postgres, real-HTTP coverage for the server-side idempotency guard.
  *
@@ -645,6 +645,7 @@ test("production rate limiting precedes keyed replays and refusals never claim a
 
 
 test("a PostgreSQL outcome-write failure is caught and leaves a pending intent", async (t) => {
+  setLogLevel(t, "error");
   const { server, owner } = await setupOwnerAppTest(t);
   const key = uniqueKey("persist-failure");
   const trigger = `outcome_failure_${RUN_ID}`;

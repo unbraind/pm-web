@@ -12,7 +12,8 @@ import { assertOidcConfiguration } from "./oidc.ts";
 /** Preserve fatal semantics while emitting privacy-safe structured diagnostics. */
 function fatalError(error: unknown): void {
   logError("unhandled_error", error);
-  process.exit(1);
+  // A piped stdout write may still be queued. Exit only after earlier writes finish.
+  process.stdout.write("", () => process.exit(1));
 }
 process.once("uncaughtException", fatalError);
 process.once("unhandledRejection", fatalError);

@@ -1,6 +1,7 @@
-import { captureLogs } from "./helpers/stdout-logs.ts";
+import { captureLogs, setLogLevel } from "./helpers/stdout-logs.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { spawn } from "node:child_process";
 import express from "express";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -42,6 +43,7 @@ test("JSON logging enforces every severity threshold and separates hash domains"
 });
 
 test("unknown errors and malicious messages, names and stacks cannot leak request text", (t) => {
+  setLogLevel(t, "error");
   const output = captureLogs(t);
   const error = new Error("PRIVATE_MESSAGE");
   error.name = "PRIVATE_NAME";
@@ -112,6 +114,7 @@ test("live stale watcher overrides cached successful database and mount probes",
 });
 
 test("filesystem sweep errors are counted and logged rather than treated as missing files", async (t) => {
+  setLogLevel(t, "info");
   const output = captureLogs(t);
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-watch-error-"));
   try {
@@ -137,6 +140,7 @@ test("filesystem sweep errors are counted and logged rather than treated as miss
 });
 
 test("health requests are suppressed and unmatched and router failures use safe templates", async (t) => {
+  setLogLevel(t, "info");
   const output = captureLogs(t);
   const app = express();
   app.use(requestLogging());
@@ -158,3 +162,33 @@ test("health requests are suppressed and unmatched and router failures use safe 
     await server.close();
   }
 });
+
+for (const failure of ["throw new Error('PRIVATE_FATAL_MESSAGE')", "Promise.reject(new Error('PRIVATE_FATAL_MESSAGE'))"]) {
+  test(`fatal JSON reaches piped stdout before exit: ${failure.startsWith("throw") ? "uncaught exception" : "unhandled rejection"}`, async () => {
+    const paddingSize = 2 * 1024 * 1024;
+    const child = spawn(process.execPath, ["--input-type=module", "-e",
+      `import './src/server.ts'; process.stdout.write('x'.repeat(${paddingSize})); ${failure};`], {
+      env: { ...process.env, LOG_LEVEL: "error" },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 10_000,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk: string) => { stdout += chunk; });
+    child.stderr.setEncoding("utf8").on("data", (chunk: string) => { stderr += chunk; });
+    const [code, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", (exitCode, exitSignal) => resolve([exitCode, exitSignal]));
+    });
+    assert.equal(signal, null, stderr);
+    assert.equal(code, 1, stderr);
+    const fatalLine = stdout.slice(paddingSize);
+    assert.ok(fatalLine.endsWith("\n"), "fatal JSON line must finish");
+    assert.ok(stdout.startsWith("x".repeat(paddingSize)), "queued output must finish");
+    const fatal = JSON.parse(fatalLine) as { event: string; level: string; name: string };
+    assert.equal(fatal.event, "unhandled_error");
+    assert.equal(fatal.level, "error");
+    assert.equal(fatal.name, "Error");
+    assert.equal(stdout.includes("PRIVATE_FATAL_MESSAGE"), false);
+  });
+}

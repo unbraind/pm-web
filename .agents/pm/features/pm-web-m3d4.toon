@@ -6,10 +6,10 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-10-14T08:23:39.226Z"
-updated_at: "2026-10-14T09:15:22.834Z"
+updated_at: "2026-10-14T11:18:32.945Z"
 author: codex-agent
 acceptance_criteria: External shared-project writes reach SSE in a bounded real-server test; lifecycle counters are operator-visible; logs contain no request secrets or content.
-comments[7]{created_at,author,text}:
+comments[15]{created_at,author,text}:
   "2026-10-14T08:23:54.483Z",codex-agent,"Duplicate search found historical delivery proofs but no active observability item. Companion: pm-cli-website-8kqg. Plan: aggregate process-local health counters with freshness checked on every request, HMAC pseudonyms, safe route templates, lifecycle and sweep logs, real PostgreSQL and temp-root SSE proof plus behavioural link-break verification. Hosted services and telemetry configuration remain outside this work."
   "2026-10-14T08:33:05.663Z",codex-agent,"Implemented JSON stdout logs, registered route templates, HMAC user/project pseudonyms, and aggregate process-local health counters. Three missed filesystem sweep intervals (45 seconds by default), disabled sweeps or last-tick errors degrade health; freshness is read after cached dependency probes. Existing HTTP error log sites also use sanitized structured diagnostics to avoid leaking request-derived values. Focused new real-server and watchdog/privacy tests passed 8/8; delivery requires filesystem-origin SSE and uses a separate pinned pm process."
   "2026-10-14T08:34:43.434Z",codex-agent,"Behavioural revert proof: replacing only the filesystem cycle default emit binding with a no-op makes the real production-server external-pm SSE test fail (1 failure); removing requestLogging from createApp makes the real-server privacy/request test fail (1 failure); forcing realtimeHealth to return healthy makes the cached-health stale-watcher test fail (1 failure). All mutations restored. Focused instrumentation, real-server and idempotency suites passed 34/34 with zero fail, skip, cancel or todo. The linked 8/8 tests passed via pm test --run --progress; this tracker has result recording disabled, so outcomes are recorded here."
@@ -17,7 +17,15 @@ comments[7]{created_at,author,text}:
   "2026-10-14T08:47:01.038Z",codex-agent,"Corrected OIDC mount assertion and strengthened successful-write privacy coverage: focused command node scripts/with-test-db.ts node --test test/observability.test.ts test/observable-realtime.test.ts test/oidc.test.ts passed 22/22, zero fail/skip/cancel/todo. Repeated all three behavioural mutations on the final implementation; each targeted regression failed exactly once and every mutation was restored. No known host-load flakes occurred in the initial full gate."
   "2026-10-14T09:10:38.727Z",codex-agent,"Final isolated release gates: npm run release:check and bun run release:check each completed 583 tests, 579 passed and 4 failed, with zero skipped/cancelled/todo. Both stop at coverage because of the same unchanged live catalog failures: absent pm-lint/pm-review, pm-brief capability drift and stale fleet snapshot (PR #197 owns catalog renewal). All observability and OIDC regressions passed. Observed npm coverage: 90.75% statements/lines, 81.42% branches, 93.42% functions; Bun: 90.74% statements/lines, 81.36% branches, 93.42% functions, above unchanged thresholds. No known host-load flakes appeared, so no flake retry was needed. Separate isolated production audit passed with 0 vulnerabilities. Downstream packaging checks are running separately because release gates stopped before them. Full release certification remains blocked; delivery will be a draft PR with deployment held for the orchestrator."
   "2026-10-14T09:15:17.848Z",codex-agent,"Remaining release phases passed separately with isolated identity: npm run pack:dry-run; npm run accept:packed (4/4 actual npm/native-Bun minimum/current-host receipts); npm run changelog:check; npm run verify:release-changelog-date; npm run verify:release-publish-attestation. Production audit found 0 vulnerabilities. Both complete release checks remain nonzero solely for 4 live catalog drift tests. Feature implementation and privacy/delivery/watchdog proofs are ready for review; PR will be draft and hosted deployment is held. All links and evidence are package-owned; no companion tracker or hosted service was changed. No new pm CLI/SDK defect was found; linked test-result tracking is disabled, so test results are recorded in comments."
-files[25]{path,scope}:
+  "2026-10-14T10:33:22.218Z",codex-agent,"CodeRabbit round 1: verified all three findings against the current branch and merged main cleanly at bc30cac (SteveBot merge 2219c1a). Catalog PR #197 remains open. Plan: flush queued stdout before fatal exit; end replaced SSE responses and preserve registry/gauge accounting even when end fails; explicitly set and restore logging thresholds in all four cited tests. Add real piped child-process and replacement regressions, prove each fix by reverting only its changed behavior, then run isolated npm and Bun release gates without changing thresholds."
+  "2026-10-14T10:36:06.178Z",codex-agent,"Finding 1 VALID/FIXED: fatalError now waits for the stdout write callback after sanitized logError before exit(1). Real child-process tests pipe stdout with 2 MiB queued ahead of the fatal JSON and exercise both uncaughtException and unhandledRejection. Behavioural revert: reverting only fatalError to immediate process.exit(1), then node scripts/with-test-db.ts node --test --test-name-pattern=\"fatal JSON\" test/observability.test.ts, produced 0 pass / 2 fail / 0 skip, both failing \"fatal JSON line must finish\". Restored the callback fix."
+  "2026-10-14T10:36:07.473Z",codex-agent,"Finding 2 VALID/FIXED: same-id SSE replacement ends the prior response, logs a sanitized close error if needed, and removes the prior registration in finally; presence is scheduled for its former project. Tests check close attempts, both project indexes, current gauge, connection/disconnection totals, late old unsubscribe safety and delivery to the replacement, including a throwing end(). Behavioural revert: reverting only addSSEClient replacement to removeClient(previous, \"replaced\"), then node --test --test-name-pattern=\"replacing an SSE client\" test/sse.test.ts, produced 0 pass / 2 fail / 0 skip; both observed zero closes instead of one. Restored the fix."
+  "2026-10-14T10:36:08.682Z",codex-agent,"Finding 3 VALID/FIXED: setLogLevel sets explicit error/info thresholds and restores the original value (including absence) via test cleanup. All three cited observability tests and the PostgreSQL persistence-error test use it. Behavioural revert: replacing only setLogLevel body with a no-op, then env LOG_LEVEL=silent node scripts/with-test-db.ts node --test --test-name-pattern=\"unknown errors|filesystem sweep errors|health requests|PostgreSQL outcome-write\" test/observability.test.ts test/idempotency.test.ts, produced 0 pass / 4 fail / 0 skip due to suppressed error, watcher, request and persistence events. Restored the helper; all other fixes remained applied during each isolated revert."
+  "2026-10-14T10:36:43.970Z",codex-agent,"All fixes restored. The pm-linked tests completed successfully via pm test pm-web-m3d4 --run --progress, including the existing real-server filesystem delivery proof and the expanded suite under caller LOG_LEVEL=silent. Tracker test-result recording remains disabled (tracking_disabled), so exact outcomes are documented in comments. Running npm and Bun release:check under a fresh identity with PM_PATH and PM_AUTHOR unset, global/system Git config disabled and explicit fleet inventory; thresholds unchanged."
+  "2026-10-14T10:59:01.797Z",codex-agent,"Isolated npm release:check completed nonzero at coverage: 587 tests, 583 pass, 4 fail, 0 skipped/cancelled/todo. Exactly the known catalog failures (missing pm-lint/pm-review, pm-brief capability drift, stale fleet snapshot); catalog PR #197 is still open. No pm-web-qdhx or pm-web-fhob flake occurred, so no flake retry was needed. Measured aggregate coverage: 90.80% statements/lines, 81.55% branches, 93.77% functions; unchanged thresholds are 90/90/79/92. Typechecking, lint, duplication (0%) and docstrings (97 files/646 declarations) passed. Independent isolated production audit found zero vulnerabilities and both release validators passed. Linked runs passed 10/10 and 47/47 (the latter with caller LOG_LEVEL=silent). Starting isolated Bun release:check with the same source and thresholds."
+  "2026-10-14T11:14:11.092Z",codex-agent,"Isolated Bun release:check also completed nonzero at coverage: 587 tests, 583 pass, exactly the same 4 catalog failures, 0 skipped/cancelled/todo. Coverage: 90.80% statements/lines, 81.53% branches, 93.77% functions, exceeding unchanged 90/90/79/92 thresholds. Typechecking, lint, 0% duplication and docstrings passed. Fatal pipe tests, SSE replacement/gauge tests and all four environment-independent logging assertions passed. Neither known flake appeared in either run; no flake retry was needed. Final recheck: catalog PR #197 is still open, main remains bc30cac and is an ancestor of this branch. Full release certification remains blocked on those catalog tests; validating packed artifacts and the final changelog separately."
+  "2026-10-14T11:18:31.904Z",codex-agent,"Delivery validation: isolated pack:dry-run passed; isolated accept:packed passed all 4 real consumer receipts (npm and native Bun, current and minimum hosts). Production audit passed with 0 vulnerabilities; release changelog-date and publish-attestation checks passed. Both full release:check commands remain blocked only by the 4 known catalog failures (583/587 passed, zero skips/cancels/todos in each). No known flake occurred and no retry was necessary. All three review findings are fixed and each independent behavioural revert failed the intended regression. Tracker history was verified append-only and added tracked text checked for private absolute paths. Releasing the claim without closing the feature; final changelog generation/check and SteveBot commit/push follow for orchestrator verification."
+files[26]{path,scope}:
   src/app.ts,project
   src/health.ts,project
   src/idempotency.ts,project
@@ -43,8 +51,24 @@ files[25]{path,scope}:
   test/observable-realtime.test.ts,project
   test/oidc.test.ts,project
   test/smoke.test.ts,project
-tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
-  node scripts/with-test-db.ts node --test test/observability.test.ts test/observable-realtime.test.ts,project,codex-agent,"2026-10-14T08:33:07.850Z",local_mutation,feat/observable-realtime
-docs[1]{path,scope}:
+  test/sse.test.ts,project
+tests[2]:
+  - command: node scripts/with-test-db.ts node --test test/observability.test.ts test/observable-realtime.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-14T08:33:07.850Z"
+      source_kind: local_mutation
+      source_ref: feat/observable-realtime
+  - command: env LOG_LEVEL=silent node scripts/with-test-db.ts node --test test/observability.test.ts test/sse.test.ts test/idempotency.test.ts
+    scope: project
+    timeout_seconds: 240
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-14T10:35:42.359Z"
+      source_kind: local_mutation
+      source_ref: feat/observable-realtime
+docs[2]{path,scope}:
+  CHANGELOG.md,project
   README.md,project
 body: ""
