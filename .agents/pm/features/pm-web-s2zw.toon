@@ -2,12 +2,17 @@ id: pm-web-s2zw
 title: List pm-lint and pm-review in the package catalog and fail on catalog drift
 description: "The package catalog is the single source of truth for the per-project Packages view but omits two public fleet packages: pm-lint (authoring-quality lint rules, capabilities commands+schema) and pm-review (bot review findings as durable tracker items, capabilities commands+schema). Both are release-gated and absent from npm, so they must be catalogued as availability \"unreleased\" exactly as pm-ado and pm-jev are, with the real command lists and honest credential metadata. Also add an explicit drift test: the catalog must contain every public unbraind/pm-* repository named in a checked-in fixture list, so a new fleet package can never be silently missing again."
 type: Feature
-status: in_progress
+status: closed
 priority: 1
 tags: []
 created_at: "2026-10-14T04:44:35.979Z"
-updated_at: "2026-10-14T11:42:18.955Z"
+updated_at: "2026-10-14T15:26:11.384Z"
+closed_at: "2026-10-14T15:26:11.377Z"
+completed_at: "2026-10-14T15:26:11.377Z"
 author: pi-agent
+resolution: Implemented and merged in #197 (06958bd).
+expected_result: The change described by this item is on main.
+actual_result: "Merged in #197 as 06958bd; checks successful at head 319bfbf: CodeQL, codeql, test (22), test (26)."
 comments[15]{created_at,author,text}:
   "2026-10-14T04:44:58.261Z",pi-agent,"Plan: (1) add catalog entries for pm-lint (commands: pm lint, pm lint rules; capabilities commands+schema from its manifest) and pm-review (commands: pm review import/verdict/round/precedents; capabilities commands+schema), both availability \"unreleased\" like pm-ado, descriptions mirrored verbatim from each manifest on origin/main, pm-review declaring the GitHub token it reads (GITHUB_TOKEN, then GH_TOKEN, then the gh CLI) as its import/round credentials. (2) regenerate the committed fleet snapshot so the existing snapshot-based completeness and availability gates cover both packages (they ship manifest.json with capabilities, so the live-fleet freshness gate would otherwise fail). (3) add an explicit checked-in fixture list of every public unbraind/pm-* repository (pm-ado .. pm-web, minus pm-cli and the pm-web host) and a drift test asserting the catalog contains every fixture name, with a cross-check that the fixture cannot go stale against the regenerated snapshot."
   "2026-10-14T04:47:31.031Z",pi-agent,"Regenerating the committed fleet snapshot (the gate's freshness assertion re-derives it from the fleet checkouts, which are clean on main) added pm-lint and pm-review as expected, and also surfaced a pre-existing drift the stale snapshot had hidden: pm-brief's manifest now declares capabilities [commands, schema, services] (dropped renderers, gained services) and its command list grew to nine commands (brief, brief prompt, brief next, brief stale, brief momentum, brief since, brief diverge, brief duplicates, brief governance). Fixing the pm-brief entry in the same change, because the snapshot-based capability mirror gate fails otherwise and the catalog's truthfulness contract requires mirroring the real manifest."
@@ -39,4 +44,5 @@ docs[3]{path,scope}:
   "https://github.com/unbraind/pm-lint#readme",project
   "https://github.com/unbraind/pm-review#readme",project
   README.md,project
+close_reason: "Delivered by #197 \"List pm-lint and pm-review in the package catalog and fail on catalog drift\" (merged as 06958bd). Checks successful at the PR head 319bfbf: CodeQL, codeql, test (22), test (26)."
 body: ""
