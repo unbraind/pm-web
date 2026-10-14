@@ -6,10 +6,10 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-10-14T08:23:39.226Z"
-updated_at: "2026-10-14T11:18:32.945Z"
+updated_at: "2026-10-14T13:42:57.065Z"
 author: codex-agent
 acceptance_criteria: External shared-project writes reach SSE in a bounded real-server test; lifecycle counters are operator-visible; logs contain no request secrets or content.
-comments[15]{created_at,author,text}:
+comments[18]{created_at,author,text}:
   "2026-10-14T08:23:54.483Z",codex-agent,"Duplicate search found historical delivery proofs but no active observability item. Companion: pm-cli-website-8kqg. Plan: aggregate process-local health counters with freshness checked on every request, HMAC pseudonyms, safe route templates, lifecycle and sweep logs, real PostgreSQL and temp-root SSE proof plus behavioural link-break verification. Hosted services and telemetry configuration remain outside this work."
   "2026-10-14T08:33:05.663Z",codex-agent,"Implemented JSON stdout logs, registered route templates, HMAC user/project pseudonyms, and aggregate process-local health counters. Three missed filesystem sweep intervals (45 seconds by default), disabled sweeps or last-tick errors degrade health; freshness is read after cached dependency probes. Existing HTTP error log sites also use sanitized structured diagnostics to avoid leaking request-derived values. Focused new real-server and watchdog/privacy tests passed 8/8; delivery requires filesystem-origin SSE and uses a separate pinned pm process."
   "2026-10-14T08:34:43.434Z",codex-agent,"Behavioural revert proof: replacing only the filesystem cycle default emit binding with a no-op makes the real production-server external-pm SSE test fail (1 failure); removing requestLogging from createApp makes the real-server privacy/request test fail (1 failure); forcing realtimeHealth to return healthy makes the cached-health stale-watcher test fail (1 failure). All mutations restored. Focused instrumentation, real-server and idempotency suites passed 34/34 with zero fail, skip, cancel or todo. The linked 8/8 tests passed via pm test --run --progress; this tracker has result recording disabled, so outcomes are recorded here."
@@ -25,7 +25,10 @@ comments[15]{created_at,author,text}:
   "2026-10-14T10:59:01.797Z",codex-agent,"Isolated npm release:check completed nonzero at coverage: 587 tests, 583 pass, 4 fail, 0 skipped/cancelled/todo. Exactly the known catalog failures (missing pm-lint/pm-review, pm-brief capability drift, stale fleet snapshot); catalog PR #197 is still open. No pm-web-qdhx or pm-web-fhob flake occurred, so no flake retry was needed. Measured aggregate coverage: 90.80% statements/lines, 81.55% branches, 93.77% functions; unchanged thresholds are 90/90/79/92. Typechecking, lint, duplication (0%) and docstrings (97 files/646 declarations) passed. Independent isolated production audit found zero vulnerabilities and both release validators passed. Linked runs passed 10/10 and 47/47 (the latter with caller LOG_LEVEL=silent). Starting isolated Bun release:check with the same source and thresholds."
   "2026-10-14T11:14:11.092Z",codex-agent,"Isolated Bun release:check also completed nonzero at coverage: 587 tests, 583 pass, exactly the same 4 catalog failures, 0 skipped/cancelled/todo. Coverage: 90.80% statements/lines, 81.53% branches, 93.77% functions, exceeding unchanged 90/90/79/92 thresholds. Typechecking, lint, 0% duplication and docstrings passed. Fatal pipe tests, SSE replacement/gauge tests and all four environment-independent logging assertions passed. Neither known flake appeared in either run; no flake retry was needed. Final recheck: catalog PR #197 is still open, main remains bc30cac and is an ancestor of this branch. Full release certification remains blocked on those catalog tests; validating packed artifacts and the final changelog separately."
   "2026-10-14T11:18:31.904Z",codex-agent,"Delivery validation: isolated pack:dry-run passed; isolated accept:packed passed all 4 real consumer receipts (npm and native Bun, current and minimum hosts). Production audit passed with 0 vulnerabilities; release changelog-date and publish-attestation checks passed. Both full release:check commands remain blocked only by the 4 known catalog failures (583/587 passed, zero skips/cancels/todos in each). No known flake occurred and no retry was necessary. All three review findings are fixed and each independent behavioural revert failed the intended regression. Tracker history was verified append-only and added tracked text checked for private absolute paths. Releasing the claim without closing the feature; final changelog generation/check and SteveBot commit/push follow for orchestrator verification."
-files[26]{path,scope}:
+  "2026-10-14T13:21:21.678Z",codex-agent,"PR #196 completed first and is pushed with green isolated npm and Bun gates. Synchronizing PR #199 with main after catalog PR #197, regenerating the changelog and running both release commands sequentially with isolated identity, canonical fleet context and disposable PostgreSQL. Retain thresholds and prior behavioural revert proofs; no PR merge or deployment is included."
+  "2026-10-14T13:32:44.424Z",codex-agent,"Main 06958bd merged cleanly; focused production observability/SSE/privacy linked test run passed 10/10. Isolated npm release gate fully green on first attempt: 591/591 tests, 0 fail/cancel/skip/todo; S/L 90.83%, B 81.57%, F 93.77%, all 36 configured source files. Both Presets runtimes passed at unchanged 300-second deadlines (built 100.079 seconds, source 92.826). Production audit 0, packed npm/native-Bun current/minimum consumer scenarios 4/4, changelog and all release metadata checks pass. No load flake or retry occurred. Bun release gate now running under the same isolated identity and disposable PostgreSQL harness. Prior behavioural revert proofs retained; no new implementation change."
+  "2026-10-14T13:42:55.678Z",codex-agent,"PR #199 synchronized cleanly with main 06958bd after completing #196. Isolated npm and Bun release gates both fully green on first attempt: each 591/591 tests, 0 fail/cancel/skip/todo, no retry. Coverage npm S/L 90.83%, B 81.57%, F 93.77%; Bun S/L 90.83%, B 81.56%, F 93.77%, all 36 configured source files. Each gate passes production audit 0, actual packed npm/native-Bun consumers 4/4, and all remaining release metadata phases. pm-linked observable real-server/privacy suite 10/10. Tracker drift/storage checks pass without warnings. Unchanged 300-second Presets acceptance passed both runtimes under both commands. SDK stays pinned to 2026.10.13; #196 owns the separate upgrade. Existing behavioural revert proofs retained. Details and exact commands in docs/observable-realtime-main-sync.md. Claim released for verification, item unclosed."
+files[28]{path,scope}:
   src/app.ts,project
   src/health.ts,project
   src/idempotency.ts,project
@@ -44,6 +47,8 @@ files[26]{path,scope}:
   src/services/realtime-bus.ts,project
   src/services/realtime-observability.ts,project
   src/services/sse.ts,project
+  test/catalog-install-e2e.test.ts,project
+  test/catalog.test.ts,project
   test/helpers/observable-server.ts,project
   test/helpers/stdout-logs.ts,project
   test/idempotency.test.ts,project
@@ -52,7 +57,7 @@ files[26]{path,scope}:
   test/oidc.test.ts,project
   test/smoke.test.ts,project
   test/sse.test.ts,project
-tests[2]:
+tests[4]:
   - command: node scripts/with-test-db.ts node --test test/observability.test.ts test/observable-realtime.test.ts
     scope: project
     provenance:
@@ -68,7 +73,24 @@ tests[2]:
       created_at: "2026-10-14T10:35:42.359Z"
       source_kind: local_mutation
       source_ref: feat/observable-realtime
-docs[2]{path,scope}:
+  - command: "env -u PM_PATH -u PM_AUTHOR -u PM_ROOT HOME=$(mktemp -d) GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 npm run release:check"
+    scope: project
+    timeout_seconds: 7200
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-14T13:22:32.466Z"
+      source_kind: local_mutation
+      source_ref: feat/observable-realtime
+  - command: "env -u PM_PATH -u PM_AUTHOR -u PM_ROOT HOME=$(mktemp -d) GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 bun run release:check"
+    scope: project
+    timeout_seconds: 7200
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-14T13:22:33.349Z"
+      source_kind: local_mutation
+      source_ref: feat/observable-realtime
+docs[3]{path,scope}:
   CHANGELOG.md,project
+  docs/observable-realtime-main-sync.md,project
   README.md,project
 body: ""

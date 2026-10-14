@@ -10,6 +10,7 @@ import {
   findCatalogEntry,
   resolveNpmSpec,
 } from "../src/services/package-catalog.ts";
+import { FLEET_PACKAGE_REPOS } from "./fleet-package-repos.fixture.ts";
 import {
   FLEET_SNAPSHOT_PATH,
   type FleetExtension,
@@ -60,6 +61,27 @@ const EXPECTED_NAMES: readonly string[] =
 
 // The two authoring reference templates that must be in the catalog.
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
+
+test("pm-review catalog exposes all five commands registered on main", () => {
+  const entry = findCatalogEntry("pm-review");
+  assert.ok(entry);
+  assert.deepEqual([...(entry.commands ?? [])].sort(), [
+    "pm review find", "pm review import", "pm review precedents", "pm review round", "pm review verdict",
+  ]);
+});
+
+test("pm-review credentials are optional and identify the authenticated commands", () => {
+  const entry = findCatalogEntry("pm-review");
+  assert.ok(entry);
+  assert.ok(entry.requiresCredentials);
+  assert.equal(entry.requiresCredentials.length, 1);
+  const credential = entry.requiresCredentials[0];
+  assert.ok(credential);
+  assert.equal(credential.optional, true, "find, precedents and local verdicts need no GitHub token");
+  assert.deepEqual(credential.envVars, ["GITHUB_TOKEN", "GH_TOKEN"]);
+  assert.match(credential.label, /review import, round and verdict --apply/);
+  assert.match(credential.label, /gh CLI's stored login/);
+});
 
 test("catalog exposes exactly every published pm package, no duplicates, pm-web absent", () => {
   assert.deepEqual(fleetProblems, [], "fleet metadata must be readable and consistent");
@@ -238,6 +260,65 @@ test("the catalog covers every pm extension in the fleet", () => {
 const fleetSnapshot: FleetExtension[] = JSON.parse(
   readFileSync(path.join(packageRoot, FLEET_SNAPSHOT_PATH), "utf8"),
 );
+
+test("the catalog contains every public pm-* repository in the checked-in fixture list", () => {
+  // The explicit roster drift gate. The snapshot and live-fleet gates above
+  // can only check the inputs they derive; this one holds the catalog against
+  // a hand-maintained list of every public unbraind/pm-* repository, so a new
+  // fleet package cannot be silently missing even if every generated input is
+  // stale. It runs in every environment, including a standalone CI checkout
+  // with no fleet siblings, because that is the environment that guards the
+  // merge.
+  const missing = FLEET_PACKAGE_REPOS
+    .filter((name) => findCatalogEntry(name) === undefined);
+  assert.deepEqual(
+    missing,
+    [],
+    `these public unbraind/pm-* repositories are in the fixture list but absent from the catalog, `
+      + `so the UI would never offer or even mention them: ${missing.join(", ")}`,
+  );
+  // The fixture is a roster, so it must itself be well-formed: unique,
+  // lexicographically sorted, namespaced, and free of the two repos that can
+  // never be catalogued.
+  assert.equal(new Set(FLEET_PACKAGE_REPOS).size, FLEET_PACKAGE_REPOS.length,
+    "the fixture list must not repeat a repository");
+  assert.deepEqual([...FLEET_PACKAGE_REPOS], [...FLEET_PACKAGE_REPOS].sort(),
+    "the fixture list must stay lexicographically sorted");
+  for (const name of FLEET_PACKAGE_REPOS) {
+    assert.match(name, /^pm-[a-z0-9-]+$/, `${name}: fixture entries are repository names`);
+  }
+  assert.ok(!FLEET_PACKAGE_REPOS.includes("pm-cli"), "pm-cli is the CLI, not a fleet package");
+  assert.ok(!FLEET_PACKAGE_REPOS.includes("pm-web"), "pm-web is the host and cannot install itself");
+});
+
+test("the fixture list and the committed fleet snapshot cover the same packages", () => {
+  // The fixture is hand-maintained and the snapshot is generated; without a
+  // cross-check either could drift from the other unnoticed. Every snapshot
+  // package must be in the fixture, so regenerating the snapshot after a
+  // fleet package is created forces a fixture update — the same regeneration
+  // cannot silently skip the hand-maintained roster. And the only fixture
+  // names allowed outside the snapshot are packages that ship no extension
+  // manifest (today the native pm-rust), because a fixture name absent from
+  // both the snapshot and that set would be a typo the drift gate reports as
+  // a catalog miss without saying the roster itself is wrong.
+  const snapshotNames = fleetSnapshot.map((extension) => extension.name);
+  const unlisted = snapshotNames.filter((name) => !FLEET_PACKAGE_REPOS.includes(name));
+  assert.deepEqual(
+    unlisted,
+    [],
+    `these fleet packages are in the committed snapshot but not in the fixture list; add them to the fixture: ${unlisted.join(", ")}`,
+  );
+  // Packages without extension manifests cannot be derived into the snapshot
+  // but are still real, catalogued fleet packages, so they are pinned here.
+  const NATIVE_REPOS = ["pm-rust"] as const;
+  const unexplainable = FLEET_PACKAGE_REPOS
+    .filter((name) => !snapshotNames.includes(name) && !NATIVE_REPOS.includes(name as "pm-rust"));
+  assert.deepEqual(
+    unexplainable,
+    [],
+    `these fixture repositories are neither in the committed snapshot nor known native packages; fix or remove them from the fixture: ${unexplainable.join(", ")}`,
+  );
+});
 
 test("the catalog covers every fleet extension in the committed snapshot", () => {
   assert.ok(
