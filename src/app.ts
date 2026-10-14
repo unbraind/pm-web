@@ -15,6 +15,7 @@ import { githubRouter } from "./routes/github.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { createTierLimiters, resolveTrustProxy } from "./rate-limit.ts";
 import { csrfProtection } from "./csrf.ts";
+import { requestLogging, logRoutePrefix, unhandledErrorLogging } from "./observability.ts";
 import { idempotencyGuard } from "./idempotency.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -167,6 +168,7 @@ export function createApp(deps?: CreateAppDeps): Express {
   // against.
   const limiters = createTierLimiters(process.env);
 
+  app.use(requestLogging());
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
 
@@ -259,17 +261,17 @@ export function createApp(deps?: CreateAppDeps): Express {
   // Charge every attempt (including replays) before touching the idempotency store.
   const keyedWrites = idempotencyGuard();
   app.use("/api/auth", limiters.auth, keyedWrites);
-  app.use("/api/auth", oidcRouter);
-  app.use("/api/auth", authRouter);
+  app.use("/api/auth", logRoutePrefix("/api/auth"), oidcRouter);
+  app.use("/api/auth", logRoutePrefix("/api/auth"), authRouter);
   app.use("/api/projects", limiters.read, limiters.write, keyedWrites);
-  app.use("/api/projects", projectsRouter);
-  app.use("/api/projects/:projectId/pm", pmRouter);
-  app.use("/api/projects/:projectId/extensions", extensionsRouter);
-  app.use("/api/projects/:id/shares", sharesRouter);
-  app.use("/api/projects/:id/github", githubRouter);
-  app.use("/api/groups", limiters.read, limiters.write, keyedWrites, groupsRouter);
-  app.use("/api/shared", limiters.read, limiters.write, keyedWrites, sharedWithMeRouter);
-  app.use("/api/admin", limiters.admin, keyedWrites, adminRouter);
+  app.use("/api/projects", logRoutePrefix("/api/projects"), projectsRouter);
+  app.use("/api/projects/:projectId/pm", logRoutePrefix("/api/projects/:projectId/pm"), pmRouter);
+  app.use("/api/projects/:projectId/extensions", logRoutePrefix("/api/projects/:projectId/extensions"), extensionsRouter);
+  app.use("/api/projects/:id/shares", logRoutePrefix("/api/projects/:id/shares"), sharesRouter);
+  app.use("/api/projects/:id/github", logRoutePrefix("/api/projects/:id/github"), githubRouter);
+  app.use("/api/groups", limiters.read, limiters.write, keyedWrites, logRoutePrefix("/api/groups"), groupsRouter);
+  app.use("/api/shared", limiters.read, limiters.write, keyedWrites, logRoutePrefix("/api/shared"), sharedWithMeRouter);
+  app.use("/api/admin", limiters.admin, keyedWrites, logRoutePrefix("/api/admin"), adminRouter);
 
   // Unknown API routes get a JSON 404 instead of falling through to the SPA
   // shell, which would hand HTML to API clients expecting JSON.
@@ -282,5 +284,6 @@ export function createApp(deps?: CreateAppDeps): Express {
     res.sendFile(path.join(PUBLIC_DIR, "index.html"));
   });
 
+  app.use(unhandledErrorLogging);
   return app;
 }

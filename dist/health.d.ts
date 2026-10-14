@@ -1,3 +1,4 @@
+import type { realtimeHealth } from "./services/realtime-observability.ts";
 import type { RequestHandler } from "express";
 /**
  * Minimum structural type a PostgreSQL pool must satisfy for the health probe.
@@ -37,6 +38,8 @@ export interface SoftProbe {
 }
 /** Dependencies the health handler needs to probe. */
 export interface HealthProbeDeps {
+    /** Optional live watchdog and aggregate counters, sampled after cached probes. */
+    readonly realtime?: typeof realtimeHealth;
     /** PostgreSQL pool — probed with `SELECT 1` (hard dependency). */
     readonly pool: Queryable;
     /** Host-mounted projects root — probed for writability (hard dependency). */

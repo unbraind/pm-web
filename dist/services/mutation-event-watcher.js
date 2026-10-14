@@ -1,3 +1,4 @@
+import { logError } from "../observability.js";
 // Per-project mutation-event subscription manager.
 //
 // The primary out-of-band change detector for pm-web. Subscribes to the pm SDK's
@@ -148,7 +149,7 @@ export function startMutationEventWatcher(deps = {}) {
     if (process.env.PM_REALTIME_MUTATION_EVENTS === "false")
         return () => undefined;
     const reconcileMs = Math.max(MIN_RECONCILE_MS, deps.reconcileMs ?? positiveIntEnv("PM_MUTATION_EVENT_RECONCILE_MS", DEFAULT_RECONCILE_MS));
-    const onError = deps.onError ?? ((err) => console.error("Mutation-event watcher reconcile failed", err instanceof Error ? err.message : err));
+    const onError = deps.onError ?? ((err) => logError("mutation_watcher_error", err));
     const { reconcile, stopAll } = createMutationEventReconciler({ ...deps, onError });
     const timer = setInterval(() => { void reconcile().catch(onError); }, reconcileMs);
     timer.unref();

@@ -1,3 +1,4 @@
+import { captureLogs, setLogLevel } from "./helpers/stdout-logs.ts";
 /**
  * Real-Postgres, real-HTTP coverage for the server-side idempotency guard.
  *
@@ -644,6 +645,7 @@ test("production rate limiting precedes keyed replays and refusals never claim a
 
 
 test("a PostgreSQL outcome-write failure is caught and leaves a pending intent", async (t) => {
+  setLogLevel(t, "error");
   const { server, owner } = await setupOwnerAppTest(t);
   const key = uniqueKey("persist-failure");
   const trigger = `outcome_failure_${RUN_ID}`;
@@ -660,14 +662,11 @@ test("a PostgreSQL outcome-write failure is caught and leaves a pending intent",
     if (previousWait === undefined) delete process.env.PM_WEB_IDEMPOTENCY_WAIT_MS;
     else process.env.PM_WEB_IDEMPOTENCY_WAIT_MS = previousWait;
   });
-  const errors: unknown[][] = [];
-  const originalError = console.error;
-  console.error = (...args: unknown[]) => { errors.push(args); };
-  t.after(() => { console.error = originalError; });
+  const errors = captureLogs(t);
   assert.equal((await keyedGroupPost(server, owner, key, "outage")).status, 201);
   assert.equal((await keyedGroupPost(server, owner, key, "outage")).status, 409);
   assert.equal(await groupCount(owner.id), 1);
-  assert.ok(errors.some((entry) => String(entry[0]).includes("persist idempotency outcome")), "persistence failure is recorded");
+  assert.ok(errors.some((entry) => (JSON.parse(entry) as { event: string }).event === "idempotency_persist_error"), "persistence failure is recorded");
 });
 
 test("expected account mismatches are refused before execution or key claims, even without a key", async (t) => {

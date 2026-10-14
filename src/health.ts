@@ -1,4 +1,6 @@
-import type { RequestHandler } from "express";
+import { logError } from "./observability.ts";
+import type { realtimeHealth } from "./services/realtime-observability.ts";
+import type { Response, RequestHandler } from "express";
 import { readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -42,6 +44,8 @@ export interface SoftProbe {
 
 /** Dependencies the health handler needs to probe. */
 export interface HealthProbeDeps {
+  /** Optional live watchdog and aggregate counters, sampled after cached probes. */
+  readonly realtime?: typeof realtimeHealth;
   /** PostgreSQL pool — probed with `SELECT 1` (hard dependency). */
   readonly pool: Queryable;
   /** Host-mounted projects root — probed for writability (hard dependency). */
@@ -107,7 +111,7 @@ function errorMessage(error: unknown): string {
     : "";
   const message = error instanceof Error ? error.message : String(error);
 
-  console.error("[healthz] probe failed", { code, message });
+  logError("health_probe_error", error);
 
   if (message === "probe timed out") return "timed out";
   if (code === "ENOENT") return "not found";
@@ -368,15 +372,25 @@ export function createHealthHandler(deps: HealthProbeDeps): RequestHandler {
     return result;
   }
 
+  /** Overlay uncached collaboration health on the dependency probe result. */
+  const respond = (res: Response, result: HealthResult): void => {
+    const live = deps.realtime?.();
+    const ok = result.ok && (live?.ok ?? true);
+    res.status(ok ? 200 : 503).json({ ...result, ok, ...(live ? {
+      status: ok ? "ok" : "degraded", realtime: live.counters,
+      dependencies: { ...result.dependencies, project_watcher: { ok: live.ok, latency_ms: 0 } },
+    } : {}) });
+  };
+
   const handler: RequestHandler = async (_req, res) => {
     if (cached && Date.now() - cached.at < cacheTtlMs) {
-      res.status(cached.result.ok ? 200 : 503).json(cached.result);
+      respond(res, cached.result);
       return;
     }
 
     inFlight ??= compute().finally(() => { inFlight = null; });
     const result = await inFlight;
-    res.status(result.ok ? 200 : 503).json(result);
+    respond(res, result);
   };
 
   return handler;

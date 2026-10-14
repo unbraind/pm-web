@@ -1,3 +1,4 @@
+import { logError } from "../observability.js";
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -256,7 +257,7 @@ router.patch("/", async (req, res) => {
         res.json({ ok: true });
     }
     catch (err) {
-        console.error("GitHub link error:", err);
+        logError("github_link_error", err);
         res.status(500).json({ error: "Failed to link GitHub repository" });
     }
 });
@@ -281,7 +282,7 @@ router.get("/issues", async (req, res) => {
         res.json({ issues: issues.filter(i => !("pull_request" in i)) });
     }
     catch (err) {
-        console.error("GitHub issues error:", err);
+        logError("github_issues_error", err);
         res.status(500).json({ error: "Failed to fetch GitHub issues" });
     }
 });
@@ -486,7 +487,7 @@ router.get("/repo-info", async (req, res) => {
         res.json({ name: data.full_name, description: data.description, private: data.private, openIssues: data.open_issues_count });
     }
     catch (err) {
-        console.error("Repo info error:", err);
+        logError("repo_info_error", err);
         res.status(500).json({ error: "Failed to fetch repo info" });
     }
 });
