@@ -441,6 +441,50 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
   }
 });
 
+test("built in-process runner supports an eval host without a script argv entry", () => {
+  const proof = spawnSync(process.execPath, ["--input-type=module", "--eval", `
+import assert from "node:assert/strict";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { runPm, evictPmClient } from "./dist/services/pm-runner.js";
+import { pool } from "./dist/db.js";
+import { runPmCli } from "@unbrained/pm-cli/cli";
+assert.equal(process.argv[1], undefined);
+const argv = [...process.argv];
+const exitCode = process.exitCode;
+const root = await mkdtemp(path.join(tmpdir(), "pm-web-eval-host-"));
+process.env.PROJECTS_ROOT = root;
+process.env.PM_CLI_BIN = path.join(root, "nonexistent-cli");
+const pmRoot = path.join(root, "fixture", "eval", ".agents", "pm");
+try {
+  await mkdir(path.dirname(path.dirname(pmRoot)), { recursive: true });
+  const call = (args) => runPm({ userId: "fixture", slug: "eval", args, jsonOutput: true });
+  const initialized = await call(["init", "eval"]);
+  assert.equal(initialized.ok, true, initialized.stderr);
+  const created = await call(["create", "--type", "Task", "--title", "Synthetic eval item"]);
+  assert.equal(created.ok, true, created.stderr);
+  assert.equal(typeof created.parsed.id, "string");
+  const read = await call(["get", created.parsed.id]);
+  assert.equal(read.ok, true, read.stderr);
+  assert.equal(read.parsed.item.title, "Synthetic eval item");
+  await runPmCli(["--pm-path", pmRoot, "create", "--type", "Task", "--title", "Synthetic embedded CLI item", "--json"]);
+  assert.deepEqual(process.argv, argv);
+  assert.equal(process.exitCode, exitCode);
+  const listed = await call(["list"]);
+  assert.equal(listed.ok, true, listed.stderr);
+  assert.match(listed.stdout, /Synthetic embedded CLI item/);
+  console.log("built eval-host in-process init/create/get passed");
+} finally {
+  evictPmClient(pmRoot);
+  await pool.end();
+  await rm(root, { recursive: true, force: true });
+}
+`], { encoding: "utf8", timeout: 120_000 });
+  assert.equal(proof.status, 0, `${proof.stdout}\n${proof.stderr}`);
+  assert.match(proof.stdout, /built eval-host in-process init\/create\/get passed/);
+});
+
 test("an SDK-unsupported action falls back once to the original CLI argv", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-unsupported-runner-"));
   const fakePm = path.join(root, "fake-pm.cjs");

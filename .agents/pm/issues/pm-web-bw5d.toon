@@ -6,13 +6,28 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-08-28T23:25:38.715Z"
-updated_at: "2026-10-03T00:35:45.718Z"
+updated_at: "2026-10-14T06:08:47.249Z"
 author: claude
-comments[4]{created_at,author,text}:
-  "2026-10-02T22:28:15.925Z",codex-sol,"Reusing existing catalog-drift item for PR #161 gate repair. PM_FLEET_ROOT full gate failed two existing assertions (407/409 pass): pm-ado description overclaims sync/revision reconciliation, and live snapshot has changed pm-ado / TS Starter descriptions. Preserve capabilities/publication constraints and all assertions; align catalog to real manifest and regenerate snapshot with own script. No canonical fleet source edits or hosted operations."
-  "2026-10-02T23:21:56.810Z",codex-sol,"Existing static-manifest and snapshot assertions failed before repair, then all 12 catalog tests and linked acceptance passed. Updated only pm-ado foundation description in static catalog and regenerated snapshot with own fleet:snapshot script; snapshot also records TS Starter checked SDK 2026.9.29. Full locked release:check with explicit canonical PM_FLEET_ROOT now passes 409/409, zero skips. Catalog source and generated dist are committed with this item/history; release claim for orchestrator review, no closure."
-  "2026-10-03T00:24:19.226Z",codex-sol-land,"The PR #163 full gate reproduced stale live-fleet snapshot metadata for pm-ts-starter (SDK description 2026.7.6 versus live 2026.9.29). Reuse this catalog drift owner; existing freshness regression is red. Regenerate through npm run fleet:snapshot, retain registry verification and all completeness gates, and rerun the direct/PM-linked catalog regression plus the full PostgreSQL 17 release gate."
-  "2026-10-03T00:29:50.353Z",codex-sol-land,"Regenerated the live-fleet snapshot through the repository generator. The existing freshness regression was red before the update and passes 12/12 directly and through its existing PM test link; full release:check now passes 408 tests, 408 pass, 0 skips against disposable PostgreSQL 17 with unchanged gates. Only the pm-ts-starter description changed. The existing historical privacy/review blockers remain separate."
+comments[6]:
+  - created_at: "2026-10-02T22:28:15.925Z"
+    author: codex-sol
+    text: "Reusing existing catalog-drift item for PR #161 gate repair. PM_FLEET_ROOT full gate failed two existing assertions (407/409 pass): pm-ado description overclaims sync/revision reconciliation, and live snapshot has changed pm-ado / TS Starter descriptions. Preserve capabilities/publication constraints and all assertions; align catalog to real manifest and regenerate snapshot with own script. No canonical fleet source edits or hosted operations."
+  - created_at: "2026-10-02T23:21:56.810Z"
+    author: codex-sol
+    text: "Existing static-manifest and snapshot assertions failed before repair, then all 12 catalog tests and linked acceptance passed. Updated only pm-ado foundation description in static catalog and regenerated snapshot with own fleet:snapshot script; snapshot also records TS Starter checked SDK 2026.9.29. Full locked release:check with explicit canonical PM_FLEET_ROOT now passes 409/409, zero skips. Catalog source and generated dist are committed with this item/history; release claim for orchestrator review, no closure."
+  - created_at: "2026-10-03T00:24:19.226Z"
+    author: codex-sol-land
+    text: "The PR #163 full gate reproduced stale live-fleet snapshot metadata for pm-ts-starter (SDK description 2026.7.6 versus live 2026.9.29). Reuse this catalog drift owner; existing freshness regression is red. Regenerate through npm run fleet:snapshot, retain registry verification and all completeness gates, and rerun the direct/PM-linked catalog regression plus the full PostgreSQL 17 release gate."
+  - created_at: "2026-10-03T00:29:50.353Z"
+    author: codex-sol-land
+    text: "Regenerated the live-fleet snapshot through the repository generator. The existing freshness regression was red before the update and passes 12/12 directly and through its existing PM test link; full release:check now passes 408 tests, 408 pass, 0 skips against disposable PostgreSQL 17 with unchanged gates. Only the pm-ts-starter description changed. The existing historical privacy/review blockers remain separate."
+  - created_at: "2026-10-14T05:46:23.514Z"
+    author: codex-agent
+    text: "SDK2026.10.14 candidate validation independently reproduced catalog drift with explicit canonical fleet context: focused catalog suite8pass/4fail of12 (zero cancelled/skipped/todo), including pm-lint/pm-review membership, manifest fidelity and stale committed snapshot. Initial worktree-parent default had partial-fleet failures; explicit context separates that configuration issue. Reuse this existing catalog owner; do not fold catalog changes into the dependency candidate. Full matrix results remain owned by pm-web-8pml."
+    edited_at: "2026-10-14T06:08:46.072Z"
+  - created_at: "2026-10-14T05:47:09.165Z"
+    author: codex-agent
+    text: "Correction to the immediately preceding focused-run count: the exact canonical catalog log reports12 tests,8 passed,4 failed (zero cancelled/skipped/todo), not30/27/3. Failures are membership, manifest-claim fidelity, fleet coverage and snapshot freshness. All four are catalog drift; the earlier counts were a transcription error. The log and full-gate receipts remain the evidence source."
 notes[3]{created_at,author,text}:
   "2026-08-28T23:25:39.165Z",claude,"pm-rl merged an extension mutation guard on 2026-08-28 (unbraind/pm-rl#18), which added a hooks capability to its manifest.json. The catalog entry in src/services/package-catalog.ts still declared capabilities [commands, schema], so test/catalog.test.ts failed with: pm-rl: catalog capabilities must match manifest capabilities, actual [commands, hooks, schema] against expected [commands, schema]. Updated the entry to [commands, hooks, schema]. Worth noting the test did its job: this is a hand-maintained mirror of another repository's manifest, so it goes stale whenever any of the 20 packages changes its declared capabilities, and only this repository's own test notices. The catalog test is therefore the fleet's only detector for capability drift, and it can only run here."
   "2026-09-29T12:33:09.583Z",codex,"The live canonical pm-ado manifest changed its description to a client-foundation statement and explicitly says full sync/revision-to-history work is planned. This made pm-web's existing catalog test and snapshot freshness gate fail. Refreshed the 20-extension snapshot with npm run fleet:snapshot and aligned the user-facing pm-ado catalog description to the manifest. Direct and PM-linked catalog tests now pass 12/12; package release gate rerun is pending."
