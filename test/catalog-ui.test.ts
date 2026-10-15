@@ -18,19 +18,22 @@ function card(entry: PackageCatalogEntry): string {
   })));
 }
 
-test("real Jev catalog card omits its unpublished npm link and retains supported links", () => {
-  const entry = findCatalogEntry("pm-jev");
-  assert.ok(entry);
-  assert.equal(snapshot.find((pkg) => pkg.name === entry.name)?.npmPublished, false);
-  assert.equal(entry.availability, "unreleased");
-  const html = card(entry);
-  assert.doesNotMatch(html, /npmjs\.com|href="undefined"|data-pkg-action="install"/);
-  assert.equal(entry.links?.npm, undefined, "an unpublished package must not advertise an npm link");
-  for (const label of ["docs", "repository", "report"] as const) {
-    assert.ok(entry.links?.[label]);
-    assert.ok(html.includes(`href="${entry.links[label]}"`), `${label} link must remain visible`);
-  }
-});
+for (const name of ["pm-jev", "pm-swarm"]) {
+  test(`real ${name} catalog card omits its unpublished npm link and retains supported links`, () => {
+    const entry = findCatalogEntry(name);
+    assert.ok(entry);
+    assert.equal(snapshot.find((pkg) => pkg.name === entry.name)?.npmPublished, false);
+    assert.equal(entry.availability, "unreleased");
+    const html = card(entry);
+    assert.match(html, /data-i18n="packages.unreleasedBadge"/);
+    assert.doesNotMatch(html, /npmjs\.com|href="undefined"|data-pkg-action="install"/);
+    assert.equal(entry.links?.npm, undefined, "an unpublished package must not advertise an npm link");
+    for (const label of ["docs", "repository", "report"] as const) {
+      assert.ok(entry.links?.[label]);
+      assert.ok(html.includes(`href="${entry.links[label]}"`), `${label} link must remain visible`);
+    }
+  });
+}
 
 test("real published Graph metadata retains its npm link and install action in the card", () => {
   const entry = findCatalogEntry("pm-graph");

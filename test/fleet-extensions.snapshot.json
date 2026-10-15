@@ -258,6 +258,17 @@
     "npmPublished": true
   },
   {
+    "name": "pm-swarm",
+    "description": "Git worktree lanes and real conflict prediction for parallel pm agents",
+    "packageDescription": "Git worktree lanes and real conflict prediction for parallel pm agents",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": true,
+    "npmPublished": false
+  },
+  {
     "name": "pm-todos",
     "description": "TODO round-trip. Import/export/sync markdown checkboxes, todo.txt, jsonl, checkbox, and pi coding-agent todo JSON as pm items.",
     "packageDescription": "TODO round-trip extension for pm-cli: markdown, todo.txt, GitHub task lists, and pi coding-agent todo JSON",

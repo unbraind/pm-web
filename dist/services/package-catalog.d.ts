@@ -88,7 +88,7 @@ export interface PackageCatalogEntry {
     readonly unavailableReason?: string;
     /** Human-friendly title, e.g. `Graph`. */
     readonly title: string;
-    /** One-line description, mirrored from the package's manifest/package.json. */
+    /** One-line description from package metadata or explicitly curated catalog copy. */
     readonly description: string;
     /** Capabilities declared in the package manifest. */
     readonly capabilities: readonly PackageCapability[];

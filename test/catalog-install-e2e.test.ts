@@ -287,10 +287,10 @@ export function activate(api: ExtensionApi): void {
     assert.match(eventText, /"operation":"activate"/);
     assert.doesNotMatch(eventText, /"operation":"run"/, "command output must survive package-state refreshes");
     const before = await readFile(path.join(pmRoot, "settings.json"), "utf8");
-    for (const name of ["pm-ado", "pm-rust"]) {
+    for (const name of ["pm-ado", "pm-swarm", "pm-rust"]) {
       const refused = await fetch(`${base}/${name}/install`, { method: "POST", headers });
       assert.equal(refused.status, 409);
-      assert.match(await refused.text(), name === "pm-ado" ? /not published to npm yet/ : /native CLI, not an npm extension/);
+      assert.match(await refused.text(), name === "pm-rust" ? /native CLI, not an npm extension/ : /not published to npm yet/);
     }
     assert.equal(await readFile(path.join(pmRoot, "settings.json"), "utf8"), before);
     const trackerItems = execFileSync(process.execPath, [cli, "list", "--all", "--json", "--output-budget", "unbounded", "--output-limit", "unbounded"], { cwd: project, env, encoding: "utf8" });

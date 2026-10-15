@@ -9,11 +9,13 @@ import {
   catalogNames,
   findCatalogEntry,
   resolveNpmSpec,
+  type PackageCatalogEntry,
 } from "../src/services/package-catalog.ts";
 import { FLEET_PACKAGE_REPOS } from "./fleet-package-repos.fixture.ts";
 import {
   FLEET_SNAPSHOT_PATH,
   type FleetExtension,
+  type LocalFleetExtension,
   readFleetExtensions,
 } from "../src/services/fleet-snapshot.ts";
 
@@ -61,6 +63,40 @@ const EXPECTED_NAMES: readonly string[] =
 
 // The two authoring reference templates that must be in the catalog.
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
+
+/** Assert manifest provenance while allowing Swarm's explicitly curated display copy. */
+function assertCatalogDescription(entry: PackageCatalogEntry, manifest: LocalFleetExtension): void {
+  if (entry.name === "pm-swarm") {
+    assert.equal(manifest.description, "Git worktree lanes and real conflict prediction for parallel pm agents",
+      "Swarm manifest summary must remain verified even with curated catalog copy");
+    assert.equal(entry.description, "Git worktree lanes, real merge-tree conflict prediction and conflict-free landing order for parallel agents");
+    return;
+  }
+  assert.equal(entry.description,
+    entry.category === "template" && manifest.packageDescription ? manifest.packageDescription : manifest.description,
+    `${entry.name}: catalog description must mirror the package metadata`);
+}
+
+test("pm-swarm exposes its seven workflow commands as an unreleased product extension", () => {
+  const entry = findCatalogEntry("pm-swarm");
+  assert.ok(entry, "Swarm must be visible in the catalog");
+  assert.equal(entry.npmName, "pm-swarm");
+  assert.equal(entry.npmSpec, "npm:pm-swarm");
+  assert.equal(entry.title, "Swarm");
+  assert.equal(entry.category, "extension");
+  assert.deepEqual(entry.capabilities, ["commands", "schema"]);
+  assert.deepEqual(entry.commands, [
+    "pm swarm plan", "pm swarm start", "pm swarm status", "pm swarm sync",
+    "pm swarm land", "pm swarm reap", "pm swarm settings",
+  ]);
+  assert.deepEqual(entry.links, {
+    docs: "https://github.com/unbraind/pm-swarm#readme",
+    repository: "https://github.com/unbraind/pm-swarm",
+    report: "https://github.com/unbraind/pm-swarm/issues",
+  });
+  assert.equal(entry.availability, "unreleased");
+  assert.equal(resolveNpmSpec(entry.name), null, "unreleased Swarm must never resolve an install target");
+});
 
 test("pm-review catalog exposes all five commands registered on main", () => {
   const entry = findCatalogEntry("pm-review");
@@ -196,21 +232,9 @@ test("catalog entries mirror each package's real manifest.json claims", () => {
     // authoring templates the source of truth is the package.json description
     // (the manifest carries a longer, capability-enumerating blurb that is
     // too verbose for a one-line catalog card, while package.json holds the
-    // concise summary the task requires verbatim).
-    const pkgJson = manifest;
-    if (entry.category === "template" && pkgJson?.packageDescription) {
-      assert.equal(
-        pkgJson.packageDescription,
-        entry.description,
-        `${entry.name}: template description must match package.json description verbatim`,
-      );
-    } else {
-      assert.equal(
-        manifest.description,
-        entry.description,
-        `${entry.name}: catalog description must match manifest description`,
-      );
-    }
+    // concise summary the task requires verbatim). Swarm uses explicitly
+    // curated display copy while retaining a verified manifest summary.
+    assertCatalogDescription(entry, manifest);
   }
   // When the fleet siblings are present (monorepo dev / hosted build), every
   // entry is checked. Standalone CI skips the manifest comparison but keeps
@@ -347,17 +371,8 @@ test("the catalog covers every fleet extension in the committed snapshot", () =>
     }
     // Same rule the live-fleet assertion applies: a product extension mirrors
     // the manifest description, an authoring template mirrors the concise
-    // package.json one.
-    const expectedDescription =
-      entry.category === "template" && extension.packageDescription
-        ? extension.packageDescription
-        : extension.description;
-    assert.equal(
-      entry.description,
-      expectedDescription,
-      `${extension.name}: catalog description must mirror the `
-        + `${entry.category === "template" ? "package.json" : "manifest"} description`,
-    );
+    // package.json one. Swarm also verifies its curated display copy.
+    assertCatalogDescription(entry, extension);
     assert.deepEqual(
       [...entry.capabilities].sort(),
       extension.capabilities,

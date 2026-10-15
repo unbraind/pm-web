@@ -43,6 +43,7 @@ export const FLEET_PACKAGE_REPOS: readonly string[] = [
   "pm-slack",
   "pm-slack-standup",
   "pm-starter",
+  "pm-swarm",
   "pm-todos",
   "pm-ts-starter",
   "pm-vcs",

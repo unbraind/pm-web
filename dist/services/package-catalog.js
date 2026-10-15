@@ -360,6 +360,21 @@ export const PACKAGE_CATALOG = [
         availability: "unreleased",
     },
     {
+        name: "pm-swarm",
+        npmName: "pm-swarm",
+        commands: ["pm swarm plan", "pm swarm start", "pm swarm status", "pm swarm sync", "pm swarm land", "pm swarm reap", "pm swarm settings"],
+        links: { "docs": "https://github.com/unbraind/pm-swarm#readme", "repository": "https://github.com/unbraind/pm-swarm", "report": "https://github.com/unbraind/pm-swarm/issues" },
+        npmSpec: "npm:pm-swarm",
+        title: "Swarm",
+        description: "Git worktree lanes, real merge-tree conflict prediction and conflict-free landing order for parallel agents",
+        capabilities: ["commands", "schema"],
+        category: "extension",
+        // Release-gated behind maintainer-approved publication and absent from
+        // npm, so no install spec resolves. Listed rather than hidden for the
+        // same reason as pm-ado: the public fleet should remain visible in the UI.
+        availability: "unreleased",
+    },
+    {
         name: "pm-review",
         npmName: "pm-review",
         commands: ["pm review find", "pm review import", "pm review verdict", "pm review round", "pm review precedents"],
