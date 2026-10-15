@@ -144,6 +144,7 @@ type ProjectRef = {
   slug: string;
   prefix: string;
   ownerUserId: string;
+  permission: string;
 };
 
 const pendingGraphSyncs = new Map<string, NodeJS.Timeout>();
@@ -416,13 +417,11 @@ async function pmGraphExtensionGraphForProject(project: ProjectRef): Promise<{ g
 }
 
 // Verify project access (owner or shared) and return slug + ownerUserId for pm-runner
-async function verifyProject(
+function verifyProject(
   userId: string,
   projectId: string
 ): Promise<ProjectRef | null> {
-  const access = await verifyProjectAccess(userId, projectId);
-  if (!access) return null;
-  return { slug: access.slug, prefix: access.prefix, ownerUserId: access.ownerUserId };
+  return verifyProjectAccess(userId, projectId);
 }
 
 
@@ -1321,10 +1320,24 @@ router.get("/graph", async (req: AuthRequest, res) => {
   try {
     res.json({
       ok: true,
+      canProvision: project.permission === "edit",
       ...await readProjectGraph(project.ownerUserId, project.slug),
     });
   } catch (err: unknown) {
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// POST /api/projects/:projectId/pm/graph/provision
+// Global CSRF protection and the router's unsafe-method edit check run first.
+router.post("/graph/provision", async (req: AuthRequest, res) => {
+  const project = await requireProject(req, res);
+  if (!project) return;
+  try {
+    const result = await ensureGraphExtension(project.ownerUserId, project.slug);
+    res.status(result.ok ? 200 : 424).json(result);
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
