@@ -88,10 +88,10 @@ async function installFixtureGraph(workspace: string): Promise<string> {
   return directory;
 }
 
-/** Run the genuine installed extension command, with the real CLI and SDK readers. */
+/** Run the installed exporter without host output caps so it is a complete parity oracle. */
 function extensionExport(workspace: string): Graph {
   const started = Date.now();
-  const graph = (JSON.parse(execFileSync(path.resolve("node_modules/.bin/pm"), ["pm-graph", "export", "--json"], {
+  const graph = (JSON.parse(execFileSync(path.resolve("node_modules/.bin/pm"), ["pm-graph", "export", "--json", "--output-budget", "unbounded", "--output-limit", "unbounded"], {
     cwd: workspace, encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
     env: { ...process.env, PM_PATH: path.join(workspace, ".agents", "pm") },
   })) as { graph: Graph }).graph;

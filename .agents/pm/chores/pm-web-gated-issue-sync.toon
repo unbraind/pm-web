@@ -1,0 +1,30 @@
+id: pm-web-gated-issue-sync
+title: Enable the gated pm-github issue sync and remove the braces chain
+description: "Adopt the pinned reusable gated issue-sync caller; consume latest published fleet dependencies and exact PM CLI 2026.10.15 in runtime and development; remove the glob advisory chain. Related: pm-github-aiok (pm-github adoption task). Leave pm-web-8pml in_progress with full-audit evidence. No hosted deployment work."
+type: Chore
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-15T07:04:57.239Z"
+updated_at: "2026-10-15T08:44:33.345Z"
+author: codex-agent
+comments[6]{created_at,author,text}:
+  "2026-10-15T07:05:09.819Z",codex-agent,"Baseline: direct fast-glob 3.3.3 and pm-ops 2026.10.6 carry micromatch 4.0.8/braces 3.0.3; dev audit has 4 high findings. CI already supports workflow_dispatch. Update runtime and explicit development PM CLI pins to 2026.10.15, and pm-ops/pm-changelog/pm-graph to latest published 2026.10.14. No code imports fast-glob. The workflow supplier test currently allows only third-party actions, so extend it narrowly for the exact canonical reusable workflow with an immutable SHA and matching release/package version, retaining all negative action checks and adding red/revert evidence."
+  "2026-10-15T07:06:51.690Z",codex-agent,"Workflow policy red/green/revert proof: the new canonical caller regression failed 0/1 with the original validator (unapproved owner); the narrow updated validator passes workflow-security 6/6. Restoring only assertWorkflowActionPins from origin/main makes the new regression fail 0/1 again; fixed policy restored. Negative cases retain immutable SHA, exact supplier/path, dedicated caller/job, valid release comment and matching package input requirements. Both glob-chain trees are empty and the full dev-included audit is clean. Disposable local PostgreSQL is ready for release gates; no Docker or hosted data access."
+  "2026-10-15T07:26:51.337Z",codex-agent,"Initial isolated npm gate: 593 tests, 590 pass, 3 fail, 0 skips. Two graph parity failures were traced to the CLI reference export default cap of 50 relationships: the web graph remains complete, and a separate two-seed diagnostic passes when reference output is unbounded. Correct extensionExport to pass both --output-budget unbounded and --output-limit unbounded, retaining full parity assertions. The third failure requires refreshing scripts/prepare-merge-driver.ts byte-for-byte from published pm-ops 2026.10.14, including its artifact-time Git-config guard. No production graph code or thresholds changed. Run focused graph/launcher tests, then repeat both full release gates."
+  "2026-10-15T07:29:19.852Z",codex-agent,"Focused upgrade verification passes 12/12 with 0 skips: node scripts/with-test-db.ts node --test test/graph-export-fidelity.test.ts test/prepare-merge-driver.test.ts. All 20 generated graphs preserve the installed export and built-in ordering, viewer GET/HEAD parity passes, concurrent-read protection passes, and 2000-item graph latency is 3679 ms under the unchanged 10000 ms limit. Restoring only extensionExport from origin/main reproduces the graph parity failure 0/1; fixed helper restored. The refreshed launcher matches the published template byte-for-byte and all install/omit-dev/broken-install cases pass. Repeat isolated npm and Bun release gates on the corrected tree."
+  "2026-10-15T08:02:27.053Z",codex-agent,"Corrected isolated npm release:check completed unsuccessfully: 593 tests, 590 pass, 2 fail, 1 cancelled, 0 skips. The canonical graph parity and launcher changes pass; failures are the unchanged source-server catalog 300000 ms deadline, 2000-item graph 10000 ms latency limit (17721 ms wall / 3228 ms CPU), and missing-database startup 10000 ms deadline. Existing owners pm-web-qdhx and pm-web-hqqp contain evidence. c8 text summary: statements/lines 90.77%, branches 81.51%, functions 93.77%; no gate thresholds changed. Independent isolated bun run release:check is running on the same source hashes. Keep merge/deploy blocked on required gates."
+  "2026-10-15T08:44:30.427Z",codex-agent,"Final results: workflow/packaging linked suite 12/12; graph/launcher focused suite 12/12; both function-only revert proofs fail as expected and fixes are restored. Isolated npm and Bun release gates each finish 590 pass, 2 fail, 1 cancelled, 0 skips, 593 total; exact distinct failures remain in pm-web-qdhx and pm-web-hqqp. Bun statements/lines are 89.99%, below the unchanged 90% thresholds. Separately npm run audit:prod, npm run pack:dry-run, npm run accept:packed (4/4 minimum/current npm/native Bun), npm run changelog:check, npm run verify:release-changelog-date and npm run verify:release-publish-attestation pass. Fresh npm audit --include=dev has 0 total vulnerabilities. Existing history prefixes and source hashes are unchanged. No items closed; retain required merge/deployment blockers and leave pm-web-8pml in_progress."
+files[6]{path,scope}:
+  .github/workflows/pm-github-sync.yml,project
+  package-lock.json,project
+  package.json,project
+  scripts/prepare-merge-driver.ts,project
+  test/graph-export-fidelity.test.ts,project
+  test/workflow-security.test.ts,project
+tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/workflow-security.test.ts test/workflow-update-automation.test.ts test/sdk-update-automation.test.ts test/packaging.test.ts,project,600,codex-agent,"2026-10-15T07:07:05.233Z",local_mutation,chore/gated-issue-sync-and-braces-free-gates
+  node scripts/with-test-db.ts node --test test/graph-export-fidelity.test.ts test/prepare-merge-driver.test.ts,project,600,codex-agent,"2026-10-15T07:27:00.957Z",local_mutation,chore/gated-issue-sync-and-braces-free-gates
+docs[1]{path,scope}:
+  docs/dependency-update-policy.md,project
+body: ""

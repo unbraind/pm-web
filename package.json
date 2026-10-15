@@ -48,7 +48,7 @@
     "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.10.14",
+    "@unbrained/pm-cli": "2026.10.15",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -57,7 +57,7 @@
     "neo4j-driver": "^6.2.0",
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
-    "pm-graph": "2026.10.10",
+    "pm-graph": "2026.10.14",
     "uuid": "^14.0.2"
   },
   "devDependencies": {
@@ -69,12 +69,12 @@
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
     "@types/uuid": "11.0.0",
+    "@unbrained/pm-cli": "2026.10.15",
     "c8": "12.0.0",
     "eslint": "10.12.0",
-    "fast-glob": "3.3.3",
     "jscpd": "5.4.1",
-    "pm-changelog": "2026.10.5",
-    "pm-ops": "2026.10.6",
+    "pm-changelog": "2026.10.14",
+    "pm-ops": "2026.10.14",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "yaml": "2.9.1"
