@@ -472,3 +472,8 @@ The mutation watcher is disabled for this case so it cannot mask a broken
 filesystem watcher-to-broadcast link. A separate real-server privacy case checks
 stdout against synthetic credentials, ids, cookies, query and item-content
 sentinels during a successful item update and a malformed JSON request.
+
+For reproducible mixed HTTP/CLI load measurements against the disposable test
+database, see the [collaboration capacity harness](docs/capacity.md). It starts
+the built production server, records per-subscriber loss and duplicates plus
+delivery latency and resource counters, and caps its ladder at 3000 subscribers.
