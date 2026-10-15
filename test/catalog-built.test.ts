@@ -38,6 +38,12 @@ test("built catalog exposes Jev truthfully beside a real scratch tracker and exc
     assert.match(entry.description, /local Ollama tev1 model by default/);
     assert.equal(entry.requiresCredentials?.[0]?.optional, true);
     assert.deepEqual(entry.requiresCredentials?.[0]?.envVars, ["TYPESAFE_API_KEY"]);
+    const swarm = findCatalogEntry("pm-swarm");
+    assert.ok(swarm, "pm-swarm must appear in the built catalog");
+    assert.equal(swarm.availability, "unreleased");
+    assert.equal(resolveNpmSpec(swarm.name), null);
+    assert.deepEqual(swarm.capabilities, ["commands", "schema"]);
+    assert.equal(swarm.category, "extension");
     const candidate = path.join(root, "pm-web-candidate");
     fs.mkdirSync(candidate);
     for (const file of ["manifest.json", "package.json"]) fs.writeFileSync(path.join(candidate, file), fs.readFileSync(file));

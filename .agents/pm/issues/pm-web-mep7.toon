@@ -2,17 +2,23 @@ id: pm-web-mep7
 title: Update the production proxy-addr dependency past GHSA-jqcg-44mw-7w3h
 description: "The supplemental npm audit:prod check for the graph-export feature reported a critical IPv4-mapped IPv6 trust-subnet IP spoofing advisory for proxy-addr, inherited through Express. The base and feature revisions both resolve proxy-addr 2.0.8 in their tracked package-lock.json files, following PR #174; Express declares the ^2.0.7 range, not the resolved version. This is independent of the added pure pm-graph dependency. Verify the patched dependency and trust-proxy behavior without changing hosted deployments."
 type: Issue
-status: open
+status: in_progress
 priority: 1
 tags: []
 created_at: "2026-10-07T20:29:36.109Z"
-updated_at: "2026-10-07T22:52:10.252Z"
+updated_at: "2026-10-15T22:33:20.182Z"
 author: codex-sol
 acceptance_criteria: Production npm audit no longer reports GHSA-jqcg-44mw-7w3h; supported runtime and packed consumer tests pass with the patched dependency and trust-proxy behavior remains covered.
-comments[2]{created_at,author,text}:
+comments[5]{created_at,author,text}:
   "2026-10-07T22:38:00.593Z",codex-sol,Corrected the recorded resolved version to 2.0.8 after checking package-lock.json at the feature head and its base revision containing PR #174. The earlier pm-web-38n5 audit comment incorrectly named 2.0.7; that historical statement is superseded by this correction. Dependency remediation itself is outside this review round.
   "2026-10-07T22:50:39.313Z",codex-sol,"Supplemental npm run audit:prod passed with zero vulnerabilities after the recorded-version correction. package-lock.json resolves proxy-addr 2.0.8; the ^2.0.7 Express range is not the installed version. This receipt is separate from the full release gate, which stopped earlier at coverage. The item remains open for orchestrator verification."
+  "2026-10-15T21:36:39.655Z",codex-agent,"Verified after npm ci on baseline b4322d4: npm ls proxy-addr resolves express@5.3.0 -> proxy-addr@2.0.8. npm audit --omit=dev exits 0 and reports found 0 vulnerabilities, so GHSA-jqcg-44mw-7w3h is absent from the production audit. package.json and package-lock.json require no changes. Release checks and existing runtime/packed acceptance will provide additional evidence. Item remains open for orchestrator verification."
+  "2026-10-15T22:02:11.768Z",codex-agent,"Additional acceptance: full isolated npm run release:check passes 601/601 tests plus capacity 1/1 and all four packed npm/Bun current/minimum host scenarios. Production audit again reports zero vulnerabilities. Resolved proxy-addr remains 2.0.8 through Express 5.3.0 with no dependency edits. Bun release verification is pending; this item is not closed."
+  "2026-10-15T22:33:13.960Z",codex-agent,"Final advisory acceptance: both full npm run release:check and bun run release:check pass 601/601 tests, capacity 1/1 and packed current/minimum npm/Bun consumers 4/4 each. Each production audit reports zero vulnerabilities. npm ls proxy-addr on the package worktree resolves express@5.3.0 -> proxy-addr@2.0.8; GHSA-jqcg-44mw-7w3h is absent. No dependency edits were needed. Claim released for orchestrator verification; item remains unclosed."
 files[2]{path,scope}:
   package-lock.json,project
   package.json,project
+tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  npm ls proxy-addr,project,codex-agent,"2026-10-15T21:36:41.229Z",local_mutation,feat/catalog-pm-swarm
+  npm audit --omit=dev,project,codex-agent,"2026-10-15T21:36:43.077Z",local_mutation,feat/catalog-pm-swarm
 body: ""

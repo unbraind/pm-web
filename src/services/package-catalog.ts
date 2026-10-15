@@ -125,7 +125,7 @@ export interface PackageCatalogEntry {
   readonly unavailableReason?: string;
   /** Human-friendly title, e.g. `Graph`. */
   readonly title: string;
-  /** One-line description, mirrored from the package's manifest/package.json. */
+  /** One-line description from package metadata or explicitly curated catalog copy. */
   readonly description: string;
   /** Capabilities declared in the package manifest. */
   readonly capabilities: readonly PackageCapability[];
@@ -478,6 +478,21 @@ export const PACKAGE_CATALOG: readonly PackageCatalogEntry[] = [
     // same reason as pm-ado: a user reading the fleet on GitHub can plainly
     // see this package, and omitting it would make the catalogue look
     // complete while the UI never mentioned it.
+    availability: "unreleased",
+  },
+  {
+    name: "pm-swarm",
+    npmName: "pm-swarm",
+    commands: ["pm swarm plan", "pm swarm start", "pm swarm status", "pm swarm sync", "pm swarm land", "pm swarm reap", "pm swarm settings"],
+    links: {"docs": "https://github.com/unbraind/pm-swarm#readme", "repository": "https://github.com/unbraind/pm-swarm", "report": "https://github.com/unbraind/pm-swarm/issues"},
+    npmSpec: "npm:pm-swarm",
+    title: "Swarm",
+    description: "Git worktree lanes, real merge-tree conflict prediction and conflict-free landing order for parallel agents",
+    capabilities: ["commands", "schema"],
+    category: "extension",
+    // Release-gated behind maintainer-approved publication and absent from
+    // npm, so no install spec resolves. Listed rather than hidden for the
+    // same reason as pm-ado: the public fleet should remain visible in the UI.
     availability: "unreleased",
   },
   {

@@ -1,0 +1,17 @@
+id: pm-web-5hdb
+title: Refresh ADO and Jev catalog metadata after upstream manifest changes
+description: Read-only comparison with the canonical fleet found that pm-ado now describes SDK import/export/sync and three-way reconciliation; pm-jev now includes the jev link command. The catalog and committed snapshot still carry the previous descriptions. Refresh metadata and commands together with regression evidence in a separate change.
+type: Issue
+status: open
+priority: 2
+tags[2]: catalog,metadata
+created_at: "2026-10-15T21:38:36.380Z"
+updated_at: "2026-10-15T21:39:20.788Z"
+author: codex-agent
+acceptance_criteria: Catalog metadata and snapshot match the intended ADO and Jev manifests; live-fleet freshness and standalone release checks pass.
+files[2]{path,scope}:
+  src/services/package-catalog.ts,project
+  test/fleet-extensions.snapshot.json,project
+docs[1]{path,scope}:
+  docs/fleet-package-catalog.md,project
+body: ""

@@ -1,14 +1,20 @@
 # Fleet packages in pm-web
 
-The Packages view lists all 22 public fleet package identities. Each extension's
+The Packages view lists all 25 public fleet package identities. Each extension's
 npm identity comes from `package.json`, its description and capabilities come
 from `manifest.json`, and its command paths and requirements come from the
 package README. The two authoring templates use the concise package description.
+Swarm is a workflow product extension with `commands` and `schema` capabilities.
+Its card uses curated display text while the snapshot retains the shorter
+manifest summary from `feat/swarm`. It lists `pm swarm plan`, `start`, `status`,
+`sync`, `land`, `reap` and `settings`; its unreleased card shows GitHub links
+and no Install action.
 Every extension includes documentation, repository and issue links; npm links
 are shown only when the registry serves a published version.
 
-The registry-backed snapshot contains 21 actual pm extensions: 17 published,
-and four unpublished (`pm-ado`, `pm-jev`, `pm-rl`, `pm-vcs`). Publication intent
+The registry-backed snapshot contains 24 actual pm extensions: 17 published,
+and seven unpublished (`pm-ado`, `pm-jev`, `pm-lint`, `pm-review`, `pm-rl`,
+`pm-swarm`, `pm-vcs`). Publication intent
 is insufficient evidence. `npm run fleet:snapshot` checks the registry and
 refuses to overwrite its receipt when a lookup cannot be completed. Fleet
 freshness checks compare the receipt with canonical package metadata wherever
@@ -59,10 +65,11 @@ HTTP 409. An empty trailing terminator and owned commands such as
 
 `test/catalog-install-e2e.test.ts` serves the compiled application over HTTP,
 uses a real disposable PostgreSQL owner/project and real initialized pm tracker,
-and downloads published Presets from npm. It checks all 22 identities and their
+and downloads published Presets from npm. It checks all 25 identities and their
 metadata, installs and activates Presets, verifies installed/enabled/runtime
-active state, executes its documented nested command, and proves unpublished ADO and
-native Rust return distinct 409 explanations without changing tracker settings.
+active state and executes its documented nested command. Unpublished ADO and
+Swarm return the unreleased 409 explanation; native Rust returns a distinct
+409 explanation. Neither changes tracker settings.
 The real SSE connection observes install, activation and deactivation events;
 command execution does not emit a package-state event that redraws its output.
 It also rejects malformed arguments, undeclared commands and workspace escapes.

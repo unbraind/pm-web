@@ -154,7 +154,7 @@ variable. See [catalog acceptance evidence](docs/catalog-pm-jev.md).
 The SDK upgrade retains these catalog guarantees; see
 [SDK and catalog certification](docs/sdk-update-automation.md).
 
-The Packages view covers all 22 public fleet identities with verified descriptions,
+The Packages view covers all 25 public fleet identities with verified descriptions,
 capabilities, command paths and links. Published extensions support project
 installation, activation and documented command execution. Unpublished extensions
 show an explanation instead of an Install button; the independent native

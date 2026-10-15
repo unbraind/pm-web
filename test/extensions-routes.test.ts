@@ -447,6 +447,7 @@ test("an unreleased package is listed but refuses install without spawning pm", 
     assert.equal(listed.status, 200);
     const rows = (listed.body as { packages: { name: string; availability?: string }[] }).packages;
     const unreleased = rows.filter((row) => row.availability === "unreleased").map((row) => row.name);
+    assert.ok(unreleased.includes("pm-swarm"), "Swarm must be listed and covered by the no-spawn install checks");
     assert.ok(
       unreleased.length > 0,
       "the catalog must surface its unreleased packages to the UI rather than hiding them",
