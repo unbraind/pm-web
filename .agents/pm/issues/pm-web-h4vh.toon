@@ -1,0 +1,13 @@
+id: pm-web-h4vh
+title: Investigate mixed-writer delivery SLO on an isolated capacity host
+description: "The capacity harness measured 100 distinct authenticated subscribers, 10 mixed writer lanes and 50 committed updates after the late-fact replay repair. All 5000 deliveries arrived with zero loss or duplicates, but to-all p99 was 2163.5 ms against a 2000 ms SLO. The ladder correctly stopped before 1000 subscribers. High host scheduling or I/O pressure was observed without a proven saturated server resource. Reproduce from docs/capacity/2026-10-15-local.md on an isolated host; compare service, writer and storage timing before changing production limits. Related feature pm-web-lh4b and companion pm-cli-website-ghe1. Larger rungs and hosted capacity remain unmeasured."
+type: Issue
+status: open
+priority: 2
+tags[3]: capacity,performance,realtime
+created_at: "2026-10-15T09:09:03.386Z"
+updated_at: "2026-10-15T09:10:02.607Z"
+author: codex-agent
+docs[1]{path,scope}:
+  docs/capacity/2026-10-15-local.md,project
+body: ""

@@ -1,4 +1,4 @@
-import { type MutationEvent } from "@unbrained/pm-cli/sdk";
+import type { MutationEvent } from "@unbrained/pm-cli/sdk";
 import { type SSEEvent } from "./sse.ts";
 /** Options for the async generator subscription seam. Mirrors the SDK's `SubscribeMutationEventsOptions`. */
 export interface SubscribeOptions {
@@ -23,7 +23,7 @@ export interface MutationEventWatcherDeps {
     getActiveProjectIds?: () => string[];
     /** Resolves a project id to its on-disk directory, or null when the project row is absent. */
     resolveProjectDir?: (projectId: string) => Promise<string | null>;
-    /** SDK subscription factory; defaults to the real `subscribeMutationEvents`. */
+    /** Subscription factory; defaults to bounded overlap over real committed SDK facts. */
     subscribe?: SubscribeFn;
     /** Checks whether an item mutation was already announced by this instance; returns true and consumes it. */
     consumeSignaledItemMutation?: (projectId: string, itemId: string) => boolean;

@@ -1,8 +1,8 @@
 import { logError } from "../observability.js";
 // Per-project mutation-event subscription manager.
 //
-// The primary out-of-band change detector for pm-web. Subscribes to the pm SDK's
-// `subscribeMutationEvents` async generator for each active project, which reads
+// The primary out-of-band change detector for pm-web. Follows the pm SDK's
+// committed facts with a bounded replay window for each active project, reading
 // from a persistent derived index of committed mutation facts (NOT a filesystem
 // scan). Another process's mutation appears on this follower within `intervalMs`.
 //
@@ -18,7 +18,7 @@ import { logError } from "../observability.js";
 // across instances. Each instance dedupes against its own API broadcasts via the
 // per-item signal in sse.ts.
 import path from "node:path";
-import { subscribeMutationEvents } from "@unbrained/pm-cli/sdk";
+import { createMutationReplayState, followCommittedMutations } from "./mutation-replay.js";
 import { resolveProjectDir } from "./pm-runner.js";
 import { consumeSignaledItemMutation, deliverProjectEvent, getActiveProjectIds, } from "./sse.js";
 import { cachedProjectDir, dropInactive, positiveIntEnv } from "./watcher-utils.js";
@@ -44,7 +44,7 @@ export function createMutationEventReconciler(deps = {}) {
     const intervalMs = Math.max(MIN_INTERVAL_MS, deps.intervalMs ?? positiveIntEnv("PM_MUTATION_EVENT_INTERVAL_MS", DEFAULT_INTERVAL_MS));
     const getIds = deps.getActiveProjectIds ?? getActiveProjectIds;
     const resolveDir = deps.resolveProjectDir ?? resolveProjectDir;
-    const subscribe = deps.subscribe ?? subscribeMutationEvents;
+    const subscribe = deps.subscribe;
     const consumeSignal = deps.consumeSignaledItemMutation ?? consumeSignaledItemMutation;
     const emit = deps.emit ?? deliverProjectEvent;
     const onError = deps.onError ?? (() => undefined);
@@ -54,15 +54,16 @@ export function createMutationEventReconciler(deps = {}) {
     // Start (or restart after error) a detached async loop that consumes the SDK
     // generator for one project. Runs independently of reconcile; errors abort
     // the subscription and the next reconcile re-establishes it from the stored cursor.
-    function startLoop(projectId, dir, since) {
+    function startLoop(projectId, dir, since, replay = createMutationReplayState()) {
         const controller = new AbortController();
-        const sub = { controller, cursor: since, done: false };
+        const sub = { controller, cursor: since, done: false, replay };
         subs.set(projectId, sub);
         const pmRoot = path.join(dir, ".agents", "pm");
         // Detached async loop — intentionally not awaited by reconcile.
         void (async () => {
             try {
-                const gen = subscribe({ pmRoot, since, intervalMs, signal: controller.signal });
+                const options = { pmRoot, since, intervalMs, signal: controller.signal };
+                const gen = subscribe ? subscribe(options) : followCommittedMutations(options, replay);
                 for await (const event of gen) {
                     if (event.cursor !== undefined)
                         sub.cursor = event.cursor;
@@ -115,7 +116,7 @@ export function createMutationEventReconciler(deps = {}) {
                     if (existing) {
                         // If the loop exited (e.g. after an error), restart from the stored cursor.
                         if (existing.done) {
-                            startLoop(projectId, dir, existing.cursor);
+                            startLoop(projectId, dir, existing.cursor, existing.replay);
                         }
                         // Otherwise the loop is still running — leave it alone.
                     }

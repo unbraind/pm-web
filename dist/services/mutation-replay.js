@@ -1,0 +1,61 @@
+/** Bounded overlap for committed facts whose mutation timestamps precede their visibility. */
+import { listMutationEvents } from "@unbrained/pm-cli/sdk";
+import { setTimeout as delay } from "node:timers/promises";
+/** One minute covers the web command timeout and the capacity writer timeout, with scheduling headroom. */
+export const MUTATION_REPLAY_WINDOW_MS = 60_000;
+/** Bound per-active-project dedupe memory; overflow is reported rather than silently evicting live keys. */
+export const MUTATION_REPLAY_MAX_EVENTS = 10_000;
+/** Allocate replay state at project attachment, excluding older history from initial delivery. */
+export function createMutationReplayState() {
+    return { baseline: Date.now(), seen: new Map() };
+}
+/**
+ * Re-read a bounded timestamp window rather than advancing an exclusive timestamp cursor forever.
+ * A writer assigns its history timestamp before final persistence; another writer's later timestamp
+ * can become visible first. Paging with the exclusive cursor alone then permanently skips the late
+ * fact. Each poll starts again at the inclusive window floor and dedupes by item/version, while
+ * pagination within that poll retains the SDK's ordered cursor. The yielded resume boundary is
+ * the inclusive floor, so a restart can recover every unconsumed fact in the window.
+ */
+export async function* followCommittedMutations(options, state) {
+    const since = Date.parse(options.since ?? "");
+    if (!Number.isFinite(since))
+        throw new Error("Mutation replay requires an ISO timestamp boundary");
+    state.baseline = Math.min(state.baseline, since);
+    while (!options.signal?.aborted) {
+        const floor = Math.max(state.baseline, Date.now() - MUTATION_REPLAY_WINDOW_MS);
+        for (const [key, timestamp] of state.seen)
+            if (timestamp < floor)
+                state.seen.delete(key);
+        const boundary = new Date(floor).toISOString();
+        let cursor = boundary;
+        for (;;) {
+            const page = await listMutationEvents({ ...options, since: cursor, limit: 1000 });
+            for (const event of page.events) {
+                if (options.signal?.aborted)
+                    return;
+                const key = `${event.item_id}:${event.version}`;
+                if (state.seen.has(key))
+                    continue;
+                if (state.seen.size >= MUTATION_REPLAY_MAX_EVENTS)
+                    throw new Error("Mutation replay window exceeded its bounded event capacity");
+                state.seen.set(key, Date.parse(event.ts));
+                yield { ...event, cursor: boundary };
+            }
+            if (!page.has_more)
+                break;
+            if (!page.next_cursor || page.next_cursor === cursor)
+                throw new Error("Mutation replay pagination made no progress");
+            cursor = page.next_cursor;
+        }
+        try {
+            await delay(options.intervalMs ?? 250, undefined, { signal: options.signal });
+        }
+        catch (error) {
+            if (options.signal?.aborted)
+                return;
+            throw error;
+        }
+    }
+}
+//# sourceMappingURL=mutation-replay.js.map
