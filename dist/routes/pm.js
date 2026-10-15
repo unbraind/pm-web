@@ -339,11 +339,8 @@ async function pmGraphExtensionGraphForProject(project) {
     return { error: extensionResult.stderr || extensionResult.stdout || "pm-graph export did not return a graph." };
 }
 // Verify project access (owner or shared) and return slug + ownerUserId for pm-runner
-async function verifyProject(userId, projectId) {
-    const access = await verifyProjectAccess(userId, projectId);
-    if (!access)
-        return null;
-    return { slug: access.slug, prefix: access.prefix, ownerUserId: access.ownerUserId };
+function verifyProject(userId, projectId) {
+    return verifyProjectAccess(userId, projectId);
 }
 /**
  * Load the caller's project or answer 404.
@@ -1215,11 +1212,26 @@ router.get("/graph", async (req, res) => {
     try {
         res.json({
             ok: true,
+            canProvision: project.permission === "edit",
             ...await readProjectGraph(project.ownerUserId, project.slug),
         });
     }
     catch (err) {
         res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+});
+// POST /api/projects/:projectId/pm/graph/provision
+// Global CSRF protection and the router's unsafe-method edit check run first.
+router.post("/graph/provision", async (req, res) => {
+    const project = await requireProject(req, res);
+    if (!project)
+        return;
+    try {
+        const result = await ensureGraphExtension(project.ownerUserId, project.slug);
+        res.status(result.ok ? 200 : 424).json(result);
+    }
+    catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
 });
 // POST /api/projects/:projectId/pm/graph/sync

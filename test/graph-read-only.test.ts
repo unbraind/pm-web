@@ -13,6 +13,7 @@ import test from "node:test";
 
 import {
   authedFetch,
+  authCookie,
   ensureSchema,
   seedProject,
   seedUser,
@@ -102,14 +103,14 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   const projectDir = path.join(root, owner.id, project.slug);
   const pmRoot = path.join(projectDir, ".agents", "pm");
   await mkdir(projectDir, { recursive: true });
-  execFileSync("pm", ["init", "--pm-path", pmRoot], { stdio: "ignore" });
-  const target = execFileSync("pm", [
+  execFileSync(path.resolve("node_modules/.bin/pm"), ["init", "--pm-path", pmRoot], { stdio: "ignore" });
+  const target = execFileSync(path.resolve("node_modules/.bin/pm"), [
     "create", "--type", "Task", "--title", "Graph dependency target",
     "--pm-path", pmRoot, "--json",
   ], { encoding: "utf8" });
   const targetId = (JSON.parse(target) as { id?: string }).id;
   assert.ok(targetId);
-  const created = execFileSync("pm", [
+  const created = execFileSync(path.resolve("node_modules/.bin/pm"), [
     "create", "--type", "Task", "--title", "Graph read marker",
     "--blocked-by", targetId,
     "--pm-path", pmRoot, "--json",
@@ -130,12 +131,14 @@ test("graph GET and HEAD by a view-only collaborator leave extensions untouched"
   await writeFile(path.join(markerExtension, "index.mjs"),
     'import { writeFileSync } from "node:fs"; export function activate() { writeFileSync(process.env.PM_WEB_GRAPH_READ_MARKER, "activated"); }\n');
   process.env.PM_WEB_GRAPH_READ_MARKER = marker;
-  execFileSync("pm", ["extension", "--json", "--pm-path", pmRoot], { stdio: "ignore" });
+  execFileSync(path.resolve("node_modules/.bin/pm"), ["extension", "--json", "--pm-path", pmRoot], { stdio: "ignore" });
   assert.equal(existsSync(marker), true, "the control proves an extension-state probe activates extensions");
   await unlink(marker);
 
   const settingsFile = path.join(pmRoot, "settings.json");
   const settingsBefore = await readFile(settingsFile);
+  const registryFile = path.join(pmRoot, "extensions", ".managed-extensions.json");
+  const registryBefore = await readFile(registryFile).catch(() => null);
   assert.equal(existsSync(graphInstall), false);
 
   // Command log: PM_CLI_BIN wraps the real pm and records every spawn pm-web
@@ -158,6 +161,7 @@ process.exit(result.status ?? (result.error ? 1 : 0));
   await chmod(commandLoggingPm, 0o755);
   process.env.PM_CLI_BIN = commandLoggingPm;
   process.env.PM_WEB_COMMAND_LOG = commandLog;
+  process.env.PM_WEB_REAL_PM_BIN = path.resolve("node_modules/.bin/pm");
 
   const server = await startApp();
   fixture.server = server;
@@ -173,6 +177,12 @@ process.exit(result.status ?? (result.error ? 1 : 0));
     };
   };
   assert.equal(body.extensionAvailable, false);
+  const crossOrigin = await fetch(server.url(url), {
+    headers: { cookie: authCookie(viewer).split(";")[0], origin: "https://foreign.example", "sec-fetch-site": "cross-site" },
+  });
+  assert.equal(crossOrigin.status, 200);
+  assert.deepEqual(await readFile(settingsFile), settingsBefore);
+  assert.deepEqual(await readFile(registryFile).catch(() => null), registryBefore);
   assert.equal(body.graph?.source, "pm-web");
   assert.ok(body.graph?.nodes?.some((node) => node.id === itemId));
   assert.equal(body.graph?.relationships?.filter((edge) =>
@@ -214,8 +224,8 @@ process.exit(result.status ?? (result.error ? 1 : 0));
   const separateProject = await seedProject(viewer.id);
   const separatePmRoot = path.join(root, viewer.id, separateProject.slug, ".agents", "pm");
   await mkdir(path.dirname(path.dirname(separatePmRoot)), { recursive: true });
-  execFileSync("pm", ["init", "--pm-path", separatePmRoot], { stdio: "ignore" });
-  const separateItem = execFileSync("pm", [
+  execFileSync(path.resolve("node_modules/.bin/pm"), ["init", "--pm-path", separatePmRoot], { stdio: "ignore" });
+  const separateItem = execFileSync(path.resolve("node_modules/.bin/pm"), [
     "create", "--type", "Task", "--title", "Separate project item", "--pm-path", separatePmRoot, "--json",
   ], { encoding: "utf8" });
   const separateItemId = (JSON.parse(separateItem) as { id?: string }).id;
@@ -257,5 +267,6 @@ process.exit(result.status ?? (result.error ? 1 : 0));
 
   assert.equal(existsSync(graphInstall), false);
   assert.deepEqual(await readFile(settingsFile), settingsBefore);
+  assert.deepEqual(await readFile(registryFile).catch(() => null), registryBefore);
   assert.equal(existsSync(marker), false, "graph reads must not activate installed extensions");
 });
