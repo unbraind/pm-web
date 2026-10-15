@@ -12,6 +12,7 @@ import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode, tagColo
 type GraphResponse = {
   graph?: ProjectGraph;
   extensionAvailable?: boolean;
+  canProvision?: boolean;
   extensionError?: string;
 };
 
@@ -883,7 +884,8 @@ function renderGraphShell(data: GraphResponse): string {
         </div>
         <div class="graph-hud-right">
           <button class="graph-hud-btn" id="graph-refresh" title="Reload graph data (R)">↻</button>
-          <button class="graph-hud-btn" id="graph-sync-btn" title="Run backend graph sync (S)">${graphSyncInFlight ? 'Syncing…' : '⧉ Sync'}</button>
+          ${data.canProvision ? `<button class="graph-hud-btn" id="graph-sync-btn" title="Run backend graph sync (S)">${graphSyncInFlight ? 'Syncing…' : '⧉ Sync'}</button>` : ''}
+          ${data.canProvision && !data.extensionAvailable ? '<button class="graph-hud-btn" id="graph-provision-btn" title="Install and enable pm-graph for this project">Enable pm-graph</button>' : ''}
           <button class="graph-hud-btn" id="graph-fit-btn" title="Fit all in view (F)">⊡ Fit</button>
           <button class="graph-hud-btn" id="graph-physics-btn" title="Pause/Resume physics (Space)">${physicsLabel}</button>
           <button class="graph-hud-btn" id="graph-export-png" title="Export as PNG">PNG</button>
@@ -1312,7 +1314,7 @@ function bindHudEvents(): void {
   });
 
   const runGraphSync = async (): Promise<void> => {
-    if (!state.currentProject || graphSyncInFlight) return;
+    if (!state.currentProject || !currentGraph?.canProvision || graphSyncInFlight) return;
     const syncBtn = document.getElementById('graph-sync-btn') as HTMLButtonElement | null;
     setGraphSyncInFlight(true);
     if (syncBtn) {
@@ -1343,6 +1345,23 @@ function bindHudEvents(): void {
 
   document.getElementById('graph-sync-btn')?.addEventListener('click', () => {
     void runGraphSync();
+  });
+
+  document.getElementById('graph-provision-btn')?.addEventListener('click', async (event) => {
+    if (!state.currentProject || !currentGraph?.canProvision) return;
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    button.textContent = 'Enabling…';
+    try {
+      await api('POST', `/projects/${state.currentProject.id}/pm/graph/provision`);
+      toast('pm-graph enabled', 'success');
+      await renderGraphView();
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : String(err), 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Enable pm-graph';
+    }
   });
 
   // Fit view

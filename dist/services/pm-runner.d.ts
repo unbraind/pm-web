@@ -198,7 +198,8 @@ export declare const INSTALL_COMMAND_TIMEOUT_MS = 180000;
  * — never built from a user-supplied string — so the install target is always
  * the verified `npm:pm-graph` constant.
  *
- * Explicit graph sync in src/routes/pm.ts calls this before `pm pm-graph export`,
+ * Explicit editor provisioning and graph sync call this; GET routes must never do so.
+ * Graph sync calls this before `pm pm-graph export`,
  * and {@link initProject} calls it on project creation, so the user-facing
  * graph behaviour is unchanged.
  */

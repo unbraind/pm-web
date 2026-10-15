@@ -132,7 +132,7 @@ pm web doctor --json
 | `OIDC_SCOPES` | No | Requested scopes (default: `openid profile email`) |
 | `OIDC_REQUIRE_VERIFIED_EMAIL` | No | Reject identities without a provider-verified email when `true` |
 
-New pm-web projects configure local Ollama search automatically and install the `pm-graph` package into the project workspace (from npm, via the per-project package catalog). Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
+New pm-web projects configure local Ollama search automatically and install the `pm-graph` package into the project workspace (from npm, via the per-project package catalog). Graph GET/HEAD requests only read the installed export model or the built-in fallback and never install or activate extensions. Editors can choose **Enable pm-graph** in the graph view, which calls `POST /api/projects/:projectId/pm/graph/provision` with CSRF protection; viewers keep access to the fallback graph and cannot provision. Provisioning retries are idempotent. Neo4j graph rows are scoped per pm-web project so syncing one project does not overwrite another.
 
 The Packages view also lists [pm-jev](https://github.com/unbraind/pm-jev#readme),
 with `commands`, `hooks` and `schema` capabilities and links to its documentation,
