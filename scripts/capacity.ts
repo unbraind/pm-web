@@ -100,6 +100,44 @@ async function committedTime(dir: string, itemId: string): Promise<number> {
 }
 
 /** Exercise one independent rung with unique items, identities and server, always joining cleanup. */
+type RungPhase = "setup" | "measurement" | "cleanup";
+
+/** A rung failure that remembers the phase it came from. It carries only string-valued identifiers, never messages or request data. */
+export class RungFailure extends Error {
+  /** The rung phase that was running when the error surfaced. */
+  readonly phase: RungPhase;
+  /** The error's constructor name (or primitive type), never its message. */
+  readonly causeName: string;
+  /** The error's string `code` when it had one, such as a system error code. */
+  readonly causeCode: string | null;
+  constructor(phase: RungPhase, causeName: string, causeCode: string | null) {
+    super(`rung ${phase} failed`);
+    this.name = "RungFailure";
+    this.phase = phase;
+    this.causeName = causeName;
+    this.causeCode = causeCode;
+  }
+}
+
+/** Describe an unknown error by phase, error name and string code only; an already described failure is returned unchanged so the first error wins. */
+export function describeRungFailure(error: unknown, phase: RungPhase): RungFailure {
+  if (error instanceof RungFailure) return error;
+  const causeName = error instanceof Error ? error.name : typeof error;
+  const code = typeof error === "object" && error !== null && "code" in error ? (error as { code: unknown }).code : null;
+  return new RungFailure(phase, causeName, typeof code === "string" ? code : null);
+}
+
+/** A rung passes only with zero loss, zero duplicates, no failed writes or disconnects, p99 within the SLO, a healthy server and no server errors. */
+export function rungPassed(input: { lost: number; duplicates: number; failedWrites: number; disconnected: number; p99: number | null; sloMs: number; healthy: boolean; serverErrorKinds: number }): boolean {
+  return input.lost === 0 && input.duplicates === 0 && input.failedWrites === 0 && input.disconnected === 0
+    && input.p99 !== null && input.p99 <= input.sloMs && input.healthy && input.serverErrorKinds === 0;
+}
+
+/**
+ * Run one independent ladder rung: seed items, start a server, connect subscribers, drive the
+ * mixed writers, and measure delivery. Failures carry their phase; cleanup always runs and a
+ * cleanup error never hides the setup or measurement error that preceded it.
+ */
 async function runRung(subscribers: number, options: CapacityOptions) {
   const fixture = await capacityFixture(Math.max(subscribers, options.writers));
   let server: Awaited<ReturnType<typeof capacityServer>> | undefined;
@@ -126,118 +164,138 @@ async function runRung(subscribers: number, options: CapacityOptions) {
     } catch { failSample(); } finally { finishSample(); }
   };
   let timer: NodeJS.Timeout | undefined;
-  try {
-    for (const write of writes) await fixture.client.run("create", { options: { id: write.itemId, title: `Synthetic ${write.sequence}`, type: "Task", description: "Capacity fixture" } });
-    server = await capacityServer(fixture.root, fixture.secret);
-    const indices = new Map(writes.map((write) => [write.itemId, write.sequence]));
-    // Bound connection startup concurrency so the generator cannot flood the auth pool's wait queue.
-    for (let start = 0; start < subscribers; start += 50) {
-      const batch = await Promise.allSettled(Array.from({ length: Math.min(50, subscribers - start) }, (_, offset) => subscriber(
-        `${server!.url}/api/projects/${fixture.projectId}/pm/events?view=items`, fixture.sessions[start + offset], indices, writes.length, observation)));
-      for (const result of batch) if (result.status === "fulfilled") streams.push(result.value);
-      if (batch.some((result) => result.status === "rejected")) throw new Error("SSE connection ramp failed");
-    }
-    // Keep the production 15s sweep and 2s subscription reconciliation cadence. Establish the
-    // filesystem baseline before writes, avoiding both startup-tail loss and a shortened test cadence.
-    let before = await server.health();
-    const readyDeadline = performance.now() + 20_000;
-    while (before.realtime.watcher_last_sweep_at === null) {
-      if (performance.now() > readyDeadline) throw new Error("Production watcher did not baseline");
-      await delay(100);
-      before = await server.health();
-    }
-    if (!before.ok || before.realtime.sse_clients !== subscribers) throw new Error("Server was not healthy at the start of writes");
-    await server.begin();
-    generatorDelay.enable();
-    const startCpu = process.cpuUsage();
-    const started = performance.now();
-    observation.open = true;
-    await sampleDatabase();
-    timer = setInterval(() => { void sampleDatabase(); }, 500);
-    // W concurrent lanes; each lane mutates independent items sequentially. Odd W gives CLI the extra lane.
-    await Promise.all(Array.from({ length: options.writers }, async (_, writer) => {
-      for (const write of writes.slice(writer * options.writesPerWriter, (writer + 1) * options.writesPerWriter)) {
-        try {
-          if (write.transport === "cli") await capacityPm(fixture.dir, ["update", write.itemId, "--title", `Committed ${write.sequence}`]);
-          else {
-            const response = await fetch(`${server!.url}/api/projects/${fixture.projectId}/pm/update/${write.itemId}`, {
-              method: "PATCH", headers: { ...fixture.sessions[writer], "content-type": "application/json" },
-              body: JSON.stringify({ title: `Committed ${write.sequence}` }), signal: AbortSignal.timeout(20_000),
-            });
-            await response.arrayBuffer();
-            if (response.status !== 200) throw new Error("HTTP write failed");
-          }
-        } catch { write.error = true; }
+  let phase: RungPhase = "setup";
+  let firstError: RungFailure | null = null;
+  let cleanupFailure: RungFailure | null = null;
+  const outcome = await (async () => {
+    try {
+      for (const write of writes) await fixture.client.run("create", { options: { id: write.itemId, title: `Synthetic ${write.sequence}`, type: "Task", description: "Capacity fixture" } });
+      server = await capacityServer(fixture.root, fixture.secret);
+      const indices = new Map(writes.map((write) => [write.itemId, write.sequence]));
+      // Bound connection startup concurrency so the generator cannot flood the auth pool's wait queue.
+      for (let start = 0; start < subscribers; start += 50) {
+        const batch = await Promise.allSettled(Array.from({ length: Math.min(50, subscribers - start) }, (_, offset) => subscriber(
+          `${server!.url}/api/projects/${fixture.projectId}/pm/events?view=items`, fixture.sessions[start + offset], indices, writes.length, observation)));
+        for (const result of batch) if (result.status === "fulfilled") streams.push(result.value);
+        if (batch.some((result) => result.status === "rejected")) throw new Error("SSE connection ramp failed");
       }
-    }));
-    // Full grace window also catches duplicates arriving after the last expected delivery.
-    await delay(options.drainMs);
-    observation.open = false;
-    const elapsed = performance.now() - started;
-    const cpu = process.cpuUsage(startCpu);
-    const generatorP99 = generatorDelay.percentile(99) / 1e6;
-    generatorDelay.disable();
-    clearInterval(timer);
-    await waitUntil(() => !sampleState.inFlight, 6000, "database sample completion");
-    await sampleDatabase();
-    const after = await server.health();
-    // Inspect successful AND failed acknowledgements: a timeout can still have committed.
-    for (const write of writes) {
-      try { write.committedAt = await committedTime(fixture.dir, write.itemId); }
-      catch { write.error = true; }
+      phase = "measurement";
+      // Keep the production 15s sweep and 2s subscription reconciliation cadence. Establish the
+      // filesystem baseline before writes, avoiding both startup-tail loss and a shortened test cadence.
+      let before = await server.health();
+      const readyDeadline = performance.now() + 20_000;
+      while (before.realtime.watcher_last_sweep_at === null) {
+        if (performance.now() > readyDeadline) throw new Error("Production watcher did not baseline");
+        await delay(100);
+        before = await server.health();
+      }
+      if (!before.ok || before.realtime.sse_clients !== subscribers) throw new Error("Server was not healthy at the start of writes");
+      await server.begin();
+      generatorDelay.enable();
+      const startCpu = process.cpuUsage();
+      const started = performance.now();
+      observation.open = true;
+      await sampleDatabase();
+      timer = setInterval(() => { void sampleDatabase(); }, 500);
+      // W concurrent lanes; each lane mutates independent items sequentially. Odd W gives CLI the extra lane.
+      await Promise.all(Array.from({ length: options.writers }, async (_, writer) => {
+        for (const write of writes.slice(writer * options.writesPerWriter, (writer + 1) * options.writesPerWriter)) {
+          try {
+            if (write.transport === "cli") await capacityPm(fixture.dir, ["update", write.itemId, "--title", `Committed ${write.sequence}`]);
+            else {
+              const response = await fetch(`${server!.url}/api/projects/${fixture.projectId}/pm/update/${write.itemId}`, {
+                method: "PATCH", headers: { ...fixture.sessions[writer], "content-type": "application/json" },
+                body: JSON.stringify({ title: `Committed ${write.sequence}` }), signal: AbortSignal.timeout(20_000),
+              });
+              await response.arrayBuffer();
+              if (response.status !== 200) throw new Error("HTTP write failed");
+            }
+          } catch { write.error = true; }
+        }
+      }));
+      // Full grace window also catches duplicates arriving after the last expected delivery.
+      await delay(options.drainMs);
+      observation.open = false;
+      const elapsed = performance.now() - started;
+      const cpu = process.cpuUsage(startCpu);
+      const generatorP99 = generatorDelay.percentile(99) / 1e6;
+      generatorDelay.disable();
+      clearInterval(timer);
+      await waitUntil(() => !sampleState.inFlight, 6000, "database sample completion");
+      await sampleDatabase();
+      const after = await server.health();
+      // Inspect successful AND failed acknowledgements: a timeout can still have committed.
+      for (const write of writes) {
+        try { write.committedAt = await committedTime(fixture.dir, write.itemId); }
+        catch { write.error = true; }
+      }
+      const indexedIds = new Set<string>();
+      let indexSource = "";
+      let cursor: string | undefined;
+      for (;;) {
+        const indexed = await listMutationEvents({ pmRoot: path.join(fixture.dir, ".agents/pm"), type: "update", item: writes.map((write) => write.itemId), limit: 1000, since: cursor });
+        indexSource = indexed.source;
+        for (const event of indexed.events) indexedIds.add(event.item_id);
+        if (!indexed.has_more) break;
+        if (!indexed.next_cursor || indexed.next_cursor === cursor) throw new Error("Event audit pagination made no progress");
+        cursor = indexed.next_cursor;
+      }
+      const delivery = deliverySummary(writes, streams.map((stream) => stream.state));
+      if (!server.samples.length || !postgres.length || sampleState.error) throw new Error("Resource measurements are incomplete");
+      const resources = {
+        server_rss_peak_bytes: Math.max(...server.samples.map((sample) => sample.rss_bytes)),
+        server_cpu_core_percent: distribution(server.samples.map((sample) => sample.cpu_core_percent)),
+        server_event_loop_p99_ms: server.samples.at(-1)!.event_loop_p99_ms,
+        generator_cpu_core_percent: (cpu.user + cpu.system) / (elapsed * 10), generator_event_loop_p99_ms: generatorP99,
+        postgres_server_connections_peak: Math.max(...postgres.map((sample) => sample.server)),
+        postgres_database_connections_peak: Math.max(...postgres.map((sample) => sample.database)), postgres_max_connections: postgres[0].max,
+        process_samples: server.samples.length, database_samples: postgres.length,
+        host_load_average_after: loadavg(), host_free_ram_after_bytes: freemem(),
+      };
+      const failedWrites = writes.filter((write) => write.error).length;
+      const disconnected = streams.filter((stream) => stream.state.disconnected).length;
+      const p99 = delivery.to_every_subscriber_ms.p99;
+      const passed = rungPassed({ lost: delivery.lost, duplicates: delivery.duplicates, failedWrites, disconnected, p99, sloMs: options.sloMs, healthy: after.ok, serverErrorKinds: Object.keys(server.errors).length });
+      // Attribution is evidence-based and deliberately allows unknown bottlenecks.
+      let firstLimit = "none observed";
+      if (!passed) {
+        if (resources.postgres_database_connections_peak >= resources.postgres_max_connections * 0.9) firstLimit = "Postgres connections (>=90% of configured maximum)";
+        else if (resources.server_event_loop_p99_ms > options.sloMs / 2) firstLimit = "server event loop scheduling";
+        else if ((resources.server_cpu_core_percent.p95 ?? 0) >= 90) firstLimit = "server CPU (>=90% of one core at p95)";
+        else if (generatorP99 > options.sloMs / 2) firstLimit = "load-generator event loop scheduling; server capacity inconclusive";
+        else if (freemem() < totalmem() * 0.1) firstLimit = "host available memory (<10% free); attribution inconclusive";
+        else if (resources.host_load_average_after[0] > cpus().length * 1.5) firstLimit = "host scheduling or I/O pressure (load average above logical CPU count); cause unproven";
+        else firstLimit = "unidentified: observed loss, latency, write failure or unhealthy server without a saturated resource signal";
+      }
+      return { subscribers, writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
+        writes: writes.length, committed_writes: writes.filter((write) => write.committedAt !== null).length,
+        failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
+        ...delivery, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
+        event_index_audit: { source: indexSource, missing_sequences: writes.filter((write) => write.committedAt !== null && !indexedIds.has(write.itemId)).map((write) => write.sequence) },
+        write_receipts: writes.map((write) => ({ sequence: write.sequence, transport: write.transport, committed_at: write.committedAt, write_error: write.error })) };
+    } catch (error) {
+      firstError = describeRungFailure(error, phase);
+      return null;
+    } finally {
+      phase = "cleanup";
+      try {
+        clearInterval(timer);
+        generatorDelay.disable();
+        await Promise.all(streams.map((stream) => stream.close()));
+        await server?.close();
+        await waitUntil(() => !sampleState.inFlight, 6000, "database cleanup");
+        await fixture.close();
+      } catch (cleanupError) {
+        // A cleanup failure never hides the measurement or setup failure that preceded it.
+        cleanupFailure = describeRungFailure(cleanupError, phase);
+      }
     }
-    const indexedIds = new Set<string>();
-    let indexSource = "";
-    let cursor: string | undefined;
-    for (;;) {
-      const indexed = await listMutationEvents({ pmRoot: path.join(fixture.dir, ".agents/pm"), type: "update", item: writes.map((write) => write.itemId), limit: 1000, since: cursor });
-      indexSource = indexed.source;
-      for (const event of indexed.events) indexedIds.add(event.item_id);
-      if (!indexed.has_more) break;
-      if (!indexed.next_cursor || indexed.next_cursor === cursor) throw new Error("Event audit pagination made no progress");
-      cursor = indexed.next_cursor;
-    }
-    const delivery = deliverySummary(writes, streams.map((stream) => stream.state));
-    if (!server.samples.length || !postgres.length || sampleState.error) throw new Error("Resource measurements are incomplete");
-    const resources = {
-      server_rss_peak_bytes: Math.max(...server.samples.map((sample) => sample.rss_bytes)),
-      server_cpu_core_percent: distribution(server.samples.map((sample) => sample.cpu_core_percent)),
-      server_event_loop_p99_ms: server.samples.at(-1)!.event_loop_p99_ms,
-      generator_cpu_core_percent: (cpu.user + cpu.system) / (elapsed * 10), generator_event_loop_p99_ms: generatorP99,
-      postgres_server_connections_peak: Math.max(...postgres.map((sample) => sample.server)),
-      postgres_database_connections_peak: Math.max(...postgres.map((sample) => sample.database)), postgres_max_connections: postgres[0].max,
-      process_samples: server.samples.length, database_samples: postgres.length,
-      host_load_average_after: loadavg(), host_free_ram_after_bytes: freemem(),
-    };
-    const failedWrites = writes.filter((write) => write.error).length;
-    const disconnected = streams.filter((stream) => stream.state.disconnected).length;
-    const p99 = delivery.to_every_subscriber_ms.p99;
-    const passed = delivery.lost === 0 && failedWrites === 0 && disconnected === 0 && p99 !== null && p99 <= options.sloMs && after.ok && Object.keys(server.errors).length === 0;
-    // Attribution is evidence-based and deliberately allows unknown bottlenecks.
-    let firstLimit = "none observed";
-    if (!passed) {
-      if (resources.postgres_database_connections_peak >= resources.postgres_max_connections * 0.9) firstLimit = "Postgres connections (>=90% of configured maximum)";
-      else if (resources.server_event_loop_p99_ms > options.sloMs / 2) firstLimit = "server event loop scheduling";
-      else if ((resources.server_cpu_core_percent.p95 ?? 0) >= 90) firstLimit = "server CPU (>=90% of one core at p95)";
-      else if (generatorP99 > options.sloMs / 2) firstLimit = "load-generator event loop scheduling; server capacity inconclusive";
-      else if (freemem() < totalmem() * 0.1) firstLimit = "host available memory (<10% free); attribution inconclusive";
-      else if (resources.host_load_average_after[0] > cpus().length * 1.5) firstLimit = "host scheduling or I/O pressure (load average above logical CPU count); cause unproven";
-      else firstLimit = "unidentified: observed loss, latency, write failure or unhealthy server without a saturated resource signal";
-    }
-    return { subscribers, writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
-      writes: writes.length, committed_writes: writes.filter((write) => write.committedAt !== null).length,
-      failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
-      ...delivery, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
-      event_index_audit: { source: indexSource, missing_sequences: writes.filter((write) => write.committedAt !== null && !indexedIds.has(write.itemId)).map((write) => write.sequence) },
-      write_receipts: writes.map((write) => ({ sequence: write.sequence, transport: write.transport, committed_at: write.committedAt, write_error: write.error })) };
-  } finally {
-    clearInterval(timer);
-    generatorDelay.disable();
-    await Promise.all(streams.map((stream) => stream.close()));
-    await server?.close();
-    await waitUntil(() => !sampleState.inFlight, 6000, "database cleanup");
-    await fixture.close();
-  }
+  })();
+  // The first failure wins; a cleanup failure is reported only when the rung itself succeeded.
+  if (firstError !== null) throw firstError;
+  if (cleanupFailure !== null) throw cleanupFailure;
+  if (outcome === null) throw new RungFailure("measurement", "MissingOutcome", null);
+  return outcome;
 }
 
 /** Run increasing independent rungs, stopping after the first loss, SLO breach or invalid workload. */
@@ -246,14 +304,15 @@ export async function runCapacity(options: CapacityOptions) {
   const runs: Awaited<ReturnType<typeof runRung>>[] = [];
   const hardware = { logical_cpus: cpus().length, cpu_model: cpus()[0]?.model ?? "unknown", ram_bytes: totalmem(),
     free_ram_before_bytes: freemem(), load_average_before: loadavg(), platform: process.platform, arch: process.arch, node: process.version };
-  let failure: { subscribers: number; reason: string } | null = null;
+  let failure: { subscribers: number; reason: string; phase: RungPhase; error_name: string; error_code: string | null } | null = null;
   for (const rung of options.rungs) {
     try {
       const run = await runRung(rung, options);
       runs.push(run);
       if (!run.passed) break;
-    } catch {
-      failure = { subscribers: rung, reason: "Rung setup, measurement or cleanup failed; no capacity claim for this rung" };
+    } catch (error) {
+      const described = describeRungFailure(error, "setup");
+      failure = { subscribers: rung, reason: `Rung ${described.phase} failed; no capacity claim for this rung`, phase: described.phase, error_name: described.causeName, error_code: described.causeCode };
       break;
     }
   }
@@ -272,7 +331,7 @@ export function capacityMarkdown(report: Awaited<ReturnType<typeof runCapacity>>
     report.runs.map((run) => `| ${run.subscribers} | ${run.committed_writes}/${run.writes} | ${number(run.to_every_subscriber_ms.p50)} | ${number(run.to_every_subscriber_ms.p95)} | ${number(run.to_every_subscriber_ms.p99)} | ${number(run.to_every_subscriber_ms.max)} | ${run.lost} | ${run.duplicates} | ${(run.resources.server_rss_peak_bytes / 2 ** 20).toFixed(1)} | ${number(run.resources.server_cpu_core_percent.p95)} | ${number(run.resources.server_event_loop_p99_ms)} | ${run.resources.postgres_server_connections_peak}/${run.resources.postgres_database_connections_peak} | ${run.passed ? "PASS" : "STOP"} |`).join("\n") +
     "\n\nHealth counter snapshots (before → after writes):\n\n| Subscribers | Connections | Disconnections | Broadcasts | Watcher changes/errors | Last sweep ms |\n|---:|:---|:---|:---|:---|---:|\n" +
     report.runs.map((run) => `| ${run.subscribers} | ${run.health_before.realtime.sse_connections_total} → ${run.health_after.realtime.sse_connections_total} | ${run.health_before.realtime.sse_disconnections_total} → ${run.health_after.realtime.sse_disconnections_total} | ${run.health_before.realtime.broadcasts_total} → ${run.health_after.realtime.broadcasts_total} | ${run.health_before.realtime.watcher_changes_total}/${run.health_before.realtime.watcher_errors_total} → ${run.health_after.realtime.watcher_changes_total}/${run.health_after.realtime.watcher_errors_total} | ${run.health_after.realtime.watcher_last_sweep_ms ?? "missing"} |`).join("\n") +
-    `\n\nFirst observed limit: ${report.failure ? `inconclusive at ${report.failure.subscribers} subscribers (${report.failure.reason})` : report.runs.find((run) => !run.passed)?.first_observed_limit ?? "none at the tested rungs"}. ${report.stopped_early ? "Ladder stopped early." : "All requested rungs completed."}\n\n` +
+    `\n\nFirst observed limit: ${report.failure ? `inconclusive at ${report.failure.subscribers} subscribers (${report.failure.reason}; ${report.failure.error_name}${report.failure.error_code ? ` ${report.failure.error_code}` : ""})` : report.runs.find((run) => !run.passed)?.first_observed_limit ?? "none at the tested rungs"}. ${report.stopped_early ? "Ladder stopped early." : "All requested rungs completed."}\n\n` +
     "Exact command (set CAPACITY_OUTPUT to an external report prefix and DATABASE_URL to the disposable test database):\n\n```sh\n" + report.command + "\n```\n\n" +
     "The CLI builds with npm run build before starting dist/server.js. Production watcher and LISTEN/NOTIFY defaults remain enabled. Read/write rate limits are 100000/minute, as in the integration harness, because all clients share loopback. Child environments exclude ambient provider credentials/configuration. Latency begins at the authoritative committed history entry's millisecond mutation timestamp (includes persistence after timestamp assignment), never at HTTP acknowledgement or CLI exit. The table measures each write's last first-delivery across all subscribers; incomplete writes are excluded from latency quantiles and counted as loss. JSON also contains all subscriber/write-pair and per-transport quantiles, per-subscriber missing sequences/duplicates, and before/after health counters. Generic workspace invalidations do not count as item delivery.\n\n" +
     "This is a finite local experiment with co-located server, writers and readers, fresh small trackers and continuously draining clients. It does not establish sustained throughput, slow-reader buffer bounds, proxy/browser behavior, multiple server instances, reconnect replay, large-project costs, actual pm-gpt/MCP execution, or hosted-stack capacity. The bus is enabled; cross-instance fanout is not exercised. CPU percentages refer to one core. RSS is sampled, not a memory bound. An unobserved bottleneck remains unidentified.\n";
