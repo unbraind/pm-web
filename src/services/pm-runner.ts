@@ -526,6 +526,8 @@ async function runExtensionCommand(
   return runSerialized(projectDir, () => runProcess(projectDir, args, { timeoutMs }));
 }
 
+const pendingGraphProvisions = new Map<string, Promise<EnsureGraphExtensionResult>>();
+
 /**
  * Ensure the pm-graph package is installed and active for a project.
  *
@@ -537,12 +539,26 @@ async function runExtensionCommand(
  * — never built from a user-supplied string — so the install target is always
  * the verified `npm:pm-graph` constant.
  *
- * Explicit graph sync in src/routes/pm.ts calls this before `pm pm-graph export`,
+ * Explicit editor provisioning and graph sync call this; GET routes must never do so.
+ * Graph sync calls this before `pm pm-graph export`,
  * and {@link initProject} calls it on project creation, so the user-facing
  * graph behaviour is unchanged.
  */
 export async function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult> {
   const dir = getProjectDir(userId, slug);
+  const pending = pendingGraphProvisions.get(dir);
+  if (pending) return pending;
+  const provision = provisionGraphExtension(dir);
+  pendingGraphProvisions.set(dir, provision);
+  try {
+    return await provision;
+  } finally {
+    pendingGraphProvisions.delete(dir);
+  }
+}
+
+/** Perform one explicit provisioning transaction; concurrent callers share its result. */
+async function provisionGraphExtension(dir: string): Promise<EnsureGraphExtensionResult> {
   // Resolve the verified npm install spec from the catalog — never a raw path.
   const npmSpec = resolveNpmSpec("pm-graph");
   if (!npmSpec) {
@@ -554,8 +570,11 @@ export async function ensureGraphExtension(userId: string, slug: string): Promis
     };
   }
 
-  const { states } = await readProjectExtensionStates(dir);
-  const graphState = states.get("pm-graph");
+  const inventory = await readProjectExtensionStates(dir);
+  if (!inventory.ok) {
+    return { ok: false, installed: false, active: false, error: inventory.error };
+  }
+  const graphState = inventory.states.get("pm-graph");
   const installed = Boolean(graphState);
   const active = Boolean(graphState?.active && graphState?.enabled);
 
