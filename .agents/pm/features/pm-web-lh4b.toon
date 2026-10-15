@@ -1,0 +1,38 @@
+id: pm-web-lh4b
+title: Measure real-time collaboration capacity with mixed writers
+description: "Companion pm-cli-website-ghe1. Add a reproducible production-entry SSE capacity ladder with authenticated HTTP and separate pinned CLI writers, per-write delivery evidence, resource telemetry, a real-Postgres smoke test, and a measured local report."
+type: Feature
+status: in_progress
+priority: 1
+tags[3]: acceptance,capacity,realtime
+created_at: "2026-10-15T08:43:30.988Z"
+updated_at: "2026-10-15T09:06:28.663Z"
+assignee: codex-agent
+claim_principal: codex-agent
+author: codex-agent
+comments[6]{created_at,author,text}:
+  "2026-10-15T08:44:06.809Z",codex-agent,"Companion pm-cli-website-ghe1. Duplicate search found no capacity harness item. Plan: run the built production entry on the existing disposable PostgreSQL test service with temporary project roots; measure item-specific SSE receipts for unique mixed-writer mutations, history timestamps, process resources, live health counters and bounded loss deadlines. Keep every production watcher and the realtime bus enabled. Limit the local ladder to 3000 and stop on loss or SLO breach. Hosted systems are outside this task."
+  "2026-10-15T08:54:34.103Z",codex-agent,Implemented production-entry mixed writers and per-subscriber receipt accounting. Initial smoke passed 3/3 in 24.1 seconds overall (22.7 second live scenario). A repeat observed one missing mutation at all 20 subscribers; retained it as delivery evidence and started a diagnostic rerun rather than loosening loss accounting. Diagnostic run delivered 5/5 writes to all 20 with zero loss/duplicates; to-all p99 618.4 ms. A bounded default ladder trial is now running on the disposable test database. No production functions changed.
+  "2026-10-15T09:01:04.439Z",codex-agent,"The initial 100-subscriber/10-writer trial stopped: 50/50 commits, 7 missing CLI facts at every subscriber (700 missing deliveries), zero duplicates, complete-write p99 3942.2 ms. A second 20-subscriber/5-writer audit missed 2 CLI facts while every committed update remained readable in the derived event index. No measured server CPU, event-loop, memory or PostgreSQL connection limit explained this. Added a deterministic separate-real-CLI regression proving an older-timestamp fact is skipped behind the SDK exclusive cursor. The bounded production repair replays a 60-second inclusive window, dedupes item/version, preserves receipts across read-error restarts, and explicitly errors at 10000 retained facts per active project. No SDK pin or upstream source changed."
+  "2026-10-15T09:02:30.671Z",codex-agent,"Behavioural revert proof: changing only followCommittedMutations back to yield from the SDK exclusive-cursor subscription made the real-CLI regression fail 0/1: expected replay-late, received undefined after its bounded wait. Restored overlap previously passed 1/1 and the combined focused run passed 4/4, including all 100 smoke deliveries within 2 seconds. That focused process took 32.1 seconds, with its live scenario 29.5 seconds, so the smoke is now a separate accept:capacity release-gate step following the existing packed-acceptance pattern; normal unit/cursor regressions stay in the test glob. Production replay budget and delayed-commit limits are documented."
+  "2026-10-15T09:04:32.106Z",codex-agent,"Linked acceptance passed 1/1 with zero loss/duplicates and every delivery within 2 seconds; the acceptance test process took 30.8 seconds, confirming separate acceptance placement. The new cursor regression hit its 25-second fixture lifecycle deadline under host load in the linked runner. Reduced fixture process startup by seeding through the existing real SDK loader and gave fixture lifecycle 60 seconds, retaining the 2-second late-fact assertion. This does not relax the delivery SLO. Re-running linked evidence on the final fixture."
+  "2026-10-15T09:06:28.663Z",codex-agent,"Final linked run passes all three commands: receipt/safety tests 2/2, real-CLI cursor regression 1/1, and capacity acceptance 1/1 with zero loss/duplicates. Typecheck, lint, complete docstring gate and zero-duplication gate pass. Committing the implementation before the official measured ladder so its report can identify an exact code revision. The bounded replay is the only production behavior repair; no subscriber buffering or unrelated production behavior was changed."
+files[11]{path,scope}:
+  package.json,project
+  scripts/capacity-fixture.ts,project
+  scripts/capacity-metrics.ts,project
+  scripts/capacity-probe.ts,project
+  scripts/capacity.ts,project
+  src/services/mutation-event-watcher.ts,project
+  src/services/mutation-replay.ts,project
+  test/capacity.acceptance.ts,project
+  test/capacity.test.ts,project
+  test/helpers/capacity-clock.ts,project
+  test/mutation-replay.test.ts,project
+tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/capacity.test.ts,project,codex-agent,"2026-10-15T08:54:31.060Z",local_mutation,feat/realtime-capacity-harness
+  node --test test/mutation-replay.test.ts,project,codex-agent,"2026-10-15T09:01:00.977Z",local_mutation,feat/realtime-capacity-harness
+  "npm run accept:capacity",project,codex-agent,"2026-10-15T09:02:26.812Z",local_mutation,feat/realtime-capacity-harness
+docs[1]{path,scope}:
+  docs/capacity.md,project
+body: ""
