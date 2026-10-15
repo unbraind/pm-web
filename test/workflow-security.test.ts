@@ -38,10 +38,21 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
       const match = /^([^@\s]+)@([0-9a-fA-F]{40})$/.exec(reference);
       assert.ok(match, `${file}: ${reference} must pin a full 40-character commit SHA`);
       const action = match[1]!;
-      assert.ok(TRUSTED_ACTION_OWNERS.has(action.split("/")[0]!), `${file}: action owner is not allowed: ${action}`);
-      assert.ok(TRUSTED_ACTIONS.has(action), `${file}: action is not allowed: ${action}`);
       const version = pair.value.comment?.trim() ?? "";
-      assert.match(version, /^v(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}$/, `${file}: ${action} must document a valid release version`);
+      if (action === "unbraind/pm-github/.github/workflows/pm-github-sync.yml") {
+        assert.equal(file, "pm-github-sync.yml", "the canonical reusable workflow belongs in its dedicated caller");
+        const release = /^pm-github (\d{4}\.\d{1,2}\.\d{1,2})$/.exec(version);
+        assert.ok(release, `${file}: the canonical workflow must document a pm-github release`);
+        const caller = parse(workflow) as {
+          jobs?: Record<string, { uses?: string; with?: Record<string, unknown> }>;
+        };
+        assert.equal(caller.jobs?.["gated-sync"]?.uses, reference, "the canonical workflow must be a reusable job");
+        assert.equal(caller.jobs?.["gated-sync"]?.with?.["pm-github-version"], release[1], "the workflow release and package version must match");
+      } else {
+        assert.ok(TRUSTED_ACTION_OWNERS.has(action.split("/")[0]!), `${file}: action owner is not allowed: ${action}`);
+        assert.ok(TRUSTED_ACTIONS.has(action), `${file}: action is not allowed: ${action}`);
+        assert.match(version, /^v(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}$/, `${file}: ${action} must document a valid release version`);
+      }
       const revision = match[2]!.toLowerCase();
       pins.push({ action, revision, version });
       if (action.startsWith("github/codeql-action/")) codeqlReleases.add(`${revision} ${version}`);
@@ -74,6 +85,27 @@ test("CodeQL pins that differ between workflow files are refused", () => {
   const second = assertWorkflowActionPins(step("b".repeat(40), "v4.32.0"), "second.yml");
   assert.doesNotThrow(() => assertSingleCodeqlRelease(first));
   assert.throws(() => assertSingleCodeqlRelease([...first, ...second]), /one commit and version across all workflows/);
+});
+
+test("the canonical gated sync caller requires an immutable pin and matching package release", () => {
+  const caller = readFileSync(new URL("../.github/workflows/pm-github-sync.yml", import.meta.url), "utf8");
+  const file = "pm-github-sync.yml";
+  assert.doesNotThrow(() => assertWorkflowActionPins(caller, file));
+  const invalidCallers = [
+    caller.replace(/@[0-9a-f]{40}/, "@main"),
+    caller.replace("unbraind/pm-github/", "untrusted/pm-github/"),
+    caller.replace("workflows/pm-github-sync.yml@", "workflows/other.yml@"),
+    caller.replace(/# pm-github [^\n]+/, "# pm-github latest"),
+    caller.replace(/# pm-github [^\n]+/, "# v2026.10.14"),
+    caller.replace(/pm-github-version: "[^"]+"/, 'pm-github-version: "0.0.0"'),
+    caller.replace("pm-github-version:", "different-input:"),
+    caller.replace("  gated-sync:", "  other-job:"),
+    caller.replace("jobs:\n  gated-sync:", "steps:\n  - name: misplaced caller"),
+  ];
+  for (const unsafe of invalidCallers) {
+    assert.throws(() => assertWorkflowActionPins(unsafe, file), /AssertionError/);
+  }
+  assert.throws(() => assertWorkflowActionPins(caller, "other.yml"), /AssertionError/);
 });
 
 test("action policy rejects unsafe pins, missing releases and unapproved suppliers", () => {

@@ -16,6 +16,11 @@ independently and executes the real extension handler in disposable trackers.
 Future version fixtures prove policy, while these real installations prove
 compatibility with each published SDK.
 
+Graph parity tests invoke the installed exporter with `--output-budget unbounded`
+and `--output-limit unbounded` so their reference retains every relationship.
+Refresh the merge-driver launcher from the exact-pinned pm-ops template when
+updating that dependency; artifact creation must preserve clone Git configuration.
+
 External workflow actions must use a full 40-character hexadecimal commit SHA,
 a stable release comment (`v7`, `v7.1` or `v7.1.0`) and an approved action name
 from an allowed owner. Every workflow YAML file is discovered, including the metadata action in the
@@ -29,6 +34,12 @@ must still disable persisted credentials. New suppliers require policy changes;
 updates to existing suppliers need only their workflow references changed.
 Version comments document releases; the local gate does not independently
 attest that a remote tag resolves to the specified SHA.
+
+The dedicated `pm-github-sync.yml` caller also permits the canonical
+`unbraind/pm-github/.github/workflows/pm-github-sync.yml` reusable workflow.
+It requires a full commit SHA, a `pm-github YYYY.M.D` release comment, and the
+same exact `pm-github-version` input on the `gated-sync` job. Other workflows
+and suppliers retain the existing action policy.
 
 `test/workflow-update-automation.test.ts` executes the actual workflow gate in
 an isolated fixture with only workflow edits. It checks new and quoted pins and
