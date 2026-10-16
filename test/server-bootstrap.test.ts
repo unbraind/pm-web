@@ -10,9 +10,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { isHostOutputSuppressed } from "@unbrained/pm-cli/sdk";
 import { createExtensionTestHarness } from "@unbrained/pm-cli/sdk/testing";
-import builtExtension from "../dist/index.js";
 import { pool } from "../src/db.ts";
 import sourceExtension from "../src/index.ts";
+import { withExtensionBootstrap } from "./helpers/extension-bootstrap.ts";
 import { authHeaders, ensureSchema, seedProject, seedUser } from "./helpers/pg-harness.ts";
 
 /** Poll observable state under a deadline that includes loaded-host process startup. */
@@ -174,64 +174,51 @@ test("the production health endpoint reports a failed projects volume alongside 
 
 test("the extension starts, probes and stops PostgreSQL servers and propagates child startup failures", { timeout: 60_000 }, async (t) => {
   const { owner, project } = await bootstrapProject(t);
-  const root = await mkdtemp(path.join(tmpdir(), "pm-extension-bootstrap-"));
-  const saved = { ...process.env };
-  const env = bootstrapEnv(root);
-  env.PM_WEB_STATE_DIR = root;
-  for (const key of Object.keys(process.env)) if (!(key in env)) delete process.env[key];
-  Object.assign(process.env, env);
-  const host = await createExtensionTestHarness(builtExtension, { name: "pm-web", capabilities: ["commands", "schema"] });
-  const detached: { pid?: number } = {};
-  t.after(async () => {
-    if (detached.pid) { try { process.kill(detached.pid, "SIGTERM"); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; } }
-    await host.deactivate();
-    for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
-    Object.assign(process.env, saved);
-    await rm(root, { recursive: true, force: true });
+  await withExtensionBootstrap(t, bootstrapEnv, async ({ host, root, detached }) => {
+    const portHolder = createServer();
+    await new Promise<void>((resolve) => { portHolder.listen(0, "127.0.0.1", resolve); });
+    const address = portHolder.address();
+    assert.ok(address && typeof address !== "string");
+    await new Promise<void>((resolve) => { portHolder.close(() => resolve()); });
+    const port = address.port;
+    const started = await host.runCommand({ command: "web", options: { port, detach: true } });
+    assert.equal(started.handled, true);
+    const result = started.result as { pid: number; status: string };
+    assert.equal(result.status, "started");
+    const pid = result.pid;
+    detached.pid = pid;
+    assert.ok(pid > 0);
+    assert.equal(await readFile(path.join(root, `pm-web-${port}.pid`), "utf8"), String(pid));
+    await eventually(async () => {
+      try { return (await fetch(`http://127.0.0.1:${port}/healthz`, { signal: AbortSignal.timeout(500) })).status === 200; }
+      catch { return false; }
+    }, () => "detached server must become healthy");
+    const duplicate = await host.runCommand({ command: "web", options: { port, detach: true } });
+    assert.deepEqual(duplicate.result, { status: "already_running", pid });
+    const status = await host.runCommand({ command: "web status", options: { port }, global: { json: true } });
+    assert.ok(isHostOutputSuppressed(status.result));
+    assert.equal((status.result.result as { status: string }).status, "up");
+    const stopped = await host.runCommand({ command: "web stop", options: { port }, global: { json: true } });
+    assert.ok(isHostOutputSuppressed(stopped.result));
+    assert.equal((stopped.result.result as { status: string }).status, "stopped");
+    await eventually(() => {
+      try { process.kill(pid, 0); return false; }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; return true; }
+    }, () => "stopped detached server must exit");
+    delete detached.pid;
+    await assert.rejects(readFile(path.join(root, `pm-web-${port}.pid`)), { code: "ENOENT" });
+    process.env.JWT_SECRET = "";
+    await assert.rejects(host.runCommand({ command: "web", options: { port } }), /pm-web exited with code 1/);
+    // The source wrapper has no emitted server sibling. Exercise its real child
+    // failure through the shipped host, including the numeric command error.
+    const sourceHost = await createExtensionTestHarness(sourceExtension, { name: "pm-web", capabilities: ["commands", "schema"] });
+    t.after(() => sourceHost.deactivate());
+    await assert.rejects(readFile(new URL("../src/server.js", import.meta.url)), { code: "ENOENT" });
+    await assert.rejects(sourceHost.runCommand({ command: "web", options: { port } }), {
+      name: "CommandError", message: "pm-web exited with code 1", exitCode: 1,
+    });
+    await assert.rejects(fetch(`http://127.0.0.1:${port}/healthz`, { signal: AbortSignal.timeout(1_000) }));
+    const unchanged = await pool.query<{ user_id: string }>("SELECT user_id FROM pm_projects WHERE id = $1", [project.id]);
+    assert.equal(unchanged.rows[0].user_id, owner.id, "failed launch must not alter existing project ownership");
   });
-  const portHolder = createServer();
-  await new Promise<void>((resolve) => { portHolder.listen(0, "127.0.0.1", resolve); });
-  const address = portHolder.address();
-  assert.ok(address && typeof address !== "string");
-  await new Promise<void>((resolve) => { portHolder.close(() => resolve()); });
-  const port = address.port;
-  const started = await host.runCommand({ command: "web", options: { port, detach: true } });
-  assert.equal(started.handled, true);
-  const result = started.result as { pid: number; status: string };
-  assert.equal(result.status, "started");
-  const pid = result.pid;
-  detached.pid = pid;
-  assert.ok(pid > 0);
-  assert.equal(await readFile(path.join(root, `pm-web-${port}.pid`), "utf8"), String(pid));
-  await eventually(async () => {
-    try { return (await fetch(`http://127.0.0.1:${port}/healthz`, { signal: AbortSignal.timeout(500) })).status === 200; }
-    catch { return false; }
-  }, () => "detached server must become healthy");
-  const duplicate = await host.runCommand({ command: "web", options: { port, detach: true } });
-  assert.deepEqual(duplicate.result, { status: "already_running", pid });
-  const status = await host.runCommand({ command: "web status", options: { port }, global: { json: true } });
-  assert.ok(isHostOutputSuppressed(status.result));
-  assert.equal((status.result.result as { status: string }).status, "up");
-  const stopped = await host.runCommand({ command: "web stop", options: { port }, global: { json: true } });
-  assert.ok(isHostOutputSuppressed(stopped.result));
-  assert.equal((stopped.result.result as { status: string }).status, "stopped");
-  await eventually(() => {
-    try { process.kill(pid, 0); return false; }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; return true; }
-  }, () => "stopped detached server must exit");
-  delete detached.pid;
-  await assert.rejects(readFile(path.join(root, `pm-web-${port}.pid`)), { code: "ENOENT" });
-  process.env.JWT_SECRET = "";
-  await assert.rejects(host.runCommand({ command: "web", options: { port } }), /pm-web exited with code 1/);
-  // The source wrapper has no emitted server sibling. Exercise its real child
-  // failure through the shipped host, including the numeric command error.
-  const sourceHost = await createExtensionTestHarness(sourceExtension, { name: "pm-web", capabilities: ["commands", "schema"] });
-  t.after(() => sourceHost.deactivate());
-  await assert.rejects(readFile(new URL("../src/server.js", import.meta.url)), { code: "ENOENT" });
-  await assert.rejects(sourceHost.runCommand({ command: "web", options: { port } }), {
-    name: "CommandError", message: "pm-web exited with code 1", exitCode: 1,
-  });
-  await assert.rejects(fetch(`http://127.0.0.1:${port}/healthz`, { signal: AbortSignal.timeout(1_000) }));
-  const unchanged = await pool.query<{ user_id: string }>("SELECT user_id FROM pm_projects WHERE id = $1", [project.id]);
-  assert.equal(unchanged.rows[0].user_id, owner.id, "failed launch must not alter existing project ownership");
 });

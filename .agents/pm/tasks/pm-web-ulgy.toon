@@ -6,12 +6,12 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-07-29T17:26:40.207Z"
-updated_at: "2026-10-16T08:29:16.640Z"
+updated_at: "2026-10-16T10:15:18.856Z"
 author: codex
 estimated_minutes: 1800
 acceptance_criteria: routes/pm.ts is exercised against a real pm workspace rather than a fake pm binary so in-process SDK dispatch is observable; a regression test asserts that a '..' folder traversal is rejected and that items never land outside the pm root; POSITIONAL_KEYS coverage proves no positional is silently dropped; index.ts and server.ts bootstrap paths are covered; thresholds ratchet again
 parent: pm-web-9ulj
-comments[22]{created_at,author,text}:
+comments[26]{created_at,author,text}:
   "2026-09-18T03:12:09.394Z",pi-agent,"Baseline npm run coverage: 395/395 tests pass; aggregate src coverage L/B/F 71.06/81.28/65.71. Per-file baseline is captured in the coverage run for this branch; largest gaps are routes/pm.ts 30.67/58.95/14.41, index.ts 52.40/94.59/30.00, routes/github.ts 45.63/71.79/35.71, routes/oidc.ts 48.00/100.00/22.22, server.ts 62.79/33.33/33.33, and db.ts 37.56/70.00/66.67."
   "2026-09-18T03:12:10.032Z",pi-agent,"Scope note: public/src is intentionally excluded from this PR's coverage gate and is currently unmeasured. It contains 14,884 TypeScript source lines by find public/src -type f -name '*.ts' | xargs wc -l."
   "2026-09-18T03:28:07.103Z",pi-agent,"Milestone: added real loopback HTTP + real PostgreSQL + real temporary pm workspace coverage. Client B now opens the production SSE endpoint and observes client A's create event. Two edit collaborators concurrently PATCH distinct fields on one item; both writes survive and every history JSONL row parses, with both messages present. A lifecycle scenario exercises rich create, reads, updates, comments, notes, append/history, dependencies, relationships, status views, close/delete, authorization misses, validation errors, and missing-item failures."
@@ -34,9 +34,13 @@ comments[22]{created_at,author,text}:
   "2026-10-16T08:11:32.987Z",codex-agent,"Stability result retained: the second final-floor npm run passes 634/634 coverage tests at 92.42 statements/lines, 80.71 branches and 94.94 functions, then fails the unchanged 2000 ms capacity delivery SLO (0/1 capacity acceptance). Earlier loss, duplicate, failed-write and disconnection assertions pass. Existing pm-web-h4vh now contains the exact failure and contrasting local/CI passes; no duplicate item created and no timing assertion relaxed. The second Bun run remains in progress."
   "2026-10-16T08:28:31.836Z",codex-agent,"Revised final-floor stability evidence on Node 22.23.1: two npm run release:check and two bun run release:check attempts completed. The first npm and both Bun gates exit 0, each with 634/634 coverage tests, 1/1 capacity, 4/4 packed consumers and zero production audit vulnerabilities. The second npm attempt passes all 634 coverage tests and every coverage threshold, then fails the unchanged 2000 ms capacity delivery SLO (0/1 capacity); later audit/packed/release-policy stages were not run in that failed attempt. Loss, duplicate, failed-write and disconnection assertions passed before the latency assertion. The failure and contrasting passes are retained in existing pm-web-h4vh, with no assertion relaxed and no rerun replacing the failed evidence. Coverage tests have zero fail/cancel/skip/todo in all four attempts. Typecheck, lint, 0% duplication and docstrings pass in all four; changelog and release-policy checks pass in the three complete green gates. Git identity was isolated and fleet discovery explicit. Floors {\"branches\": 80.5, \"functions\": 94.59, \"lines\": 92.07, \"statements\": 92.07}. Measured minima across these four runs and the passing Node 22/26 CI gates: src/routes/pm.ts S/L/B/F 89.08/89.08/67.74/81.81; src/routes/projects.ts S/L/B/F 87.30/87.30/85.71/100.00; src/index.ts S/L/B/F 91.21/91.21/79.04/100.00; src/server.ts S/L/B/F 97.80/97.80/94.44/100.00; Package S/L/B/F 92.40/92.40/80.70/94.94. Package margins {\"branches\": 0.2, \"functions\": 0.35, \"lines\": 0.33, \"statements\": 0.33}. The same 37 source files and empty ignore list remain measured. Tests, manifest, generated JavaScript and tracker metadata have no numeric source coverage. Source launcher functions now reach 100%; its real child failure carries exitCode 1 and preserves HTTP refusal and database ownership. Source/test commit e053bb1 passes both CI matrix jobs (npm and Bun gates in each), CodeQL, CodeRabbit and Hound; neutral/skipped reviewer checks are not approval. Original coverage-only CI failure and earlier loaded-host timing failures are retained above; no deadline or production refusal was weakened."
   "2026-10-16T08:29:15.807Z",codex-agent,"The PM-linked real-PostgreSQL command passes again on the revised tests: node scripts/with-test-db.ts node --test --test-concurrency=1 test/pm-command-access.test.ts test/server-bootstrap.test.ts, 16/16 pass and zero fail/cancel/skip/todo. The additive edit-grant fix retains the two independent behavioral revert proofs above. Optional provider availability is tracked in pm-web-pep7; existing timing evidence remains in pm-web-qdhx, pm-web-hqqp and pm-web-h4vh. Releasing the claim for orchestrator verification without closing any item."
+  "2026-10-16T09:47:56.048Z",codex-agent,"Review round 1: verified both bootstrap cleanup findings. The harness await precedes cleanup registration, and detached cleanup signals without awaiting exit. Will register cleanup before host creation, restore environment through failure-safe finally blocks, await bounded TERM/KILL process shutdown before retrying workspace removal, and add real-process failure regressions plus behavioral revert proofs. The branch already contains origin/main; existing dependencies will be reused."
+  "2026-10-16T09:50:22.887Z",codex-agent,"Revert proof (review round 1): restoring the old host-creation behavior only (register cleanup after the host await and omit cleanup when creation rejects) makes node --test --test-name-pattern='host creation rejects' test/extension-bootstrap-cleanup.test.ts fail 1/1 with environment keys must be restored (exit 1). Restoring only stopDetached to the old SIGTERM-without-wait behavior makes node --test --test-name-pattern='before removal after an assertion failure' test/extension-bootstrap-cleanup.test.ts fail 2/2 with process must exit before fixture cleanup returns (exit 1). Both changes were restored immediately; the fixed standalone suite passes 3/3, including a delayed graceful exit that observes its workspace and an ignoring-SIGTERM child killed by the bounded fallback. Every success checks ESRCH and no leftover directory. Typecheck, lint and zero-duplication pass. Test safety hooks reap children and restore ambient state even during reverted runs."
+  "2026-10-16T10:08:42.088Z",codex-agent,"PM-linked focused command node scripts/with-test-db.ts node --test --test-concurrency=1 test/extension-bootstrap-cleanup.test.ts test/pm-command-access.test.ts test/server-bootstrap.test.ts passes 19/19, zero fail/cancel/skip/todo. The isolated npm release gate is failed evidence: 636/637, one unchanged smoke child exits code 1 before listening with empty stderr; downstream release phases were not reached. The same smoke case passes focused 1/1 under isolated Git identity using node scripts/with-test-db.ts node --test --test-name-pattern='production server bootstrap listens' test/smoke.test.ts. Its full-run root cause is unestablished and retained on existing pm-web-qdhx. All new cleanup and existing route/bootstrap cases pass; instrumentation exceeds all unchanged floors. Independent Bun release gate is in progress. Both local aggregate commands use Node 24.19.0, fresh HOME, isolated Git configuration and explicit canonical fleet discovery; no assertion or deadline was relaxed."
+  "2026-10-16T10:15:18.067Z",codex-agent,"Review round 1 local verification complete. bun run release:check exits 0: 637/637 coverage tests across all 37 source files, zero fail/cancel/skip/todo; statements/lines 92.44, branches 80.79, functions 95.90 against unchanged 92.07/92.07/80.50/94.59 floors; capacity 1/1; packed npm/Bun current/minimum consumers 4/4; production audit zero vulnerabilities; typecheck, lint, zero duplication, docstrings, package, changelog and release-policy checks pass. npm run release:check remains failed at coverage 636/637, with the unchanged smoke child exit recorded on pm-web-qdhx; it did not reach downstream acceptance. Focused PM-linked suite passes 19/19 and standalone cleanup suite 3/3. Both independent behavior-only reverts fail as documented. No new runtime/source or threshold change, no npm ci, no thread replies/resolutions or mentions. origin/main remains an ancestor. Releasing this claim with the code and append-only tracker evidence ready for one commit and push; GitHub Node 22/26 checks will be polled every 60 seconds for up to 30 minutes on the delivered head. All items remain unclosed."
 notes[1]{created_at,author,text}:
   "2026-08-21T11:41:29.704Z",codex,"The certified complete-read tranche adds a real-workspace end-to-end test for paginated list-all,complete board/search/export/calendar views and raises routes/pm.ts from 27.28 to 30.70 percent lines and from 7.08 to 14.41 percent functions; branches are 58.95 percent. The shared output-owner test also raises src/index.ts to 51.20 lines,94.12 branches,and 31.58 functions. Most command and bootstrap paths remain uncovered,so this task stays open."
-files[16]:
+files[18]:
   - path: dist/routes/projects.js
     scope: project
   - path: dist/routes/projects.js.map
@@ -60,8 +64,14 @@ files[16]:
     scope: project
   - path: src/services/sse.ts
     scope: project
+  - path: test/extension-bootstrap-cleanup.test.ts
+    scope: project
+    note: Creation failure and real-process assertion failure regressions
   - path: test/extension.test.ts
     scope: project
+  - path: test/helpers/extension-bootstrap.ts
+    scope: project
+    note: Failure-safe host and detached process ownership
   - path: test/pm-collaboration.test.ts
     scope: project
     note: Real HTTP collaboration and command lifecycle coverage
@@ -73,7 +83,7 @@ files[16]:
     scope: project
   - path: test/sse.test.ts
     scope: project
-tests[3]:
+tests[4]:
   - command: npm run coverage
     path: .
     scope: project
@@ -98,6 +108,15 @@ tests[3]:
       created_at: "2026-10-16T04:04:09.836Z"
       source_kind: local_mutation
       source_ref: test/pm-routes-and-bootstrap-coverage
-docs[1]{path,scope,note}:
+  - command: node scripts/with-test-db.ts node --test --test-concurrency=1 test/extension-bootstrap-cleanup.test.ts test/pm-command-access.test.ts test/server-bootstrap.test.ts
+    scope: project
+    timeout_seconds: 240
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T09:50:05.906Z"
+      source_kind: local_mutation
+      source_ref: test/pm-routes-and-bootstrap-coverage
+docs[2]{path,scope,note}:
   README.md,project,Server secrets and lifecycle command documentation
+  test/helpers/extension-bootstrap.ts,project,Documented fixture lifecycle and bounded shutdown contract
 body: ""
