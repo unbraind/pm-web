@@ -84,7 +84,7 @@ export function renderCreateView(): void {
             <textarea class="form-textarea" id="ci-acceptance-criteria" placeholder="What conditions must be met?" rows="2"></textarea>
           </div>
           <details style="margin-top:8px;margin-bottom:4px">
-            <summary style="cursor:pointer;color:var(--text-secondary);font-size:13px;padding:4px 0;user-select:none">▸ Advanced fields</summary>
+            <summary style="cursor:pointer;color:var(--app-text-secondary);font-size:13px;padding:4px 0;user-select:none">▸ Advanced fields</summary>
             <div style="margin-top:12px;display:flex;flex-direction:column;gap:0">
               <div class="form-group">
                 <label class="form-label">Body (Markdown)</label>

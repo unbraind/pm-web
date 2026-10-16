@@ -91,11 +91,11 @@ export function setFormValue(id: string, val: string | undefined): void {
  * item link. The `contentStyle` parameter controls the inner div's style
  * (pass an empty string for no style attribute). */
 export function issueRow(icon: string, iconColor: string, message: string, itemId?: string, contentStyle = 'flex:1'): string {
-  return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
+  return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--app-border)">
                 <span style="color:${iconColor};flex-shrink:0">${icon}</span>
                 <div${contentStyle ? ` style="${contentStyle}"` : ''}>
                   <div style="font-size:13px">${escHtml(message)}</div>
-                  ${itemId ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px"><a href="#" onclick="window.__app.openItemDetail('${escHtml(itemId)}');return false" style="color:var(--accent)">${escHtml(itemId)}</a></div>` : ''}
+                  ${itemId ? `<div style="font-size:11px;color:var(--app-text-muted);margin-top:2px"><a href="#" onclick="window.__app.openItemDetail('${escHtml(itemId)}');return false" style="color:var(--app-accent)">${escHtml(itemId)}</a></div>` : ''}
                 </div>
               </div>`;
 }

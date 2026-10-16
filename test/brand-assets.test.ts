@@ -19,10 +19,18 @@ test('brand build copies optional assets byte for byte and removes stale output'
   await writeFile(path.join(root, 'node_modules/pm-brand/fonts.css'), '/* synthetic font stylesheet */');
   await writeFile(path.join(root, 'node_modules/pm-brand/fonts/OFL.txt'), 'Synthetic license fixture');
   await writeFile(path.join(root, 'public/brand/stale.txt'), 'old');
+  await mkdir(path.join(root, 'node_modules/pm-brand/icons'), { recursive: true });
+  await writeFile(path.join(root, 'node_modules/pm-brand/icons/icon-192.png'), 'Synthetic icon bytes');
+  await writeFile(path.join(root, 'node_modules/pm-brand/tokens.css'), ':root { --pm-paper: #F3F5F8; --pm-stamp: #5B3FC4; }');
+  await writeFile(path.join(root, 'public/manifest.json'), JSON.stringify({ shortcuts: [{ name: 'Create item' }] }));
   await buildBrand(root);
   assert.match(await readFile(path.join(root, 'public/brand/assets.css'), 'utf8'), /fonts\.css/);
   assert.equal(await readFile(path.join(root, `public/brand/${sha}/fonts/OFL.txt`), 'utf8'), 'Synthetic license fixture');
   await assert.rejects(readFile(path.join(root, 'public/brand/stale.txt')), { code: 'ENOENT' });
+  const manifest = JSON.parse(await readFile(path.join(root, 'public/brand/manifest.json'), 'utf8')) as { background_color: string; theme_color: string; icons: { src: string }[] };
+  assert.equal(manifest.background_color, '#F3F5F8');
+  assert.equal(manifest.theme_color, '#5B3FC4');
+  assert.equal(manifest.icons[0].src, `/brand/${sha}/icons/icon-192.png`);
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ dependencies: { 'pm-brand': 'git:invalid' }, devDependencies: { 'pm-brand': 'latest' } }));
   await assert.rejects(buildBrand(root), /devDependencies only/);
 });

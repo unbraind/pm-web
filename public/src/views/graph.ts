@@ -34,7 +34,7 @@ type GraphFilter = {
 let currentGraph: GraphResponse | null = null;
 let selectedNodeId = '';
 const canvasRef: { current: GraphCanvas | null } = { current: null };
-let physicsLabel = 'Pause Physics';
+let physicsLabel = 'Reflow';
 let graphSyncInFlight = false;
 
 /** Record whether a graph sync is running, outside the async sync function. */
@@ -560,7 +560,7 @@ function renderSelectedNode(
       ${tags.length > 0 ? `<div class="graph-tag-list">${tags.map((t) => `<button class="graph-tag-chip" data-graph-query="${escHtml(t)}">${escHtml(t)}</button>`).join('')}</div>` : ''}
       ${fullItem?.body ? `
   <div class="graph-panel-title graph-panel-title-spaced">Description</div>
-  <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow-y:auto;padding:8px;background:rgba(15,23,42,0.5);border-radius:6px;border:1px solid rgba(148,163,184,0.1)">${escHtml(String(fullItem.body).slice(0,500))}${String(fullItem.body).length > 500 ? '…' : ''}</div>
+  <div style="font-size:12px;color:var(--app-text-secondary);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow-y:auto;padding:8px;background:var(--pm-sheet);border-radius:var(--pm-radius-sm);border:1px solid var(--pm-rule)">${escHtml(String(fullItem.body).slice(0,500))}${String(fullItem.body).length > 500 ? '…' : ''}</div>
 ` : ''}
       ${blocks.blockers.size || blocks.blocked.size ? `
       <div class="graph-panel-title graph-panel-title-spaced">Blockers</div>
@@ -578,7 +578,7 @@ function renderSelectedNode(
             // Show any non-trivial relationship properties (e.g. weight, since, note)
             const relProps = visibleRelationshipProperties(r);
             const propHint = relProps.length > 0
-              ? ` <span style="font-size:10px;color:var(--text-muted);opacity:0.8">[${relProps.slice(0,3).map(([k,v])=>`${k}:${escHtml(String(v))}`).join(', ')}]</span>`
+              ? ` <span style="font-size:10px;color:var(--app-text-muted);opacity:0.8">[${relProps.slice(0,3).map(([k,v])=>`${k}:${escHtml(String(v))}`).join(', ')}]</span>`
               : '';
             return `<button class="graph-neighbor" data-graph-node-id="${escHtml(otherId)}"><span class="graph-rel-badge">${escHtml(r.type)}</span> ${dir} <strong>${escHtml(nodeTitle(other || { id: otherId }))}</strong>${propHint}</button>`;
           }).join('') + (direct.length > 16 ? `<div class="graph-limit-note">+${direct.length - 16} more — use Focus scope to narrow</div>` : '')}
@@ -887,7 +887,7 @@ function renderGraphShell(data: GraphResponse): string {
           ${data.canProvision ? `<button class="graph-hud-btn" id="graph-sync-btn" title="Run backend graph sync (S)">${graphSyncInFlight ? 'Syncing…' : '⧉ Sync'}</button>` : ''}
           ${data.canProvision && !data.extensionAvailable ? '<button class="graph-hud-btn" id="graph-provision-btn" title="Install and enable pm-graph for this project">Enable pm-graph</button>' : ''}
           <button class="graph-hud-btn" id="graph-fit-btn" title="Fit all in view (F)">⊡ Fit</button>
-          <button class="graph-hud-btn" id="graph-physics-btn" title="Pause/Resume physics (Space)">${physicsLabel}</button>
+          <button class="graph-hud-btn" id="graph-physics-btn" title="Reflow layout (Space)">${physicsLabel}</button>
           <button class="graph-hud-btn" id="graph-export-png" title="Export as PNG">PNG</button>
           <div class="graph-hud-select-wrap">
             <select class="graph-hud-select" id="graph-layout-select" title="Layout mode">
@@ -991,7 +991,7 @@ function renderGraphShell(data: GraphResponse): string {
           <button class="graph-scope-btn" id="graph-scope-btn">
             ${filter.scope === 'focus' ? '⊙ Show All Nodes' : '⊕ Focus on Selected'}
           </button>
-          ${errText ? `<div style="margin-top:8px;font-size:11px;color:#fb923c;line-height:1.4">⚠ ${escHtml(errText)}</div>` : ''}
+          ${errText ? `<div style="margin-top:8px;font-size:11px;color:var(--pm-stamp);line-height:1.4">⚠ ${escHtml(errText)}</div>` : ''}
         </div>
       </div>
 
@@ -1001,13 +1001,13 @@ function renderGraphShell(data: GraphResponse): string {
         <span><i class="legend-dot legend-facet"></i>Metadata</span>
         <span><i class="legend-dot legend-external"></i>External</span>
         <span class="legend-sep">·</span>
-        <span><i class="legend-dot" style="background:#2dd4bf;box-shadow:0 0 4px #2dd4bf66"></i>open</span>
-        <span><i class="legend-dot" style="background:#fb923c;box-shadow:0 0 4px #fb923c66"></i>in-progress</span>
-        <span><i class="legend-dot" style="background:#f87171;box-shadow:0 0 4px #f8717166"></i>blocked</span>
-        <span><i class="legend-dot" style="background:#64748b"></i>closed</span>
-        <span><i class="legend-dot" style="background:#94a3b8"></i>draft</span>
+        <span><i class="legend-dot" style="background:var(--pm-carbon)"></i>open</span>
+        <span><i class="legend-dot" style="background:var(--pm-canary)"></i>in-progress</span>
+        <span><i class="legend-dot" style="background:var(--pm-rose)"></i>blocked</span>
+        <span><i class="legend-dot" style="background:var(--pm-stamp)"></i>closed</span>
+        <span><i class="legend-dot" style="background:var(--pm-graphite)"></i>draft</span>
         <span class="legend-sep">·</span>
-        <span style="color:rgba(148,163,184,0.5);font-size:10px">Tab/↑↓ navigate · F fit · Space pause · Esc deselect</span>
+        <span style="color:var(--pm-graphite);font-size:10px">↑↓ nodes · Tab controls · F fit · Space reflow · Esc deselect</span>
       </div>
 
       <!-- Info drawer (right side) -->
@@ -1159,8 +1159,8 @@ function updateFilterToolbarState(): void {
 // ── Legend update ─────────────────────────────────────────────
 
 const TYPE_COLORS_MAP: Record<string, string> = {
-  task:'#2dd4bf', feature:'#60a5fa', epic:'#a78bfa', bug:'#f87171',
-  milestone:'#fbbf24', story:'#34d399', chore:'#94a3b8', release:'#38bdf8',
+  task:'var(--pm-stamp)', feature:'var(--pm-stamp)', epic:'var(--pm-stamp)', bug:'var(--pm-graphite)',
+  milestone:'var(--pm-stamp)', story:'var(--pm-stamp)', chore:'var(--pm-graphite)', release:'var(--pm-stamp)',
 };
 
 /** Computes a tag-to-color map by ranking tags by how often they appear across the nodes and assigning each of the most frequent ones a palette color. */
@@ -1187,8 +1187,8 @@ function updateLegend(): void {
       <span><i class="legend-dot legend-external"></i>External</span>
       <span class="legend-sep">·</span>
       ${shown.map(([t]) => {
-        const c = TYPE_COLORS_MAP[t.toLowerCase()] ?? '#64748b';
-        return `<span><i class="legend-dot" style="background:${c};box-shadow:0 0 4px ${c}66"></i>${escHtml(t)}</span>`;
+        const c = TYPE_COLORS_MAP[t.toLowerCase()] ?? 'var(--pm-graphite)';
+        return `<span><i class="legend-dot" style="background:${c};box-shadow:none"></i>${escHtml(t)}</span>`;
       }).join('')}
     `;
   } else if (filter.colorMode === 'tag') {
@@ -1198,9 +1198,9 @@ function updateLegend(): void {
       <span><i class="legend-dot legend-external"></i>External</span>
       <span class="legend-sep">·</span>
       ${[...tagMap.entries()].slice(0, 6).map(([t, c]) =>
-        `<button class="legend-tag-btn" data-legend-tag="${escHtml(t)}" style="border-color:${c}33;color:${c}"><i class="legend-dot" style="background:${c};box-shadow:0 0 4px ${c}66;flex-shrink:0"></i>#${escHtml(t)}</button>`
+        `<button class="legend-tag-btn" data-legend-tag="${escHtml(t)}" style="border-color:var(--pm-rule);color:${c}"><i class="legend-dot" style="background:${c};box-shadow:none;flex-shrink:0"></i>#${escHtml(t)}</button>`
       ).join('')}
-      ${tagMap.size === 0 ? '<span style="color:var(--text-muted);font-size:11px">No tags</span>' : ''}
+      ${tagMap.size === 0 ? '<span style="color:var(--app-text-muted);font-size:11px">No tags</span>' : ''}
     `;
     // Bind tag filter clicks
     legend.querySelectorAll<HTMLButtonElement>('[data-legend-tag]').forEach((btn) => {
@@ -1221,12 +1221,12 @@ function updateLegend(): void {
     legend.innerHTML = `
       <span><i class="legend-dot legend-item"></i>Item</span>
       <span class="legend-sep">·</span>
-      <span><i class="legend-line" style="background:#fb923c"></i>depends on</span>
-      <span><i class="legend-line" style="background:#f87171"></i>blocked by</span>
-      <span><i class="legend-line" style="background:#60a5fa"></i>parent / child</span>
-      <span><i class="legend-line" style="background:#94a3b8"></i>related</span>
+      <span><i class="legend-line" style="background:var(--pm-stamp)"></i>depends on</span>
+      <span><i class="legend-line" style="background:var(--pm-graphite)"></i>blocked by</span>
+      <span><i class="legend-line" style="background:var(--pm-stamp)"></i>parent / child</span>
+      <span><i class="legend-line" style="background:var(--pm-graphite)"></i>related</span>
       <span class="legend-sep">·</span>
-      <span><i class="legend-dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf2488"></i>critical path</span>
+      <span><i class="legend-dot" style="background:var(--pm-stamp);box-shadow:none"></i>critical path</span>
     `;
   } else {
     legend.innerHTML = `
@@ -1234,11 +1234,11 @@ function updateLegend(): void {
       <span><i class="legend-dot legend-facet"></i>Metadata</span>
       <span><i class="legend-dot legend-external"></i>External</span>
       <span class="legend-sep">·</span>
-      <span><i class="legend-dot" style="background:#2dd4bf;box-shadow:0 0 4px #2dd4bf66"></i>open</span>
-      <span><i class="legend-dot" style="background:#fb923c;box-shadow:0 0 4px #fb923c66"></i>in-progress</span>
-      <span><i class="legend-dot" style="background:#f87171;box-shadow:0 0 4px #f8717166"></i>blocked</span>
-      <span><i class="legend-dot" style="background:#64748b"></i>closed</span>
-      <span><i class="legend-dot" style="background:#94a3b8"></i>draft</span>
+      <span><i class="legend-dot" style="background:var(--pm-carbon)"></i>open</span>
+      <span><i class="legend-dot" style="background:var(--pm-canary)"></i>in-progress</span>
+      <span><i class="legend-dot" style="background:var(--pm-rose)"></i>blocked</span>
+      <span><i class="legend-dot" style="background:var(--pm-stamp)"></i>closed</span>
+      <span><i class="legend-dot" style="background:var(--pm-graphite)"></i>draft</span>
     `;
   }
 }
@@ -1407,8 +1407,8 @@ function bindHudEvents(): void {
 
   // Physics toggle
   document.getElementById('graph-physics-btn')?.addEventListener('click', (e) => {
-    const paused = canvasRef.current?.togglePhysics() ?? false;
-    physicsLabel = paused ? 'Resume Physics' : 'Pause Physics';
+    canvasRef.current?.togglePhysics();
+    physicsLabel = 'Reflow';
     (e.target as HTMLButtonElement).textContent = physicsLabel;
   });
 
@@ -1603,13 +1603,15 @@ function bindHudEvents(): void {
 
   // Global keyboard shortcuts for the graph view
   const graphKeyHandler = (e: KeyboardEvent) => {
-    const tag = (e.target as HTMLElement).tagName.toLowerCase();
+    const target = e.target as HTMLElement;
+    if (target.closest('button,a,[role="button"],summary') || !target.closest('#content-graph')) return;
+    const tag = target.tagName.toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
 
     if (e.code === 'Space' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
-      const paused = canvasRef.current?.togglePhysics() ?? false;
-      physicsLabel = paused ? 'Resume Physics' : 'Pause Physics';
+      canvasRef.current?.togglePhysics();
+      physicsLabel = 'Reflow';
       const physBtn = document.getElementById('graph-physics-btn');
       if (physBtn) physBtn.textContent = physicsLabel;
     }
@@ -1827,14 +1829,14 @@ export async function renderGraphView(): Promise<void> {
   if (!state.currentProject) {
     canvasRef.current?.destroy();
     canvasRef.current = null;
-    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:14px">Select a project to view its knowledge graph.</div>';
+    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--app-text-muted);font-size:14px">Select a project to view its knowledge graph.</div>';
     return;
   }
 
   canvasRef.current?.destroy();
   canvasRef.current = null;
 
-  el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text-muted);font-size:13px"><div class="loading-spinner"></div>Loading graph…</div>';
+  el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--app-text-muted);font-size:13px"><div class="loading-spinner"></div>Loading graph…</div>';
 
   // Restore state from URL on first load
   restoreGraphState();
@@ -1870,7 +1872,7 @@ export async function renderGraphView(): Promise<void> {
   } catch (err: unknown) {
     (canvasRef.current as GraphCanvas | null)?.destroy();
     canvasRef.current = null;
-    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">Graph failed to load: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--app-text-muted);font-size:13px">Graph failed to load: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
   }
 }
 
@@ -1918,7 +1920,7 @@ export async function renderLocalGraph(
 
   // Cleanup previous instance
   destroyLocalGraph(containerId);
-  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--text-muted);font-size:12px"><div class="loading-spinner" style="width:16px;height:16px"></div>Loading…</div>';
+  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--app-text-muted);font-size:12px"><div class="loading-spinner" style="width:16px;height:16px"></div>Loading…</div>';
 
   // Use cached graph data if available, otherwise fetch
   let graphData: GraphResponse | null = currentGraph;
@@ -1926,7 +1928,7 @@ export async function renderLocalGraph(
     try {
       graphData = await api('GET', `/projects/${state.currentProject.id}/pm/graph`) as GraphResponse;
     } catch {
-      container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px">Graph unavailable.</div>';
+      container.innerHTML = '<div style="color:var(--app-text-muted);font-size:12px;padding:8px">Graph unavailable.</div>';
       return;
     }
   }
@@ -1938,7 +1940,7 @@ export async function renderLocalGraph(
   // Get neighborhood
   const neighborIds = expandedNeighborIds(nodeId, rels, depth, 'connected');
   if (neighborIds.size < 2) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;text-align:center">No connections to display.<br><small>Add dependencies or tags to see the local graph.</small></div>';
+    container.innerHTML = '<div style="color:var(--app-text-muted);font-size:12px;padding:8px;text-align:center">No connections to display.<br><small>Add dependencies or tags to see the local graph.</small></div>';
     return;
   }
 
@@ -1948,7 +1950,7 @@ export async function renderLocalGraph(
 
   container.innerHTML = '';
   container.style.position = 'relative';
-  container.style.background = '#080d1a';
+  container.style.background = 'var(--pm-paper)';
   container.style.borderRadius = '8px';
   container.style.overflow = 'hidden';
 

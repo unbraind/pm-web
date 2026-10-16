@@ -130,7 +130,7 @@ function renderPagination(totalItems: number, currentPg: number, hook: string): 
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   if (totalPages <= 1) return '';
   return `
-    <div class="admin-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;font-size:12px;color:var(--text-muted)">
+    <div class="admin-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;font-size:12px;color:var(--app-text-muted)">
       <span>Page ${currentPg} of ${totalPages} (${totalItems} items)</span>
       <div style="display:flex;gap:4px">
         <button class="btn btn-sm btn-secondary" ${currentPg <= 1 ? 'disabled' : ''} onclick="window.__app.adminSetPage(${currentPg - 1})" aria-label="Previous page">← Prev</button>

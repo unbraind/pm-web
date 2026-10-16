@@ -1,3 +1,4 @@
+import { initInteractions } from './interactions.js';
 // ═══════════════════════════════════════════════════════════════
 // APP — Main entry point
 // ═══════════════════════════════════════════════════════════════
@@ -54,6 +55,7 @@ import { initTheme, cycleTheme } from './theme.js';
 // Apply the persisted theme immediately on script load (before boot) so the UI
 // renders in the right palette without a flash.
 initTheme();
+initInteractions();
 
 // Global search modal
 let globalSearchTimer: ReturnType<typeof setTimeout>;
@@ -102,7 +104,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
       { view: 'dedupe', title: 'Dedupe Audit', desc: 'Find possible duplicate items.', icon: '⧖', requiresProject: true },
       { view: 'validate', title: 'Validate', desc: 'Run pm validation checks.', icon: '✓', requiresProject: true },
       { view: 'normalize', title: 'Normalize', desc: 'Preview and apply lifecycle cleanup.', icon: '⊞', requiresProject: true },
-      { view: 'comments-audit', title: 'Comments Audit', desc: 'Review latest comments across items.', icon: '💬', requiresProject: true },
+      { view: 'comments-audit', title: 'Comments Audit', desc: 'Review latest comments across items.', icon: '↳', requiresProject: true },
     ],
   },
   {
@@ -120,9 +122,9 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
       { view: 'projects', title: 'All Projects', desc: 'Switch or create a workspace.', icon: '⊞' },
       { view: 'context', title: 'Context', desc: 'Generate agent-ready project context.', icon: '⚙', requiresProject: true },
       { view: 'config', title: 'Config', desc: 'Edit project settings.', icon: '⚒', requiresProject: true },
-      { view: 'packages', title: 'Packages', desc: 'Install and manage pm packages.', icon: '📦', requiresProject: true },
+      { view: 'packages', title: 'Packages', desc: 'Install and manage pm packages.', icon: '□', requiresProject: true },
       { view: 'export', title: 'Export / Import', desc: 'Download or upload project data.', icon: '↕', requiresProject: true },
-      { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '📖', requiresProject: true },
+      { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '≡', requiresProject: true },
       { view: 'settings', title: 'Account Settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
       { view: 'admin', title: 'Admin', desc: 'Manage users, projects, groups, and roles.', icon: '◇' },
     ],
@@ -442,10 +444,8 @@ function renderPresenceBar(users: PresenceUser[]): void {
 
   const chips = visible.map((u) => {
     const initials = userInitials(u.displayName);
-    const hue = Math.abs(u.userId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % 360;
-    const color = `hsl(${hue},60%,55%)`;
     const viewLabel = u.currentView.replace(/-/g, ' ');
-    return `<div class="presence-chip" title="${escHtml(u.displayName)} · ${escHtml(viewLabel)}" style="background:${color}22;border-color:${color}66;color:${color}">${escHtml(initials)}</div>`;
+    return `<div class="presence-chip" title="${escHtml(u.displayName)} · ${escHtml(viewLabel)}">${escHtml(initials)}</div>`;
   }).join('');
 
   const extraChip = extra > 0
@@ -760,14 +760,14 @@ function showGlobalError(errorMsg: string, error?: unknown): void {
   }
 
   const stackTrace = error instanceof Error && error.stack
-    ? `<details style="margin-top:12px;text-align:left"><summary style="cursor:pointer;color:var(--text-muted);font-size:12px">Stack trace</summary><pre style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);white-space:pre-wrap;word-break:break-all">${escHtml(error.stack)}</pre></details>`
+    ? `<details style="margin-top:12px;text-align:left"><summary style="cursor:pointer;color:var(--app-text-muted);font-size:12px">Stack trace</summary><pre style="margin-top:8px;font-family:var(--pm-font-mono);font-size:11px;color:var(--app-text-muted);white-space:pre-wrap;word-break:break-all">${escHtml(error.stack)}</pre></details>`
     : '';
 
   errorScreen.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center">
       <div style="font-size:48px;margin-bottom:20px;opacity:0.5">⚠</div>
       <h1 style="font-size:22px;font-weight:600;margin-bottom:8px">Something went wrong</h1>
-      <p style="color:var(--text-secondary);max-width:480px;line-height:1.7;margin-bottom:8px">${escHtml(errorMsg)}</p>
+      <p style="color:var(--app-text-secondary);max-width:480px;line-height:1.7;margin-bottom:8px">${escHtml(errorMsg)}</p>
       ${stackTrace}
       <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;justify-content:center">
         <button class="btn btn-primary" onclick="location.reload()" aria-label="Reload the page">Reload Page</button>
@@ -848,9 +848,9 @@ function openShortcutsHelp(): void {
           ['g s', 'Go to Search view'],
           ['g c', 'Go to Calendar view'],
         ].map(([key, desc]) => `
-          <tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:8px 12px 8px 0;white-space:nowrap"><kbd style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--accent)">${escHtml(key)}</kbd></td>
-            <td style="padding:8px 0;color:var(--text-secondary)">${escHtml(desc)}</td>
+          <tr style="border-bottom:1px solid var(--app-border)">
+            <td style="padding:8px 12px 8px 0;white-space:nowrap"><kbd style="font-family:var(--pm-font-mono);font-size:12px;background:var(--app-bg-input);border:1px solid var(--app-border);border-radius:var(--pm-radius-sm);padding:2px 6px;color:var(--app-accent)">${escHtml(key)}</kbd></td>
+            <td style="padding:8px 0;color:var(--app-text-secondary)">${escHtml(desc)}</td>
           </tr>`).join('')}
       </tbody>
     </table>`, '');

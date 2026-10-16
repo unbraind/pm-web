@@ -49,3 +49,23 @@ Migration pixel comparison: 30/30 images passed. Maxima across widths/themes:
 The sparse glyph-edge differences stay below the declared antialiasing limit
 (32 channel levels and 0.02% changed pixels); item views are pixel-identical.
 The external evidence directory also contains the complete per-image JSON.
+
+The restyle consumes the kit's self-hosted Archivo, Public Sans and Martian Mono,
+its SVG mark, and its 192/512/maskable PWA icons. The generated manifest derives
+its colors from the installed contract. Cookie notices take normal document
+space; they cannot cover a form. The board keeps the same filters as the list.
+Closed stamps appear only inside the closed item's detail sheet.
+
+Upstream install gap: the held kit's Git `prepare` runs merge installation in
+an artifact directory without Git metadata. CI installs with scripts disabled
+and explicitly runs this package's canonical prepare afterward. That Git
+artifact also lacks compiled token exports; the build prefers those exports
+when present and otherwise generates equivalent typed data from the installed
+CSS. This fallback is generated output, never a second maintained palette.
+
+Focused styling checks: 41/41 asset, contrast, legal, localization and service
+worker tests. The stronger browser audit checks painted text contrast and alpha,
+Tab traversal of every action, focus rings and viewport width. It caught the
+calendar's faded adjacent-month dates and a canvas Tab trap; both were fixed.
+The live-arrival audit also exposes the old SSE list replacement, addressed in
+the following in-place arrival commit.

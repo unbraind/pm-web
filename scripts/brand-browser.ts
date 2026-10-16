@@ -6,6 +6,7 @@ import path from 'node:path';
 import { chromium, type Page } from 'playwright-core';
 import { fixtureResponse, fixtureItems } from './brand-fixtures.ts';
 import type { AppBridge } from '../public/src/app.ts';
+import { auditTextContrast } from './brand-browser-contrast.ts';
 
 interface ReviewWindow extends Window { __app: AppBridge; __fixtureEmit: (data: Record<string, unknown>) => void }
 const app = express();
@@ -27,16 +28,21 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 browser.on('disconnected', () => server.closeAllConnections());
 const strict = process.env.BRAND_ACCEPTANCE === '1';
 const report: unknown[] = [];
+let screenshotCount = 0;
 
 /** Capture a stable view and audit its responsive and keyboard affordances. */
-async function capture(page: Page, name: string, width: number, theme: string): Promise<void> {
+async function capture(page: Page, name: string, width: number, theme: string, screenshot = true): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(120);
   if (strict) {
+    const contrast = await auditTextContrast(page);
+    assert.deepEqual(contrast.failures, [], `${name}/${width}/${theme}: text contrast`);
     const audit = await page.evaluate(() => {
-      const visible = (el: HTMLElement): boolean => !!el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden';
-      const scope = [...document.querySelectorAll<HTMLElement>('.modal-backdrop')].find(el => visible(el)) ?? document;
-      const actions = [...scope.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,[onclick],[role="button"]')].filter(el => visible(el) && !el.matches(':disabled,[aria-hidden="true"]'));
+      const visible = (el: HTMLElement): boolean => el.checkVisibility() && !!el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden';
+      const scope = [...document.querySelectorAll<HTMLElement>('.modal-backdrop')].filter(visible).at(-1) ?? document;
+      const actions = [...scope.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,summary,canvas[tabindex],[onclick],[role="button"],[tabindex="0"]')].filter(el => visible(el) && !el.matches(':disabled,[aria-hidden="true"]'));
+      actions.forEach((el, index) => { el.dataset.keyboardReview = String(index); });
+      actions[0]?.focus({ preventScroll: true });
       return { overflow: document.documentElement.scrollWidth > innerWidth, unreachable: actions.filter(el => el.tabIndex < 0).map(el => el.outerHTML.slice(0, 200)), count: actions.length };
     });
     assert.equal(audit.overflow, false, `${name}/${width}/${theme}: horizontal overflow`);
@@ -49,13 +55,20 @@ async function capture(page: Page, name: string, width: number, theme: string): 
         const el = document.activeElement as HTMLElement;
         if (!el || el === document.body) return null;
         const css = getComputedStyle(el);
-        return { key: el.id || el.outerHTML.slice(0, 220), ring: css.outlineStyle !== 'none' && parseFloat(css.outlineWidth) >= 2 };
+        return { key: el.dataset.keyboardReview, label: el.id || el.outerHTML.slice(0, 220), ring: css.outlineStyle !== 'none' && parseFloat(css.outlineWidth) >= 2 };
       });
-      if (focused) { assert.ok(focused.ring, `${name}: missing focus ring on ${focused.key}`); visited.add(focused.key); }
+      if (focused) { assert.ok(focused.ring, `${name}: missing focus ring on ${focused.label}`); if (focused.key !== undefined) visited.add(focused.key); }
     }
-    report.push({ name, width, theme, ...audit, tabStops: visited.size });
-    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+    assert.equal(visited.size, audit.count, `${name}: Tab did not reach every action`);
+    report.push({ name, width, theme, ...audit, tabStops: visited.size, contrastPairs: contrast.pairs });
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement)?.blur();
+      document.querySelectorAll<HTMLElement>('*').forEach(el => { if (el.scrollTop) el.scrollTop = 0; });
+      window.scrollTo(0, 0);
+    });
   }
+  if (!screenshot) return;
+  screenshotCount++;
   await page.screenshot({ path: path.join(output!, `${name}-${width}-${theme}.png`), timeout: 60000, animations: name === 'live-arrival' ? 'allow' : 'disabled' });
 }
 
@@ -110,6 +123,11 @@ try {
       await page.evaluate(view => (window as unknown as ReviewWindow).__app.showView(view), view);
       await page.waitForTimeout(view === 'graph' ? 1200 : 220);
       await capture(page, view, width, theme);
+      if (strict && view === 'create') {
+        await page.locator('#content-create summary').focus();
+        await page.keyboard.press('Enter');
+        await capture(page, 'create-advanced', width, theme, false);
+      }
     }
     await page.goto(`${base}/privacy-policy.html`);
     await capture(page, 'legal', width, theme);
@@ -127,5 +145,5 @@ try {
     await context.close();
   }
   await writeFile(path.join(output, 'browser-report.json'), JSON.stringify(report, null, 2));
-  console.log(`Captured ${18 * 6} fixture screenshots; ${report.length} browser audits`);
+  console.log(`Captured ${screenshotCount} fixture screenshots; ${report.length} browser audits`);
 } finally { await browser.close(); await new Promise<void>(resolve => { server.close(() => resolve()); }); }

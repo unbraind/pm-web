@@ -1,7 +1,8 @@
+@import url("/cookie-consent.css");
 .legal-shell {
   min-height: 100vh;
-  background: var(--bg-base);
-  color: var(--text-primary);
+  background: var(--app-bg-base);
+  color: var(--app-text-primary);
 }
 
 .legal-nav {
@@ -10,13 +11,13 @@
   justify-content: space-between;
   gap: 16px;
   padding: 18px 28px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-bg-sidebar);
 }
 
 .legal-brand {
-  color: var(--accent);
-  font-family: var(--app-font-2);
+  color: var(--app-accent);
+  font-family: var(--pm-font-mono);
   font-size: 18px;
   font-weight: 600;
   text-decoration: none;
@@ -30,12 +31,12 @@
 }
 
 .legal-links a {
-  color: var(--text-secondary);
+  color: var(--app-text-secondary);
   text-decoration: none;
 }
 
 .legal-links a:hover {
-  color: var(--accent);
+  color: var(--app-accent);
 }
 
 .legal-main {
@@ -46,13 +47,13 @@
 
 .legal-kicker,
 .legal-updated {
-  color: var(--text-secondary);
-  font-family: var(--app-font-2);
+  color: var(--app-text-secondary);
+  font-family: var(--pm-font-mono);
   font-size: 12px;
 }
 
 .legal-kicker {
-  color: var(--accent);
+  color: var(--app-accent);
   margin-bottom: 10px;
   text-transform: uppercase;
 }
@@ -67,7 +68,7 @@
 }
 
 .legal-section {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--app-border);
   padding: 28px 0;
 }
 
@@ -78,52 +79,12 @@
 
 .legal-section p,
 .legal-section li {
-  color: var(--text-secondary);
+  color: var(--app-text-secondary);
   margin-bottom: 12px;
 }
 
 .legal-section code {
-  color: var(--accent);
-}
-
-.cookie-consent {
-  position: fixed;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--app-ink-94);
-  box-shadow: 0 12px 48px var(--app-ink-95);
-}
-
-.cookie-consent[hidden] {
-  display: none;
-}
-
-.cookie-consent-text {
-  display: grid;
-  gap: 4px;
-  color: var(--text-secondary);
-}
-
-.cookie-consent-text strong {
-  color: var(--text-primary);
-}
-
-.cookie-consent-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  color: var(--app-accent);
 }
 
 .legal-footer {
@@ -131,7 +92,7 @@
   gap: 12px;
   flex-wrap: wrap;
   padding-top: 24px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--app-border);
 }
 
 @media (max-width: 720px) {
@@ -139,12 +100,15 @@
     align-items: flex-start;
     flex-direction: column;
   }
-
-  .cookie-consent {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    align-items: stretch;
-    flex-direction: column;
-  }
 }
+
+.legal-nav { background: var(--pm-paper); border: 0; flex-wrap: wrap; }
+.legal-brand { color: var(--pm-carbon); }
+.legal-main { max-width: 54rem; padding-top: 3rem; }
+.legal-section { border: 0; }
+.legal-main h1 { font-size: var(--pm-step-4); }
+.legal-kicker { font-family: var(--pm-font-caption); font-variation-settings: "wdth" 75; letter-spacing: .09em; }
+.legal-main h2 { font-family: var(--pm-font-body); font-size: var(--pm-step-1); font-weight: 650; }
+
+/* The shared notice remains in document flow on legal pages. */
+.legal-shell .cookie-consent { position: static; }

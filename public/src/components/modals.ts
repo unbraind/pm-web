@@ -3,16 +3,45 @@
 // ═══════════════════════════════════════════════════════════════
 import { escHtml } from '../utils.js';
 
+const returnFocus = new WeakMap<HTMLElement, HTMLElement>();
+let keyboardBound = false;
+
+/** Keep keyboard navigation inside the topmost open dialog and support Escape. */
+function bindDialogKeyboard(): void {
+  if (keyboardBound) return;
+  keyboardBound = true;
+  document.addEventListener('keydown', event => {
+    const open = [...document.querySelectorAll<HTMLElement>('.modal-backdrop')].filter(el => el.style.display !== 'none').at(-1);
+    if (!open) return;
+    if (event.key === 'Escape') { event.preventDefault(); hideModal(open.id); return; }
+    if (event.key !== 'Tab') return;
+    const actions = [...open.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,[tabindex="0"]')].filter(el => !!el.getClientRects().length && !el.matches(':disabled'));
+    const first = actions[0], last = actions.at(-1);
+    if (!first || !last) return;
+    if (!open.contains(document.activeElement) || (event.shiftKey && document.activeElement === first)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+}
+
 /** Display the modal with the given id by setting its display style to flex. */
 export function showModal(id: string): void {
   const modal = document.getElementById(id);
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    bindDialogKeyboard();
+    if (document.activeElement instanceof HTMLElement) returnFocus.set(modal, document.activeElement);
+    modal.style.display = 'flex';
+    modal.querySelector<HTMLButtonElement>('.modal-close')?.focus({ preventScroll: true });
+  }
 }
 
 /** Hide the modal with the given id by setting its display style to none. */
 export function hideModal(id: string): void {
   const modal = document.getElementById(id);
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.display = 'none';
+    const target = returnFocus.get(modal);
+    if (target?.isConnected) target.focus({ preventScroll: true });
+  }
 }
 
 /** Hide every modal backdrop element in the document by setting each to
@@ -40,10 +69,10 @@ export function createModal(
   el.className = 'modal-backdrop';
   el.style.display = 'none';
   el.innerHTML = `
-    <div class="modal${wide ? ' modal-wide' : ''}">
+    <div class="modal${wide ? ' modal-wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="${id}-title">
       <div class="modal-header">
-        <div class="modal-title">${escHtml(title)}</div>
-        <button class="modal-close" onclick="window.__app.hideModal('${id}')">&times;</button>
+        <div class="modal-title" id="${id}-title">${escHtml(title)}</div>
+        <button class="modal-close" aria-label="Close dialog" onclick="window.__app.hideModal('${id}')">&times;</button>
       </div>
       <div class="modal-body">${bodyHtml}</div>
       ${footerHtml ? `<div class="modal-footer">${footerHtml}</div>` : ''}

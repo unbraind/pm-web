@@ -11,7 +11,7 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Copy server source and build
 COPY tsconfig.json ./
-COPY scripts/build-brand.ts ./scripts/build-brand.ts
+COPY scripts/build-brand.ts scripts/brand-token-data.ts ./scripts/
 COPY src/ ./src/
 # Copy entire public directory for frontend build
 COPY public/ ./public/

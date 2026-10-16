@@ -6,29 +6,93 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-16T22:40:44.721Z"
+updated_at: "2026-10-16T23:02:36.832Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
-comments[3]{created_at,author,text}:
+comments[5]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
-files[12]{path,scope}:
+  "2026-10-16T22:59:16.767Z",codex-agent,"Restyle uses only shared contract aliases, installed self-hosted fonts and brand artwork, field underlines, real item strips, status shapes, a responsive board and in-flow cookie notices. Focused asset/legal/i18n/service-worker checks pass 41/41. The first keyboard matrix passed 108/108 basic audits; a stronger traversal exposed and fixed the graph canvas Tab trap. New brand commit 952a4bc includes fonts/icons/logo but its Git prepare assumes a checkout. Script-disabled installation retains those built assets; CI then runs this package prepare explicitly. When compiled tokens are absent, build output derives equivalent typed data from the installed CSS; compiled kit tokens take precedence when supplied. No shared thresholds or pinned SDK changed."
+  "2026-10-16T23:02:36.832Z",codex-agent,"Stronger scripted checks now traverse every action, verify a focus ring, detect viewport overflow and compute painted text contrast including opacity. They found and fixed dim adjacent-month calendar dates. Seventeen requested screens passed these checks in the first light/desktop run. The remaining live-arrival traversal catches the existing SSE list replacement during focus traversal; the next signature commit will patch fields in place to remove that focus loss. Generated brand assets include the shared mark, all PWA icons and licensed font files; no generated files are tracked."
+files[72]{path,scope}:
+  .github/workflows/ci.yml,project
+  .github/workflows/release.yml,project
   Dockerfile,project
   package.json,project
   public/app-tokens.css,project
   public/cookie-consent.css,project
+  public/cookie-settings.html,project
+  public/index.html,project
   public/legal-common.css,project
+  public/legal-notice.html,project
+  public/manifest.json,project
+  public/privacy-policy.html,project
+  public/src/api-types.ts,project
+  public/src/api.ts,project
+  public/src/app.ts,project
+  public/src/brand.ts,project
+  public/src/browser-window.ts,project
+  public/src/components/modals.ts,project
+  public/src/components/toast.ts,project
+  public/src/constants.ts,project
+  public/src/cookie-consent.ts,project
+  public/src/filters.ts,project
+  public/src/i18n.ts,project
+  public/src/interactions.ts,project
+  public/src/offline-recovery.ts,project
+  public/src/state.ts,project
+  public/src/sw.ts,project
+  public/src/theme.ts,project
+  public/src/types.ts,project
+  public/src/utils.ts,project
+  public/src/views/activity.ts,project
+  public/src/views/admin.ts,project
+  public/src/views/auth.ts,project
+  public/src/views/calendar.ts,project
+  public/src/views/comments-audit.ts,project
+  public/src/views/config.ts,project
+  public/src/views/context.ts,project
+  public/src/views/create.ts,project
+  public/src/views/dedupe.ts,project
+  public/src/views/export.ts,project
+  public/src/views/github.ts,project
+  public/src/views/graph-canvas.ts,project
+  public/src/views/graph.ts,project
+  public/src/views/groups.ts,project
+  public/src/views/guide.ts,project
+  public/src/views/health.ts,project
+  public/src/views/items.ts,project
+  public/src/views/maintenance.ts,project
+  public/src/views/normalize.ts,project
+  public/src/views/packages.ts,project
+  public/src/views/plan-execution.ts,project
+  public/src/views/plan.ts,project
+  public/src/views/projects.ts,project
+  public/src/views/router.ts,project
+  public/src/views/search.ts,project
+  public/src/views/settings.ts,project
+  public/src/views/shared.ts,project
+  public/src/views/sharing.ts,project
+  public/src/views/stats.ts,project
+  public/src/views/templates.ts,project
+  public/src/views/validate.ts,project
   public/styles.css,project
+  public/terms.html,project
+  scripts/brand-browser-contrast.ts,project
   scripts/brand-browser.ts,project
   scripts/brand-fixtures.ts,project
   scripts/brand-pixel-diff.ts,project
+  scripts/brand-token-data.ts,project
   scripts/build-brand.ts,project
   src/app.ts,project
   test/brand-assets.test.ts,project
-tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  test/brand-contrast.test.ts,project
+tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test test/brand-assets.test.ts,project,codex-agent,"2026-10-16T22:39:55.603Z",local_mutation,brand/triplicate-tokens-and-restyle
-docs[1]{path,scope}:
+  node scripts/with-test-db.ts node --test test/brand-assets.test.ts test/brand-contrast.test.ts test/static-scripts.test.ts test/legal-pages.test.ts test/i18n.test.ts,project,codex-agent,"2026-10-16T23:02:21.635Z",local_mutation,brand/triplicate-tokens-and-restyle
+docs[2]{path,scope}:
   docs/brand-review.md,project
+  README.md,project
 body: ""

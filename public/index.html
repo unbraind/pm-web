@@ -2,8 +2,8 @@
 <html lang="en" data-theme="auto">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0f1e">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#F3F5F8">
 <meta name="description" content="pm-web — browser UI for pm-cli project management">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,11 +14,11 @@
      tech and search engines report the right language without a flash. The
      full catalog is applied later by the i18n module (public/src/i18n.ts). -->
 <script>try{const S=['en','de','es','zh'];const l=localStorage.getItem('pmLocale');if(S.indexOf(l)>=0){document.documentElement.lang=l;}else{const n=(navigator.language||'').toLowerCase().split('-')[0];if(S.indexOf(n)>=0){document.documentElement.lang=n;}}}catch(e){}</script>
-<link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
-<link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
-<link rel="stylesheet" href="/styles.css?v=20">
-<link rel="stylesheet" href="/cookie-consent.css?v=1">
+<link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
+<link rel="manifest" href="/brand/manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css?v=21">
+<link rel="stylesheet" href="/cookie-consent.css?v=2">
 </head>
 <body>
 <a href="#main-content" class="skip-link" data-i18n="nav.skipLink">Skip to main content</a>
@@ -27,7 +27,7 @@
   <div id="auth-screen" style="display:none">
     <div class="auth-left">
       <div class="auth-brand">
-        <div class="auth-logo">pm<span>-web</span></div>
+        <div class="auth-logo"><span class="brand-lockup" aria-label="pm Web"><span class="brand-mark" aria-hidden="true"><img class="brand-mark-light" src="/brand/mark.svg" alt=""><img class="brand-mark-dark" src="/brand/mark-dark.svg" alt=""></span><span class="brand-product">WEB</span></span></div>
         <div class="auth-tagline" data-i18n="auth.brand.tagline">Git-native project management</div>
         <ul class="auth-features">
           <li data-i18n="auth.feature.tasks">Manage tasks, features, bugs, epics &amp; more</li>
@@ -70,7 +70,7 @@
   <!-- Main App -->
   <div id="main-app" style="display:none">
     <nav id="top-nav" role="navigation" aria-label="Main navigation">
-      <div class="nav-logo">pm<span>-web</span></div>
+      <div class="nav-logo"><span class="brand-lockup" aria-label="pm Web"><span class="brand-mark" aria-hidden="true"><img class="brand-mark-light" src="/brand/mark.svg" alt=""><img class="brand-mark-dark" src="/brand/mark-dark.svg" alt=""></span><span class="brand-product">WEB</span></span></div>
       <div class="nav-divider"></div>
       <div class="project-selector-wrap">
         <label for="project-selector" class="sr-only">Select project</label>
@@ -167,16 +167,16 @@
             <span class="sidebar-item-icon" aria-hidden="true">⎘</span> Templates
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('packages')" data-view="packages" role="button" tabindex="0" aria-label="Packages" onkeydown="if(event.key==='Enter')window.__app.showView('packages')">
-            <span class="sidebar-item-icon" aria-hidden="true">📦</span> Packages
+            <span class="sidebar-item-icon" aria-hidden="true">□</span> Packages
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('guide')" data-view="guide" role="button" tabindex="0" aria-label="Guide" onkeydown="if(event.key==='Enter')window.__app.showView('guide')">
-            <span class="sidebar-item-icon" aria-hidden="true">📖</span> Guide
+            <span class="sidebar-item-icon" aria-hidden="true">≡</span> Guide
           </div>
         </div>
         <div class="sidebar-section" id="sidebar-logs-section">
           <div class="sidebar-section-label">Logs</div>
           <div class="sidebar-item" onclick="window.__app.showView('comments-audit')" data-view="comments-audit" role="button" tabindex="0" aria-label="Comments audit" onkeydown="if(event.key==='Enter')window.__app.showView('comments-audit')">
-            <span class="sidebar-item-icon" aria-hidden="true">💬</span> Comments Audit
+            <span class="sidebar-item-icon" aria-hidden="true">↳</span> Comments Audit
           </div>
         </div>
         <div class="sidebar-section">
@@ -270,7 +270,7 @@
 </nav>
 
 <script type="module" src="/src/app.js?v=9"></script>
-<div class="cookie-consent" id="cookie-consent" hidden><div class="cookie-consent-text"><strong data-i18n="cookie.banner.title">Cookie Settings</strong><span data-i18n="cookie.banner.text">We only use technically necessary storage for sign-in, security, and preferences. No optional tracking cookies.</span></div><div class="cookie-consent-actions"><a href="/privacy-policy" data-i18n="cookie.banner.privacy">Privacy Policy</a><button type="button" class="btn btn-secondary btn-sm" data-cookie-decline data-i18n="cookie.banner.decline">Necessary only</button><button type="button" class="btn btn-primary btn-sm" data-cookie-accept data-i18n="cookie.banner.accept">Got it</button></div></div>
+<div class="cookie-consent" id="cookie-consent" hidden><div class="cookie-consent-text"><strong data-i18n="cookie.banner.title">Cookie Settings</strong><span data-i18n="cookie.banner.text">We only use technically necessary storage for sign-in, security, and preferences. No optional tracking cookies.</span></div><div class="cookie-consent-actions"><a href="/privacy-policy" data-i18n="cookie.banner.privacy">Privacy Policy</a><button type="button" class="btn btn-secondary btn-sm" data-cookie-decline data-i18n="cookie.banner.decline">Necessary only</button><button type="button" class="btn btn-ghost btn-sm" data-cookie-accept data-i18n="cookie.banner.accept">Got it</button></div></div>
 <script src="/cookie-consent.js?v=1"></script>
 </body>
 </html>

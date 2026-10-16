@@ -95,7 +95,7 @@ async function loadShares(): Promise<void> {
         </div>
       </div>`;
   } catch(err: unknown) {
-    if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 

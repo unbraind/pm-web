@@ -47,15 +47,15 @@ function stepRef(step: PlanStepPayload): string {
 function stepStatusBadge(status?: string): string {
   const s = (status || 'pending').toLowerCase();
   const colors: Record<string, string> = {
-    done: 'var(--status-closed)',
-    completed: 'var(--status-closed)',
-    blocked: 'var(--status-blocked)',
+    done: 'var(--app-status-closed)',
+    completed: 'var(--app-status-closed)',
+    blocked: 'var(--app-status-blocked)',
     in_progress: 'var(--status-in-progress)',
-    pending: 'var(--text-muted)',
-    open: 'var(--accent)',
+    pending: 'var(--app-text-muted)',
+    open: 'var(--app-accent)',
   };
-  const color = colors[s] || 'var(--text-muted)';
-  return `<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:color-mix(in srgb,${color} 18%,transparent);color:${color};font-weight:600;letter-spacing:.3px">${escHtml(s)}</span>`;
+  const color = colors[s] || 'var(--app-text-muted)';
+  return `<span style="font-size:11px;padding:2px 7px;border-radius:var(--pm-radius-sm);background:color-mix(in srgb,${color} 18%,transparent);color:${color};font-weight:600;letter-spacing:.3px">${escHtml(s)}</span>`;
 }
 
 /**
@@ -64,8 +64,8 @@ function stepStatusBadge(status?: string): string {
  */
 function metricBadge(label: string, value: string, color: string): string {
   return `
-    <div style="padding:8px 10px;border-radius:8px;background:color-mix(in srgb,${color} 14%, var(--bg-card));border:1px solid color-mix(in srgb,${color} 28%, var(--border));min-width:95px">
-      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px">${escHtml(label)}</div>
+    <div style="padding:8px 10px;border-radius:var(--pm-radius-sm);background:color-mix(in srgb,${color} 14%, var(--app-bg-card));border:1px solid color-mix(in srgb,${color} 28%, var(--app-border));min-width:95px">
+      <div style="font-size:11px;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:.4px">${escHtml(label)}</div>
       <div style="font-size:14px;font-weight:600;color:${color};margin-top:2px">${escHtml(value)}</div>
     </div>`;
 }
@@ -80,14 +80,14 @@ function renderDependencyHint(analyzed?: AnalyzedPlanStep): string {
   if (!analyzed || analyzed.dependsOn.length === 0 || analyzed.isDone || analyzed.isBlocked) return '';
 
   if (analyzed.incompleteDependencies.length === 0 && analyzed.unresolvedDependencies.length === 0) {
-    return `<div style="font-size:12px;color:var(--text-muted);margin-top:3px">Dependencies complete: ${escHtml(analyzed.dependsOn.join(', '))}</div>`;
+    return `<div style="font-size:12px;color:var(--app-text-muted);margin-top:3px">Dependencies complete: ${escHtml(analyzed.dependsOn.join(', '))}</div>`;
   }
 
   const blockers = [
     ...analyzed.incompleteDependencies,
     ...analyzed.unresolvedDependencies.map(dep => `${dep} (missing)`),
   ];
-  return `<div style="font-size:12px;color:var(--warning,#f59e0b);margin-top:3px">Waiting on: ${escHtml(blockers.join(', '))}</div>`;
+  return `<div style="font-size:12px;color:var(--warning,var(--pm-stamp));margin-top:3px">Waiting on: ${escHtml(blockers.join(', '))}</div>`;
 }
 
 /**
@@ -104,24 +104,24 @@ function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): 
       ...step.unresolvedDependencies.map(dep => `${dep} (missing)`),
     ];
     return `
-      <li style="font-size:12px;color:var(--text-secondary);line-height:1.5">
-        <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">[${escHtml(step.ref)}]</span>
+      <li style="font-size:12px;color:var(--app-text-secondary);line-height:1.5">
+        <span style="font-family:var(--pm-font-mono);color:var(--app-text-muted)">[${escHtml(step.ref)}]</span>
         ${escHtml(step.title)} - waiting on ${escHtml(blockers.join(', '))}
       </li>`;
   }).join('');
   const blockedPreview = snapshot.blockedStepDetails.slice(0, 2).map(step => `
-    <li style="font-size:12px;color:var(--text-secondary);line-height:1.5">
-      <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">[${escHtml(step.ref)}]</span>
+    <li style="font-size:12px;color:var(--app-text-secondary);line-height:1.5">
+      <span style="font-family:var(--pm-font-mono);color:var(--app-text-muted)">[${escHtml(step.ref)}]</span>
       ${escHtml(step.title)}
-      ${step.blockedReason ? `<span style="color:var(--status-blocked)"> - ${escHtml(step.blockedReason)}</span>` : ''}
+      ${step.blockedReason ? `<span style="color:var(--app-status-blocked)"> - ${escHtml(step.blockedReason)}</span>` : ''}
     </li>`).join('');
 
   return `
-    <div style="margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-elevated)">
+    <div style="margin-bottom:12px;padding:12px;border:1px solid var(--app-border);border-radius:var(--pm-radius-sm);background:var(--bg-elevated)">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
         <div>
           <div style="font-size:13px;font-weight:600">Execution Focus</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Dependency-aware summary to guide agent execution.</div>
+          <div style="font-size:12px;color:var(--app-text-muted);margin-top:2px">Dependency-aware summary to guide agent execution.</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="window.__app.copyPlanAgentBrief('${escHtml(planId)}')" title="Copy dependency and status summary">Copy agent brief</button>
@@ -129,26 +129,26 @@ function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): 
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        ${metricBadge('Complete', `${snapshot.completedSteps}/${snapshot.totalSteps}`, 'var(--status-closed)')}
-        ${metricBadge('Ready', String(snapshot.readySteps.length), 'var(--accent)')}
-        ${metricBadge('Waiting', String(snapshot.waitingSteps.length), 'var(--warning,#f59e0b)')}
-        ${metricBadge('Blocked', String(snapshot.blockedStepDetails.length), 'var(--status-blocked)')}
+        ${metricBadge('Complete', `${snapshot.completedSteps}/${snapshot.totalSteps}`, 'var(--app-status-closed)')}
+        ${metricBadge('Ready', String(snapshot.readySteps.length), 'var(--app-accent)')}
+        ${metricBadge('Waiting', String(snapshot.waitingSteps.length), 'var(--warning,var(--pm-stamp))')}
+        ${metricBadge('Blocked', String(snapshot.blockedStepDetails.length), 'var(--app-status-blocked)')}
       </div>
       ${next
-        ? `<div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">Next ready step: <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">[${escHtml(next.ref)}]</span> <strong>${escHtml(next.title)}</strong></div>`
-        : '<div style="margin-top:10px;font-size:12px;color:var(--text-muted)">No ready steps right now. Resolve blockers or dependencies to continue.</div>'}
+        ? `<div style="margin-top:10px;font-size:12px;color:var(--app-text-secondary)">Next ready step: <span style="font-family:var(--pm-font-mono);color:var(--app-text-muted)">[${escHtml(next.ref)}]</span> <strong>${escHtml(next.title)}</strong></div>`
+        : '<div style="margin-top:10px;font-size:12px;color:var(--app-text-muted)">No ready steps right now. Resolve blockers or dependencies to continue.</div>'}
       ${waitingPreview
         ? `<div style="margin-top:8px">
-            <div style="font-size:12px;font-weight:600;color:var(--text-secondary)">Waiting queue</div>
+            <div style="font-size:12px;font-weight:600;color:var(--app-text-secondary)">Waiting queue</div>
             <ul style="margin:6px 0 0 16px;padding:0;display:flex;flex-direction:column;gap:4px">${waitingPreview}</ul>
-            ${snapshot.waitingSteps.length > 2 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">+ ${snapshot.waitingSteps.length - 2} more waiting step(s)</div>` : ''}
+            ${snapshot.waitingSteps.length > 2 ? `<div style="font-size:11px;color:var(--app-text-muted);margin-top:4px">+ ${snapshot.waitingSteps.length - 2} more waiting step(s)</div>` : ''}
           </div>`
         : ''}
       ${blockedPreview
         ? `<div style="margin-top:8px">
-            <div style="font-size:12px;font-weight:600;color:var(--status-blocked)">Blocked steps</div>
+            <div style="font-size:12px;font-weight:600;color:var(--app-status-blocked)">Blocked steps</div>
             <ul style="margin:6px 0 0 16px;padding:0;display:flex;flex-direction:column;gap:4px">${blockedPreview}</ul>
-            ${snapshot.blockedStepDetails.length > 2 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">+ ${snapshot.blockedStepDetails.length - 2} more blocked step(s)</div>` : ''}
+            ${snapshot.blockedStepDetails.length > 2 ? `<div style="font-size:11px;color:var(--app-text-muted);margin-top:4px">+ ${snapshot.blockedStepDetails.length - 2} more blocked step(s)</div>` : ''}
           </div>`
         : ''}
     </div>`;
@@ -174,19 +174,19 @@ function renderStepRow(step: PlanStepPayload, planId: string, analyzed?: Analyze
     <div class="plan-step-row" data-step-ref="${escHtml(ref)}">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace">${escHtml(ref)}</span>
-          <span style="font-size:13px;font-weight:500;${isDone ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${escHtml(step.title || '(untitled)')}</span>
+          <span style="font-size:12px;color:var(--app-text-muted);font-family:var(--pm-font-mono)">${escHtml(ref)}</span>
+          <span style="font-size:13px;font-weight:500;${isDone ? 'text-decoration:line-through;color:var(--app-text-muted)' : ''}">${escHtml(step.title || '(untitled)')}</span>
           ${stepStatusBadge(step.status)}
         </div>
-        ${step.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:3px">${escHtml(step.description)}</div>` : ''}
+        ${step.description ? `<div style="font-size:12px;color:var(--app-text-muted);margin-top:3px">${escHtml(step.description)}</div>` : ''}
         ${dependencyHint}
-        ${isBlocked && (step.blockedReason || step.blocked_reason) ? `<div style="font-size:12px;color:var(--status-blocked);margin-top:3px">Blocked: ${escHtml(step.blockedReason || step.blocked_reason || '')}</div>` : ''}
+        ${isBlocked && (step.blockedReason || step.blocked_reason) ? `<div style="font-size:12px;color:var(--app-status-blocked);margin-top:3px">Blocked: ${escHtml(step.blockedReason || step.blocked_reason || '')}</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
-        ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.copyPlanNextStepPrompt('${escHtml(planId)}','${escHtml(ref)}')" title="${escHtml(promptTitle)}" ${isBlocked ? 'style="color:var(--status-blocked)"' : ''}>⧉</button>` : ''}
+        ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.copyPlanNextStepPrompt('${escHtml(planId)}','${escHtml(ref)}')" title="${escHtml(promptTitle)}" ${isBlocked ? 'style="color:var(--app-status-blocked)"' : ''}>⧉</button>` : ''}
         ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.planCompleteStep('${escHtml(planId)}','${escHtml(ref)}')" title="Mark complete">✓</button>` : ''}
         ${!isBlocked && !isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.planBlockStepPrompt('${escHtml(planId)}','${escHtml(ref)}')" title="Block">⊘</button>` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.planRemoveStep('${escHtml(planId)}','${escHtml(ref)}')" title="Remove" style="color:var(--danger,#f87171)">✕</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.planRemoveStep('${escHtml(planId)}','${escHtml(ref)}')" title="Remove" style="color:var(--danger,var(--pm-danger))">✕</button>
       </div>
     </div>`;
 }
@@ -269,18 +269,18 @@ async function loadPlanList(): Promise<void> {
 
     listEl.innerHTML = `<div class="card" style="padding:0">
       ${items.map(item => `
-        <div class="sidebar-item" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer"
+        <div class="sidebar-item" style="padding:10px 12px;border-bottom:1px solid var(--app-border);cursor:pointer"
           onclick="window.__app.openPlanDetail('${escHtml(item.id || '')}')"
           data-plan-id="${escHtml(item.id || '')}">
           <div style="font-size:13px;font-weight:500">${escHtml(item.title || '(untitled)')}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:6px;align-items:center">
-            <span style="font-family:'JetBrains Mono',monospace">${escHtml(item.id || '')}</span>
+          <div style="font-size:11px;color:var(--app-text-muted);margin-top:2px;display:flex;gap:6px;align-items:center">
+            <span style="font-family:var(--pm-font-mono)">${escHtml(item.id || '')}</span>
             ${stepStatusBadge(item.status)}
           </div>
         </div>`).join('')}
     </div>`;
   } catch(err: unknown) {
-    listEl.innerHTML = `<div class="empty-state" style="padding:16px"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    listEl.innerHTML = `<div class="empty-state" style="padding:16px"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 
@@ -330,7 +330,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
     titleEl.textContent = plan.title || planId;
     const idEl = document.createElement('div');
     idEl.style.fontSize = '12px';
-    idEl.style.color = 'var(--text-muted)';
+    idEl.style.color = 'var(--app-text-muted)';
     idEl.style.marginTop = '2px';
     idEl.style.fontFamily = "'JetBrains Mono',monospace";
     idEl.textContent = plan.id || planId;
@@ -350,7 +350,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
     } else {
       const approvedLabel = document.createElement('span');
       approvedLabel.style.fontSize = '12px';
-      approvedLabel.style.color = 'var(--status-closed)';
+      approvedLabel.style.color = 'var(--app-status-closed)';
       approvedLabel.textContent = '✓ Approved';
       actions.appendChild(approvedLabel);
     }
@@ -371,7 +371,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-ghost btn-sm';
     deleteBtn.title = 'Delete plan';
-    deleteBtn.style.color = 'var(--danger,#f87171)';
+    deleteBtn.style.color = 'var(--danger,var(--pm-danger))';
     deleteBtn.textContent = '✕';
     deleteBtn.addEventListener('click', () => planDeletePrompt(planId));
     actions.appendChild(deleteBtn);
@@ -384,7 +384,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
     if (plan.description) {
       const descEl = document.createElement('div');
       descEl.style.fontSize = '13px';
-      descEl.style.color = 'var(--text-secondary)';
+      descEl.style.color = 'var(--app-text-secondary)';
       descEl.style.marginBottom = '12px';
       descEl.textContent = plan.description;
       body.appendChild(descEl);
@@ -393,7 +393,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
     if (plan.scope) {
       const scopeEl = document.createElement('div');
       scopeEl.style.fontSize = '12px';
-      scopeEl.style.color = 'var(--text-muted)';
+      scopeEl.style.color = 'var(--app-text-muted)';
       scopeEl.style.marginBottom = '8px';
       scopeEl.textContent = `Scope: ${plan.scope}`;
       body.appendChild(scopeEl);
@@ -427,7 +427,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
     if (steps.length === 0) {
       const emptySteps = document.createElement('div');
       emptySteps.style.fontSize = '13px';
-      emptySteps.style.color = 'var(--text-muted)';
+      emptySteps.style.color = 'var(--app-text-muted)';
       emptySteps.style.padding = '8px 0';
       emptySteps.textContent = 'No steps yet. Add the first step to get started.';
       stepsList.appendChild(emptySteps);
@@ -445,7 +445,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
   } catch(err: unknown) {
     currentPlanData = null;
     currentExecutionSnapshot = null;
-    detailEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    detailEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 
@@ -677,7 +677,7 @@ export function planApprove(planId: string): void {
  */
 export function planMaterializePrompt(planId: string): void {
   createModal('materialize-plan-modal', 'Materialize Plan', `
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Materializing creates real project items from plan steps.</p>
+    <p style="font-size:13px;color:var(--app-text-secondary);margin-bottom:12px">Materializing creates real project items from plan steps.</p>
     <div class="form-group">
       <label class="form-label">Item Type</label>
       <select class="form-select" id="mat-type">
@@ -748,7 +748,7 @@ async function copyTextWithFallback(modalTitle: string, text: string, successMes
 
   const modalId = 'plan-copy-fallback-modal';
   createModal(modalId, modalTitle, `
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Clipboard access is unavailable in this browser context. Copy manually:</p>
+    <p style="font-size:12px;color:var(--app-text-muted);margin-bottom:8px">Clipboard access is unavailable in this browser context. Copy manually:</p>
     <textarea class="form-textarea" id="plan-copy-fallback-text" rows="12" spellcheck="false"></textarea>`,
   `<button class="btn btn-primary" onclick="window.__app.hideModal('${modalId}')">Close</button>`);
   showModal(modalId);

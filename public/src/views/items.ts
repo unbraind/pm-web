@@ -36,6 +36,8 @@ import type {
 // Stash the bulk-update / bulk-close payloads on the apply buttons without
 // mutating the DOM nodes. A module-scoped WeakMap per modal keeps the payload
 // alive across the Preview → Apply call pair and is GC-friendly.
+let itemsLayout: 'list' | 'board' = 'list';
+
 const bulkUpdatePayloads = new WeakMap<HTMLElement, Record<string, string>>();
 const bulkClosePayloads = new WeakMap<HTMLElement, BulkClosePayload>();
 
@@ -81,7 +83,7 @@ function refreshAfterItemAction(opts: { toastMsg: string; reopenDetail?: string;
 /** Renders the "no items match" preview placeholder and disables the apply
  * button. */
 function renderNoMatchPreview(previewEl: HTMLElement, applyBtn: HTMLButtonElement | null): void {
-  previewEl.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:10px 0">No items match the filter criteria.</div>`;
+  previewEl.innerHTML = `<div style="color:var(--app-text-muted);font-size:13px;padding:10px 0">No items match the filter criteria.</div>`;
   if (applyBtn) applyBtn.disabled = true;
 }
 
@@ -97,8 +99,8 @@ function toastBulkResult(action: string, count: string | number, failed: number)
 /** Renders a preview list of matched items with their changes, capped at 8
  * entries with an overflow note. */
 function renderMatchedPreview(matched: ItemPlan[], displayCount: number): string {
-  return `${matched.slice(0, 8).map((it) => `<div style="color:var(--text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
-            ${displayCount > 8 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}`;
+  return `${matched.slice(0, 8).map((it) => `<div style="color:var(--app-text-secondary);font-size:12px">· ${escHtml(it.id)}${it.changes?.length ? ` — ${escHtml(it.changes.map((c) => `${c.field}: ${String(c.before)} → ${String(c.after)}`).join(', '))}` : ''}</div>`).join('')}
+            ${displayCount > 8 ? `<div style="color:var(--app-text-muted);font-size:12px;margin-top:4px">… and ${displayCount - 8} more</div>` : ''}`;
 }
 
 /**
@@ -214,7 +216,7 @@ export function showBulkUpdateModal(): void {
   if (!state.currentProject) { toast('Select a project first', 'info'); return; }
   createModal('bulk-update-modal', 'Bulk Update Items', `
     <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items</div>
+      <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items</div>
       <div class="two-col">
         <div class="form-group">
           <label class="form-label">Status</label>
@@ -243,7 +245,7 @@ export function showBulkUpdateModal(): void {
       </div>
     </div>
     <hr class="section-divider">
-    <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Fields to Update</div>
+    <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Fields to Update</div>
     <div class="two-col">
       <div class="form-group">
         <label class="form-label">Set Priority</label>
@@ -307,7 +309,7 @@ export async function previewBulkUpdate(): Promise<void> {
 
   const hasUpdate = uPriority || uStatus || uSprint || uRelease || uAssignee;
   if (!hasUpdate) {
-    if (previewEl) previewEl.innerHTML = '<div style="color:var(--status-open);font-size:13px">Select at least one field to update.</div>';
+    if (previewEl) previewEl.innerHTML = '<div style="color:var(--app-status-open);font-size:13px">Select at least one field to update.</div>';
     return;
   }
 
@@ -343,7 +345,7 @@ export async function previewBulkUpdate(): Promise<void> {
       } else {
         const displayCount = count || matched.length;
         previewEl.innerHTML = `
-          <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
+          <div style="background:var(--pm-stamp-wash);border:1px solid var(--pm-stamp-wash);border-radius:var(--app-radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will update <strong>${displayCount}</strong> item${displayCount!==1?'s':''}: ${updateDesc}</div>
             ${renderMatchedPreview(matched, displayCount)}
           </div>`;
@@ -355,7 +357,7 @@ export async function previewBulkUpdate(): Promise<void> {
       }
     }
   } catch(err: unknown) {
-    if (previewEl) previewEl.innerHTML = `<div style="color:var(--status-open);font-size:13px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+    if (previewEl) previewEl.innerHTML = `<div style="color:var(--app-status-open);font-size:13px">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
   }
 }
 
@@ -398,7 +400,7 @@ export function showBulkCloseModal(): void {
   if (!state.currentProject) { toast('Select a project first', 'info'); return; }
   createModal('bulk-close-modal', 'Bulk Close Items', `
     <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items to Close</div>
+      <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items to Close</div>
       <div class="two-col">
         <div class="form-group">
           <label class="form-label">Current Status</label>
@@ -427,7 +429,7 @@ export function showBulkCloseModal(): void {
       </div>
     </div>
     <hr class="section-divider">
-    <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Close Action</div>
+    <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Close Action</div>
     <div class="two-col">
       <div class="form-group">
         <label class="form-label">Target Status</label>
@@ -469,7 +471,7 @@ export async function previewBulkClose(): Promise<void> {
   const reason = (document.getElementById('bc-reason') as HTMLInputElement | null)?.value.trim() || '';
 
   if (!reason) {
-    if (previewEl) previewEl.innerHTML = '<div style="color:var(--status-blocked);font-size:13px">A close reason is required.</div>';
+    if (previewEl) previewEl.innerHTML = '<div style="color:var(--app-status-blocked);font-size:13px">A close reason is required.</div>';
     return;
   }
 
@@ -497,7 +499,7 @@ export async function previewBulkClose(): Promise<void> {
       } else {
         const displayCount = count || matched.length;
         previewEl.innerHTML = `
-          <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px">
+          <div style="background:var(--pm-paper);border:1px solid var(--pm-paper);border-radius:var(--app-radius);padding:10px 14px;font-size:13px">
             <div style="margin-bottom:8px">Will <strong>${targetStatus}</strong> <strong>${displayCount}</strong> item${displayCount!==1?'s':''}. Reason: <em>${escHtml(reason)}</em></div>
             ${renderMatchedPreview(matched, displayCount)}
           </div>`;
@@ -508,7 +510,7 @@ export async function previewBulkClose(): Promise<void> {
       }
     }
   } catch(err: unknown) {
-    if (previewEl) previewEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+    if (previewEl) previewEl.innerHTML = `<div style="color:var(--app-status-blocked);font-size:13px">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
   }
 }
 
@@ -576,6 +578,10 @@ export async function renderItemsView(): Promise<void> {
         <div class="page-subtitle" id="items-subtitle">Loading…</div>
       </div>
       <div class="page-actions">
+        <div class="items-layout-switch" role="group" aria-label="Item layout">
+          <button class="btn btn-secondary btn-sm" data-items-layout="list" aria-pressed="${itemsLayout === 'list'}" onclick="window.__app.setItemsLayout('list')">List</button>
+          <button class="btn btn-secondary btn-sm" data-items-layout="board" aria-pressed="${itemsLayout === 'board'}" onclick="window.__app.setItemsLayout('board')">Board</button>
+        </div>
         <button class="btn btn-secondary btn-sm" onclick="window.__app.renderItemsView()" title="Refresh">↺ Refresh</button>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkUpdateModal()">⊞ Bulk Update</button>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkCloseModal()" title="Close or cancel many items at once">⊘ Bulk Close</button>
@@ -583,7 +589,7 @@ export async function renderItemsView(): Promise<void> {
       </div>
     </div>
     <div class="status-tabs" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-      ${['','open','in_progress','blocked','draft','closed','canceled'].map(s=>`<button class="btn btn-sm ${state.itemFilters.status===s?'btn-primary':'btn-ghost'}" onclick="window.__app.setStatusFilter('${s}')">${s===''?'All':s.replace('_',' ')}</button>`).join('')}
+      ${['','open','in_progress','blocked','draft','closed','canceled'].map(s=>`<button class="btn btn-sm ${state.itemFilters.status===s?'btn-ghost active':'btn-ghost'}" onclick="window.__app.setStatusFilter('${s}')">${s===''?'All':s.replace('_',' ')}</button>`).join('')}
     </div>
     <div class="filter-bar">
       <select class="filter-select" id="filter-status" onchange="window.__app.applyItemFilters()">
@@ -660,8 +666,16 @@ function renderItemsList(): void {
     el.innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">📋</div>
       <div class="empty-state-text">No items found</div>
-      <div class="empty-state-sub">Try adjusting filters or <a href="#" onclick="window.__app.showView('create');return false" style="color:var(--accent)">create a new item</a></div>
+      <div class="empty-state-sub">Try adjusting filters or <a href="#" onclick="window.__app.showView('create');return false" style="color:var(--app-accent)">create a new item</a></div>
     </div>`;
+    return;
+  }
+  if (itemsLayout === 'board') {
+    const statuses = [...new Set(['open', 'in_progress', 'blocked', 'closed', 'canceled', ...state.items.map(item => item.status || 'draft')])];
+    el.innerHTML = `<div class="items-board">${statuses.map(status => {
+      const items = state.items.filter(item => (item.status || 'draft') === status);
+      return `<section class="board-column" aria-label="${escHtml(status.replace('_', ' '))}"><h2 class="board-heading">${escHtml(status.replace('_', ' '))}<span>${items.length}</span></h2><div class="board-items">${items.map(renderItemRow).join('') || '<p class="board-empty">No items in this state</p>'}</div></section>`;
+    }).join('')}</div>`;
     return;
   }
   el.innerHTML = `<div class="item-list">${state.items.map(item => renderItemRow(item)).join('')}</div>`;
@@ -673,17 +687,19 @@ function renderItemsList(): void {
  * badge that opens the item detail modal when clicked.
  */
 export function renderItemRow(item: Item): string {
-  const tags = (item.tags||[]).map(t=>`<span class="tag">${escHtml(t)}</span>`).join('');
-  return `<div class="item-row" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
-    ${typeIcon(item.type||'')}
-    <span class="item-id">${escHtml(item.id)}</span>
+  const tags = (item.tags || []).map(tag => `<span class="tag">${escHtml(tag)}</span>`).join('');
+  return `<div class="item-row" data-item-id="${escHtml(item.id)}" role="button" tabindex="0" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
+    <div class="item-strip"><span>${escHtml(item.id)}</span><span>·</span><span>${escHtml(item.type || 'Item')}</span><span>·</span><span>P${item.priority ?? 4}</span></div>
     <span class="item-title">${escHtml(item.title)}</span>
-    <div class="item-meta">
-      ${tags ? `<div class="item-tags">${tags}</div>` : ''}
-      ${priorityDot(item.priority??4)}
-      ${statusBadge(item.status||'draft')}
-    </div>
+    <div class="item-meta">${tags ? `<div class="item-tags">${tags}</div>` : ''}${statusBadge(item.status || 'draft')}</div>
   </div>`;
+}
+
+/** Change the visible item layout while preserving filters and loaded records. */
+export function setItemsLayout(layout: 'list' | 'board'): void {
+  itemsLayout = layout;
+  document.querySelectorAll<HTMLElement>('[data-items-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.itemsLayout === layout)));
+  renderItemsList();
 }
 
 /**
@@ -797,7 +813,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
     const tags = (item.tags||[]).map((t: string)=>`<span class="tag">${escHtml(t)}</span>`).join('');
 
     const notesHtml = notes.length === 0
-      ? '<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No notes yet</div>'
+      ? '<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:12px">No notes yet</div>'
       : notes.map((n)=>`
           <div class="notes-item">
             <div class="notes-item-meta">${relTime(n.timestamp||n.created_at||'')}</div>
@@ -805,20 +821,20 @@ export async function openItemDetail(itemId: string): Promise<void> {
           </div>`).join('');
 
     const testsHtml = tests.length === 0
-      ? '<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No tests defined</div>'
+      ? '<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:12px">No tests defined</div>'
       : tests.map((t)=>`
           <div class="test-item">
             <div style="flex:1">
               <div class="test-item-cmd">${escHtml(t.command||t.cmd||JSON.stringify(t))}</div>
-              ${t.description ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:3px">${escHtml(t.description)}</div>` : ''}
+              ${t.description ? `<div style="font-size:12px;color:var(--app-text-secondary);margin-top:3px">${escHtml(t.description)}</div>` : ''}
             </div>
           </div>`).join('');
 
     const commentsHtml = comments.length === 0
-      ? '<div style="color:var(--text-muted);font-size:13px">No comments yet</div>'
+      ? '<div style="color:var(--app-text-muted);font-size:13px">No comments yet</div>'
       : comments.map((c)=>`
           <div class="comment-item">
-            <div class="comment-avatar">💬</div>
+            <div class="comment-avatar">↳</div>
             <div class="comment-body">
               <div class="comment-meta">${fmtDate(c.timestamp||c.created_at)}</div>
               <div class="comment-text">${escHtml(c.text||c.content||c.body||JSON.stringify(c))}</div>
@@ -826,7 +842,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           </div>`).join('');
 
     const historyHtml = history.length === 0
-      ? '<div style="color:var(--text-muted);font-size:13px">No history</div>'
+      ? '<div style="color:var(--app-text-muted);font-size:13px">No history</div>'
       : history.slice(0,10).map((h)=>`
           <div class="history-item">
             <div class="history-dot"></div>
@@ -837,10 +853,11 @@ export async function openItemDetail(itemId: string): Promise<void> {
     if (bodyEl) {
       bodyEl.innerHTML = `
       <div class="item-detail-header">
-        <div class="item-detail-id">${typeIcon(item.type||'')} ${escHtml(item.type)} · ${escHtml(item.id)}</div>
+        <div class="item-detail-id">${escHtml(item.id)} · ${escHtml(item.type || 'Item')} · P${item.priority ?? 4}</div>
         <div class="item-detail-title">${escHtml(item.title)}</div>
         <div class="item-detail-meta">
           ${statusBadge(item.status||'draft')}
+          ${item.status === 'closed' ? '<span class="closed-stamp">Closed</span>' : ''}
           <div class="meta-chip">${priorityDot(item.priority??4)} <strong>P${item.priority ?? '—'}</strong> ${item.priority !== undefined ? (PRIORITY_LABELS[item.priority]||'') : ''}</div>
           ${item.created_at ? `<div class="meta-chip">Created <strong>${fmtDate(item.created_at)}</strong></div>` : ''}
           ${item.updated_at ? `<div class="meta-chip">Updated <strong>${relTime(item.updated_at)}</strong></div>` : ''}
@@ -851,7 +868,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           ${item.sprint ? `<div class="meta-chip">Sprint <strong>${escHtml(item.sprint)}</strong></div>` : ''}
           ${item.release ? `<div class="meta-chip">Release <strong>${escHtml(item.release)}</strong></div>` : ''}
           ${item.estimated_minutes ? `<div class="meta-chip">~${item.estimated_minutes}m</div>` : ''}
-          ${item.blockedBy||item['blocked-by'] ? `<div class="meta-chip" style="border-color:rgba(248,113,113,0.4);color:#f87171">Blocked by <strong class="mono">${escHtml(item.blockedBy||item['blocked-by']||'')}</strong></div>` : ''}
+          ${item.blockedBy||item['blocked-by'] ? `<div class="meta-chip" style="border-color:var(--pm-paper);color:var(--pm-danger)">Blocked by <strong class="mono">${escHtml(item.blockedBy||item['blocked-by']||'')}</strong></div>` : ''}
           ${tags ? `<div class="item-tags">${tags}</div>` : ''}
         </div>
         <div class="claim-btn-wrap">
@@ -859,7 +876,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <button class="btn btn-ghost btn-sm" onclick="window.__app.releaseItem('${escHtml(itemId)}')">⊖ Release</button>
           ${item.status === 'open' ? `<button class="btn btn-secondary btn-sm" onclick="window.__app.startItem('${escHtml(itemId)}')">▶ Start</button>` : ''}
           ${item.status === 'in_progress' ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.pauseItem('${escHtml(itemId)}')">⏸ Pause</button>` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="window.__app.useItemAsTemplate(${JSON.stringify(item)})" title="Open create form pre-filled with this item's fields">⊡ Use as Template</button>
+          <button class="btn btn-ghost btn-sm" data-template-item="${escHtml(JSON.stringify(item))}" onclick="window.__app.useItemAsTemplate(JSON.parse(this.dataset.templateItem))" title="Open create form pre-filled with this item's fields">⊡ Use as Template</button>
         </div>
       </div>
 
@@ -870,8 +887,8 @@ export async function openItemDetail(itemId: string): Promise<void> {
         </div>` : ''}
 
       ${(item.blockedReason||item['blocked-reason']) ? `
-        <div class="item-detail-section" style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px">
-          <div class="item-detail-section-title" style="color:#f87171">Blocked Reason</div>
+        <div class="item-detail-section" style="background:var(--pm-paper);border:1px solid var(--pm-paper);border-radius:var(--app-radius);padding:12px 14px;margin-bottom:16px">
+          <div class="item-detail-section-title" style="color:var(--pm-danger)">Blocked Reason</div>
           <div class="item-detail-desc">${escHtml(item.blockedReason||item['blocked-reason']||'')}</div>
         </div>` : ''}
 
@@ -901,7 +918,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <label class="form-label">Add Comment</label>
           <textarea class="form-textarea" id="new-comment" placeholder="Write a comment…" rows="3"></textarea>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="window.__app.addComment('${escHtml(itemId)}')">Post Comment</button>
+        <button class="btn btn-primary btn-sm" onclick="window.__app.addComment('${escHtml(itemId)}')">Post comment</button>
       </div>
 
       <div id="tab-update" style="display:none">
@@ -989,7 +1006,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
       <div id="tab-deps" style="display:none">
         <div style="margin-bottom:16px">
           ${deps.length === 0
-            ? `<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No dependencies</div>`
+            ? `<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:12px">No dependencies</div>`
             : deps.map((dep: RawDependency)=> {
               const target = depTargetId(dep);
               const rel = depRelation(dep);
@@ -999,14 +1016,14 @@ export async function openItemDetail(itemId: string): Promise<void> {
                 <span class="dep-id" onclick="window.__app.hideModal('item-detail-modal');window.__app.openItemDetail('${escHtml(target)}')">
                   ${escHtml(target)}
                 </span>
-                <span style="flex:1;color:var(--text-secondary);font-size:12px">${escHtml(String(title))}</span>
+                <span style="flex:1;color:var(--app-text-secondary);font-size:12px">${escHtml(String(title))}</span>
                 <button class="btn btn-danger btn-sm" onclick="window.__app.removeDep('${escHtml(itemId)}','${escHtml(target)}','${escHtml(rel)}')">Remove</button>
               </div>`;
             }).join('')
           }
         </div>
         <hr class="section-divider">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add Dependency</div>
+        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add Dependency</div>
         <div class="row" style="margin-bottom:8px">
           <input class="form-input flex-1" id="dep-target-id" type="text" placeholder="Item ID (e.g. ${escHtml(state.currentProject?.prefix||'proj')}-5)">
           <select class="form-select" id="dep-rel" style="width:200px">
@@ -1019,9 +1036,9 @@ export async function openItemDetail(itemId: string): Promise<void> {
       <div id="tab-learnings" style="display:none">
         <div style="margin-bottom:16px">
           ${learnings.length === 0
-            ? `<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No learnings recorded</div>`
+            ? `<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:12px">No learnings recorded</div>`
             : learnings.map((l)=>`<div class="learning-row">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">${relTime(l.timestamp||l.created_at||'')}</div>
+                <div style="font-size:11px;color:var(--app-text-muted);margin-bottom:3px">${relTime(l.timestamp||l.created_at||'')}</div>
                 ${escHtml(l.text||l.content||JSON.stringify(l))}
               </div>`).join('')
           }
@@ -1037,7 +1054,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
       <div id="tab-tests" style="display:none">
         <div style="margin-bottom:16px">${testsHtml}</div>
         <hr class="section-divider">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add Test</div>
+        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add Test</div>
         <div class="form-group">
           <label class="form-label">Command *</label>
           <input class="form-input" id="new-test-cmd" type="text" placeholder="npm test, pytest tests/, etc.">
@@ -1054,31 +1071,31 @@ export async function openItemDetail(itemId: string): Promise<void> {
       <!-- Local graph tab -->
       <div id="tab-graph" style="display:none">
         <div class="local-graph-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-size:12px;color:var(--text-muted)">Depth</span>
+          <span style="font-size:12px;color:var(--app-text-muted)">Depth</span>
           <input type="range" id="local-graph-depth" min="1" max="5" step="1" value="2" class="graph-depth-slider" style="width:100px">
-          <span id="local-graph-depth-val" style="font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;min-width:12px">2</span>
+          <span id="local-graph-depth-val" style="font-size:11px;color:var(--app-accent);font-family:var(--pm-font-mono);min-width:12px">2</span>
           <button class="btn btn-ghost btn-sm" onclick="window.__app.openGraphAt('${escHtml(itemId)}')" title="Open in full graph view" style="margin-left:auto">Full graph →</button>
         </div>
-        <div id="local-graph-canvas" style="height:320px;border-radius:8px;overflow:hidden;background:#080d1a;border:1px solid rgba(148,163,184,0.12)"></div>
+        <div id="local-graph-canvas" style="height:320px;border-radius:var(--pm-radius-sm);overflow:hidden;background:var(--pm-paper);border:1px solid var(--pm-rule)"></div>
       </div>
 
       <div id="tab-files" style="display:none">
         <div style="margin-bottom:16px">
           ${files.length === 0
-            ? '<div style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No files linked</div>'
+            ? '<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:12px">No files linked</div>'
             : files.map((f) => `
                 <div class="file-row">
-                  <span style="color:var(--text-muted)">📄</span>
+                  <span style="color:var(--app-text-muted)">□</span>
                   <span class="file-path">${escHtml(f.path || f.name || JSON.stringify(f))}</span>
-                  ${f.scope ? `<span style="font-size:10px;color:var(--text-muted);background:var(--bg-input);padding:2px 6px;border-radius:4px">${escHtml(f.scope)}</span>` : ''}
+                  ${f.scope ? `<span style="font-size:10px;color:var(--app-text-muted);background:var(--app-bg-input);padding:2px 6px;border-radius:var(--pm-radius-sm)">${escHtml(f.scope)}</span>` : ''}
                 </div>`).join('')
           }
         </div>
         <hr class="section-divider">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Link File</div>
+        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Link files</div>
         <div class="row" style="margin-bottom:8px">
           <input class="form-input flex-1" id="file-path-input" type="text" placeholder="src/components/App.tsx">
-          <button class="btn btn-primary btn-sm" onclick="window.__app.addFileLink('${escHtml(itemId)}')">Add</button>
+          <button class="btn btn-primary btn-sm" onclick="window.__app.addFileLink('${escHtml(itemId)}')">Link file</button>
         </div>
       </div>
 
@@ -1089,8 +1106,8 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <textarea class="form-textarea" id="close-reason" placeholder="Why is this being closed?" rows="3"></textarea>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="window.__app.closeItem('${escHtml(itemId)}','closed')">Mark Closed</button>
-          <button class="btn btn-secondary" onclick="window.__app.closeItem('${escHtml(itemId)}','canceled')">Mark Canceled</button>
+          <button class="btn btn-primary" onclick="window.__app.closeItem('${escHtml(itemId)}','closed')">Close item</button>
+          <button class="btn btn-secondary" onclick="window.__app.closeItem('${escHtml(itemId)}','canceled')">Cancel item</button>
           <button class="btn btn-danger btn-sm" onclick="window.__app.confirmDeleteItem('${escHtml(itemId)}')">Delete Item</button>
         </div>
       </div>`:''}
@@ -1218,7 +1235,7 @@ export async function updateItem(itemId: string): Promise<void> {
   const acceptanceCriteria = acEl?.value.trim() || '';
   const blockedReason = blockedReasonEl?.value.trim() || '';
 
-  if (!title) { toast('Title required','error'); return; }
+  if (!title) { toast('Enter a title before saving.','error'); return; }
   try {
     const payload: Record<string, string> = {title,status,priority,tags,description};
     if (deadline) payload.deadline = deadline;

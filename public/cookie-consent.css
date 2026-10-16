@@ -1,50 +1,9 @@
-/* Cookie consent banner — shared by the SPA (index.html) and legal pages.
-   Legal pages get these rules via legal-common.css; keep both in sync. */
-
-.cookie-consent {
-  position: fixed;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--app-ink-94);
-  box-shadow: 0 12px 48px var(--app-ink-95);
-}
-
-.cookie-consent[hidden] {
-  display: none;
-}
-
-.cookie-consent-text {
-  display: grid;
-  gap: 4px;
-  color: var(--text-secondary);
-}
-
-.cookie-consent-text strong {
-  color: var(--text-primary);
-}
-
-.cookie-consent-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.cookie-consent {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    align-items: stretch;
-    flex-direction: column;
-  }
+/* Necessary-storage notice stays in document flow, including on small screens. */
+.cookie-consent { position: static; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; width: min(calc(100% - 2rem), 64rem); margin: 1rem auto; padding: 1.25rem; border: 1px solid var(--pm-rule); border-radius: var(--pm-radius); background: var(--pm-sheet); color: var(--pm-carbon); box-shadow: none; }
+.cookie-consent[hidden] { display: none; }
+.cookie-consent-text { display: grid; gap: .4rem; color: var(--pm-graphite); flex: 1 1 24rem; font-size: var(--pm-step--1); }
+.cookie-consent-text strong { color: var(--pm-carbon); }
+.cookie-consent-actions { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+body:has(#auth-screen:not([style*="none"])) #app { min-height: auto; }
+body:has(#main-app[style*="flex"]) { padding-bottom: 0; }
+@media(max-width: 540px) { .cookie-consent { width: calc(100% - 1.5rem); padding: 1rem; } .cookie-consent-text { flex-basis: 100%; } }

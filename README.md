@@ -499,3 +499,21 @@ For reproducible mixed HTTP/CLI load measurements against the disposable test
 database, see the [collaboration capacity harness](docs/capacity.md). It starts
 the built production server, records per-subscriber loss and duplicates plus
 delivery latency and resource counters, and caps its ladder at 3000 subscribers.
+
+### Triplicate assets and browser review
+
+The held `pm-brand` release is pinned by exact Git commit as a development
+dependency. Its current Git `prepare` assumes a full checkout, so install
+built assets with `npm ci --ignore-scripts`, then run `npm run prepare` to
+register this repository's merge drivers. CI follows the same sequence.
+Runtime consumers install the packed package without a Git dependency.
+
+`npm run build` copies tokens, self-hosted fonts and licenses, mark artwork and
+PWA icons into ignored, published `public/brand/`. Canvas colors resolve the
+shared CSS variables at runtime. The build uses the kit's compiled TypeScript
+tokens when available; the current script-disabled Git artifact omits that
+module, so it generates the same typed data from the installed CSS contract.
+There is no application-owned palette and no font CDN.
+
+See [brand review evidence](docs/brand-review.md) for the screenshot matrix,
+pixel comparison, accessibility checks and behavioral revert proof.

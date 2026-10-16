@@ -23,11 +23,11 @@ export async function renderDedupeAuditView(): Promise<void> {
     const el2 = document.getElementById('dedupe-content');
     if (!el2) return;
     if (groups.length === 0) {
-      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--status-closed);font-size:13px">✓ No potential duplicates found — project looks clean!</div></div></div>`;
+      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--app-status-closed);font-size:13px">✓ No potential duplicates found — project looks clean!</div></div></div>`;
     } else {
       el2.innerHTML = groups.map((g, i: number) => `
         <div class="card" style="margin-bottom:12px">
-          <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
+          <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--app-text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
           <div class="card-body">
             ${(g.items||[]).map((raw)=>`
               <div class="item-row" onclick="window.__app.openItemDetail('${escHtml(typeof raw === 'string' ? raw : (raw.id||''))}')" style="cursor:pointer">
@@ -36,10 +36,10 @@ export async function renderDedupeAuditView(): Promise<void> {
                 <div class="item-meta">${statusBadge(typeof raw === 'object' ? (raw.status||'draft') : 'draft')}</div>
               </div>`).join('')}
           </div>
-        </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
+        </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--app-text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
     }
   } catch(err: unknown) {
     const el2 = document.getElementById('dedupe-content');
-    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }

@@ -1,7 +1,8 @@
+import { brandValue, brandPalette } from '../brand.js';
 // ═══════════════════════════════════════════════════════════════
-// GRAPH CANVAS — Obsidian-quality force-directed knowledge graph
+// GRAPH CANVAS — Triplicate knowledge graph
 // Canvas 2D + physics simulation, no external dependencies
-// Features: minimap, animated edge particles, dot grid, tooltip,
+// Features: minimap, static graph layout, dot grid, tooltip,
 //           keyboard nav, fly-to, gradient nodes, zoom HUD,
 //           spatial partitioning, edge bundling, hierarchical layout
 // ═══════════════════════════════════════════════════════════════
@@ -49,57 +50,15 @@ export interface CanvasFilter {
 }
 
 // ── Palette ───────────────────────────────────────────────────
-const STATUS_COLORS: Record<string, string> = {
-  open:          '#2dd4bf',
-  'in-progress': '#fb923c',
-  in_progress:   '#fb923c',
-  closed:        '#64748b',
-  blocked:       '#f87171',
-  draft:         '#94a3b8',
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  task:       '#2dd4bf',
-  feature:    '#60a5fa',
-  epic:       '#a78bfa',
-  bug:        '#f87171',
-  milestone:  '#fbbf24',
-  story:      '#34d399',
-  chore:      '#94a3b8',
-  release:    '#38bdf8',
-};
-const TYPE_COLOR_DEFAULT = '#64748b';
-
-const TAG_PALETTE = ['#2dd4bf','#60a5fa','#a78bfa','#f87171','#fbbf24','#34d399','#fb923c','#e879f9'];
-
-const TYPE_ABBR: Record<string, string> = {
-  task:      'T',
-  feature:   'F',
-  epic:      'E',
-  bug:       'B',
-  milestone: 'M',
-  story:     'S',
-  chore:     'C',
-  release:   'R',
-};
-
-const LANE_COLOR: Record<CanvasNode['lane'], string> = {
-  item:     '#2dd4bf',
-  facet:    '#60a5fa',
-  external: '#f87171',
-};
-
-const EDGE_COLOR: Record<string, string> = {
-  PARENT_OF:    '#60a5fa',
-  CHILD_OF:     '#60a5fa',
-  DEPENDS_ON:   '#fb923c',
-  BLOCKED_BY:   '#f87171',
-  HAS_TAG:      '#8b5cf6',
-  HAS_ASSIGNEE: '#34d399',
-  IN_SPRINT:    '#38bdf8',
-  IN_RELEASE:   '#a78bfa',
-};
-const EDGE_DEFAULT = 'rgba(148,163,184,0.3)';
+const STATUS_COLORS = brandPalette({
+  open: '--pm-carbon', 'in-progress': '--pm-canary', in_progress: '--pm-canary',
+  closed: '--pm-stamp', blocked: '--pm-rose', draft: '--pm-graphite', canceled: '--pm-graphite',
+});
+const TYPE_COLORS = brandPalette({ task: '--pm-carbon', feature: '--pm-stamp', epic: '--pm-carbon', bug: '--pm-graphite', milestone: '--pm-stamp', story: '--pm-carbon', chore: '--pm-graphite', release: '--pm-stamp' });
+const TAG_PALETTE: ('--pm-carbon' | '--pm-stamp' | '--pm-graphite')[] = ['--pm-carbon', '--pm-stamp', '--pm-graphite'];
+const TYPE_ABBR: Record<string, string> = { task: 'T', feature: 'F', epic: 'E', bug: 'B', milestone: 'M', story: 'S', chore: 'C', release: 'R' };
+const LANE_COLOR = brandPalette({ item: '--pm-carbon', facet: '--pm-graphite', external: '--pm-stamp' });
+const EDGE_COLOR = brandPalette({ PARENT_OF: '--pm-carbon', CHILD_OF: '--pm-carbon', DEPENDS_ON: '--pm-graphite', BLOCKED_BY: '--pm-graphite', HAS_TAG: '--pm-stamp', HAS_ASSIGNEE: '--pm-carbon', IN_SPRINT: '--pm-graphite', IN_RELEASE: '--pm-stamp' });
 
 // ── Internal types ────────────────────────────────────────────
 interface SimNode extends CanvasNode {
@@ -156,7 +115,7 @@ function statusColor(node: CanvasNode): string {
 }
 
 function getEdgeColor(type: string): string {
-  return EDGE_COLOR[type] ?? EDGE_DEFAULT;
+  return EDGE_COLOR[type] ?? brandValue('--pm-graphite');
 }
 
 function truncate(text: string, maxLen: number): string {
@@ -233,7 +192,7 @@ function escHtml(s: string): string {
 /** Builds a tag-to-color map from a tag frequency map, assigning palette colors to the most frequent tags in descending order. */
 export function tagColorMapFromFreq(freq: Map<string, number>): Map<string, string> {
   const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, TAG_PALETTE.length).map(([t]) => t);
-  return new Map(top.map((t, i) => [t, TAG_PALETTE[i]]));
+  return new Map(top.map((t, i) => [t, brandValue(TAG_PALETTE[i])]));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -252,7 +211,7 @@ export class GraphCanvas {
   private edges: SimEdge[] = [];
   private nodeMap = new Map<string, SimNode>();
   private alpha = 1;
-  private paused = false;
+  private paused = true;
 
   // Physics constants (mutable for live slider control)
   private readonly ALPHA_DECAY   = 0.020;
@@ -361,6 +320,7 @@ export class GraphCanvas {
     this.canvas.style.cssText =
       'width:100%;height:100%;display:block;touch-action:none;cursor:grab;outline:none;';
     this.canvas.tabIndex = 0;
+    this.canvas.setAttribute('aria-label', 'Project relationships. Use arrow keys to select a node, Enter to open it, and Tab to leave the graph.');
     container.appendChild(this.canvas);
 
     const ctx = this.canvas.getContext('2d');
@@ -426,7 +386,7 @@ export class GraphCanvas {
     this.initialFitTimer = setTimeout(() => {
       this.fitView();
       this.initialFitDone = true;
-    }, 1400);
+    }, 0);
 
     // Apply hierarchical layout if selected
     if (this.layout === 'hierarchical') {
@@ -519,17 +479,15 @@ export class GraphCanvas {
     };
   }
 
-  /** Pauses or resumes the physics simulation and returns the new paused state; resuming also bumps the simulation alpha. */
-  togglePhysics(): boolean {
-    this.paused = !this.paused;
-    if (!this.paused) this.alpha = Math.max(this.alpha, 0.05);
-    return this.paused;
-  }
+  /** Recompute a settled graph layout immediately, without ambient motion. */
+  togglePhysics(): boolean { this.reheat(); return true; }
 
-  /** Resumes the simulation and sets the alpha to 0.3 so nodes re-settle into a new layout. */
+  /** Settle the force layout before painting; graph transitions never animate. */
   reheat(): void {
-    this.alpha  = 0.3;
     this.paused = false;
+    this.alpha = .3;
+    for (let step = 0; step < 180; step++) this.tick(16);
+    this.paused = true;
   }
 
   /** Switches to the given layout, applying the topological hierarchical layout or, for force mode, jittering node positions and reheating the simulation. */
@@ -839,14 +797,14 @@ export class GraphCanvas {
     if (node.lane === 'external') return LANE_COLOR.external;
     const mode = this.filter.colorMode;
     if (mode === 'type') {
-      return TYPE_COLORS[node.type.toLowerCase()] ?? TYPE_COLOR_DEFAULT;
+      return TYPE_COLORS[node.type.toLowerCase()] ?? brandValue('--pm-graphite');
     }
     if (mode === 'tag') {
       for (const t of node.tags ?? []) {
         const c = this.tagColorMap.get(t);
         if (c) return c;
       }
-      return 'rgba(100,116,139,0.45)';
+      return brandValue('--pm-graphite');
     }
     return STATUS_COLORS[node.status] ?? LANE_COLOR.item;
   }
@@ -877,7 +835,7 @@ export class GraphCanvas {
 
   private advanceFly(): void {
     if (!this.flyTarget) return;
-    const speed = 0.08;
+    const speed = 1;
     this.tx    = lerp(this.tx,    this.flyTarget.tx,    speed);
     this.ty    = lerp(this.ty,    this.flyTarget.ty,    speed);
     this.scale = lerp(this.scale, this.flyTarget.scale, speed);
@@ -934,7 +892,7 @@ export class GraphCanvas {
     const edges = this.edges;
     const n     = nodes.length;
     const a     = this.alpha;
-    const dtS   = Math.min(dt / 1000, 0.05);
+    void dt;
 
     // Repulsion O(n²) — fine for ≤400 nodes
     for (let i = 0; i < n; i++) {
@@ -1013,28 +971,7 @@ export class GraphCanvas {
 
     this.alpha *= (1 - this.ALPHA_DECAY);
 
-    // Advance particles
-    for (const p of this.particles) {
-      p.t += p.speed * dtS;
-    }
-    this.particles = this.particles.filter((p) => p.t < 1);
-
-    // Spawn particles on selected-node edges
-    const sel = this.filter.selectedId;
-    if (sel && Date.now() - this.lastParticleSpawn > 90) {
-      const selEdges = this.edges.filter(
-        (e) => e.source.id === sel || e.target.id === sel,
-      );
-      for (const e of selEdges.slice(0, 10)) {
-        this.particles.push({ edge: e, t: Math.random() * 0.15, speed: 0.25 + Math.random() * 0.25 });
-      }
-      this.lastParticleSpawn = Date.now();
-    }
-
-    // Pulse timer
-    this.pulseT   = (this.pulseT   + dtS * 2.5) % (Math.PI * 2);
-    // Cluster border animation
-    this.dashOffset = (this.dashOffset - dtS * 8) % 18;
+    // No ambient particles, pulsing or moving dashes in the Triplicate surface.
   }
 
   // ── Draw ───────────────────────────────────────────────────
@@ -1044,8 +981,10 @@ export class GraphCanvas {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w * this.dpr, h * this.dpr);
 
+    this.recolorNodes();
+
     // Background
-    ctx.fillStyle = '#080d1a';
+    ctx.fillStyle = brandValue('--pm-paper');
     ctx.fillRect(0, 0, w * this.dpr, h * this.dpr);
 
     // Dot grid (screen-space)
@@ -1236,7 +1175,7 @@ export class GraphCanvas {
 
         // Animated glowing border (marching ants)
         ctx.shadowColor    = color;
-        ctx.shadowBlur     = 12;
+        ctx.shadowBlur = 0;
         ctx.strokeStyle    = `rgba(${rgb.r},${rgb.g},${rgb.b},0.28)`;
         ctx.lineWidth      = 1.5;
         ctx.setLineDash([5, 4]);
@@ -1244,20 +1183,20 @@ export class GraphCanvas {
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.lineDashOffset = 0;
-        ctx.shadowBlur     = 0;
+        ctx.shadowBlur = 0;
 
         // Tag label near centroid top edge
         if (this.scale > 0.18) {
           const topY = Math.min(...expanded.map((p) => p.y)) - 6;
-          ctx.font        = `600 10px Inter, sans-serif`;
+          ctx.font        = `600 10px ${brandValue('--pm-font-body')}`;
           ctx.textAlign   = 'center';
           ctx.textBaseline = 'bottom';
           ctx.globalAlpha  = 0.55;
           ctx.fillStyle    = color;
           ctx.shadowColor  = color;
-          ctx.shadowBlur   = 4;
+          ctx.shadowBlur = 0;
           ctx.fillText(`#${tag}`, centX, topY);
-          ctx.shadowBlur   = 0;
+          ctx.shadowBlur = 0;
           ctx.globalAlpha  = 1;
         }
       }
@@ -1279,7 +1218,7 @@ export class GraphCanvas {
     const oy = ((this.ty * dpr % spacing) + spacing) % spacing;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(148,163,184,0.06)';
+    ctx.fillStyle = brandValue('--pm-graphite');
     const r = 1.2 * dpr;
 
     for (let x = ox; x < W; x += spacing) {
@@ -1321,8 +1260,8 @@ export class GraphCanvas {
     ctx.save();
 
     // Panel background
-    ctx.fillStyle   = 'rgba(8,13,26,0.90)';
-    ctx.strokeStyle = 'rgba(148,163,184,0.15)';
+    ctx.fillStyle   = brandValue('--pm-sheet');
+    ctx.strokeStyle = brandValue('--pm-graphite');
     ctx.lineWidth   = 1;
     if (ctx.roundRect) {
       ctx.beginPath();
@@ -1340,7 +1279,7 @@ export class GraphCanvas {
     ctx.clip();
 
     // Edges
-    ctx.strokeStyle = 'rgba(148,163,184,0.12)';
+    ctx.strokeStyle = brandValue('--pm-graphite');
     ctx.lineWidth   = 0.7;
     for (const e of this.edges) {
       const a = toMm(e.source.x, e.source.y);
@@ -1361,7 +1300,7 @@ export class GraphCanvas {
       ctx.globalAlpha = dim ? 0.18 : nd.id === sel ? 1 : 0.65;
       if (nd.id === sel) {
         ctx.shadowColor = nd.color;
-        ctx.shadowBlur  = 6;
+        ctx.shadowBlur = 0;
       }
       ctx.fillStyle = nd.color;
       ctx.beginPath();
@@ -1378,7 +1317,7 @@ export class GraphCanvas {
     const vpY2 = vpY1 + this.h / this.scale;
     const va   = toMm(vpX1, vpY1);
     const vb   = toMm(vpX2, vpY2);
-    ctx.strokeStyle = 'rgba(45,212,191,0.6)';
+    ctx.strokeStyle = brandValue('--pm-graphite');
     ctx.lineWidth   = 1.2;
     ctx.strokeRect(
       Math.min(va.x, vb.x), Math.min(va.y, vb.y),
@@ -1405,7 +1344,7 @@ export class GraphCanvas {
       ctx.globalAlpha = 0.88 * fade;
       ctx.fillStyle   = color;
       ctx.shadowColor = color;
-      ctx.shadowBlur  = 8;
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.arc(x, y, 2.8, 0, Math.PI * 2);
       ctx.fill();
@@ -1504,7 +1443,7 @@ export class GraphCanvas {
     const ny = dy / len;
     const { x1, y1, x2, y2 } = this.edgeEndpoints(s, t, nx, ny);
 
-    const color = onCritPath ? '#fbbf24' : getEdgeColor(edge.type);
+    const color = onCritPath ? brandValue('--pm-stamp') : getEdgeColor(edge.type);
     const isActive = highlighted || onCritPath;
 
     ctx.save();
@@ -1528,9 +1467,9 @@ export class GraphCanvas {
         ctx.strokeStyle = color;
       }
       ctx.shadowColor = color;
-      ctx.shadowBlur  = onCritPath ? 8 : 5;
+      ctx.shadowBlur = 0;
     } else {
-      ctx.strokeStyle = EDGE_DEFAULT;
+      ctx.strokeStyle = brandValue('--pm-graphite');
     }
 
     // Draw straight line or quadratic bezier
@@ -1559,9 +1498,9 @@ export class GraphCanvas {
       const ax = x2;
       const ay = y2;
 
-      ctx.fillStyle   = isActive ? color : 'rgba(148,163,184,0.4)';
+      ctx.fillStyle   = isActive ? color : brandValue('--pm-graphite');
       ctx.globalAlpha = opacity * (isActive ? 0.92 : 0.42);
-      ctx.shadowBlur  = 0;
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.moveTo(ax, ay);
       ctx.lineTo(ax - aw * Math.cos(angle - aa), ay - aw * Math.sin(angle - aa));
@@ -1577,15 +1516,15 @@ export class GraphCanvas {
     if (isActive && this.scale > 0.55) {
       const mx = isBiDir ? (x1 + 2 * cpX + x2) / 4 : (x1 + x2) / 2;
       const my = isBiDir ? (y1 + 2 * cpY + y2) / 4 : (y1 + y2) / 2;
-      ctx.globalAlpha = opacity * 0.82;
-      ctx.shadowBlur  = 0;
-      ctx.font        = '9px JetBrains Mono, monospace';
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      ctx.font        = `9px ${brandValue('--pm-font-mono')}`;
       ctx.textAlign   = 'center';
       ctx.textBaseline = 'middle';
       const tw = ctx.measureText(edge.type).width + 8;
-      ctx.fillStyle = 'rgba(8,13,26,0.78)';
+      ctx.fillStyle = brandValue('--pm-sheet');
       ctx.fillRect(mx - tw / 2, my - 7, tw, 14);
-      ctx.fillStyle = hexAlpha(color, 0.9);
+      ctx.fillStyle = brandValue('--pm-carbon');
       ctx.fillText(edge.type, mx, my);
     }
 
@@ -1607,10 +1546,10 @@ export class GraphCanvas {
     // Critical path outer ring (gold/amber)
     if (onCritPath && !selected) {
       const cp = Math.sin(this.pulseT * 0.7) * 0.5 + 0.5;
-      ctx.strokeStyle = hexAlpha('#fbbf24', 0.55 + cp * 0.30);
+      ctx.strokeStyle = hexAlpha(brandValue('--pm-stamp'), 0.55 + cp * 0.30);
       ctx.lineWidth   = 2.2;
-      ctx.shadowColor = '#fbbf24';
-      ctx.shadowBlur  = 10 + cp * 8;
+      ctx.shadowColor = brandValue('--pm-stamp');
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.arc(x, y, r + 5, 0, Math.PI * 2);
       ctx.stroke();
@@ -1622,16 +1561,16 @@ export class GraphCanvas {
       ctx.strokeStyle = hexAlpha(color, 0.28 + pulse * 0.38);
       ctx.lineWidth   = 2;
       ctx.shadowColor = color;
-      ctx.shadowBlur  = 14 + pulse * 18;
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.arc(x, y, r + 6 + pulse * 5, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.shadowBlur  = 0;
+      ctx.shadowBlur = 0;
     }
 
     // Ambient glow on all nodes (subtle for non-selected, stronger for selected/hovered)
     ctx.shadowColor = color;
-    ctx.shadowBlur  = selected ? (18 + pulse * 10) : hovered ? 10 : (r > 10 ? 5 : 3);
+    ctx.shadowBlur = 0;
 
     // Radial gradient fill — more vibrant on non-selected nodes than before
     const grad = ctx.createRadialGradient(x - r * 0.32, y - r * 0.32, r * 0.08, x, y, r);
@@ -1652,7 +1591,7 @@ export class GraphCanvas {
     ctx.fill();
 
     // Stroke — more vivid for all nodes
-    ctx.shadowBlur  = 0;
+    ctx.shadowBlur = 0;
     ctx.strokeStyle = hexAlpha(color, selected ? 1 : hovered ? 0.92 : 0.72);
     ctx.lineWidth   = selected ? 2.2 : hovered ? 1.8 : 1.2;
     ctx.stroke();
@@ -1662,21 +1601,18 @@ export class GraphCanvas {
     const showIcon = this.scale > 0.20 || prominent;
     if (r >= 9 && showIcon && abbr) {
       const iSize = Math.max(7, Math.min(12, r * 0.62));
-      ctx.font = `700 ${iSize}px 'JetBrains Mono', monospace`;
+      ctx.font = `700 ${iSize}px ${brandValue('--pm-font-mono')}`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowBlur   = 0;
-      ctx.fillStyle    = selected
-        ? 'rgba(255,255,255,0.92)'
-        : hovered
-          ? 'rgba(226,232,240,0.88)'
-          : hexAlpha(color, 0.78);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = brandValue('--pm-carbon');
+      ctx.globalAlpha = 1;
       ctx.fillText(abbr, x, y);
     } else if (r >= 11 && node.lane === 'item') {
       // Fallback dot when no abbr or low zoom
       ctx.beginPath();
       ctx.arc(x, y, r * 0.25, 0, Math.PI * 2);
-      ctx.fillStyle = selected ? 'rgba(255,255,255,0.75)' : hexAlpha(color, 0.55);
+      ctx.fillStyle = selected ? brandValue('--pm-graphite') : hexAlpha(color, 0.55);
       ctx.fill();
     }
 
@@ -1686,9 +1622,9 @@ export class GraphCanvas {
       const maxLen = this.scale > 0.72 ? 28 : this.scale > 0.45 ? 20 : this.scale > 0.25 ? 15 : 10;
       const label  = truncate(node.label || node.id, maxLen);
       const fSize  = prominent ? Math.max(10, Math.min(13, r * 0.95)) : Math.max(9, Math.min(12, r * 0.85));
-      const labelAlpha = selected ? 1.0 : hovered ? 0.96 : this.scale > 0.45 ? 0.82 : 0.62;
+      const labelAlpha = 1;
 
-      ctx.font        = `${selected ? 600 : 400} ${fSize}px Inter, sans-serif`;
+      ctx.font        = `${selected ? 600 : 400} ${fSize}px ${brandValue('--pm-font-body')}`;
       ctx.textAlign   = 'center';
       ctx.textBaseline = 'top';
 
@@ -1699,9 +1635,9 @@ export class GraphCanvas {
 
       // Background pill for readability (skip when very faint)
       if (labelAlpha > 0.35) {
-        ctx.globalAlpha = opacity * labelAlpha * 0.72;
-        ctx.fillStyle   = 'rgba(8,13,26,0.75)';
-        ctx.shadowBlur  = 0;
+        ctx.globalAlpha = 1;
+        ctx.fillStyle   = brandValue('--pm-sheet');
+        ctx.shadowBlur = 0;
         if (ctx.roundRect) {
           ctx.beginPath();
           ctx.roundRect(x - pillW / 2, labelY - 2, pillW, pillH, 3);
@@ -1711,16 +1647,16 @@ export class GraphCanvas {
         }
       }
 
-      ctx.globalAlpha = opacity * labelAlpha;
-      ctx.shadowBlur  = prominent ? 6 : 0;
-      ctx.shadowColor = '#000';
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = brandValue('--pm-carbon');
       ctx.fillStyle   = selected
-        ? '#ffffff'
+        ? brandValue('--pm-carbon')
         : hovered
-          ? 'rgba(226,232,240,0.98)'
-          : 'rgba(203,213,225,0.88)';
+          ? brandValue('--pm-graphite')
+          : brandValue('--pm-graphite');
       ctx.fillText(label, x, labelY);
-      ctx.shadowBlur  = 0;
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = opacity;
     }
 
@@ -1738,8 +1674,8 @@ export class GraphCanvas {
     // Keyboard hint (top bar, very subtle)
     if (this.nodes.length > 0) {
       ctx.globalAlpha = 0.28;
-      ctx.font        = '10px Inter, sans-serif';
-      ctx.fillStyle   = '#94a3b8';
+      ctx.font        = `10px ${brandValue('--pm-font-body')}`;
+      ctx.fillStyle   = brandValue('--pm-graphite');
       ctx.textAlign   = 'left';
       ctx.textBaseline = 'top';
       ctx.fillText(
@@ -1752,9 +1688,9 @@ export class GraphCanvas {
     // Sim activity dot (top-right)
     if (simActive) {
       ctx.globalAlpha = 0.7;
-      ctx.fillStyle   = '#2dd4bf';
-      ctx.shadowColor = '#2dd4bf';
-      ctx.shadowBlur  = 8;
+      ctx.fillStyle   = brandValue('--pm-stamp');
+      ctx.shadowColor = brandValue('--pm-stamp');
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.arc(w - 18, 18, 5, 0, Math.PI * 2);
       ctx.fill();
@@ -1767,8 +1703,8 @@ export class GraphCanvas {
       ? `${this.filter.visibleNodeIds.size}/${this.nodes.length} nodes`
       : `${this.nodes.length} nodes · ${this.edges.length} edges`;
     ctx.globalAlpha = 0.45;
-    ctx.font        = '10px Inter, sans-serif';
-    ctx.fillStyle   = '#94a3b8';
+    ctx.font        = `10px ${brandValue('--pm-font-body')}`;
+    ctx.fillStyle   = brandValue('--pm-graphite');
     ctx.textAlign   = 'left';
     ctx.textBaseline = 'bottom';
     ctx.fillText(nodeCount, 14, h - 36);
@@ -1776,9 +1712,9 @@ export class GraphCanvas {
 
     // Zoom badge (bottom-left)
     const zoomTxt = `${Math.round(this.scale * 100)}%`;
-    ctx.font       = '11px JetBrains Mono, monospace';
+    ctx.font       = `11px ${brandValue('--pm-font-mono')}`;
     const tw       = ctx.measureText(zoomTxt).width + 18;
-    ctx.fillStyle   = 'rgba(8,13,26,0.75)';
+    ctx.fillStyle   = brandValue('--pm-sheet');
     ctx.globalAlpha = 0.9;
     if (ctx.roundRect) {
       ctx.beginPath();
@@ -1787,7 +1723,7 @@ export class GraphCanvas {
     } else {
       ctx.fillRect(12, h - 30, tw, 20);
     }
-    ctx.fillStyle   = '#94a3b8';
+    ctx.fillStyle   = brandValue('--pm-graphite');
     ctx.textAlign   = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(zoomTxt, 21, h - 20);
@@ -1814,16 +1750,16 @@ export class GraphCanvas {
         'position:fixed',
         'z-index:9999',
         'pointer-events:none',
-        'background:rgba(10,15,30,0.96)',
-        'border:1px solid rgba(148,163,184,0.18)',
-        'border-radius:10px',
+        'background:var(--pm-sheet)',
+        'border:1px solid var(--pm-graphite)',
+        'border-radius:var(--pm-radius)',
         'padding:10px 14px',
-        'font-family:Inter,sans-serif',
+        'font-family:var(--pm-font-body)',
         'font-size:12px',
-        'color:#e2e8f0',
+        'color:var(--pm-carbon)',
         'max-width:240px',
         'backdrop-filter:blur(12px)',
-        'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
+        'box-shadow:none',
         'transition:opacity 0.1s ease',
         'line-height:1.5',
       ].join(';');
@@ -1846,13 +1782,13 @@ export class GraphCanvas {
       const directionText = `${escHtml(fromName)} → ${escHtml(toName)}`;
 
       tt.innerHTML = `
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:#f1f5f9;word-break:break-all;display:flex;align-items:center;gap:7px;">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--pm-carbon);word-break:break-all;display:flex;align-items:center;gap:7px;">
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${getEdgeColor(tooltipData.edge.type)};flex-shrink:0;box-shadow:0 0 6px ${getEdgeColor(tooltipData.edge.type)}"></span>
           Relationship
         </div>
-        <div style="color:#94a3b8;font-size:10px;letter-spacing:0.02em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">${tooltipData.edge.type}</div>
-        <div style="font-size:11px;line-height:1.4;color:#e2e8f0;"><strong style="color:#64748b">From:</strong> ${directionText}</div>
-        <div style="margin-top:4px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.1);color:#475569;font-size:10px;">
+        <div style="color:var(--pm-graphite);font-size:10px;letter-spacing:0.02em;font-family:var(--pm-font-mono);margin-bottom:6px;">${tooltipData.edge.type}</div>
+        <div style="font-size:11px;line-height:1.4;color:var(--pm-carbon);"><strong style="color:var(--pm-graphite)">From:</strong> ${directionText}</div>
+        <div style="margin-top:4px;padding-top:7px;border-top:1px solid var(--pm-graphite);color:var(--pm-graphite);font-size:10px;">
           Right-click for actions
         </div>
       `;
@@ -1866,27 +1802,27 @@ export class GraphCanvas {
       const tagHtml   = tags.length > 0
         ? `<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:3px;">${
             tags.slice(0, 6).map((t) => {
-              const tc = this.tagColorMap.get(t) ?? '#64748b';
+              const tc = this.tagColorMap.get(t) ?? brandValue('--pm-graphite');
               return `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:${hexAlpha(tc, 0.18)};color:${tc};border:1px solid ${hexAlpha(tc, 0.35)}">#${escHtml(t)}</span>`;
             }).join('')
           }</div>` : '';
 
       tt.innerHTML = `
-        <div style="font-weight:600;font-size:13px;margin-bottom:5px;color:#f1f5f9;word-break:break-all;display:flex;align-items:center;gap:7px;">
+        <div style="font-weight:600;font-size:13px;margin-bottom:5px;color:var(--pm-carbon);word-break:break-all;display:flex;align-items:center;gap:7px;">
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${n.color};flex-shrink:0;box-shadow:0 0 6px ${n.color}"></span>
           ${escHtml(n.label || n.id)}
         </div>
-        <div style="color:#475569;font-size:10px;font-family:'JetBrains Mono',monospace;margin-bottom:8px;word-break:break-all;">${escHtml(n.id)}</div>
+        <div style="color:var(--pm-graphite);font-size:10px;font-family:var(--pm-font-mono);margin-bottom:8px;word-break:break-all;">${escHtml(n.id)}</div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px;">
-          <span style="color:#64748b;">Type</span><span>${escHtml(n.type)}</span>
-          <span style="color:#64748b;">Status</span><span style="color:${n.color};">${escHtml(n.status)}</span>
-          ${n.priority !== undefined && n.priority !== null ? `<span style="color:#64748b;">Priority</span><span>${escHtml(String(n.priority))}</span>` : ''}
-          ${n.assignee ? `<span style="color:#64748b;">Assignee</span><span>${escHtml(n.assignee)}</span>` : ''}
-          <span style="color:#64748b;">Lane</span><span>${escHtml(laneLabel)}</span>
-          <span style="color:#64748b;">Links</span><span>${escHtml(degText)}</span>
+          <span style="color:var(--pm-graphite);">Type</span><span>${escHtml(n.type)}</span>
+          <span style="color:var(--pm-graphite);">Status</span><span style="color:${n.color};">${escHtml(n.status)}</span>
+          ${n.priority !== undefined && n.priority !== null ? `<span style="color:var(--pm-graphite);">Priority</span><span>${escHtml(String(n.priority))}</span>` : ''}
+          ${n.assignee ? `<span style="color:var(--pm-graphite);">Assignee</span><span>${escHtml(n.assignee)}</span>` : ''}
+          <span style="color:var(--pm-graphite);">Lane</span><span>${escHtml(laneLabel)}</span>
+          <span style="color:var(--pm-graphite);">Links</span><span>${escHtml(degText)}</span>
         </div>
         ${tagHtml}
-        <div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.1);color:#475569;font-size:10px;">
+        <div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--pm-graphite);color:var(--pm-graphite);font-size:10px;">
           Click to select · Double-click to open
         </div>
       `;
@@ -2000,9 +1936,8 @@ export class GraphCanvas {
   private onKeyDown(e: KeyboardEvent): void {
     switch (e.key) {
       case 'Tab':
-        e.preventDefault();
-        this.navigateToNeighbor(e.shiftKey ? 'prev' : 'next');
-        break;
+        // Native Tab leaves the canvas; arrow keys navigate graph nodes.
+        return;
       case 'ArrowRight':
       case 'ArrowDown':
         e.preventDefault();

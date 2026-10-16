@@ -111,7 +111,7 @@ export function renderProjectsView(): void {
         <div class="welcome-icon">⊞</div>
         <div class="welcome-title">No projects yet</div>
         <div class="welcome-text">Create your first project to start managing tasks, features, bugs, and more with git-native storage.</div>
-        <button class="btn btn-primary btn-lg" onclick="window.__app.showModal('create-project-modal')">+ Create Project</button>
+        <button class="btn btn-secondary btn-lg" onclick="window.__app.showModal('create-project-modal')">+ Create Project</button>
       </div>`;
     return;
   }
@@ -185,7 +185,7 @@ export function buildCreateProjectModal(): void {
       <div class="form-group">
         <label class="form-label">ID Prefix *</label>
         <input class="form-input" id="cp-prefix" type="text" placeholder="myproj" pattern="[a-z0-9\\-]+" required>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Lowercase letters, numbers, hyphens. Used as item ID prefix (e.g. myproj-1)</div>
+        <div style="font-size:11px;color:var(--app-text-muted);margin-top:4px">Lowercase letters, numbers, hyphens. Used as item ID prefix (e.g. myproj-1)</div>
       </div>
       <div class="form-group">
         <label class="form-label">Description</label>

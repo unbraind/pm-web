@@ -33,7 +33,16 @@ const SESSION_KEY = 'current';
 const STATIC_ASSETS: readonly string[] = [
   '/',
   '/styles.css',
-  '/manifest.json',
+  '/app-tokens.css',
+  '/brand/assets.css',
+  '/brand/tokens.js',
+  '/brand/mark.svg',
+  '/brand/mark-dark.svg',
+  '/brand/favicon.svg',
+  '/brand/apple-touch-icon.png',
+  '/src/brand.js',
+  '/src/interactions.js',
+  '/brand/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/src/api.js',
@@ -92,14 +101,15 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pm-web — Offline</title>
+<link rel="stylesheet" href="/brand/assets.css">
 <style>
-  body{font-family:'Inter',system-ui,sans-serif;background:#0a0f1e;color:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center}
+  body{font-family:var(--pm-font-body);background:var(--pm-paper);color:var(--pm-carbon);display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center}
   .offline-icon{font-size:48px;margin-bottom:20px;opacity:0.5}
   .offline-title{font-size:22px;font-weight:600;margin-bottom:8px}
-  .offline-text{color:#94a3b8;max-width:400px;line-height:1.7;margin-bottom:24px}
-  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:0.15s}
-  .btn-primary{background:#2dd4bf;color:#0f172a}
-  .btn-primary:hover{background:#34ead4}
+  .offline-text{color:var(--pm-graphite);max-width:400px;line-height:1.7;margin-bottom:24px}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:none;border-radius:var(--pm-radius-sm);cursor:pointer;font-size:13px;font-weight:500;transition:none}
+  .btn-primary{background:var(--pm-stamp);color:var(--pm-on-stamp)}
+  .btn-primary:hover{background:var(--pm-stamp)}
 </style>
 </head>
 <body>
@@ -672,7 +682,10 @@ async function updateRecoveryRecords(ownerId: string, update: (store: IDBObjectS
 sw.addEventListener('install', (event: ExtendableEvent) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      Promise.all(STATIC_ASSETS.map((asset) => cache.add(asset).catch(() => null)))
+      Promise.all(STATIC_ASSETS.map((asset) => cache.add(asset).catch(() => null))).then(async () => {
+        const manifest = await fetch('/brand/assets.json').then(response => response.json()) as { urls?: string[] };
+        await Promise.all((manifest.urls || []).map(asset => cache.add(asset).catch(() => null)));
+      }).catch(() => undefined)
     )
   );
   sw.skipWaiting();

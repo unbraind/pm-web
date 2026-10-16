@@ -12,7 +12,7 @@ import type { Item } from '../types.js';
  * the given status string. */
 function contextItemRow(item: Item, status: string): string {
   return `<div class="context-item-row">
-    ${typeIcon(item.type||'')} <span class="mono" style="font-size:11px;color:var(--text-muted)">${escHtml(item.id||'')}</span>
+    ${typeIcon(item.type||'')} <span class="mono" style="font-size:11px;color:var(--app-text-muted)">${escHtml(item.id||'')}</span>
     <span style="flex:1">${escHtml(item.title||'')}</span>
     ${statusBadge(status)}
   </div>`;
@@ -37,7 +37,7 @@ export async function renderContextView(): Promise<void> {
     if (contentEl) contentEl.innerHTML = renderContextData(ctx);
   } catch(err: unknown) {
     const contentEl = document.getElementById('context-content');
-    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 
@@ -69,7 +69,7 @@ function renderContextData(ctx: ContextResponse): string {
   const blockedItems = ctx.blockedItems || ctx.blocked || [];
   if (blockedItems.length > 0) {
     sections.push(`<div class="context-section">
-      <div class="context-section-title" style="color:var(--status-blocked)">⛔ Blocked (${blockedItems.length})</div>
+      <div class="context-section-title" style="color:var(--app-status-blocked)">⛔ Blocked (${blockedItems.length})</div>
       <div class="card"><div class="card-body">
         ${blockedItems.map((item)=> contextItemRow(item, 'blocked')).join('')}
       </div></div>

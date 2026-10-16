@@ -155,7 +155,7 @@ export function createApp(deps) {
         setHeaders(res, file) {
             if (/[\\/]brand[\\/][a-f0-9]{40}[\\/]/.test(file))
                 res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-            else if (/[\\/]brand[\\/]assets\.(css|json)$/.test(file))
+            else if (/[\\/]brand[\\/][^\\/]+$/.test(file))
                 res.setHeader("Cache-Control", "no-cache");
         },
     }));
