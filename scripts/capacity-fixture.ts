@@ -117,6 +117,7 @@ export async function capacityServer(root: string, secret: string, traceDirector
   let reset = false;
   let failed = false;
   let traceFlushed = false;
+  let lockSnapshot: { count: number; at: number } | undefined;
   const samples: CapacityProbe[] = [];
   const errors: Record<string, number> = {};
   child.on("error", () => { failed = true; });
@@ -138,7 +139,8 @@ export async function capacityServer(root: string, secret: string, traceDirector
   });
   child.stderr!.resume();
   child.on("message", (message: unknown) => {
-    const record = message as Partial<CapacityProbe> & { capacity_probe?: boolean; capacity_reset?: boolean; capacity_trace_flushed?: boolean };
+    const record = message as Partial<CapacityProbe> & { capacity_probe?: boolean; capacity_reset?: boolean; capacity_trace_flushed?: boolean; capacity_lock_count?: number; at?: number };
+    if (typeof record.capacity_lock_count === "number" && typeof record.at === "number") lockSnapshot = { count: record.capacity_lock_count, at: record.at };
     if (record.capacity_trace_flushed) traceFlushed = true;
     if (record.capacity_reset) { reset = true; samples.length = 0; }
     if (record.capacity_probe && typeof record.rss_bytes === "number" && typeof record.cpu_core_percent === "number" && typeof record.event_loop_p99_ms === "number") samples.push(record as CapacityProbe);
@@ -152,6 +154,8 @@ export async function capacityServer(root: string, secret: string, traceDirector
     await waitUntil(() => port > 0 || failed || child.exitCode !== null || child.signalCode !== null, 20_000, "production server startup");
     if (!port || failed) throw new Error("Production server failed to start");
     return { url: `http://127.0.0.1:${port}`, applicationName, samples, errors, health,
+      /** Snapshot successful server index-lock acquisitions through private test IPC. */
+      lockCount: async () => { lockSnapshot = undefined; child.send("capacity-lock-count"); await waitUntil(() => lockSnapshot !== undefined, 5000, "lock snapshot"); return lockSnapshot!; },
       /** Reset the server histogram at the start of the measured write phase. */
       begin: async () => { reset = false; child.send("capacity-reset"); await waitUntil(() => reset, 2000, "probe reset"); },
       /** Flush stage probes only after measured writes and receipts finish. */

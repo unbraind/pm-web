@@ -25,7 +25,7 @@ function replaceProbe(source: string, anchor: string, replacement: string): stri
  */
 export function instrumentCapacityModule(url: string, source: string): string {
   if (url.endsWith("/dist/services/mutation-replay.js")) {
-    source = replaceProbe(source, "const page = await listMutationEvents", "const capacityReadStarted = performance.timeOrigin + performance.now();\n            const page = await listMutationEvents");
+    source = replaceProbe(source, "const page = await singleFlightMutationPage", "const capacityReadStarted = performance.timeOrigin + performance.now();\n            const page = await singleFlightMutationPage");
     source = replaceProbe(source, "yield { ...event, cursor: boundary };", `${probe}("classified", event.item_id, { start: capacityReadStarted });\n                yield { ...event, cursor: boundary };`);
   } else if (url.endsWith("/dist/services/sse.js")) {
     source = replaceProbe(source, "export function deliverProjectEvent(projectId, event) {", `export function deliverProjectEvent(projectId, event) {\n    ${probe}.event("broadcast", event);`);

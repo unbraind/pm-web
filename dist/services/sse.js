@@ -1,5 +1,6 @@
 import { recordConnection, recordDisconnection, recordBroadcast } from "./realtime-observability.js";
 import { logError } from "../observability.js";
+import { signalMutationRead } from "./mutation-read-signals.js";
 // Clients are indexed two ways so that per-event work scales with the number of
 // clients on the *affected project*, not the total number of connected clients.
 // This is what lets a single project sustain many concurrent viewers without an
@@ -258,6 +259,7 @@ export function addSSEClient(client) {
  * @param event - The SSE event.
  */
 export function broadcastProjectEvent(projectId, event) {
+    signalMutationRead(projectId);
     // When a route broadcasts an item-scoped event, note it per-item so the
     // mutation-event watcher can skip the corresponding committed-mutation fact.
     // This gives per-item dedupe for free across all ~15 existing route call sites

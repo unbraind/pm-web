@@ -2,6 +2,7 @@ import { logError, logEvent, opaqueHash } from "../observability.ts";
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { pool } from "../db.ts";
+import { signalMutationRead } from "./mutation-read-signals.ts";
 import {
   configureProjectEventPublisher,
   deliverProjectEvent,
@@ -105,6 +106,7 @@ export function handleIncomingEnvelope(
 ): void {
   const event = parseEnvelope(raw);
   if (!event || event.sourceId === instanceId) return;
+  signalMutationRead(event.projectId);
   deliver(event.projectId, { type: event.type, data: event.data });
 }
 

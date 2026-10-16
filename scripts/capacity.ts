@@ -14,6 +14,7 @@ import { stageSummary, traceCriticalPaths, type CapacityTrace } from "./capacity
 
 /** Bounded workload configuration; the CLI always builds before running it. */
 export interface CapacityOptions {
+  idleMs?: number;
   trace?: boolean;
   rungs: number[];
   writers: number;
@@ -28,7 +29,7 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     const value = args[i + 1];
-    if (!["--rungs", "--writers", "--writes-per-writer", "--slo-ms", "--drain-ms", "--output", "--trace"].includes(key) || !value || values.has(key)) throw new Error("Unknown, repeated or incomplete capacity option");
+    if (!["--rungs", "--writers", "--writes-per-writer", "--slo-ms", "--drain-ms", "--output", "--trace", "--idle-ms"].includes(key) || !value || values.has(key)) throw new Error("Unknown, repeated or incomplete capacity option");
     values.set(key, value);
   }
   const options = {
@@ -37,6 +38,7 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
     sloMs: Number(values.get("--slo-ms") ?? 2000), drainMs: Number(values.get("--drain-ms") ?? 4000),
     output: values.get("--output"),
     trace: values.get("--trace") === "true",
+    idleMs: Number(values.get("--idle-ms") ?? 0),
   };
   if (values.has("--trace") && !["true", "false"].includes(values.get("--trace")!)) throw new Error("Trace must be true or false");
   validateOptions(options);
@@ -45,6 +47,7 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
 
 /** Keep measured populations and memory bounded even when invoked through the exported runner. */
 function validateOptions(options: CapacityOptions): void {
+  if (!Number.isInteger(options.idleMs ?? 0) || (options.idleMs ?? 0) < 0 || (options.idleMs ?? 0) > 120_000) throw new Error("Idle observation must be between zero and 120 seconds");
   if (options.rungs.length === 0 || options.rungs.some((n, i) => !Number.isInteger(n) || n < 1 || n > 3000 || (i > 0 && n <= options.rungs[i - 1]))) throw new Error("Rungs must increase from 1 through 3000");
   if (!Number.isInteger(options.writers) || options.writers < 2 || options.writers > 32) throw new Error("Writers must be between 2 and 32");
   if (!Number.isInteger(options.writesPerWriter) || options.writesPerWriter < 1 || options.writesPerWriter > 100) throw new Error("Writes per writer must be between 1 and 100");
@@ -199,6 +202,14 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         before = await server.health();
       }
       if (!before.ok || before.realtime.sse_clients !== subscribers) throw new Error("Server was not healthy at the start of writes");
+      let idleLocks = null;
+      if (options.idleMs) {
+        const first = await server.lockCount();
+        await delay(options.idleMs);
+        const last = await server.lockCount();
+        idleLocks = { acquisitions: last.count - first.count, elapsed_ms: last.at - first.at,
+          acquisitions_per_second: (last.count - first.count) * 1000 / (last.at - first.at) };
+      }
       await server.begin();
       generatorDelay.enable();
       const startCpu = process.cpuUsage();
@@ -292,7 +303,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       return { subscribers, writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
         writes: writes.length, committed_writes: writes.filter((write) => write.committedAt !== null).length,
         failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
-        ...delivery, stages, trace_critical_paths: criticalPaths, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
+        ...delivery, idle_index_locks: idleLocks, stages, trace_critical_paths: criticalPaths, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
         event_index_audit: { source: indexSource, missing_sequences: writes.filter((write) => write.committedAt !== null && !indexedIds.has(write.itemId)).map((write) => write.sequence) },
         write_receipts: writes.map((write) => ({ sequence: write.sequence, transport: write.transport, committed_at: write.committedAt, write_error: write.error })) };
     } catch (error) {
@@ -340,7 +351,7 @@ export async function runCapacity(options: CapacityOptions) {
   }
   return { schema_version: 1, date: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
     hardware, options, runs, failure, stopped_early: runs.length < options.rungs.length,
-    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""} --output "$CAPACITY_OUTPUT"` };
+    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""}${options.idleMs ? ` --idle-ms ${options.idleMs}` : ""} --output "$CAPACITY_OUTPUT"` };
 }
 
 /** Render a public-safe summary; paths, credentials, fixture identities and process logs are omitted. */
@@ -351,6 +362,8 @@ export function capacityMarkdown(report: Awaited<ReturnType<typeof runCapacity>>
     `One production server, real test Postgres, one temporary project per rung, distinct authenticated subscriber identities. ${report.options.writers} concurrent writer lanes (${Math.floor(report.options.writers / 2)} HTTP, ${Math.ceil(report.options.writers / 2)} separate pinned pm processes), ${report.options.writesPerWriter} writes per lane. SLO: ${report.options.sloMs} ms; final duplicate/loss observation window: ${report.options.drainMs} ms.\n\n` +
     "| Subscribers | Committed writes | To all p50 ms | p95 ms | p99 ms | Max ms | Lost | Duplicates | RSS MiB | CPU p95 % core | Loop p99 ms | PG server/DB | Result |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---|\n" +
     report.runs.map((run) => `| ${run.subscribers} | ${run.committed_writes}/${run.writes} | ${number(run.to_every_subscriber_ms.p50)} | ${number(run.to_every_subscriber_ms.p95)} | ${number(run.to_every_subscriber_ms.p99)} | ${number(run.to_every_subscriber_ms.max)} | ${run.lost} | ${run.duplicates} | ${(run.resources.server_rss_peak_bytes / 2 ** 20).toFixed(1)} | ${number(run.resources.server_cpu_core_percent.p95)} | ${number(run.resources.server_event_loop_p99_ms)} | ${run.resources.postgres_server_connections_peak}/${run.resources.postgres_database_connections_peak} | ${run.passed ? "PASS" : "STOP"} |`).join("\n") +
+    "\n\nIdle successful server index-lock acquisitions (zero writers, after baseline):\n\n| Subscribers | Acquisitions | Seconds | Locks/sec |\n|---:|---:|---:|---:|\n" +
+    report.runs.filter((run) => run.idle_index_locks !== null).map((run) => `| ${run.subscribers} | ${run.idle_index_locks!.acquisitions} | ${(run.idle_index_locks!.elapsed_ms / 1000).toFixed(2)} | ${run.idle_index_locks!.acquisitions_per_second.toFixed(3)} |`).join("\n") +
     "\n\nHealth counter snapshots (before → after writes):\n\n| Subscribers | Connections | Disconnections | Broadcasts | Watcher changes/errors | Last sweep ms |\n|---:|:---|:---|:---|:---|---:|\n" +
     report.runs.map((run) => `| ${run.subscribers} | ${run.health_before.realtime.sse_connections_total} → ${run.health_after.realtime.sse_connections_total} | ${run.health_before.realtime.sse_disconnections_total} → ${run.health_after.realtime.sse_disconnections_total} | ${run.health_before.realtime.broadcasts_total} → ${run.health_after.realtime.broadcasts_total} | ${run.health_before.realtime.watcher_changes_total}/${run.health_before.realtime.watcher_errors_total} → ${run.health_after.realtime.watcher_changes_total}/${run.health_after.realtime.watcher_errors_total} | ${run.health_after.realtime.watcher_last_sweep_ms ?? "missing"} |`).join("\n") +
     report.runs.filter((run) => run.stages).map((run) => "\n\nStage attribution (test-only probes, milliseconds):\n\n| Subscribers | Origin | Stage | Samples | p50 ms | p99 ms |\n|---:|:---|:---|---:|---:|---:|\n" +
@@ -366,7 +379,7 @@ async function main(): Promise<void> {
   const options = capacityOptions(process.argv.slice(2));
   const build = spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], { stdio: "inherit", shell: process.platform === "win32" });
   if (build.status !== 0) throw new Error("Production build failed");
-  const report = await runCapacity({ rungs: options.rungs, writers: options.writers, writesPerWriter: options.writesPerWriter, sloMs: options.sloMs, drainMs: options.drainMs, trace: options.trace });
+  const report = await runCapacity({ rungs: options.rungs, writers: options.writers, writesPerWriter: options.writesPerWriter, sloMs: options.sloMs, drainMs: options.drainMs, trace: options.trace, idleMs: options.idleMs });
   const prefix = options.output ?? path.join(await mkdtemp(path.join(tmpdir(), "pm-web-capacity-report-")), "capacity");
   await mkdir(path.dirname(prefix), { recursive: true });
   await writeFile(`${prefix}.json`, JSON.stringify(report, null, 2) + "\n", { flag: "wx" });
