@@ -6,8 +6,12 @@ status: open
 priority: 2
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-15T09:09:03.386Z"
-updated_at: "2026-10-15T09:10:02.607Z"
+updated_at: "2026-10-16T08:12:25.172Z"
 author: codex-agent
+comments[1]{created_at,author,text}:
+  "2026-10-16T08:11:29.603Z",codex-agent,"Additional real-PostgreSQL acceptance evidence from the route/bootstrap coverage candidate: the second final-floor npm run passes all 634 coverage tests and all four dimensions, then fails only test/capacity.acceptance.ts line 16: every delivery must meet the unchanged 2000 ms SLO. Earlier assertions pass for five committed writes, zero failed writes/lost/disconnected subscribers/duplicates, and five delivery samples. This is latency failure evidence, not mutation-loss evidence. The first final-floor npm and Bun gates pass, and both Node 22/26 CI matrix jobs pass their npm and Bun release gates on source/test commit e053bb1. Reproduction: npm run release:check with isolated Git identity and explicit fleet discovery; the second Bun repetition is still running. No SLO, capacity assertion or production behavior was changed."
+files[1]{path,scope}:
+  test/capacity.acceptance.ts,project
 docs[1]{path,scope}:
   docs/capacity/2026-10-15-local.md,project
 body: ""
