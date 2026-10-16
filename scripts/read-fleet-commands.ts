@@ -68,7 +68,16 @@ export async function readFleetCommandMetadata(fleetRoot: string, names: readonl
 export function readNativeFleetCommands(fleetRoot: string): string[] {
   const directory = path.join(fleetRoot, "pm-rust");
   const cargo = readFileSync(path.join(directory, "Cargo.toml"), "utf8");
-  if (!/\[\[bin\]\]\s*\nname\s*=\s*"pm-rust"/.test(cargo)) {
+  let inBinaryTable = false;
+  let nativeBinaryDeclared = false;
+  for (const line of cargo.split(/\r?\n/)) {
+    if (/^[\t ]*\[/.test(line)) {
+      inBinaryTable = /^[\t ]*\[\[[\t ]*bin[\t ]*\]\][\t ]*(?:#.*)?$/.test(line);
+    } else if (inBinaryTable && /^[\t ]*name[\t ]*=[\t ]*(?:"pm-rust"|'pm-rust')[\t ]*(?:#.*)?$/.test(line)) {
+      nativeBinaryDeclared = true;
+    }
+  }
+  if (!nativeBinaryDeclared) {
     throw new Error("pm-rust: Cargo metadata must declare the native binary");
   }
   const readme = readFileSync(path.join(directory, "README.md"), "utf8");

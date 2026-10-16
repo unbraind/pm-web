@@ -87,3 +87,32 @@ cargo run -- unrelated
     assert.throws(() => readNativeFleetCommands(fleet), /declares no native command paths/);
   } finally { rmSync(fleet, { recursive: true, force: true }); }
 });
+
+test("native Cargo binary identity accepts table field order and rejects names outside bin tables", async (t) => {
+  const cases = [
+    { name: "reordered fields", cargo: '[[bin]]\npath = "src/main.rs"\nrequired-features = ["cli"]\nname = "pm-rust"\n', accepted: true },
+    { name: "comments and whitespace", cargo: '  [[ bin ]] # binary\r\n# Identity follows the path\r\n  path = "src/main.rs" # entry\r\n\r\n\tname\t=\t"pm-rust"  # identity\r\n', accepted: true },
+    { name: "matching later binary", cargo: '[[bin]]\nname = "other"\n[[bin]]\npath = "src/main.rs"\nname = "pm-rust"\n[dependencies]\n', accepted: true },
+    { name: "single quotes", cargo: "[[bin]]\npath = 'src/main.rs'\nname = 'pm-rust' # identity\n", accepted: true },
+    { name: "matching first binary", cargo: '[[bin]]\nname = "pm-rust"\n[[bin]]\nname = "other"\n', accepted: true },
+    { name: "missing binary tables", cargo: '[package]\nname = "pm-rust"\n', accepted: false },
+    { name: "different binary identity", cargo: '[[bin]]\nname = "other"\n', accepted: false },
+    { name: "name in next table", cargo: '[[bin]]\npath = "src/main.rs"\n[package]\nname = "pm-rust"\n', accepted: false },
+    { name: "name in next array table", cargo: '[[bin]]\npath = "src/main.rs"\n[[example]]\nname = "pm-rust"\n', accepted: false },
+    { name: "commented identity", cargo: '[[bin]]\n# name = "pm-rust"\npath = "src/main.rs"\n', accepted: false },
+    { name: "commented binary header", cargo: '# [[bin]]\nname = "pm-rust"\n', accepted: false },
+  ];
+  for (const fixture of cases) {
+    await t.test(fixture.name, () => {
+      const fleet = mkdtempSync(path.join(tmpdir(), "pm-web-cargo-table-"));
+      try {
+        const directory = path.join(fleet, "pm-rust");
+        mkdirSync(directory);
+        writeFileSync(path.join(directory, "Cargo.toml"), fixture.cargo);
+        writeFileSync(path.join(directory, "README.md"), "## Current native slice\ncargo run -- list\n");
+        if (fixture.accepted) assert.deepEqual(readNativeFleetCommands(fleet), ["pm-rust list"]);
+        else assert.throws(() => readNativeFleetCommands(fleet), /must declare the native binary/);
+      } finally { rmSync(fleet, { recursive: true, force: true }); }
+    });
+  }
+});
