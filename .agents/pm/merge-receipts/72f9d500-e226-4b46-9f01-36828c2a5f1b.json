@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "72f9d500-e226-4b46-9f01-36828c2a5f1b",
+  "item_path": ".agents/pm/issues/pm-web-pep7.toon",
+  "item_id": "pm-web-pep7",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [],
+  "union_fields": [],
+  "merged_field_hashes": {},
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "780a79fd295bfd6e48c6532ea3c4b86fabb1d916",
+    "original_blob": "4c1de0910456f4ab9c9f5cdef777b3ab78197d78"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-16T16:19:32.435Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-16T16:23:48.671Z"
+}
