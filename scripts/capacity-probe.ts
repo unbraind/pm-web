@@ -1,5 +1,24 @@
 /** Test-only preload: observe the actual production process through a private IPC channel. */
 import { monitorEventLoopDelay } from "node:perf_hooks";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { syncBuiltinESMExports } from "node:module";
+
+let indexLocks = 0;
+const originalOpen = fs.open;
+// Successful lock payload writes count acquisitions, never retry attempts.
+fs.open = async (...args: Parameters<typeof originalOpen>) => {
+  const handle = await originalOpen(...args);
+  if (path.basename(String(args[0])) === "history-event-index.lock") {
+    const originalWrite = handle.writeFile.bind(handle);
+    handle.writeFile = async (...parameters: Parameters<typeof originalWrite>) => {
+      await originalWrite(...parameters);
+      indexLocks += 1;
+    };
+  }
+  return handle;
+};
+syncBuiltinESMExports();
 
 const histogram = monitorEventLoopDelay({ resolution: 10 });
 histogram.enable();
@@ -20,7 +39,9 @@ function sample(): void {
 const timer = setInterval(sample, 250);
 timer.unref();
 process.on("message", (message: unknown) => {
-  if (message === "capacity-reset") {
+  if (message === "capacity-lock-count") {
+    process.send?.({ capacity_lock_count: indexLocks, at: performance.now() });
+  } else if (message === "capacity-reset") {
     histogram.reset();
     previousCpu = process.cpuUsage();
     previousTime = performance.now();

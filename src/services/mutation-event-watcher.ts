@@ -29,6 +29,7 @@ import {
   type SSEEvent,
 } from "./sse.ts";
 import { cachedProjectDir, dropInactive, positiveIntEnv } from "./watcher-utils.ts";
+import { onMutationReadSignal } from "./mutation-read-signals.ts";
 
 const DEFAULT_INTERVAL_MS = 250;
 const MIN_INTERVAL_MS = 10;
@@ -124,6 +125,7 @@ export function createMutationEventReconciler(deps: MutationEventWatcherDeps = {
     subs.set(projectId, sub);
 
     const pmRoot = path.join(dir, ".agents", "pm");
+    const releaseSignal = onMutationReadSignal(projectId, () => replay.readGate.invalidate());
 
     // Detached async loop — intentionally not awaited by reconcile.
     void (async () => {
@@ -147,6 +149,7 @@ export function createMutationEventReconciler(deps: MutationEventWatcherDeps = {
       } catch (err) {
         if (!isAbortError(err)) onError(err);
       } finally {
+        releaseSignal();
         sub.done = true;
       }
     })();

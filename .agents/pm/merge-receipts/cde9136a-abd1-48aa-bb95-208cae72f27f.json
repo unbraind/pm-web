@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "cde9136a-abd1-48aa-bb95-208cae72f27f",
+  "item_path": ".agents/pm/issues/pm-web-h4vh.toon",
+  "item_id": "pm-web-h4vh",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [],
+  "union_fields": [
+    "comments"
+  ],
+  "merged_field_hashes": {
+    "comments": "5a6d0a5fcbe5df3260dce0e731da68e3ece8856ee7391d05f53e5956c07c3501"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "23c5bfaf4b2ae1e12f96afa0f2bac82f9eb1cbf4",
+    "original_blob": "05b82ceedbff8bdd960879519b23172fcc5e6316"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-16T11:08:18.336Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-16T11:09:39.542Z"
+}

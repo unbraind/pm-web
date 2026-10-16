@@ -1,6 +1,7 @@
 import { logError, logEvent, opaqueHash } from "../observability.js";
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
+import { signalMutationRead } from "./mutation-read-signals.js";
 import { configureProjectEventPublisher, deliverProjectEvent, getActiveProjectIds, } from "./sse.js";
 const CHANNEL = "pm_workspace_events";
 const INSTANCE_ID = randomUUID();
@@ -91,6 +92,7 @@ export function handleIncomingEnvelope(raw, instanceId, deliver) {
     const event = parseEnvelope(raw);
     if (!event || event.sourceId === instanceId)
         return;
+    signalMutationRead(event.projectId);
     deliver(event.projectId, { type: event.type, data: event.data });
 }
 /**

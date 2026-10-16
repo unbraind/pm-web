@@ -1,0 +1,41 @@
+id: pm-web-bazs
+title: Skip unchanged history reads in real-time project watchers
+description: "Mitigate upstream https://github.com/unbraind/pm-cli/issues/1485 with cheap project history change detection, signal invalidation, bounded replay safety checks and single-flight queries. Related investigation pm-web-h4vh and PR #211. Measure idle lock acquisitions and mixed-writer delivery before and after on synthetic projects."
+type: Feature
+status: in_progress
+priority: 1
+tags[3]: capacity,performance,realtime
+created_at: "2026-10-16T12:48:33.614Z"
+updated_at: "2026-10-16T13:56:18.048Z"
+author: codex-agent
+comments[8]{created_at,author,text}:
+  "2026-10-16T12:48:48.204Z",codex-agent,"Created after keyword searches and open-item review found no duplicate mitigation feature. Based on perf/realtime-delivery-p99 (PR #211 remains open) to reuse real-process stage tracing. Related investigation pm-web-h4vh; upstream https://github.com/unbraind/pm-cli/issues/1485. First verify watcher multiplicity and SDK marker API, then collect matched baseline measurements before production changes. Hosted services and data are outside scope."
+  "2026-10-16T12:49:56.765Z",codex-agent,"Inspection correction: viewers of one project already share one subscription (getActiveProjectIds plus the reconciler map); the 250 ms loop is per active project, not per viewer. Each idle loop calls listMutationEvents and therefore takes the SDK index lock. The pinned SDK has no public cheap generation marker. Test-only IPC now counts successful index-lock payload writes; idle observations occur after the production filesystem baseline with zero writers, followed by the unchanged traced 100-subscriber mixed-writer workload. Host load is currently elevated; record load and short CPU samples and avoid overlapping our own experiments."
+  "2026-10-16T12:55:42.700Z",codex-agent,"Matched traced baseline at 100 subscribers, 10 lanes and 50 writes, three serial runs: idle locks/sec 3.410 / 3.494 / 3.494; to-all p99 2335.1 / 1605.0 / 2105.2 ms; CLI pre-append p99 405.5 / 1039.3 / 1815.2 ms; HTTP pre-append p99 798.7 / 377.3 / 1007.4 ms. Every run committed 50/50 updates with zero missing or duplicate receipts. Shared-host initial loads 6.83 / 12.28 / 13.29 exceed four CPUs, so quiet-host timing is NOT established. Design: exact history-stream plus index/WAL stat tokens (size, mtimeNs, ctimeNs, inode, device), project-scoped signals, identical-query single-flight and a five-second full check. Replay floor derives from the prior completed scan before pruning, protecting near-expiry facts after skipped polls. SDK fallback and pagination remain delegated to listMutationEvents; SDK pin and subscriber authorization are unchanged."
+  "2026-10-16T12:58:13.161Z",codex-agent,"Behavioural revert proof (real trackers, no SDK mocks): restoring only followCommittedMutations from the base, with its required SDK import, failed both focused regressions (0/2): idle acquired 11 locks versus 5 at the prior observation, and the near-expiry committed CLI fact was absent. Restoring only singleFlightMutationPage to direct SDK delegation failed the two-reader identity assertion (0/1). The initial 100-reader revert diagnostic hit the 30-second test timeout and was terminated; it is not the claimed assertion proof. The smaller two-reader assertion proves the failure directly; the restored test also exercises 100 concurrent identical reads. All functions were restored. Safety regression deliberately aliases the metadata token and advances the safety deadline while using a real skewed CLI commit, requiring an actual SDK read across the prior scan floor."
+  "2026-10-16T13:06:35.769Z",codex-agent,"After 100-subscriber repeats: idle 2 acquisitions per approximately 12.02 s (0.166/sec in every run), versus baseline 3.410-3.494/sec. To-all p99 786.1 / 1081.3 / 1353.4 ms; CLI pre-append p99 291.8 / 596.8 / 570.0 ms; HTTP pre-append p99 207.3 / 562.0 / 702.3 ms. All 150 updates and 15000 receipts arrived exactly once. The increasing 250,500,1000 ladder stopped at 250: 50/50 updates and 12500/12500 receipts, zero duplicates, to-all p99 2398.6 ms breaches 2000 ms. 500 and 1000 remain unmeasured. Shared-host load remained elevated, so no quiet-host or causal end-to-end speedup claim. The lock-count reduction is directly observed, and periodic safety reads remain explicit."
+  "2026-10-16T13:11:33.899Z",codex-agent,"Final-test revert recheck after stabilizing the idle admission clock: restoring only followCommittedMutations again failed 0/2, with 7 real idle lock opens versus 4 at the previous observation and the near-expiry fact absent. Source restored. Focused final source suite previously passed 29/29, including real SQLite-disabled authoritative fallback and distinct relative tracker roots. First full npm/Bun gates stopped at lint (duplicate test imports and synchronous builtin restoration expressed inside an async test); those test-only issues are corrected. No thresholds changed. Full gates will be rerun on restored source."
+  "2026-10-16T13:53:54.753Z",codex-agent,"Validation: npm run release:check fully passes 646/646 coverage tests (zero fail/cancel/skip/todo), 2/2 real-process capacity scenarios, 4/4 packed current/minimum npm/native-Bun consumers, zero production audit vulnerabilities and all static/changelog/release checks. Coverage across 39 configured src files: 92.47 statements/lines, 81.00 branches, 96.02 functions. bun run release:check completes coverage 644 pass, 1 fail, 1 cancelled of 646, zero skips, then exits 1: existing built catalog 300-second timeout and source spawn ENOTDIR cascade tracked by pm-web-qdhx. Incomplete coverage 91.61/80.65/95.69 fails the unchanged statements/lines floor; it is not approval. Watcher regressions pass in both coverage runs. No thresholds lowered. GitHub checks remain the arbiter. Revert commands: node scripts/with-test-db.ts node --test --test-name-pattern=\"idle follower|skipped-poll boundary\" test/mutation-replay.test.ts (base follower 0/2); node scripts/with-test-db.ts node --test --test-name-pattern=\"concurrent identical\" test/history-read-gate.test.ts (direct SDK delegate 0/1). Tests import source TS, so no dist rebuild is involved in these focused reversions. All source restored."
+  "2026-10-16T13:56:17.000Z",codex-agent,"Required linked run completed: node_modules/.bin/pm test pm-web-bazs --run --progress exited 0, both selected commands passed with no skipped selection: focused source suite 29/29 and npm run accept:capacity 2/2. Failure categories all zero. Project test-result tracking is disabled (recorded:false, tracking_disabled), so this comment records the observed results; no machine last-run receipt is claimed and the policy is unchanged. Implementation, generated dist, report, source regression links and qdhx follow-up evidence are ready for PR review. The local Bun full-gate failure remains explicit. Releasing the claim without closing; GitHub CI and orchestrator verification remain outstanding."
+files[14]{path,scope}:
+  scripts/capacity-fixture.ts,project
+  scripts/capacity-probe.ts,project
+  scripts/capacity-trace.ts,project
+  scripts/capacity.ts,project
+  src/services/history-read-gate.ts,project
+  src/services/mutation-event-watcher.ts,project
+  src/services/mutation-read-signals.ts,project
+  src/services/mutation-replay.ts,project
+  src/services/realtime-bus.ts,project
+  src/services/sse.ts,project
+  test/helpers/authoritative-replay.ts,project
+  test/history-read-gate.test.ts,project
+  test/mutation-read-signals.test.ts,project
+  test/mutation-replay.test.ts,project
+tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/history-read-gate.test.ts test/mutation-read-signals.test.ts test/mutation-replay.test.ts test/mutation-event-watcher.test.ts test/realtime-bus.test.ts,project,180,codex-agent,"2026-10-16T13:06:23.085Z",local_mutation,perf/watcher-skips-unchanged-history
+  "npm run accept:capacity",project,180,codex-agent,"2026-10-16T13:06:30.731Z",local_mutation,perf/watcher-skips-unchanged-history
+docs[2]{path,scope}:
+  docs/capacity.md,project
+  docs/capacity/2026-10-16-reader-lock.md,project
+body: ""

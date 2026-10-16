@@ -22,6 +22,7 @@ import { createMutationReplayState, followCommittedMutations } from "./mutation-
 import { resolveProjectDir } from "./pm-runner.js";
 import { consumeSignaledItemMutation, deliverProjectEvent, getActiveProjectIds, } from "./sse.js";
 import { cachedProjectDir, dropInactive, positiveIntEnv } from "./watcher-utils.js";
+import { onMutationReadSignal } from "./mutation-read-signals.js";
 const DEFAULT_INTERVAL_MS = 250;
 const MIN_INTERVAL_MS = 10;
 const DEFAULT_RECONCILE_MS = 2_000;
@@ -59,6 +60,7 @@ export function createMutationEventReconciler(deps = {}) {
         const sub = { controller, cursor: since, done: false, replay };
         subs.set(projectId, sub);
         const pmRoot = path.join(dir, ".agents", "pm");
+        const releaseSignal = onMutationReadSignal(projectId, () => replay.readGate.invalidate());
         // Detached async loop — intentionally not awaited by reconcile.
         void (async () => {
             try {
@@ -86,6 +88,7 @@ export function createMutationEventReconciler(deps = {}) {
                     onError(err);
             }
             finally {
+                releaseSignal();
                 sub.done = true;
             }
         })();

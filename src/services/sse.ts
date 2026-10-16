@@ -1,6 +1,7 @@
 import { recordConnection, recordDisconnection, recordBroadcast } from "./realtime-observability.ts";
 import { logError } from "../observability.ts";
 import type { Response } from "express";
+import { signalMutationRead } from "./mutation-read-signals.ts";
 
 /**
  * One connected SSE viewer, indexed both by client id and by project so that
@@ -295,6 +296,7 @@ export function addSSEClient(client: SSEClient): () => void {
  * @param event - The SSE event.
  */
 export function broadcastProjectEvent(projectId: string, event: SSEEvent): void {
+  signalMutationRead(projectId);
   // When a route broadcasts an item-scoped event, note it per-item so the
   // mutation-event watcher can skip the corresponding committed-mutation fact.
   // This gives per-item dedupe for free across all ~15 existing route call sites
