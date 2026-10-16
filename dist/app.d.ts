@@ -1,5 +1,6 @@
 import { type Express } from "express";
 import { type HealthProbeDeps } from "./health.ts";
+import { createExtensionsRouter } from "./routes/extensions.ts";
 /**
  * Legal pages served as standalone HTML (not part of the SPA bundle).
  *
@@ -48,11 +49,11 @@ export declare function readPackageVersion(): string;
 /**
  * Optional dependencies `createApp` can wire into the application.
  *
- * Currently only the {@link HealthProbeDeps} for the real `/healthz` handler is
- * supported; the object is kept as a bag so further production-only wiring
- * (e.g. a logger) can be added later without another signature change.
+ * Wires health probes and the independent maintenance capability reader.
  */
 export interface CreateAppDeps {
+    /** Independent command-capability reader; package inventory always uses its real runner. */
+    readonly readMaintenanceCapabilities?: Parameters<typeof createExtensionsRouter>[0];
     /**
      * Health-probe dependencies for the real `/healthz` handler. When supplied,
      * `createApp` mounts {@link createHealthHandler}, which probes PostgreSQL and

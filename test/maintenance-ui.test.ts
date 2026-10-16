@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderMaintenanceRequirement, requireMaintenanceCapability } from "../public/src/views/maintenance.ts";
+import { renderCapabilityWarning, renderMaintenanceRequirement, requireMaintenanceCapability } from "../public/src/views/maintenance.ts";
 import { renderNormalizeView } from "../public/src/views/normalize.ts";
 import { renderCommentsAuditView } from "../public/src/views/comments-audit.ts";
 import { renderSearchView } from "../public/src/views/search.ts";
@@ -17,6 +17,11 @@ test("disabled maintenance requirements escape text and expose package navigatio
   const editor = renderMaintenanceRequirement({ ...capability, installAction: { method: "POST", url: "/api/projects/fixture/extensions/pm-governance-audit/install" } });
   assert.match(editor, /Install \/ enable in Packages/);
   assert.match(editor, /showView\('packages'\)/);
+  assert.equal(renderCapabilityWarning({ status: "available" }), "");
+  const warning = renderCapabilityWarning({ status: "unavailable", error: { code: "capabilities_unavailable", message: "Retry <safely>" } });
+  assert.match(warning, /role="status"/);
+  assert.match(warning, /Retry &lt;safely&gt;/);
+  assert.doesNotMatch(warning, /<safely>/);
 });
 
 test("maintenance views check capabilities before running and suppress unavailable actions", async (t) => {

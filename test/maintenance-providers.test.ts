@@ -10,11 +10,17 @@ import test from "node:test";
 import { PmClient } from "@unbrained/pm-cli/sdk";
 import { findCatalogEntry } from "../src/services/package-catalog.ts";
 import { pool } from "../src/db.ts";
+import { renderPackagesView } from "../public/src/views/packages.ts";
+import { requireMaintenanceCapability } from "../public/src/views/maintenance.ts";
+import { state } from "../public/src/state.js";
+import type { CreateAppDeps } from "../src/app.ts";
+import type { MaintenanceCapabilitiesStatus } from "../src/routes/extensions.ts";
+import { captureLogs, setLogLevel } from "./helpers/stdout-logs.ts";
 import { readMaintenanceCapabilities } from "../src/services/maintenance-providers.ts";
 import { authedFetch, authCookie, ensureSchema, seedProject, seedUser, seedUserShare, startApp, type SeedUser } from "./helpers/pg-harness.ts";
 
 /** Seed a real isolated project and authenticated owner, editor, viewer and stranger. */
-async function fixture(t: test.TestContext) {
+async function fixture(t: test.TestContext, deps?: CreateAppDeps) {
   await ensureSchema();
   const root = await mkdtemp(path.join(tmpdir(), "pm-maintenance-"));
   const previousRoot = process.env.PROJECTS_ROOT;
@@ -29,7 +35,7 @@ async function fixture(t: test.TestContext) {
   const client = new PmClient({ cwd: workspace, pmRoot });
   await client.init("mp");
   await client.create({ title: "Maintenance fixture", type: "Task" });
-  const server = await startApp();
+  const server = await startApp(deps);
   t.after(async () => {
     await server.close();
     await pool.query("DELETE FROM pm_users WHERE id = ANY($1::uuid[])", [users.map((user) => user.id)]);
@@ -48,6 +54,8 @@ async function fixture(t: test.TestContext) {
 /** Capabilities and package rows consumed by the UI. */
 interface Capabilities {
   canManagePackages: boolean;
+  capabilities: MaintenanceCapabilitiesStatus;
+  stateError?: string;
   maintenance: Awaited<ReturnType<typeof readMaintenanceCapabilities>>;
   packages: Array<{ name: string; installed: boolean; enabled: boolean; runtimeActive: boolean; availability: string; npmSpec: string }>;
 }
@@ -71,6 +79,7 @@ test("missing providers return typed dependency failures and role-aware capabili
   for (const user of [f.owner, f.editor, f.viewer]) {
     const data = await capabilities(f, user);
     assert.equal(data.canManagePackages, user !== f.viewer);
+    assert.deepEqual(data.capabilities, { status: "available" });
     for (const [action, method, body, provider] of actions) {
       const capability = data.maintenance[action];
       assert.equal(capability.available, false);
@@ -182,4 +191,69 @@ test("global-only bundled providers cannot advertise project maintenance availab
   });
   assert.deepEqual(JSON.parse(result.stdout), { globalProviderVisible: true, projectProviderVisible: false });
   assert.equal((await capabilities(f)).maintenance.normalize.available, false);
+});
+
+
+test("capability-read failures preserve real package inventory, owner controls and disabled maintenance", async (t) => {
+  setLogLevel(t, "info");
+  const logs = captureLogs(t);
+  let reads = 0;
+  const f = await fixture(t, {
+    /** Inject a failed capability reader without replacing the SDK or inventory runner. */
+    readMaintenanceCapabilities: async () => {
+      reads++;
+      throw new Error("SYNTHETIC_PRIVATE_CAPABILITY_FAILURE");
+    },
+  });
+  // Retain a real installed provider to prove the inventory is still read successfully.
+  await f.client.packageInstall("pm-governance-audit", { project: true });
+  for (const user of [f.owner, f.viewer]) {
+    const data = await capabilities(f, user);
+    assert.equal(data.stateError, undefined);
+    assert.equal(data.canManagePackages, user === f.owner);
+    assert.equal(data.maintenance, undefined, "no maintenance availability may be advertised after a failed read");
+    assert.equal(data.capabilities.status, "unavailable");
+    assert.ok(data.capabilities.status === "unavailable");
+    assert.equal(data.capabilities.error.code, "capabilities_unavailable");
+    assert.match(data.capabilities.error.message, /Cannot check maintenance provider availability/);
+    assert.ok(data.packages.find((row) => row.name === "pm-governance-audit")?.installed);
+    assert.equal(data.packages.find((row) => row.name === "pm-search-advanced")?.installed, false);
+  }
+  assert.equal(reads, 2);
+
+  const globals = globalThis as unknown as Record<string, unknown>;
+  const browserSnapshot = { document: globals.document, project: state.currentProject };
+  const nativeFetch = globalThis.fetch;
+  t.after(() => {
+    globals.document = browserSnapshot.document;
+    state.currentProject = browserSnapshot.project;
+  });
+  const content = { innerHTML: "", addEventListener: () => {} };
+  const packages = { innerHTML: "", querySelectorAll: () => [] };
+  const maintenance = { id: "maintenance-test", innerHTML: "" };
+  const elements = new Map<string, unknown>([["content-packages", content], ["packages-content", packages], [maintenance.id, maintenance]]);
+  globals.document = { cookie: "", getElementById: (id: string) => elements.get(id) ?? null };
+  state.currentProject = { id: f.project.id, name: "Maintenance fixture" } as NonNullable<typeof state.currentProject>;
+  for (const user of [f.owner, f.viewer]) {
+    // The browser API client still crosses the real HTTP/auth/PostgreSQL stack.
+    t.mock.method(globalThis, "fetch", (input: string | URL | Request, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      headers.set("cookie", authCookie(user));
+      return nativeFetch(f.server.url(String(input)), { ...init, headers });
+    });
+    await renderPackagesView();
+    assert.match(packages.innerHTML, /pm-search-advanced/);
+    assert.match(packages.innerHTML, /role="status">Maintenance actions are temporarily unavailable/);
+    if (user === f.owner) {
+      assert.match(packages.innerHTML, /data-pkg-action="install"/);
+      assert.match(packages.innerHTML, /data-pkg-action="deactivate"/);
+    } else assert.doesNotMatch(packages.innerHTML, /data-pkg-action/);
+    for (const [action] of actions) {
+      assert.equal(await requireMaintenanceCapability(maintenance as HTMLElement, action), false);
+      assert.match(maintenance.innerHTML, /Maintenance actions are temporarily unavailable/);
+      assert.doesNotMatch(maintenance.innerHTML, /onclick|data-pkg-action/);
+    }
+  }
+  assert.ok(logs.some((line) => JSON.parse(line).event === "maintenance_capabilities_unavailable"));
+  assert.ok(logs.every((line) => !line.includes("SYNTHETIC_PRIVATE_CAPABILITY_FAILURE")));
 });

@@ -8,7 +8,7 @@ import { authRouter } from "./routes/auth.ts";
 import { oidcRouter } from "./routes/oidc.ts";
 import { projectsRouter } from "./routes/projects.ts";
 import { pmRouter } from "./routes/pm.ts";
-import { extensionsRouter } from "./routes/extensions.ts";
+import { createExtensionsRouter } from "./routes/extensions.ts";
 import { groupsRouter } from "./routes/groups.ts";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.ts";
 import { githubRouter } from "./routes/github.ts";
@@ -122,11 +122,11 @@ export function readPackageVersion(): string {
 /**
  * Optional dependencies `createApp` can wire into the application.
  *
- * Currently only the {@link HealthProbeDeps} for the real `/healthz` handler is
- * supported; the object is kept as a bag so further production-only wiring
- * (e.g. a logger) can be added later without another signature change.
+ * Wires health probes and the independent maintenance capability reader.
  */
 export interface CreateAppDeps {
+  /** Independent command-capability reader; package inventory always uses its real runner. */
+  readonly readMaintenanceCapabilities?: Parameters<typeof createExtensionsRouter>[0];
   /**
    * Health-probe dependencies for the real `/healthz` handler. When supplied,
    * `createApp` mounts {@link createHealthHandler}, which probes PostgreSQL and
@@ -266,7 +266,7 @@ export function createApp(deps?: CreateAppDeps): Express {
   app.use("/api/projects", limiters.read, limiters.write, keyedWrites);
   app.use("/api/projects", logRoutePrefix("/api/projects"), projectsRouter);
   app.use("/api/projects/:projectId/pm", logRoutePrefix("/api/projects/:projectId/pm"), pmRouter);
-  app.use("/api/projects/:projectId/extensions", logRoutePrefix("/api/projects/:projectId/extensions"), extensionsRouter);
+  app.use("/api/projects/:projectId/extensions", logRoutePrefix("/api/projects/:projectId/extensions"), createExtensionsRouter(deps?.readMaintenanceCapabilities));
   app.use("/api/projects/:id/shares", logRoutePrefix("/api/projects/:id/shares"), sharesRouter);
   app.use("/api/projects/:id/github", logRoutePrefix("/api/projects/:id/github"), githubRouter);
   app.use("/api/groups", limiters.read, limiters.write, keyedWrites, logRoutePrefix("/api/groups"), groupsRouter);
