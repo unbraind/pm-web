@@ -34,6 +34,44 @@ The release gate includes `test/capacity.acceptance.ts`: 20 real subscriber sess
 npm run accept:capacity
 ```
 
+For stage attribution, add `--trace true` to the capacity command. This explicitly
+preloads test-only probes into the owned server and measured CLI children; no
+production module imports them and tracing off adds no production work. Probes
+observe authoritative history append completion, CLI index-file-lock acquisition,
+replay read/classification, shared serialization, fan-out, each client write and
+the existing network receipt. Source hooks check exact production anchors and
+fail closed on drift without rewriting dependency or build files. Temporary raw
+traces contain only synthetic item/client identifiers and timing, are bounded to
+400000 records per child, flush after measurement, and are removed with the fixture.
+An overflow, missing mandatory probe or negative stage clock makes the experiment
+inconclusive. JSON and Markdown contain per-origin stage populations and quantiles;
+JSON also correlates each complete write's slowest receipt with its own stages.
+
+The CLI lock observation starts at the first attempted index lock file open and
+ends after the successful lock payload write. It is a lower bound on acquisition
+and includes open/retry and payload-write scheduling. It does not isolate mutex
+wait from I/O or scheduling, and is nested inside timestamp-to-append, not an
+additive stage. HTTP lock wait
+is not measured separately. If a detecting read overlaps append completion, its
+read/classification interval starts at append completion and its polling wait is
+zero. Direct HTTP delivery reports append-to-route-broadcast instead of watcher
+stages. Serialization includes broadcast bookkeeping; the per-client queue stage
+includes earlier clients' writes. None of these intervals measures fsync.
+
+The release gate retains the ordinary untraced 20-subscriber SLO smoke and adds
+a separate two-subscriber, two-writer traced scenario to verify the probes against
+real HTTP and CLI mutations. Unit regressions reject incomplete populations,
+negative clocks and source drift. Tracing changes scheduling; compare its results
+with untraced runs and never claim a performance improvement from that comparison.
+
 For an isolated copy of the hosted code and test database, use the first command with `DATABASE_URL` set to that disposable copy, retaining the output files externally. No production configuration or live endpoints are read. This exercises the same shared-directory write mechanism, rather than launching pm-gpt or MCP. It does not establish sustained throughput, browser/proxy behavior, slow-consumer buffer bounds, multi-instance fanout, reconnect replay, or large-project performance. The bus is enabled but single-instance local events do not traverse a second server.
 
 Measured summaries are committed under [capacity/](capacity/). Related tracker: `pm-web-lh4b`; companion: `pm-cli-website-ghe1`.
+
+The [2026-10-16 report](capacity/2026-10-16-local.md) records three passing
+uninstrumented 100-subscriber repeats, followed by a traced 2965.8 ms breach.
+The pinned SDK's pre-append history-index lock wait reached 2071.0 ms; shared SSE
+serialization and per-client writes were much smaller. Expansion stopped at 100;
+250/500/1000 remain unmeasured. Production behavior and the SDK pin are unchanged.
+`pm-web-h4vh` contains the upstream issue draft; no issue was filed. This evidence
+does not establish the precise cause of the previous day's untraced breach.

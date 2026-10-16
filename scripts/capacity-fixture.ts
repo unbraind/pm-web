@@ -36,10 +36,16 @@ export function capacityEnvironment(root: string): NodeJS.ProcessEnv {
 }
 
 /** Execute the repo-pinned pm in a separate OS process, exclusively inside a temporary project. */
-export async function capacityPm(dir: string, args: string[]): Promise<void> {
+export async function capacityPm(dir: string, args: string[], traceDirectory?: string): Promise<void> {
   const target = args[0] === "workspace" ? [] : ["--pm-path", path.join(dir, ".agents", "pm")];
-  await execute(process.execPath, [path.join(repo, "node_modules/@unbrained/pm-cli/dist/cli.js"),
-    ...target, "--no-extensions", ...args], { cwd: dir, env: capacityEnvironment(dir), timeout: 20_000, maxBuffer: 1024 * 1024 });
+  const preload = traceDirectory ? ["--import", path.join(repo, "scripts/capacity-trace-preload.ts")] : [];
+  const env = capacityEnvironment(dir);
+  if (traceDirectory) {
+    env.PM_WEB_CAPACITY_TRACE_DIR = traceDirectory;
+    if (args[0] === "update") env.PM_WEB_CAPACITY_TRACE_WRITER_ITEM = args[1];
+  }
+  await execute(process.execPath, [...preload, path.join(repo, "node_modules/@unbrained/pm-cli/dist/cli.js"),
+    ...target, "--no-extensions", ...args], { cwd: dir, env, timeout: 20_000, maxBuffer: 1024 * 1024 });
 }
 
 /** Signed sessions use the same cookie and double-submit CSRF contract as the real-Postgres tests. */
@@ -93,7 +99,7 @@ async function stopServer(child: ChildProcess): Promise<void> {
 }
 
 /** Start dist/server.js with production defaults; the preload adds no public endpoint or route seam. */
-export async function capacityServer(root: string, secret: string) {
+export async function capacityServer(root: string, secret: string, traceDirectory?: string) {
   const databaseUrl = new URL(process.env.DATABASE_URL!);
   const applicationName = `capacity-server-${randomUUID()}`;
   databaseUrl.searchParams.set("application_name", applicationName);
@@ -102,13 +108,15 @@ export async function capacityServer(root: string, secret: string) {
     // All sockets originate at loopback; match the integration wrapper's tiers rather than
     // measuring the single-IP abuse limit as if it were thousands of independent clients.
     PM_WEB_RATE_LIMIT_READ: "100000", PM_WEB_RATE_LIMIT_WRITE: "100000" };
-  const child = spawn(process.execPath, ["--import", path.join(repo, "scripts/capacity-probe.ts"), "dist/server.js"], {
-    cwd: repo, env, stdio: ["ignore", "pipe", "pipe", "ipc"],
+  const preload = traceDirectory ? ["--import", path.join(repo, "scripts/capacity-trace-preload.ts")] : [];
+  const child = spawn(process.execPath, ["--import", path.join(repo, "scripts/capacity-probe.ts"), ...preload, "dist/server.js"], {
+    cwd: repo, env: { ...env, ...(traceDirectory ? { PM_WEB_CAPACITY_TRACE_DIR: traceDirectory } : {}) }, stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
   let port = 0;
   let pending = "";
   let reset = false;
   let failed = false;
+  let traceFlushed = false;
   const samples: CapacityProbe[] = [];
   const errors: Record<string, number> = {};
   child.on("error", () => { failed = true; });
@@ -130,7 +138,8 @@ export async function capacityServer(root: string, secret: string) {
   });
   child.stderr!.resume();
   child.on("message", (message: unknown) => {
-    const record = message as Partial<CapacityProbe> & { capacity_probe?: boolean; capacity_reset?: boolean };
+    const record = message as Partial<CapacityProbe> & { capacity_probe?: boolean; capacity_reset?: boolean; capacity_trace_flushed?: boolean };
+    if (record.capacity_trace_flushed) traceFlushed = true;
     if (record.capacity_reset) { reset = true; samples.length = 0; }
     if (record.capacity_probe && typeof record.rss_bytes === "number" && typeof record.cpu_core_percent === "number" && typeof record.event_loop_p99_ms === "number") samples.push(record as CapacityProbe);
   });
@@ -145,6 +154,8 @@ export async function capacityServer(root: string, secret: string) {
     return { url: `http://127.0.0.1:${port}`, applicationName, samples, errors, health,
       /** Reset the server histogram at the start of the measured write phase. */
       begin: async () => { reset = false; child.send("capacity-reset"); await waitUntil(() => reset, 2000, "probe reset"); },
+      /** Flush stage probes only after measured writes and receipts finish. */
+      flushTrace: async () => { if (traceDirectory) { child.send("capacity-trace-flush"); await waitUntil(() => traceFlushed, 5000, "trace flush"); } },
       close: () => stopServer(child) };
   } catch (error) { await stopServer(child); throw error; }
 }
