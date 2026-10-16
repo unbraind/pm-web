@@ -24,7 +24,7 @@ export async function verifyProjectAccess(userId, projectId) {
     }
     // Check shared access (user share or group share)
     const shareResult = await pool.query(`SELECT p.id, p.name, p.slug, p.description, p.prefix, p.user_id AS owner_user_id,
-            MAX(ps.permission) AS permission
+            CASE WHEN BOOL_OR(ps.permission = 'edit') THEN 'edit' ELSE 'view' END AS permission
      FROM pm_projects p
      JOIN pm_project_shares ps ON ps.project_id = p.id
      WHERE p.id = $1 AND (
@@ -46,7 +46,7 @@ router.get("/", async (req, res) => {
         const result = await pool.query(`SELECT DISTINCT p.id, p.name, p.slug, p.description, p.prefix,
               p.created_at, p.updated_at,
               p.user_id = $1 AS is_owner,
-              CASE WHEN p.user_id = $1 THEN 'edit' ELSE MAX(ps.permission) END AS permission
+              CASE WHEN p.user_id = $1 OR BOOL_OR(ps.permission = 'edit') THEN 'edit' ELSE 'view' END AS permission
        FROM pm_projects p
        LEFT JOIN pm_project_shares ps ON ps.project_id = p.id AND (
          ps.shared_with_user_id = $1

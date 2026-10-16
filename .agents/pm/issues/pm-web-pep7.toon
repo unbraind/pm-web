@@ -1,0 +1,14 @@
+id: pm-web-pep7
+title: Surface optional package requirements for maintenance command routes
+description: "Reproduction with the pinned CLI and a fresh real PM workspace: GET pm/comments-audit and POST pm/normalize return HTTP 200 with an unknown_command error requiring pm-governance-audit; POST pm/reindex with mode keyword returns HTTP 400 requiring pm-search-advanced. The default package provides these UI actions without provisioning or capability guidance for their newly optional providers. Covered through real HTTP/PostgreSQL in test/pm-command-access.test.ts. Follow-up: expose provider availability and actionable install guidance, preserve all authorization and refusal paths, and use appropriate non-success status for a refused operation. Optional package provisioning and UI capability migration are outside the route coverage task pm-web-ulgy."
+type: Issue
+status: open
+priority: 2
+tags: []
+created_at: "2026-10-16T03:55:57.787Z"
+updated_at: "2026-10-16T03:57:00.013Z"
+author: codex-agent
+files[2]{path,scope}:
+  src/routes/pm.ts,project
+  test/pm-command-access.test.ts,project
+body: ""
