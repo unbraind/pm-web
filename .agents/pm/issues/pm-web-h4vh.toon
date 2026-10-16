@@ -2,13 +2,14 @@ id: pm-web-h4vh
 title: Investigate mixed-writer delivery SLO on an isolated capacity host
 description: "The capacity harness measured 100 distinct authenticated subscribers, 10 mixed writer lanes and 50 committed updates after the late-fact replay repair. All 5000 deliveries arrived with zero loss or duplicates, but to-all p99 was 2163.5 ms against a 2000 ms SLO. The ladder correctly stopped before 1000 subscribers. High host scheduling or I/O pressure was observed without a proven saturated server resource. Reproduce from docs/capacity/2026-10-15-local.md on an isolated host; compare service, writer and storage timing before changing production limits. Related feature pm-web-lh4b and companion pm-cli-website-ghe1. Larger rungs and hosted capacity remain unmeasured."
 type: Issue
+pm_format_version: 2
 status: in_progress
 priority: 2
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-15T09:09:03.386Z"
-updated_at: "2026-10-16T09:51:16.763Z"
+updated_at: "2026-10-16T15:13:58.898Z"
 author: codex-agent
-comments[9]{created_at,author,text}:
+comments[12]{created_at,author,text}:
   "2026-10-16T08:11:29.603Z",codex-agent,"Additional real-PostgreSQL acceptance evidence from the route/bootstrap coverage candidate: the second final-floor npm run passes all 634 coverage tests and all four dimensions, then fails only test/capacity.acceptance.ts line 16: every delivery must meet the unchanged 2000 ms SLO. Earlier assertions pass for five committed writes, zero failed writes/lost/disconnected subscribers/duplicates, and five delivery samples. This is latency failure evidence, not mutation-loss evidence. The first final-floor npm and Bun gates pass, and both Node 22/26 CI matrix jobs pass their npm and Bun release gates on source/test commit e053bb1. Reproduction: npm run release:check with isolated Git identity and explicit fleet discovery; the second Bun repetition is still running. No SLO, capacity assertion or production behavior was changed."
   "2026-10-16T09:06:30.996Z",codex-agent,"Measuring unchanged origin/main first: three isolated 100-subscriber runs, 10 mixed writer lanes and 50 updates. Production watcher defaults and disposable test Postgres only. Then attribute each delivery stage, implement a measured repair if package-owned, prove behavioural revert, and repeat the ladder. No hosted resources or other agents are used."
   "2026-10-16T09:09:17.778Z",codex-agent,"Unchanged baseline at 3336ef6: three 100-subscriber runs all committed 50/50 writes with loss=0, duplicates=0. To-all p50/p95/p99/max ms: 145.3/583.0/1181.3/1181.3; 220.4/594.0/898.9/898.9; 149.7/462.9/913.2/913.2. Loop p99 22.0/25.1/24.2 ms; CPU p95 35.2/26.5/39.8 percent of one core; RSS 194.8/195.3/195.1 MiB. Initial uptime loads: 3.43,4.78,6.86; 4.73,4.94,6.83; 9.18,5.90,7.08. Historical 2163.5 ms breach did not reproduce. CLI tail exceeds HTTP; fan-out already shares serialization with no per-client awaits/auth reads. Next: opt-in test-only stage tracing including SDK index-lock waits and history append visibility, without changing production defaults."
@@ -18,6 +19,9 @@ comments[9]{created_at,author,text}:
   "2026-10-16T09:23:33.089Z",codex-agent,"Behavioural instrumentation revert proof: changed only instrumentCapacityModule to return source unchanged; node scripts/with-test-db.ts node --test --test-name-pattern=\"opt-in tracing\" test/capacity.acceptance.ts failed 0/1 with TRACE_MISSING_broadcast. Restored the function after the test. This proves the new real-process attribution regression fails without its probes; it is not a hot-path performance-repair proof. Full linked acceptance before the revert passed 2/2; required npm/Bun gates will validate the restored function. Production functions and limits remain unchanged."
   "2026-10-16T09:36:36.098Z",codex-agent,"Required isolated-identity npm run release:check passes on its first attempt: 620/620 coverage tests, zero fail/cancel/skip/todo; 37 configured sources, statements/lines 90.91%, branches 81.10%, functions 94.17% at unchanged thresholds; capacity acceptance 2/2 including restored live tracing; packed current/minimum npm/native-Bun consumers 4/4; production audit zero vulnerabilities; changelog/date/publish-attestation and remaining gates pass. Canonical fleet metadata supplied through PM_FLEET_ROOT (readonly); its focused preflight passed 34/34. Starting isolated Bun gate serially."
   "2026-10-16T09:51:15.194Z",codex-agent,"Both required release gates pass on first attempts. Isolated npm: 620/620 coverage tests, 37 configured sources S/L 90.91%, B 81.10%, F 94.17%. Isolated Bun: 620/620, S/L 90.91%, B 81.15%, F 94.17%. Each has zero failures/cancellations/skips/todo, capacity acceptance 2/2, packed current/minimum npm/native-Bun consumers 4/4, production audit zero, remaining static/changelog/release metadata checks green, unchanged thresholds. Final docs: docs/capacity/2026-10-16-local.md and docs/capacity.md. Clarifications: B3 pre-command uptime load was 8.24/5.66/7.01; 9.18/5.90/7.08 is the harness after-build load. The 2071.0 ms lock-acquisition lower bound includes open/retry and payload-write scheduling, so shared-lock contention is an implementation-supported inference; failed attempts, I/O and scheduling are not separately counted. The observed pre-append SDK phase alone exceeds the SLO. The upstream draft remains unfiled. No production performance function, SDK pin or SLO changed. Tracker validation returned ok with metadata/trust/path warnings and zero history drift; no history was repaired or rewritten. Releasing the claim for orchestrator verification; item remains in progress. Next: push this evidence and await PR checks, with larger rungs unmeasured after the 100-subscriber breach."
+  "2026-10-16T14:21:27.856Z",codex-agent,"Folding the three open review findings from PR #211 into its superseding PR #214. docs/capacity.md already links pm-cli#1485; correcting the local report and requiring a matching in-window index-lock record for every committed CLI write. Regression coverage will check complete multi-write populations, missing records, unrelated items, window bounds, HTTP writes and uncommitted writes; behavioural revert proof and both unchanged release gates follow. Historical draft comments describe the state at their timestamps; the current upstream issue is https://github.com/unbraind/pm-cli/issues/1485."
+  "2026-10-16T14:21:54.764Z",codex-agent,"Behavioural revert proof for PR #214: reverted only stageSummary to HEAD while retaining the new tests, then ran node --test test/capacity-trace.test.ts. Result: 3 pass, 1 fail; the missing-CLI-lock regression fails with ERR_ASSERTION Missing expected exception. Restored stageSummary; the fixed suite passes 4/4. The error code is TRACE_MISSING_index-lock and the message identifies write sequence and item id. Complete traces retain multiple matching locks, including boundary records; unrelated or out-of-window locks cannot satisfy another committed write. HTTP writes need no index-lock probe; uncommitted writes are excluded."
+  "2026-10-16T15:13:56.729Z",codex-agent,"PR #214 review follow-up validation passes on first attempts through the linked runner: npm run release:check (1483.426 s) and bun run release:check (1545.477 s), isolated HOME and global/system Git identity, readonly canonical fleet metadata. Each passes 648/648 coverage tests with zero failures/cancellations/skips/todo, 2/2 real-process capacity scenarios, 4/4 packed current/minimum npm/native-Bun consumers, zero production vulnerabilities and all static/changelog/release metadata checks. All 39 configured source files reported: npm S/L 92.47%, B 81.00%, F 96.02%; Bun S/L 92.47%, B 81.06%, F 96.02%. Thresholds remain 92.07/92.07/80.5/94.59. No local timing failures occurred. The behavioural revert base was f163153; only stageSummary was reverted, yielding 3 pass/1 fail, then restored for all successful runs. Linked focused execution passes 4/4. Initial inherited-test trust refusal was resolved by reviewing and acknowledging the existing commands in this clone; test-result tracking remains disabled by project policy, so this comment retains the results. docs/capacity.md already linked pm-cli#1485; docs/capacity/2026-10-16-local.md now links it instead of saying unfiled. Preparing the code and append-only tracker evidence for push, then waiting for exact-head GitHub checks; PR #211 can be superseded by #214. Item remains in progress for orchestrator verification."
 files[7]{path,scope}:
   scripts/capacity-fixture.ts,project
   scripts/capacity-metrics.ts,project
@@ -26,9 +30,43 @@ files[7]{path,scope}:
   scripts/capacity.ts,project
   test/capacity-trace.test.ts,project
   test/capacity.acceptance.ts,project
-tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
-  node --test test/capacity-trace.test.ts,project,60,codex-agent,"2026-10-16T09:19:23.576Z",local_mutation,perf/realtime-delivery-p99
-  "npm run accept:capacity",project,180,codex-agent,"2026-10-16T09:19:24.444Z",local_mutation,perf/realtime-delivery-p99
+tests[4]:
+  - command: node --test test/capacity-trace.test.ts
+    scope: project
+    timeout_seconds: 60
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T09:19:23.576Z"
+      source_kind: local_mutation
+      source_ref: perf/realtime-delivery-p99
+  - command: "npm run accept:capacity"
+    scope: project
+    timeout_seconds: 180
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T09:19:24.444Z"
+      source_kind: local_mutation
+      source_ref: perf/realtime-delivery-p99
+  - command: "npm run release:check"
+    scope: project
+    timeout_seconds: 1800
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T14:21:57.482Z"
+      source_kind: local_mutation
+      source_ref: perf/watcher-skips-unchanged-history
+    updated_by: codex-agent
+    updated_at: "2026-10-16T15:13:53.914Z"
+  - command: "bun run release:check"
+    scope: project
+    timeout_seconds: 1800
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T14:21:58.418Z"
+      source_kind: local_mutation
+      source_ref: perf/watcher-skips-unchanged-history
+    updated_by: codex-agent
+    updated_at: "2026-10-16T15:13:55.388Z"
 docs[3]{path,scope}:
   docs/capacity.md,project
   docs/capacity/2026-10-15-local.md,project

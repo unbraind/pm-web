@@ -37,6 +37,48 @@ test("stage attribution separates overlapping CLI detection from direct HTTP del
   assert.throws(() => stageSummary(writes, subscribers, reversed), /Invalid capacity stage clock/);
 });
 
+/** Two committed CLI writes ensure one complete write cannot conceal another missing lock. */
+function cliLockFixture() {
+  const writes = [0, 1].map((sequence) => ({ sequence, transport: "cli" as const, itemId: `capacity-write-${sequence}`, committedAt: 1000, error: false }));
+  const traces: CapacityTrace[] = writes.flatMap(({ itemId }) => [
+    { stage: "index-lock", itemId, start: 1000, at: 1000 },
+    { stage: "index-lock", itemId, start: 1010, at: 1030 },
+    { stage: "history-written", itemId, at: 1030 },
+    { stage: "classified", itemId, start: 1030, at: 1040 },
+    { stage: "broadcast", itemId, at: 1050 },
+    { stage: "serialized", itemId, at: 1060 },
+  ]);
+  return { writes, traces };
+}
+
+test("stage attribution retains every matching CLI lock including append-window boundaries", () => {
+  const { writes, traces } = cliLockFixture();
+  const result = stageSummary(writes, [], traces);
+  assert.equal(result.cli.index_lock_wait_nested_in_append.samples, 4);
+  assert.equal(result.cli.index_lock_wait_nested_in_append.p99, 20);
+  assert.equal(result.cli.timestamp_to_history_append.samples, 2);
+  const http = writes.map((write) => ({ ...write, transport: "http" as const }));
+  assert.equal(stageSummary(http, [], traces.filter((row) => row.stage !== "index-lock")).http.timestamp_to_history_append.samples, 2);
+});
+
+test("stage attribution rejects each committed CLI write without its own in-window index-lock", () => {
+  const { writes, traces } = cliLockFixture();
+  const incomplete = traces.filter((row) => row.itemId !== writes[1].itemId || row.stage !== "index-lock");
+  const unrelated: CapacityTrace[] = [
+    { stage: "index-lock", itemId: "capacity-write-other", start: 1000, at: 1020 },
+    { stage: "index-lock", itemId: writes[1].itemId, start: 990, at: 999 },
+    { stage: "index-lock", itemId: writes[1].itemId, start: 1030, at: 1031 },
+  ];
+  for (const records of [incomplete, [...incomplete, ...unrelated]]) {
+    assert.throws(() => stageSummary(writes, [], records), {
+      name: "Error", code: "TRACE_MISSING_index-lock",
+      message: "Missing capacity stage: index-lock for write 1 (capacity-write-1)",
+    });
+  }
+  const uncommitted = writes.map((write) => write.sequence === 1 ? { ...write, committedAt: null } : write);
+  assert.equal(stageSummary(uncommitted, [], incomplete).cli.timestamp_to_history_append.samples, 1);
+});
+
 test("trace source drift and malformed opt-in fail closed while unselected modules stay unchanged", () => {
   assert.throws(() => instrumentCapacityModule("file:///dist/services/sse.js", "changed implementation"), /anchor changed/);
   assert.equal(instrumentCapacityModule("file:///unselected.js", "original"), "original");

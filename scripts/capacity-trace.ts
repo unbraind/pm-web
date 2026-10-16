@@ -69,7 +69,11 @@ export function stageSummary(writes: readonly CapacityWrite[], subscribers: read
       const broadcast = first("broadcast");
       const serialized = first("serialized");
       add("timestamp_to_history_append", write.committedAt!, history.at);
-      for (const lock of events.filter((entry) => entry.stage === "index-lock" && entry.at >= write.committedAt! && entry.at <= history.at)) add("index_lock_wait_nested_in_append", lock.start!, lock.at);
+      const locks = events.filter((entry) => entry.stage === "index-lock" && entry.at >= write.committedAt! && entry.at <= history.at);
+      if (transport === "cli" && locks.length === 0) {
+        throw Object.assign(new Error(`Missing capacity stage: index-lock for write ${write.sequence} (${write.itemId})`), { code: "TRACE_MISSING_index-lock" });
+      }
+      for (const lock of locks) add("index_lock_wait_nested_in_append", lock.start!, lock.at);
       if (transport === "cli") {
         const classified = first("classified");
         const readStart = Math.max(history.at, classified.start!);
