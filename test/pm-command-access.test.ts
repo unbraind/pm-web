@@ -265,7 +265,7 @@ test("restore positionals reconstruct the requested version and command failures
 
 test("maintenance and static command routes operate on the real workspace and return concrete results", async (t) => {
   const f = await commandFixture(t);
-  for (const route of ["validate", "dedupe-audit", "test-runs?status=passed&limit=2", "templates", "config", "config/definition-of-done"]) {
+  for (const route of ["validate", "dedupe-audit", "test-runs?status=passed&limit=2", "templates", "config", "config/definition-of-done", "upgrade"]) {
     const response = await f.request(f.owner, route);
     assert.equal(response.status, 200, route);
     const body = await response.json() as Record<string, unknown>;

@@ -12,6 +12,7 @@ import { isHostOutputSuppressed } from "@unbrained/pm-cli/sdk";
 import { createExtensionTestHarness } from "@unbrained/pm-cli/sdk/testing";
 import builtExtension from "../dist/index.js";
 import { pool } from "../src/db.ts";
+import sourceExtension from "../src/index.ts";
 import { authHeaders, ensureSchema, seedProject, seedUser } from "./helpers/pg-harness.ts";
 
 /** Poll observable state under a deadline that includes loaded-host process startup. */
@@ -32,6 +33,15 @@ function bootstrapEnv(root: string): NodeJS.ProcessEnv {
     if (key.startsWith("OIDC_") || key.startsWith("NEO4J_") || key === "PM_WEB_BOOTSTRAP_ADMIN_EMAIL") delete env[key];
   }
   return env;
+}
+
+/** Seed durable ownership evidence for lifecycle tests, then cascade-clean it. */
+async function bootstrapProject(t: test.TestContext) {
+  await ensureSchema();
+  const owner = await seedUser();
+  const project = await seedProject(owner.id);
+  t.after(() => pool.query("DELETE FROM pm_users WHERE id = $1", [owner.id]));
+  return { owner, project };
 }
 
 /** Spawn the actual entrypoint, retaining exit status, diagnostics and a scoped cleanup. */
@@ -117,10 +127,7 @@ test("an occupied HTTP port fails startup without a false running event", { time
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   test(`${signal} closes an active HTTP event stream, PostgreSQL listener and server`, { timeout: 60_000 }, async (t) => {
-    await ensureSchema();
-    const owner = await seedUser();
-    const project = await seedProject(owner.id);
-    t.after(() => pool.query("DELETE FROM pm_users WHERE id = $1", [owner.id]));
+    const { owner, project } = await bootstrapProject(t);
     const f = await bootstrap(t);
     const url = await f.listening();
     const health = await fetch(`${url}/healthz`);
@@ -165,8 +172,8 @@ test("the production health endpoint reports a failed projects volume alongside 
   assert.deepEqual(await f.exited(), { code: 0, signal: null });
 });
 
-test("the built extension starts, probes and stops the real detached PostgreSQL server", { timeout: 60_000 }, async (t) => {
-  await ensureSchema();
+test("the extension starts, probes and stops PostgreSQL servers and propagates child startup failures", { timeout: 60_000 }, async (t) => {
+  const { owner, project } = await bootstrapProject(t);
   const root = await mkdtemp(path.join(tmpdir(), "pm-extension-bootstrap-"));
   const saved = { ...process.env };
   const env = bootstrapEnv(root);
@@ -216,4 +223,15 @@ test("the built extension starts, probes and stops the real detached PostgreSQL 
   await assert.rejects(readFile(path.join(root, `pm-web-${port}.pid`)), { code: "ENOENT" });
   process.env.JWT_SECRET = "";
   await assert.rejects(host.runCommand({ command: "web", options: { port } }), /pm-web exited with code 1/);
+  // The source wrapper has no emitted server sibling. Exercise its real child
+  // failure through the shipped host, including the numeric command error.
+  const sourceHost = await createExtensionTestHarness(sourceExtension, { name: "pm-web", capabilities: ["commands", "schema"] });
+  t.after(() => sourceHost.deactivate());
+  await assert.rejects(readFile(new URL("../src/server.js", import.meta.url)), { code: "ENOENT" });
+  await assert.rejects(sourceHost.runCommand({ command: "web", options: { port } }), {
+    name: "CommandError", message: "pm-web exited with code 1", exitCode: 1,
+  });
+  await assert.rejects(fetch(`http://127.0.0.1:${port}/healthz`, { signal: AbortSignal.timeout(1_000) }));
+  const unchanged = await pool.query<{ user_id: string }>("SELECT user_id FROM pm_projects WHERE id = $1", [project.id]);
+  assert.equal(unchanged.rows[0].user_id, owner.id, "failed launch must not alter existing project ownership");
 });
