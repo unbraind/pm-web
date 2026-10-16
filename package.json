@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "npm run build:server && npm run build:frontend",
+    "build": "npm run build:brand && npm run build:server && npm run build:frontend",
     "build:server": "tsc",
     "start": "node dist/server.js",
     "typecheck": "npm run typecheck:server && npm run typecheck:frontend",
@@ -46,7 +46,8 @@
     "db:down": "node scripts/db-down.ts",
     "db:check": "node scripts/ensure-test-db.ts",
     "verify:release-changelog-date": "node scripts/verify-release-changelog-date.ts",
-    "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts"
+    "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts",
+    "build:brand": "node scripts/build-brand.ts"
   },
   "dependencies": {
     "@unbrained/pm-cli": "2026.10.15",
@@ -69,13 +70,17 @@
     "@types/jsonwebtoken": "9.0.10",
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
+    "@types/pngjs": "6.0.5",
     "@types/uuid": "11.0.0",
     "@unbrained/pm-cli": "2026.10.15",
     "c8": "12.0.0",
     "eslint": "10.12.0",
     "jscpd": "5.4.1",
+    "playwright-core": "1.63.0",
+    "pm-brand": "github:unbraind/pm-brand#6882e872aad70a7bcf1397fab3e914bc9ea76f04",
     "pm-changelog": "2026.10.14",
     "pm-ops": "2026.10.14",
+    "pngjs": "7.0.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "yaml": "2.9.1"

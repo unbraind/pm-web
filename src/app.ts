@@ -182,6 +182,11 @@ export function createApp(deps?: CreateAppDeps): Express {
   app.use(
     express.static(PUBLIC_DIR, {
       maxAge: process.env.NODE_ENV === "production" ? "1h" : 0,
+      /** Cache exact-commit assets immutably while revalidating the version pointer. */
+      setHeaders(res, file) {
+        if (/[\\/]brand[\\/][a-f0-9]{40}[\\/]/.test(file)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        else if (/[\\/]brand[\\/]assets\.(css|json)$/.test(file)) res.setHeader("Cache-Control", "no-cache");
+      },
     })
   );
 

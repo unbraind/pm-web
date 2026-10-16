@@ -1,11 +1,17 @@
 FROM node:22.18.0-bookworm-slim@sha256:752ea8a2f758c34002a0461bd9f1cee4f9a3c36d48494586f60ffce1fc708e0e AS builder
 WORKDIR /app
 
+# The held pm-brand release is pinned to a public Git commit at build time.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
 COPY package.json package-lock.json* ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Copy server source and build
 COPY tsconfig.json ./
+COPY scripts/build-brand.ts ./scripts/build-brand.ts
 COPY src/ ./src/
 # Copy entire public directory for frontend build
 COPY public/ ./public/

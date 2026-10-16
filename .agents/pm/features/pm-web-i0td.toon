@@ -1,0 +1,34 @@
+id: pm-web-i0td
+title: Restyle every pm-web screen in the Triplicate brand and show live collaborator copies
+description: "Companion phase: pm-cli-website-z2kf. Consume exact-commit pm-brand assets through a generated published directory; preserve a pixel-tested token migration commit, then apply the Triplicate field grammar across authentication, app views, legal pages, PWA assets and live arrivals from other authors. Validate fixture screenshots, keyboard access, AA contrast, reduced motion, npm and Bun release gates, packaging and an isolated image build."
+type: Feature
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-16T22:27:12.851Z"
+updated_at: "2026-10-16T22:40:44.721Z"
+assignee: codex-agent
+claim_principal: codex-agent
+author: codex-agent
+comments[3]{created_at,author,text}:
+  "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
+  "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
+  "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
+files[12]{path,scope}:
+  Dockerfile,project
+  package.json,project
+  public/app-tokens.css,project
+  public/cookie-consent.css,project
+  public/legal-common.css,project
+  public/styles.css,project
+  scripts/brand-browser.ts,project
+  scripts/brand-fixtures.ts,project
+  scripts/brand-pixel-diff.ts,project
+  scripts/build-brand.ts,project
+  src/app.ts,project
+  test/brand-assets.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/brand-assets.test.ts,project,codex-agent,"2026-10-16T22:39:55.603Z",local_mutation,brand/triplicate-tokens-and-restyle
+docs[1]{path,scope}:
+  docs/brand-review.md,project
+body: ""

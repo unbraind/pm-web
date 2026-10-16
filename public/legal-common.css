@@ -16,7 +16,7 @@
 
 .legal-brand {
   color: var(--accent);
-  font-family: 'SFMono-Regular', Monaco, 'Cascadia Code', 'Liberation Mono', monospace;
+  font-family: var(--app-font-2);
   font-size: 18px;
   font-weight: 600;
   text-decoration: none;
@@ -47,7 +47,7 @@
 .legal-kicker,
 .legal-updated {
   color: var(--text-secondary);
-  font-family: 'SFMono-Regular', Monaco, 'Cascadia Code', 'Liberation Mono', monospace;
+  font-family: var(--app-font-2);
   font-size: 12px;
 }
 
@@ -101,8 +101,8 @@
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(15, 23, 42, 0.96);
-  box-shadow: 0 12px 48px rgba(0,0,0,0.35);
+  background: var(--app-ink-94);
+  box-shadow: 0 12px 48px var(--app-ink-95);
 }
 
 .cookie-consent[hidden] {
