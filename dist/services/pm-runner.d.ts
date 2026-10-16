@@ -1,4 +1,4 @@
-import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult, type PmCompleteListResult } from "@unbrained/pm-cli/sdk";
+import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult, type PmCompleteListResult, type ExtensionDescribeResult } from "@unbrained/pm-cli/sdk";
 export { PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult };
 /**
  * Async semaphore bounding concurrent work to a fixed `limit`.
@@ -217,6 +217,8 @@ export declare function ensureGraphExtension(userId: string, slug: string): Prom
 export declare function getPmClient(pmRoot: string): PmClient;
 /** Drop a cached client when its workspace is deleted. */
 export declare function evictPmClient(pmRoot: string): void;
+/** Read SDK command ownership for the project layer used by isolated maintenance processes. */
+export declare function readProjectCommandOwners(projectDir: string): Promise<ExtensionDescribeResult["command_ownership"]>;
 /**
  * Apply pm-web's supplemental truthfulness checks to a complete-list candidate.
  *
