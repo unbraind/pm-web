@@ -24,7 +24,7 @@ import assert from "node:assert/strict";
 import { after, type TestContext } from "node:test";
 import type { Express } from "express";
 import bcrypt from "bcryptjs";
-import { createApp } from "../../src/app.ts";
+import { createApp, type CreateAppDeps } from "../../src/app.ts";
 import { signToken } from "../../src/auth.ts";
 import { startEphemeralServer } from "./ephemeral-server.ts";
 import { initSchema, pool } from "../../src/db.ts";
@@ -209,8 +209,8 @@ export async function ensureSchema(): Promise<void> {
  * is ended by this module's file-level after hook once all tests and their
  * server teardowns finish.
  */
-export async function startApp(): Promise<AppServer> {
-  const { port, url, close } = await startEphemeralServer(createApp());
+export async function startApp(deps?: CreateAppDeps): Promise<AppServer> {
+  const { port, url, close } = await startEphemeralServer(createApp(deps));
   return { port, url, close };
 }
 /** Start a real route server and seed one owner, with cleanup bound to the test. */

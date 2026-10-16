@@ -24,35 +24,13 @@ import { invalidateMaintenanceCapabilities, readMaintenanceCapabilities } from "
 // (src/services/sse.ts) so all collaborators on the project see the change
 // live — consistent with how item mutations already broadcast.
 import { Router } from "express";
+import { logError } from "../observability.js";
 import { requireAuth } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
 import { routeParam } from "./route-params.js";
 import { INSTALL_COMMAND_TIMEOUT_MS, readProjectExtensionStates, runPm, getProjectDir, } from "../services/pm-runner.js";
 import { PACKAGE_CATALOG, findCatalogEntry, } from "../services/package-catalog.js";
 import { broadcastProjectEvent } from "../services/sse.js";
-const router = Router({ mergeParams: true });
-router.use(requireAuth);
-/**
- * Resolve and validate `:name` against the catalog exactly once per request.
- *
- * SECURITY GATE. Express runs a `router.param` callback before any matching
- * route handler, so a mutation route physically cannot run without the
- * validated entry — the previous per-handler lookup relied on every future
- * route remembering to repeat it, and a route that forgot would pass an
- * unvalidated string toward a process spawn.
- *
- * The resolved entry is stashed on the response so handlers read a catalog
- * constant rather than the request string.
- */
-router.param("name", (req, res, next, value) => {
-    const entry = findCatalogEntry(value);
-    if (!entry) {
-        res.status(400).json({ error: `Unknown package: ${value}` });
-        return;
-    }
-    res.locals.catalogEntry = entry;
-    next();
-});
 /** The catalog entry resolved by the `:name` param gate above. */
 function catalogEntry(res) {
     return res.locals.catalogEntry;
@@ -115,57 +93,6 @@ function broadcastExtensionsChanged(projectId, userId, name, operation) {
         data: { userId, name, operation },
     });
 }
-// GET /api/projects/:projectId/extensions
-// Catalog joined with live `pm extension --json` state.
-router.get("/", async (req, res) => {
-    // Read-only: a view-only collaborator may see which packages a project uses,
-    // they just cannot change them.
-    const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
-    if (!project) {
-        res.status(404).json({ error: "Project not found" });
-        return;
-    }
-    const { ok, states, error } = await readProjectExtensionStates(getProjectDir(project.ownerUserId, project.slug));
-    const rows = PACKAGE_CATALOG.map((entry) => toRow(entry, states.get(entry.extensionName ?? entry.name)));
-    // Surface a failed read rather than rendering every package as "not
-    // installed", which is indistinguishable from a healthy empty project.
-    const maintenance = await readMaintenanceCapabilities(project, routeParam(req, "projectId"));
-    res.json({ packages: rows, maintenance, canManagePackages: project.permission === "edit", ...(ok ? {} : { stateError: error }) });
-});
-// POST /api/projects/:projectId/extensions/:name/install
-router.post("/:name/install", async (req, res) => {
-    const project = await requireEditableProject(req, res);
-    if (!project)
-        return;
-    const entry = catalogEntry(res);
-    // An unreleased package is catalogued so the UI can show it honestly, but no
-    // install spec resolves for it. Refuse here with a reason rather than
-    // spawning a `pm install` that would fail against the registry with an
-    // opaque 404 the user cannot act on.
-    if (entry.availability === "unreleased" || entry.npmSpec === null) {
-        res.status(409).json({
-            error: entry.unavailableReason ?? `${entry.name} is not published to npm yet, so it cannot be installed.`,
-        });
-        return;
-    }
-    const result = await runPm({
-        // entry.npmSpec is a catalog constant, never the request string.
-        args: ["install", entry.npmSpec, "--project"],
-        userId: project.ownerUserId,
-        slug: project.slug,
-        jsonOutput: true,
-        // Installs resolve and download from the npm registry; the 30s default is
-        // sized for local commands and leaves too thin a margin for a cold cache.
-        timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
-    });
-    if (!result.ok) {
-        res.status(400).json({ error: result.stderr || `Failed to install ${entry.name}` });
-        return;
-    }
-    invalidateMaintenanceCapabilities(getProjectDir(project.ownerUserId, project.slug));
-    broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, "install");
-    res.status(201).json(result.parsed || { ok: true, name: entry.name });
-});
 /**
  * Run a `pm extension <subcommand>` mutation and broadcast the change.
  *
@@ -203,55 +130,145 @@ async function runExtensionCommand(req, res, subcommand) {
     broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, subcommand);
     res.json(result.parsed || { ok: true, name: entry.name });
 }
-/** Execute a documented extension command in the editable project's real runtime. */
-router.post("/:name/run", async (req, res) => {
-    const project = await requireEditableProject(req, res);
-    if (!project)
-        return;
-    const entry = catalogEntry(res);
-    const body = (req.body ?? {});
-    if (entry.category === "native" || typeof body.command !== "string"
-        || !entry.commands.includes(body.command) || !Array.isArray(body.args)
-        || body.args.some((arg) => typeof arg !== "string")) {
-        res.status(400).json({ error: "Choose a documented extension command and supply arguments as a string array." });
-        return;
-    }
-    const args = body.args;
-    // Global selectors would escape the project pinned by the runner. Extension
-    // arguments otherwise retain their documented syntax, passed without a shell.
-    const selectors = new Set(["--workspace", "--cwd", "--pm-root", "--pm-path", "--path", "--global"]);
-    if (args.some((arg) => selectors.has(arg.split("=", 1)[0]))) {
-        res.status(400).json({ error: "Commands must use the current project workspace." });
-        return;
-    }
-    const dir = getProjectDir(project.ownerUserId, project.slug);
-    const states = await readProjectExtensionStates(dir);
-    const state = states.states.get(entry.extensionName ?? entry.name);
-    if (!states.ok || !state?.active || !state.enabled) {
-        res.status(409).json({ error: states.error || `Install and enable ${entry.name} before running its commands.` });
-        return;
-    }
-    const result = await runPm({
-        args: [...body.command.slice(3).split(" "), ...args],
-        commandOwner: { command: body.command.slice(3), name: entry.extensionName ?? entry.name, args },
-        userId: project.ownerUserId, slug: project.slug, jsonOutput: true,
-        // Preserve extension subcommands and flags: the in-process adapter derives
-        // positional/boolean arity only from the core tool schema.
-        timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
+/** Build the project package router with an independently wired capability reader. */
+export function createExtensionsRouter(readCapabilities = readMaintenanceCapabilities) {
+    const router = Router({ mergeParams: true });
+    router.use(requireAuth);
+    /**
+     * Resolve and validate `:name` against the catalog exactly once per request.
+     *
+     * SECURITY GATE. Express runs a `router.param` callback before any matching
+     * route handler, so a mutation route physically cannot run without the
+     * validated entry — the previous per-handler lookup relied on every future
+     * route remembering to repeat it, and a route that forgot would pass an
+     * unvalidated string toward a process spawn.
+     *
+     * The resolved entry is stashed on the response so handlers read a catalog
+     * constant rather than the request string.
+     */
+    router.param("name", (req, res, next, value) => {
+        const entry = findCatalogEntry(value);
+        if (!entry) {
+            res.status(400).json({ error: `Unknown package: ${value}` });
+            return;
+        }
+        res.locals.catalogEntry = entry;
+        next();
     });
-    res.status(result.ownershipRefused ? 409 : result.ok ? 200 : 400).json({ ok: result.ok, output: result.parsed ?? result.stdout, error: result.stderr });
-});
-// POST /api/projects/:projectId/extensions/:name/activate
-router.post("/:name/activate", async (req, res) => {
-    await runExtensionCommand(req, res, "activate");
-});
-// POST /api/projects/:projectId/extensions/:name/deactivate
-router.post("/:name/deactivate", async (req, res) => {
-    await runExtensionCommand(req, res, "deactivate");
-});
-// DELETE /api/projects/:projectId/extensions/:name
-router.delete("/:name", async (req, res) => {
-    await runExtensionCommand(req, res, "uninstall");
-});
-export { router as extensionsRouter };
+    // GET /api/projects/:projectId/extensions
+    // Catalog joined with live `pm extension --json` state.
+    router.get("/", async (req, res) => {
+        // Read-only: a view-only collaborator may see which packages a project uses,
+        // they just cannot change them.
+        const project = await verifyProject(req.user.userId, routeParam(req, "projectId"));
+        if (!project) {
+            res.status(404).json({ error: "Project not found" });
+            return;
+        }
+        const { ok, states, error } = await readProjectExtensionStates(getProjectDir(project.ownerUserId, project.slug));
+        const rows = PACKAGE_CATALOG.map((entry) => toRow(entry, states.get(entry.extensionName ?? entry.name)));
+        // Surface a failed read rather than rendering every package as "not
+        // installed", which is indistinguishable from a healthy empty project.
+        let maintenance;
+        let capabilities;
+        try {
+            maintenance = await readCapabilities(project, routeParam(req, "projectId"));
+            capabilities = { status: "available" };
+        }
+        catch (failure) {
+            logError("maintenance_capabilities_unavailable", failure);
+            capabilities = { status: "unavailable", error: {
+                    code: "capabilities_unavailable", message: "Cannot check maintenance provider availability. Retry shortly or manage providers in Packages.",
+                } };
+        }
+        res.json({ packages: rows, maintenance, capabilities, canManagePackages: project.permission === "edit", ...(ok ? {} : { stateError: error }) });
+    });
+    // POST /api/projects/:projectId/extensions/:name/install
+    router.post("/:name/install", async (req, res) => {
+        const project = await requireEditableProject(req, res);
+        if (!project)
+            return;
+        const entry = catalogEntry(res);
+        // An unreleased package is catalogued so the UI can show it honestly, but no
+        // install spec resolves for it. Refuse here with a reason rather than
+        // spawning a `pm install` that would fail against the registry with an
+        // opaque 404 the user cannot act on.
+        if (entry.availability === "unreleased" || entry.npmSpec === null) {
+            res.status(409).json({
+                error: entry.unavailableReason ?? `${entry.name} is not published to npm yet, so it cannot be installed.`,
+            });
+            return;
+        }
+        const result = await runPm({
+            // entry.npmSpec is a catalog constant, never the request string.
+            args: ["install", entry.npmSpec, "--project"],
+            userId: project.ownerUserId,
+            slug: project.slug,
+            jsonOutput: true,
+            // Installs resolve and download from the npm registry; the 30s default is
+            // sized for local commands and leaves too thin a margin for a cold cache.
+            timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
+        });
+        if (!result.ok) {
+            res.status(400).json({ error: result.stderr || `Failed to install ${entry.name}` });
+            return;
+        }
+        invalidateMaintenanceCapabilities(getProjectDir(project.ownerUserId, project.slug));
+        broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, "install");
+        res.status(201).json(result.parsed || { ok: true, name: entry.name });
+    });
+    /** Execute a documented extension command in the editable project's real runtime. */
+    router.post("/:name/run", async (req, res) => {
+        const project = await requireEditableProject(req, res);
+        if (!project)
+            return;
+        const entry = catalogEntry(res);
+        const body = (req.body ?? {});
+        if (entry.category === "native" || typeof body.command !== "string"
+            || !entry.commands.includes(body.command) || !Array.isArray(body.args)
+            || body.args.some((arg) => typeof arg !== "string")) {
+            res.status(400).json({ error: "Choose a documented extension command and supply arguments as a string array." });
+            return;
+        }
+        const args = body.args;
+        // Global selectors would escape the project pinned by the runner. Extension
+        // arguments otherwise retain their documented syntax, passed without a shell.
+        const selectors = new Set(["--workspace", "--cwd", "--pm-root", "--pm-path", "--path", "--global"]);
+        if (args.some((arg) => selectors.has(arg.split("=", 1)[0]))) {
+            res.status(400).json({ error: "Commands must use the current project workspace." });
+            return;
+        }
+        const dir = getProjectDir(project.ownerUserId, project.slug);
+        const states = await readProjectExtensionStates(dir);
+        const state = states.states.get(entry.extensionName ?? entry.name);
+        if (!states.ok || !state?.active || !state.enabled) {
+            res.status(409).json({ error: states.error || `Install and enable ${entry.name} before running its commands.` });
+            return;
+        }
+        const result = await runPm({
+            args: [...body.command.slice(3).split(" "), ...args],
+            commandOwner: { command: body.command.slice(3), name: entry.extensionName ?? entry.name, args },
+            userId: project.ownerUserId, slug: project.slug, jsonOutput: true,
+            // Preserve extension subcommands and flags: the in-process adapter derives
+            // positional/boolean arity only from the core tool schema.
+            timeoutMs: INSTALL_COMMAND_TIMEOUT_MS,
+        });
+        res.status(result.ownershipRefused ? 409 : result.ok ? 200 : 400).json({ ok: result.ok, output: result.parsed ?? result.stdout, error: result.stderr });
+    });
+    // POST /api/projects/:projectId/extensions/:name/activate
+    router.post("/:name/activate", async (req, res) => {
+        await runExtensionCommand(req, res, "activate");
+    });
+    // POST /api/projects/:projectId/extensions/:name/deactivate
+    router.post("/:name/deactivate", async (req, res) => {
+        await runExtensionCommand(req, res, "deactivate");
+    });
+    // DELETE /api/projects/:projectId/extensions/:name
+    router.delete("/:name", async (req, res) => {
+        await runExtensionCommand(req, res, "uninstall");
+    });
+    return router;
+}
+/** Default project package router using real command ownership reads. */
+export const extensionsRouter = createExtensionsRouter();
 //# sourceMappingURL=extensions.js.map

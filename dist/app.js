@@ -8,7 +8,7 @@ import { authRouter } from "./routes/auth.js";
 import { oidcRouter } from "./routes/oidc.js";
 import { projectsRouter } from "./routes/projects.js";
 import { pmRouter } from "./routes/pm.js";
-import { extensionsRouter } from "./routes/extensions.js";
+import { createExtensionsRouter } from "./routes/extensions.js";
 import { groupsRouter } from "./routes/groups.js";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.js";
 import { githubRouter } from "./routes/github.js";
@@ -226,7 +226,7 @@ export function createApp(deps) {
     app.use("/api/projects", limiters.read, limiters.write, keyedWrites);
     app.use("/api/projects", logRoutePrefix("/api/projects"), projectsRouter);
     app.use("/api/projects/:projectId/pm", logRoutePrefix("/api/projects/:projectId/pm"), pmRouter);
-    app.use("/api/projects/:projectId/extensions", logRoutePrefix("/api/projects/:projectId/extensions"), extensionsRouter);
+    app.use("/api/projects/:projectId/extensions", logRoutePrefix("/api/projects/:projectId/extensions"), createExtensionsRouter(deps?.readMaintenanceCapabilities));
     app.use("/api/projects/:id/shares", logRoutePrefix("/api/projects/:id/shares"), sharesRouter);
     app.use("/api/projects/:id/github", logRoutePrefix("/api/projects/:id/github"), githubRouter);
     app.use("/api/groups", limiters.read, limiters.write, keyedWrites, logRoutePrefix("/api/groups"), groupsRouter);

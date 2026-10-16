@@ -15,6 +15,7 @@
 // the `packages.*` keys live in every shipped locale catalog, and the view
 // re-renders translations on locale change via applyTranslations().
 
+import { renderCapabilityWarning, type MaintenanceCapabilitiesStatus } from './maintenance.js';
 import { state } from '../state.js';
 import { api, ApiError } from '../api.js';
 import { escHtml } from '../utils.js';
@@ -116,17 +117,18 @@ async function fetchAndRenderPackages(): Promise<void> {
   /** True when a newer fetch started, or the project changed, while awaiting. */
   const superseded = (): boolean => token !== packagesFetchToken || state.currentProject?.id !== pid;
   try {
-    const data = await api('GET', `/projects/${pid}/extensions`);
+    const data = await api<{ packages?: PackageRow[]; canManagePackages?: boolean; capabilities?: MaintenanceCapabilitiesStatus }>('GET', `/projects/${pid}/extensions`);
     if (superseded()) return;
-    const rows: PackageRow[] = (data as { packages?: PackageRow[] }).packages ?? [];
+    const rows = data.packages ?? [];
+    const warning = renderCapabilityWarning(data.capabilities);
     currentPackages = rows;
     if (rows.length === 0) {
-      target.innerHTML = `<div class="empty-state"><div class="empty-state-text">${escHtml(t('packages.empty'))}</div></div>`;
+      target.innerHTML = `${warning}<div class="empty-state"><div class="empty-state-text">${escHtml(t('packages.empty'))}</div></div>`;
       return;
     }
-    target.innerHTML = `
+    target.innerHTML = `${warning}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
-        ${rows.map((row) => renderPackageCard(row, (data as { canManagePackages?: boolean }).canManagePackages === true)).join('')}
+        ${rows.map((row) => renderPackageCard(row, data.canManagePackages === true)).join('')}
       </div>`;
     applyTranslations(target);
   } catch (err: unknown) {

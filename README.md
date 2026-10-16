@@ -175,6 +175,12 @@ Maintenance routes refuse missing providers with HTTP 424 and
 `code: "provider_unavailable"` in the usual JSON error envelope. Command ownership
 comes from the SDK package view, cached per project for five seconds and invalidated
 after package mutations. A failed capability read refuses execution with HTTP 503.
+The extensions list still returns HTTP 200 with package rows and role-aware controls,
+plus `capabilities: { status: "unavailable", error: { code: "capabilities_unavailable",
+message } }`; `maintenance` is omitted so no action advertises stale availability.
+The Packages view displays a non-blocking warning and retains install/activation
+controls for owners and editors. Maintenance views keep actions unavailable until
+capability reads recover. Healthy reads report `capabilities: { status: "available" }`.
 Existing view-only mutation refusals remain HTTP 403.
 
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
