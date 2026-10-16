@@ -14,6 +14,11 @@ const TRUSTED_ACTIONS = new Set([
 ]);
 
 /** Workflow files shipped by this repository. */
+/** pm-github's reusable workflows: each may only be called from its dedicated caller file and job. */
+const CANONICAL_REUSABLE_WORKFLOWS = new Map([
+  ["unbraind/pm-github/.github/workflows/pm-github-sync.yml", { file: "pm-github-sync.yml", job: "gated-sync" }],
+  ["unbraind/pm-github/.github/workflows/pm-github-closeout.yml", { file: "pm-github-closeout.yml", job: "gated-closeout" }],
+]);
 const WORKFLOW_FILES = readdirSync(new URL("../.github/workflows", import.meta.url))
   .filter((file) => /\.ya?ml$/.test(file));
 
@@ -39,15 +44,16 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
       assert.ok(match, `${file}: ${reference} must pin a full 40-character commit SHA`);
       const action = match[1]!;
       const version = pair.value.comment?.trim() ?? "";
-      if (action === "unbraind/pm-github/.github/workflows/pm-github-sync.yml") {
-        assert.equal(file, "pm-github-sync.yml", "the canonical reusable workflow belongs in its dedicated caller");
+      const canonical = CANONICAL_REUSABLE_WORKFLOWS.get(action);
+      if (canonical) {
+        assert.equal(file, canonical.file, "a canonical reusable workflow belongs in its dedicated caller");
         const release = /^pm-github (\d{4}\.\d{1,2}\.\d{1,2})$/.exec(version);
         assert.ok(release, `${file}: the canonical workflow must document a pm-github release`);
         const caller = parse(workflow) as {
           jobs?: Record<string, { uses?: string; with?: Record<string, unknown> }>;
         };
-        assert.equal(caller.jobs?.["gated-sync"]?.uses, reference, "the canonical workflow must be a reusable job");
-        assert.equal(caller.jobs?.["gated-sync"]?.with?.["pm-github-version"], release[1], "the workflow release and package version must match");
+        assert.equal(caller.jobs?.[canonical.job]?.uses, reference, "the canonical workflow must be a reusable job");
+        assert.equal(caller.jobs?.[canonical.job]?.with?.["pm-github-version"], release[1], "the workflow release and package version must match");
       } else {
         assert.ok(TRUSTED_ACTION_OWNERS.has(action.split("/")[0]!), `${file}: action owner is not allowed: ${action}`);
         assert.ok(TRUSTED_ACTIONS.has(action), `${file}: action is not allowed: ${action}`);

@@ -34,6 +34,66 @@ The release gate includes `test/capacity.acceptance.ts`: 20 real subscriber sess
 npm run accept:capacity
 ```
 
+For stage attribution, add `--trace true` to the capacity command. This explicitly
+preloads test-only probes into the owned server and measured CLI children; no
+production module imports them and tracing off adds no production work. Probes
+observe authoritative history append completion, CLI index-file-lock acquisition,
+replay read/classification, shared serialization, fan-out, each client write and
+the existing network receipt. Source hooks check exact production anchors and
+fail closed on drift without rewriting dependency or build files. Temporary raw
+traces contain only synthetic item/client identifiers and timing, are bounded to
+400000 records per child, flush after measurement, and are removed with the fixture.
+An overflow, missing mandatory probe or negative stage clock makes the experiment
+inconclusive. JSON and Markdown contain per-origin stage populations and quantiles;
+JSON also correlates each complete write's slowest receipt with its own stages.
+
+The CLI lock observation starts at the first attempted index lock file open and
+ends after the successful lock payload write. It is a lower bound on acquisition
+and includes open/retry and payload-write scheduling. It does not isolate mutex
+wait from I/O or scheduling, and is nested inside timestamp-to-append, not an
+additive stage. HTTP lock wait
+is not measured separately. If a detecting read overlaps append completion, its
+read/classification interval starts at append completion and its polling wait is
+zero. Direct HTTP delivery reports append-to-route-broadcast instead of watcher
+stages. Serialization includes broadcast bookkeeping; the per-client queue stage
+includes earlier clients' writes. None of these intervals measures fsync.
+
+The release gate retains the ordinary untraced 20-subscriber SLO smoke and adds
+a separate two-subscriber, two-writer traced scenario to verify the probes against
+real HTTP and CLI mutations. Unit regressions reject incomplete populations,
+negative clocks and source drift. Tracing changes scheduling; compare its results
+with untraced runs and never claim a performance improvement from that comparison.
+
 For an isolated copy of the hosted code and test database, use the first command with `DATABASE_URL` set to that disposable copy, retaining the output files externally. No production configuration or live endpoints are read. This exercises the same shared-directory write mechanism, rather than launching pm-gpt or MCP. It does not establish sustained throughput, browser/proxy behavior, slow-consumer buffer bounds, multi-instance fanout, reconnect replay, or large-project performance. The bus is enabled but single-instance local events do not traverse a second server.
 
 Measured summaries are committed under [capacity/](capacity/). Related tracker: `pm-web-lh4b`; companion: `pm-cli-website-ghe1`.
+
+The [2026-10-16 report](capacity/2026-10-16-local.md) records three passing
+uninstrumented 100-subscriber repeats, followed by a traced 2965.8 ms breach.
+The pinned SDK's pre-append history-index lock wait reached 2071.0 ms; shared SSE
+serialization and per-client writes were much smaller. Expansion stopped at 100;
+250/500/1000 remain unmeasured. Production behavior and the SDK pin are unchanged.
+The upstream SDK lock issue is now tracked in
+[pm-cli#1485](https://github.com/unbraind/pm-cli/issues/1485). This evidence
+does not establish the precise cause of the previous day's untraced breach.
+
+The [reader-lock mitigation report](capacity/2026-10-16-reader-lock.md)
+(`pm-web-bazs`, related `pm-web-h4vh`) measures before/after acquisition counts
+and delivery with the same probes. Viewers of one project already share one
+subscription. That loop now checks exact history/index metadata before taking
+the SDK reader lock, shares identical concurrent page requests, and forces reads
+after HTTP/peer-NOTIFY signals or a five-second safety deadline. The replay floor
+uses the prior completed scan's start, preserving near-expiry late facts across
+skipped polls. The 10000-fact cap and SDK authoritative fallback remain in force;
+receipt retention may extend by the interval between completed scans. Metadata
+checks cost one stat per history stream, so large-project costs remain unmeasured.
+
+Add `--idle-ms 12000` to count successful server index-lock acquisitions during
+a zero-writer interval after the production baseline, before the normal mixed
+writers. The JSON and Markdown record count, monotonic elapsed time and locks/sec.
+It defaults to zero and accepts at most 120000 ms. Initial attachment/rebuild is
+excluded. With the mitigation, unchanged polls take no SDK locks; periodic full
+checks still contribute approximately 0.2 acquisitions/sec per active project.
+Separate server processes retain independent checks. Shared-host load and traced
+timings do not establish quiet-host or hosted capacity; use the dated report's
+measured stopping point and limits.
