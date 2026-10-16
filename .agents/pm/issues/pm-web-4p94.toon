@@ -1,0 +1,11 @@
+id: pm-web-4p94
+title: Default catalog freshness tests interpret a partial sibling worktree farm as the complete fleet
+description: "Catalog tests default the fleet root to the package parent. In a worktree farm containing only some package worktrees, the tests infer an incomplete expected catalog and reject the complete committed snapshot. Reproduced while refreshing pm-web-5hdb: 22/24 focused tests passed with implicit discovery; selecting the canonical fleet through PM_FLEET_ROOT passed 24/24. Distinct from the corrected identity/deduplication behavior in pm-web-cqwm. Improve default root selection or distinguish partial discovery without weakening standalone snapshot checks. No hosted scope."
+type: Issue
+status: open
+priority: 3
+tags[2]: catalog,testing
+created_at: "2026-10-15T23:07:53.640Z"
+updated_at: "2026-10-15T23:07:53.640Z"
+author: codex-agent
+body: ""

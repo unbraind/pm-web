@@ -121,7 +121,7 @@ test("a fleet containing a sibling git worktree of another package yields one ca
     assert.ok(readFileSync(path.join(candidate, ".git"), "utf8").startsWith("gitdir:"));
     const result = readFleetExtensions(fleet, { existsSync, readdirSync, readFileSync });
     assert.deepEqual(result.problems, []);
-    assert.deepEqual(result.extensions, snapshot.map(({ npmPublished: _npmPublished, ...local }) => local));
+    assert.deepEqual(result.extensions, snapshot.map(({ npmPublished: _npmPublished, commands: _commands, ...local }) => local));
     // Exercise the actual optional live-fleet assertions against renamed
     // checkouts plus the duplicate Git worktree, including manifest comparisons.
     execFileSync(process.execPath, ["--test", "test/catalog.test.ts"], {

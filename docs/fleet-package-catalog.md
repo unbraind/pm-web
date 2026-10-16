@@ -2,8 +2,9 @@
 
 The Packages view lists all 25 public fleet package identities. Each extension's
 npm identity comes from `package.json`, its description and capabilities come
-from `manifest.json`, and its command paths and requirements come from the
-package README. The two authoring templates use the concise package description.
+from `manifest.json`, and its command paths come from SDK registration metadata.
+Requirements come from the package README. The two authoring templates use the
+concise package description.
 Swarm is a workflow product extension with `commands` and `schema` capabilities.
 Its card uses curated display text while the snapshot retains the shorter
 manifest summary from `feat/swarm`. It lists `pm swarm plan`, `start`, `status`,
@@ -20,6 +21,46 @@ refuses to overwrite its receipt when a lookup cannot be completed. Fleet
 freshness checks compare the receipt with canonical package metadata wherever
 sibling checkouts are available. Equivalent Git worktrees are collapsed;
 conflicting metadata fails explicitly, in deterministic directory order.
+
+## Refreshing package metadata
+
+ADO exposes `pm ado validate`, `pm ado import`, `pm ado export` and `pm ado sync`,
+with revision-checked updates and per-field three-way reconciliation. Jev also
+exposes `pm jev link`. Both cards remain unreleased; these command declarations
+establish neither npm publication nor live credentialed integration.
+
+Regenerate the existing snapshot from the canonical fleet checkouts:
+
+```sh
+PM_FLEET_ROOT=<fleet-root> npm run fleet:snapshot
+PM_FLEET_ROOT=<fleet-root> node --test test/catalog.test.ts test/fleet-commands.test.ts
+```
+
+Replace `<fleet-root>` with the directory containing the package checkouts. With
+sibling canonical checkouts, `npm run fleet:snapshot` defaults to the parent
+directory. Review and commit `test/fleet-extensions.snapshot.json` and
+`test/fleet-native-commands.snapshot.json` together with
+any corresponding catalog changes. Generation reads the fleet without building
+or changing it, and checks npm availability before replacing the snapshot.
+
+`scripts/read-fleet-commands.ts` uses each manifest's entry to locate TypeScript
+source, then asks the pinned SDK for declared command-handler metadata in a
+disposable package copy. This includes synthesized importer/exporter paths,
+avoids stale compiled output and never runs command handlers. Installed package
+dependencies are reused, with the host's pinned SDK available as a fallback.
+Missing source, failed loading/activation, conflicting worktree declarations or
+unreachable registry lookups abort generation without replacing the snapshot.
+This operates on trusted fleet source, whose activation code runs during inspection.
+
+The offline catalog test compares all 25 entries' command lists with
+its independently generated snapshot, so omissions and extra paths fail even in
+standalone CI. VCS retains its documented `pm vcs layer local` path under the
+registered `pm vcs layer` dispatcher as an explicit assertion. With
+`PM_FLEET_ROOT` set, the source freshness test also detects registration changes
+before regeneration. Native Rust has no extension manifest
+or SDK command receipt. Its separate snapshot verifies the Cargo binary identity
+and extracts the documented `cargo run --` commands from the README native slice,
+including `claim` and `release`, without building or executing Rust.
 
 `pm-rust` is the remaining public package. Its `Cargo.toml` and README describe
 an independent pre-release native CLI. It has no root `package.json` or
