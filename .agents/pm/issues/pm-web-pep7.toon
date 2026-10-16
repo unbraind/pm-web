@@ -6,8 +6,10 @@ status: open
 priority: 2
 tags: []
 created_at: "2026-10-16T03:55:57.787Z"
-updated_at: "2026-10-16T03:57:00.013Z"
+updated_at: "2026-10-16T08:31:40.607Z"
 author: codex-agent
+estimated_minutes: 60
+acceptance_criteria: Fresh workspaces expose which maintenance actions require optional providers; Unavailable actions return an actionable documented non-success response without modifying tracker state; Real HTTP and PostgreSQL tests cover provider availability and preserve authorization and CSRF refusals
 files[2]{path,scope}:
   src/routes/pm.ts,project
   test/pm-command-access.test.ts,project
