@@ -39,6 +39,23 @@
  */
 export const PACKAGE_CATALOG = [
     {
+        name: "pm-governance-audit", extensionName: "builtin-governance-audit",
+        npmName: null, npmSpec: "pm-governance-audit", availability: "bundled", category: "extension",
+        title: "Governance Audit", description: "Run dedupe audits, comments audits, and normalize sweeps as package-owned workflows.",
+        capabilities: ["commands", "schema", "hooks", "parser", "services"], commands: ["pm item audit-comments", "pm item duplicates audit", "pm item duplicates merge", "pm normalize"],
+        links: { docs: "https://github.com/unbraind/pm-cli/tree/main/packages/pm-governance-audit#readme",
+            repository: "https://github.com/unbraind/pm-cli/tree/main/packages/pm-governance-audit", report: "https://github.com/unbraind/pm-cli/issues" },
+    },
+    {
+        name: "pm-search-advanced", extensionName: "builtin-search-advanced",
+        npmName: null, npmSpec: "pm-search-advanced", availability: "bundled", category: "extension",
+        requiresService: { name: "Ollama for semantic/hybrid indexing", optional: true },
+        title: "Advanced Search", description: "Enable semantic/hybrid search modes and reindex workflows.",
+        capabilities: ["commands", "schema", "search"], commands: ["pm reindex", "pm search advanced"],
+        links: { docs: "https://github.com/unbraind/pm-cli/tree/main/packages/pm-search-advanced#readme",
+            repository: "https://github.com/unbraind/pm-cli/tree/main/packages/pm-search-advanced", report: "https://github.com/unbraind/pm-cli/issues" },
+    },
+    {
         name: "pm-graph",
         npmName: "pm-graph",
         commands: ["pm pm-graph ping", "pm pm-graph export", "pm pm-graph cypher", "pm pm-graph sync", "pm pm-graph status", "pm pm-graph query", "pm pm-graph neighbors", "pm pm-graph analyze", "pm pm-graph cycles", "pm pm-graph path", "pm pm-graph explain", "pm pm-graph critical-path", "pm pm-graph topo-sort", "pm pm-graph impact", "pm graph-export export"],
@@ -427,8 +444,8 @@ export function findCatalogEntry(name) {
     return CATALOG_BY_NAME.get(name);
 }
 /**
- * Resolve a package name to its verified npm install spec
- * (`npm:<name>`), or `null` when the name is not in the catalog. Route
+ * Resolve a package name to its verified install spec
+ * (`npm:<name>` or a bundled alias), or `null` when the name is not in the catalog. Route
  * handlers use this to obtain the spawn argument without ever building an
  * install target from a raw user string.
  */

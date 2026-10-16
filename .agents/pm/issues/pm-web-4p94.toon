@@ -6,6 +6,11 @@ status: open
 priority: 3
 tags[2]: catalog,testing
 created_at: "2026-10-15T23:07:53.640Z"
-updated_at: "2026-10-15T23:07:53.640Z"
+updated_at: "2026-10-16T11:26:39.343Z"
 author: codex-agent
+comments[1]{created_at,author,text}:
+  "2026-10-16T11:26:38.059Z",codex-agent,"Related fleet-root workaround caveat reproduced during pm-web-pep7: a relative PM_FLEET_ROOT reaches scripts/read-fleet-commands.ts without normalization, so the dependency symlink created inside a disposable package copy points relative to that copy instead of the source checkout. The optional command-snapshot test then reports a missing @typesafe-ai/sdk dependency for Jev despite the canonical checkout dependency being present. Resolving the same fleet root at invocation time made the complete command-snapshot check pass. Follow-up: normalize the configured fleet root before constructing disposable dependency symlinks, alongside the existing partial-sibling root-selection work. No implementation or threshold changes for this follow-up."
+files[2]{path,scope}:
+  scripts/read-fleet-commands.ts,project
+  test/fleet-commands.test.ts,project
 body: ""

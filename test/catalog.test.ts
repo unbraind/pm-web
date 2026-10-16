@@ -60,7 +60,7 @@ if (process.env.PM_FLEET_ROOT && FLEET_EXTENSIONS.length === 0) {
 // standalone checkout. The structural invariants still run there; only the
 // membership comparison degrades to a self-check, and it says so.
 const EXPECTED_NAMES: readonly string[] =
-  FLEET_EXTENSIONS.length > 0 ? [...FLEET_EXTENSIONS, "pm-rust"] : catalogNames();
+  FLEET_EXTENSIONS.length > 0 ? [...FLEET_EXTENSIONS, "pm-rust", "pm-governance-audit", "pm-search-advanced"] : catalogNames();
 
 // The two authoring reference templates that must be in the catalog.
 const TEMPLATE_NAMES = ["pm-starter", "pm-ts-starter"] as const;
@@ -135,7 +135,7 @@ test("catalog exposes exactly every published pm package, no duplicates, pm-web 
 test("every catalog entry has non-empty name/npmSpec/title/description/capabilities/category", () => {
   for (const entry of PACKAGE_CATALOG) {
     assert.ok(entry.name, `${entry.name}: name is required`);
-    assert.equal(entry.npmSpec, entry.category === "native" ? null : `npm:${entry.name}`,
+    assert.equal(entry.npmSpec, entry.category === "native" ? null : entry.availability === "bundled" ? entry.name : `npm:${entry.name}`,
       `${entry.name}: npmSpec must be npm:<name>, never a raw user string`);
     assert.ok(entry.title, `${entry.name}: title is required`);
     assert.ok(entry.description, `${entry.name}: description is required`);
@@ -150,7 +150,7 @@ test("every catalog entry has non-empty name/npmSpec/title/description/capabilit
     // has no published release to install.
     assert.equal(
       resolveNpmSpec(entry.name),
-      entry.availability === "unreleased" ? null : `npm:${entry.name}`,
+      entry.availability === "unreleased" ? null : entry.npmSpec,
       `${entry.name}: resolveNpmSpec must refuse an unreleased package and round-trip a published one`,
     );
   }
@@ -399,6 +399,7 @@ test("catalog commands match every package's declared command metadata in the sn
   const native = JSON.parse(readFileSync(FLEET_NATIVE_COMMANDS_PATH, "utf8")) as Record<string, string[]>;
   assert.deepEqual(Object.keys(native).sort(), PACKAGE_CATALOG.filter((entry) => entry.category === "native").map((entry) => entry.name).sort());
   for (const entry of PACKAGE_CATALOG) {
+    if (entry.availability === "bundled") continue; // Verified against real SDK install receipts in maintenance-providers.test.ts.
     const commands = entry.category === "native" ? native[entry.name]
       : fleetSnapshot.find((extension) => extension.name === entry.name)?.commands;
     assert.ok(commands?.length, `${entry.name}: snapshot must contain command declarations`);

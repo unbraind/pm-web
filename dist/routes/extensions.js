@@ -1,3 +1,4 @@
+import { invalidateMaintenanceCapabilities, readMaintenanceCapabilities } from "../services/maintenance-providers.js";
 // ═══════════════════════════════════════════════════════════════
 // EXTENSIONS ROUTES — per-project pm package catalog management
 // ═══════════════════════════════════════════════════════════════
@@ -125,10 +126,11 @@ router.get("/", async (req, res) => {
         return;
     }
     const { ok, states, error } = await readProjectExtensionStates(getProjectDir(project.ownerUserId, project.slug));
-    const rows = PACKAGE_CATALOG.map((entry) => toRow(entry, states.get(entry.name)));
+    const rows = PACKAGE_CATALOG.map((entry) => toRow(entry, states.get(entry.extensionName ?? entry.name)));
     // Surface a failed read rather than rendering every package as "not
     // installed", which is indistinguishable from a healthy empty project.
-    res.json(ok ? { packages: rows } : { packages: rows, stateError: error });
+    const maintenance = await readMaintenanceCapabilities(project, routeParam(req, "projectId"));
+    res.json({ packages: rows, maintenance, canManagePackages: project.permission === "edit", ...(ok ? {} : { stateError: error }) });
 });
 // POST /api/projects/:projectId/extensions/:name/install
 router.post("/:name/install", async (req, res) => {
@@ -160,6 +162,7 @@ router.post("/:name/install", async (req, res) => {
         res.status(400).json({ error: result.stderr || `Failed to install ${entry.name}` });
         return;
     }
+    invalidateMaintenanceCapabilities(getProjectDir(project.ownerUserId, project.slug));
     broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, "install");
     res.status(201).json(result.parsed || { ok: true, name: entry.name });
 });
@@ -187,7 +190,7 @@ async function runExtensionCommand(req, res, subcommand) {
         return;
     }
     const result = await runPm({
-        args: ["extension", subcommand, entry.name, "--project"],
+        args: ["extension", subcommand, entry.extensionName ?? entry.name, "--project"],
         userId: project.ownerUserId,
         slug: project.slug,
         jsonOutput: true,
@@ -196,6 +199,7 @@ async function runExtensionCommand(req, res, subcommand) {
         res.status(400).json({ error: result.stderr || `Failed to ${subcommand} ${entry.name}` });
         return;
     }
+    invalidateMaintenanceCapabilities(getProjectDir(project.ownerUserId, project.slug));
     broadcastExtensionsChanged(routeParam(req, "projectId"), req.user.userId, entry.name, subcommand);
     res.json(result.parsed || { ok: true, name: entry.name });
 }
@@ -222,14 +226,14 @@ router.post("/:name/run", async (req, res) => {
     }
     const dir = getProjectDir(project.ownerUserId, project.slug);
     const states = await readProjectExtensionStates(dir);
-    const state = states.states.get(entry.name);
+    const state = states.states.get(entry.extensionName ?? entry.name);
     if (!states.ok || !state?.active || !state.enabled) {
         res.status(409).json({ error: states.error || `Install and enable ${entry.name} before running its commands.` });
         return;
     }
     const result = await runPm({
         args: [...body.command.slice(3).split(" "), ...args],
-        commandOwner: { command: body.command.slice(3), name: entry.name, args },
+        commandOwner: { command: body.command.slice(3), name: entry.extensionName ?? entry.name, args },
         userId: project.ownerUserId, slug: project.slug, jsonOutput: true,
         // Preserve extension subcommands and flags: the in-process adapter derives
         // positional/boolean arity only from the core tool schema.

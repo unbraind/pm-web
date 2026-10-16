@@ -1,3 +1,4 @@
+import { requireMaintenanceCapability } from './maintenance.js';
 // ═══════════════════════════════════════════════════════════════
 // SEARCH VIEW
 // ═══════════════════════════════════════════════════════════════
@@ -34,7 +35,7 @@ export function renderSearchView(): void {
       <div style="display:flex;gap:4px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:3px">
         ${modeOpts.map(m=>`<button class="btn btn-sm" style="padding:4px 10px;border-radius:5px;font-size:12px;transition:var(--transition);${state.searchMode===m.val?'background:var(--bg-card);color:var(--text-primary)':'background:transparent;color:var(--text-muted)'}" onclick="window.__app.setSearchMode('${m.val}')" title="${m.tip}">${m.label}</button>`).join('')}
       </div>
-      <button class="btn btn-secondary btn-sm" id="reindex-btn" onclick="window.__app.reindexProject()">⟳ Reindex</button>
+      <span id="reindex-capability"><button class="btn btn-secondary btn-sm" disabled>Checking reindex availability…</button></span>
       <span style="font-size:11px;color:var(--text-muted)">Semantic powered by Ollama qwen3</span>
     </div>
     <div class="search-box-wrap">
@@ -44,6 +45,10 @@ export function renderSearchView(): void {
     <div id="search-results">
       ${state.searchResults.length > 0 ? renderSearchResults() : '<div class="empty-state"><div class="empty-state-icon">⌕</div><div class="empty-state-text">Enter a query to search</div></div>'}
     </div>`;
+  const target = document.getElementById('reindex-capability');
+  if (target) void requireMaintenanceCapability(target, 'reindex').then((available) => {
+    if (available) target.innerHTML = '<button class="btn btn-secondary btn-sm" id="reindex-btn" onclick="window.__app.reindexProject()">⟳ Reindex</button>';
+  });
   setTimeout(()=>document.getElementById('search-query')?.focus(),50);
 }
 
