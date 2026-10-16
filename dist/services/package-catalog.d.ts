@@ -27,6 +27,7 @@ export type PackageCategory = "extension" | "template" | "native";
  *
  * - `"published"` — the package is on npm and `pm install npm:<name>` works.
  *   This is the default and the state every product extension is in.
+ * - `"bundled"` — ships with the pinned CLI and installs by alias without npm.
  * - `"unreleased"` — the package exists in the fleet and is developed in the
  *   open, but is deliberately not published to npm yet, so no install spec can
  *   resolve. It is listed rather than hidden because silently omitting it
@@ -39,7 +40,7 @@ export type PackageCategory = "extension" | "template" | "native";
  * declaring `"published"` for a package that is not on npm is a failing test,
  * not a broken install button.
  */
-export type PackageAvailability = "published" | "unreleased";
+export type PackageAvailability = "published" | "unreleased" | "bundled";
 /**
  * Honest gating metadata so the UI can tell a user what they must configure
  * before a package is useful. Both fields are OPTIONAL — most packages work
@@ -76,11 +77,13 @@ export interface CredentialRequirement {
     optional?: boolean;
 }
 export interface PackageCatalogEntry {
+    /** Runtime manifest identity when it differs from the install alias. */
+    readonly extensionName?: string;
     /** Canonical public fleet identity, e.g. `pm-graph` or `pm-rust`. */
     readonly name: string;
     /** The install spec passed to `pm install`; null for native packages. */
     readonly npmSpec: string | null;
-    /** npm identity, absent for independent native packages. */
+    /** npm identity, absent for native packages and bundled-only aliases. */
     readonly npmName: string | null;
     /** Documented CLI command paths, including their executable. */
     readonly commands: readonly string[];
@@ -132,8 +135,8 @@ export declare const PACKAGE_CATALOG: readonly PackageCatalogEntry[];
  */
 export declare function findCatalogEntry(name: string): PackageCatalogEntry | undefined;
 /**
- * Resolve a package name to its verified npm install spec
- * (`npm:<name>`), or `null` when the name is not in the catalog. Route
+ * Resolve a package name to its verified install spec
+ * (`npm:<name>` or a bundled alias), or `null` when the name is not in the catalog. Route
  * handlers use this to obtain the spawn argument without ever building an
  * install target from a raw user string.
  */

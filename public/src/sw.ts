@@ -70,6 +70,7 @@ const STATIC_ASSETS: readonly string[] = [
   '/src/views/health.js',
   '/src/views/items.js',
   '/src/views/normalize.js',
+  '/src/views/maintenance.js',
   '/src/views/packages.js',
   '/src/views/plan.js',
   '/src/views/plan-execution.js',

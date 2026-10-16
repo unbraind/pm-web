@@ -21,7 +21,7 @@ after(() => Promise.all([pool.end(), sourcePool.end()]));
 /** All public fleet identities requested for the Packages view, including the
  * native CLI. Derived from the checked-in fleet roster so this acceptance
  * cannot restate the package list a second time and drift from it. */
-const FLEET_NAMES = FLEET_PACKAGE_REPOS;
+const FLEET_NAMES = [...FLEET_PACKAGE_REPOS, "pm-governance-audit", "pm-search-advanced"];
 
 /** Reject a missing deactivation event promptly so the acceptance reaches cleanup. */
 async function waitForDeactivation(observed: Promise<void>, timeoutMs = 5_000): Promise<void> {
@@ -116,7 +116,7 @@ test(`${runtime} server executes npm Presets, refuses a later local command owne
     assert.deepEqual(listing.packages.map((row) => row.name).sort(), [...FLEET_NAMES].sort());
     for (const row of listing.packages) {
       assert.ok(row.description && row.commands.length > 0 && row.links?.docs && row.links.repository && row.links.report, `${row.name}: complete verified metadata`);
-      assert.equal(row.npmName, row.category === "native" ? null : row.name);
+      assert.equal(row.npmName, row.category === "native" || row.availability === "bundled" ? null : row.name);
     }
     await pool.query("INSERT INTO pm_users (id, email, password_hash) VALUES ($1, $2, 'synthetic')", [viewer, `${viewer}@example.test`]);
     await pool.query("INSERT INTO pm_project_shares (project_id, shared_with_user_id, permission) VALUES ($1, $2, 'view')", [projectId, viewer]);

@@ -1,3 +1,4 @@
+import { readMaintenanceCapabilities } from "../services/maintenance-providers.js";
 import { logError } from "../observability.js";
 import { Router } from "express";
 import { readProjectGraph } from "../services/project-graph.js";
@@ -1461,10 +1462,25 @@ router.post("/close-task/:itemId", async (req, res) => {
     scheduleGraphSync(routeParam(req, "projectId"), project, "task-closed");
     res.json(result.parsed || { ok: true });
 });
+/** Refuse unavailable provider commands with role-aware project package guidance. */
+async function requireMaintenanceProvider(req, res, project, action) {
+    try {
+        const capability = (await readMaintenanceCapabilities(project, routeParam(req, "projectId")))[action];
+        if (capability.available)
+            return true;
+        res.status(424).json({ error: `Requires ${capability.provider}. ${capability.hint}`, code: "provider_unavailable", ...capability });
+    }
+    catch {
+        res.status(503).json({ error: "Cannot read project command capabilities. Retry shortly.", code: "capabilities_unavailable" });
+    }
+    return false;
+}
 // POST /api/projects/:projectId/pm/reindex
 router.post("/reindex", async (req, res) => {
     const project = await requireProject(req, res);
     if (!project)
+        return;
+    if (!await requireMaintenanceProvider(req, res, project, "reindex"))
         return;
     const { mode = "keyword" } = req.body;
     const validModes = ["keyword", "semantic", "hybrid"];
@@ -1478,21 +1494,21 @@ router.post("/reindex", async (req, res) => {
     }
     res.json({ ok: true, mode: safeMode });
 });
+/** Execute a provider-backed report with a non-success status on dispatch failure. */
+async function runMaintenanceReport(req, res, action) {
+    const project = await requireProject(req, res);
+    if (!project || !await requireMaintenanceProvider(req, res, project, action))
+        return;
+    const result = await projectPm(project, [action], true);
+    res.status(result.ok ? 200 : pmErrorStatus(result)).json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+}
 // POST /api/projects/:projectId/pm/normalize
 router.post("/normalize", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
-        return;
-    const result = await projectPm(project, ["normalize"], true);
-    res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+    await runMaintenanceReport(req, res, "normalize");
 });
 // GET /api/projects/:projectId/pm/comments-audit
 router.get("/comments-audit", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
-        return;
-    const result = await projectPm(project, ["comments-audit"], true);
-    res.json(result.ok ? (result.parsed || {}) : { error: result.stderr });
+    await runMaintenanceReport(req, res, "comments-audit");
 });
 // POST /api/projects/:projectId/pm/files/:itemId
 router.post("/files/:itemId", async (req, res) => {

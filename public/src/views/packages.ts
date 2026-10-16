@@ -43,8 +43,9 @@ interface PackageRow {
    * is the state of every package that has a release on npm. "unreleased"
    * means the package is real and developed in the open but has no published
    * version, so no install can succeed and the card must not offer one.
+   * "bundled" installs an optional alias shipped with the pinned CLI.
    */
-  availability?: 'published' | 'unreleased';
+  availability?: 'published' | 'unreleased' | 'bundled';
   /** Public links; npm is omitted until the registry serves the package. */
   links?: Record<'docs' | 'repository' | 'report', string> & { npm?: string };
   requiresService?: { name: string; optional?: boolean };
@@ -125,7 +126,7 @@ async function fetchAndRenderPackages(): Promise<void> {
     }
     target.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
-        ${rows.map((row) => renderPackageCard(row)).join('')}
+        ${rows.map((row) => renderPackageCard(row, (data as { canManagePackages?: boolean }).canManagePackages === true)).join('')}
       </div>`;
     applyTranslations(target);
   } catch (err: unknown) {
@@ -141,9 +142,10 @@ async function fetchAndRenderPackages(): Promise<void> {
  * required services or credentials, its capabilities, and action buttons
  * appropriate to its installed/active state.
  * @param row - The package catalog row to render.
+ * @param canManagePackages - Whether the current caller may install, enable or run packages.
  * @returns The card markup string.
  */
-export function renderPackageCard(row: PackageRow): string {
+export function renderPackageCard(row: PackageRow, canManagePackages = true): string {
   const statusChip = row.installed
     ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
     : `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.notInstalled'))}</span>`;
@@ -190,7 +192,7 @@ export function renderPackageCard(row: PackageRow): string {
   // a raw DOM string — and the server validates it against the catalog again
   // before any pm command is spawned.
   let actions = '';
-  if (row.category === 'native' || (unreleased && !row.installed)) {
+  if (!canManagePackages || row.category === 'native' || (unreleased && !row.installed)) {
     // Nothing to install: there is no published version to install from. An
     // unreleased package that IS installed — from a local path or a
     // preexisting install — keeps its full management controls below, because
@@ -231,7 +233,7 @@ export function renderPackageCard(row: PackageRow): string {
         ${row.unavailableReason ? `<div class="pkg-req">${escHtml(row.unavailableReason)}</div>` : unreleasedNote}${serviceNote}${credNotes}${caps}
         <div style="font-size:11px;margin-top:8px">${row.commands.map((command) => `<code>${escHtml(command)}</code>`).join(' · ')}</div>
         ${links ? `<div style="margin-top:8px">${links}</div>` : ''}
-        ${row.active && row.enabled && row.category !== 'native' ? `
+        ${canManagePackages && row.active && row.enabled && row.category !== 'native' ? `
           <details style="margin-top:8px"><summary>${escHtml(t('packages.runCommand'))}</summary>
             <label>${escHtml(t('packages.command'))}<select data-pkg-command aria-label="${escHtml(t('packages.command'))}" style="width:100%">${row.commands.map((command) => `<option>${escHtml(command)}</option>`).join('')}</select></label>
             <label>${escHtml(t('packages.arguments'))}<input data-pkg-args aria-label="${escHtml(t('packages.arguments'))}" style="width:100%" placeholder='["--help"]' value='[]'></label>

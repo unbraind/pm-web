@@ -759,6 +759,24 @@ export function evictPmClient(pmRoot: string): void {
   pmClientCache.delete(pmRoot);
 }
 
+/** Read SDK command ownership for the project layer used by isolated maintenance processes. */
+export async function readProjectCommandOwners(projectDir: string): Promise<ExtensionDescribeResult["command_ownership"]> {
+  return runSerialized(projectDir, async () => {
+    const result = await getPmClient(path.join(projectDir, ".agents", "pm")).packageDescribe(undefined, { project: true });
+    const owners = result.details.command_ownership;
+    if (!result.ok || !Array.isArray(owners)) throw new Error("Cannot read project command capabilities.");
+    // Describe includes global claims even with project scope. Maintenance
+    // subprocesses isolate HOME, so project availability must exclude those
+    // claims and apply the SDK's declared last-activated-wins policy to the
+    // remaining activation-ordered claims.
+    return (owners as ExtensionDescribeResult["command_ownership"]).map((row) => ({
+      ...row,
+      claimants: row.claimants.filter((claim) => claim.layer === "project")
+        .map((claim, index, claims) => ({ ...claim, winner: index === claims.length - 1 })),
+    })).filter((row) => row.claimants.length > 0);
+  });
+}
+
 /**
  * Apply pm-web's supplemental truthfulness checks to a complete-list candidate.
  *

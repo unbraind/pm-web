@@ -1,3 +1,4 @@
+import { requireMaintenanceCapability } from './maintenance.js';
 // ═══════════════════════════════════════════════════════════════
 // NORMALIZE VIEW
 // ═══════════════════════════════════════════════════════════════
@@ -19,6 +20,8 @@ export async function renderNormalizeView(): Promise<void> {
     </div>
     <div id="normalize-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
   try {
+    const target = document.getElementById('normalize-content');
+    if (!target || !await requireMaintenanceCapability(target, 'normalize')) return;
     const data = await api<NormalizeResponse>('POST', `/projects/${state.currentProject.id}/pm/normalize`);
     const plan: NormalizePlan = data.plan || data.normalization || data;
     const items: NormalizeChange[] = plan.items || plan.changes || [];
