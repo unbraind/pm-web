@@ -6,17 +6,19 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-16T23:02:36.832Z"
+updated_at: "2026-10-16T23:48:33.538Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
-comments[5]{created_at,author,text}:
+comments[7]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
   "2026-10-16T22:59:16.767Z",codex-agent,"Restyle uses only shared contract aliases, installed self-hosted fonts and brand artwork, field underlines, real item strips, status shapes, a responsive board and in-flow cookie notices. Focused asset/legal/i18n/service-worker checks pass 41/41. The first keyboard matrix passed 108/108 basic audits; a stronger traversal exposed and fixed the graph canvas Tab trap. New brand commit 952a4bc includes fonts/icons/logo but its Git prepare assumes a checkout. Script-disabled installation retains those built assets; CI then runs this package prepare explicitly. When compiled tokens are absent, build output derives equivalent typed data from the installed CSS; compiled kit tokens take precedence when supplied. No shared thresholds or pinned SDK changed."
   "2026-10-16T23:02:36.832Z",codex-agent,"Stronger scripted checks now traverse every action, verify a focus ring, detect viewport overflow and compute painted text contrast including opacity. They found and fixed dim adjacent-month calendar dates. Seventeen requested screens passed these checks in the first light/desktop run. The remaining live-arrival traversal catches the existing SSE list replacement during focus traversal; the next signature commit will patch fields in place to remove that focus loss. Generated brand assets include the shared mark, all PWA icons and licensed font files; no generated files are tracked."
-files[72]{path,scope}:
+  "2026-10-16T23:46:50.417Z",codex-agent,"Live copies now patch readonly fields in place, keep comment and edit drafts and keyboard focus, suppress own account/session echoes, and retain the changed-field border for five seconds. Six browser scenarios cover the settle timing, blocked rose, polite announcements, own echoes, stale draft partial writes, stable comment entries and reduced motion. The real database SSE regression also verifies authenticated display names and the Project member fallback without trusting an author supplied in the edit body."
+  "2026-10-16T23:48:33.538Z",codex-agent,"Behavioral revert proof: replacing only emitItemEvent with its previous implementation makes the new real database SSE test fail because the payload lacks author: Editor. The changed function was restored. Existing itemId and userId remain unchanged; display-name lookup failure cannot fail an already committed edit. Initial quality checks pass with zero duplicate lines and all 737 declarations documented."
+files[77]{path,scope}:
   .github/workflows/ci.yml,project
   .github/workflows/release.yml,project
   Dockerfile,project
@@ -38,9 +40,11 @@ files[72]{path,scope}:
   public/src/components/toast.ts,project
   public/src/constants.ts,project
   public/src/cookie-consent.ts,project
+  public/src/edit-origin.ts,project
   public/src/filters.ts,project
   public/src/i18n.ts,project
   public/src/interactions.ts,project
+  public/src/live-copy.ts,project
   public/src/offline-recovery.ts,project
   public/src/state.ts,project
   public/src/sw.ts,project
@@ -81,6 +85,7 @@ files[72]{path,scope}:
   public/styles.css,project
   public/terms.html,project
   scripts/brand-browser-contrast.ts,project
+  scripts/brand-browser-live.ts,project
   scripts/brand-browser.ts,project
   scripts/brand-fixtures.ts,project
   scripts/brand-pixel-diff.ts,project
@@ -89,9 +94,12 @@ files[72]{path,scope}:
   src/app.ts,project
   test/brand-assets.test.ts,project
   test/brand-contrast.test.ts,project
-tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  test/live-copy.test.ts,project
+  test/pm-collaboration.test.ts,project
+tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test test/brand-assets.test.ts,project,codex-agent,"2026-10-16T22:39:55.603Z",local_mutation,brand/triplicate-tokens-and-restyle
   node scripts/with-test-db.ts node --test test/brand-assets.test.ts test/brand-contrast.test.ts test/static-scripts.test.ts test/legal-pages.test.ts test/i18n.test.ts,project,codex-agent,"2026-10-16T23:02:21.635Z",local_mutation,brand/triplicate-tokens-and-restyle
+  node scripts/with-test-db.ts node --test test/live-copy.test.ts test/pm-collaboration.test.ts,project,codex-agent,"2026-10-16T23:47:29.523Z",local_mutation,brand/triplicate-tokens-and-restyle
 docs[2]{path,scope}:
   docs/brand-review.md,project
   README.md,project

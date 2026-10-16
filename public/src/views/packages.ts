@@ -156,7 +156,7 @@ export function renderPackageCard(row: PackageRow, canManagePackages = true): st
   // scaffold from a product extension. Templates register real commands but
   // exist to be read and copied; the badge makes that purpose explicit.
   const templateBadge = row.category === 'template'
-    ? `<span style="font-size:11px;color:var(--app-text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:var(--pm-radius-sm)" data-i18n="packages.templateBadge">${escHtml(t('packages.templateBadge'))}</span>`
+    ? `<span style="font-size:11px;color:var(--app-text-secondary);background:var(--pm-stamp-wash);padding:2px 8px;border-radius:var(--pm-radius-sm)" data-i18n="packages.templateBadge">${escHtml(t('packages.templateBadge'))}</span>`
     : '';
 
   // A package with no published release is shown, because hiding it would make
@@ -164,7 +164,7 @@ export function renderPackageCard(row: PackageRow, canManagePackages = true): st
   // shown as unavailable, never with an install action that cannot succeed.
   const unreleased = row.availability === 'unreleased';
   const unreleasedBadge = unreleased
-    ? `<span style="font-size:11px;color:var(--app-text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:var(--pm-radius-sm)" data-i18n="packages.unreleasedBadge">${escHtml(t('packages.unreleasedBadge'))}</span>`
+    ? `<span style="font-size:11px;color:var(--app-text-secondary);background:var(--pm-stamp-wash);padding:2px 8px;border-radius:var(--pm-radius-sm)" data-i18n="packages.unreleasedBadge">${escHtml(t('packages.unreleasedBadge'))}</span>`
     : '';
   // The explanation is about not being installable, so it only applies while
   // the package is not installed. Showing it beside an installed package would

@@ -41,6 +41,8 @@ const STATIC_ASSETS: readonly string[] = [
   '/brand/favicon.svg',
   '/brand/apple-touch-icon.png',
   '/src/brand.js',
+  '/src/edit-origin.js',
+  '/src/live-copy.js',
   '/src/interactions.js',
   '/brand/manifest.json',
   '/icons/icon-192.png',

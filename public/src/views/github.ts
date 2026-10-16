@@ -216,7 +216,7 @@ export async function loadGitHubIssues(): Promise<void> {
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;margin-bottom:12px">
         ${issues.map((i)=>`
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--app-bg-card2);border:1px solid var(--app-border);border-radius:var(--app-radius);cursor:pointer;transition:var(--transition)" onmouseover="this.style.borderColor='var(--app-border-light)'" onmouseout="this.style.borderColor='var(--app-border)'">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--app-bg-card2);border:1px solid var(--app-border);border-radius:var(--app-radius);cursor:pointer;transition:none" onmouseover="this.style.borderColor='var(--app-border-light)'" onmouseout="this.style.borderColor='var(--app-border)'">
             <input type="checkbox" class="gh-issue-cb" data-number="${escHtml(String(i.number))}" style="margin-top:2px;accent-color:var(--app-accent)">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:500">${escHtml(i.title||'')}</div>
@@ -275,7 +275,7 @@ export async function loadItemsForPush(): Promise<void> {
           const linkedBadge = link ? `<a href="${escHtml(link.issue_url)}" target="_blank" rel="noopener" style="font-size:10px;color:var(--app-accent);margin-top:2px;display:block">#${link.issue_number} ↗</a>` : '';
           const updateBtn = link ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="window.__app.updateGitHubIssue('${escHtml(i.id)}')">Update</button>` : '';
           return `
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--app-bg-card2);border:1px solid ${link ? 'var(--app-accent-muted,var(--pm-stamp))' : 'var(--app-border)'};border-radius:var(--app-radius);cursor:pointer;transition:var(--transition)">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--app-bg-card2);border:1px solid ${link ? 'var(--pm-graphite,var(--pm-stamp))' : 'var(--app-border)'};border-radius:var(--app-radius);cursor:pointer;transition:none">
             <input type="checkbox" class="gh-push-cb" data-item-id="${escHtml(i.id)}" style="margin-top:2px;accent-color:var(--app-accent)">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(i.title||i.id)}</div>

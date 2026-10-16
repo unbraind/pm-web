@@ -24,7 +24,7 @@
 <a href="#main-content" class="skip-link" data-i18n="nav.skipLink">Skip to main content</a>
 <div id="app">
   <!-- Auth Screen -->
-  <div id="auth-screen" style="display:none">
+  <div id="auth-screen" role="main" tabindex="-1" style="display:none">
     <div class="auth-left">
       <div class="auth-brand">
         <div class="auth-logo"><span class="brand-lockup" aria-label="pm Web"><span class="brand-mark" aria-hidden="true"><img class="brand-mark-light" src="/brand/mark.svg" alt=""><img class="brand-mark-dark" src="/brand/mark-dark.svg" alt=""></span><span class="brand-product">WEB</span></span></div>
@@ -41,8 +41,8 @@
       <div class="auth-form-title" id="auth-title" data-i18n="auth.title.login">Welcome back</div>
       <div class="auth-form-sub" id="auth-sub" data-i18n="auth.sub.login">Sign in to your account to continue</div>
       <div class="auth-toggle">
-        <button class="active" id="tab-login" onclick="window.__app.switchAuthTab('login')" data-i18n="auth.tab.login">Sign In</button>
-        <button id="tab-register" onclick="window.__app.switchAuthTab('register')" data-i18n="auth.tab.register">Register</button>
+        <button class="active" id="tab-login" aria-pressed="true" onclick="window.__app.switchAuthTab('login')" data-i18n="auth.tab.login">Sign In</button>
+        <button id="tab-register" aria-pressed="false" onclick="window.__app.switchAuthTab('register')" data-i18n="auth.tab.register">Register</button>
       </div>
       <form id="auth-form" onsubmit="window.__app.submitAuth(event)">
         <div class="form-group" id="field-name" style="display:none">
@@ -86,12 +86,13 @@
       </div>
       <button class="theme-toggle" id="theme-toggle" onclick="window.__app.cycleTheme()" title="Toggle theme (dark / light / auto)" data-i18n-title="nav.theme.title" aria-label="Toggle theme" data-i18n-aria="nav.theme.title" tabindex="0">◐</button>
       <div class="user-menu">
-        <div class="user-avatar" id="user-avatar" aria-hidden="true">?</div>
+        <button type="button" class="user-avatar" id="user-avatar" aria-label="Open navigation and account actions" onclick="window.__app.openMobileCommandSheet()">?</button>
         <span class="user-name" id="user-name-display"></span>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.showView('settings')" style="margin-right:4px" aria-label="Open settings" data-i18n-aria="nav.settings" data-i18n="nav.settings">Settings</button>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.logout()" aria-label="Sign out" data-i18n-aria="nav.signOut" data-i18n="nav.signOut">Sign out</button>
       </div>
     </nav>
+    <div class="live-copy-caption" id="live-copy-caption" data-live-caption></div>
     <div id="app-body">
       <nav id="sidebar" role="navigation" aria-label="Sidebar navigation">
         <div class="sidebar-section" id="sidebar-projects-section">
@@ -189,7 +190,7 @@
           </div>
         </div>
       </nav>
-      <main id="main-content" role="main">
+      <main id="main-content" role="main" tabindex="-1">
         <div class="content-area" id="content-projects"><!-- projects view --></div>
         <div class="content-area" id="content-items" style="display:none"><!-- items --></div>
         <div class="content-area" id="content-create" style="display:none"><!-- create --></div>
@@ -220,6 +221,8 @@
     </div>
   </div>
 </div>
+
+<div id="live-copy-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
 <!-- Modals -->
 <div id="modal-container"></div>

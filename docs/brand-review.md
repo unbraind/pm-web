@@ -69,3 +69,27 @@ Tab traversal of every action, focus rings and viewport width. It caught the
 calendar's faded adjacent-month dates and a canvas Tab trap; both were fixed.
 The live-arrival audit also exposes the old SSE list replacement, addressed in
 the following in-place arrival commit.
+
+Live arrivals refetch authoritative records and patch reserved readonly slots.
+They preserve list order, focus, comment drafts, edit drafts and existing history
+entries. Only authenticated other accounts, other sessions or known other authors
+produce a copy. Legacy events with no identity refresh quietly. A changed item
+uses canary, or rose when blocked, for 700 ms; its left border and the reserved
+caption remain for five seconds. Reduced motion omits the duplicate entirely.
+The accessible source remains present during the visual copy, and one polite
+region announces the update. Saving a stale edit submits only fields changed
+locally so untouched collaborator fields survive.
+
+The real PostgreSQL/wire-SSE regression passes with authenticated display-name
+attribution and the unnamed-member fallback. Reverting only `emitItemEvent`
+causes the regression to fail on the missing author while retaining the legacy
+item and user identity fields. The request body's author cannot override the
+caption's authenticated identity.
+
+Browser acceptance also opens every detail tab, expanded create fields, account
+and project navigation, admin tabs, and the remaining routed screens. Each
+visible action is reached with actual Tab input and checked for a focus ring.
+Painted text, including alpha and ancestor surfaces, is tested for AA contrast;
+all widths are checked for horizontal overflow. Arrival scenarios assert timing,
+blocked tint, focus and geometry, own-echo suppression, partial draft writes,
+non-displacing comment arrivals and reduced motion.

@@ -1,3 +1,4 @@
+import { liveFieldValue, changedDraftFields, liveCollectionMarkup } from '../live-copy.js';
 // ═══════════════════════════════════════════════════════════════
 // ITEMS VIEW
 // ═══════════════════════════════════════════════════════════════
@@ -12,6 +13,11 @@ import { loadItemsBadge } from './projects.js';
 import { renderLocalGraph, destroyLocalGraph } from './graph.js';
 import { EMPTY_FILTERS, filtersToQueryString, filtersFromSearchParams, hasActiveFilters } from '../filters.js';
 import type { Item } from '../types.js';
+
+/** Keep readonly live values separate from formatted field labels. */
+function liveAttrs(name: string, value: string): string {
+  return `data-live-field="${name}" data-live-value="${escHtml(value)}"`;
+}
 
 /** Store the fetched item list outside the async loader. */
 function rememberItems(items: Item[]): void {
@@ -37,6 +43,21 @@ import type {
 // mutating the DOM nodes. A module-scoped WeakMap per modal keeps the payload
 // alive across the Preview → Apply call pair and is GC-friendly.
 let itemsLayout: 'list' | 'board' = 'list';
+
+const editBaselines = new WeakMap<HTMLElement, Record<string, string>>();
+const EDIT_FIELDS: Record<string, string> = {
+  title: 'title', status: 'status', priority: 'priority', tags: 'tags', description: 'desc',
+  deadline: 'deadline', assignee: 'assignee', sprint: 'sprint', release: 'release', estimate: 'estimate',
+  body: 'body', acceptanceCriteria: 'acceptance-criteria', blockedReason: 'blocked-reason',
+};
+
+/** Capture exactly the rendered draft values so untouched stale fields are never submitted. */
+function readEditValues(): Record<string, string> {
+  return Object.fromEntries(Object.entries(EDIT_FIELDS).map(([key, suffix]) => {
+    const field = document.getElementById(`edit-${suffix}`) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+    return [key, field?.value.trim() || ''];
+  }));
+}
 
 const bulkUpdatePayloads = new WeakMap<HTMLElement, Record<string, string>>();
 const bulkClosePayloads = new WeakMap<HTMLElement, BulkClosePayload>();
@@ -689,9 +710,9 @@ function renderItemsList(): void {
 export function renderItemRow(item: Item): string {
   const tags = (item.tags || []).map(tag => `<span class="tag">${escHtml(tag)}</span>`).join('');
   return `<div class="item-row" data-item-id="${escHtml(item.id)}" role="button" tabindex="0" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
-    <div class="item-strip"><span>${escHtml(item.id)}</span><span>·</span><span>${escHtml(item.type || 'Item')}</span><span>·</span><span>P${item.priority ?? 4}</span></div>
-    <span class="item-title">${escHtml(item.title)}</span>
-    <div class="item-meta">${tags ? `<div class="item-tags">${tags}</div>` : ''}${statusBadge(item.status || 'draft')}</div>
+    <div class="item-strip live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div>
+    <span class="item-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title)}</span>
+    <div class="item-meta"><div class="item-tags live-field" ${liveAttrs('tags', (item.tags || []).join(', '))}>${tags}</div>${statusBadge(item.status || 'draft')}</div>
   </div>`;
 }
 
@@ -810,7 +831,6 @@ export async function openItemDetail(itemId: string): Promise<void> {
       if (titleEl) titleEl.textContent = item.id;
     }
 
-    const tags = (item.tags||[]).map((t: string)=>`<span class="tag">${escHtml(t)}</span>`).join('');
 
     const notesHtml = notes.length === 0
       ? '<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:12px">No notes yet</div>'
@@ -830,73 +850,50 @@ export async function openItemDetail(itemId: string): Promise<void> {
             </div>
           </div>`).join('');
 
-    const commentsHtml = comments.length === 0
-      ? '<div style="color:var(--app-text-muted);font-size:13px">No comments yet</div>'
-      : comments.map((c)=>`
-          <div class="comment-item">
-            <div class="comment-avatar">↳</div>
-            <div class="comment-body">
-              <div class="comment-meta">${fmtDate(c.timestamp||c.created_at)}</div>
-              <div class="comment-text">${escHtml(c.text||c.content||c.body||JSON.stringify(c))}</div>
-            </div>
-          </div>`).join('');
+    const commentsHtml = liveCollectionMarkup('comments', comments);
+    const historyHtml = liveCollectionMarkup('history', history);
 
-    const historyHtml = history.length === 0
-      ? '<div style="color:var(--app-text-muted);font-size:13px">No history</div>'
-      : history.slice(0,10).map((h)=>`
-          <div class="history-item">
-            <div class="history-dot"></div>
-            <div><div class="history-text">${escHtml(h.message||h.action||JSON.stringify(h))}</div><div class="history-time">${relTime(h.timestamp||h.created_at)}</div></div>
-          </div>`).join('');
-
-    const bodyEl = modal?.querySelector('.modal-body');
+    const bodyEl = modal?.querySelector<HTMLElement>('.modal-body');
     if (bodyEl) {
+      bodyEl.dataset.itemId = item.id;
       bodyEl.innerHTML = `
+      <div class="live-copy-caption" data-live-caption></div>
       <div class="item-detail-header">
-        <div class="item-detail-id">${escHtml(item.id)} · ${escHtml(item.type || 'Item')} · P${item.priority ?? 4}</div>
-        <div class="item-detail-title">${escHtml(item.title)}</div>
+        <div class="item-detail-id live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div>
+        <div class="item-detail-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title)}</div>
         <div class="item-detail-meta">
           ${statusBadge(item.status||'draft')}
-          ${item.status === 'closed' ? '<span class="closed-stamp">Closed</span>' : ''}
-          <div class="meta-chip">${priorityDot(item.priority??4)} <strong>P${item.priority ?? '—'}</strong> ${item.priority !== undefined ? (PRIORITY_LABELS[item.priority]||'') : ''}</div>
+          <span class="closed-stamp-slot live-field" ${liveAttrs('closedStamp', liveFieldValue('closedStamp', item))}>${item.status === 'closed' ? '<span class="closed-stamp">Closed</span>' : ''}</span>
+          <div class="meta-chip">Priority <strong class="mono live-field" ${liveAttrs('priority', String(item.priority ?? 4))}>P${item.priority ?? 4}</strong></div>
           ${item.created_at ? `<div class="meta-chip">Created <strong>${fmtDate(item.created_at)}</strong></div>` : ''}
           ${item.updated_at ? `<div class="meta-chip">Updated <strong>${relTime(item.updated_at)}</strong></div>` : ''}
           ${item.parent ? `<div class="meta-chip">Parent <strong class="mono">${escHtml(item.parent)}</strong></div>` : ''}
           ${item.claimedBy ? `<div class="meta-chip">Claimed by <strong>${escHtml(item.claimedBy)}</strong></div>` : ''}
-          ${item.deadline ? `<div class="meta-chip">Due <strong>${fmtDate(item.deadline)}</strong></div>` : ''}
-          ${item.assignee ? `<div class="meta-chip">Assignee <strong>${escHtml(item.assignee)}</strong></div>` : ''}
-          ${item.sprint ? `<div class="meta-chip">Sprint <strong>${escHtml(item.sprint)}</strong></div>` : ''}
-          ${item.release ? `<div class="meta-chip">Release <strong>${escHtml(item.release)}</strong></div>` : ''}
           ${item.estimated_minutes ? `<div class="meta-chip">~${item.estimated_minutes}m</div>` : ''}
           ${item.blockedBy||item['blocked-by'] ? `<div class="meta-chip" style="border-color:var(--pm-paper);color:var(--pm-danger)">Blocked by <strong class="mono">${escHtml(item.blockedBy||item['blocked-by']||'')}</strong></div>` : ''}
-          ${tags ? `<div class="item-tags">${tags}</div>` : ''}
         </div>
+        <div class="live-meta">
+          ${[['assignee', 'Assignee'], ['sprint', 'Sprint'], ['release', 'Release'], ['deadline', 'Due'], ['tags', 'Tags']].map(([name, label]) => `<div><div class="live-meta-label">${label}</div><div class="live-field" ${liveAttrs(name, liveFieldValue(name, item))}>${escHtml(name === 'deadline' ? fmtDate(item.deadline) : liveFieldValue(name, item)) || '—'}</div></div>`).join('')}
+        </div>
+        <div class="live-status-note live-field" ${liveAttrs('blockedReason', liveFieldValue('blockedReason', item))}>${liveFieldValue('blockedReason', item) ? `Blocked: ${escHtml(liveFieldValue('blockedReason', item))}` : ''}</div>
         <div class="claim-btn-wrap">
           <button class="btn btn-secondary btn-sm" onclick="window.__app.claimItem('${escHtml(itemId)}')">⊕ Claim</button>
           <button class="btn btn-ghost btn-sm" onclick="window.__app.releaseItem('${escHtml(itemId)}')">⊖ Release</button>
-          ${item.status === 'open' ? `<button class="btn btn-secondary btn-sm" onclick="window.__app.startItem('${escHtml(itemId)}')">▶ Start</button>` : ''}
-          ${item.status === 'in_progress' ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.pauseItem('${escHtml(itemId)}')">⏸ Pause</button>` : ''}
+          <button class="btn btn-secondary btn-sm" data-item-action="start" aria-disabled="${item.status !== 'open'}" onclick="window.__app.startItem('${escHtml(itemId)}')">Start</button>
+          <button class="btn btn-secondary btn-sm" data-item-action="pause" aria-disabled="${item.status !== 'in_progress'}" onclick="window.__app.pauseItem('${escHtml(itemId)}')">Pause</button>
           <button class="btn btn-ghost btn-sm" data-template-item="${escHtml(JSON.stringify(item))}" onclick="window.__app.useItemAsTemplate(JSON.parse(this.dataset.templateItem))" title="Open create form pre-filled with this item's fields">⊡ Use as Template</button>
         </div>
       </div>
 
-      ${item.description ? `
-        <div class="item-detail-section">
-          <div class="item-detail-section-title">Description</div>
-          <div class="item-detail-desc">${escHtml(item.description)}</div>
-        </div>` : ''}
+      <div class="item-detail-section">
+        <div class="item-detail-section-title">Description</div>
+        <div class="item-detail-desc live-field" ${liveAttrs('description', item.description || '')}>${escHtml(item.description) || 'No description yet'}</div>
+      </div>
 
-      ${(item.blockedReason||item['blocked-reason']) ? `
-        <div class="item-detail-section" style="background:var(--pm-paper);border:1px solid var(--pm-paper);border-radius:var(--app-radius);padding:12px 14px;margin-bottom:16px">
-          <div class="item-detail-section-title" style="color:var(--pm-danger)">Blocked Reason</div>
-          <div class="item-detail-desc">${escHtml(item.blockedReason||item['blocked-reason']||'')}</div>
-        </div>` : ''}
-
-      ${item.acceptance_criteria||item.acceptanceCriteria ? `
-        <div class="item-detail-section">
-          <div class="item-detail-section-title">Acceptance Criteria</div>
-          <div class="item-detail-desc">${escHtml(item.acceptance_criteria||item.acceptanceCriteria||'')}</div>
-        </div>` : ''}
+      <div class="item-detail-section">
+        <div class="item-detail-section-title">Acceptance criteria</div>
+        <div class="item-detail-desc live-field" ${liveAttrs('acceptanceCriteria', liveFieldValue('acceptanceCriteria', item))}>${escHtml(liveFieldValue('acceptanceCriteria', item)) || 'No acceptance criteria yet'}</div>
+      </div>
 
       <div class="tabs">
         <div class="tab active" onclick="window.__app.switchDetailTab(this,'tab-comments')">Comments (${comments.length})</div>
@@ -908,11 +905,11 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-tests')">Tests (${tests.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-files')">Files (${files.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-history')">History</div>
-        ${item.status!=='closed'&&item.status!=='canceled'?`<div class="tab" onclick="window.__app.switchDetailTab(this,'tab-close')">Close</div>`:''}
+        <div class="tab" data-item-action="close" aria-disabled="${['closed', 'canceled'].includes(item.status || '')}" onclick="window.__app.switchDetailTab(this,'tab-close')">Close</div>
       </div>
 
       <div id="tab-comments">
-        ${commentsHtml}
+        <div class="live-collection live-field" ${liveAttrs('comments', JSON.stringify(comments))}>${commentsHtml}</div>
         <hr class="section-divider">
         <div class="form-group">
           <label class="form-label">Add Comment</label>
@@ -1066,7 +1063,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <button class="btn btn-primary btn-sm" onclick="window.__app.addTest('${escHtml(itemId)}')">Add Test</button>
       </div>
 
-      <div id="tab-history" style="display:none">${historyHtml}</div>
+      <div id="tab-history" style="display:none"><div class="live-collection live-field" ${liveAttrs('history', JSON.stringify(history))}>${historyHtml}</div></div>
 
       <!-- Local graph tab -->
       <div id="tab-graph" style="display:none">
@@ -1099,19 +1096,19 @@ export async function openItemDetail(itemId: string): Promise<void> {
         </div>
       </div>
 
-      ${item.status!=='closed'&&item.status!=='canceled'?`
       <div id="tab-close" style="display:none">
         <div class="form-group">
           <label class="form-label">Close Reason *</label>
           <textarea class="form-textarea" id="close-reason" placeholder="Why is this being closed?" rows="3"></textarea>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="window.__app.closeItem('${escHtml(itemId)}','closed')">Close item</button>
-          <button class="btn btn-secondary" onclick="window.__app.closeItem('${escHtml(itemId)}','canceled')">Cancel item</button>
+          <button class="btn btn-primary" data-item-action="close" aria-disabled="${['closed', 'canceled'].includes(item.status || '')}" onclick="window.__app.closeItem('${escHtml(itemId)}','closed')">Close item</button>
+          <button class="btn btn-secondary" data-item-action="close" aria-disabled="${['closed', 'canceled'].includes(item.status || '')}" onclick="window.__app.closeItem('${escHtml(itemId)}','canceled')">Cancel item</button>
           <button class="btn btn-danger btn-sm" onclick="window.__app.confirmDeleteItem('${escHtml(itemId)}')">Delete Item</button>
         </div>
-      </div>`:''}
+      </div>
     `;
+      if (modal) editBaselines.set(modal, readEditValues());
     }
   } catch(err: unknown) {
     const bodyEl = document.getElementById('item-detail-modal')?.querySelector('.modal-body');
@@ -1207,48 +1204,15 @@ export async function appendItem(itemId: string): Promise<void> {
  * the item detail and refreshes the items list and project badge.
  */
 export async function updateItem(itemId: string): Promise<void> {
-  const titleEl = document.getElementById('edit-title') as HTMLInputElement | null;
-  const statusEl = document.getElementById('edit-status') as HTMLSelectElement | null;
-  const priorityEl = document.getElementById('edit-priority') as HTMLSelectElement | null;
-  const tagsEl = document.getElementById('edit-tags') as HTMLInputElement | null;
-  const descEl = document.getElementById('edit-desc') as HTMLTextAreaElement | null;
-  const deadlineEl = document.getElementById('edit-deadline') as HTMLInputElement | null;
-  const assigneeEl = document.getElementById('edit-assignee') as HTMLInputElement | null;
-  const sprintEl = document.getElementById('edit-sprint') as HTMLInputElement | null;
-  const releaseEl = document.getElementById('edit-release') as HTMLInputElement | null;
-  const estimateEl = document.getElementById('edit-estimate') as HTMLInputElement | null;
-  const bodyEl = document.getElementById('edit-body') as HTMLTextAreaElement | null;
-  const acEl = document.getElementById('edit-acceptance-criteria') as HTMLTextAreaElement | null;
-  const blockedReasonEl = document.getElementById('edit-blocked-reason') as HTMLTextAreaElement | null;
-
-  const title = titleEl?.value.trim() || '';
-  const status = statusEl?.value || '';
-  const priority = priorityEl?.value || '';
-  const tags = tagsEl?.value.trim() || '';
-  const description = descEl?.value.trim() || '';
-  const deadline = deadlineEl?.value.trim() || '';
-  const assignee = assigneeEl?.value.trim() || '';
-  const sprint = sprintEl?.value.trim() || '';
-  const release = releaseEl?.value.trim() || '';
-  const estimate = estimateEl?.value.trim() || '';
-  const body = bodyEl?.value.trim() || '';
-  const acceptanceCriteria = acEl?.value.trim() || '';
-  const blockedReason = blockedReasonEl?.value.trim() || '';
-
-  if (!title) { toast('Enter a title before saving.','error'); return; }
+  const draft = readEditValues();
+  if (!draft.title) { toast('Enter a title before saving.','error'); return; }
+  const modal = document.getElementById('item-detail-modal');
+  const payload = changedDraftFields(modal ? editBaselines.get(modal) || {} : {}, draft);
+  if (!Object.keys(payload).length) { toast('No changes to save.','info'); return; }
   try {
-    const payload: Record<string, string> = {title,status,priority,tags,description};
-    if (deadline) payload.deadline = deadline;
-    if (assignee) payload.assignee = assignee;
-    if (sprint) payload.sprint = sprint;
-    if (release) payload.release = release;
-    if (estimate) payload.estimate = estimate;
-    if (body) payload.body = body;
-    if (acceptanceCriteria) payload.acceptanceCriteria = acceptanceCriteria;
-    if (blockedReason) payload.blockedReason = blockedReason;
-    await api('PATCH',`/projects/${state.currentProject!.id}/pm/update/${itemId}`,payload);
+    await api('PATCH', `/projects/${state.currentProject!.id}/pm/update/${itemId}`, payload);
     refreshAfterItemAction({ toastMsg: 'Item updated', reopenDetail: itemId, withBadge: true });
-  } catch(err: unknown) { toastError(err); }
+  } catch (err: unknown) { toastError(err); }
 }
 
 /**

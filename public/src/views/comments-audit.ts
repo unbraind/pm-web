@@ -4,7 +4,8 @@ import { requireMaintenanceCapability } from './maintenance.js';
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, statusBadge, typeIcon } from '../utils.js';
+import { escHtml, typeIcon } from '../utils.js';
+import { renderItemRow } from './items.js';
 import type { CommentsAuditResponse, CommentsAuditItem, CommentsAuditSummary, CommentsAuditTypeRow } from '../api-types.js';
 
 /** Renders the comments audit for the current project: coverage summary cards, a per-type comment breakdown table, and a list of items with their comment counts. */
@@ -76,7 +77,7 @@ export async function renderCommentsAuditView(): Promise<void> {
               </thead>
               <tbody>
                 ${byType.map((row) => `
-                  <tr style="border-bottom:1px solid var(--app-border-subtle)">
+                  <tr style="border-bottom:1px solid var(--pm-rule)">
                     <td style="padding:8px 14px">${typeIcon(row.type || '')} ${escHtml(row.type || '')}</td>
                     <td style="padding:8px 14px;text-align:right">${row.items_scanned || 0}</td>
                     <td style="padding:8px 14px;text-align:right">${row.items_with_comments || 0}</td>
@@ -93,16 +94,7 @@ export async function renderCommentsAuditView(): Promise<void> {
           ${items.length === 0
             ? '<div style="padding:20px;color:var(--app-text-muted);font-size:13px;text-align:center">No items found</div>'
             : `<div class="item-list" style="border-radius:0">
-                ${items.map((item) => `
-                  <div class="item-row" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
-                    ${typeIcon(item.type || '')}
-                    <span class="item-id">${escHtml(item.id)}</span>
-                    <span class="item-title">${escHtml(item.title)}</span>
-                    <div class="item-meta">
-                      ${statusBadge(item.status || 'draft')}
-                      <span style="font-size:11px;color:var(--app-text-muted);background:var(--app-bg-input);padding:2px 8px;border-radius:var(--pm-radius-sm)">${item.comment_count || 0} comment${item.comment_count !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>`).join('')}
+                ${items.map(item => `<section>${renderItemRow(item)}<p class="item-audit-caption">${item.comment_count || 0} comment${item.comment_count !== 1 ? 's' : ''}</p></section>`).join('')}
               </div>`}
         </div>
       </div>`;

@@ -1,3 +1,4 @@
+import { receiveLiveUpdate, rememberLiveAuthors, resetLiveCopies } from './live-copy.js';
 import { initInteractions } from './interactions.js';
 // ═══════════════════════════════════════════════════════════════
 // APP — Main entry point
@@ -48,7 +49,7 @@ import { initI18n, setLocale as i18nSetLocale, applyTranslations } from './i18n.
 import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan, copyPlanAgentBrief, copyPlanNextStepPrompt, planEditPrompt, submitEditPlan, planDeletePrompt } from './views/plan.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
-import { escHtml, typeIcon, priorityDot, statusBadge, updateHeaderUser } from './utils.js';
+import { escHtml, updateHeaderUser } from './utils.js';
 import { browserWindow, isBeforeInstallPromptEvent, type BeforeInstallPromptEvent } from './browser-window.js';
 import { initTheme, cycleTheme } from './theme.js';
 
@@ -163,7 +164,7 @@ function buildMobileCommandSheet(): void {
         </div>
       </div>`).join('')}`;
 
-  createModal('mobile-command-sheet', 'More', body, '', true);
+  createModal('mobile-command-sheet', 'More', body, `<button class="btn btn-secondary" onclick="window.__app.hideModal('mobile-command-sheet');window.__app.logout()">Sign out</button>`, true);
 }
 
 function openMobileCommandSheet(): void {
@@ -200,15 +201,9 @@ async function doGlobalSearch(): Promise<void> {
     const results = data.results || data.items || [];
     if (resultsEl) resultsEl.innerHTML = results.length === 0
       ? `<div class="empty-state" style="padding:24px"><div class="empty-state-text">No results for "${escHtml(query)}"</div></div>`
-      : `<div class="item-list">${results.map((item) =>`
-          <div class="item-row" onclick="window.__app.hideModal('global-search-modal');window.__app.openItemDetail('${escHtml(item.id)}')">
-            ${typeIcon(item.type||'')}
-            <span class="item-id">${escHtml(item.id)}</span>
-            <span class="item-title">${escHtml(item.title)}</span>
-            <div class="item-meta">${priorityDot(item.priority||5)}${statusBadge(item.status||'draft')}</div>
-          </div>`).join('')}</div>`;
+      : `<div class="item-list">${results.map(item => itemsView.renderItemRow(item).replace('onclick="', 'onclick="window.__app.hideModal(\'global-search-modal\');')).join('')}</div>`;
   } catch(err: unknown) {
-    if (resultsEl) resultsEl.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-state-text">Error: ${err instanceof Error ? err.message : String(err)}</div></div>`;
+    if (resultsEl) resultsEl.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-state-text">Search failed. ${escHtml(err instanceof Error ? err.message : String(err))} Try the search again.</div></div>`;
   }
 }
 
@@ -480,6 +475,7 @@ function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): vo
  * timers, close the event source, clear the tracked project/client ids, and
  * mark sync as disconnected. */
 function disconnectSSE(): void {
+  resetLiveCopies();
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null; }
   if (sseRefreshTimer) { clearTimeout(sseRefreshTimer); sseRefreshTimer = null; }
   if (sseSource) { sseSource.close(); sseSource = null; }
@@ -533,6 +529,8 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('presence', (evt: MessageEvent) => {
       try {
         const data = JSON.parse(evt.data) as { users: PresenceUser[] };
+        if (sseCurrentProjectId !== projectId || state.currentProject?.id !== projectId || !state.user) return;
+        rememberLiveAuthors(data.users);
         renderPresenceBar(data.users);
       } catch { /* ignore */ }
     });
@@ -565,7 +563,8 @@ function connectSSE(projectId: string, attempt = 0): void {
     };
 
     // Item events on graph view use lightweight data-only refresh
-    const refreshGraphData = (evt: MessageEvent) => {
+    const refreshGraphData = async (evt: MessageEvent) => {
+      if (await receiveLiveUpdate(evt.data, projectId, sseClientId, evt.type)) { void loadItemsBadge(); return; }
       // Show a subtle toast when another user's action triggers a refresh
       // (only if client ID is known, meaning we've fully connected)
       if (sseClientId) {
@@ -627,7 +626,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('graph_synced', refreshGraph);
     source.addEventListener('graph-sync-failed', graphSyncFailed);
     source.addEventListener('graph_sync_failed', graphSyncFailed);
-    source.addEventListener('update', refreshView);
+    source.addEventListener('update', refreshGraphData);
     source.addEventListener('workspace-changed', refreshGraphData);
 
     // Extensions catalog mutations (installs/activates/deactivates/uninstalls)
@@ -657,6 +656,7 @@ export { connectSSE, disconnectSSE, notifyPresenceView };
  * admin-gated controls, build the project/search/mobile modals, register the
  * presence view-change hook, then load projects and run the launch action. */
 export async function bootApp(): Promise<void> {
+  document.querySelector<HTMLAnchorElement>('.skip-link')?.setAttribute('href', '#main-content');
   const authScreen = document.getElementById('auth-screen');
   const mainApp = document.getElementById('main-app');
   if (authScreen) authScreen.style.display = 'none';
@@ -881,9 +881,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'a' || e.key === 'A') { if (state.currentProject) showView('activity'); }
   if (e.key === 't' || e.key === 'T') { cycleTheme(); }
   if (e.key === '/') { e.preventDefault(); if (state.currentProject) { showView('search'); setTimeout(()=>document.getElementById('search-query')?.focus(), 100); } }
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-backdrop').forEach(m => { (m as HTMLElement).style.display='none'; });
-  }
 });
 
 // ═══════════════════════════════════════════════════════════════

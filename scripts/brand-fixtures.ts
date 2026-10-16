@@ -1,5 +1,5 @@
 /** Synthetic browser-review data. This server never opens a database or tracker. */
-import type { Item } from '../public/src/types.ts';
+import type { Item, Comment, HistoryEntry } from '../public/src/types.ts';
 
 /** Synthetic signed-in editor used only by browser review. */
 export const fixtureUser = { id: 'fixture-owner', email: 'editor@example.test', display_name: 'Morgan', is_admin: true, created_at: '2026-10-01T10:00:00Z' };
@@ -13,6 +13,19 @@ export const fixtureItems: Item[] = ['open', 'in_progress', 'blocked', 'closed',
   assignee: 'Morgan', tags: ['release'], deadline: '2026-10-22', created_at: '2026-10-16T10:00:00Z', updated_at: '2026-10-17T09:00:00Z',
   ...(status === 'blocked' ? { blockedReason: 'Waiting for the permission review. Ask the project owner to confirm access.' } : {}),
 }));
+
+/** Mutable synthetic comments let the browser verify arrivals without touching real work. */
+export const fixtureComments: Comment[] = [{ text: 'The review is ready. Link the checks before closing this item.', timestamp: '2026-10-17T09:00:00Z' }];
+/** Synthetic append-only history displayed by the detail sheet. */
+export const fixtureHistory: HistoryEntry[] = [{ action: 'Created the item', timestamp: '2026-10-16T10:00:00Z' }, { action: 'Linked the release checklist', timestamp: '2026-10-17T09:00:00Z' }];
+/** Requests captured by the synthetic server to prove that stale fields are omitted. */
+export const fixturePatches: Record<string, unknown>[] = [];
+
+/** Apply a synchronous fixture change before emitting its associated SSE notification. */
+export function updateFixtureItem(id: string, patch: Partial<Item>): void {
+  const item = fixtureItems.find(item => item.id === id);
+  if (item) Object.assign(item, patch);
+}
 
 /** Return only synthetic responses for the UI evidence harness. */
 export function fixtureResponse(pathname: string): unknown {
@@ -30,7 +43,7 @@ export function fixtureResponse(pathname: string): unknown {
   ] };
   if (pathname.endsWith('/shares')) return { shares: [{ id: 'fixture-share', user_display_name: 'Alex', user_email: 'reviewer@example.test', permission: 'edit', shared_at: '2026-10-16T10:00:00Z' }] };
   if (pathname === '/api/admin/overview') return { users: [fixtureUser], projects: [{ ...fixtureProject, owner_email: fixtureUser.email }], groups: [], stats: { users: 1, admins: 1, projects: 1, sharedProjects: 1, groups: 0 }, serverVersion: 'fixture' };
-  if (pathname.includes('/comments/')) return { comments: [{ text: 'The review is ready. Link the checks before closing this item.', timestamp: '2026-10-17T09:00:00Z' }] };
-  if (pathname.includes('/history/')) return { history: [{ action: 'Created the item', timestamp: '2026-10-16T10:00:00Z' }, { action: 'Linked the release checklist', timestamp: '2026-10-17T09:00:00Z' }] };
+  if (pathname.includes('/comments/')) return { comments: fixtureComments };
+  if (pathname.includes('/history/')) return { history: fixtureHistory };
   return { notes: [], deps: [], learnings: [], tests: [], files: [], entries: [], groups: [], items: [] };
 }

@@ -1,4 +1,5 @@
 import { showOfflineRecovery } from './offline-recovery.js';
+import { noteOwnItemEdit } from './edit-origin.js';
 
 /** HTTP failure retaining its parsed response for command output displays. */
 export class ApiError extends Error {
@@ -40,6 +41,7 @@ export function csrfTokenFromCookie(cookie = document.cookie): string | undefine
  * typed against the response interface declared in `api-types.ts`.
  */
 export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) noteOwnItemEdit(path);
   const csrfToken = csrfTokenFromCookie();
   const session = typeof navigator !== 'undefined' && 'serviceWorker' in navigator
     ? workerSessions.get(navigator.serviceWorker) : undefined;

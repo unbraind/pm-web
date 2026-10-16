@@ -16,7 +16,7 @@ export async function buildBrand(root: string): Promise<void> {
   const versioned = path.join(output, sha);
   await mkdir(versioned, { recursive: true });
   const present = new Set<string>();
-  for (const name of ['tokens.css', 'fonts.css', 'fonts', 'icons', 'logo']) {
+  for (const name of ['tokens.css', 'fonts.css', 'fonts', 'icons', 'logo', 'LICENSE']) {
     try { await stat(path.join(source, name)); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT' && name !== 'tokens.css') continue; throw error; }
     await cp(path.join(source, name), path.join(versioned, name), { recursive: true });

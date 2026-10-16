@@ -24,7 +24,7 @@ export function statusBadge(s: string): string {
   const labels: Record<string, string> = { in_progress: 'In Progress' };
   const status = String(s || 'unknown');
   const classSuffix = status.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown';
-  return `<span class="status-badge status-${classSuffix}">${escHtml(labels[status] || status)}</span>`;
+  return `<span class="status-badge live-field status-${classSuffix}" data-live-field="status" data-live-value="${escHtml(status)}">${escHtml(labels[status] || status)}</span>`;
 }
 
 /** Render a priority indicator span (P0–P4) whose color class and tooltip

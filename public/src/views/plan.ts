@@ -45,17 +45,10 @@ function stepRef(step: PlanStepPayload): string {
  * text.
  */
 function stepStatusBadge(status?: string): string {
-  const s = (status || 'pending').toLowerCase();
-  const colors: Record<string, string> = {
-    done: 'var(--app-status-closed)',
-    completed: 'var(--app-status-closed)',
-    blocked: 'var(--app-status-blocked)',
-    in_progress: 'var(--status-in-progress)',
-    pending: 'var(--app-text-muted)',
-    open: 'var(--app-accent)',
-  };
-  const color = colors[s] || 'var(--app-text-muted)';
-  return `<span style="font-size:11px;padding:2px 7px;border-radius:var(--pm-radius-sm);background:color-mix(in srgb,${color} 18%,transparent);color:${color};font-weight:600;letter-spacing:.3px">${escHtml(s)}</span>`;
+  const state = (status || 'pending').toLowerCase();
+  const aliases: Record<string, string> = { pending: 'open', done: 'closed', completed: 'closed', 'in-progress': 'in_progress' };
+  const shape = aliases[state] || (['open', 'in_progress', 'blocked', 'closed', 'canceled'].includes(state) ? state : 'open');
+  return `<span class="status-badge status-${shape}">${escHtml(state.replace(/_/g, ' '))}</span>`;
 }
 
 /**
@@ -87,7 +80,7 @@ function renderDependencyHint(analyzed?: AnalyzedPlanStep): string {
     ...analyzed.incompleteDependencies,
     ...analyzed.unresolvedDependencies.map(dep => `${dep} (missing)`),
   ];
-  return `<div style="font-size:12px;color:var(--warning,var(--pm-stamp));margin-top:3px">Waiting on: ${escHtml(blockers.join(', '))}</div>`;
+  return `<div style="font-size:12px;color:var(--pm-graphite,var(--pm-stamp));margin-top:3px">Waiting on: ${escHtml(blockers.join(', '))}</div>`;
 }
 
 /**
@@ -117,7 +110,7 @@ function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): 
     </li>`).join('');
 
   return `
-    <div style="margin-bottom:12px;padding:12px;border:1px solid var(--app-border);border-radius:var(--pm-radius-sm);background:var(--bg-elevated)">
+    <div style="margin-bottom:12px;padding:12px;border:1px solid var(--app-border);border-radius:var(--pm-radius-sm);background:var(--pm-sheet)">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
         <div>
           <div style="font-size:13px;font-weight:600">Execution Focus</div>
@@ -131,7 +124,7 @@ function renderExecutionFocus(planId: string, snapshot: PlanExecutionSnapshot): 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
         ${metricBadge('Complete', `${snapshot.completedSteps}/${snapshot.totalSteps}`, 'var(--app-status-closed)')}
         ${metricBadge('Ready', String(snapshot.readySteps.length), 'var(--app-accent)')}
-        ${metricBadge('Waiting', String(snapshot.waitingSteps.length), 'var(--warning,var(--pm-stamp))')}
+        ${metricBadge('Waiting', String(snapshot.waitingSteps.length), 'var(--pm-graphite,var(--pm-stamp))')}
         ${metricBadge('Blocked', String(snapshot.blockedStepDetails.length), 'var(--app-status-blocked)')}
       </div>
       ${next
@@ -186,7 +179,7 @@ function renderStepRow(step: PlanStepPayload, planId: string, analyzed?: Analyze
         ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.copyPlanNextStepPrompt('${escHtml(planId)}','${escHtml(ref)}')" title="${escHtml(promptTitle)}" ${isBlocked ? 'style="color:var(--app-status-blocked)"' : ''}>⧉</button>` : ''}
         ${!isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.planCompleteStep('${escHtml(planId)}','${escHtml(ref)}')" title="Mark complete">✓</button>` : ''}
         ${!isBlocked && !isDone ? `<button class="btn btn-ghost btn-sm" onclick="window.__app.planBlockStepPrompt('${escHtml(planId)}','${escHtml(ref)}')" title="Block">⊘</button>` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.planRemoveStep('${escHtml(planId)}','${escHtml(ref)}')" title="Remove" style="color:var(--danger,var(--pm-danger))">✕</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.planRemoveStep('${escHtml(planId)}','${escHtml(ref)}')" title="Remove" style="color:var(--pm-danger,var(--pm-danger))">✕</button>
       </div>
     </div>`;
 }
@@ -296,7 +289,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
 
   // Highlight selected in list
   document.querySelectorAll('#plan-list-panel [data-plan-id]').forEach(el => {
-    (el as HTMLElement).style.background = (el as HTMLElement).dataset.planId === planId ? 'var(--bg-elevated)' : '';
+    (el as HTMLElement).style.background = (el as HTMLElement).dataset.planId === planId ? 'var(--pm-sheet)' : '';
   });
 
   const detailEl = document.getElementById('plan-detail-panel');
@@ -371,7 +364,7 @@ export async function openPlanDetail(planId: string): Promise<void> {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-ghost btn-sm';
     deleteBtn.title = 'Delete plan';
-    deleteBtn.style.color = 'var(--danger,var(--pm-danger))';
+    deleteBtn.style.color = 'var(--pm-danger,var(--pm-danger))';
     deleteBtn.textContent = '✕';
     deleteBtn.addEventListener('click', () => planDeletePrompt(planId));
     actions.appendChild(deleteBtn);

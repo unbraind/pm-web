@@ -1572,22 +1572,12 @@ export class GraphCanvas {
     ctx.shadowColor = color;
     ctx.shadowBlur = 0;
 
-    // Radial gradient fill — more vibrant on non-selected nodes than before
-    const grad = ctx.createRadialGradient(x - r * 0.32, y - r * 0.32, r * 0.08, x, y, r);
-    if (selected) {
-      grad.addColorStop(0, hexAlpha(color, 1.0));
-      grad.addColorStop(1, hexAlpha(color, 0.65));
-    } else if (hovered) {
-      grad.addColorStop(0, hexAlpha(color, 0.72));
-      grad.addColorStop(1, hexAlpha(color, 0.28));
-    } else {
-      grad.addColorStop(0, hexAlpha(color, 0.55));
-      grad.addColorStop(1, hexAlpha(color, 0.15));
-    }
-
+    // Solid token fills preserve the same lifecycle grammar as the item sheets.
+    const lifecycle = node.lane === 'item' && (node.status === 'open' || node.status === 'in_progress' || node.status === 'blocked' || node.status === 'closed') ? node.status : 'open';
+    const nodeInk = brandValue(`--pm-status-${lifecycle}-fg`);
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = grad;
+    ctx.fillStyle = brandValue(`--pm-status-${lifecycle}-bg`);
     ctx.fill();
 
     // Stroke — more vivid for all nodes
@@ -1605,7 +1595,7 @@ export class GraphCanvas {
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowBlur = 0;
-      ctx.fillStyle = brandValue('--pm-carbon');
+      ctx.fillStyle = nodeInk;
       ctx.globalAlpha = 1;
       ctx.fillText(abbr, x, y);
     } else if (r >= 11 && node.lane === 'item') {

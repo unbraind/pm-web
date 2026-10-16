@@ -17,6 +17,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { createProjectWatchCycle } from "../src/services/project-watcher.ts";
 import { connectLiveSSE } from "./helpers/live-sse.ts";
+import { pool } from "../src/db.ts";
 
 import {
   authHeaders,
@@ -172,6 +173,29 @@ test("concurrent collaborators update one item without a lost write or malformed
   assert.ok(history.every((entry) => typeof entry === "object" && entry !== null));
   assert.match(historyText, /owner concurrent edit/);
   assert.match(historyText, /editor concurrent edit/);
+});
+
+test("item update SSE adds the authenticated display name while preserving legacy identity fields", async t => {
+  const streams: Awaited<ReturnType<typeof connectLiveSSE>>[] = [];
+  t.after(async () => { await Promise.all(streams.map(stream => stream.close())); });
+  const { harness, server } = await setupCollabTest(t);
+  const itemId = await createItem(server, harness.owner, harness.projectId, "Attributed copy");
+  const observer = await connectLiveSSE(server, harness.owner, harness.projectId);
+  streams.push(observer);
+  const response = await authedFetch(server, harness.editor, `/api/projects/${harness.projectId}/pm/update/${itemId}`, {
+    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Another editor's copy", author: "Untrusted display override" }),
+  });
+  assert.equal(response.status, 200, await response.text());
+  await observer.waitFor(events => events.some(event => event.type === "item-updated" && event.data.itemId === itemId));
+  const event = observer.events.find(event => event.type === "item-updated" && event.data.itemId === itemId)!;
+  assert.deepEqual(event.data, { itemId, userId: harness.editor.id, author: "Editor" });
+  await pool.query("UPDATE pm_users SET display_name = NULL WHERE id = $1", [harness.editor.id]);
+  const second = await authedFetch(server, harness.editor, `/api/projects/${harness.projectId}/pm/update/${itemId}`, {
+    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ description: "Fallback attribution" }),
+  });
+  assert.equal(second.status, 200);
+  await observer.waitFor(events => events.filter(event => event.type === "item-updated").length === 2);
+  assert.equal(observer.events.filter(event => event.type === "item-updated").at(-1)!.data.author, "Project member");
 });
 
 /** Open owner/editor wire streams with their cleanup registered before server teardown. */

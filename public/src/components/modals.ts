@@ -47,9 +47,7 @@ export function hideModal(id: string): void {
 /** Hide every modal backdrop element in the document by setting each to
  * display none. */
 export function closeAllModals(): void {
-  document.querySelectorAll('.modal-backdrop').forEach(m => {
-    (m as HTMLElement).style.display = 'none';
-  });
+  [...document.querySelectorAll<HTMLElement>('.modal-backdrop')].filter(modal => modal.style.display !== 'none').reverse().forEach(modal => hideModal(modal.id));
 }
 
 /** Build (or rebuild) a modal element with the given id, title, body, and

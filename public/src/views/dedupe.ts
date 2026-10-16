@@ -3,7 +3,8 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, typeIcon, statusBadge } from '../utils.js';
+import { escHtml } from '../utils.js';
+import { renderItemRow } from './items.js';
 import type { DedupeResponse, DedupeGroup } from '../api-types.js';
 
 /** Renders the dedupe audit for the current project, showing each group of potential duplicate items with a similarity score and clickable member rows. */
@@ -29,12 +30,7 @@ export async function renderDedupeAuditView(): Promise<void> {
         <div class="card" style="margin-bottom:12px">
           <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--app-text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
           <div class="card-body">
-            ${(g.items||[]).map((raw)=>`
-              <div class="item-row" onclick="window.__app.openItemDetail('${escHtml(typeof raw === 'string' ? raw : (raw.id||''))}')" style="cursor:pointer">
-                ${typeIcon(typeof raw === 'object' ? (raw.type||'') : '')} <span class="item-id">${escHtml(typeof raw === 'string' ? raw : (raw.id||''))}</span>
-                <span class="item-title">${escHtml(typeof raw === 'object' ? (raw.title||'') : '')}</span>
-                <div class="item-meta">${statusBadge(typeof raw === 'object' ? (raw.status||'draft') : 'draft')}</div>
-              </div>`).join('')}
+            ${(g.items || []).map(raw => renderItemRow(typeof raw === 'string' ? { id: raw, title: 'Open this item' } : { ...raw, id: raw.id || '', title: raw.title || 'Open this item' })).join('')}
           </div>
         </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--app-text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
     }

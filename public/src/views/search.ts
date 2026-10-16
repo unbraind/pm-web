@@ -33,7 +33,7 @@ export function renderSearchView(): void {
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
       <div style="display:flex;gap:4px;background:var(--app-bg-input);border:1px solid var(--app-border);border-radius:var(--app-radius);padding:3px">
-        ${modeOpts.map(m=>`<button class="btn btn-sm" style="padding:4px 10px;border-radius:var(--pm-radius-sm);font-size:12px;transition:var(--transition);${state.searchMode===m.val?'background:var(--app-bg-card);color:var(--app-text-primary)':'background:transparent;color:var(--app-text-muted)'}" onclick="window.__app.setSearchMode('${m.val}')" title="${m.tip}">${m.label}</button>`).join('')}
+        ${modeOpts.map(m=>`<button class="btn btn-sm" style="padding:4px 10px;border-radius:var(--pm-radius-sm);font-size:12px;transition:none;${state.searchMode===m.val?'background:var(--app-bg-card);color:var(--app-text-primary)':'background:transparent;color:var(--app-text-muted)'}" onclick="window.__app.setSearchMode('${m.val}')" title="${m.tip}">${m.label}</button>`).join('')}
       </div>
       <span id="reindex-capability"><button class="btn btn-secondary btn-sm" disabled>Checking reindex availability…</button></span>
       <span style="font-size:11px;color:var(--app-text-muted)">Semantic powered by Ollama qwen3</span>
