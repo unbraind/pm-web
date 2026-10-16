@@ -21,7 +21,8 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FLEET_SNAPSHOT_PATH, readFleetExtensions } from "../src/services/fleet-snapshot.ts";
+import { FLEET_SNAPSHOT_PATH, FLEET_NATIVE_COMMANDS_PATH, readFleetExtensions } from "../src/services/fleet-snapshot.ts";
+import { readFleetCommandMetadata, readNativeFleetCommands } from "./read-fleet-commands.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fleetRoot = process.env["PM_FLEET_ROOT"]
@@ -71,8 +72,11 @@ function npmServes(name: string): boolean | null {
   }
 }
 
+const commands = await readFleetCommandMetadata(fleetRoot, extensions.map((extension) => extension.name));
+const nativeCommands = { "pm-rust": readNativeFleetCommands(fleetRoot) };
 const withRegistry = extensions.map((extension) => ({
   ...extension,
+  commands: commands.get(extension.name)!,
   npmPublished: npmServes(extension.name),
 }));
 const unreachable = withRegistry.filter((extension) => extension.npmPublished === null);
@@ -89,4 +93,5 @@ if (unreachable.length > 0) {
 
 const target = path.join(packageRoot, FLEET_SNAPSHOT_PATH);
 writeFileSync(target, `${JSON.stringify(withRegistry, null, 2)}\n`, "utf8");
+writeFileSync(path.join(packageRoot, FLEET_NATIVE_COMMANDS_PATH), `${JSON.stringify(nativeCommands, null, 2)}\n`, "utf8");
 console.log(`Wrote ${withRegistry.length} fleet extensions to ${target}`);

@@ -17,6 +17,8 @@
  */
 /** Repository-relative location of the committed fleet snapshot. */
 export declare const FLEET_SNAPSHOT_PATH = "test/fleet-extensions.snapshot.json";
+/** Repository-relative command receipt for the independent native package. */
+export declare const FLEET_NATIVE_COMMANDS_PATH = "test/fleet-native-commands.snapshot.json";
 /**
  * A directory the derivation could not read as it expected.
  *
@@ -70,6 +72,8 @@ export interface LocalFleetExtension {
 }
 /** One fleet extension as the committed snapshot records it. */
 export interface FleetExtension extends LocalFleetExtension {
+    /** Sorted executable paths from the package's SDK registration metadata, including importer/exporter handlers. */
+    commands: string[];
     /**
      * Whether the npm registry actually serves this package.
      *

@@ -1,7 +1,7 @@
 [
   {
     "name": "pm-ado",
-    "description": "Azure DevOps client foundation for pm-cli. Its work-item updates assert System.Rev, batch reads surface missing items, and same-organization typed relations map to pm links. Full sync commands and revision-to-history reconciliation are planned.",
+    "description": "Azure DevOps import, export and sync through the pm SDK, with revision-checked updates, per-field three-way reconciliation and typed relations. Offline REST acceptance is implemented; live Azure acceptance is pending credentials.",
     "packageDescription": "Azure DevOps work-item sync for pm-cli, with revision-checked writes so concurrent agents cannot clobber each other",
     "capabilities": [
       "commands",
@@ -11,6 +11,12 @@
       "schema"
     ],
     "publishable": false,
+    "commands": [
+      "pm ado export",
+      "pm ado import",
+      "pm ado sync",
+      "pm ado validate"
+    ],
     "npmPublished": false
   },
   {
@@ -23,6 +29,16 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm beads diff",
+      "pm beads export",
+      "pm beads import",
+      "pm beads validate",
+      "pm beads-diff",
+      "pm beads-export",
+      "pm beads-import",
+      "pm beads-validate"
+    ],
     "npmPublished": true
   },
   {
@@ -35,6 +51,17 @@
       "services"
     ],
     "publishable": true,
+    "commands": [
+      "pm brief",
+      "pm brief diverge",
+      "pm brief duplicates",
+      "pm brief governance",
+      "pm brief momentum",
+      "pm brief next",
+      "pm brief prompt",
+      "pm brief since",
+      "pm brief stale"
+    ],
     "npmPublished": true
   },
   {
@@ -48,6 +75,10 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm changelog export",
+      "pm changelog generate"
+    ],
     "npmPublished": true
   },
   {
@@ -60,6 +91,11 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm context-handoff",
+      "pm context-pack",
+      "pm context-usage"
+    ],
     "npmPublished": true
   },
   {
@@ -72,6 +108,13 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm csv export",
+      "pm csv import",
+      "pm csv validate",
+      "pm csv-export export",
+      "pm csv-import import"
+    ],
     "npmPublished": true
   },
   {
@@ -85,6 +128,10 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm gantt",
+      "pm gantt export"
+    ],
     "npmPublished": true
   },
   {
@@ -100,6 +147,20 @@
       "search"
     ],
     "publishable": true,
+    "commands": [
+      "pm gh-issues import",
+      "pm github blockers",
+      "pm github closeout",
+      "pm github export",
+      "pm github gate",
+      "pm github import",
+      "pm github project fields",
+      "pm github project import",
+      "pm github project list",
+      "pm github project sync",
+      "pm github sync",
+      "pm github validate"
+    ],
     "npmPublished": true
   },
   {
@@ -112,11 +173,28 @@
       "services"
     ],
     "publishable": true,
+    "commands": [
+      "pm graph-export export",
+      "pm pm-graph analyze",
+      "pm pm-graph critical-path",
+      "pm pm-graph cycles",
+      "pm pm-graph cypher",
+      "pm pm-graph explain",
+      "pm pm-graph export",
+      "pm pm-graph impact",
+      "pm pm-graph neighbors",
+      "pm pm-graph path",
+      "pm pm-graph ping",
+      "pm pm-graph query",
+      "pm pm-graph status",
+      "pm pm-graph sync",
+      "pm pm-graph topo-sort"
+    ],
     "npmPublished": true
   },
   {
     "name": "pm-jev",
-    "description": "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev ask, jev gate, jev models, jev doctor.",
+    "description": "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev link, jev ask, jev gate, jev models, jev doctor.",
     "packageDescription": "Typed, local-first System One decisions for pm-cli items (Jev-style models via @typesafe-ai/sdk)",
     "capabilities": [
       "commands",
@@ -124,6 +202,15 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm jev ask",
+      "pm jev dedupe",
+      "pm jev doctor",
+      "pm jev gate",
+      "pm jev link",
+      "pm jev models",
+      "pm jev triage"
+    ],
     "npmPublished": false
   },
   {
@@ -138,6 +225,13 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm jira export",
+      "pm jira import",
+      "pm jira sync",
+      "pm jira validate",
+      "pm jira-sync import"
+    ],
     "npmPublished": true
   },
   {
@@ -151,6 +245,13 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm linear export",
+      "pm linear import",
+      "pm linear sync",
+      "pm linear validate",
+      "pm linear-sync import"
+    ],
     "npmPublished": true
   },
   {
@@ -162,6 +263,10 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm lint",
+      "pm lint rules"
+    ],
     "npmPublished": false
   },
   {
@@ -176,6 +281,18 @@
       "services"
     ],
     "publishable": true,
+    "commands": [
+      "pm ops audit",
+      "pm ops docstrings",
+      "pm ops merge-receipts",
+      "pm ops metrics",
+      "pm ops outdated",
+      "pm ops policy",
+      "pm ops report",
+      "pm ops scan",
+      "pm ops status",
+      "pm ops verify-release"
+    ],
     "npmPublished": true
   },
   {
@@ -187,6 +304,25 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm agent-setup",
+      "pm indie-setup",
+      "pm kanban-setup",
+      "pm oss-setup",
+      "pm presets",
+      "pm presets apply",
+      "pm presets diff",
+      "pm presets export",
+      "pm presets list",
+      "pm presets show",
+      "pm presets validate",
+      "pm roadmap-setup",
+      "pm sprint-setup",
+      "pm templates",
+      "pm templates list",
+      "pm templates show",
+      "pm triage-setup"
+    ],
     "npmPublished": true
   },
   {
@@ -198,6 +334,16 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm review find",
+      "pm review import",
+      "pm review precedents",
+      "pm review reconcile",
+      "pm review respond",
+      "pm review round",
+      "pm review status",
+      "pm review verdict"
+    ],
     "npmPublished": false
   },
   {
@@ -210,6 +356,37 @@
       "schema"
     ],
     "publishable": false,
+    "commands": [
+      "pm rl benchmark register",
+      "pm rl compare",
+      "pm rl env list",
+      "pm rl env register",
+      "pm rl env show",
+      "pm rl episode env register",
+      "pm rl episode record",
+      "pm rl episode replay",
+      "pm rl eval record",
+      "pm rl generation promote",
+      "pm rl generation register",
+      "pm rl generation show",
+      "pm rl invalidate",
+      "pm rl leaderboard",
+      "pm rl lineage",
+      "pm rl loop resume",
+      "pm rl loop run",
+      "pm rl loop status",
+      "pm rl outcome record",
+      "pm rl run finish",
+      "pm rl run log",
+      "pm rl run show",
+      "pm rl run start",
+      "pm rl run verify",
+      "pm rl simreal gap",
+      "pm rl sweep plan",
+      "pm rl sweep status",
+      "pm rl transfer gap",
+      "pm rl transfer record"
+    ],
     "npmPublished": false
   },
   {
@@ -223,6 +400,11 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm slack digest",
+      "pm slack notify",
+      "pm slack test"
+    ],
     "npmPublished": true
   },
   {
@@ -237,6 +419,11 @@
       "services"
     ],
     "publishable": true,
+    "commands": [
+      "pm slack-standup",
+      "pm standup",
+      "pm standup export"
+    ],
     "npmPublished": true
   },
   {
@@ -255,6 +442,17 @@
       "services"
     ],
     "publishable": true,
+    "commands": [
+      "pm starter context",
+      "pm starter demo",
+      "pm starter greet",
+      "pm starter plan",
+      "pm starter search",
+      "pm starter setup",
+      "pm starter summary",
+      "pm starter-demo export",
+      "pm starter-demo import"
+    ],
     "npmPublished": true
   },
   {
@@ -266,6 +464,15 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm swarm land",
+      "pm swarm plan",
+      "pm swarm reap",
+      "pm swarm settings",
+      "pm swarm start",
+      "pm swarm status",
+      "pm swarm sync"
+    ],
     "npmPublished": false
   },
   {
@@ -279,6 +486,14 @@
       "schema"
     ],
     "publishable": true,
+    "commands": [
+      "pm todos context",
+      "pm todos export",
+      "pm todos import",
+      "pm todos sync",
+      "pm todos validate",
+      "pm todos-import import"
+    ],
     "npmPublished": true
   },
   {
@@ -297,6 +512,17 @@
       "services"
     ],
     "publishable": true,
+    "commands": [
+      "pm hello",
+      "pm ts-starter context-demo",
+      "pm ts-starter history-compact-demo",
+      "pm ts-starter info",
+      "pm ts-starter plan-demo",
+      "pm ts-starter search-demo",
+      "pm ts-starter setup",
+      "pm ts-starter-demo export",
+      "pm ts-starter-demo import"
+    ],
     "npmPublished": true
   },
   {
@@ -308,6 +534,65 @@
       "schema"
     ],
     "publishable": false,
+    "commands": [
+      "pm vcs add",
+      "pm vcs authority",
+      "pm vcs branch",
+      "pm vcs changes",
+      "pm vcs cherry-pick",
+      "pm vcs clone",
+      "pm vcs commit",
+      "pm vcs describe",
+      "pm vcs diff",
+      "pm vcs export",
+      "pm vcs fetch",
+      "pm vcs files",
+      "pm vcs gc",
+      "pm vcs git items",
+      "pm vcs git preflight",
+      "pm vcs git preview",
+      "pm vcs import",
+      "pm vcs init",
+      "pm vcs instance",
+      "pm vcs instance prune-retired",
+      "pm vcs items",
+      "pm vcs layer",
+      "pm vcs lease",
+      "pm vcs link",
+      "pm vcs link resolve",
+      "pm vcs log",
+      "pm vcs merge",
+      "pm vcs obliterate",
+      "pm vcs oplog",
+      "pm vcs push",
+      "pm vcs rebase",
+      "pm vcs recover-lock",
+      "pm vcs remote",
+      "pm vcs reset",
+      "pm vcs restore",
+      "pm vcs revert",
+      "pm vcs review fetch",
+      "pm vcs review list",
+      "pm vcs review update",
+      "pm vcs scan",
+      "pm vcs series apply",
+      "pm vcs series create",
+      "pm vcs series fetch",
+      "pm vcs series list",
+      "pm vcs series push",
+      "pm vcs series rederive",
+      "pm vcs serve",
+      "pm vcs show",
+      "pm vcs split",
+      "pm vcs squash",
+      "pm vcs status",
+      "pm vcs switch",
+      "pm vcs tag",
+      "pm vcs trace",
+      "pm vcs undo",
+      "pm vcs verify",
+      "pm vcs view"
+    ],
     "npmPublished": false
   }
 ]

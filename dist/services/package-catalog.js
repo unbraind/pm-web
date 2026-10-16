@@ -53,11 +53,11 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-ado",
         npmName: "pm-ado",
-        commands: ["pm ado validate"],
+        commands: ["pm ado validate", "pm ado import", "pm ado export", "pm ado sync"],
         links: { "docs": "https://github.com/unbraind/pm-ado#readme", "repository": "https://github.com/unbraind/pm-ado", "report": "https://github.com/unbraind/pm-ado/issues" },
         npmSpec: "npm:pm-ado",
         title: "Azure DevOps",
-        description: "Azure DevOps client foundation for pm-cli. Its work-item updates assert System.Rev, batch reads surface missing items, and same-organization typed relations map to pm links. Full sync commands and revision-to-history reconciliation are planned.",
+        description: "Azure DevOps import, export and sync through the pm SDK, with revision-checked updates, per-field three-way reconciliation and typed relations. Offline REST acceptance is implemented; live Azure acceptance is pending credentials.",
         capabilities: ["commands", "schema", "importers", "hooks", "preflight"],
         category: "extension",
         // Release-gated behind vars.PM_RELEASE_APPROVED and absent from npm, so no
@@ -119,7 +119,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-csv",
         npmName: "pm-csv",
-        commands: ["pm csv import", "pm csv export", "pm csv validate", "pm csv-export export"],
+        commands: ["pm csv import", "pm csv export", "pm csv validate", "pm csv-export export", "pm csv-import import"],
         links: { "docs": "https://github.com/unbraind/pm-csv#readme", "npm": "https://www.npmjs.com/package/pm-csv", "repository": "https://github.com/unbraind/pm-csv", "report": "https://github.com/unbraind/pm-csv/issues" },
         npmSpec: "npm:pm-csv",
         title: "CSV",
@@ -141,7 +141,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-github",
         npmName: "pm-github",
-        commands: ["pm github import", "pm github export", "pm github sync", "pm github validate", "pm github gate", "pm github project list", "pm github project fields", "pm github project import", "pm github project sync"],
+        commands: ["pm github import", "pm github export", "pm github sync", "pm github validate", "pm github gate", "pm github project list", "pm github project fields", "pm github project import", "pm github project sync", "pm gh-issues import", "pm github blockers", "pm github closeout"],
         links: { "docs": "https://github.com/unbraind/pm-github#readme", "npm": "https://www.npmjs.com/package/pm-github", "repository": "https://github.com/unbraind/pm-github", "report": "https://github.com/unbraind/pm-github/issues" },
         npmSpec: "npm:pm-github",
         title: "GitHub",
@@ -159,11 +159,11 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-jev",
         npmName: "pm-jev",
-        commands: ["pm jev triage", "pm jev dedupe", "pm jev ask", "pm jev gate", "pm jev models", "pm jev doctor"],
+        commands: ["pm jev triage", "pm jev dedupe", "pm jev link", "pm jev ask", "pm jev gate", "pm jev models", "pm jev doctor"],
         links: { "docs": "https://github.com/unbraind/pm-jev#readme", "repository": "https://github.com/unbraind/pm-jev", "report": "https://github.com/unbraind/pm-jev/issues" },
         npmSpec: "npm:pm-jev",
         title: "Jev",
-        description: "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev ask, jev gate, jev models, jev doctor.",
+        description: "Typed, local-first System One decisions for pm items: batched choice/score/noul questions over a least-privilege item projection, answered by a local Ollama tev1 model by default or TypeSafe's hosted Jev behind an explicit privacy opt-in. Decisions are proposals: nothing is mutated unless --apply clears a configured probability threshold, and every applied proposal records a redacted receipt comment. Commands: jev triage, jev dedupe, jev link, jev ask, jev gate, jev models, jev doctor.",
         capabilities: ["commands", "hooks", "schema"],
         category: "extension",
         availability: "unreleased",
@@ -177,7 +177,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-jira",
         npmName: "pm-jira",
-        commands: ["pm jira sync", "pm jira import", "pm jira export", "pm jira validate"],
+        commands: ["pm jira sync", "pm jira import", "pm jira export", "pm jira validate", "pm jira-sync import"],
         links: { "docs": "https://github.com/unbraind/pm-jira#readme", "npm": "https://www.npmjs.com/package/pm-jira", "repository": "https://github.com/unbraind/pm-jira", "report": "https://github.com/unbraind/pm-jira/issues" },
         npmSpec: "npm:pm-jira",
         title: "Jira",
@@ -194,7 +194,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-linear",
         npmName: "pm-linear",
-        commands: ["pm linear sync", "pm linear import", "pm linear export", "pm linear validate"],
+        commands: ["pm linear sync", "pm linear import", "pm linear export", "pm linear validate", "pm linear-sync import"],
         links: { "docs": "https://github.com/unbraind/pm-linear#readme", "npm": "https://www.npmjs.com/package/pm-linear", "repository": "https://github.com/unbraind/pm-linear", "report": "https://github.com/unbraind/pm-linear/issues" },
         npmSpec: "npm:pm-linear",
         title: "Linear",
@@ -211,7 +211,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-ops",
         npmName: "pm-ops",
-        commands: ["pm ops scan", "pm ops policy", "pm ops verify-release", "pm ops report", "pm ops status", "pm ops outdated", "pm ops audit", "pm ops metrics"],
+        commands: ["pm ops scan", "pm ops policy", "pm ops verify-release", "pm ops report", "pm ops status", "pm ops outdated", "pm ops audit", "pm ops metrics", "pm ops docstrings", "pm ops merge-receipts"],
         links: { "docs": "https://github.com/unbraind/pm-ops#readme", "npm": "https://www.npmjs.com/package/pm-ops", "repository": "https://github.com/unbraind/pm-ops", "report": "https://github.com/unbraind/pm-ops/issues" },
         npmSpec: "npm:pm-ops",
         title: "Ops",
@@ -222,7 +222,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-presets",
         npmName: "pm-presets",
-        commands: ["pm presets", "pm presets list", "pm presets show", "pm presets diff", "pm presets validate", "pm presets apply", "pm presets export"],
+        commands: ["pm presets", "pm presets list", "pm presets show", "pm presets diff", "pm presets validate", "pm presets apply", "pm presets export", "pm agent-setup", "pm indie-setup", "pm kanban-setup", "pm oss-setup", "pm roadmap-setup", "pm sprint-setup", "pm templates", "pm templates list", "pm templates show", "pm triage-setup"],
         links: { "docs": "https://github.com/unbraind/pm-presets#readme", "npm": "https://www.npmjs.com/package/pm-presets", "repository": "https://github.com/unbraind/pm-presets", "report": "https://github.com/unbraind/pm-presets/issues" },
         npmSpec: "npm:pm-presets",
         title: "Presets",
@@ -267,7 +267,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-todos",
         npmName: "pm-todos",
-        commands: ["pm todos import", "pm todos export", "pm todos sync", "pm todos context", "pm todos validate"],
+        commands: ["pm todos import", "pm todos export", "pm todos sync", "pm todos context", "pm todos validate", "pm todos-import import"],
         links: { "docs": "https://github.com/unbraind/pm-todos#readme", "npm": "https://www.npmjs.com/package/pm-todos", "repository": "https://github.com/unbraind/pm-todos", "report": "https://github.com/unbraind/pm-todos/issues" },
         npmSpec: "npm:pm-todos",
         title: "Todos",
@@ -320,7 +320,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-vcs",
         npmName: "pm-vcs",
-        commands: ["pm vcs init", "pm vcs status", "pm vcs add", "pm vcs commit", "pm vcs log", "pm vcs diff", "pm vcs branch", "pm vcs switch", "pm vcs merge", "pm vcs tag", "pm vcs undo", "pm vcs oplog", "pm vcs export", "pm vcs import", "pm vcs remote", "pm vcs clone", "pm vcs fetch", "pm vcs push", "pm vcs serve", "pm vcs verify", "pm vcs trace", "pm vcs files", "pm vcs changes", "pm vcs items", "pm vcs authority", "pm vcs layer", "pm vcs layer local", "pm vcs link", "pm vcs link resolve", "pm vcs obliterate", "pm vcs recover-lock", "pm vcs git items", "pm vcs git preflight", "pm vcs git preview"],
+        commands: ["pm vcs init", "pm vcs status", "pm vcs add", "pm vcs commit", "pm vcs log", "pm vcs diff", "pm vcs branch", "pm vcs switch", "pm vcs merge", "pm vcs tag", "pm vcs undo", "pm vcs oplog", "pm vcs export", "pm vcs import", "pm vcs remote", "pm vcs clone", "pm vcs fetch", "pm vcs push", "pm vcs serve", "pm vcs verify", "pm vcs trace", "pm vcs files", "pm vcs changes", "pm vcs items", "pm vcs authority", "pm vcs layer", "pm vcs layer local", "pm vcs link", "pm vcs link resolve", "pm vcs obliterate", "pm vcs recover-lock", "pm vcs git items", "pm vcs git preflight", "pm vcs git preview", "pm vcs cherry-pick", "pm vcs describe", "pm vcs gc", "pm vcs instance", "pm vcs instance prune-retired", "pm vcs lease", "pm vcs rebase", "pm vcs reset", "pm vcs restore", "pm vcs revert", "pm vcs review fetch", "pm vcs review list", "pm vcs review update", "pm vcs scan", "pm vcs series apply", "pm vcs series create", "pm vcs series fetch", "pm vcs series list", "pm vcs series push", "pm vcs series rederive", "pm vcs show", "pm vcs split", "pm vcs squash", "pm vcs view"],
         links: { "docs": "https://github.com/unbraind/pm-vcs#readme", "repository": "https://github.com/unbraind/pm-vcs", "report": "https://github.com/unbraind/pm-vcs/issues" },
         npmSpec: "npm:pm-vcs",
         title: "VCS",
@@ -377,7 +377,7 @@ export const PACKAGE_CATALOG = [
     {
         name: "pm-review",
         npmName: "pm-review",
-        commands: ["pm review find", "pm review import", "pm review verdict", "pm review round", "pm review precedents"],
+        commands: ["pm review find", "pm review import", "pm review verdict", "pm review round", "pm review precedents", "pm review reconcile", "pm review respond", "pm review status"],
         links: { "docs": "https://github.com/unbraind/pm-review#readme", "repository": "https://github.com/unbraind/pm-review", "report": "https://github.com/unbraind/pm-review/issues" },
         npmSpec: "npm:pm-review",
         title: "Review",
@@ -403,7 +403,7 @@ export const PACKAGE_CATALOG = [
         title: "Rust native CLI",
         description: "Independent Rust-native implementation of public pm workspace contracts",
         capabilities: [],
-        commands: ["pm-rust list", "pm-rust get", "pm-rust create", "pm-rust update", "pm-rust comment", "pm-rust close"],
+        commands: ["pm-rust list", "pm-rust get", "pm-rust create", "pm-rust update", "pm-rust comment", "pm-rust close", "pm-rust claim", "pm-rust release"],
         category: "native",
         availability: "unreleased",
         unavailableReason: "pm-rust is a pre-release native CLI, not an npm extension. It cannot be installed or enabled in a project by pm-web; see its documentation for native setup and supported workspace contracts.",

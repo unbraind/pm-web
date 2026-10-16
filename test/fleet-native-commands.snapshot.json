@@ -1,0 +1,12 @@
+{
+  "pm-rust": [
+    "pm-rust claim",
+    "pm-rust close",
+    "pm-rust comment",
+    "pm-rust create",
+    "pm-rust get",
+    "pm-rust list",
+    "pm-rust release",
+    "pm-rust update"
+  ]
+}

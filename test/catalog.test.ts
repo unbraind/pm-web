@@ -14,6 +14,7 @@ import {
 import { FLEET_PACKAGE_REPOS } from "./fleet-package-repos.fixture.ts";
 import {
   FLEET_SNAPSHOT_PATH,
+  FLEET_NATIVE_COMMANDS_PATH,
   type FleetExtension,
   type LocalFleetExtension,
   readFleetExtensions,
@@ -98,11 +99,12 @@ test("pm-swarm exposes its seven workflow commands as an unreleased product exte
   assert.equal(resolveNpmSpec(entry.name), null, "unreleased Swarm must never resolve an install target");
 });
 
-test("pm-review catalog exposes all five commands registered on main", () => {
+test("pm-review catalog exposes all eight commands registered on main", () => {
   const entry = findCatalogEntry("pm-review");
   assert.ok(entry);
   assert.deepEqual([...(entry.commands ?? [])].sort(), [
-    "pm review find", "pm review import", "pm review precedents", "pm review round", "pm review verdict",
+    "pm review find", "pm review import", "pm review precedents", "pm review reconcile",
+    "pm review respond", "pm review round", "pm review status", "pm review verdict",
   ]);
 });
 
@@ -393,6 +395,24 @@ test("the catalog covers every fleet extension in the committed snapshot", () =>
   }
 });
 
+test("catalog commands match every package's declared command metadata in the snapshot", () => {
+  const native = JSON.parse(readFileSync(FLEET_NATIVE_COMMANDS_PATH, "utf8")) as Record<string, string[]>;
+  assert.deepEqual(Object.keys(native).sort(), PACKAGE_CATALOG.filter((entry) => entry.category === "native").map((entry) => entry.name).sort());
+  for (const entry of PACKAGE_CATALOG) {
+    const commands = entry.category === "native" ? native[entry.name]
+      : fleetSnapshot.find((extension) => extension.name === entry.name)?.commands;
+    assert.ok(commands?.length, `${entry.name}: snapshot must contain command declarations`);
+    // VCS documents this nested path under its registered `vcs layer` dispatcher.
+    const expected = [...commands];
+    if (entry.name === "pm-vcs") {
+      assert.ok(expected.includes("pm vcs layer"), "nested VCS path requires its declared dispatcher");
+      expected.push("pm vcs layer local");
+    }
+    assert.deepEqual([...entry.commands].sort(), expected.sort(),
+      `${entry.name}: catalog commands drifted from package declarations; regenerate with npm run fleet:snapshot`);
+  }
+});
+
 test("the committed snapshot still matches the live fleet, and the fleet is readable", () => {
   const { extensions: live, problems } = readFleetExtensions(FLEET_ROOT, {
     existsSync,
@@ -414,7 +434,7 @@ test("the committed snapshot still matches the live fleet, and the fleet is read
   // network on every test run or would report a false mismatch offline.
   assert.deepEqual(
     live,
-    fleetSnapshot.map(({ npmPublished: _npmPublished, ...local }) => local),
+    fleetSnapshot.map(({ npmPublished: _npmPublished, commands: _commands, ...local }) => local),
     "the fleet has changed since the snapshot was generated, so the gate above is now checking "
       + "the catalog against a stale list - regenerate with `npm run fleet:snapshot` and commit it",
   );
