@@ -1,3 +1,4 @@
+import { requireMaintenanceCapability } from './maintenance.js';
 // ═══════════════════════════════════════════════════════════════
 // COMMENTS AUDIT VIEW
 // ═══════════════════════════════════════════════════════════════
@@ -26,6 +27,8 @@ export async function renderCommentsAuditView(): Promise<void> {
     </div>
     <div id="comments-audit-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
   try {
+    const target = document.getElementById('comments-audit-content');
+    if (!target || !await requireMaintenanceCapability(target, 'comments-audit')) return;
     const data = await api<CommentsAuditResponse>('GET', `/projects/${state.currentProject.id}/pm/comments-audit`);
     const items: CommentsAuditItem[] = data.items || [];
     const summary: CommentsAuditSummary = data.summary || {};

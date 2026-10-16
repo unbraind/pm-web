@@ -283,15 +283,16 @@ test("maintenance and static command routes operate on the real workspace and re
     assert.ok(Object.keys(payload).length > 0);
   }
   for (const [route, method, body, status, provider] of [
-    ["comments-audit", "GET", undefined, 200, "pm-governance-audit"],
-    ["normalize", "POST", {}, 200, "pm-governance-audit"],
-    ["reindex", "POST", { mode: "keyword" }, 400, "pm-search-advanced"],
+    ["comments-audit", "GET", undefined, 424, "pm-governance-audit"],
+    ["normalize", "POST", {}, 424, "pm-governance-audit"],
+    ["reindex", "POST", { mode: "keyword" }, 424, "pm-search-advanced"],
   ] as const) {
     const unavailable = await f.request(f.owner, route, method, body);
     assert.equal(unavailable.status, status);
-    const refusal = await unavailable.json() as { error: string };
-    assert.match(refusal.error, /Unknown command/);
-    assert.ok(refusal.error.includes(provider));
+    const refusal = await unavailable.json() as { error: string; code: string; provider: string; hint: string };
+    assert.equal(refusal.code, "provider_unavailable");
+    assert.equal(refusal.provider, provider);
+    assert.match(refusal.hint, /Packages/);
   }
   const listed = await f.request(f.owner, "list-all");
   assert.deepEqual((await listed.json() as { items: Array<{ id: string }> }).items.map((item) => item.id), [f.id]);

@@ -161,6 +161,22 @@ show an explanation instead of an Install button; the independent native
 `pm-rust` CLI links to native setup and has no npm install spec. See the
 [fleet package catalog and HTTP acceptance](docs/fleet-package-catalog.md).
 
+Comments Audit and Normalize require `pm-governance-audit`; Reindex (including
+keyword mode) requires `pm-search-advanced`. Both ship as optional bundled
+aliases with the pinned CLI. Owners and editors can install or enable them in
+**Packages** for each project. Existing projects are never provisioned automatically.
+Unavailable actions show a disabled control and package guidance; viewers see
+guidance to ask an owner or editor, without an install action.
+
+`GET /api/projects/:projectId/extensions` includes `maintenance` availability and
+`canManagePackages`. Each action reports `available`, `provider`, `hint`, and an
+editor-only `installAction` pointing to the existing project package install API.
+Maintenance routes refuse missing providers with HTTP 424 and
+`code: "provider_unavailable"` in the usual JSON error envelope. Command ownership
+comes from the SDK package view, cached per project for five seconds and invalidated
+after package mutations. A failed capability read refuses execution with HTTP 503.
+Existing view-only mutation refusals remain HTTP 403.
+
 Saved GitHub personal access tokens are encrypted at rest before they are written to PostgreSQL. Existing plaintext tokens from older installs still work when read, and are replaced with encrypted values the next time the user saves a token.
 
 Latency-bounded native pm operations run through the typed `PmClient` SDK in the
