@@ -1,6 +1,6 @@
 {
   "head": "0e8ba11af09343e1788ab399b455d88a498c0335",
-  "status": "pending",
+  "status": "pass",
   "acceptance": "Exact-head CI npm and Bun release gates on Node 22 and 26",
   "localAttempts": [
     {
@@ -32,5 +32,158 @@
     "onlyOptionalGitChecksumRemoved": "pass",
     "separateFreshCaches": true,
     "scriptsEnabled": true
-  }
+  },
+  "ciRun": "https://github.com/unbraind/pm-web/actions/runs/38995652787",
+  "gates": [
+    {
+      "node": 22,
+      "command": "npm run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 95.22,
+        "lines": 92.51
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38995652787/job/117287514447"
+    },
+    {
+      "node": 22,
+      "command": "bun run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 95.22,
+        "lines": 92.51
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38995652787/job/117287514447"
+    },
+    {
+      "node": 26,
+      "command": "npm run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 96.12,
+        "lines": 92.51
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38995652787/job/117287514725"
+    },
+    {
+      "node": 26,
+      "command": "bun run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 96.12,
+        "lines": 92.51
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38995652787/job/117287514725"
+    }
+  ],
+  "coverageMinima": {
+    "statements": 92.51,
+    "branches": 81.48,
+    "functions": 95.22,
+    "lines": 92.51
+  },
+  "coverageFloors": {
+    "statements": 92.07,
+    "lines": 92.07,
+    "branches": 80.5,
+    "functions": 94.59
+  },
+  "runtimeGitDependencies": 0,
+  "scriptsEnabled": true
 }

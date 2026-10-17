@@ -21,3 +21,7 @@ head release acceptance and honest local-attempt results.
 The portability correction changes only the lockfile and review/tracker notes.
 Rendered sources match the captured tree. Bun 1.4.3 npm-to-Bun migration passes
 with the exact Git commit retained and the optional npm archive checksum omitted.
+
+Final-head CI passes all four npm/Bun release gates on Node 22/26: each
+passes 666 tests, two capacity cases and four packed consumers, with zero
+failures or skips. Detailed measured coverage and results are in release-gates.json.
