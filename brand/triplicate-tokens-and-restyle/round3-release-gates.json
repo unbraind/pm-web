@@ -1,0 +1,27 @@
+{
+  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b",
+  "thresholdsChanged": false,
+  "localNpm": {
+    "status": "running_with_failures",
+    "profile": "package worktree; isolated Git identity",
+    "acceptance": false,
+    "trackedEnvironmentItems": [
+      "pm-web-qdhx",
+      "pm-web-4p94",
+      "pm-web-hqqp"
+    ]
+  },
+  "localBun": {
+    "status": "running_with_failures",
+    "profile": "standalone copy; byte-identical executable source; isolated Git identity and development database",
+    "acceptance": false,
+    "catalogMembershipAndSnapshot": "passed",
+    "trackedEnvironmentItems": [
+      "pm-web-qdhx"
+    ]
+  },
+  "githubCI": {
+    "status": "pending",
+    "head": "3eb50e71d9766f415666dda639c2d5279e56c37b"
+  }
+}

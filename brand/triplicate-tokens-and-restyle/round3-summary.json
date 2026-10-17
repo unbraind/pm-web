@@ -1,0 +1,18 @@
+{
+  "afterScreenshots": 30,
+  "audits": 362,
+  "tabStops": 10858,
+  "contrastPairs": 2495,
+  "round3Cases": 60,
+  "priorReviewCases": 42,
+  "liveCases": 42,
+  "independentReverts": 11,
+  "sourceHashesUnchanged": true,
+  "supplementalFullReloadDialogGroups": 6,
+  "packageFiles": 363,
+  "dockerBuild": "passed",
+  "testImageRemoved": true,
+  "productionAuditVulnerabilities": 0,
+  "outOfScopePhysicsItem": "pm-web-68ig",
+  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b"
+}

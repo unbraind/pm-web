@@ -1,0 +1,27 @@
+{
+  "scenario": {
+    "nodes": 2000,
+    "edges": 1999,
+    "layout": "force",
+    "steps": 180,
+    "items": "synthetic Task/open",
+    "implementation": "production GraphCanvas in Chromium"
+  },
+  "baseline": {
+    "blockingCallMs": 24256.8,
+    "sourceHead": "58957d9"
+  },
+  "finalWorker": {
+    "nodes": 2000,
+    "edges": 1999,
+    "callMs": 0.09999996423721313,
+    "elapsedMs": 59488,
+    "workers": 1,
+    "yielded": true,
+    "staticUntilDone": true,
+    "canceled": true,
+    "moved": true
+  },
+  "followUp": "pm-web-68ig",
+  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b"
+}

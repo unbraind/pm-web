@@ -1,0 +1,82 @@
+{
+  "base": "58957d9",
+  "results": [
+    {
+      "name": "active-view",
+      "exit": 1,
+      "behavioralFailure": "page.waitForResponse: Timeout 5000ms exceeded while waiting for event \"response\""
+    },
+    {
+      "name": "opener",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: Repeated open must preserve the external opener"
+    },
+    {
+      "name": "tags",
+      "exit": 1,
+      "behavioralFailure": "page.waitForFunction: Timeout 5000ms exceeded."
+    },
+    {
+      "name": "dedupe",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "name": "settle",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: Reflow must return without blocking input for 50ms"
+    },
+    {
+      "name": "edge-opacity",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:"
+    },
+    {
+      "name": "tab-hint",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Tab: leave graph/. Input:"
+    },
+    {
+      "name": "legend",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "name": "dependency-close",
+      "exit": 1,
+      "behavioralFailure": "page.waitForFunction: Timeout 5000ms exceeded."
+    },
+    {
+      "name": "stale",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "plan",
+      "exit": 1,
+      "behavioralFailure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    }
+  ],
+  "before": {
+    "app.ts": "f6b7a327f926f434bf7b005d318a7d300d7f345975bf7da8244a7ae0b652bc8f",
+    "components/modals.ts": "bac874d8bc865758b0d989fd08f2b3af536e4d9ba26f4fad493d8e3a939c1adf",
+    "live-copy.ts": "de778cef7c7e4996f3db216375b85eefded3d1d1fb6095daeed719782cd155cd",
+    "views/dedupe.ts": "b033784c38aafcb4511d6bf3a7a4500d53ace4f371639438fcbb4e102748f934",
+    "views/graph-canvas.ts": "a2b9f7a63f18163b20bfaa63d9678c8d36d7a9a207db054aa1ad57b5f6a77ec5",
+    "views/graph.ts": "f293a3c8d62279a885ab76da2d5d385f9478b06cf28e480ba4906cdc1a0b75b4",
+    "views/items.ts": "2beea0a1bd6e97cc8270a78d2b3e45cf83c370e8a26fbd645c8afc088dcfb57d",
+    "views/plan.ts": "03d2295d6321c0113e8cca91051e7e655bb0d6b095f1d685cd2dd2abb66ea72f"
+  },
+  "after": {
+    "app.ts": "f6b7a327f926f434bf7b005d318a7d300d7f345975bf7da8244a7ae0b652bc8f",
+    "components/modals.ts": "bac874d8bc865758b0d989fd08f2b3af536e4d9ba26f4fad493d8e3a939c1adf",
+    "live-copy.ts": "de778cef7c7e4996f3db216375b85eefded3d1d1fb6095daeed719782cd155cd",
+    "views/dedupe.ts": "b033784c38aafcb4511d6bf3a7a4500d53ace4f371639438fcbb4e102748f934",
+    "views/graph-canvas.ts": "a2b9f7a63f18163b20bfaa63d9678c8d36d7a9a207db054aa1ad57b5f6a77ec5",
+    "views/graph.ts": "f293a3c8d62279a885ab76da2d5d385f9478b06cf28e480ba4906cdc1a0b75b4",
+    "views/items.ts": "2beea0a1bd6e97cc8270a78d2b3e45cf83c370e8a26fbd645c8afc088dcfb57d",
+    "views/plan.ts": "03d2295d6321c0113e8cca91051e7e655bb0d6b095f1d685cd2dd2abb66ea72f"
+  },
+  "productionUnchanged": true,
+  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b"
+}

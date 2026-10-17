@@ -1,0 +1,44 @@
+[
+  {
+    "width": 1440,
+    "theme": "light",
+    "reviewCases": [
+      "dependency-close: close, Cancel and submit restore focus for both dialogs"
+    ]
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "reviewCases": [
+      "dependency-close: close, Cancel and submit restore focus for both dialogs"
+    ]
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "reviewCases": [
+      "dependency-close: close, Cancel and submit restore focus for both dialogs"
+    ]
+  },
+  {
+    "width": 768,
+    "theme": "dark",
+    "reviewCases": [
+      "dependency-close: close, Cancel and submit restore focus for both dialogs"
+    ]
+  },
+  {
+    "width": 390,
+    "theme": "light",
+    "reviewCases": [
+      "dependency-close: close, Cancel and submit restore focus for both dialogs"
+    ]
+  },
+  {
+    "width": 390,
+    "theme": "dark",
+    "reviewCases": [
+      "dependency-close: close, Cancel and submit restore focus for both dialogs"
+    ]
+  }
+]
