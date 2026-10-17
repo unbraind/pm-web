@@ -305,3 +305,30 @@ The final-source linked eleven-case suite and all eleven independent reverts
 pass their acceptance rules. The package dry run includes 363 files, including
 the worker and shared physics modules; the Docker build passes and its test
 image is removed. Production dependency audit reports zero vulnerabilities.
+
+Exact executable head `3eb50e71d9766f415666dda639c2d5279e56c37b` passes
+[CI run 39027377588](https://github.com/unbraind/pm-web/actions/runs/39027377588):
+all four npm/Bun release gates across Node 22 and 26. Each gate passes 666/666
+unit/integration tests, 2/2 capacity cases and all four packed consumers, with
+zero failures, cancellations, skips or todos. Measured server-source coverage
+minima are 92.51% statements/lines, 81.48% branches and 95.22% functions.
+Both CodeQL checks pass. Neutral/skipped reviewer results are not approvals.
+
+The completed local worktree npm attempt is a failure: 655 passed, 10 failed,
+1 canceled and no skipped/todo tests out of 666. Statements/lines are 91.67%,
+branches 81.20% and functions 95.48%. Catalog consumer/startup and process exit
+or JSON deadlines, partial sibling-fleet assumptions, server graph wall time
+and a reset collaboration connection are recorded under `pm-web-qdhx`,
+`pm-web-4p94` and `pm-web-hqqp`. Observer/privacy cases stopped at fixture
+startup deadlines. The independent standalone Bun profile uses its own test storage. Its final
+counts and the final-head CI receipt are published
+in the [round 3 release receipt](https://github.com/unbraind/pm-web/blob/pr-screenshots/brand/triplicate-tokens-and-restyle/round3-release-gates.json).
+This standalone profile uses the suite's intended committed-snapshot oracle.
+No server runtime, server test, coverage scope, floor or deadline changed.
+
+The standalone local Bun attempt also finishes its 666 tests red: 660 passed,
+5 failed, 1 canceled and no skipped/todo tests. It passes the standalone catalog
+structural checks and reproduces consumer/startup deadlines, server graph wall
+time, fatal-output child timing and a reset collaboration connection. These
+local attempts provide failure evidence; the four clean-runner CI gates provide
+release acceptance. The final receipt keeps each profile and outcome separate.
