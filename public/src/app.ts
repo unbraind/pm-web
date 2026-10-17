@@ -1,3 +1,5 @@
+import { receiveLiveUpdate, rememberLiveAuthors, resetLiveCopies } from './live-copy.js';
+import { initInteractions } from './interactions.js';
 // ═══════════════════════════════════════════════════════════════
 // APP — Main entry point
 // ═══════════════════════════════════════════════════════════════
@@ -47,13 +49,15 @@ import { initI18n, setLocale as i18nSetLocale, applyTranslations } from './i18n.
 import { initPlanView, openPlanDetail, openCreatePlanModal, submitCreatePlan, openAddStepModal, submitAddStep, planCompleteStep, planBlockStepPrompt, submitBlockStep, planRemoveStep, planApprove, planMaterializePrompt, submitMaterializePlan, copyPlanAgentBrief, copyPlanNextStepPrompt, planEditPrompt, submitEditPlan, planDeletePrompt } from './views/plan.js';
 import { showModal, hideModal, createModal, closeAllModals } from './components/modals.js';
 import { toast } from './components/toast.js';
-import { escHtml, typeIcon, priorityDot, statusBadge, updateHeaderUser } from './utils.js';
+import { escHtml, updateHeaderUser } from './utils.js';
 import { browserWindow, isBeforeInstallPromptEvent, type BeforeInstallPromptEvent } from './browser-window.js';
 import { initTheme, cycleTheme } from './theme.js';
 
 // Apply the persisted theme immediately on script load (before boot) so the UI
 // renders in the right palette without a flash.
+document.getElementById('live-copy-caption')?.remove();
 initTheme();
+initInteractions();
 
 // Global search modal
 let globalSearchTimer: ReturnType<typeof setTimeout>;
@@ -85,7 +89,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     title: 'Plan and Execute',
     commands: [
       { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
-      { view: 'create', title: 'Create Item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+      { view: 'create', title: 'Create item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
       { view: 'plan', title: 'Plans', desc: 'Create and manage structured agentic plans with steps.', icon: '◧', requiresProject: true },
       { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },
       { view: 'templates', title: 'Templates', desc: 'Create from saved pm templates.', icon: '⎘', requiresProject: true },
@@ -99,10 +103,10 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
       { view: 'graph', title: 'Graph', desc: 'Knowledge and dependency graph.', icon: '◎', requiresProject: true },
       { view: 'health', title: 'Health', desc: 'Find stale, blocked, or weakly specified work.', icon: '♥', requiresProject: true },
       { view: 'activity', title: 'Activity', desc: 'Audit recent project changes.', icon: '◎', requiresProject: true },
-      { view: 'dedupe', title: 'Dedupe Audit', desc: 'Find possible duplicate items.', icon: '⧖', requiresProject: true },
+      { view: 'dedupe', title: 'Dedupe audit', desc: 'Find possible duplicate items.', icon: '⧖', requiresProject: true },
       { view: 'validate', title: 'Validate', desc: 'Run pm validation checks.', icon: '✓', requiresProject: true },
       { view: 'normalize', title: 'Normalize', desc: 'Preview and apply lifecycle cleanup.', icon: '⊞', requiresProject: true },
-      { view: 'comments-audit', title: 'Comments Audit', desc: 'Review latest comments across items.', icon: '💬', requiresProject: true },
+      { view: 'comments-audit', title: 'Comments audit', desc: 'Review latest comments across items.', icon: '↳', requiresProject: true },
     ],
   },
   {
@@ -115,15 +119,15 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     ],
   },
   {
-    title: 'Project Tools',
+    title: 'Project tools',
     commands: [
-      { view: 'projects', title: 'All Projects', desc: 'Switch or create a workspace.', icon: '⊞' },
+      { view: 'projects', title: 'All projects', desc: 'Switch or create a workspace.', icon: '⊞' },
       { view: 'context', title: 'Context', desc: 'Generate agent-ready project context.', icon: '⚙', requiresProject: true },
       { view: 'config', title: 'Config', desc: 'Edit project settings.', icon: '⚒', requiresProject: true },
-      { view: 'packages', title: 'Packages', desc: 'Install and manage pm packages.', icon: '📦', requiresProject: true },
+      { view: 'packages', title: 'Packages', desc: 'Install and manage pm packages.', icon: '□', requiresProject: true },
       { view: 'export', title: 'Export / Import', desc: 'Download or upload project data.', icon: '↕', requiresProject: true },
-      { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '📖', requiresProject: true },
-      { view: 'settings', title: 'Account Settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
+      { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '≡', requiresProject: true },
+      { view: 'settings', title: 'Account settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
       { view: 'admin', title: 'Admin', desc: 'Manage users, projects, groups, and roles.', icon: '◇' },
     ],
   },
@@ -161,7 +165,7 @@ function buildMobileCommandSheet(): void {
         </div>
       </div>`).join('')}`;
 
-  createModal('mobile-command-sheet', 'More', body, '', true);
+  createModal('mobile-command-sheet', 'More', body, `<button class="btn btn-secondary" onclick="window.__app.hideModal('mobile-command-sheet');window.__app.logout()">Sign out</button>`, true);
 }
 
 function openMobileCommandSheet(): void {
@@ -198,15 +202,9 @@ async function doGlobalSearch(): Promise<void> {
     const results = data.results || data.items || [];
     if (resultsEl) resultsEl.innerHTML = results.length === 0
       ? `<div class="empty-state" style="padding:24px"><div class="empty-state-text">No results for "${escHtml(query)}"</div></div>`
-      : `<div class="item-list">${results.map((item) =>`
-          <div class="item-row" onclick="window.__app.hideModal('global-search-modal');window.__app.openItemDetail('${escHtml(item.id)}')">
-            ${typeIcon(item.type||'')}
-            <span class="item-id">${escHtml(item.id)}</span>
-            <span class="item-title">${escHtml(item.title)}</span>
-            <div class="item-meta">${priorityDot(item.priority||5)}${statusBadge(item.status||'draft')}</div>
-          </div>`).join('')}</div>`;
+      : `<div class="item-list">${results.map(item => itemsView.renderItemRow(item).replace('onclick="', 'onclick="window.__app.hideModal(\'global-search-modal\');')).join('')}</div>`;
   } catch(err: unknown) {
-    if (resultsEl) resultsEl.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-state-text">Error: ${err instanceof Error ? err.message : String(err)}</div></div>`;
+    if (resultsEl) resultsEl.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-state-text">Search failed. ${escHtml(err instanceof Error ? err.message : String(err))} Try the search again.</div></div>`;
   }
 }
 
@@ -442,10 +440,8 @@ function renderPresenceBar(users: PresenceUser[]): void {
 
   const chips = visible.map((u) => {
     const initials = userInitials(u.displayName);
-    const hue = Math.abs(u.userId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % 360;
-    const color = `hsl(${hue},60%,55%)`;
     const viewLabel = u.currentView.replace(/-/g, ' ');
-    return `<div class="presence-chip" title="${escHtml(u.displayName)} · ${escHtml(viewLabel)}" style="background:${color}22;border-color:${color}66;color:${color}">${escHtml(initials)}</div>`;
+    return `<div class="presence-chip" title="${escHtml(u.displayName)} · ${escHtml(viewLabel)}">${escHtml(initials)}</div>`;
   }).join('');
 
   const extraChip = extra > 0
@@ -480,6 +476,7 @@ function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): vo
  * timers, close the event source, clear the tracked project/client ids, and
  * mark sync as disconnected. */
 function disconnectSSE(): void {
+  resetLiveCopies();
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null; }
   if (sseRefreshTimer) { clearTimeout(sseRefreshTimer); sseRefreshTimer = null; }
   if (sseSource) { sseSource.close(); sseSource = null; }
@@ -533,6 +530,8 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('presence', (evt: MessageEvent) => {
       try {
         const data = JSON.parse(evt.data) as { users: PresenceUser[] };
+        if (sseCurrentProjectId !== projectId || state.currentProject?.id !== projectId || !state.user) return;
+        rememberLiveAuthors(data.users);
         renderPresenceBar(data.users);
       } catch { /* ignore */ }
     });
@@ -565,7 +564,14 @@ function connectSSE(projectId: string, attempt = 0): void {
     };
 
     // Item events on graph view use lightweight data-only refresh
-    const refreshGraphData = (evt: MessageEvent) => {
+    const refreshGraphData = async (evt: MessageEvent) => {
+      if (await receiveLiveUpdate(evt.data, projectId, sseClientId, evt.type)) {
+        if (state.currentView === 'items') await itemsView.fetchAndRenderItems(true);
+        else if (state.currentView === 'graph') void refreshGraphViewData();
+        else refreshView();
+        void loadItemsBadge();
+        return;
+      }
       // Show a subtle toast when another user's action triggers a refresh
       // (only if client ID is known, meaning we've fully connected)
       if (sseClientId) {
@@ -627,7 +633,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('graph_synced', refreshGraph);
     source.addEventListener('graph-sync-failed', graphSyncFailed);
     source.addEventListener('graph_sync_failed', graphSyncFailed);
-    source.addEventListener('update', refreshView);
+    source.addEventListener('update', refreshGraphData);
     source.addEventListener('workspace-changed', refreshGraphData);
 
     // Extensions catalog mutations (installs/activates/deactivates/uninstalls)
@@ -657,6 +663,7 @@ export { connectSSE, disconnectSSE, notifyPresenceView };
  * admin-gated controls, build the project/search/mobile modals, register the
  * presence view-change hook, then load projects and run the launch action. */
 export async function bootApp(): Promise<void> {
+  document.querySelector<HTMLAnchorElement>('.skip-link')?.setAttribute('href', '#main-content');
   const authScreen = document.getElementById('auth-screen');
   const mainApp = document.getElementById('main-app');
   if (authScreen) authScreen.style.display = 'none';
@@ -760,19 +767,19 @@ function showGlobalError(errorMsg: string, error?: unknown): void {
   }
 
   const stackTrace = error instanceof Error && error.stack
-    ? `<details style="margin-top:12px;text-align:left"><summary style="cursor:pointer;color:var(--text-muted);font-size:12px">Stack trace</summary><pre style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);white-space:pre-wrap;word-break:break-all">${escHtml(error.stack)}</pre></details>`
+    ? `<details style="margin-top:12px;text-align:left"><summary style="cursor:pointer;color:var(--app-text-muted);font-size:12px">Stack trace</summary><pre style="margin-top:8px;font-family:var(--pm-font-mono);font-size:11px;color:var(--app-text-muted);white-space:pre-wrap;word-break:break-all">${escHtml(error.stack)}</pre></details>`
     : '';
 
   errorScreen.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center">
       <div style="font-size:48px;margin-bottom:20px;opacity:0.5">⚠</div>
       <h1 style="font-size:22px;font-weight:600;margin-bottom:8px">Something went wrong</h1>
-      <p style="color:var(--text-secondary);max-width:480px;line-height:1.7;margin-bottom:8px">${escHtml(errorMsg)}</p>
+      <p style="color:var(--app-text-secondary);max-width:480px;line-height:1.7;margin-bottom:8px">${escHtml(errorMsg)}</p>
       ${stackTrace}
       <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-primary" onclick="location.reload()" aria-label="Reload the page">Reload Page</button>
+        <button class="btn btn-primary" onclick="location.reload()" aria-label="Reload the page">Reload page</button>
         <button class="btn btn-secondary" onclick="document.getElementById('global-error-screen').remove();document.getElementById('auth-screen').style.display='flex'" aria-label="Go to login screen">Go to Login</button>
-        <button class="btn btn-ghost" onclick="navigator.clipboard.writeText(this.closest('[role=alert]').innerText);window.__app.toast('Error details copied','success')" aria-label="Copy error details">Copy Details</button>
+        <button class="btn btn-ghost" onclick="navigator.clipboard.writeText(this.closest('[role=alert]').innerText);window.__app.toast('Error details copied','success')" aria-label="Copy error details">Copy details</button>
       </div>
     </div>`;
 }
@@ -832,7 +839,7 @@ let lastKey = '';
 /** Build and show the keyboard-shortcuts reference modal as a two-column
  * key/description table. */
 function openShortcutsHelp(): void {
-  createModal('shortcuts-help-modal', 'Keyboard Shortcuts', `
+  createModal('shortcuts-help-modal', 'Keyboard shortcuts', `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tbody>
         ${[
@@ -848,9 +855,9 @@ function openShortcutsHelp(): void {
           ['g s', 'Go to Search view'],
           ['g c', 'Go to Calendar view'],
         ].map(([key, desc]) => `
-          <tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:8px 12px 8px 0;white-space:nowrap"><kbd style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--accent)">${escHtml(key)}</kbd></td>
-            <td style="padding:8px 0;color:var(--text-secondary)">${escHtml(desc)}</td>
+          <tr style="border-bottom:1px solid var(--app-border)">
+            <td style="padding:8px 12px 8px 0;white-space:nowrap"><kbd style="font-family:var(--pm-font-mono);font-size:12px;background:var(--app-bg-input);border:1px solid var(--app-border);border-radius:var(--pm-radius-sm);padding:2px 6px;color:var(--app-accent)">${escHtml(key)}</kbd></td>
+            <td style="padding:8px 0;color:var(--app-text-secondary)">${escHtml(desc)}</td>
           </tr>`).join('')}
       </tbody>
     </table>`, '');
@@ -881,9 +888,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'a' || e.key === 'A') { if (state.currentProject) showView('activity'); }
   if (e.key === 't' || e.key === 'T') { cycleTheme(); }
   if (e.key === '/') { e.preventDefault(); if (state.currentProject) { showView('search'); setTimeout(()=>document.getElementById('search-query')?.focus(), 100); } }
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-backdrop').forEach(m => { (m as HTMLElement).style.display='none'; });
-  }
 });
 
 // ═══════════════════════════════════════════════════════════════

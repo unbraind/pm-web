@@ -41,9 +41,9 @@ export async function renderStatsView(): Promise<void> {
     contentEl.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Total Items</div></div>
-        <div class="stat-card"><div class="stat-value" style="color:var(--status-open)">${openCount}</div><div class="stat-label">Open / In Progress</div></div>
-        <div class="stat-card"><div class="stat-value" style="color:var(--status-closed)">${closedCount}</div><div class="stat-label">Closed</div></div>
-        <div class="stat-card"><div class="stat-value" style="color:var(--status-blocked)">${blockedCount}</div><div class="stat-label">Blocked</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--app-status-open)">${openCount}</div><div class="stat-label">Open / In Progress</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--app-status-closed)">${closedCount}</div><div class="stat-label">Closed</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--app-status-blocked)">${blockedCount}</div><div class="stat-label">Blocked</div></div>
         ${total > 0 ? `<div class="stat-card"><div class="stat-value">${Math.round((closedCount/total)*100)}%</div><div class="stat-label">Completion</div></div>` : ''}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -55,7 +55,7 @@ export async function renderStatsView(): Promise<void> {
                 <span class="breakdown-label">${statusBadge(k)}</span>
                 <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${Math.round(((v as number)/maxStatus)*100)}%"></div></div>
                 <span class="breakdown-count">${v}</span>
-              </div>`).join('') || '<div style="color:var(--text-muted);font-size:13px">No data</div>'}
+              </div>`).join('') || '<div style="color:var(--app-text-muted);font-size:13px">No data</div>'}
           </div>
         </div>
         <div class="card">
@@ -66,7 +66,7 @@ export async function renderStatsView(): Promise<void> {
                 <span class="breakdown-label">${typeIcon(k)} ${k}</span>
                 <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${Math.round(((v as number)/maxType)*100)}%"></div></div>
                 <span class="breakdown-count">${v}</span>
-              </div>`).join('') || '<div style="color:var(--text-muted);font-size:13px">No data</div>'}
+              </div>`).join('') || '<div style="color:var(--app-text-muted);font-size:13px">No data</div>'}
           </div>
         </div>
       </div>
@@ -76,15 +76,15 @@ export async function renderStatsView(): Promise<void> {
             <div class="card-title">Project Health</div>
             ${health.score !== undefined ? `<div class="health-indicator">
               <div class="health-dot ${health.score>=80?'health-good':health.score>=50?'health-warn':'health-bad'}"></div>
-              <span style="font-size:13px;color:var(--text-secondary)">${health.score}/100</span>
+              <span style="font-size:13px;color:var(--app-text-secondary)">${health.score}/100</span>
             </div>` : ''}
           </div>
           <div class="card-body">
-            ${(health.issues||[]).map((i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-secondary)">⚠ ${escHtml(i.message||String(i))}</div>`).join('') || '<div style="color:var(--status-closed);font-size:13px">✓ No issues found</div>'}
+            ${(health.issues||[]).map((i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--app-border);font-size:13px;color:var(--app-text-secondary)">⚠ ${escHtml(i.message||String(i))}</div>`).join('') || '<div style="color:var(--app-status-closed);font-size:13px">✓ No issues found</div>'}
           </div>
         </div>` : ''}`;
   } catch(err: unknown) {
     const contentEl = document.getElementById('stats-content');
-    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }

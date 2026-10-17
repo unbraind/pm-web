@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api, syncServiceWorkerSession } from '../api.js';
-import { bootApp } from '../app.js';
+import { bootApp, disconnectSSE } from '../app.js';
 import { t, translateError } from '../i18n.js';
 import type { User } from '../types.js';
 
@@ -51,6 +51,9 @@ export function switchAuthTab(tab: 'login' | 'register'): void {
   state.authTab = tab;
   document.getElementById('tab-login')?.classList.toggle('active', tab==='login');
   document.getElementById('tab-register')?.classList.toggle('active', tab==='register');
+  document.getElementById('tab-login')?.setAttribute('aria-pressed', String(tab === 'login'));
+  document.getElementById('tab-register')?.setAttribute('aria-pressed', String(tab === 'register'));
+  document.getElementById('auth-password')?.setAttribute('autocomplete', tab === 'register' ? 'new-password' : 'current-password');
   const fieldName = document.getElementById('field-name') as HTMLElement | null;
   if (fieldName) fieldName.style.display = tab==='register' ? '' : 'none';
   const authTitle = document.getElementById('auth-title');
@@ -116,8 +119,26 @@ export async function logout(): Promise<void> {
   state.user = null;
   state.projects = [];
   state.currentProject = null;
+  state.items = [];
+  state.searchResults = [];
+  state.schema = null;
+  disconnectSSE();
+  document.querySelectorAll<HTMLElement>('.content-area').forEach(el => el.replaceChildren());
+  document.getElementById('modal-container')?.replaceChildren();
+  const selector = document.getElementById('project-selector') as HTMLSelectElement | null;
+  selector?.replaceChildren(new Option(t('nav.selectProject'), ''));
+  for (const id of ['user-name-display', 'presence-bar']) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = '';
+  }
+  for (const id of ['auth-email', 'auth-name', 'auth-password']) {
+    const field = document.getElementById(id) as HTMLInputElement | null;
+    if (field) field.value = '';
+  }
   syncServiceWorkerSession(null);
+  switchAuthTab('login');
   showAuth();
+  document.getElementById('auth-screen')?.focus({ preventScroll: true });
 }
 
 /**
@@ -125,6 +146,11 @@ export async function logout(): Promise<void> {
  * refreshes the single sign-on button state.
  */
 export function showAuth(): void {
+  const submit = document.getElementById('auth-submit') as HTMLButtonElement | null;
+  if (submit) submit.disabled = false;
+  const label = document.getElementById('auth-btn-text');
+  if (label) label.textContent = t(state.authTab === 'login' ? 'auth.button.login' : 'auth.button.register');
+  document.querySelector<HTMLAnchorElement>('.skip-link')?.setAttribute('href', '#auth-screen');
   const authScreen = document.getElementById('auth-screen');
   const mainApp = document.getElementById('main-app');
   if (authScreen) authScreen.style.display = 'flex';

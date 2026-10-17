@@ -81,7 +81,7 @@ export async function exportData(format: string): Promise<void> {
       const content = await resp.text();
       const lineCount = content.split('\n').length - 1; // subtract header
       downloadFile(content, `${slug}-items.csv`, 'text/csv');
-      statusEl.innerHTML = `<div style="color:var(--status-closed);font-size:13px;padding:12px">✓ Exported ${lineCount} items as CSV</div>`;
+      statusEl.innerHTML = `<div style="color:var(--app-status-closed);font-size:13px;padding:12px">✓ Exported ${lineCount} items as CSV</div>`;
       toast(`Exported ${lineCount} items as CSV`, 'success');
       return;
     }
@@ -89,7 +89,7 @@ export async function exportData(format: string): Promise<void> {
     // For JSON/YAML: fetch from list-all with all fields, then format client-side
     const data = await api('GET', `/projects/${projectId}/pm/list-all?limit=9999`);
     const items = (data as { items?: unknown[] }).items || [];
-    if (items.length === 0) { statusEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px">No items to export</div>'; return; }
+    if (items.length === 0) { statusEl.innerHTML = '<div style="color:var(--app-text-muted);font-size:13px;padding:12px">No items to export</div>'; return; }
 
     let content: string, filename: string, mime: string;
 
@@ -138,10 +138,10 @@ export async function exportData(format: string): Promise<void> {
       mime = 'application/json';
     }
     downloadFile(content, filename, mime);
-    statusEl.innerHTML = `<div style="color:var(--status-closed);font-size:13px;padding:12px">✓ Exported ${items.length} items as ${format.toUpperCase()}</div>`;
+    statusEl.innerHTML = `<div style="color:var(--app-status-closed);font-size:13px;padding:12px">✓ Exported ${items.length} items as ${format.toUpperCase()}</div>`;
     toast(`Exported ${items.length} items`, 'success');
   } catch(err: unknown) {
-    statusEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px;padding:12px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+    statusEl.innerHTML = `<div style="color:var(--app-status-blocked);font-size:13px;padding:12px">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
   }
 }
 
@@ -270,10 +270,10 @@ export async function importData(file: File): Promise<void> {
     const result = await api('POST', `/projects/${state.currentProject.id}/pm/import`, { items }) as { created?: string[]; errors?: string[]; total?: number };
     const created = result.created?.length ?? 0;
     const failed = result.errors?.length ?? 0;
-    statusEl.innerHTML = `<div style="padding:12px;font-size:13px"><span style="color:var(--status-closed)">✓ Imported ${created} items</span>${failed ? `<span style="color:var(--status-blocked);margin-left:12px">✗ ${failed} failed</span>` : ''}</div>`;
+    statusEl.innerHTML = `<div style="padding:12px;font-size:13px"><span style="color:var(--app-status-closed)">✓ Imported ${created} items</span>${failed ? `<span style="color:var(--app-status-blocked);margin-left:12px">✗ ${failed} failed</span>` : ''}</div>`;
     toast(`Imported ${created} items`, 'success');
     void loadItemsBadge();
   } catch(err: unknown) {
-    statusEl.innerHTML = `<div style="color:var(--status-blocked);font-size:13px;padding:12px">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div>`;
+    statusEl.innerHTML = `<div style="color:var(--app-status-blocked);font-size:13px;padding:12px">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
   }
 }

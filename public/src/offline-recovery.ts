@@ -13,7 +13,7 @@ export function showOfflineRecovery(
   const notice = document.createElement('div');
   notice.id = 'offline-recovery';
   notice.className = 'offline-recovery';
-  notice.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;max-width:min(460px,calc(100vw - 40px));max-height:60vh;overflow:auto;overflow-wrap:anywhere;padding:16px;border:1px solid var(--accent,#2dd4bf);border-radius:8px;background:var(--bg-card,#0f172a);color:var(--text-primary,#f1f5f9);box-shadow:0 4px 20px #0004';
+  notice.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;max-width:min(460px,calc(100vw - 40px));max-height:60vh;overflow:auto;overflow-wrap:anywhere;padding:16px;border:1px solid var(--app-accent,var(--pm-stamp));border-radius:var(--pm-radius-sm);background:var(--app-bg-card,var(--pm-paper));color:var(--app-text-primary,var(--pm-carbon));box-shadow:none';
   notice.setAttribute('role', 'status');
   const description = document.createElement('p');
   description.textContent = 'Some offline changes need attention. Later changes in the same workspace wait; independent workspaces can continue. Review the original result before retrying an unknown outcome, as a new request may duplicate a committed change. Sign in to the original account; adopt unknown-owner changes only if they are yours.';

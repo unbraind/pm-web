@@ -53,11 +53,7 @@ export function applyTheme(theme: Theme): void {
   // Keep the mobile browser chrome color in step with the active theme.
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    const dark = '#0a0f1e';
-    const light = '#f6f8fc';
-    let color = dark;
-    if (theme === 'light') color = light;
-    else if (theme === 'auto' && window.matchMedia?.('(prefers-color-scheme: light)').matches) color = light;
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--pm-paper').trim();
     meta.setAttribute('content', color);
   }
 }

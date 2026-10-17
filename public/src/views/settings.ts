@@ -27,19 +27,6 @@ function avatarInitial(name: string): string {
   return (name.trim()[0] || '?').toUpperCase();
 }
 
-/**
- * Computes a deterministic avatar background color for a seed string by
- * hashing its characters into an HSL hue.
- * @param seed - The string used to derive the color (e.g. email or name).
- * @returns An `hsl(...)` CSS color string.
- */
-function avatarBg(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) { hash = (hash * 31 + seed.charCodeAt(i)) >>> 0; }
-  const hue = hash % 360;
-  return `hsl(${hue},55%,45%)`;
-}
-
 /** Compile-time-complete mapping from supported locale → settings label key. */
 const LOCALE_LABEL_KEYS: Record<SupportedLocale, string> = {
   en: 'settings.languageEn',
@@ -59,7 +46,7 @@ export function renderSettingsView(): void {
   if (!el) return;
   const u = state.user || ({} as User);
   const createdInfo = u.created_at
-    ? `<span style="display:block;margin-top:4px;font-size:12px;color:var(--text-muted)">${escHtml(t('settings.accountCreated', { date: localeDate(u.created_at, { year: 'numeric', month: 'long', day: 'numeric' }) }))}</span>`
+    ? `<span style="display:block;margin-top:4px;font-size:12px;color:var(--app-text-muted)">${escHtml(t('settings.accountCreated', { date: localeDate(u.created_at, { year: 'numeric', month: 'long', day: 'numeric' }) }))}</span>`
     : '';
   const currentLocale = getLocale();
   const langOptions = SUPPORTED_LOCALES.map((loc) => {
@@ -79,7 +66,7 @@ export function renderSettingsView(): void {
             <select class="form-input" id="settings-language" onchange="window.__app.changeLanguage(this.value)" aria-label="${escHtml(t('settings.language'))}">
               ${langOptions}
             </select>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${escHtml(t('settings.languageHint'))}</div>
+            <div style="font-size:12px;color:var(--app-text-muted);margin-top:6px">${escHtml(t('settings.languageHint'))}</div>
           </div>
         </div>
       </div>
@@ -87,10 +74,10 @@ export function renderSettingsView(): void {
         <div class="card-header"><div class="card-title">${escHtml(t('settings.profile'))}</div></div>
         <div class="card-body">
           <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
-            <div style="width:64px;height:64px;border-radius:50%;background:${avatarBg(u.email||u.display_name||'?')};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;flex-shrink:0;user-select:none" aria-hidden="true">${escHtml(avatarInitial(u.display_name||u.email||'?'))}</div>
+            <div style="width:64px;height:64px;border-radius:var(--pm-radius-sm);background:var(--pm-sheet);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--pm-carbon);border:1px solid var(--pm-carbon);flex-shrink:0;user-select:none" aria-hidden="true">${escHtml(avatarInitial(u.display_name||u.email||'?'))}</div>
             <div>
               <div style="font-weight:600;font-size:16px">${escHtml(u.display_name||u.email||'')}</div>
-              <div style="font-size:13px;color:var(--text-muted)">${escHtml(u.email||'')}</div>
+              <div style="font-size:13px;color:var(--app-text-muted)">${escHtml(u.email||'')}</div>
             </div>
           </div>
           <div class="form-group">
@@ -122,17 +109,17 @@ export function renderSettingsView(): void {
             <input class="form-input" id="settings-confirm-pw" type="password" placeholder="${escHtml(t('settings.confirmPasswordPlaceholder'))}" autocomplete="new-password" aria-label="${escHtml(t('settings.confirmPassword'))}">
           </div>
           <div class="form-error" id="settings-pw-error" style="display:none" role="alert"></div>
-          <button class="btn btn-primary btn-sm" id="settings-pw-btn" onclick="window.__app.changePassword()" aria-label="${escHtml(t('settings.changePassword'))}"><span>${escHtml(t('settings.changePassword'))}</span></button>
+          <button class="btn btn-secondary btn-sm" id="settings-pw-btn" onclick="window.__app.changePassword()" aria-label="${escHtml(t('settings.changePassword'))}"><span>${escHtml(t('settings.changePassword'))}</span></button>
         </div>
       </div>
       <div class="card">
         <div class="card-header">
           <div class="card-title">${escHtml(t('settings.githubToken'))}</div>
-          ${u.has_github_token ? `<span style="font-size:12px;color:var(--status-closed)">${escHtml(t('settings.tokenConfigured'))}</span>` : `<span style="font-size:12px;color:var(--text-muted)">${escHtml(t('settings.tokenNotSet'))}</span>`}
+          ${u.has_github_token ? `<span style="font-size:12px;color:var(--app-status-closed)">${escHtml(t('settings.tokenConfigured'))}</span>` : `<span style="font-size:12px;color:var(--app-text-muted)">${escHtml(t('settings.tokenNotSet'))}</span>`}
         </div>
         <div class="card-body">
-          <div style="margin-bottom:12px;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-secondary)">
-            <strong style="color:var(--text-primary)">${escHtml(t('settings.howToGet'))}</strong>
+          <div style="margin-bottom:12px;padding:10px 12px;background:var(--app-bg-input);border:1px solid var(--app-border);border-radius:var(--app-radius);font-size:12px;color:var(--app-text-secondary)">
+            <strong style="color:var(--app-text-primary)">${escHtml(t('settings.howToGet'))}</strong>
             <ol style="margin-top:6px;padding-left:18px;line-height:1.8">
               <li>${escHtml(t('settings.tokenStep1'))}</li>
               <li>${escHtml(t('settings.tokenStep2'))}</li>
@@ -142,11 +129,11 @@ export function renderSettingsView(): void {
           <div class="form-group">
             <label class="form-label" for="settings-github-token">${escHtml(t('settings.tokenLabel'))}</label>
             <input class="form-input" id="settings-github-token" type="password" placeholder="${escHtml(u.has_github_token ? t('settings.tokenPlaceholder.keep') : t('settings.tokenPlaceholder.set'))}" autocomplete="off" aria-label="${escHtml(t('settings.tokenLabel'))}">
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${t('settings.tokenHint')}</div>
+            <div style="font-size:11px;color:var(--app-text-muted);margin-top:4px">${t('settings.tokenHint')}</div>
           </div>
           <div class="form-error" id="settings-github-error" style="display:none" role="alert"></div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" id="settings-github-btn" onclick="window.__app.saveGitHubToken()" aria-label="${escHtml(t('settings.saveToken'))}"><span>${escHtml(t('settings.saveToken'))}</span></button>
+            <button class="btn btn-secondary btn-sm" id="settings-github-btn" onclick="window.__app.saveGitHubToken()" aria-label="${escHtml(t('settings.saveToken'))}"><span>${escHtml(t('settings.saveToken'))}</span></button>
             ${u.has_github_token ? `<button class="btn btn-danger btn-sm" onclick="window.__app.clearGitHubToken()" aria-label="${escHtml(t('settings.clearToken'))}">${escHtml(t('settings.clearToken'))}</button>` : ''}
           </div>
         </div>

@@ -105,20 +105,20 @@ export function renderProjectsView(): void {
     el.innerHTML = `
       <div class="page-header">
         <div><div class="page-title">Projects</div><div class="page-subtitle">Your project workspaces</div></div>
-        <div class="page-actions"><button class="btn btn-primary" onclick="window.__app.showModal('create-project-modal')">+ New Project</button></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="window.__app.showModal('create-project-modal')">+ New project</button></div>
       </div>
       <div class="welcome-state">
         <div class="welcome-icon">⊞</div>
         <div class="welcome-title">No projects yet</div>
         <div class="welcome-text">Create your first project to start managing tasks, features, bugs, and more with git-native storage.</div>
-        <button class="btn btn-primary btn-lg" onclick="window.__app.showModal('create-project-modal')">+ Create Project</button>
+        <button class="btn btn-secondary btn-lg" onclick="window.__app.showModal('create-project-modal')">+ Create project</button>
       </div>`;
     return;
   }
   el.innerHTML = `
     <div class="page-header">
       <div><div class="page-title">Projects</div><div class="page-subtitle">${state.projects.length} project${state.projects.length!==1?'s':''}</div></div>
-      <div class="page-actions"><button class="btn btn-primary" onclick="window.__app.showModal('create-project-modal')">+ New Project</button></div>
+      <div class="page-actions"><button class="btn btn-primary" onclick="window.__app.showModal('create-project-modal')">+ New project</button></div>
     </div>
     <div class="projects-grid">
       ${state.projects.map(p=>`
@@ -176,7 +176,7 @@ export function deleteProject(id: string, name: string): void {
  * prefix until the user edits it.
  */
 export function buildCreateProjectModal(): void {
-  createModal('create-project-modal','New Project',`
+  createModal('create-project-modal','New project',`
     <form id="create-project-form" onsubmit="window.__app.submitCreateProject(event)">
       <div class="form-group">
         <label class="form-label">Project Name *</label>
@@ -185,7 +185,7 @@ export function buildCreateProjectModal(): void {
       <div class="form-group">
         <label class="form-label">ID Prefix *</label>
         <input class="form-input" id="cp-prefix" type="text" placeholder="myproj" pattern="[a-z0-9\\-]+" required>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Lowercase letters, numbers, hyphens. Used as item ID prefix (e.g. myproj-1)</div>
+        <div style="font-size:11px;color:var(--app-text-muted);margin-top:4px">Lowercase letters, numbers, hyphens. Used as item ID prefix (e.g. myproj-1)</div>
       </div>
       <div class="form-group">
         <label class="form-label">Description</label>
@@ -194,7 +194,7 @@ export function buildCreateProjectModal(): void {
       <div class="form-error" id="cp-error" style="display:none"></div>
     </form>`,
     `<button class="btn btn-ghost" onclick="window.__app.hideModal('create-project-modal')">Cancel</button>
-     <button class="btn btn-primary" onclick="window.__app.submitCreateProject2()"><span>Create Project</span></button>`
+     <button class="btn btn-primary" onclick="window.__app.submitCreateProject2()"><span>Create project</span></button>`
   );
 
   const nameEl = document.getElementById('cp-name');

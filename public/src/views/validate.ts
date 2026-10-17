@@ -29,15 +29,15 @@ export async function renderValidateView(): Promise<void> {
         <div class="card-header"><div class="card-title">Validation Results</div></div>
         <div class="card-body">
           ${allIssues.length === 0
-            ? '<div style="color:var(--status-closed);font-size:13px">✓ All checks passed — no issues found!</div>'
-            : allIssues.map((i)=>issueRow(i.level==='error'?'✗':'⚠', i.level==='error'?'var(--status-blocked)':'var(--priority-3)', i.message||i.description||JSON.stringify(i), i.id, '')).join('')
+            ? '<div style="color:var(--app-status-closed);font-size:13px">✓ All checks passed — no issues found!</div>'
+            : allIssues.map((i)=>issueRow(i.level==='error'?'✗':'⚠', i.level==='error'?'var(--app-status-blocked)':'var(--app-priority-3)', i.message||i.description||JSON.stringify(i), i.id, '')).join('')
           }
         </div>
       </div>
       ${data.summary ? `<div class="card"><div class="card-header"><div class="card-title">Summary</div></div><div class="card-body"><div class="item-detail-desc">${escHtml(data.summary)}</div></div></div>` : ''}
-      ${data.ok !== undefined ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Status: <span style="color:${data.ok?'var(--status-closed)':'var(--status-blocked)'}">${data.ok?'PASS':'FAIL'}</span></div>` : ''}`;
+      ${data.ok !== undefined ? `<div style="margin-top:8px;font-size:12px;color:var(--app-text-muted)">Status: <span style="color:${data.ok?'var(--app-status-closed)':'var(--app-status-blocked)'}">${data.ok?'PASS':'FAIL'}</span></div>` : ''}`;
   } catch(err: unknown) {
     const el2 = document.getElementById('validate-content');
-    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }

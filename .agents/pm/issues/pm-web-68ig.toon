@@ -1,0 +1,14 @@
+id: pm-web-68ig
+title: Reduce quadratic background force-layout cost for large browser graphs
+description: "Round 3 of PR 216 fixes the PR-introduced main-thread blocking loop with a coalesced module worker. The pairwise repulsion algorithm itself predates the restyle and remains quadratic. A real production GraphCanvas with 2,000 synthetic item nodes and 1,999 dependency edges blocked reheat for 24,256.8 ms before the worker change. Worker runs return reheat in 0.1-0.2 ms but background completion measured 35,285.9 ms and 59,488 ms under different concurrent test loads. Final positions remain static until publication. Algorithmic scaling is a separate heavy lift from the restyle. Design sketch: benchmark seeded graph families; compare a Barnes-Hut spatial tree or bounded neighbor approximation with exact pairwise forces on small graphs; define explicit convergence, completion-time and layout-quality budgets; retain worker cancellation, control debounce and one final position publication. Evidence is in scripts/brand-browser-round3.ts and docs/brand-review.md; parent work is pm-web-i0td and the review is graph-canvas.ts:490 on PR 216."
+type: Issue
+status: open
+priority: 2
+tags[3]: browser,graph,performance
+created_at: "2026-10-17T10:32:17.790Z"
+updated_at: "2026-10-17T10:33:07.442Z"
+author: codex-agent
+acceptance_criteria: "Record seeded 2,000-, 5,000- and 10,000-node browser measurements with graph shape, edge count, environment class, input responsiveness, completion time and layout-quality comparisons; preserve cancellation and static final publication; use behavioral regressions rather than loosening timing or coverage gates."
+docs[1]{path,scope}:
+  docs/brand-review.md,project
+body: ""

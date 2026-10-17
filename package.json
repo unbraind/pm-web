@@ -6,6 +6,7 @@
   "files": [
     "dist/",
     "public/",
+    "public/brand/",
     "sql/",
     "manifest.json",
     "README.md",
@@ -18,8 +19,8 @@
     "start": "node dist/server.js",
     "typecheck": "npm run typecheck:server && npm run typecheck:frontend",
     "typecheck:server": "tsc --noEmit",
-    "typecheck:frontend": "cd public && tsc --noEmit && tsc -p tsconfig.sw.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
-    "build:frontend": "cd public && tsc && tsc -p tsconfig.sw.json && tsc -p tsconfig.scripts.json",
+    "typecheck:frontend": "npm run build:brand && cd public && tsc --noEmit && tsc -p tsconfig.sw.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
+    "build:frontend": "npm run build:brand && cd public && tsc && tsc -p tsconfig.sw.json && tsc -p tsconfig.scripts.json && cd .. && node scripts/build-canvas.ts",
     "build:all": "npm run build",
     "check": "npm run typecheck",
     "docstring": "node scripts/docstring-gate.ts",
@@ -46,7 +47,8 @@
     "db:down": "node scripts/db-down.ts",
     "db:check": "node scripts/ensure-test-db.ts",
     "verify:release-changelog-date": "node scripts/verify-release-changelog-date.ts",
-    "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts"
+    "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts",
+    "build:brand": "node scripts/build-brand.ts"
   },
   "dependencies": {
     "@unbrained/pm-cli": "2026.10.15",
@@ -69,16 +71,21 @@
     "@types/jsonwebtoken": "9.0.10",
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
+    "@types/pngjs": "6.0.5",
     "@types/uuid": "11.0.0",
     "@unbrained/pm-cli": "2026.10.15",
     "c8": "12.0.0",
     "eslint": "10.12.0",
     "jscpd": "5.4.1",
+    "playwright-core": "1.63.0",
+    "pm-brand": "github:unbraind/pm-brand#7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1",
     "pm-changelog": "2026.10.14",
     "pm-ops": "2026.10.14",
+    "pngjs": "7.0.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "yaml": "2.9.1"
+    "yaml": "2.9.1",
+    "esbuild": "0.28.1"
   },
   "repository": {
     "type": "git",

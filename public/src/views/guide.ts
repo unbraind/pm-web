@@ -11,7 +11,7 @@ import { toast } from '../components/toast.js';
 function showGuideError(err: unknown, fallback: string): void {
   const contentEl = document.getElementById('guide-content');
   if (contentEl) {
-    contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
   toast(err instanceof Error ? err.message : fallback, 'error');
 }
@@ -24,11 +24,11 @@ const TOPIC_ICONS: Record<string, string> = {
   extensions: '🧩',
   skills: '🤖',
   harnesses: '⚙️',
-  release: '📦',
+  release: '□',
 };
 
 function topicIcon(id: string): string {
-  return TOPIC_ICONS[id] ?? '📖';
+  return TOPIC_ICONS[id] ?? '≡';
 }
 
 /** Renders the grid of clickable guide topic cards, each showing its icon, title, and summary or intent. */
@@ -63,7 +63,7 @@ function renderTopicDetail(topic: {
   return `
     <div style="margin-bottom:16px">
       <a href="#" class="guide-back-link" onclick="event.preventDefault();window.__app.renderGuideView()"
-        style="font-size:13px;color:var(--accent);text-decoration:none">← Back to topics</a>
+        style="font-size:13px;color:var(--app-accent);text-decoration:none">← Back to topics</a>
     </div>
     <div class="page-header">
       <div>
@@ -97,7 +97,7 @@ function renderTopicDetail(topic: {
           ${topic.workflows.map(wf => `
             <div style="margin-bottom:16px">
               <div style="font-weight:600;font-size:14px;margin-bottom:4px">${escHtml(wf.name)}</div>
-              ${wf.goal ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">${escHtml(wf.goal)}</div>` : ''}
+              ${wf.goal ? `<div style="font-size:13px;color:var(--app-text-muted);margin-bottom:8px">${escHtml(wf.goal)}</div>` : ''}
               ${wf.commands && wf.commands.length > 0 ? wf.commands.map(cmd => `
                 <div class="guide-cmd-row">
                   <code class="guide-cmd-code">${escHtml(cmd)}</code>
@@ -134,7 +134,7 @@ export async function renderGuideView(topicId?: string): Promise<void> {
     el.innerHTML = `
       <div style="margin-bottom:16px">
         <a href="#" onclick="event.preventDefault();window.__app.renderGuideView()"
-          style="font-size:13px;color:var(--accent);text-decoration:none">← Back to topics</a>
+          style="font-size:13px;color:var(--app-accent);text-decoration:none">← Back to topics</a>
       </div>
       <div id="guide-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
 

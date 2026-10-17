@@ -43,6 +43,6 @@ export async function renderSharedView(): Promise<void> {
       </div>`;
   } catch(err: unknown) {
     const el2 = document.getElementById('shared-content');
-    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }

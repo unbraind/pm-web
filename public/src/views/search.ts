@@ -32,11 +32,11 @@ export function renderSearchView(): void {
       <div><div class="page-title">Search</div><div class="page-subtitle">Search items in ${escHtml(state.currentProject.name)}</div></div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="display:flex;gap:4px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:3px">
-        ${modeOpts.map(m=>`<button class="btn btn-sm" style="padding:4px 10px;border-radius:5px;font-size:12px;transition:var(--transition);${state.searchMode===m.val?'background:var(--bg-card);color:var(--text-primary)':'background:transparent;color:var(--text-muted)'}" onclick="window.__app.setSearchMode('${m.val}')" title="${m.tip}">${m.label}</button>`).join('')}
+      <div style="display:flex;gap:4px;background:var(--app-bg-input);border:1px solid var(--app-border);border-radius:var(--app-radius);padding:3px">
+        ${modeOpts.map(m=>`<button class="btn btn-sm" style="padding:4px 10px;border-radius:var(--pm-radius-sm);font-size:12px;transition:none;${state.searchMode===m.val?'background:var(--app-bg-card);color:var(--app-text-primary)':'background:transparent;color:var(--app-text-muted)'}" onclick="window.__app.setSearchMode('${m.val}')" title="${m.tip}">${m.label}</button>`).join('')}
       </div>
       <span id="reindex-capability"><button class="btn btn-secondary btn-sm" disabled>Checking reindex availability…</button></span>
-      <span style="font-size:11px;color:var(--text-muted)">Semantic powered by Ollama qwen3</span>
+      <span style="font-size:11px;color:var(--app-text-muted)">Semantic powered by Ollama qwen3</span>
     </div>
     <div class="search-box-wrap">
       <span class="search-icon">⌕</span>
@@ -100,12 +100,12 @@ export async function doSearch(): Promise<void> {
       ? `<div class="empty-state"><div class="empty-state-text">No results for "${escHtml(query)}"</div></div>`
       : renderSearchResults();
   } catch(err: unknown) {
-    if (resultsEl) resultsEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (resultsEl) resultsEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 
 function renderSearchResults(): string {
   if (!state.searchResults.length) return '';
-  return `<div style="color:var(--text-muted);font-size:12px;margin-bottom:8px">${state.searchResults.length} result${state.searchResults.length!==1?'s':''}</div>
+  return `<div style="color:var(--app-text-muted);font-size:12px;margin-bottom:8px">${state.searchResults.length} result${state.searchResults.length!==1?'s':''}</div>
     <div class="item-list">${state.searchResults.map(item=>renderItemRow(item)).join('')}</div>`;
 }
