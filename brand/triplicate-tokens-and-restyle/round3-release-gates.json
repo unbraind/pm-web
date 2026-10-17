@@ -2,14 +2,27 @@
   "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b",
   "thresholdsChanged": false,
   "localNpm": {
-    "status": "running_with_failures",
+    "status": "failed",
     "profile": "package worktree; isolated Git identity",
     "acceptance": false,
     "trackedEnvironmentItems": [
       "pm-web-qdhx",
       "pm-web-4p94",
       "pm-web-hqqp"
-    ]
+    ],
+    "sourceState": "attempt began before final frontend refinements; unchanged server runtime/tests",
+    "tests": 666,
+    "passed": 655,
+    "failed": 10,
+    "canceled": 1,
+    "skipped": 0,
+    "todo": 0,
+    "coverage": {
+      "statements": 91.67,
+      "lines": 91.67,
+      "branches": 81.2,
+      "functions": 95.48
+    }
   },
   "localBun": {
     "status": "running_with_failures",
@@ -17,11 +30,261 @@
     "acceptance": false,
     "catalogMembershipAndSnapshot": "passed",
     "trackedEnvironmentItems": [
-      "pm-web-qdhx"
-    ]
+      "pm-web-qdhx",
+      "pm-web-hqqp"
+    ],
+    "catalogOracle": "committed snapshot and structural checks in the standalone CI profile"
   },
   "githubCI": {
-    "status": "pending",
-    "head": "3eb50e71d9766f415666dda639c2d5279e56c37b"
+    "status": "passed",
+    "head": "3eb50e71d9766f415666dda639c2d5279e56c37b",
+    "run": 39027377588,
+    "url": "https://github.com/unbraind/pm-web/actions/runs/39027377588",
+    "nodes": {
+      "22": {
+        "testSummaries": [
+          {
+            "tests": 666,
+            "pass": 666,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 2,
+            "pass": 2,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 666,
+            "pass": 666,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 2,
+            "pass": 2,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          }
+        ],
+        "coverage": [
+          {
+            "statements": 92.51,
+            "branches": 81.48,
+            "functions": 95.22,
+            "lines": 92.51
+          },
+          {
+            "statements": 92.51,
+            "branches": 81.48,
+            "functions": 95.22,
+            "lines": 92.51
+          }
+        ],
+        "packedAcceptances": [
+          [
+            {
+              "scenario": "npm-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "npm-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            }
+          ],
+          [
+            {
+              "scenario": "npm-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "npm-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            }
+          ],
+          [
+            {
+              "scenario": "npm-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "npm-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            }
+          ]
+        ]
+      },
+      "26": {
+        "testSummaries": [
+          {
+            "tests": 666,
+            "pass": 666,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 2,
+            "pass": 2,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 666,
+            "pass": 666,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 2,
+            "pass": 2,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          }
+        ],
+        "coverage": [
+          {
+            "statements": 92.52,
+            "branches": 81.54,
+            "functions": 96.12,
+            "lines": 92.52
+          },
+          {
+            "statements": 92.52,
+            "branches": 81.54,
+            "functions": 96.12,
+            "lines": 92.52
+          }
+        ],
+        "packedAcceptances": [
+          [
+            {
+              "scenario": "npm-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "npm-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            }
+          ],
+          [
+            {
+              "scenario": "npm-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "npm-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            }
+          ],
+          [
+            {
+              "scenario": "npm-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-current",
+              "hostVersion": "2026.10.15",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "npm-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            },
+            {
+              "scenario": "bun-minimum",
+              "hostVersion": "2026.10.4",
+              "standaloneSdkVersion": "2026.10.15"
+            }
+          ]
+        ]
+      }
+    },
+    "coverageScope": "src",
+    "coverageMinima": {
+      "statements": 92.51,
+      "lines": 92.51,
+      "branches": 81.48,
+      "functions": 95.22
+    },
+    "codeql": "passed"
   }
 }
