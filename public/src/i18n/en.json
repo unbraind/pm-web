@@ -70,7 +70,7 @@
   "settings.tokenLabel": "Personal Access Token (PAT)",
   "settings.tokenHint": "Used for GitHub integration. Needs <code>repo</code> scope.",
   "settings.saveToken": "Save token",
-  "settings.clearToken": "Clear Token",
+  "settings.clearToken": "Clear token",
   "settings.howToGet": "How to get a token:",
   "settings.tokenStep1": "Go to GitHub → Settings → Developer settings → Personal access tokens",
   "settings.tokenStep2": "Generate a new token with <code>repo</code> scope",

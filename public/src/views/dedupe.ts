@@ -14,7 +14,7 @@ export async function renderDedupeAuditView(): Promise<void> {
   if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
   el.innerHTML = `
     <div class="page-header">
-      <div><div class="page-title">Dedupe Audit</div><div class="page-subtitle">Find potential duplicate items in ${escHtml(state.currentProject.name)}</div></div>
+      <div><div class="page-title">Dedupe audit</div><div class="page-subtitle">Find potential duplicate items in ${escHtml(state.currentProject.name)}</div></div>
       <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="window.__app.renderDedupeAuditView()">↺ Refresh</button></div>
     </div>
     <div id="dedupe-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;

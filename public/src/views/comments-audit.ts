@@ -19,7 +19,7 @@ export async function renderCommentsAuditView(): Promise<void> {
   el.innerHTML = `
     <div class="page-header">
       <div>
-        <div class="page-title">Comments Audit</div>
+        <div class="page-title">Comments audit</div>
         <div class="page-subtitle">Review comment coverage across all items in ${escHtml(state.currentProject.name)}</div>
       </div>
       <div class="page-actions">

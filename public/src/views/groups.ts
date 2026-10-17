@@ -82,7 +82,7 @@ export function openCreateGroupModal(): void {
     </div>
     <div class="form-error" id="cg-error" style="display:none"></div>`,
     `<button class="btn btn-ghost" onclick="window.__app.hideModal('create-group-modal')">Cancel</button>
-     <button class="btn btn-primary" onclick="window.__app.submitCreateGroup()"><span>Create Group</span></button>`
+     <button class="btn btn-primary" onclick="window.__app.submitCreateGroup()"><span>Create group</span></button>`
   );
   showModal('create-group-modal');
 }
@@ -208,7 +208,7 @@ export async function inviteMember(groupId: string): Promise<void> {
  * @param userId - identifier of the member to remove.
  */
 export function removeMember(groupId: string, userId: string): void {
-  confirmDialog('Remove Member?', 'Remove this member from the group?', async () => {
+  confirmDialog('Remove member?', 'Remove this member from the group?', async () => {
     try {
       await api('DELETE',`/groups/${groupId}/members/${userId}`);
       toast('Member removed','success');

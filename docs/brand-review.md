@@ -93,3 +93,43 @@ Painted text, including alpha and ancestor surfaces, is tested for AA contrast;
 all widths are checked for horizontal overflow. Arrival scenarios assert timing,
 blocked tint, focus and geometry, own-echo suppression, partial draft writes,
 non-displacing comment arrivals and reduced motion.
+
+The pinned Node 22 image ships npm 10, which still executed Git preparation
+with scripts disabled. The builder and CI therefore pin npm 11.17.0, whose
+script-disabled Git installation matches the development acceptance. The runtime
+image retains its original Node/npm base and installs production dependencies
+only. The package's own merge-driver preparation still runs explicitly in CI.
+
+Local fleet verification sets `PM_FLEET_ROOT` to the canonical fleet directory.
+The default parent of a package worktree is a partial worktree farm, which is
+not the fleet oracle. Both live-catalog assertions pass against the canonical
+inventory. The collaboration wire test retains its five-second propagation
+deadline, beginning after the committed HTTP write while continuously reading
+SSE; CLI execution time is covered separately by the capacity acceptance.
+
+Final browser matrix: 216 before/after PNGs, 300 screen/tab audits, 8,512 real
+Tab stops, 1,917 painted contrast-pair checks and 36 live-arrival scenarios.
+Every requested width/theme passes with no horizontal overflow, inaccessible
+action, missing focus ring, overlapping cookie form or competing primary action.
+A separate mid-arrival motion-preference switch restores the accessible source
+immediately and hides the duplicate; reverting that CSS rule reproduces the
+hidden source. All used `--pm-*` references exist in the pinned contract.
+
+The pack dry run includes 330 files, 34 of them generated brand files, with all
+three font files, mark artwork, PWA icons and licenses. Runtime Git dependencies:
+zero. The final Node 22 image builds and its test tag is deleted afterward.
+Strict tracker health accepts the append-only histories and configured merge
+drivers; the existing non-blocking storage advisory is retained.
+
+The two mobile themes were recaptured after visual review found an inherited
+metadata column rule clipping a tag inside the reserved slot. Tags and status
+now share a stable row. The replacement frames and their 100 audits are merged
+into the complete matrix above.
+
+Full local release attempts hit the unchanged 300-second catalog-consumer
+fixture deadline under contention. These failed attempts are not acceptance.
+The existing CI matrix runs both complete release commands with isolated Git
+identity on each supported Node line; the PR records its exact-head results.
+No functional assertion, coverage floor, duplication limit or capacity budget
+has been relaxed. Bun dependency installation also disables scripts for the
+held Git kit, matching the npm/build workaround.

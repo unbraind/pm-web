@@ -273,7 +273,7 @@ test("functional: auth screen renders German when de catalog is applied", () => 
   // And the English defaults must no longer be visible on the auth screen.
   const englishLeftovers = [
     "Welcome back",
-    "Sign In",
+    "Sign in",
     "Sign in to your account to continue",
     "Create account",
     "Join pm-web",

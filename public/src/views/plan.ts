@@ -682,7 +682,7 @@ export function planMaterializePrompt(planId: string): void {
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Parent Item ID (optional)</label>
+      <label class="form-label">Parent item ID (optional)</label>
       <input class="form-input" id="mat-parent" type="text" placeholder="e.g. PROJ-5">
     </div>
     <div class="form-group">

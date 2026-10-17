@@ -6,11 +6,9 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-16T23:48:33.538Z"
-assignee: codex-agent
-claim_principal: codex-agent
+updated_at: "2026-10-17T00:39:37.684Z"
 author: codex-agent
-comments[7]{created_at,author,text}:
+comments[10]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
@@ -18,7 +16,10 @@ comments[7]{created_at,author,text}:
   "2026-10-16T23:02:36.832Z",codex-agent,"Stronger scripted checks now traverse every action, verify a focus ring, detect viewport overflow and compute painted text contrast including opacity. They found and fixed dim adjacent-month calendar dates. Seventeen requested screens passed these checks in the first light/desktop run. The remaining live-arrival traversal catches the existing SSE list replacement during focus traversal; the next signature commit will patch fields in place to remove that focus loss. Generated brand assets include the shared mark, all PWA icons and licensed font files; no generated files are tracked."
   "2026-10-16T23:46:50.417Z",codex-agent,"Live copies now patch readonly fields in place, keep comment and edit drafts and keyboard focus, suppress own account/session echoes, and retain the changed-field border for five seconds. Six browser scenarios cover the settle timing, blocked rose, polite announcements, own echoes, stale draft partial writes, stable comment entries and reduced motion. The real database SSE regression also verifies authenticated display names and the Project member fallback without trusting an author supplied in the edit body."
   "2026-10-16T23:48:33.538Z",codex-agent,"Behavioral revert proof: replacing only emitItemEvent with its previous implementation makes the new real database SSE test fail because the payload lacks author: Editor. The changed function was restored. Existing itemId and userId remain unchanged; display-name lookup failure cannot fail an already committed edit. Initial quality checks pass with zero duplicate lines and all 737 declarations documented."
-files[77]{path,scope}:
+  "2026-10-17T00:07:37.104Z",codex-agent,"The first PM-linked collaboration run exceeded its 120-second runner budget. The 600-second retry exposed a pre-existing SSE test that started its five-second delivery timer before a real CLI write finished. It now uses the existing continuously reading wire helper and starts the unchanged five-second deadline after commit, with stricter item-id and actor-id assertions. No coverage, duplication or capacity threshold changed. The Docker build also exposed npm 10 Git-prepare behavior; the builder and CI now pin compatible npm 11.17.0. The image build passes and its tag was deleted."
+  "2026-10-17T00:14:46.720Z",codex-agent,"The revised PM-linked collaboration command passes 12/12 with zero failures, skips or cancellations, including the real PostgreSQL/wire-SSE attribution regression. The pack dry run contains 330 files, including 34 generated brand files and all three self-hosted font files, icons, mark artwork and licenses; runtime Git dependencies: zero. The final matrix is being recaptured after sentence-case copy alignment. Local release checks will use the canonical fleet inventory; its two catalog assertions pass 2/2."
+  "2026-10-17T00:39:23.882Z",codex-agent,"Implementation and fixture review are complete: 216 PNGs are published on pr-screenshots, with 300 keyboard/contrast/overflow audits, 8512 real Tab stops, 1917 painted text/background checks and 36 live scenarios. Both mobile themes were recaptured after correcting the inherited metadata column rule. Mid-arrival reduced-motion preference changes also restore source text immediately. Focused checks pass 41/41 and live collaboration 12/12; packed output includes 34 brand files and no runtime Git dependency. Full local release attempts hit the existing 300-second catalog-consumer deadline under contention; no deadline, coverage, duplication or capacity limit was relaxed. The existing CI jobs run both complete npm and Bun release commands with isolated Git identity; exact-head receipts will be reported in the PR. Canonical fleet assertions pass 2/2. Strict tracker health passes with its existing storage advisory retained."
+files[79]{path,scope}:
   .github/workflows/ci.yml,project
   .github/workflows/release.yml,project
   Dockerfile,project
@@ -43,6 +44,7 @@ files[77]{path,scope}:
   public/src/edit-origin.ts,project
   public/src/filters.ts,project
   public/src/i18n.ts,project
+  public/src/i18n/en.json,project
   public/src/interactions.ts,project
   public/src/live-copy.ts,project
   public/src/offline-recovery.ts,project
@@ -94,12 +96,55 @@ files[77]{path,scope}:
   src/app.ts,project
   test/brand-assets.test.ts,project
   test/brand-contrast.test.ts,project
+  test/i18n.test.ts,project
   test/live-copy.test.ts,project
   test/pm-collaboration.test.ts,project
-tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
-  node scripts/with-test-db.ts node --test test/brand-assets.test.ts,project,codex-agent,"2026-10-16T22:39:55.603Z",local_mutation,brand/triplicate-tokens-and-restyle
-  node scripts/with-test-db.ts node --test test/brand-assets.test.ts test/brand-contrast.test.ts test/static-scripts.test.ts test/legal-pages.test.ts test/i18n.test.ts,project,codex-agent,"2026-10-16T23:02:21.635Z",local_mutation,brand/triplicate-tokens-and-restyle
-  node scripts/with-test-db.ts node --test test/live-copy.test.ts test/pm-collaboration.test.ts,project,codex-agent,"2026-10-16T23:47:29.523Z",local_mutation,brand/triplicate-tokens-and-restyle
+tests[6]:
+  - command: node scripts/with-test-db.ts node --test test/brand-assets.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T22:39:55.603Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: node scripts/with-test-db.ts node --test test/brand-assets.test.ts test/brand-contrast.test.ts test/static-scripts.test.ts test/legal-pages.test.ts test/i18n.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T23:02:21.635Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: node scripts/with-test-db.ts node --test test/live-copy.test.ts test/pm-collaboration.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-16T23:47:29.523Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: "npm run release:check"
+    scope: project
+    timeout_seconds: 7200
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-17T00:15:53.556Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: "bun run release:check"
+    scope: project
+    timeout_seconds: 7200
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-17T00:15:53.556Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: node scripts/brand-browser.ts
+    scope: project
+    timeout_seconds: 3600
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-17T00:15:53.556Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
 docs[2]{path,scope}:
   docs/brand-review.md,project
   README.md,project

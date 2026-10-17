@@ -38,7 +38,7 @@ export async function renderSharingView(): Promise<void> {
   el.innerHTML = `
     <div class="page-header">
       <div>
-        <div class="page-title">Project Sharing</div>
+        <div class="page-title">Project sharing</div>
         <div class="page-subtitle">Manage access to ${escHtml(state.currentProject.name)}</div>
       </div>
       <div class="page-actions">
@@ -106,11 +106,11 @@ async function loadShares(): Promise<void> {
 export function openShareModal(): void {
   createModal('share-modal','Invite to Project',`
     <div class="form-group">
-      <label class="form-label">Email Address</label>
+      <label class="form-label">Email address</label>
       <input class="form-input" id="share-email" type="email" placeholder="colleague@example.com">
     </div>
     <div class="form-group">
-      <label class="form-label">Or Group ID</label>
+      <label class="form-label">Or group ID</label>
       <input class="form-input" id="share-group-id" type="text" placeholder="Leave empty to invite by email">
     </div>
     <div class="form-group">
@@ -122,7 +122,7 @@ export function openShareModal(): void {
     </div>
     <div class="form-error" id="share-error" style="display:none"></div>`,
     `<button class="btn btn-ghost" onclick="window.__app.hideModal('share-modal')">Cancel</button>
-     <button class="btn btn-primary" onclick="window.__app.submitShare()"><span>Send Invite</span></button>`
+     <button class="btn btn-primary" onclick="window.__app.submitShare()"><span>Send invite</span></button>`
   );
   showModal('share-modal');
 }
@@ -162,7 +162,7 @@ export async function submitShare(): Promise<void> {
  * @param shareId - identifier of the share to revoke.
  */
 export function removeShare(shareId: string): void {
-  confirmDialog('Remove Access?', 'The user will lose access to this project.', async () => {
+  confirmDialog('Remove access?', 'The user will lose access to this project.', async () => {
     try {
       await api('DELETE',`/projects/${state.currentProject!.id}/shares/${shareId}`);
       toast('Share removed','success');

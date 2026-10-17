@@ -41,12 +41,12 @@
       <div class="auth-form-title" id="auth-title" data-i18n="auth.title.login">Welcome back</div>
       <div class="auth-form-sub" id="auth-sub" data-i18n="auth.sub.login">Sign in to your account to continue</div>
       <div class="auth-toggle">
-        <button class="active" id="tab-login" aria-pressed="true" onclick="window.__app.switchAuthTab('login')" data-i18n="auth.tab.login">Sign In</button>
+        <button class="active" id="tab-login" aria-pressed="true" onclick="window.__app.switchAuthTab('login')" data-i18n="auth.tab.login">Sign in</button>
         <button id="tab-register" aria-pressed="false" onclick="window.__app.switchAuthTab('register')" data-i18n="auth.tab.register">Register</button>
       </div>
       <form id="auth-form" onsubmit="window.__app.submitAuth(event)">
         <div class="form-group" id="field-name" style="display:none">
-          <label class="form-label" data-i18n="auth.field.displayName">Display Name</label>
+          <label class="form-label" data-i18n="auth.field.displayName">Display name</label>
           <input class="form-input" type="text" id="auth-name" placeholder="Your name" data-i18n-placeholder="auth.placeholder.name" autocomplete="name">
         </div>
         <div class="form-group">
@@ -59,7 +59,7 @@
         </div>
         <div class="form-error" id="auth-error" style="display:none"></div>
         <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px" id="auth-submit">
-          <span id="auth-btn-text" data-i18n="auth.button.login">Sign In</span>
+          <span id="auth-btn-text" data-i18n="auth.button.login">Sign in</span>
         </button>
       </form>
       <div id="oidc-divider" class="auth-form-sub" style="margin:18px 0 10px;text-align:center" hidden data-i18n="auth.divider">or</div>
@@ -97,11 +97,11 @@
       <nav id="sidebar" role="navigation" aria-label="Sidebar navigation">
         <div class="sidebar-section" id="sidebar-projects-section">
           <div class="sidebar-section-label">Projects</div>
-          <div class="sidebar-item active" onclick="window.__app.showView('projects')" data-view="projects" role="button" tabindex="0" aria-label="All Projects" onkeydown="if(event.key==='Enter')window.__app.showView('projects')">
-            <span class="sidebar-item-icon" aria-hidden="true">⊞</span> All Projects
+          <div class="sidebar-item active" onclick="window.__app.showView('projects')" data-view="projects" role="button" tabindex="0" aria-label="All projects" onkeydown="if(event.key==='Enter')window.__app.showView('projects')">
+            <span class="sidebar-item-icon" aria-hidden="true">⊞</span> All projects
           </div>
           <div class="sidebar-item" onclick="window.__app.showModal('create-project-modal')" style="color:var(--accent)" role="button" tabindex="0" aria-label="Create new project" onkeydown="if(event.key==='Enter')window.__app.showModal('create-project-modal')">
-            <span class="sidebar-item-icon" aria-hidden="true">+</span> New Project
+            <span class="sidebar-item-icon" aria-hidden="true">+</span> New project
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('settings')" data-view="settings" role="button" tabindex="0" aria-label="Settings" onkeydown="if(event.key==='Enter')window.__app.showView('settings')">
             <span class="sidebar-item-icon" aria-hidden="true">⚙</span> Settings
@@ -117,7 +117,7 @@
             <span class="sidebar-badge" id="badge-items"></span>
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('create')" data-view="create" role="button" tabindex="0" aria-label="Create item" onkeydown="if(event.key==='Enter')window.__app.showView('create')">
-            <span class="sidebar-item-icon" aria-hidden="true">+</span> Create Item
+            <span class="sidebar-item-icon" aria-hidden="true">+</span> Create item
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('plan')" data-view="plan" role="button" tabindex="0" aria-label="Plans" onkeydown="if(event.key==='Enter')window.__app.showView('plan')">
             <span class="sidebar-item-icon" aria-hidden="true">◧</span> Plans
@@ -150,7 +150,7 @@
             <span class="sidebar-item-icon" aria-hidden="true">♥</span> Health
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('dedupe')" data-view="dedupe" role="button" tabindex="0" aria-label="Dedupe audit" onkeydown="if(event.key==='Enter')window.__app.showView('dedupe')">
-            <span class="sidebar-item-icon" aria-hidden="true">⧖</span> Dedupe Audit
+            <span class="sidebar-item-icon" aria-hidden="true">⧖</span> Dedupe audit
           </div>
           <div class="sidebar-item" onclick="window.__app.showView('validate')" data-view="validate" role="button" tabindex="0" aria-label="Validate" onkeydown="if(event.key==='Enter')window.__app.showView('validate')">
             <span class="sidebar-item-icon" aria-hidden="true">✓</span> Validate
@@ -177,7 +177,7 @@
         <div class="sidebar-section" id="sidebar-logs-section">
           <div class="sidebar-section-label">Logs</div>
           <div class="sidebar-item" onclick="window.__app.showView('comments-audit')" data-view="comments-audit" role="button" tabindex="0" aria-label="Comments audit" onkeydown="if(event.key==='Enter')window.__app.showView('comments-audit')">
-            <span class="sidebar-item-icon" aria-hidden="true">↳</span> Comments Audit
+            <span class="sidebar-item-icon" aria-hidden="true">↳</span> Comments audit
           </div>
         </div>
         <div class="sidebar-section">

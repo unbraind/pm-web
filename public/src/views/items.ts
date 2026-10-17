@@ -229,15 +229,15 @@ function depRelation(dep: RawDependency): string {
 // BULK UPDATE
 // ═══════════════════════════════════════════════════════════════
 /**
- * Opens the Bulk Update Items modal, which lets the user filter items and
+ * Opens the Bulk update items modal, which lets the user filter items and
  * choose fields to change across many items at once. Shows an info toast and
  * returns early when no project is currently selected.
  */
 export function showBulkUpdateModal(): void {
   if (!state.currentProject) { toast('Select a project first', 'info'); return; }
-  createModal('bulk-update-modal', 'Bulk Update Items', `
+  createModal('bulk-update-modal', 'Bulk update items', `
     <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items</div>
+      <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter items</div>
       <div class="two-col">
         <div class="form-group">
           <label class="form-label">Status</label>
@@ -269,14 +269,14 @@ export function showBulkUpdateModal(): void {
     <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Fields to Update</div>
     <div class="two-col">
       <div class="form-group">
-        <label class="form-label">Set Priority</label>
+        <label class="form-label">Set priority</label>
         <select class="form-select" id="bu-set-priority">
           <option value="">— don't change —</option>
           ${[0,1,2,3,4].map(p=>`<option value="${p}">P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Set Status</label>
+        <label class="form-label">Set status</label>
         <select class="form-select" id="bu-set-status">
           <option value="">— don't change —</option>
           ${getStatuses(state.schema).map(s=>`<option value="${s}">${s.replace('_',' ')}</option>`).join('')}
@@ -285,22 +285,22 @@ export function showBulkUpdateModal(): void {
     </div>
     <div class="two-col">
       <div class="form-group">
-        <label class="form-label">Set Sprint</label>
+        <label class="form-label">Set sprint</label>
         <input class="form-input" id="bu-set-sprint" type="text" placeholder="New sprint value…">
       </div>
       <div class="form-group">
-        <label class="form-label">Set Release</label>
+        <label class="form-label">Set release</label>
         <input class="form-input" id="bu-set-release" type="text" placeholder="New release value…">
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Set Assignee</label>
+      <label class="form-label">Set assignee</label>
       <input class="form-input" id="bu-set-assignee" type="text" placeholder="New assignee…">
     </div>
     <div id="bu-preview" style="margin-top:12px"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-secondary" onclick="window.__app.previewBulkUpdate()">Preview</button>
-      <button class="btn btn-primary" id="bu-apply-btn" onclick="window.__app.applyBulkUpdate()" disabled>Apply Update</button>
+      <button class="btn btn-primary" id="bu-apply-btn" onclick="window.__app.applyBulkUpdate()" disabled>Apply update</button>
     </div>`, '');
   showModal('bulk-update-modal');
 }
@@ -393,7 +393,7 @@ export async function applyBulkUpdate(): Promise<void> {
   if (!pid) return;
   const applyBtn = document.getElementById('bu-apply-btn') as HTMLButtonElement | null;
   const payload = applyBtn ? bulkUpdatePayloads.get(applyBtn) : undefined;
-  if (!payload) { toast('Run Preview first', 'info'); return; }
+  if (!payload) { toast('Run preview first', 'info'); return; }
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying…'; }
   try {
     const data = await api<UpdateManyResponse>('POST', `/projects/${pid}/pm/update-many`, payload);
@@ -405,7 +405,7 @@ export async function applyBulkUpdate(): Promise<void> {
     loadItemsBadge();
   } catch(err: unknown) {
     toastError(err);
-    if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply Update'; }
+    if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply update'; }
   }
 }
 
@@ -413,18 +413,18 @@ export async function applyBulkUpdate(): Promise<void> {
 // BULK CLOSE
 // ═══════════════════════════════════════════════════════════════
 /**
- * Opens the Bulk Close Items modal, which lets the user filter items and close
+ * Opens the Bulk close items modal, which lets the user filter items and close
  * or cancel many of them at once with a required reason. Shows an info toast
  * and returns early when no project is currently selected.
  */
 export function showBulkCloseModal(): void {
   if (!state.currentProject) { toast('Select a project first', 'info'); return; }
-  createModal('bulk-close-modal', 'Bulk Close Items', `
+  createModal('bulk-close-modal', 'Bulk close items', `
     <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter Items to Close</div>
+      <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Filter items to Close</div>
       <div class="two-col">
         <div class="form-group">
-          <label class="form-label">Current Status</label>
+          <label class="form-label">Current status</label>
           <select class="form-select" id="bc-filter-status">
             <option value="">Any active status</option>
             ${getStatuses(state.schema).filter(s => s !== 'closed' && s !== 'canceled').map(s=>`<option value="${s}">${s.replace('_',' ')}</option>`).join('')}
@@ -453,7 +453,7 @@ export function showBulkCloseModal(): void {
     <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Close Action</div>
     <div class="two-col">
       <div class="form-group">
-        <label class="form-label">Target Status</label>
+        <label class="form-label">Target status</label>
         <select class="form-select" id="bc-target-status">
           <option value="closed">closed</option>
           <option value="canceled">canceled</option>
@@ -467,7 +467,7 @@ export function showBulkCloseModal(): void {
     <div id="bc-preview" style="margin-top:12px"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-secondary" onclick="window.__app.previewBulkClose()">Preview</button>
-      <button class="btn btn-danger" id="bc-apply-btn" onclick="window.__app.applyBulkClose()" disabled>Close Items</button>
+      <button class="btn btn-danger" id="bc-apply-btn" onclick="window.__app.applyBulkClose()" disabled>Close items</button>
     </div>`, '');
   showModal('bulk-close-modal');
 }
@@ -547,7 +547,7 @@ export async function applyBulkClose(): Promise<void> {
   if (!pid) return;
   const applyBtn = document.getElementById('bc-apply-btn') as HTMLButtonElement | null;
   const bulkClosePayload = applyBtn ? bulkClosePayloads.get(applyBtn) : undefined;
-  if (!bulkClosePayload) { toast('Run Preview first', 'info'); return; }
+  if (!bulkClosePayload) { toast('Run preview first', 'info'); return; }
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Closing…'; }
 
   // Use the close-many endpoint which calls pm close <id> <reason> for each matched item.
@@ -571,7 +571,7 @@ export async function applyBulkClose(): Promise<void> {
     loadItemsBadge();
   } catch(err: unknown) {
     toastError(err);
-    if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Close Items'; }
+    if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Close items'; }
   }
 }
 
@@ -604,9 +604,9 @@ export async function renderItemsView(): Promise<void> {
           <button class="btn btn-secondary btn-sm" data-items-layout="board" aria-pressed="${itemsLayout === 'board'}" onclick="window.__app.setItemsLayout('board')">Board</button>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="window.__app.renderItemsView()" title="Refresh">↺ Refresh</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkUpdateModal()">⊞ Bulk Update</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkCloseModal()" title="Close or cancel many items at once">⊘ Bulk Close</button>
-        <button class="btn btn-primary" onclick="window.__app.showView('create')">+ New Item</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkUpdateModal()">⊞ Bulk update</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkCloseModal()" title="Close or cancel many items at once">⊘ Bulk close</button>
+        <button class="btn btn-primary" onclick="window.__app.showView('create')">+ New item</button>
       </div>
     </div>
     <div class="status-tabs" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
@@ -614,15 +614,15 @@ export async function renderItemsView(): Promise<void> {
     </div>
     <div class="filter-bar">
       <select class="filter-select" id="filter-status" onchange="window.__app.applyItemFilters()">
-        <option value="">All Statuses</option>
+        <option value="">All statuses</option>
         ${getStatuses(state.schema).map(s=>`<option value="${s}"${state.itemFilters.status===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}
       </select>
       <select class="filter-select" id="filter-type" onchange="window.__app.applyItemFilters()">
-        <option value="">All Types</option>
+        <option value="">All types</option>
         ${getTypes(state.schema).map(t=>`<option value="${t}"${state.itemFilters.type===t?' selected':''}>${t}</option>`).join('')}
       </select>
       <select class="filter-select" id="filter-priority" onchange="window.__app.applyItemFilters()">
-        <option value="">All Priorities</option>
+        <option value="">All priorities</option>
         ${[0,1,2,3,4].map(p=>`<option value="${p}"${state.itemFilters.priority===String(p)?' selected':''}>P${p}: ${PRIORITY_LABELS[p]}</option>`).join('')}
       </select>
       <input class="filter-select" id="filter-sprint" type="text" placeholder="Sprint…" value="${escHtml(state.itemFilters.sprint)}" oninput="window.__app.applyItemFilters()" style="width:100px">
@@ -912,7 +912,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="live-collection live-field" ${liveAttrs('comments', JSON.stringify(comments))}>${commentsHtml}</div>
         <hr class="section-divider">
         <div class="form-group">
-          <label class="form-label">Add Comment</label>
+          <label class="form-label">Add comment</label>
           <textarea class="form-textarea" id="new-comment" placeholder="Write a comment…" rows="3"></textarea>
         </div>
         <button class="btn btn-primary btn-sm" onclick="window.__app.addComment('${escHtml(itemId)}')">Post comment</button>
@@ -962,7 +962,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Estimated Minutes</label>
+          <label class="form-label">Estimated minutes</label>
           <input class="form-input" id="edit-estimate" type="number" min="1" value="${escHtml(String(item.estimated_minutes||''))}">
         </div>
         <div class="form-group">
@@ -974,24 +974,24 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <textarea class="form-textarea" id="edit-body" rows="3">${escHtml(item.body||'')}</textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">Acceptance Criteria</label>
+          <label class="form-label">Acceptance criteria</label>
           <textarea class="form-textarea" id="edit-acceptance-criteria" rows="2">${escHtml(item.acceptance_criteria||item.acceptanceCriteria||'')}</textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">Blocked Reason</label>
+          <label class="form-label">Blocked reason</label>
           <textarea class="form-textarea" id="edit-blocked-reason" rows="2" placeholder="Why is this item blocked?">${escHtml(item.blockedReason||item['blocked-reason']||'')}</textarea>
         </div>
-        <button class="btn btn-primary" onclick="window.__app.updateItem('${escHtml(itemId)}')">Save Changes</button>
+        <button class="btn btn-primary" onclick="window.__app.updateItem('${escHtml(itemId)}')">Save changes</button>
       </div>
 
       <div id="tab-notes" style="display:none">
         <div style="margin-bottom:16px">${notesHtml}</div>
         <hr class="section-divider">
         <div class="form-group">
-          <label class="form-label">Add Note</label>
+          <label class="form-label">Add note</label>
           <textarea class="form-textarea" id="new-note" placeholder="Add a note to this item…" rows="4"></textarea>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="window.__app.addNote('${escHtml(itemId)}')">Add Note</button>
+        <button class="btn btn-primary btn-sm" onclick="window.__app.addNote('${escHtml(itemId)}')">Add note</button>
         <hr class="section-divider">
         <div class="form-group">
           <label class="form-label">Append to Description</label>
@@ -1020,14 +1020,14 @@ export async function openItemDetail(itemId: string): Promise<void> {
           }
         </div>
         <hr class="section-divider">
-        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add Dependency</div>
+        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add dependency</div>
         <div class="row" style="margin-bottom:8px">
           <input class="form-input flex-1" id="dep-target-id" type="text" placeholder="Item ID (e.g. ${escHtml(state.currentProject?.prefix||'proj')}-5)">
           <select class="form-select" id="dep-rel" style="width:200px">
             ${renderDependencyOptions()}
           </select>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="window.__app.addDep('${escHtml(itemId)}')">Add Dependency</button>
+        <button class="btn btn-primary btn-sm" onclick="window.__app.addDep('${escHtml(itemId)}')">Add dependency</button>
       </div>
 
       <div id="tab-learnings" style="display:none">
@@ -1042,16 +1042,16 @@ export async function openItemDetail(itemId: string): Promise<void> {
         </div>
         <hr class="section-divider">
         <div class="form-group">
-          <label class="form-label">Add Learning</label>
+          <label class="form-label">Add learning</label>
           <textarea class="form-textarea" id="new-learning" placeholder="What did you learn working on this item?" rows="3"></textarea>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="window.__app.addLearning('${escHtml(itemId)}')">Record Learning</button>
+        <button class="btn btn-primary btn-sm" onclick="window.__app.addLearning('${escHtml(itemId)}')">Record learning</button>
       </div>
 
       <div id="tab-tests" style="display:none">
         <div style="margin-bottom:16px">${testsHtml}</div>
         <hr class="section-divider">
-        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add Test</div>
+        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Add test</div>
         <div class="form-group">
           <label class="form-label">Command *</label>
           <input class="form-input" id="new-test-cmd" type="text" placeholder="npm test, pytest tests/, etc.">
@@ -1060,7 +1060,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <label class="form-label">Description (optional)</label>
           <input class="form-input" id="new-test-desc" type="text" placeholder="What does this test verify?">
         </div>
-        <button class="btn btn-primary btn-sm" onclick="window.__app.addTest('${escHtml(itemId)}')">Add Test</button>
+        <button class="btn btn-primary btn-sm" onclick="window.__app.addTest('${escHtml(itemId)}')">Add test</button>
       </div>
 
       <div id="tab-history" style="display:none"><div class="live-collection live-field" ${liveAttrs('history', JSON.stringify(history))}>${historyHtml}</div></div>
@@ -1098,13 +1098,13 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
       <div id="tab-close" style="display:none">
         <div class="form-group">
-          <label class="form-label">Close Reason *</label>
+          <label class="form-label">Close reason *</label>
           <textarea class="form-textarea" id="close-reason" placeholder="Why is this being closed?" rows="3"></textarea>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-primary" data-item-action="close" aria-disabled="${['closed', 'canceled'].includes(item.status || '')}" onclick="window.__app.closeItem('${escHtml(itemId)}','closed')">Close item</button>
           <button class="btn btn-secondary" data-item-action="close" aria-disabled="${['closed', 'canceled'].includes(item.status || '')}" onclick="window.__app.closeItem('${escHtml(itemId)}','canceled')">Cancel item</button>
-          <button class="btn btn-danger btn-sm" onclick="window.__app.confirmDeleteItem('${escHtml(itemId)}')">Delete Item</button>
+          <button class="btn btn-danger btn-sm" onclick="window.__app.confirmDeleteItem('${escHtml(itemId)}')">Delete item</button>
         </div>
       </div>
     `;
@@ -1241,7 +1241,7 @@ export async function closeItem(itemId: string, targetStatus: string): Promise<v
  * detail modal, and refreshes the items list and project badge.
  */
 export function confirmDeleteItem(itemId: string): void {
-  confirmDialog('Delete Item?', 'This action cannot be undone. The item and all its data will be permanently removed.', async () => {
+  confirmDialog('Delete item?', 'This action cannot be undone. The item and all its data will be permanently removed.', async () => {
     try {
       await api('DELETE',`/projects/${state.currentProject!.id}/pm/delete/${itemId}`);
       refreshAfterItemAction({ toastMsg: 'Item deleted', hideDetail: true, withBadge: true });

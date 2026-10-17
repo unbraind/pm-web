@@ -68,7 +68,8 @@ jobs:
       - name: Install dependencies
         # The held brand kit's Git prepare assumes a checkout. Assets are already built.
         run: |
-          npm ci --ignore-scripts
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          npm_config_ignore_scripts=true npm ci --ignore-scripts
           npm run prepare
 
       - name: Install pinned managed GitHub extension
@@ -169,7 +170,7 @@ jobs:
         run: npm run verify:release-publish-attestation
 
       - name: Verify Bun can install package dependencies
-        run: bun install --no-save
+        run: bun install --no-save --ignore-scripts
 
       - name: Full Bun release gate with isolated Git identity
         run: env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 bun run release:check

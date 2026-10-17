@@ -18,7 +18,7 @@ export function renderCreateView(): void {
   if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
   el.innerHTML = `
     <div class="page-header">
-      <div><div class="page-title">Create Item</div><div class="page-subtitle">Add a new item to ${escHtml(state.currentProject.name)}</div></div>
+      <div><div class="page-title">Create item</div><div class="page-subtitle">Add a new item to ${escHtml(state.currentProject.name)}</div></div>
     </div>
     <div class="card" style="max-width:620px">
       <div class="card-body">
@@ -51,7 +51,7 @@ export function renderCreateView(): void {
               <input class="form-input" id="ci-tags" type="text" placeholder="comma, separated, tags">
             </div>
             <div class="form-group">
-              <label class="form-label">Parent Item ID</label>
+              <label class="form-label">Parent item ID</label>
               <input class="form-input" id="ci-parent" type="text" placeholder="${escHtml(state.currentProject.prefix)}-1">
             </div>
           </div>
@@ -76,11 +76,11 @@ export function renderCreateView(): void {
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Estimated Minutes</label>
+            <label class="form-label">Estimated minutes</label>
             <input class="form-input" id="ci-estimate" type="number" min="1" placeholder="e.g. 60">
           </div>
           <div class="form-group">
-            <label class="form-label">Acceptance Criteria</label>
+            <label class="form-label">Acceptance criteria</label>
             <textarea class="form-textarea" id="ci-acceptance-criteria" placeholder="What conditions must be met?" rows="2"></textarea>
           </div>
           <details style="margin-top:8px;margin-bottom:4px">
@@ -131,29 +131,29 @@ export function renderCreateView(): void {
                   <input class="form-input" id="ci-environment" type="text" placeholder="e.g. production, staging">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Blocked By</label>
+                  <label class="form-label">Blocked by</label>
                   <input class="form-input" id="ci-blocked-by" type="text" placeholder="item ID blocking this">
                 </div>
               </div>
               <div class="two-col">
                 <div class="form-group">
-                  <label class="form-label">Repro Steps</label>
+                  <label class="form-label">Repro steps</label>
                   <textarea class="form-textarea" id="ci-repro-steps" placeholder="Steps to reproduce" rows="2"></textarea>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Expected Result</label>
+                  <label class="form-label">Expected result</label>
                   <textarea class="form-textarea" id="ci-expected-result" placeholder="What should happen" rows="2"></textarea>
                 </div>
               </div>
               <div class="form-group">
-                <label class="form-label">Blocked Reason</label>
+                <label class="form-label">Blocked reason</label>
                 <textarea class="form-textarea" id="ci-blocked-reason" placeholder="Why is this item blocked? (optional)" rows="2"></textarea>
               </div>
             </div>
           </details>
           <div class="form-error" id="ci-error" style="display:none"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button type="submit" class="btn btn-primary" id="ci-submit"><span>Create Item</span></button>
+            <button type="submit" class="btn btn-primary" id="ci-submit"><span>Create item</span></button>
             <button type="button" class="btn btn-secondary" id="ci-submit-open" onclick="window.__app.submitCreateItemAndOpen(event)"><span>Create &amp; Open</span></button>
             <button type="button" class="btn btn-ghost" onclick="window.__app.showView('items')">Cancel</button>
           </div>
@@ -244,7 +244,7 @@ export async function submitCreateItem(e: Event, openAfter = false): Promise<voi
     }
   } catch(err: unknown) {
     showError(errEl, err);
-    resetButton(btn, 'Create Item');
+    resetButton(btn, 'Create item');
     if (btnOpen) btnOpen.disabled = false;
   }
 }

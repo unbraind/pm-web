@@ -45,6 +45,8 @@ browser.on('disconnected', () => server.closeAllConnections());
 const strict = process.env.BRAND_ACCEPTANCE === '1';
 const report: unknown[] = [];
 let screenshotCount = 0;
+const widths = process.env.BRAND_QUICK ? [1440] : process.env.BRAND_WIDTHS ? process.env.BRAND_WIDTHS.split(',').map(Number) : [1440, 768, 390];
+assert.ok(widths.length && widths.every(width => [1440, 768, 390].includes(width)), 'Use review widths 1440, 768 or 390');
 const originalItems = structuredClone(fixtureItems);
 const originalComments = structuredClone(fixtureComments);
 const originalHistory = structuredClone(fixtureHistory);
@@ -103,7 +105,7 @@ async function capture(page: Page, name: string, width: number, theme: string, s
 }
 
 try {
-  for (const width of (process.env.BRAND_QUICK ? [1440] : [1440, 768, 390])) for (const theme of (process.env.BRAND_QUICK ? ['light'] : ['light', 'dark']) as ('light' | 'dark')[]) {
+  for (const width of widths) for (const theme of (process.env.BRAND_QUICK ? ['light'] : ['light', 'dark']) as ('light' | 'dark')[]) {
     const context = await browser.newContext({ viewport: { width, height: 1000 }, colorScheme: theme, serviceWorkers: 'block', reducedMotion: 'no-preference' });
     await context.addInitScript(() => {
       localStorage.setItem('pmLocale', 'en');

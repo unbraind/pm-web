@@ -117,7 +117,7 @@ function renderGitHubContent(data: GitHubRepoResponse): void {
           </div>
         </div>
         <div class="form-error" id="gh-link-error" style="display:none"></div>
-        <button class="btn btn-primary btn-sm" id="gh-link-btn" onclick="window.__app.linkGitHubRepo()"><span>${linked ? 'Update Link' : 'Link Repository'}</span></button>
+        <button class="btn btn-primary btn-sm" id="gh-link-btn" onclick="window.__app.linkGitHubRepo()"><span>${linked ? 'Update Link' : 'Link repository'}</span></button>
       </div>
     </div>`;
 
@@ -172,7 +172,7 @@ export async function linkGitHubRepo(): Promise<void> {
     renderGitHubView();
   } catch(err: unknown) {
     showError(errEl, err);
-    resetButton(btn, 'Link Repository');
+    resetButton(btn, 'Link repository');
   }
 }
 

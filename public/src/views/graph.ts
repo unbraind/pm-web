@@ -766,7 +766,7 @@ function renderRelList(data: GraphResponse): string {
 
   const editBtns = `
     <div class="graph-rel-edit-bar">
-      <button class="btn btn-secondary btn-sm" id="graph-add-dep-btn">+ Add Dependency</button>
+      <button class="btn btn-secondary btn-sm" id="graph-add-dep-btn">+ Add dependency</button>
       <button class="btn btn-ghost btn-sm" id="graph-remove-dep-btn">− Remove Dependency</button>
     </div>`;
 
@@ -1260,7 +1260,7 @@ function bindInfoPanelEvents(): void {
     pushGraphState();
   });
 
-  // Add Dependency button
+  // Add dependency button
   document.getElementById('graph-add-dep-btn')?.addEventListener('click', () => {
     showAddDependencyModal();
   });
@@ -1698,7 +1698,7 @@ function showAddDependencyModal(): void {
     <div class="modal-backdrop" id="graph-add-dep-modal" style="display:flex">
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
-          <div class="modal-title">Add Dependency</div>
+          <div class="modal-title">Add dependency</div>
           <button class="modal-close" onclick="document.getElementById('graph-add-dep-modal')?.remove()">✕</button>
         </div>
         <div class="modal-body">

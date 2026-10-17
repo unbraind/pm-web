@@ -503,9 +503,11 @@ delivery latency and resource counters, and caps its ladder at 3000 subscribers.
 ### Triplicate assets and browser review
 
 The held `pm-brand` release is pinned by exact Git commit as a development
-dependency. Its current Git `prepare` assumes a full checkout, so install
-built assets with `npm ci --ignore-scripts`, then run `npm run prepare` to
-register this repository's merge drivers. CI follows the same sequence.
+dependency. Its current Git `prepare` assumes a full checkout. Development,
+CI and the image builder use npm 11.17.0 to honor script-disabled Git installs.
+Install built assets with
+`npm_config_ignore_scripts=true npm ci --ignore-scripts`, then run
+`npm run prepare` to register this repository's merge drivers.
 Runtime consumers install the packed package without a Git dependency.
 
 `npm run build` copies tokens, self-hosted fonts and licenses, mark artwork and

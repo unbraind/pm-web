@@ -609,7 +609,7 @@ export async function adminDeleteGroup(groupId: string, groupName: string): Prom
  */
 export function adminCreateGroup(): void {
   const id = 'admin-create-group-' + Date.now();
-  createModal(id, 'Create Group', `
+  createModal(id, 'Create group', `
     <div class="form-group">
       <label class="form-label" for="admin-group-name">Group Name</label>
       <input class="form-input" id="admin-group-name" type="text" placeholder="e.g. Engineering" required aria-required="true">
@@ -619,7 +619,7 @@ export function adminCreateGroup(): void {
       <input class="form-input" id="admin-group-desc" type="text" placeholder="Optional description">
     </div>
     <div class="form-error" id="admin-group-error" style="display:none"></div>
-  `, `<button class="btn btn-primary" id="${id}-submit">Create Group</button>`);
+  `, `<button class="btn btn-primary" id="${id}-submit">Create group</button>`);
   showModal(id);
   document.getElementById(`${id}-submit`)?.addEventListener('click', async () => {
     const name = (document.getElementById('admin-group-name') as HTMLInputElement)?.value?.trim();

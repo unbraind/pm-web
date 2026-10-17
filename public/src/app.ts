@@ -88,7 +88,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     title: 'Plan and Execute',
     commands: [
       { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
-      { view: 'create', title: 'Create Item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+      { view: 'create', title: 'Create item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
       { view: 'plan', title: 'Plans', desc: 'Create and manage structured agentic plans with steps.', icon: '◧', requiresProject: true },
       { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },
       { view: 'templates', title: 'Templates', desc: 'Create from saved pm templates.', icon: '⎘', requiresProject: true },
@@ -102,10 +102,10 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
       { view: 'graph', title: 'Graph', desc: 'Knowledge and dependency graph.', icon: '◎', requiresProject: true },
       { view: 'health', title: 'Health', desc: 'Find stale, blocked, or weakly specified work.', icon: '♥', requiresProject: true },
       { view: 'activity', title: 'Activity', desc: 'Audit recent project changes.', icon: '◎', requiresProject: true },
-      { view: 'dedupe', title: 'Dedupe Audit', desc: 'Find possible duplicate items.', icon: '⧖', requiresProject: true },
+      { view: 'dedupe', title: 'Dedupe audit', desc: 'Find possible duplicate items.', icon: '⧖', requiresProject: true },
       { view: 'validate', title: 'Validate', desc: 'Run pm validation checks.', icon: '✓', requiresProject: true },
       { view: 'normalize', title: 'Normalize', desc: 'Preview and apply lifecycle cleanup.', icon: '⊞', requiresProject: true },
-      { view: 'comments-audit', title: 'Comments Audit', desc: 'Review latest comments across items.', icon: '↳', requiresProject: true },
+      { view: 'comments-audit', title: 'Comments audit', desc: 'Review latest comments across items.', icon: '↳', requiresProject: true },
     ],
   },
   {
@@ -118,15 +118,15 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     ],
   },
   {
-    title: 'Project Tools',
+    title: 'Project tools',
     commands: [
-      { view: 'projects', title: 'All Projects', desc: 'Switch or create a workspace.', icon: '⊞' },
+      { view: 'projects', title: 'All projects', desc: 'Switch or create a workspace.', icon: '⊞' },
       { view: 'context', title: 'Context', desc: 'Generate agent-ready project context.', icon: '⚙', requiresProject: true },
       { view: 'config', title: 'Config', desc: 'Edit project settings.', icon: '⚒', requiresProject: true },
       { view: 'packages', title: 'Packages', desc: 'Install and manage pm packages.', icon: '□', requiresProject: true },
       { view: 'export', title: 'Export / Import', desc: 'Download or upload project data.', icon: '↕', requiresProject: true },
       { view: 'guide', title: 'Guide', desc: 'Read pm workflow guidance.', icon: '≡', requiresProject: true },
-      { view: 'settings', title: 'Account Settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
+      { view: 'settings', title: 'Account settings', desc: 'Profile, password, and GitHub token.', icon: '⚙' },
       { view: 'admin', title: 'Admin', desc: 'Manage users, projects, groups, and roles.', icon: '◇' },
     ],
   },
@@ -770,9 +770,9 @@ function showGlobalError(errorMsg: string, error?: unknown): void {
       <p style="color:var(--app-text-secondary);max-width:480px;line-height:1.7;margin-bottom:8px">${escHtml(errorMsg)}</p>
       ${stackTrace}
       <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-primary" onclick="location.reload()" aria-label="Reload the page">Reload Page</button>
+        <button class="btn btn-primary" onclick="location.reload()" aria-label="Reload the page">Reload page</button>
         <button class="btn btn-secondary" onclick="document.getElementById('global-error-screen').remove();document.getElementById('auth-screen').style.display='flex'" aria-label="Go to login screen">Go to Login</button>
-        <button class="btn btn-ghost" onclick="navigator.clipboard.writeText(this.closest('[role=alert]').innerText);window.__app.toast('Error details copied','success')" aria-label="Copy error details">Copy Details</button>
+        <button class="btn btn-ghost" onclick="navigator.clipboard.writeText(this.closest('[role=alert]').innerText);window.__app.toast('Error details copied','success')" aria-label="Copy error details">Copy details</button>
       </div>
     </div>`;
 }
@@ -832,7 +832,7 @@ let lastKey = '';
 /** Build and show the keyboard-shortcuts reference modal as a two-column
  * key/description table. */
 function openShortcutsHelp(): void {
-  createModal('shortcuts-help-modal', 'Keyboard Shortcuts', `
+  createModal('shortcuts-help-modal', 'Keyboard shortcuts', `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tbody>
         ${[

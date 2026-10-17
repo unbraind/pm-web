@@ -20,7 +20,6 @@ import { connectLiveSSE } from "./helpers/live-sse.ts";
 import { pool } from "../src/db.ts";
 
 import {
-  authHeaders,
   authedFetch,
   ensureSchema,
   seedProject,
@@ -65,27 +64,6 @@ async function createdItemId(response: Response): Promise<string> {
   return id;
 }
 
-/** Read an SSE response until an event name appears, with a bounded timeout. */
-async function waitForEvent(response: Response, eventName: string): Promise<string> {
-  assert.equal(response.status, 200);
-  assert.ok(response.body, "SSE response must expose a readable body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const timeout = setTimeout(() => void reader.cancel("SSE assertion timed out"), 5_000);
-  let received = "";
-  try {
-    while (!received.includes(`event: ${eventName}`)) {
-      const chunk = await reader.read();
-      assert.equal(chunk.done, false, `SSE closed before ${eventName}: ${received}`);
-      received += decoder.decode(chunk.value, { stream: true });
-    }
-    return received;
-  } finally {
-    clearTimeout(timeout);
-    await reader.cancel();
-  }
-}
-
 /** Create an item through the production HTTP route. */
 async function createItem(server: AppServer, user: SeedUser, projectId: string, title: string): Promise<string> {
   const response = await authedFetch(server, user, `/api/projects/${projectId}/pm/create`, {
@@ -119,22 +97,15 @@ async function setupCollabTest(t: test.TestContext): Promise<{
 }
 
 test("client B receives client A's item mutation over the real SSE route", async (t) => {
-  const controller = new AbortController();
-  // Registered first: node:test runs after-hooks in registration order, so the
-  // stream is aborted before setupCollabTest's teardown closes the server.
-  t.after(() => controller.abort());
-  const { harness, server } = await setupCollabTest(t);
-  const stream = await fetch(server.url(`/api/projects/${harness.projectId}/pm/events?view=items`), {
-    headers: authHeaders(harness.editor),
-    signal: controller.signal,
-  });
-  const [received, itemId] = await Promise.all([
-    waitForEvent(stream, "item-created"),
-    createItem(server, harness.owner, harness.projectId, "SSE shared mutation"),
-  ]);
-  controller.abort();
-  assert.match(received, new RegExp(itemId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(received, new RegExp(harness.owner.id));
+  const { harness, server, streams } = await setupLiveCollabTest(t, "editor");
+  const stream = streams[0]!;
+  const itemId = await createItem(server, harness.owner, harness.projectId, "SSE shared mutation");
+  // The unchanged five-second delivery deadline starts after the write commits;
+  // the shared helper already reads the wire while the real CLI performs it.
+  await stream.waitFor(events => events.some(event => event.type === "item-created"));
+  const created = stream.events.find(event => event.type === "item-created")!;
+  assert.equal((created.data.result as { id: string }).id, itemId);
+  assert.equal(created.data.userId, harness.owner.id);
 });
 
 test("concurrent collaborators update one item without a lost write or malformed history", async (t) => {
@@ -176,12 +147,9 @@ test("concurrent collaborators update one item without a lost write or malformed
 });
 
 test("item update SSE adds the authenticated display name while preserving legacy identity fields", async t => {
-  const streams: Awaited<ReturnType<typeof connectLiveSSE>>[] = [];
-  t.after(async () => { await Promise.all(streams.map(stream => stream.close())); });
-  const { harness, server } = await setupCollabTest(t);
+  const { harness, server, streams } = await setupLiveCollabTest(t, "owner");
   const itemId = await createItem(server, harness.owner, harness.projectId, "Attributed copy");
-  const observer = await connectLiveSSE(server, harness.owner, harness.projectId);
-  streams.push(observer);
+  const observer = streams[0]!;
   const response = await authedFetch(server, harness.editor, `/api/projects/${harness.projectId}/pm/update/${itemId}`, {
     method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Another editor's copy", author: "Untrusted display override" }),
   });
@@ -199,7 +167,7 @@ test("item update SSE adds the authenticated display name while preserving legac
 });
 
 /** Open owner/editor wire streams with their cleanup registered before server teardown. */
-async function setupLiveCollabTest(t: test.TestContext): Promise<{
+async function setupLiveCollabTest(t: test.TestContext, observers: 'both' | 'owner' | 'editor' = 'both'): Promise<{
   harness: CollaborationHarness;
   server: AppServer;
   streams: Awaited<ReturnType<typeof connectLiveSSE>>[];
@@ -207,8 +175,8 @@ async function setupLiveCollabTest(t: test.TestContext): Promise<{
   const streams: Awaited<ReturnType<typeof connectLiveSSE>>[] = [];
   t.after(async () => { await Promise.all(streams.map((stream) => stream.close())); });
   const { harness, server } = await setupCollabTest(t);
-  streams.push(await connectLiveSSE(server, harness.owner, harness.projectId));
-  streams.push(await connectLiveSSE(server, harness.editor, harness.projectId));
+  const users = observers === 'both' ? [harness.owner, harness.editor] : [harness[observers]];
+  for (const user of users) streams.push(await connectLiveSSE(server, user, harness.projectId));
   return { harness, server, streams };
 }
 
