@@ -74,6 +74,8 @@ const STATIC_ASSETS: readonly string[] = [
   '/src/views/export.js',
   '/src/views/github.js',
   '/src/views/graph-canvas.js',
+  '/src/views/graph-physics.js',
+  '/src/views/graph-settle-worker.js',
   '/src/views/graph.js',
   '/src/views/groups.js',
   '/src/views/guide.js',

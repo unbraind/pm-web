@@ -6,9 +6,11 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-17T04:56:40.147Z"
+updated_at: "2026-10-17T11:02:55.880Z"
+assignee: codex-agent
+claim_principal: codex-agent
 author: codex-agent
-comments[46]{created_at,author,text}:
+comments[55]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
@@ -55,7 +57,16 @@ comments[46]{created_at,author,text}:
   "2026-10-17T04:23:30.894Z",codex-agent,"The final exact-commit pin 7ad0970 installs with normal lifecycle scripts using Node 22 and npm 10; ignore-scripts is false and the root merge-driver preparation executes successfully. Only the three Git commit references change in package.json/package-lock.json. Every registry checksum is retained, with the existing optional Git archive checksum omission preserved for Bun compatibility. The kit comparison confirms unchanged runtime assets. Final validation is now on this pin."
   "2026-10-17T04:42:46.076Z",codex-agent,Final graph review preserves type/tag and facet/external outline colors while item status mode uses the exact lifecycle borders. The graph regression now exercises all three modes and lanes. Restoring only the unconditional status border fails the outline assertion. Unknown statuses also use a graphite fallback in initial/repaint color selection; the shared palette ignores inherited properties. Restoring only the palette guard fails on constructor-like status names with token.slice TypeError. These eleventh and twelfth behavioral probes are restored and rebuilt; final source hashes confirm no counterfactual survived.
   "2026-10-17T04:56:39.422Z",codex-agent,"Final round 2 source is restored after all 12 behavioral revert probes. Each independent revert failed as expected; final SHA-256 checks cover all eight production files. The complete final-pin matrix passes at 1440/768/390 in light and dark: 146 fresh AFTER PNGs, 338 screen/tab audits, 9872 Tab stops, 2251 painted contrast pairs, 42 live cases and 42 reviewed regression cases. Original 108 BEFORE frames remain intact. Visual inspection confirms the inline right-aligned arrival caption and compact unaffected rows, plus mobile closed Delete/Reopen with Start/Pause/Claim absent and no clipping/overlap. Linked pm regressions pass, focused tests pass 18/18, check/lint/docstrings pass, duplication is zero, clean npm ci runs preparation scripts, production audit passes, pack has 357 files/61 brand assets/3 fonts/no runtime Git dependency, and the final Docker build passes with its tag removed. Earlier local full npm/Bun failures remain recorded on pm-web-qdhx. Fresh exact-head CI acceptance and public screenshot/revert/package/release receipts will be attached to PR 216 and the pr-screenshots branch without changing the accepted source head. No thread state changes are authorized; replies follow the push."
-files[82]:
+  "2026-10-17T10:08:27.620Z",codex-agent,"Round 3 synced to 58957d9 and read all 11 unresolved review threads. Diff/blame identifies the synchronous 180-tick settle loop as PR-introduced (aa8563e), so it is in scope despite the initial pre-existing hypothesis. Measuring 2,000 real canvas nodes before replacing it with bounded/coalesced settling; fixing the ten other findings with browser regressions and independent behavioural reverts. No resolve/reopen calls."
+  "2026-10-17T10:12:16.831Z",codex-agent,"Measured baseline in Chromium with 2,000 synthetic item nodes and 1,999 dependency edges: synchronous reheat blocked for 24,256.8 ms. The new settle design yields every 2,048 pair checks inside 8 ms task budgets, coalesces controls, computes on offscreen copies and publishes only final positions; replacement data, layout changes, node dragging and destruction cancel pending work. No heavy pre-existing finding remains to defer."
+  "2026-10-17T10:14:01.138Z",codex-agent,"The browser regression caught an additional focus interaction on successful dependency submission: the refreshed info panel replaces the opener after hideModal restores it. Success now uses the lightweight graph refresh, which transfers focus to the replacement element with the same id. Close, Cancel and success are tested independently for both dependency dialogs."
+  "2026-10-17T10:18:50.481Z",codex-agent,"Worker acceptance on 2,000 nodes / 1,999 edges: reheat returned in 0.1 ms; full unchanged 180-step calculation completed in 35,285.9 ms while input tasks ran. Three same-turn controls created one real worker; no intermediate positions painted; final positions changed; data replacement and destruction canceled pending work. Baseline blocked the main thread for 24,256.8 ms. This establishes responsiveness, not lower total physics cost."
+  "2026-10-17T10:24:34.956Z",codex-agent,"Final dependency-submit design retains the full graph reload so relationship counts and critical-path data keep their original update behavior, then focuses the replacement opener by id. This supersedes the earlier lightweight-refresh design note. All six close paths are being rechecked at every width/theme. Production source is now frozen for the final revert run and acceptance."
+  "2026-10-17T10:33:30.902Z",codex-agent,"Final source linked browser suite passed through pm test: all 11 cases, 0.1 ms reheat return and 59,488 ms background completion on 2,000 nodes / 1,999 edges under concurrent acceptance load. Cross-task slider requests create one worker after the 75 ms debounce; replacement and teardown cancel active workers. All six dependency close paths also pass at all six width/theme combinations. Created deduplicated follow-up pm-web-68ig for the older quadratic algorithm cost; no review finding is deferred."
+  "2026-10-17T10:41:11.319Z",codex-agent,All 11 independent behavioral reverts now fail as required on the final production source. The isolated runner rebuilt each declaration-level revert from 58957d9 and accepted only assertion or targeted UI-wait failures. The final receipt contains all 11 cases and matching before/after production SHA-256 hashes. An unrelated initial navigation timeout was rejected and retried; it was not counted as regression evidence.
+  "2026-10-17T10:50:25.839Z",codex-agent,"Browser matrix complete: 362 screen/keyboard audits, 10,858 Tab stops, 2,495 painted contrast checks, 60 round-3 UI cases, 42 prior regressions, 42 live-update cases. Captured only 30 changed-view AFTER frames; preserved all other images and original BEFORE frames. Supplemental final full-reload dialog audit passes all six close paths across all six width/theme combinations. Package dry run: 363 files including worker/physics modules. Docker build passes and its test image is removed. Production dependency audit: zero vulnerabilities. Tracker validation: ok with advisory metadata warnings."
+  "2026-10-17T11:02:55.880Z",codex-agent,"Frozen round-3 fixes and complete browser/revert/package/image evidence are ready to push. Local npm and standalone Bun release attempts have reproduced tracked consumer/startup failures; the worktree-only catalog failures are isolated in pm-web-4p94, and server graph timing evidence is in pm-web-hqqp. Both attempts continue for exact counts. Exact-head CI will run after push; no local failed or incomplete attempt is treated as release acceptance. The current held kit main still matches the unchanged exact pin."
+files[83]:
   - path: .dockerignore
     scope: project
   - path: .github/workflows/ci.yml
@@ -199,6 +210,8 @@ files[82]:
     scope: project
   - path: scripts/brand-browser-regressions.ts
     scope: project
+  - path: scripts/brand-browser-round3.ts
+    scope: project
   - path: scripts/brand-browser.ts
     scope: project
   - path: scripts/brand-fixtures.ts
@@ -221,7 +234,7 @@ files[82]:
     scope: project
   - path: test/pm-collaboration.test.ts
     scope: project
-tests[9]:
+tests[10]:
   - command: node scripts/with-test-db.ts node --test test/brand-assets.test.ts
     scope: project
     provenance:
@@ -287,6 +300,13 @@ tests[9]:
     provenance:
       author: codex-agent
       created_at: "2026-10-17T03:10:35.092Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: "BRAND_QUICK=1 BRAND_CAPTURE_ONLY=none BRAND_REGRESSION_ONLY=round3 BRAND_SCREENSHOTS=\"$PM_WEB_BROWSER_EVIDENCE\" CHROMIUM_PATH=\"$PM_WEB_CHROMIUM\" node scripts/brand-browser.ts"
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-17T10:12:35.242Z"
       source_kind: local_mutation
       source_ref: brand/triplicate-tokens-and-restyle
 docs[2]{path,scope}:

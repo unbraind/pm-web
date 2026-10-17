@@ -252,3 +252,56 @@ to neutral graphite in both initial and repaint color selection. Restoring only
 the palette's own-property guard raises the former non-token lookup error.
 These eleventh and twelfth probes are restored and rebuilt, with final source
 hashes checked after restoration.
+
+Round 3 reviews every unresolved finding against the diff from main and blame
+on synced source head `58957d9`. All eleven are in scope:
+
+| Finding at reviewed line | Provenance and decision | Browser regression |
+| --- | --- | --- |
+| app.ts:572 | `23910ff` introduced the handled-arrival early return; fix active graph/activity/stats/plan refresh alongside detail patching | `round3-active-view` |
+| modals.ts:31 | `aa8563e` added opener storage; preserve it across repeated opens and clear it on close | `round3-opener` |
+| live-copy.ts:129 | PR-created field patcher; rebuild escaped list tag chips, including empty lists | `round3-tags` |
+| dedupe.ts:33 | `a248a06` switched to shared rows; suppress badges for string and object members lacking status | `round3-dedupe` |
+| graph-canvas.ts:490 | `aa8563e` introduced the synchronous loop; move unchanged physics into a coalesced module worker | `round3-settle` |
+| graph-canvas.ts:1519 | `aa8563e` reset label alpha; retain edge opacity for background and text | `round3-edge-opacity` |
+| graph-canvas.ts:1941 | The hint predates the PR but `aa8563e` changed Tab behavior; update the painted hint | `round3-tab-hint` |
+| graph.ts:1164 | `aa8563e` changed the palette; task/epic/story legend entries use canvas carbon | `round3-legend` |
+| graph.ts:1734 | Direct removals predate the PR, while `23910ff` added showModal focus capture; quick correctness fix across Close, Cancel and successful submission | `round3-dependency-close` |
+| items.ts:674 | `23910ff` added the insufficient guard; sequence requests and suppress stale errors too | `round3-stale` |
+| plan.ts:292 | `a248a06` changed the selected surface to sheet; restore distinct stamp wash/ink and clear both on deselection | `round3-plan` |
+
+The synchronous baseline uses an actual GraphCanvas with 2,000 synthetic nodes
+and 1,999 dependency edges in Chromium: `reheat()` blocks for 24,256.8 ms.
+The final worker version returns in 0.1 ms and completes all 180 steps in
+59,488 ms under concurrent acceptance load while input tasks run. An earlier
+worker run completed in 35,285.9 ms. Control requests across event-loop tasks coalesce to one
+real worker after a 75 ms debounce. Intermediate positions never paint; the final computed positions
+publish together. Data replacement, layout change, node drag and teardown
+cancel pending work. The worker and shared physics module are precached for
+offline use. This fixes main-thread responsiveness; the unchanged quadratic
+calculation still takes substantial background time at this scale.
+
+Successful dependency mutations retain the full graph refresh, then transfer
+focus to the replacement opener with the same id. The shared close helper restores the opener for all six
+Close/Cancel/submit paths. The Ctrl+K test repeats open/open/Escape twice.
+
+`scripts/brand-browser-reverts.ts` copies public sources into an isolated build,
+restores only the relevant declaration(s) from `58957d9`, rebuilds TypeScript
+and the brand module, and runs the corresponding production-browser case.
+Each failure must be an assertion or UI wait failure; compilation/process
+errors do not count. Source hashes prove the production functions stay intact.
+No thread resolve or reopen operation is part of this workflow. No review finding is deferred. The pre-existing quadratic background algorithm
+is tracked separately in `pm-web-68ig` with the measured scenario and a spatial
+approximation design sketch.
+
+The completed round 3 browser matrix passes 362 screen/keyboard audits,
+10,858 actual Tab stops, 2,495 painted contrast checks, 60 new review cases,
+42 prior review cases and 42 live-update cases. It captures 30 fresh AFTER
+frames for graph, type legend, updated tags, dedupe and selected plans across
+1440/768/390 and light/dark. All other AFTER frames and every original BEFORE
+frame are preserved. A supplemental final-submit test repeats all six dialog
+close paths in all six width/theme combinations after restoring the full reload.
+The final-source linked eleven-case suite and all eleven independent reverts
+pass their acceptance rules. The package dry run includes 363 files, including
+the worker and shared physics modules; the Docker build passes and its test
+image is removed. Production dependency audit reports zero vulnerabilities.

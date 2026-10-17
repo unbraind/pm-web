@@ -647,6 +647,8 @@ export async function renderItemsView(): Promise<void> {
   await fetchAndRenderItems();
 }
 
+let itemsRequestSeq = 0;
+
 /**
  * Fetches items for the current project using the active filters (capped at
  * 200, with tags filtered client-side because the list endpoint has no tag
@@ -657,6 +659,7 @@ export async function renderItemsView(): Promise<void> {
 export async function fetchAndRenderItems(preserveRows = false): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
+  const requestSeq = ++itemsRequestSeq;
   const previousOrder = preserveRows ? new Map(state.items.map((item, index) => [item.id, index])) : null;
   const f = state.itemFilters;
   let params = 'limit=200';
@@ -671,7 +674,7 @@ export async function fetchAndRenderItems(preserveRows = false): Promise<void> {
 
   try {
     const data = await api<ListResponse>('GET',`/projects/${pid}/pm/${endpoint}`);
-    if (state.currentProject?.id !== pid || state.itemFilters !== f) return;
+    if (state.currentProject?.id !== pid || requestSeq !== itemsRequestSeq) return;
     let items: Item[] = data.items || [];
     // Tag is filtered client-side (pm list has no --tag flag): match items
     // whose tag list contains the requested tag (case-insensitive).
@@ -685,6 +688,7 @@ export async function fetchAndRenderItems(preserveRows = false): Promise<void> {
     if (sub) sub.textContent = `${state.items.length} item${state.items.length!==1?'s':''}`;
     renderItemsList(preserveRows);
   } catch(err: unknown) {
+    if (state.currentProject?.id !== pid || requestSeq !== itemsRequestSeq) return;
     const listEl = document.getElementById('items-list');
     if (listEl) listEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Failed to load items: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
   }
@@ -724,7 +728,7 @@ function renderItemsList(preserveRows = false, el = document.getElementById('ite
     const statuses = [...new Set(['open', 'in_progress', 'blocked', 'closed', 'canceled', ...state.items.map(item => item.status || 'draft')])];
     el.innerHTML = `<div class="items-board">${statuses.map(status => {
       const items = state.items.filter(item => (item.status || 'draft') === status);
-      return `<section class="board-column" aria-label="${escHtml(status.replace('_', ' '))}"><h2 class="board-heading">${escHtml(status.replace('_', ' '))}<span>${items.length}</span></h2><div class="board-items">${items.map(renderItemRow).join('') || '<p class="board-empty">No items in this state</p>'}</div></section>`;
+      return `<section class="board-column" aria-label="${escHtml(status.replace('_', ' '))}"><h2 class="board-heading">${escHtml(status.replace('_', ' '))}<span>${items.length}</span></h2><div class="board-items">${items.map(item => renderItemRow(item)).join('') || '<p class="board-empty">No items in this state</p>'}</div></section>`;
     }).join('')}</div>`;
     return;
   }
@@ -736,12 +740,12 @@ function renderItemsList(preserveRows = false, el = document.getElementById('ite
  * showing the item's type icon, id, title, tags, priority dot, and status
  * badge that opens the item detail modal when clicked.
  */
-export function renderItemRow(item: Item): string {
+export function renderItemRow(item: Item, showStatus = true): string {
   const tags = (item.tags || []).map(tag => `<span class="tag">${escHtml(tag)}</span>`).join('');
   return `<div class="item-row" data-item-id="${escHtml(item.id)}" role="button" tabindex="0" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
     <div class="item-strip-line"><div class="item-strip live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div><div class="live-copy-caption" data-live-caption></div></div>
     <span class="item-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title)}</span>
-    <div class="item-meta"><div class="item-tags live-field" ${liveAttrs('tags', (item.tags || []).join(', '))}>${tags}</div>${statusBadge(item.status || 'draft')}</div>
+    <div class="item-meta"><div class="item-tags live-field" ${liveAttrs('tags', (item.tags || []).join(', '))}>${tags}</div>${showStatus ? statusBadge(item.status || 'draft') : ''}</div>
   </div>`;
 }
 

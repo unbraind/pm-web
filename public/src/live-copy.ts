@@ -123,7 +123,9 @@ function writeField(field: HTMLElement, item: LiveRecord, value: string): void {
   const name = field.dataset.liveField;
   if (name === 'comments' || name === 'history') reconcileCollection(field, item[name] || []);
   else if (name === 'detailStatus') field.innerHTML = value === 'closed' ? '<span class="closed-stamp">Closed</span>' : statusBadge(value);
-  else {
+  else if (name === 'tags' && field.classList.contains('item-tags')) {
+    field.innerHTML = (item.tags || []).map(tag => `<span class="tag">${escHtml(tag)}</span>`).join('');
+  } else {
     const display = name === 'deadline' ? fmtDate(value) : name === 'priority' ? `P${value || '—'}` : name === 'updated_at' ? relTime(value) : name === 'blockedReason' ? (value ? `Blocked: ${value}` : '') : name === 'status' ? value.replace(/_/g, ' ') : value;
     field.textContent = display || (name === 'description' ? 'No description yet' : '—');
   }

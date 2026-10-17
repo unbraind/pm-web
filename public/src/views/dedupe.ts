@@ -30,7 +30,7 @@ export async function renderDedupeAuditView(): Promise<void> {
         <div class="card" style="margin-bottom:12px">
           <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--app-text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
           <div class="card-body">
-            ${(g.items || []).map(raw => renderItemRow(typeof raw === 'string' ? { id: raw, title: 'Open this item' } : { ...raw, id: raw.id || '', title: raw.title || 'Open this item' })).join('')}
+            ${(g.items || []).map(raw => renderItemRow(typeof raw === 'string' ? { id: raw, title: 'Open this item' } : { ...raw, id: raw.id || '', title: raw.title || 'Open this item' }, typeof raw !== 'string' && !!raw.status)).join('')}
           </div>
         </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--app-text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
     }

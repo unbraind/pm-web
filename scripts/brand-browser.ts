@@ -11,13 +11,14 @@ import type { AppBridge } from '../public/src/app.ts';
 import { holdArrivalFrame, checkLiveArrivals } from './brand-browser-live.ts';
 import { auditTextContrast } from './brand-browser-contrast.ts';
 import { checkReviewRegressions, assertFinishedActions } from './brand-browser-regressions.ts';
+import { checkRound3 } from './brand-browser-round3.ts';
 
 interface ReviewWindow extends Window { __app: AppBridge; __fixtureEmit: (data: Record<string, unknown>) => void }
 const app = express();
 app.use(rateLimit({ windowMs: 60_000, limit: 10_000, standardHeaders: 'draft-8', legacyHeaders: false }));
 // Freeze built assets so another acceptance build cannot replace in-flight modules.
 const staticRoot = await mkdtemp(path.join(tmpdir(), 'pm-web-brand-browser-'));
-await cp(path.resolve('public'), staticRoot, { recursive: true });
+await cp(path.resolve(process.env.BRAND_PUBLIC_ROOT || 'public'), staticRoot, { recursive: true });
 app.use(express.json());
 app.use('/api', (req, res) => {
   if (req.originalUrl === '/api/auth/me' && !req.headers.cookie?.includes('fixture-auth=1')) { res.status(401).json({ error: 'Sign in to continue' }); return; }
@@ -106,13 +107,16 @@ async function capture(page: Page, name: string, width: number, theme: string, s
       window.scrollTo(0, 0);
     });
   }
-  if (!screenshot) return;
+  if (!screenshot || (process.env.BRAND_CAPTURE_ONLY && !process.env.BRAND_CAPTURE_ONLY.split(',').includes(name))) return;
   screenshotCount++;
   await page.screenshot({ path: path.join(output!, `${name}-${width}-${theme}.png`), timeout: 60000, animations: name.startsWith('live-arrival') ? 'allow' : 'disabled' });
 }
 
 try {
   for (const width of widths) for (const theme of (process.env.BRAND_QUICK ? ['light'] : ['light', 'dark']) as ('light' | 'dark')[]) {
+    fixtureItems.splice(0, fixtureItems.length, ...structuredClone(originalItems));
+    fixtureComments.splice(0, fixtureComments.length, ...structuredClone(originalComments));
+    fixtureHistory.splice(0, fixtureHistory.length, ...structuredClone(originalHistory));
     const context = await browser.newContext({ viewport: { width, height: 1000 }, colorScheme: theme, serviceWorkers: 'block', reducedMotion: 'no-preference' });
     await context.addInitScript(() => {
       localStorage.setItem('pmLocale', 'en');
@@ -131,6 +135,7 @@ try {
     });
     const page = await context.newPage();
     page.setDefaultTimeout(process.env.BRAND_REGRESSION_ONLY ? 5000 : 60000);
+    page.setDefaultNavigationTimeout(60000);
     const errors: string[] = [];
     page.on('pageerror', error => { errors.push(error.message); console.error(`Browser error: ${error.message}`); });
     page.on('console', message => { if (message.type() === 'error' && !message.text().includes('401')) console.error(`Browser console: ${message.text()}`); });
@@ -165,7 +170,7 @@ try {
     await page.evaluate(() => (window as unknown as ReviewWindow).__app.selectProject('fixture-project'));
     await page.locator('.item-row').first().waitFor();
     if (process.env.BRAND_REGRESSION_ONLY) {
-      report.push({ width, theme, reviewCases: await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
+      report.push({ width, theme, reviewCases: process.env.BRAND_REGRESSION_ONLY.startsWith('round3') ? await checkRound3(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
       await context.close();
       continue;
     }
@@ -240,7 +245,10 @@ try {
       await page.waitForTimeout(250);
       await capture(page, view, width, theme, false);
     }
-    if (strict) report.push({ width, theme, reviewCases: await checkReviewRegressions(page) });
+    if (strict) {
+      report.push({ width, theme, reviewCases: await checkReviewRegressions(page) });
+      report.push({ width, theme, round3Cases: await checkRound3(page, 'round3-ui', name => capture(page, name, width, theme)) });
+    }
     await page.goto(`${base}/privacy-policy.html`);
     await capture(page, 'legal', width, theme);
     await page.goto(base);
@@ -272,9 +280,6 @@ try {
       }
     }
     console.log(`Captured ${width}/${theme}`);
-    fixtureItems.splice(0, fixtureItems.length, ...structuredClone(originalItems));
-    fixtureComments.splice(0, fixtureComments.length, ...structuredClone(originalComments));
-    fixtureHistory.splice(0, fixtureHistory.length, ...structuredClone(originalHistory));
     if (strict) assert.deepEqual(errors, [], 'Browser errors');
     await context.close();
   }

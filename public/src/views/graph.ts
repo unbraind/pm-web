@@ -6,7 +6,7 @@ import { state } from '../state.js';
 import type { GraphNode, GraphRelationship, ProjectGraph } from '../types.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
-import { showModal } from '../components/modals.js';
+import { showModal, hideModal } from '../components/modals.js';
 import { browserWindow } from '../browser-window.js';
 import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode, tagColorMapFromFreq } from './graph-canvas.js';
 
@@ -433,6 +433,16 @@ function refreshGraph(): void {
   canvasRef.current?.destroy();
   canvasRef.current = null;
   void renderGraphView();
+}
+
+/** Close a dependency dialog and preserve its opener through the full graph reload. */
+async function refreshGraphAfterDialog(id: string): Promise<void> {
+  hideModal(id);
+  const opener = document.activeElement;
+  await renderGraphView();
+  if (opener instanceof HTMLElement && opener.id) {
+    document.getElementById(opener.id)?.focus({ preventScroll: true });
+  }
 }
 
 /** Displays an error message on a form-error element, extracting the message from an unknown catch value. */
@@ -1160,8 +1170,8 @@ function updateFilterToolbarState(): void {
 // ── Legend update ─────────────────────────────────────────────
 
 const TYPE_COLORS_MAP: Record<string, string> = {
-  task:'var(--pm-stamp)', feature:'var(--pm-stamp)', epic:'var(--pm-stamp)', bug:'var(--pm-graphite)',
-  milestone:'var(--pm-stamp)', story:'var(--pm-stamp)', chore:'var(--pm-graphite)', release:'var(--pm-stamp)',
+  task:'var(--pm-carbon)', feature:'var(--pm-stamp)', epic:'var(--pm-carbon)', bug:'var(--pm-graphite)',
+  milestone:'var(--pm-stamp)', story:'var(--pm-carbon)', chore:'var(--pm-graphite)', release:'var(--pm-stamp)',
 };
 
 /** Computes a tag-to-color map by ranking tags by how often they appear across the nodes and assigning each of the most frequent ones a palette color. */
@@ -1700,7 +1710,7 @@ function showAddDependencyModal(): void {
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
           <div class="modal-title">Add dependency</div>
-          <button class="modal-close" onclick="document.getElementById('graph-add-dep-modal')?.remove()">✕</button>
+          <button class="modal-close" onclick="window.__app.hideModal('graph-add-dep-modal')">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -1724,7 +1734,7 @@ function showAddDependencyModal(): void {
           <div id="graph-dep-error" class="form-error" style="display:none"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="document.getElementById('graph-add-dep-modal')?.remove()">Cancel</button>
+          <button class="btn btn-ghost" onclick="window.__app.hideModal('graph-add-dep-modal')">Cancel</button>
           <button class="btn btn-primary" id="graph-dep-submit">Add</button>
         </div>
       </div>
@@ -1751,8 +1761,7 @@ function showAddDependencyModal(): void {
 
     try {
       await api('POST', `/projects/${state.currentProject!.id}/pm/deps/${fromId}`, { targetId: toId, rel: relType });
-      document.getElementById('graph-add-dep-modal')?.remove();
-      refreshGraph();
+      await refreshGraphAfterDialog('graph-add-dep-modal');
     } catch (err: unknown) {
       displayFormError(errEl, err);
     }
@@ -1783,7 +1792,7 @@ function showRemoveDependencyModal(): void {
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
           <div class="modal-title">Remove Dependency</div>
-          <button class="modal-close" onclick="document.getElementById('graph-remove-dep-modal')?.remove()">✕</button>
+          <button class="modal-close" onclick="window.__app.hideModal('graph-remove-dep-modal')">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -1793,7 +1802,7 @@ function showRemoveDependencyModal(): void {
           <div id="graph-remove-dep-error" class="form-error" style="display:none"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="document.getElementById('graph-remove-dep-modal')?.remove()">Cancel</button>
+          <button class="btn btn-ghost" onclick="window.__app.hideModal('graph-remove-dep-modal')">Cancel</button>
           <button class="btn btn-danger" id="graph-remove-dep-submit">Remove</button>
         </div>
       </div>
@@ -1814,8 +1823,7 @@ function showRemoveDependencyModal(): void {
 
     try {
       await api('DELETE', `/projects/${state.currentProject!.id}/pm/deps/${rel.from}`, { targetId: rel.to, rel: rel.type });
-      document.getElementById('graph-remove-dep-modal')?.remove();
-      refreshGraph();
+      await refreshGraphAfterDialog('graph-remove-dep-modal');
     } catch (err: unknown) {
       displayFormError(errEl, err);
     }

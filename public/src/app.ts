@@ -567,6 +567,8 @@ function connectSSE(projectId: string, attempt = 0): void {
     const refreshGraphData = async (evt: MessageEvent) => {
       if (await receiveLiveUpdate(evt.data, projectId, sseClientId, evt.type)) {
         if (state.currentView === 'items') await itemsView.fetchAndRenderItems(true);
+        else if (state.currentView === 'graph') void refreshGraphViewData();
+        else refreshView();
         void loadItemsBadge();
         return;
       }

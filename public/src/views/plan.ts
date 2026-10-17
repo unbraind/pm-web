@@ -289,7 +289,9 @@ export async function openPlanDetail(planId: string): Promise<void> {
 
   // Highlight selected in list
   document.querySelectorAll('#plan-list-panel [data-plan-id]').forEach(el => {
-    (el as HTMLElement).style.background = (el as HTMLElement).dataset.planId === planId ? 'var(--pm-sheet)' : '';
+    const selected = (el as HTMLElement).dataset.planId === planId;
+    (el as HTMLElement).style.background = selected ? 'var(--pm-stamp-wash)' : '';
+    (el as HTMLElement).style.color = selected ? 'var(--pm-stamp)' : '';
   });
 
   const detailEl = document.getElementById('plan-detail-panel');

@@ -1,3 +1,4 @@
+import { tickPhysics } from './graph-physics.js';
 import { brandValue, brandPalette } from '../brand.js';
 // ═══════════════════════════════════════════════════════════════
 // GRAPH CANVAS — Triplicate knowledge graph
@@ -212,11 +213,11 @@ export class GraphCanvas {
   private nodeMap = new Map<string, SimNode>();
   private alpha = 1;
   private paused = true;
+  private settleWorker: Worker | null = null;
+  private settleTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Physics constants (mutable for live slider control)
-  private readonly ALPHA_DECAY   = 0.020;
   private readonly ALPHA_MIN     = 0.001;
-  private VEL_DECAY     = 0.56;
   private REPULSE       = 2000;
   private SPRING        = 0.065;
   private REST_LEN      = 140;
@@ -339,6 +340,7 @@ export class GraphCanvas {
 
   /** Loads the given nodes and edges into the simulation, preserving prior node positions where possible, precomputing bidirectional edge pairs, recoloring nodes, scheduling the initial zoom-to-fit, and applying the hierarchical layout when selected. */
   setData(nodes: CanvasNode[], edges: CanvasEdge[]): void {
+    this.cancelSettle();
     const prevPos = new Map(this.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
     const initPos = initialPositions(nodes);
 
@@ -482,17 +484,37 @@ export class GraphCanvas {
   /** Recompute a settled graph layout immediately, without ambient motion. */
   togglePhysics(): boolean { this.reheat(); return true; }
 
-  /** Settle the force layout before painting; graph transitions never animate. */
+  /** Cancel superseded control requests and stop their background computation. */
+  private cancelSettle(): void {
+    if (this.settleTimer !== null) clearTimeout(this.settleTimer);
+    this.settleTimer = null;
+    this.settleWorker?.terminate();
+    this.settleWorker = null;
+  }
+
+  /** Coalesce controls and compute all 180 steps off the main thread before painting. */
   reheat(): void {
-    this.paused = false;
-    this.alpha = .3;
-    for (let step = 0; step < 180; step++) this.tick(16);
-    this.paused = true;
+    this.cancelSettle();
+    if (this.destroyed || this.layout !== 'force') return;
+    this.settleTimer = setTimeout(() => {
+      this.settleTimer = null;
+      const worker = new Worker(new URL('./graph-settle-worker.js', import.meta.url), { type: 'module' });
+      this.settleWorker = worker;
+      worker.onmessage = (event: MessageEvent<{ x: number; y: number; vx: number; vy: number }[]>) => {
+        if (this.settleWorker !== worker) return;
+        event.data.forEach((position, index) => Object.assign(this.nodes[index], position));
+        worker.terminate();
+        this.settleWorker = null;
+      };
+      worker.onerror = () => this.cancelSettle();
+      worker.postMessage({ nodes: this.nodes, edges: this.edges, params: { ...this.getPhysicsParams(), facetDistance: this.LINK_DIST_FAC }, tags: this.filter.colorMode === 'tag' ? [...this.tagColorMap.keys()] : [] });
+    }, 75);
   }
 
   /** Switches to the given layout, applying the topological hierarchical layout or, for force mode, jittering node positions and reheating the simulation. */
   setLayout(layout: LayoutMode): void {
     if (this.layout === layout) return;
+    this.cancelSettle();
     this.layout = layout;
     if (layout === 'hierarchical') {
       this.applyHierarchicalLayout();
@@ -780,6 +802,7 @@ export class GraphCanvas {
 
   /** Tears down the canvas: stops the animation loop and initial-fit timer, aborts bound event listeners, disconnects the ResizeObserver, and removes the canvas and its tooltip from the DOM. */
   destroy(): void {
+    this.cancelSettle();
     this.destroyed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     if (this.initialFitTimer) clearTimeout(this.initialFitTimer);
@@ -885,93 +908,11 @@ export class GraphCanvas {
 
   // ── Physics simulation ─────────────────────────────────────
 
+  /** Advance active frame physics using the same calculation as the settle worker. */
   private tick(dt: number): void {
-    if (this.paused || this.alpha < this.ALPHA_MIN) return;
-
-    const nodes = this.nodes;
-    const edges = this.edges;
-    const n     = nodes.length;
-    const a     = this.alpha;
     void dt;
-
-    // Repulsion O(n²) — fine for ≤400 nodes
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const A = nodes[i], B = nodes[j];
-        const dx = B.x - A.x || 0.01;
-        const dy = B.y - A.y || 0.01;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < 0.01) continue;
-        const d  = Math.sqrt(d2);
-        const f  = (this.REPULSE / d2) * a;
-        const fx = (dx / d) * f;
-        const fy = (dy / d) * f;
-        A.vx -= fx; A.vy -= fy;
-        B.vx += fx; B.vy += fy;
-      }
-    }
-
-    // Spring forces
-    for (const e of edges) {
-      const { source: s, target: t } = e;
-      const dx = t.x - s.x || 0.01;
-      const dy = t.y - s.y || 0.01;
-      const d  = Math.sqrt(dx * dx + dy * dy);
-      const restLen = (s.lane === 'facet' || t.lane === 'facet')
-        ? this.LINK_DIST_FAC
-        : this.REST_LEN;
-      const f  = (d - restLen) * this.SPRING * a;
-      const nx = dx / d;
-      const ny = dy / d;
-      s.vx += nx * f; s.vy += ny * f;
-      t.vx -= nx * f; t.vy -= ny * f;
-    }
-
-    // Center gravity
-    for (const nd of nodes) {
-      nd.vx -= nd.x * this.CENTER * a;
-      nd.vy -= nd.y * this.CENTER * a;
-    }
-
-    // Tag centroid grouping — nodes sharing a tag gently attract each other
-    if (this.filter.colorMode === 'tag' && this.tagColorMap.size > 0) {
-      const tagCent = new Map<string, { x: number; y: number; count: number }>();
-      for (const nd of nodes) {
-        for (const t of nd.tags ?? []) {
-          if (!this.tagColorMap.has(t)) continue;
-          let c = tagCent.get(t);
-          if (!c) { c = { x: 0, y: 0, count: 0 }; tagCent.set(t, c); }
-          c.x += nd.x; c.y += nd.y; c.count++;
-          break;
-        }
-      }
-      const cs = 0.004 * a;
-      for (const nd of nodes) {
-        for (const t of nd.tags ?? []) {
-          if (!this.tagColorMap.has(t)) continue;
-          const c = tagCent.get(t);
-          if (c && c.count >= 2) {
-            nd.vx += (c.x / c.count - nd.x) * cs;
-            nd.vy += (c.y / c.count - nd.y) * cs;
-          }
-          break;
-        }
-      }
-    }
-
-    // Integrate
-    for (const nd of nodes) {
-      nd.vx *= this.VEL_DECAY;
-      nd.vy *= this.VEL_DECAY;
-      if (nd.fx !== null) { nd.x = nd.fx; nd.vx = 0; }
-      else nd.x += nd.vx;
-      if (nd.fy !== null) { nd.y = nd.fy; nd.vy = 0; }
-      else nd.y += nd.vy;
-    }
-
-    this.alpha *= (1 - this.ALPHA_DECAY);
-
-    // No ambient particles, pulsing or moving dashes in the Triplicate surface.
+    if (this.paused || this.alpha < this.ALPHA_MIN) return;
+    this.alpha = tickPhysics(this.nodes, this.edges, { ...this.getPhysicsParams(), facetDistance: this.LINK_DIST_FAC }, this.filter.colorMode === 'tag' ? new Set(this.tagColorMap.keys()) : new Set(), this.alpha);
   }
 
   // ── Draw ───────────────────────────────────────────────────
@@ -1516,7 +1457,7 @@ export class GraphCanvas {
     if (isActive && this.scale > 0.55) {
       const mx = isBiDir ? (x1 + 2 * cpX + x2) / 4 : (x1 + x2) / 2;
       const my = isBiDir ? (y1 + 2 * cpY + y2) / 4 : (y1 + y2) / 2;
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = opacity;
       ctx.shadowBlur = 0;
       ctx.font        = `9px ${brandValue('--pm-font-mono')}`;
       ctx.textAlign   = 'center';
@@ -1680,7 +1621,7 @@ export class GraphCanvas {
       ctx.textAlign   = 'left';
       ctx.textBaseline = 'top';
       ctx.fillText(
-        'Tab: next  Shift+Tab: prev  ↑↓ or →: neighbor  Enter: open  F: fit  Esc: deselect',
+        'Tab: leave graph  ↑↓ or →: neighbor  Enter: open  F: fit  Esc: deselect',
         12, 10,
       );
       ctx.globalAlpha = 1;
@@ -1976,6 +1917,7 @@ export class GraphCanvas {
     const [wx, wy] = this.toWorld(x, y);
     const hit = this.hitTest(wx, wy);
     if (hit) {
+      this.cancelSettle();
       this.isDraggingNode = true;
       this.dragNode = hit;
       hit.fx = hit.x;

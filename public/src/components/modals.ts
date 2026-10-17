@@ -28,7 +28,7 @@ export function showModal(id: string): void {
   const modal = document.getElementById(id);
   if (modal) {
     bindDialogKeyboard();
-    if (document.activeElement instanceof HTMLElement) returnFocus.set(modal, document.activeElement);
+    if (!returnFocus.has(modal) && document.activeElement instanceof HTMLElement) returnFocus.set(modal, document.activeElement);
     modal.style.display = 'flex';
     modal.querySelector<HTMLButtonElement>('.modal-close')?.focus({ preventScroll: true });
   }
@@ -40,6 +40,7 @@ export function hideModal(id: string): void {
   if (modal) {
     modal.style.display = 'none';
     const target = returnFocus.get(modal);
+    returnFocus.delete(modal);
     if (target?.isConnected) target.focus({ preventScroll: true });
     if (modal.parentElement === document.body) modal.remove();
   }
