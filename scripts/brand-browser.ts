@@ -1,6 +1,7 @@
 /** Fixture-only screenshots and browser acceptance. Set CHROMIUM_PATH to a local Chromium. */
 import assert from 'node:assert/strict';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import { auditTextContrast } from './brand-browser-contrast.ts';
 
 interface ReviewWindow extends Window { __app: AppBridge; __fixtureEmit: (data: Record<string, unknown>) => void }
 const app = express();
+app.use(rateLimit({ windowMs: 60_000, limit: 10_000, standardHeaders: 'draft-8', legacyHeaders: false }));
 // Freeze built assets so another acceptance build cannot replace in-flight modules.
 const staticRoot = await mkdtemp(path.join(tmpdir(), 'pm-web-brand-browser-'));
 await cp(path.resolve('public'), staticRoot, { recursive: true });
