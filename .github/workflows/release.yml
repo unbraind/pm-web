@@ -99,8 +99,7 @@ jobs:
       - name: Install dependencies
         # The held brand kit's Git prepare assumes a checkout. Assets are already built.
         run: |
-          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
-          npm_config_ignore_scripts=true npm ci --ignore-scripts
+          npm ci --ignore-scripts
           npm run prepare
 
       - name: Decide release
@@ -613,8 +612,7 @@ jobs:
             exit 1
           fi
 
-          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
-          npm_config_ignore_scripts=true npm ci --ignore-scripts
+          npm ci --ignore-scripts
           npm run prepare
           npm run release:check
           diff_paths=(package.json package-lock.json manifest.json CHANGELOG.md src/index.ts)
