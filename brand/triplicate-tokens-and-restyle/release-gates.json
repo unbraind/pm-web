@@ -1,0 +1,138 @@
+{
+  "sourceHead": "21189fd27f85817f0d5f49d51a399e3d11657c97",
+  "brandCommit": "952a4bc8a42228e747b69ab31b8468ca43d54d08",
+  "runUrl": "https://github.com/unbraind/pm-web/actions/runs/38990351530",
+  "gates": [
+    {
+      "node": 22,
+      "command": "npm run release:check",
+      "result": "success",
+      "tests": {
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "capacity": {
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 95.22,
+        "lines": 92.51
+      },
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38990351530/job/117271159370"
+    },
+    {
+      "node": 22,
+      "command": "bun run release:check",
+      "result": "success",
+      "tests": {
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "capacity": {
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 95.22,
+        "lines": 92.51
+      },
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38990351530/job/117271159370"
+    },
+    {
+      "node": 26,
+      "command": "npm run release:check",
+      "result": "success",
+      "tests": {
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "capacity": {
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "coverage": {
+        "statements": 92.52,
+        "branches": 81.53,
+        "functions": 96.12,
+        "lines": 92.52
+      },
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38990351530/job/117271159553"
+    },
+    {
+      "node": 26,
+      "command": "bun run release:check",
+      "result": "success",
+      "tests": {
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "capacity": {
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 96.12,
+        "lines": 92.51
+      },
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/38990351530/job/117271159553"
+    }
+  ],
+  "unchangedThresholds": {
+    "statements": 92.07,
+    "lines": 92.07,
+    "branches": 80.5,
+    "functions": 94.59
+  },
+  "duplicationThreshold": 0,
+  "browser": {
+    "screenshots": 216,
+    "viewAudits": 300,
+    "tabStops": 8512,
+    "paintedContrastPairs": 1917,
+    "liveScenarios": 36
+  },
+  "packaging": {
+    "files": 330,
+    "brandFiles": 34,
+    "packedBytes": 885355,
+    "unpackedBytes": 3324659,
+    "runtimeGitDependencies": 0,
+    "fontFiles": 3
+  },
+  "docker": {
+    "build": "docker build -t brand-check-pm-web .",
+    "result": "success",
+    "cleanup": "docker rmi brand-check-pm-web",
+    "imageRemoved": true
+  },
+  "reviewLimits": [
+    "CodeRabbit automatic review skipped under repository policy",
+    "Greptile trial unavailable",
+    "Sourcery large-diff review skipped",
+    "Cubic neutral summary is not approval"
+  ],
+  "localGateBoundary": "Local full attempts exceeded the unchanged catalog-consumer deadline under contention; full release acceptance comes from the isolated CI matrix."
+}
