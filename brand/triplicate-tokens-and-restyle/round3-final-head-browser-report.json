@@ -1,0 +1,20 @@
+[
+  {
+    "width": 1440,
+    "theme": "light",
+    "reviewCases": [
+      "settle: {\"nodes\":2000,\"edges\":1999,\"callMs\":0.09999996423721313,\"elapsedMs\":18844.099999964237,\"workers\":1,\"yielded\":true,\"staticUntilDone\":true,\"canceled\":true,\"moved\":true}",
+      "opener: Ctrl+K twice and Escape, repeated twice",
+      "tags: escaped chips, empty tags and authoritative row reuse",
+      "stale: earlier in-place filter response cannot overwrite current rows or count",
+      "dedupe: string and status-less object omit badge; known closed status retained",
+      "active-view: detail arrival also fetches active graph and preserves focused draft",
+      "dependency-close: close, Cancel and submit restore focus for both dialogs",
+      "legend: task swatch uses canvas carbon in type mode",
+      "edge-opacity: active label background/text retain filtered edge alpha",
+      "tab-hint: painted HUD matches native Tab exit",
+      "plan: distinct selected ink/wash and both cleared on previous row"
+    ],
+    "head": "147ba5216fef33466344e8ff6f78e9419043ac60"
+  }
+]

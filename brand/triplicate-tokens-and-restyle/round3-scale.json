@@ -23,5 +23,17 @@
     "moved": true
   },
   "followUp": "pm-web-68ig",
-  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b"
+  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b",
+  "finalHead": "147ba5216fef33466344e8ff6f78e9419043ac60",
+  "finalHeadRepeat": {
+    "nodes": 2000,
+    "edges": 1999,
+    "callMs": 0.09999996423721313,
+    "elapsedMs": 18844.099999964237,
+    "workers": 1,
+    "yielded": true,
+    "staticUntilDone": true,
+    "canceled": true,
+    "moved": true
+  }
 }

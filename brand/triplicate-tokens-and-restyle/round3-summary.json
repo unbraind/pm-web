@@ -14,5 +14,8 @@
   "testImageRemoved": true,
   "productionAuditVulnerabilities": 0,
   "outOfScopePhysicsItem": "pm-web-68ig",
-  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b"
+  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b",
+  "finalHead": "147ba5216fef33466344e8ff6f78e9419043ac60",
+  "finalHeadBrowserCases": 11,
+  "executableSourceUnchanged": true
 }
