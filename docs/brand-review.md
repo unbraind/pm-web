@@ -136,7 +136,10 @@ The image builder includes only tracked tracker settings/schema and initializes
 build-local Git so pm-web's canonical clone preparation can run normally.
 Neither builder nor runtime disables dependency scripts. The Node 22 base npm
 10 installation and complete image build pass; the test tag is removed afterward.
-A fresh-cache Bun install retains the exact Git integrity in the npm lockfile.
+The npm-to-Bun migration retains the exact 40-character Git commit and every
+registry checksum. Only the optional npm-generated Git tarball checksum is
+omitted because Bun uses a different Git archive format. Lifecycle scripts
+remain enabled; integrity verification is never disabled globally.
 
 Round 1 behavioral revert proofs rebuild the browser before each deliberate
 rollback. Restoring only caption targeting to the old page/modal selector fails
@@ -154,3 +157,10 @@ Local full npm attempts on Node 24 and 26 hit the existing 300-second catalog
 consumer deadline under host contention. These attempts are failures. Complete
 release acceptance is recorded for the final PR head in the GitHub matrix and
 the screenshot branch release-gates receipt. No threshold or deadline changed.
+
+The CI installer uses Bun 1.4.3. A clean npm-to-Bun fixture reproduces
+IntegrityCheckFailed with the optional Git archive checksum present; changing
+only that entry and using a second fresh cache passes. Both installations run
+normal lifecycle scripts. The corrected-lock Docker build passes and its tag
+is removed. After dependency restoration, all 18 focused asset/contrast/live
+and service-worker tests pass together. Rendered sources are unchanged.
