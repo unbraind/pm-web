@@ -600,6 +600,18 @@
     "contrastPairs": 10
   },
   {
+    "name": "live-arrival-settled",
+    "width": 1440,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 64,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 64,
+    "contrastPairs": 10
+  },
+  {
     "width": 1440,
     "theme": "light",
     "liveCases": [
@@ -608,8 +620,57 @@
       "own account updates never animate",
       "stale drafts submit only the fields edited locally",
       "comment copies append without displacing existing entries",
-      "reduced motion keeps the border and caption without a sliding copy"
+      "reduced motion keeps the border and caption without a sliding copy",
+      "live close replaces the chip with one stamp and disables unavailable actions; reopening restores them"
     ]
+  },
+  {
+    "name": "live-arrival-board",
+    "width": 1440,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 64,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 64,
+    "contrastPairs": 10
+  },
+  {
+    "name": "live-arrival-board-settled",
+    "width": 1440,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 64,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 64,
+    "contrastPairs": 10
+  },
+  {
+    "name": "live-arrival-detail",
+    "width": 1440,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
+  },
+  {
+    "name": "live-arrival-detail-settled",
+    "width": 1440,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
   },
   {
     "name": "sign-in",
@@ -1212,6 +1273,18 @@
     "contrastPairs": 9
   },
   {
+    "name": "live-arrival-settled",
+    "width": 1440,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 64,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 64,
+    "contrastPairs": 9
+  },
+  {
     "width": 1440,
     "theme": "dark",
     "liveCases": [
@@ -1220,8 +1293,57 @@
       "own account updates never animate",
       "stale drafts submit only the fields edited locally",
       "comment copies append without displacing existing entries",
-      "reduced motion keeps the border and caption without a sliding copy"
+      "reduced motion keeps the border and caption without a sliding copy",
+      "live close replaces the chip with one stamp and disables unavailable actions; reopening restores them"
     ]
+  },
+  {
+    "name": "live-arrival-board",
+    "width": 1440,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 64,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 64,
+    "contrastPairs": 9
+  },
+  {
+    "name": "live-arrival-board-settled",
+    "width": 1440,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 64,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 64,
+    "contrastPairs": 9
+  },
+  {
+    "name": "live-arrival-detail",
+    "width": 1440,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
+  },
+  {
+    "name": "live-arrival-detail-settled",
+    "width": 1440,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
   },
   {
     "name": "sign-in",
@@ -1824,6 +1946,18 @@
     "contrastPairs": 10
   },
   {
+    "name": "live-arrival-settled",
+    "width": 768,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 67,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 67,
+    "contrastPairs": 10
+  },
+  {
     "width": 768,
     "theme": "light",
     "liveCases": [
@@ -1832,8 +1966,57 @@
       "own account updates never animate",
       "stale drafts submit only the fields edited locally",
       "comment copies append without displacing existing entries",
-      "reduced motion keeps the border and caption without a sliding copy"
+      "reduced motion keeps the border and caption without a sliding copy",
+      "live close replaces the chip with one stamp and disables unavailable actions; reopening restores them"
     ]
+  },
+  {
+    "name": "live-arrival-board",
+    "width": 768,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 67,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 67,
+    "contrastPairs": 10
+  },
+  {
+    "name": "live-arrival-board-settled",
+    "width": 768,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 67,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 67,
+    "contrastPairs": 10
+  },
+  {
+    "name": "live-arrival-detail",
+    "width": 768,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
+  },
+  {
+    "name": "live-arrival-detail-settled",
+    "width": 768,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
   },
   {
     "name": "sign-in",
@@ -2436,6 +2619,18 @@
     "contrastPairs": 9
   },
   {
+    "name": "live-arrival-settled",
+    "width": 768,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 67,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 67,
+    "contrastPairs": 9
+  },
+  {
     "width": 768,
     "theme": "dark",
     "liveCases": [
@@ -2444,8 +2639,57 @@
       "own account updates never animate",
       "stale drafts submit only the fields edited locally",
       "comment copies append without displacing existing entries",
-      "reduced motion keeps the border and caption without a sliding copy"
+      "reduced motion keeps the border and caption without a sliding copy",
+      "live close replaces the chip with one stamp and disables unavailable actions; reopening restores them"
     ]
+  },
+  {
+    "name": "live-arrival-board",
+    "width": 768,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 67,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 67,
+    "contrastPairs": 9
+  },
+  {
+    "name": "live-arrival-board-settled",
+    "width": 768,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 67,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 67,
+    "contrastPairs": 9
+  },
+  {
+    "name": "live-arrival-detail",
+    "width": 768,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
+  },
+  {
+    "name": "live-arrival-detail-settled",
+    "width": 768,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
   },
   {
     "name": "sign-in",
@@ -2501,10 +2745,10 @@
     "theme": "light",
     "overflow": false,
     "unreachable": [],
-    "count": 37,
+    "count": 35,
     "primaries": 1,
     "cookieCoversForm": false,
-    "tabStops": 37,
+    "tabStops": 35,
     "contrastPairs": 10
   },
   {
@@ -2525,10 +2769,22 @@
     "theme": "light",
     "overflow": false,
     "unreachable": [],
-    "count": 37,
+    "count": 35,
     "primaries": 1,
     "cookieCoversForm": false,
-    "tabStops": 37,
+    "tabStops": 35,
+    "contrastPairs": 10
+  },
+  {
+    "name": "board-more-actions",
+    "width": 390,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
     "contrastPairs": 10
   },
   {
@@ -3041,10 +3297,22 @@
     "theme": "light",
     "overflow": false,
     "unreachable": [],
-    "count": 40,
+    "count": 38,
     "primaries": 1,
     "cookieCoversForm": false,
-    "tabStops": 40,
+    "tabStops": 38,
+    "contrastPairs": 10
+  },
+  {
+    "name": "live-arrival-settled",
+    "width": 390,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
     "contrastPairs": 10
   },
   {
@@ -3056,8 +3324,57 @@
       "own account updates never animate",
       "stale drafts submit only the fields edited locally",
       "comment copies append without displacing existing entries",
-      "reduced motion keeps the border and caption without a sliding copy"
+      "reduced motion keeps the border and caption without a sliding copy",
+      "live close replaces the chip with one stamp and disables unavailable actions; reopening restores them"
     ]
+  },
+  {
+    "name": "live-arrival-board",
+    "width": 390,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
+    "contrastPairs": 10
+  },
+  {
+    "name": "live-arrival-board-settled",
+    "width": 390,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
+    "contrastPairs": 10
+  },
+  {
+    "name": "live-arrival-detail",
+    "width": 390,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
+  },
+  {
+    "name": "live-arrival-detail-settled",
+    "width": 390,
+    "theme": "light",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
   },
   {
     "name": "sign-in",
@@ -3113,10 +3430,10 @@
     "theme": "dark",
     "overflow": false,
     "unreachable": [],
-    "count": 37,
+    "count": 35,
     "primaries": 1,
     "cookieCoversForm": false,
-    "tabStops": 37,
+    "tabStops": 35,
     "contrastPairs": 9
   },
   {
@@ -3137,10 +3454,22 @@
     "theme": "dark",
     "overflow": false,
     "unreachable": [],
-    "count": 37,
+    "count": 35,
     "primaries": 1,
     "cookieCoversForm": false,
-    "tabStops": 37,
+    "tabStops": 35,
+    "contrastPairs": 9
+  },
+  {
+    "name": "board-more-actions",
+    "width": 390,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
     "contrastPairs": 9
   },
   {
@@ -3653,10 +3982,22 @@
     "theme": "dark",
     "overflow": false,
     "unreachable": [],
-    "count": 40,
+    "count": 38,
     "primaries": 1,
     "cookieCoversForm": false,
-    "tabStops": 40,
+    "tabStops": 38,
+    "contrastPairs": 9
+  },
+  {
+    "name": "live-arrival-settled",
+    "width": 390,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
     "contrastPairs": 9
   },
   {
@@ -3668,7 +4009,56 @@
       "own account updates never animate",
       "stale drafts submit only the fields edited locally",
       "comment copies append without displacing existing entries",
-      "reduced motion keeps the border and caption without a sliding copy"
+      "reduced motion keeps the border and caption without a sliding copy",
+      "live close replaces the chip with one stamp and disables unavailable actions; reopening restores them"
     ]
+  },
+  {
+    "name": "live-arrival-board",
+    "width": 390,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
+    "contrastPairs": 9
+  },
+  {
+    "name": "live-arrival-board-settled",
+    "width": 390,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 38,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 38,
+    "contrastPairs": 9
+  },
+  {
+    "name": "live-arrival-detail",
+    "width": 390,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
+  },
+  {
+    "name": "live-arrival-detail-settled",
+    "width": 390,
+    "theme": "dark",
+    "overflow": false,
+    "unreachable": [],
+    "count": 18,
+    "primaries": 1,
+    "cookieCoversForm": false,
+    "tabStops": 18,
+    "contrastPairs": 5
   }
 ]

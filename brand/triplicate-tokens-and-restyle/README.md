@@ -10,3 +10,10 @@ six-configuration pixel comparison is recorded in the accompanying JSON.
 The after live-arrival frames pause the real 700 ms CSS animation at 350 ms.
 The browser report records keyboard traversal, painted text contrast,
 viewport overflow, primary-action count and live-arrival behavior.
+
+Round 1 source head: `af1121143b54cb630daa7528bbbedc4d3645c95f`. The AFTER set has 140 fresh PNGs;
+the 108 BEFORE PNGs remain unchanged. Arrival screenshots include 350 ms and
+settled frames in list, board and detail. Mobile disclosure frames cover both
+themes. Browser acceptance passes 332 audits, 9,806 Tab stops, 2,167 painted
+contrast pairs and 42 live-update cases. See release-gates.json for the exact
+head release acceptance and honest local-attempt results.

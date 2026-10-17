@@ -1,7 +1,9 @@
 {
-  "screenshots": 216,
-  "viewAudits": 300,
-  "tabStops": 8512,
-  "paintedContrastPairs": 1917,
-  "liveScenarios": 36
+  "beforeScreenshots": 108,
+  "afterScreenshots": 140,
+  "screenshots": 248,
+  "viewAudits": 332,
+  "tabStops": 9806,
+  "paintedContrastPairs": 2167,
+  "liveScenarios": 42
 }

@@ -1,8 +1,12 @@
 {
-  "files": 330,
-  "brandFiles": 34,
-  "packedBytes": 885355,
-  "unpackedBytes": 3324659,
+  "head": "af1121143b54cb630daa7528bbbedc4d3645c95f",
+  "packFiles": 357,
+  "generatedBrandFiles": 61,
+  "fontFiles": 3,
   "runtimeGitDependencies": 0,
-  "fontFiles": 3
+  "brandCommit": "c64fb9da7937c2d239f67357cab325f6a9cff29a",
+  "cleanNpmInstall": "pass, scripts enabled",
+  "freshCacheBunInstall": "pass, scripts enabled",
+  "dockerBuild": "pass",
+  "dockerImageRemoved": true
 }
