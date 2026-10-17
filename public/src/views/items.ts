@@ -651,11 +651,13 @@ export async function renderItemsView(): Promise<void> {
  * Fetches items for the current project using the active filters (capped at
  * 200, with tags filtered client-side because the list endpoint has no tag
  * flag), stores them in state, updates the count subtitle, and renders the
- * list. Shows an error state in the list element if the request fails.
+ * list. Live reconciliation preserves existing rows, captions and focus while
+ * updating membership and board positions. Shows an error state if the request fails.
  */
-export async function fetchAndRenderItems(): Promise<void> {
+export async function fetchAndRenderItems(preserveRows = false): Promise<void> {
   const pid = state.currentProject?.id;
   if (!pid) return;
+  const previousOrder = preserveRows ? new Map(state.items.map((item, index) => [item.id, index])) : null;
   const f = state.itemFilters;
   let params = 'limit=200';
   if (f.status) params += `&status=${encodeURIComponent(f.status)}`;
@@ -669,6 +671,7 @@ export async function fetchAndRenderItems(): Promise<void> {
 
   try {
     const data = await api<ListResponse>('GET',`/projects/${pid}/pm/${endpoint}`);
+    if (state.currentProject?.id !== pid || state.itemFilters !== f) return;
     let items: Item[] = data.items || [];
     // Tag is filtered client-side (pm list has no --tag flag): match items
     // whose tag list contains the requested tag (case-insensitive).
@@ -676,10 +679,11 @@ export async function fetchAndRenderItems(): Promise<void> {
     if (tag) {
       items = items.filter((i) => (i.tags || []).some((t) => t.toLowerCase() === tag));
     }
+    if (previousOrder) items.sort((a, b) => (previousOrder.get(a.id) ?? previousOrder.size) - (previousOrder.get(b.id) ?? previousOrder.size));
     rememberItems(items);
     const sub = document.getElementById('items-subtitle');
     if (sub) sub.textContent = `${state.items.length} item${state.items.length!==1?'s':''}`;
-    renderItemsList();
+    renderItemsList(preserveRows);
   } catch(err: unknown) {
     const listEl = document.getElementById('items-list');
     if (listEl) listEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Failed to load items: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
@@ -690,9 +694,24 @@ export async function fetchAndRenderItems(): Promise<void> {
  * Renders the items list element from state.items, showing an empty-state
  * placeholder when there are no items or the mapped item rows otherwise.
  */
-function renderItemsList(): void {
-  const el = document.getElementById('items-list');
+function renderItemsList(preserveRows = false, el = document.getElementById('items-list')): void {
   if (!el) return;
+  if (preserveRows) {
+    const previous = new Map([...el.querySelectorAll<HTMLElement>('.item-row')].map(row => [row.dataset.itemId, row]));
+    const focused = document.activeElement;
+    const staging = document.createElement('div');
+    // Render the new membership offscreen, then reuse the patched rows and their captions.
+    renderItemsList(false, staging);
+    const unchanged = [...el.querySelectorAll('.item-row')].map(row => `${row.getAttribute('data-item-id')}:${row.closest('section')?.getAttribute('aria-label') || ''}`).join('|') === [...staging.querySelectorAll('.item-row')].map(row => `${row.getAttribute('data-item-id')}:${row.closest('section')?.getAttribute('aria-label') || ''}`).join('|');
+    if (unchanged) return;
+    staging.querySelectorAll<HTMLElement>('.item-row').forEach(row => {
+      const existing = previous.get(row.dataset.itemId);
+      if (existing) row.replaceWith(existing);
+    });
+    el.replaceChildren(...staging.childNodes);
+    if (focused instanceof HTMLElement && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
+    return;
+  }
   if (state.items.length === 0) {
     el.innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">📋</div>
@@ -720,8 +739,7 @@ function renderItemsList(): void {
 export function renderItemRow(item: Item): string {
   const tags = (item.tags || []).map(tag => `<span class="tag">${escHtml(tag)}</span>`).join('');
   return `<div class="item-row" data-item-id="${escHtml(item.id)}" role="button" tabindex="0" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
-    <div class="item-strip live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div>
-    <div class="live-copy-caption" data-live-caption></div>
+    <div class="item-strip-line"><div class="item-strip live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div><div class="live-copy-caption" data-live-caption></div></div>
     <span class="item-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title)}</span>
     <div class="item-meta"><div class="item-tags live-field" ${liveAttrs('tags', (item.tags || []).join(', '))}>${tags}</div>${statusBadge(item.status || 'draft')}</div>
   </div>`;
@@ -891,6 +909,8 @@ export async function openItemDetail(itemId: string): Promise<void> {
           <button class="btn btn-ghost btn-sm" data-item-action="release" onclick="window.__app.releaseItem('${escHtml(itemId)}')">⊖ Release</button>
           <button class="btn btn-secondary btn-sm" data-item-action="start" aria-disabled="${item.status !== 'open'}" onclick="window.__app.startItem('${escHtml(itemId)}')">Start</button>
           <button class="btn btn-secondary btn-sm" data-item-action="pause" aria-disabled="${item.status !== 'in_progress'}" onclick="window.__app.pauseItem('${escHtml(itemId)}')">Pause</button>
+          <button class="btn btn-secondary btn-sm" data-item-action="reopen" onclick="window.__app.reopenItem('${escHtml(itemId)}')">Reopen</button>
+          <button class="btn btn-danger btn-sm" onclick="window.__app.confirmDeleteItem('${escHtml(itemId)}')">Delete item</button>
           <button class="btn btn-ghost btn-sm" data-template-item="${escHtml(JSON.stringify(item))}" onclick="window.__app.useItemAsTemplate(JSON.parse(this.dataset.templateItem))" title="Open create form pre-filled with this item's fields">⊡ Use as Template</button>
         </div>
       </div>
@@ -915,7 +935,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-tests')">Tests (${tests.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-files')">Files (${files.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-history')">History</div>
-        <div class="tab" data-item-action="close" aria-disabled="${['closed', 'canceled'].includes(item.status || '')}" onclick="window.__app.switchDetailTab(this,'tab-close')">Close</div>
+        <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-close')">Close</div>
       </div>
 
       <div id="tab-comments">
@@ -1302,6 +1322,14 @@ export async function startItem(itemId: string): Promise<void> {
  */
 export async function pauseItem(itemId: string): Promise<void> {
   await postItemAction('pause-task', itemId, 'Item paused', true);
+}
+
+/** Reopen a finished item and refresh its sheet and list membership. */
+export async function reopenItem(itemId: string): Promise<void> {
+  try {
+    await api('PATCH', `/projects/${state.currentProject!.id}/pm/update/${itemId}`, { status: 'open' });
+    refreshAfterItemAction({ toastMsg: 'Item reopened', reopenDetail: itemId, withBadge: true });
+  } catch (err: unknown) { toastError(err); }
 }
 
 // ═══════════════════════════════════════════════════════════════

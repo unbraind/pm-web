@@ -6,6 +6,7 @@ import { state } from '../state.js';
 import type { GraphNode, GraphRelationship, ProjectGraph } from '../types.js';
 import { escHtml } from '../utils.js';
 import { toast } from '../components/toast.js';
+import { showModal } from '../components/modals.js';
 import { browserWindow } from '../browser-window.js';
 import { GraphCanvas, type CanvasNode, type CanvasEdge, type LayoutMode, tagColorMapFromFreq } from './graph-canvas.js';
 
@@ -1730,6 +1731,7 @@ function showAddDependencyModal(): void {
     </div>`;
 
   document.body.insertAdjacentHTML('beforeend', html);
+  showModal('graph-add-dep-modal');
 
   if (selectedNodeId) {
     const fromSel = document.getElementById('graph-dep-from') as HTMLSelectElement | null;
@@ -1798,6 +1800,7 @@ function showRemoveDependencyModal(): void {
     </div>`;
 
   document.body.insertAdjacentHTML('beforeend', html);
+  showModal('graph-remove-dep-modal');
 
   document.getElementById('graph-remove-dep-submit')?.addEventListener('click', async () => {
     const selIdx = parseInt((document.getElementById('graph-remove-dep-select') as HTMLSelectElement)?.value ?? '-1', 10);

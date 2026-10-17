@@ -78,7 +78,7 @@
     "eslint": "10.12.0",
     "jscpd": "5.4.1",
     "playwright-core": "1.63.0",
-    "pm-brand": "github:unbraind/pm-brand#c64fb9da7937c2d239f67357cab325f6a9cff29a",
+    "pm-brand": "github:unbraind/pm-brand#7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1",
     "pm-changelog": "2026.10.14",
     "pm-ops": "2026.10.14",
     "pngjs": "7.0.0",

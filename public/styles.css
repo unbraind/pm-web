@@ -1683,7 +1683,7 @@ hr.section-divider { border: none; border-top: 1px solid var(--app-border); marg
 .member-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--app-border); font-size: 13px; }
 .member-row:last-child { border-bottom: none; }
 .member-avatar { width: 26px; height: 26px; border-radius: var(--pm-radius-sm); background: var(--app-accent-dim); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--app-accent); flex-shrink: 0; }
-.claim-btn-wrap { display: flex; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--app-border); }
+.claim-btn-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--app-border); }
 
 /* ── PWA Install Banner ── */
 .offline-banner {
@@ -2398,6 +2398,10 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 .live-copy-caption { grid-column: 1 / -1; height: 1.75rem; line-height: 1.75rem; padding: 0 .5rem; border-left: 3px solid transparent; font-family: var(--pm-font-caption); font-variation-settings: 'wdth' 75; font-size: var(--pm-step--1); color: var(--pm-graphite); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .live-copy-caption:not(:empty) { border-left-color: var(--live-copy-ink, var(--pm-canary)); }
 .live-copy-caption[data-error="true"] { color: var(--pm-danger); }
+.item-strip-line { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0 .75rem; min-width: 0; }
+.item-strip-line .item-strip { flex: 0 1 auto; min-width: 0; }
+.item-strip-line .live-copy-caption { margin-left: auto; height: auto; line-height: 1.5rem; text-align: right; text-transform: uppercase; letter-spacing: .09em; }
+.item-strip-line .live-copy-caption:empty { display: none; }
 .live-field { position: relative; border-left: 3px solid transparent; padding-left: .5rem; }
 .item-strip.live-field { height: 1.5rem; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .item-title.live-field { height: 3rem; line-height: 1.5rem; overflow: hidden; }
@@ -2437,7 +2441,7 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 
 [aria-disabled="true"] { color: var(--pm-graphite); cursor: not-allowed; }
 .btn[aria-disabled="true"] { background: var(--pm-paper); color: var(--pm-graphite); border-color: var(--pm-rule); }
-.claim-btn-wrap .btn { min-width: 80px; }
+.claim-btn-wrap .btn { min-width: 80px; flex-shrink: 0; }
 
 .user-avatar { width: 40px; height: 40px; cursor: pointer; }
 
@@ -2447,7 +2451,9 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 .item-strip, .item-detail-id, .status-badge, .tag { font-size: var(--pm-step--1); }
 .board-items .item-strip.live-field { height: 3rem; flex: none; white-space: normal; }
 .board-items .item-row { min-width: 0; height: 294px; }
-.board-items .live-copy-caption { height: 2.5rem; line-height: 1.25rem; white-space: normal; flex: none; }
+.board-items .item-strip-line .live-copy-caption { height: auto; line-height: 1.25rem; white-space: normal; flex: none; }
+.board-items .item-strip-line { height: 5.5rem; flex: none; align-items: stretch; flex-direction: column; }
+.board-items .item-strip-line .live-copy-caption:empty { display: block; }
 .item-title.live-field { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .board-items .item-title.live-field { -webkit-line-clamp: 3; }
 .btn, .btn-sm, .tab, .sidebar-item, .nav-search-hint, .project-selector { min-height: 44px; }

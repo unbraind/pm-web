@@ -34,13 +34,14 @@ export function showModal(id: string): void {
   }
 }
 
-/** Hide the modal with the given id by setting its display style to none. */
+/** Hide a reusable modal or remove a directly inserted one, restoring its opener's focus. */
 export function hideModal(id: string): void {
   const modal = document.getElementById(id);
   if (modal) {
     modal.style.display = 'none';
     const target = returnFocus.get(modal);
     if (target?.isConnected) target.focus({ preventScroll: true });
+    if (modal.parentElement === document.body) modal.remove();
   }
 }
 
@@ -95,10 +96,10 @@ export function confirmDialog(
   const id = 'confirm-dialog-' + Date.now();
   const cancelLabel = labels?.cancel ?? 'Cancel';
   const confirmLabel = labels?.confirm ?? (danger ? 'Delete' : 'Confirm');
-  createModal(id, '', `
+  const modal = createModal(id, '', `
     <div class="confirm-dialog">
       <div class="confirm-dialog-icon">${danger ? '⚠' : '?'}</div>
-      <div class="confirm-dialog-title">${escHtml(title)}</div>
+      <div class="confirm-dialog-title" id="${id}-prompt">${escHtml(title)}</div>
       <div class="confirm-dialog-desc">${escHtml(desc)}</div>
       <div class="confirm-dialog-actions">
         <button class="btn btn-ghost" onclick="window.__app.hideModal('${id}')">${escHtml(cancelLabel)}</button>
@@ -106,6 +107,7 @@ export function confirmDialog(
       </div>
     </div>`
   , '');
+  modal.querySelector('[role="dialog"]')?.setAttribute('aria-labelledby', `${id}-prompt`);
   showModal(id);
   document.getElementById(`${id}-ok`)?.addEventListener('click', () => {
     hideModal(id);

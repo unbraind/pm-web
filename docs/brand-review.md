@@ -164,3 +164,91 @@ only that entry and using a second fresh cache passes. Both installations run
 normal lifecycle scripts. The corrected-lock Docker build passes and its tag
 is removed. After dependency restoration, all 18 focused asset/contrast/live
 and service-worker tests pass together. Rendered sources are unchanged.
+
+Round 2 addresses the six unresolved review findings against the current source.
+Handled SSE events reconcile authoritative filtered membership and board columns,
+reusing patched row elements and leaving detail drafts intact. Direct-body graph
+dialogs use the shared keyboard lifecycle and are removed on Escape. Confirmation
+prompts supply their dialog's accessible name. Graph nodes use all five lifecycle
+styles, normalize the hyphenated working-state alias, strike canceled labels and
+use neutral paper/rule/graphite for draft or custom statuses. Shape, abbreviation,
+label pill and text preserve the node opacity.
+
+Closed and canceled sheets retain the Close panel's Delete action and expose
+Delete and Reopen beside Use as template. Start, Pause and Claim are hidden
+in those states; Release and Update remain available. Reopen writes the open status
+through the normal update endpoint. Empty list captions have zero height. An
+arrival shares the mono strip line on the right at desktop/tablet widths and may
+wrap inside its own row on narrow screens. Board and detail attribution remain
+inside their affected sheets.
+
+`scripts/brand-browser-regressions.ts` exercises filter exit and entry with a
+focused comment draft, board relocation and counts, repeated graph-dialog Escape
+and reopen with working controls, accessible confirmation names, finished-item
+Delete/Reopen, contract graph styles and draw opacity, and all five compact empty
+rows. `BRAND_REGRESSION_ONLY` selects one regression or `all` in the fixture
+browser harness. Each regression runs against rebuilt production modules.
+
+The final round 2 pin is `7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1`,
+the current held kit main. It includes the previously verified assets unchanged
+plus release-automation fixes. The dependency update retains every registry
+checksum and the existing optional-Git-archive-checksum omission for Bun
+compatibility. Runtime dependencies contain no Git dependency.
+
+All seven focused behavioral reverts exit with a failure after rebuilding: the
+filtered row fails to leave, Escape retains a graph dialog, the confirmation
+prompt has no accessible name, the hyphenated working state receives white
+instead of canary wash, filtered drawing loses its alpha, the disabled Close
+tab hides Delete, and an empty row caption reserves 28 px. Production functions
+are restored after every probe. The restored seven-case suite also passes via
+`pm test`; the width/theme matrix repeats every case with fixture data.
+
+The completed round 2 matrix contains 146 fresh AFTER PNGs and preserves the
+108 original BEFORE PNGs. It passes 338 screen/tab audits, 9,872 real Tab stops,
+2,251 painted contrast-pair checks, 42 live-update cases and 42 reviewed
+regressions across all six width/theme combinations. Confirmation dialogs are
+now captured in every combination. All requested list, arrival, board,
+closed-detail and graph frames are fresh. The package dry run still contains
+357 files, including 61 generated brand files and three fonts, and no runtime
+Git dependency. The image build passes and its test tag is removed.
+
+The final closed-action rule hides only Start, Pause and Claim. Release remains
+available for finished items. A supplemental behavioral revert restores only
+its old disabled rule and fails the closed-action availability check; production
+is restored and rebuilt. The browser matrix is recaptured for this final rule.
+The pinned CLI also accepts Release after Close in a real scratch tracker.
+The restored linked browser suite, lint, zero-duplication gate, pack dry run
+and Docker build/removal pass with this final rule.
+
+Action rows wrap without shrinking their buttons. The closed-action regression
+also checks sheet bounds, text clipping and overlapping button rectangles.
+Restoring only the former action-row CSS fails at 390 px on clipped actions;
+restoring the fix passes. This ninth probe serves the reverted CSS directly.
+
+Reconciliation retains the order of existing rows and appends newly matching
+rows. A reversed authoritative fixture response during a title arrival must
+preserve row order and focus. Removing only the order-preservation step fails
+with reversed row IDs; production is restored and rebuilt. This tenth probe
+covers non-displacing arrivals alongside status-filter and board membership.
+
+Earlier local round 2 full npm and Bun attempts, before the final kit pin,
+each ran 666 tests: 663 passed,
+2 failed, 1 canceled, 0 skipped and 0 todo. Both hit the existing catalog
+consumer's 300-second deadline and then `spawn ENOTDIR` in its source variant.
+The npm attempt also reproduced the tracked spawn-overlap scheduling assertion
+(`pm-web-fhob`); Bun reproduced the tracked 2,000-item graph budget failure
+(`pm-web-hqqp`), at 10,691 ms versus 10,000 ms. `pm-web-qdhx` contains the
+catalog/startup follow-up evidence. Statement/line coverage was 91.76% and
+92.01%, below the unchanged 92.07% floor. These local attempts are failures,
+not acceptance. Final-head npm/Bun acceptance is recorded separately in the PR
+and the screenshot branch's release receipt. No server runtime, server test,
+coverage scope, threshold or deadline changed in this review round.
+
+Item status mode uses lifecycle borders. Type/tag modes and facet/external
+lanes retain their category outlines. The drawing regression spans all three
+modes and lanes; restoring only unconditional lifecycle borders fails its
+outline assertion. Unknown statuses, including prototype-named values, resolve
+to neutral graphite in both initial and repaint color selection. Restoring only
+the palette's own-property guard raises the former non-token lookup error.
+These eleventh and twelfth probes are restored and rebuilt, with final source
+hashes checked after restoration.

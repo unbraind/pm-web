@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import type { Page } from 'playwright-core';
 import { fixtureItems, fixtureUser, fixtureComments, fixturePatches, updateFixtureItem } from './brand-fixtures.ts';
 import type { AppBridge } from '../public/src/app.ts';
+import { assertFinishedActions } from './brand-browser-regressions.ts';
 
 interface LiveWindow extends Window { __app: AppBridge; __fixtureEmit: (data: Record<string, unknown>) => void }
 
@@ -30,12 +31,15 @@ export async function holdArrivalFrame(page: Page, surface: 'list' | 'board' | '
     return animation.effect?.getComputedTiming().duration;
   }));
   assert.ok(durations.length && durations.every(duration => duration === 700), 'Live arrival must last 700 ms');
-  assert.deepEqual(await row.boundingBox(), original, 'The arrival moved its item row');
+  if (surface === 'detail' || (surface === 'list' && page.viewportSize()!.width >= 768)) assert.deepEqual(await row.boundingBox(), original, 'The arrival moved its item row');
   assert.equal(await page.locator('#live-copy-caption').count(), 0, 'The floating page caption returned');
   assert.equal(await row.locator('[data-live-caption]').textContent(), 'Updated by Alex just now');
   const captionBox = await row.locator('[data-live-caption]').boundingBox();
   const stripBox = await row.locator('[data-live-field="strip"]').boundingBox();
-  assert.ok(captionBox && stripBox && original && captionBox.y >= stripBox.y + stripBox.height - 1 && captionBox.y + captionBox.height <= original.y + original.height, 'Caption must sit under the strip inside the changed sheet');
+  assert.ok(captionBox && stripBox && original, 'Caption and strip must be visible inside the changed sheet');
+  if (surface === 'list' && page.viewportSize()!.width >= 768) {
+    assert.ok(Math.abs(captionBox.y - stripBox.y) < 2 && captionBox.x >= stripBox.x + stripBox.width, 'List caption must share the strip line on its right');
+  } else if (surface === 'detail') assert.ok(captionBox.y >= stripBox.y + stripBox.height - 1, 'Detail caption stays under its strip');
   assert.equal(await row.locator('[data-live-caption]').evaluate(el => getComputedStyle(el).borderLeftColor), await row.evaluate(el => getComputedStyle(el).getPropertyValue('--pm-canary').trim()).then(value => /^#/.test(value) ? `rgb(${[1, 3, 5].map(offset => parseInt(value.slice(offset, offset + 2), 16)).join(', ')})` : value));
 }
 
@@ -137,11 +141,7 @@ export async function checkLiveArrivals(page: Page, settled: () => Promise<void>
   await page.clock.runFor(800);
   assert.equal(await page.locator('.detail-status-slot .closed-stamp').count(), 1);
   assert.equal(await page.locator('.detail-status-slot .status-badge').count(), 0);
-  for (const action of ['start', 'pause', 'claim', 'release']) {
-    const button = page.locator(`[data-item-action="${action}"]`);
-    assert.equal(await button.getAttribute('aria-disabled'), 'true');
-    assert.match(await button.getAttribute('title') || '', /unavailable for a closed item/);
-  }
+  await assertFinishedActions(page);
   updateFixtureItem('note-1', { status: 'open' });
   await emit(page);
   await page.waitForFunction(() => document.querySelector<HTMLElement>('.detail-status-slot')?.dataset.liveValue === 'open');

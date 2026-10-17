@@ -19,6 +19,6 @@ export function brandValue(token: `--pm-${TokenName}`): string {
 /** Resolve palette entries lazily so existing graph nodes can repaint after a theme change. */
 export function brandPalette(tokens: Record<string, `--pm-${TokenName}`>): Record<string, string> {
   return new Proxy<Record<string, string>>({}, {
-    get(_target, key: string): string | undefined { return tokens[key] ? brandValue(tokens[key]) : undefined; },
+    get(_target, key: string): string | undefined { return Object.hasOwn(tokens, key) && tokens[key] ? brandValue(tokens[key]) : undefined; },
   });
 }

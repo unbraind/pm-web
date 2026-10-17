@@ -10,6 +10,7 @@ import { fixtureResponse, fixtureItems, fixtureUser, fixtureComments, fixtureHis
 import type { AppBridge } from '../public/src/app.ts';
 import { holdArrivalFrame, checkLiveArrivals } from './brand-browser-live.ts';
 import { auditTextContrast } from './brand-browser-contrast.ts';
+import { checkReviewRegressions, assertFinishedActions } from './brand-browser-regressions.ts';
 
 interface ReviewWindow extends Window { __app: AppBridge; __fixtureEmit: (data: Record<string, unknown>) => void }
 const app = express();
@@ -23,6 +24,10 @@ app.use('/api', (req, res) => {
   const pathname = new URL(req.originalUrl, 'http://fixture.test').pathname;
   if (req.method === 'POST' && ['/api/auth/login', '/api/auth/register'].includes(pathname)) { res.cookie('fixture-auth', '1').json({ user: fixtureUser }); return; }
   if (pathname === '/api/auth/logout') { res.clearCookie('fixture-auth').json({ ok: true }); return; }
+  if (/\/list(-all)?$/.test(pathname)) {
+    const filters = new URL(req.originalUrl, 'http://fixture.test').searchParams;
+    res.json({ items: fixtureItems.filter(item => [...filters].every(([key, value]) => key === 'limit' || !value || String(item[key as keyof typeof item]) === value)) }); return;
+  }
   if (req.method === 'PATCH' && pathname.includes('/pm/update/')) {
     const patch = req.body as Record<string, unknown>;
     fixturePatches.push(patch);
@@ -125,7 +130,7 @@ try {
       window.EventSource = FixtureSource as unknown as typeof EventSource;
     });
     const page = await context.newPage();
-    page.setDefaultTimeout(60000);
+    page.setDefaultTimeout(process.env.BRAND_REGRESSION_ONLY ? 5000 : 60000);
     const errors: string[] = [];
     page.on('pageerror', error => { errors.push(error.message); console.error(`Browser error: ${error.message}`); });
     page.on('console', message => { if (message.type() === 'error' && !message.text().includes('401')) console.error(`Browser console: ${message.text()}`); });
@@ -159,6 +164,11 @@ try {
     await capture(page, 'projects', width, theme);
     await page.evaluate(() => (window as unknown as ReviewWindow).__app.selectProject('fixture-project'));
     await page.locator('.item-row').first().waitFor();
+    if (process.env.BRAND_REGRESSION_ONLY) {
+      report.push({ width, theme, reviewCases: await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
+      await context.close();
+      continue;
+    }
     await capture(page, 'items', width, theme);
     if (strict) {
       await page.locator('#user-avatar').focus();
@@ -192,11 +202,12 @@ try {
       if (strict && status === 'closed') {
         assert.equal(await page.locator('#item-detail-modal .closed-stamp').count(), 1);
         assert.equal(await page.locator('#item-detail-modal .status-closed').count(), 0);
-        for (const action of ['start', 'pause', 'claim']) {
-          const button = page.locator(`[data-item-action="${action}"]`);
-          assert.equal(await button.getAttribute('aria-disabled'), 'true');
-          assert.match(await button.getAttribute('title') || '', /unavailable for a closed item/);
-        }
+        await assertFinishedActions(page);
+        await page.locator('.claim-btn-wrap button').filter({ hasText: 'Delete item' }).focus();
+        await page.keyboard.press('Enter');
+        await page.getByRole('dialog', { name: 'Delete item?' }).waitFor();
+        await capture(page, 'confirmation', width, theme);
+        await page.keyboard.press('Escape');
       }
       if (strict && status === 'open') {
         for (const tab of ['Update', 'Notes', 'Deps', 'Graph', 'Learnings', 'Tests', 'Files', 'History', 'Close']) {
@@ -229,6 +240,7 @@ try {
       await page.waitForTimeout(250);
       await capture(page, view, width, theme, false);
     }
+    if (strict) report.push({ width, theme, reviewCases: await checkReviewRegressions(page) });
     await page.goto(`${base}/privacy-policy.html`);
     await capture(page, 'legal', width, theme);
     await page.goto(base);
@@ -268,5 +280,7 @@ try {
   }
   await writeFile(path.join(output, 'browser-report.json'), JSON.stringify(report, null, 2));
   const views = report.filter(record => 'name' in (record as Record<string, unknown>)).length;
-  console.log(`Captured ${screenshotCount} fixture screenshots; ${views} keyboard/contrast audits; ${report.length - views} live scenario groups`);
+  const liveGroups = report.filter(record => 'liveCases' in (record as Record<string, unknown>)).length;
+  const reviewGroups = report.filter(record => 'reviewCases' in (record as Record<string, unknown>)).length;
+  console.log(`Captured ${screenshotCount} fixture screenshots; ${views} keyboard/contrast audits; ${liveGroups} live scenario groups; ${reviewGroups} review regression groups`);
 } finally { await browser.close(); await new Promise<void>(resolve => { server.close(() => resolve()); }); await rm(staticRoot, { recursive: true, force: true }); }

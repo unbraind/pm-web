@@ -565,7 +565,11 @@ function connectSSE(projectId: string, attempt = 0): void {
 
     // Item events on graph view use lightweight data-only refresh
     const refreshGraphData = async (evt: MessageEvent) => {
-      if (await receiveLiveUpdate(evt.data, projectId, sseClientId, evt.type)) { void loadItemsBadge(); return; }
+      if (await receiveLiveUpdate(evt.data, projectId, sseClientId, evt.type)) {
+        if (state.currentView === 'items') await itemsView.fetchAndRenderItems(true);
+        void loadItemsBadge();
+        return;
+      }
       // Show a subtle toast when another user's action triggers a refresh
       // (only if client ID is known, meaning we've fully connected)
       if (sseClientId) {

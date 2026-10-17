@@ -138,11 +138,13 @@ function writeField(field: HTMLElement, item: LiveRecord, value: string): void {
   field.dataset.liveValue = value;
 }
 
-/** Keep action slots in place when a collaborator changes the lifecycle state. */
+/** Refresh lifecycle action availability and show Reopen for finished items. */
 export function refreshActionState(root: HTMLElement, item: Item): void {
   root.querySelectorAll<HTMLElement>('[data-item-action]').forEach(action => {
     const kind = action.dataset.itemAction;
-    const enabled = kind === 'start' ? item.status === 'open' : kind === 'pause' ? item.status === 'in_progress' : !['closed', 'canceled'].includes(item.status || '');
+    const finished = ['closed', 'canceled'].includes(item.status || '');
+    const enabled = kind === 'release' ? true : kind === 'reopen' ? finished : kind === 'start' ? item.status === 'open' : kind === 'pause' ? item.status === 'in_progress' : !finished;
+    action.hidden = kind === 'reopen' ? !finished : finished && ['start', 'pause', 'claim'].includes(kind || '');
     action.setAttribute('aria-disabled', String(!enabled));
     action.title = enabled ? '' : `This action is unavailable for a ${String(item.status || 'draft').replace(/_/g, ' ')} item. Change its status in Update first.`;
   });

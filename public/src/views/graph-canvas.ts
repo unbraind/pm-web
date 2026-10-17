@@ -111,7 +111,7 @@ function nodeRadius(degree: number): number {
 function statusColor(node: CanvasNode): string {
   if (node.lane === 'facet')    return LANE_COLOR.facet;
   if (node.lane === 'external') return LANE_COLOR.external;
-  return STATUS_COLORS[node.status] ?? LANE_COLOR.item;
+  return STATUS_COLORS[node.status] ?? brandValue('--pm-graphite');
 }
 
 function getEdgeColor(type: string): string {
@@ -806,7 +806,7 @@ export class GraphCanvas {
       }
       return brandValue('--pm-graphite');
     }
-    return STATUS_COLORS[node.status] ?? LANE_COLOR.item;
+    return statusColor(node);
   }
 
   private recolorNodes(): void {
@@ -1573,16 +1573,19 @@ export class GraphCanvas {
     ctx.shadowBlur = 0;
 
     // Solid token fills preserve the same lifecycle grammar as the item sheets.
-    const lifecycle = node.lane === 'item' && (node.status === 'open' || node.status === 'in_progress' || node.status === 'blocked' || node.status === 'closed') ? node.status : 'open';
-    const nodeInk = brandValue(`--pm-status-${lifecycle}-fg`);
+    const status = node.status.replace(/-/g, '_');
+    const lifecycle = node.lane === 'item' && (status === 'open' || status === 'in_progress' || status === 'blocked' || status === 'closed' || status === 'canceled') ? status : null;
+    const nodeInk = lifecycle ? brandValue(`--pm-status-${lifecycle}-fg`) : brandValue('--pm-graphite');
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = brandValue(`--pm-status-${lifecycle}-bg`);
+    ctx.fillStyle = lifecycle ? brandValue(`--pm-status-${lifecycle}-bg`) : brandValue('--pm-paper');
     ctx.fill();
 
     // Stroke — more vivid for all nodes
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = hexAlpha(color, selected ? 1 : hovered ? 0.92 : 0.72);
+    ctx.strokeStyle = node.lane === 'item' && this.filter.colorMode === 'status'
+      ? lifecycle ? brandValue(`--pm-status-${lifecycle}-border`) : brandValue('--pm-rule')
+      : hexAlpha(color, selected ? 1 : hovered ? 0.92 : 0.72);
     ctx.lineWidth   = selected ? 2.2 : hovered ? 1.8 : 1.2;
     ctx.stroke();
 
@@ -1596,7 +1599,7 @@ export class GraphCanvas {
       ctx.textBaseline = 'middle';
       ctx.shadowBlur = 0;
       ctx.fillStyle = nodeInk;
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = opacity;
       ctx.fillText(abbr, x, y);
     } else if (r >= 11 && node.lane === 'item') {
       // Fallback dot when no abbr or low zoom
@@ -1625,7 +1628,7 @@ export class GraphCanvas {
 
       // Background pill for readability (skip when very faint)
       if (labelAlpha > 0.35) {
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = opacity;
         ctx.fillStyle   = brandValue('--pm-sheet');
         ctx.shadowBlur = 0;
         if (ctx.roundRect) {
@@ -1637,7 +1640,7 @@ export class GraphCanvas {
         }
       }
 
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = opacity;
       ctx.shadowBlur = 0;
       ctx.shadowColor = brandValue('--pm-carbon');
       ctx.fillStyle   = selected
@@ -1646,6 +1649,14 @@ export class GraphCanvas {
           ? brandValue('--pm-graphite')
           : brandValue('--pm-graphite');
       ctx.fillText(label, x, labelY);
+      if (lifecycle === 'canceled') {
+        ctx.beginPath();
+        ctx.strokeStyle = nodeInk;
+        ctx.lineWidth = 1;
+        ctx.moveTo(x - textW / 2, labelY + fSize / 2);
+        ctx.lineTo(x + textW / 2, labelY + fSize / 2);
+        ctx.stroke();
+      }
       ctx.shadowBlur = 0;
       ctx.globalAlpha = opacity;
     }
