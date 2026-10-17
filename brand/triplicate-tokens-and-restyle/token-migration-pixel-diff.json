@@ -1,0 +1,182 @@
+[
+  {
+    "name": "board-1440-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "board-1440-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "board-390-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "board-390-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "board-768-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "board-768-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "detail-open-1440-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "detail-open-1440-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "detail-open-390-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "detail-open-390-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "detail-open-768-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "detail-open-768-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "items-1440-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "items-1440-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "items-390-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "items-390-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "items-768-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "items-768-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "projects-1440-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "projects-1440-light.png",
+    "maxChannelDelta": 1,
+    "changedPixels": 25,
+    "changedPercent": 0.001736111111111111
+  },
+  {
+    "name": "projects-390-dark.png",
+    "maxChannelDelta": 15,
+    "changedPixels": 31,
+    "changedPercent": 0.007948717948717949
+  },
+  {
+    "name": "projects-390-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "projects-768-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "projects-768-light.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "sign-in-1440-dark.png",
+    "maxChannelDelta": 0,
+    "changedPixels": 0,
+    "changedPercent": 0
+  },
+  {
+    "name": "sign-in-1440-light.png",
+    "maxChannelDelta": 1,
+    "changedPixels": 18,
+    "changedPercent": 0.00125
+  },
+  {
+    "name": "sign-in-390-dark.png",
+    "maxChannelDelta": 27,
+    "changedPixels": 9,
+    "changedPercent": 0.0023076923076923075
+  },
+  {
+    "name": "sign-in-390-light.png",
+    "maxChannelDelta": 16,
+    "changedPixels": 28,
+    "changedPercent": 0.0071794871794871795
+  },
+  {
+    "name": "sign-in-768-dark.png",
+    "maxChannelDelta": 1,
+    "changedPixels": 19,
+    "changedPercent": 0.0024739583333333332
+  },
+  {
+    "name": "sign-in-768-light.png",
+    "maxChannelDelta": 14,
+    "changedPixels": 8,
+    "changedPercent": 0.0010416666666666667
+  }
+]
