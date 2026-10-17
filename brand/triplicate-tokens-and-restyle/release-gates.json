@@ -1,8 +1,8 @@
 {
   "head": "23910ff41005f2c462b147c0fae0d612ae456946",
   "brandCommit": "7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1",
-  "status": "pending",
-  "acceptance": "Fresh exact-head CI npm and Bun release gates on Node 22 and 26 pending",
+  "status": "pass",
+  "acceptance": "Exact-head CI npm and Bun release gates on Node 22 and 26",
   "localAttempts": [
     {
       "command": "npm run release:check",
@@ -63,7 +63,184 @@
     "branches": 80.5,
     "functions": 94.59
   },
-  "gates": [],
+  "gates": [
+    {
+      "node": 26,
+      "command": "npm run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.52,
+        "branches": 81.54,
+        "functions": 96.12,
+        "lines": 92.52
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/39004469700/job/117313992323"
+    },
+    {
+      "node": 26,
+      "command": "bun run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 96.12,
+        "lines": 92.51
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/39004469700/job/117313992323"
+    },
+    {
+      "node": 22,
+      "command": "npm run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 95.22,
+        "lines": 92.51
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/39004469700/job/117313992465"
+    },
+    {
+      "node": 22,
+      "command": "bun run release:check",
+      "result": "pass",
+      "tests": {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.48,
+        "functions": 95.22,
+        "lines": 92.51
+      },
+      "packedConsumers": [
+        "npm-current",
+        "bun-current",
+        "npm-minimum",
+        "bun-minimum"
+      ],
+      "jobUrl": "https://github.com/unbraind/pm-web/actions/runs/39004469700/job/117313992465"
+    }
+  ],
   "scriptsEnabled": true,
-  "runtimeGitDependencies": 0
+  "runtimeGitDependencies": 0,
+  "ciRun": "https://github.com/unbraind/pm-web/actions/runs/39004469700",
+  "coverageMinima": {
+    "statements": 92.51,
+    "branches": 81.48,
+    "functions": 95.22,
+    "lines": 92.51
+  },
+  "otherChecks": [
+    {
+      "name": "CodeQL",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/unbraind/pm-web/runs/117314158755"
+    },
+    {
+      "name": "enable-auto-merge",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/unbraind/pm-web/actions/runs/39004469679/job/117314013524"
+    },
+    {
+      "name": "cubic \u00b7 AI code reviewer",
+      "status": "completed",
+      "conclusion": "neutral",
+      "url": "https://github.com/unbraind/pm-web/runs/117314008129"
+    },
+    {
+      "name": "codeql",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/unbraind/pm-web/actions/runs/39004469644/job/117313992229"
+    },
+    {
+      "name": "Sourcery review",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/unbraind/pm-web/runs/117313991359"
+    }
+  ],
+  "reviewApproval": "Not established by neutral or skipped reviewer checks"
 }

@@ -23,6 +23,7 @@ source hashes match after restoration. See round2-revert-proofs.json.
 The package and image receipt records the final exact kit pin, script-enabled
 clean installation, 357 package files and removal of the test image.
 
-Fresh exact-head CI release acceptance is pending. The release-gates.json
-receipt records earlier local npm/Bun failures separately; these attempts did
-not reach capacity or packed-consumer acceptance. Thresholds remain unchanged.
+Fresh exact-head CI passes all four npm/Bun release gates on Node 22/26: each
+passes 666 tests, two capacity cases and four packed consumers, with zero
+failures, cancellations, skips or todos. The release-gates.json receipt records
+measured coverage and earlier local failures separately. Thresholds are unchanged.
