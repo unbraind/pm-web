@@ -1,5 +1,5 @@
 {
-  "head": "af1121143b54cb630daa7528bbbedc4d3645c95f",
+  "head": "0e8ba11af09343e1788ab399b455d88a498c0335",
   "packFiles": 357,
   "generatedBrandFiles": 61,
   "fontFiles": 3,
@@ -8,5 +8,8 @@
   "cleanNpmInstall": "pass, scripts enabled",
   "freshCacheBunInstall": "pass, scripts enabled",
   "dockerBuild": "pass",
-  "dockerImageRemoved": true
+  "dockerImageRemoved": true,
+  "gitArchiveIntegrityOmitted": true,
+  "registryChecksumsRetained": true,
+  "freshCacheBunVersion": "1.4.3"
 }
