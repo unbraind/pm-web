@@ -133,3 +133,11 @@ identity on each supported Node line; the PR records its exact-head results.
 No functional assertion, coverage floor, duplication limit or capacity budget
 has been relaxed. Bun dependency installation also disables scripts for the
 held Git kit, matching the npm/build workaround.
+
+The isolated npm release gate passes all 666 tests on both supported Node
+lines. Bun exposed a checksum mismatch while migrating npm's packed Git archive
+into its own Git archive. Only the optional `pm-brand` archive integrity entry
+is omitted: its exact 40-character commit remains pinned in both manifests,
+and every registry dependency checksum and resolution is unchanged. A separate
+fresh-cache Bun install succeeds without disabling integrity verification.
+The image build checks npm consumption of the same lockfile independently.

@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-17T00:59:28.611Z"
+updated_at: "2026-10-17T01:18:11.332Z"
 author: codex-agent
-comments[12]{created_at,author,text}:
+comments[14]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
@@ -21,86 +21,170 @@ comments[12]{created_at,author,text}:
   "2026-10-17T00:39:23.882Z",codex-agent,"Implementation and fixture review are complete: 216 PNGs are published on pr-screenshots, with 300 keyboard/contrast/overflow audits, 8512 real Tab stops, 1917 painted text/background checks and 36 live scenarios. Both mobile themes were recaptured after correcting the inherited metadata column rule. Mid-arrival reduced-motion preference changes also restore source text immediately. Focused checks pass 41/41 and live collaboration 12/12; packed output includes 34 brand files and no runtime Git dependency. Full local release attempts hit the existing 300-second catalog-consumer deadline under contention; no deadline, coverage, duplication or capacity limit was relaxed. The existing CI jobs run both complete npm and Bun release commands with isolated Git identity; exact-head receipts will be reported in the PR. Canonical fleet assertions pass 2/2. Strict tracker health passes with its existing storage advisory retained."
   "2026-10-17T00:50:13.565Z",codex-agent,"PR 216 is open. CodeQL identified missing rate limiting on the fixture screenshot server filesystem handler. A global express-rate-limit middleware now bounds its loopback API and static routes. Type checking, lint and the unchanged zero-duplication gate pass for the fix. The production application and its token assets are unchanged by this test-tool fix. Full npm and Bun gates are running in the existing isolated CI matrix; local attempts retain the unchanged catalog-consumer deadline failures as non-acceptance evidence."
   "2026-10-17T00:59:26.800Z",codex-agent,"The isolated CI run completed 666 tests: 664 passed and two release-policy guards failed. The guards correctly rejected the extra global npm installs and npm_config_ignore_scripts in the publisher workflow. The fix removes those additions, retains its original npm 11.19.0 trusted publisher, and uses only the ignore-scripts CLI flag there. All eight release-policy tests now pass unchanged. A separate fresh-cache install with compatible npm succeeds without any ignore-scripts environment override. The ordinary build/CI npm pin remains scoped outside the publishing job. Prior CI coverage exceeded all unchanged floors: statements/lines 92.51%, branches 81.48%, functions 95.22% or 96.12% by Node runtime; the failed test run is not acceptance."
-files[79]{path,scope}:
-  .github/workflows/ci.yml,project
-  .github/workflows/release.yml,project
-  Dockerfile,project
-  package.json,project
-  public/app-tokens.css,project
-  public/cookie-consent.css,project
-  public/cookie-settings.html,project
-  public/index.html,project
-  public/legal-common.css,project
-  public/legal-notice.html,project
-  public/manifest.json,project
-  public/privacy-policy.html,project
-  public/src/api-types.ts,project
-  public/src/api.ts,project
-  public/src/app.ts,project
-  public/src/brand.ts,project
-  public/src/browser-window.ts,project
-  public/src/components/modals.ts,project
-  public/src/components/toast.ts,project
-  public/src/constants.ts,project
-  public/src/cookie-consent.ts,project
-  public/src/edit-origin.ts,project
-  public/src/filters.ts,project
-  public/src/i18n.ts,project
-  public/src/i18n/en.json,project
-  public/src/interactions.ts,project
-  public/src/live-copy.ts,project
-  public/src/offline-recovery.ts,project
-  public/src/state.ts,project
-  public/src/sw.ts,project
-  public/src/theme.ts,project
-  public/src/types.ts,project
-  public/src/utils.ts,project
-  public/src/views/activity.ts,project
-  public/src/views/admin.ts,project
-  public/src/views/auth.ts,project
-  public/src/views/calendar.ts,project
-  public/src/views/comments-audit.ts,project
-  public/src/views/config.ts,project
-  public/src/views/context.ts,project
-  public/src/views/create.ts,project
-  public/src/views/dedupe.ts,project
-  public/src/views/export.ts,project
-  public/src/views/github.ts,project
-  public/src/views/graph-canvas.ts,project
-  public/src/views/graph.ts,project
-  public/src/views/groups.ts,project
-  public/src/views/guide.ts,project
-  public/src/views/health.ts,project
-  public/src/views/items.ts,project
-  public/src/views/maintenance.ts,project
-  public/src/views/normalize.ts,project
-  public/src/views/packages.ts,project
-  public/src/views/plan-execution.ts,project
-  public/src/views/plan.ts,project
-  public/src/views/projects.ts,project
-  public/src/views/router.ts,project
-  public/src/views/search.ts,project
-  public/src/views/settings.ts,project
-  public/src/views/shared.ts,project
-  public/src/views/sharing.ts,project
-  public/src/views/stats.ts,project
-  public/src/views/templates.ts,project
-  public/src/views/validate.ts,project
-  public/styles.css,project
-  public/terms.html,project
-  scripts/brand-browser-contrast.ts,project
-  scripts/brand-browser-live.ts,project
-  scripts/brand-browser.ts,project
-  scripts/brand-fixtures.ts,project
-  scripts/brand-pixel-diff.ts,project
-  scripts/brand-token-data.ts,project
-  scripts/build-brand.ts,project
-  src/app.ts,project
-  test/brand-assets.test.ts,project
-  test/brand-contrast.test.ts,project
-  test/i18n.test.ts,project
-  test/live-copy.test.ts,project
-  test/pm-collaboration.test.ts,project
+  "2026-10-17T01:15:10.068Z",codex-agent,"Both isolated npm release gates now pass all 666 tests with zero failures, skips or cancellations. Node 22 coverage is statements/lines 92.51%, branches 81.48%, functions 95.22%; Node 26 functions are 96.12% with the same other dimensions. Bun then exposed a Git-archive checksum mismatch during lock migration. Removing only the optional pm-brand packed-archive integrity entry preserves its exact commit and every registry checksum and resolution. A separate fresh-cache Bun install passes with integrity verification enabled. The isolated image build is checking npm against the same lockfile before the next exact-head CI run."
+  "2026-10-17T01:18:07.870Z",codex-agent,The complete Node 22 image build also passes with the cross-runtime lockfile and its test image is removed. Fresh Bun and Docker npm both consume the unchanged exact kit commit. The feature remains in progress and is released for orchestrator review; full npm and Bun CI gates will rerun at the checksum-fix head. No hosted service or data was accessed.
+files[80]:
+  - path: .github/workflows/ci.yml
+    scope: project
+  - path: .github/workflows/release.yml
+    scope: project
+  - path: Dockerfile
+    scope: project
+  - path: package-lock.json
+    scope: project
+    note: Exact Git pin retained while allowing npm and Bun to consume their own archive formats
+  - path: package.json
+    scope: project
+  - path: public/app-tokens.css
+    scope: project
+  - path: public/cookie-consent.css
+    scope: project
+  - path: public/cookie-settings.html
+    scope: project
+  - path: public/index.html
+    scope: project
+  - path: public/legal-common.css
+    scope: project
+  - path: public/legal-notice.html
+    scope: project
+  - path: public/manifest.json
+    scope: project
+  - path: public/privacy-policy.html
+    scope: project
+  - path: public/src/api-types.ts
+    scope: project
+  - path: public/src/api.ts
+    scope: project
+  - path: public/src/app.ts
+    scope: project
+  - path: public/src/brand.ts
+    scope: project
+  - path: public/src/browser-window.ts
+    scope: project
+  - path: public/src/components/modals.ts
+    scope: project
+  - path: public/src/components/toast.ts
+    scope: project
+  - path: public/src/constants.ts
+    scope: project
+  - path: public/src/cookie-consent.ts
+    scope: project
+  - path: public/src/edit-origin.ts
+    scope: project
+  - path: public/src/filters.ts
+    scope: project
+  - path: public/src/i18n.ts
+    scope: project
+  - path: public/src/i18n/en.json
+    scope: project
+  - path: public/src/interactions.ts
+    scope: project
+  - path: public/src/live-copy.ts
+    scope: project
+  - path: public/src/offline-recovery.ts
+    scope: project
+  - path: public/src/state.ts
+    scope: project
+  - path: public/src/sw.ts
+    scope: project
+  - path: public/src/theme.ts
+    scope: project
+  - path: public/src/types.ts
+    scope: project
+  - path: public/src/utils.ts
+    scope: project
+  - path: public/src/views/activity.ts
+    scope: project
+  - path: public/src/views/admin.ts
+    scope: project
+  - path: public/src/views/auth.ts
+    scope: project
+  - path: public/src/views/calendar.ts
+    scope: project
+  - path: public/src/views/comments-audit.ts
+    scope: project
+  - path: public/src/views/config.ts
+    scope: project
+  - path: public/src/views/context.ts
+    scope: project
+  - path: public/src/views/create.ts
+    scope: project
+  - path: public/src/views/dedupe.ts
+    scope: project
+  - path: public/src/views/export.ts
+    scope: project
+  - path: public/src/views/github.ts
+    scope: project
+  - path: public/src/views/graph-canvas.ts
+    scope: project
+  - path: public/src/views/graph.ts
+    scope: project
+  - path: public/src/views/groups.ts
+    scope: project
+  - path: public/src/views/guide.ts
+    scope: project
+  - path: public/src/views/health.ts
+    scope: project
+  - path: public/src/views/items.ts
+    scope: project
+  - path: public/src/views/maintenance.ts
+    scope: project
+  - path: public/src/views/normalize.ts
+    scope: project
+  - path: public/src/views/packages.ts
+    scope: project
+  - path: public/src/views/plan-execution.ts
+    scope: project
+  - path: public/src/views/plan.ts
+    scope: project
+  - path: public/src/views/projects.ts
+    scope: project
+  - path: public/src/views/router.ts
+    scope: project
+  - path: public/src/views/search.ts
+    scope: project
+  - path: public/src/views/settings.ts
+    scope: project
+  - path: public/src/views/shared.ts
+    scope: project
+  - path: public/src/views/sharing.ts
+    scope: project
+  - path: public/src/views/stats.ts
+    scope: project
+  - path: public/src/views/templates.ts
+    scope: project
+  - path: public/src/views/validate.ts
+    scope: project
+  - path: public/styles.css
+    scope: project
+  - path: public/terms.html
+    scope: project
+  - path: scripts/brand-browser-contrast.ts
+    scope: project
+  - path: scripts/brand-browser-live.ts
+    scope: project
+  - path: scripts/brand-browser.ts
+    scope: project
+  - path: scripts/brand-fixtures.ts
+    scope: project
+  - path: scripts/brand-pixel-diff.ts
+    scope: project
+  - path: scripts/brand-token-data.ts
+    scope: project
+  - path: scripts/build-brand.ts
+    scope: project
+  - path: src/app.ts
+    scope: project
+  - path: test/brand-assets.test.ts
+    scope: project
+  - path: test/brand-contrast.test.ts
+    scope: project
+  - path: test/i18n.test.ts
+    scope: project
+  - path: test/live-copy.test.ts
+    scope: project
+  - path: test/pm-collaboration.test.ts
+    scope: project
 tests[6]:
   - command: node scripts/with-test-db.ts node --test test/brand-assets.test.ts
     scope: project
