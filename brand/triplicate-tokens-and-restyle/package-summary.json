@@ -1,15 +1,21 @@
 {
-  "head": "0e8ba11af09343e1788ab399b455d88a498c0335",
+  "head": "23910ff41005f2c462b147c0fae0d612ae456946",
+  "brandCommit": "7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1",
   "packFiles": 357,
   "generatedBrandFiles": 61,
   "fontFiles": 3,
   "runtimeGitDependencies": 0,
-  "brandCommit": "c64fb9da7937c2d239f67357cab325f6a9cff29a",
-  "cleanNpmInstall": "pass, scripts enabled",
-  "freshCacheBunInstall": "pass, scripts enabled",
   "dockerBuild": "pass",
   "dockerImageRemoved": true,
-  "gitArchiveIntegrityOmitted": true,
+  "dockerImageId": "sha256:0d62abf31301992be89b4e9a1c783d15da58e16e3652f19f701e7626faad88f2",
+  "cleanInstall": {
+    "node": "22.23.1",
+    "npm": "10.9.8",
+    "command": "npm ci",
+    "result": "pass",
+    "scriptsEnabled": true,
+    "rootPrepareExecuted": true
+  },
   "registryChecksumsRetained": true,
-  "freshCacheBunVersion": "1.4.3"
+  "optionalGitArchiveIntegrityOmitted": true
 }

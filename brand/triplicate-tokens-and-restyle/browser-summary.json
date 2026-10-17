@@ -1,11 +1,12 @@
 {
+  "head": "23910ff41005f2c462b147c0fae0d612ae456946",
+  "brandCommit": "7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1",
   "beforeScreenshots": 108,
-  "afterScreenshots": 140,
-  "screenshots": 248,
-  "viewAudits": 332,
-  "tabStops": 9806,
-  "paintedContrastPairs": 2167,
+  "afterScreenshots": 146,
+  "viewAudits": 338,
+  "tabStops": 9872,
+  "paintedContrastPairs": 2251,
   "liveScenarios": 42,
-  "head": "0e8ba11af09343e1788ab399b455d88a498c0335",
-  "renderedSourceIdenticalTo": "af1121143b54cb630daa7528bbbedc4d3645c95f"
+  "reviewRegressions": 42,
+  "behavioralRevertProbes": 12
 }

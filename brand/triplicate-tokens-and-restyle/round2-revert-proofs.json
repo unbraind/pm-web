@@ -1,0 +1,104 @@
+{
+  "head": "23910ff41005f2c462b147c0fae0d612ae456946",
+  "brandCommit": "7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1",
+  "productionRestored": true,
+  "builtModuleRevertsRebuilt": true,
+  "cssProbeServedDirectly": true,
+  "cases": [
+    {
+      "case": "membership",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Filtered row remains after a handled status change"
+    },
+    {
+      "case": "graph-escape",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Escape retains one directly inserted dialog"
+    },
+    {
+      "case": "confirmation",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Visible prompt is not the accessible dialog name"
+    },
+    {
+      "case": "graph-status",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "in-progress receives white instead of canary wash"
+    },
+    {
+      "case": "graph-opacity",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Filtered node drawing loses its 0.07 opacity"
+    },
+    {
+      "case": "closed-actions",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "The disabled Close tab leaves Delete unreachable"
+    },
+    {
+      "case": "compact-rows",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Empty caption reserves 28px instead of zero"
+    },
+    {
+      "case": "closed-release",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Release becomes disabled on a finished item",
+      "productionRestored": true
+    },
+    {
+      "case": "closed-action-wrap",
+      "selector": "closed-actions",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Finished action row clips or overlaps at 390px",
+      "productionRestored": true
+    },
+    {
+      "case": "stable-row-order",
+      "selector": "membership",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "A reversed authoritative response reorders existing rows",
+      "productionRestored": true
+    },
+    {
+      "case": "graph-color-modes",
+      "selector": "graph-status",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "Status outline overrides the selected type/tag color",
+      "productionRestored": true
+    },
+    {
+      "case": "unknown-status-palette",
+      "selector": "graph-status",
+      "exitCode": 1,
+      "failedAsExpected": true,
+      "failure": "A prototype-named unknown status reaches an inherited non-token entry",
+      "productionRestored": true
+    }
+  ],
+  "restoration": {
+    "brandCommit": "7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1",
+    "allProductionSourcesRestored": true,
+    "sourceSha256": {
+      "public/src/app.ts": "4e351e440165aeee60af9338846a3f2867e7efae8186f6fdc611ee5080dda570",
+      "public/src/brand.ts": "846cced7629e50c0097d19689713423478d5c2c3c7e80255d5f581294b5f8487",
+      "public/src/components/modals.ts": "de9be03315dc23392e0a4264bb5458f1f332016e733951688638aeb6a901c3ee",
+      "public/src/live-copy.ts": "df2a7efcd564e811b02fea2a1a0f838e0358e542680a3857463f38fe0d3cd0f5",
+      "public/src/views/graph-canvas.ts": "f668e8b1ceca2dcd9dc25517111cd156c7efe35ae52d25589316ea0798e19e85",
+      "public/src/views/graph.ts": "2630e2b83533130ea9a34774cf7dde0c2a085fbcddc179a80cce603112be6831",
+      "public/src/views/items.ts": "5a5c4bbaba857af7f17a391b430cb739f404d93cb380bda8c1c734e1c7ef09da",
+      "public/styles.css": "9355df0a771ad5299b59167c1e5270119b576cd9c0d0aaacc8e26d3afe2f745a"
+    }
+  }
+}

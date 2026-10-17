@@ -6,22 +6,23 @@ Before is the unchanged main UI at 54c694b. It has no board or live-arrival
 signature, so those baseline frames show its existing item list.
 
 The token migration is a separate commit from the restyle. Its five-view,
-six-configuration pixel comparison is recorded in the accompanying JSON.
-The after live-arrival frames pause the real 700 ms CSS animation at 350 ms.
-The browser report records keyboard traversal, painted text contrast,
-viewport overflow, primary-action count and live-arrival behavior.
+six-configuration pixel comparison remains in token-migration-pixel-diff.json.
+Live-arrival frames pause the real 700 ms CSS animation at 350 ms and include
+settled list, board and detail frames.
 
-Round 1 source head: `0e8ba11af09343e1788ab399b455d88a498c0335`. The AFTER set has 140 fresh PNGs;
-the 108 BEFORE PNGs remain unchanged. Arrival screenshots include 350 ms and
-settled frames in list, board and detail. Mobile disclosure frames cover both
-themes. Browser acceptance passes 332 audits, 9,806 Tab stops, 2,167 painted
-contrast pairs and 42 live-update cases. See release-gates.json for the exact
-head release acceptance and honest local-attempt results.
+Round 2 source head: `23910ff41005f2c462b147c0fae0d612ae456946`.
+The AFTER set has 146 fresh PNGs, including confirmation dialogs; the 108
+original BEFORE PNGs remain unchanged. Browser acceptance passes 338 audits,
+9,872 Tab stops, 2,251 painted contrast pairs, 42 live-update cases and 42
+review regressions. The detailed report covers keyboard traversal, painted
+text contrast, viewport overflow, primary actions, live arrivals, status
+membership, closed actions, modal lifecycle and real canvas drawing.
 
-The portability correction changes only the lockfile and review/tracker notes.
-Rendered sources match the captured tree. Bun 1.4.3 npm-to-Bun migration passes
-with the exact Git commit retained and the optional npm archive checksum omitted.
+All 12 independent behavioral revert probes fail as expected. The production
+source hashes match after restoration. See round2-revert-proofs.json.
+The package and image receipt records the final exact kit pin, script-enabled
+clean installation, 357 package files and removal of the test image.
 
-Final-head CI passes all four npm/Bun release gates on Node 22/26: each
-passes 666 tests, two capacity cases and four packed consumers, with zero
-failures or skips. Detailed measured coverage and results are in release-gates.json.
+Fresh exact-head CI release acceptance is pending. The release-gates.json
+receipt records earlier local npm/Bun failures separately; these attempts did
+not reach capacity or packed-consumer acceptance. Thresholds remain unchanged.
