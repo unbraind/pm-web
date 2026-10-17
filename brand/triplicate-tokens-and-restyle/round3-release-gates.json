@@ -1,5 +1,5 @@
 {
-  "sourceHead": "3eb50e71d9766f415666dda639c2d5279e56c37b",
+  "sourceHead": "147ba5216fef33466344e8ff6f78e9419043ac60",
   "thresholdsChanged": false,
   "localNpm": {
     "status": "failed",
@@ -25,7 +25,7 @@
     }
   },
   "localBun": {
-    "status": "running_with_failures",
+    "status": "failed",
     "profile": "standalone copy; byte-identical executable source; isolated Git identity and development database",
     "acceptance": false,
     "catalogMembershipAndSnapshot": "passed",
@@ -33,9 +33,29 @@
       "pm-web-qdhx",
       "pm-web-hqqp"
     ],
-    "catalogOracle": "committed snapshot and structural checks in the standalone CI profile"
+    "catalogOracle": "committed snapshot and structural checks in the standalone CI profile",
+    "tests": 666,
+    "passed": 660,
+    "failed": 5,
+    "canceled": 1,
+    "skipped": 0,
+    "todo": 0,
+    "coverage": {
+      "statements": 91.71,
+      "lines": 91.71,
+      "branches": 81.33,
+      "functions": 95.48
+    }
   },
   "githubCI": {
+    "status": "pending",
+    "head": "147ba5216fef33466344e8ff6f78e9419043ac60",
+    "run": 39029834257,
+    "url": "https://github.com/unbraind/pm-web/actions/runs/39029834257",
+    "executableSourceUnchanged": true
+  },
+  "codeHead": "3eb50e71d9766f415666dda639c2d5279e56c37b",
+  "codeCI": {
     "status": "passed",
     "head": "3eb50e71d9766f415666dda639c2d5279e56c37b",
     "run": 39027377588,
@@ -286,5 +306,6 @@
       "functions": 95.22
     },
     "codeql": "passed"
-  }
+  },
+  "temporaryTestResourcesRemoved": true
 }
