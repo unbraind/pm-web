@@ -56,13 +56,6 @@ its colors from the installed contract. Cookie notices take normal document
 space; they cannot cover a form. The board keeps the same filters as the list.
 Closed stamps appear only inside the closed item's detail sheet.
 
-Upstream install gap: the held kit's Git `prepare` runs merge installation in
-an artifact directory without Git metadata. CI installs with scripts disabled
-and explicitly runs this package's canonical prepare afterward. That Git
-artifact also lacks compiled token exports; the build prefers those exports
-when present and otherwise generates equivalent typed data from the installed
-CSS. This fallback is generated output, never a second maintained palette.
-
 Focused styling checks: 41/41 asset, contrast, legal, localization and service
 worker tests. The stronger browser audit checks painted text contrast and alpha,
 Tab traversal of every action, focus rings and viewport width. It caught the
@@ -94,12 +87,6 @@ all widths are checked for horizontal overflow. Arrival scenarios assert timing,
 blocked tint, focus and geometry, own-echo suppression, partial draft writes,
 non-displacing comment arrivals and reduced motion.
 
-The pinned Node 22 image ships npm 10, which still executed Git preparation
-with scripts disabled. The builder and CI therefore pin npm 11.17.0, whose
-script-disabled Git installation matches the development acceptance. The runtime
-image retains its original Node/npm base and installs production dependencies
-only. The package's own merge-driver preparation still runs explicitly in CI.
-
 Local fleet verification sets `PM_FLEET_ROOT` to the canonical fleet directory.
 The default parent of a package worktree is a partial worktree farm, which is
 not the fleet oracle. Both live-catalog assertions pass against the canonical
@@ -107,7 +94,7 @@ inventory. The collaboration wire test retains its five-second propagation
 deadline, beginning after the committed HTTP write while continuously reading
 SSE; CLI execution time is covered separately by the capacity acceptance.
 
-Final browser matrix: 216 before/after PNGs, 300 screen/tab audits, 8,512 real
+Initial browser matrix: 216 before/after PNGs, 300 screen/tab audits, 8,512 real
 Tab stops, 1,917 painted contrast-pair checks and 36 live-arrival scenarios.
 Every requested width/theme passes with no horizontal overflow, inaccessible
 action, missing focus ring, overlapping cookie form or competing primary action.
@@ -115,7 +102,7 @@ A separate mid-arrival motion-preference switch restores the accessible source
 immediately and hides the duplicate; reverting that CSS rule reproduces the
 hidden source. All used `--pm-*` references exist in the pinned contract.
 
-The pack dry run includes 330 files, 34 of them generated brand files, with all
+The round 1 pack dry run includes 357 files, 61 of them generated brand files, with all
 three font files, mark artwork, PWA icons and licenses. Runtime Git dependencies:
 zero. The final Node 22 image builds and its test tag is deleted afterward.
 Strict tracker health accepts the append-only histories and configured merge
@@ -131,13 +118,39 @@ fixture deadline under contention. These failed attempts are not acceptance.
 The existing CI matrix runs both complete release commands with isolated Git
 identity on each supported Node line; the PR records its exact-head results.
 No functional assertion, coverage floor, duplication limit or capacity budget
-has been relaxed. Bun dependency installation also disables scripts for the
-held Git kit, matching the npm/build workaround.
+has been relaxed. Both dependency installers use their normal script-enabled lifecycle.
 
-The isolated npm release gate passes all 666 tests on both supported Node
-lines. Bun exposed a checksum mismatch while migrating npm's packed Git archive
-into its own Git archive. Only the optional `pm-brand` archive integrity entry
-is omitted: its exact 40-character commit remains pinned in both manifests,
-and every registry dependency checksum and resolution is unchanged. A separate
-fresh-cache Bun install succeeds without disabling integrity verification.
-The image build checks npm consumption of the same lockfile independently.
+Round 1 pins the held kit at `c64fb9da7937c2d239f67357cab325f6a9cff29a`.
+Its committed exports and guarded preparation remove the install and CSS-parsing
+fallbacks. The browser palette imports `tokens` from `pm-brand` and bundles the
+public export. Clean installs and image builds run their normal lifecycle scripts.
+
+Arrival captions sit directly under the affected sheet's mono strip with a
+canary marker (rose for blocked changes). Slots exist before the event, including
+board cards and detail sheets. One polite announcement remains available to
+assistive technology. A closed detail sheet has a single rotated stamp; action
+slots stay in keyboard order and explain why unavailable actions are disabled.
+At 480 pixels and below, secondary item actions use one native disclosure.
+
+The image builder includes only tracked tracker settings/schema and initializes
+build-local Git so pm-web's canonical clone preparation can run normally.
+Neither builder nor runtime disables dependency scripts. The Node 22 base npm
+10 installation and complete image build pass; the test tag is removed afterward.
+A fresh-cache Bun install retains the exact Git integrity in the npm lockfile.
+
+Round 1 behavioral revert proofs rebuild the browser before each deliberate
+rollback. Restoring only caption targeting to the old page/modal selector fails
+on the changed row's empty caption. Restoring only the detail markup to chip plus
+stamp fails on the unwanted closed chip. Both production functions are restored.
+The nine focused asset/contrast/live-value tests and nine service-worker tests pass.
+
+The reviewed round 1 matrix contains 140 fresh AFTER PNGs and preserves the
+108 original BEFORE PNGs. It passes 332 screen/tab audits, 9,806 Tab stops,
+2,167 painted contrast-pair checks and 42 live-update cases. List, board
+and detail arrivals each have a 350 ms frame and a settled frame in every
+width/theme. Mobile disclosure screenshots cover both themes at 390 pixels.
+
+Local full npm attempts on Node 24 and 26 hit the existing 300-second catalog
+consumer deadline under host contention. These attempts are failures. Complete
+release acceptance is recorded for the final PR head in the GitHub matrix and
+the screenshot branch release-gates receipt. No threshold or deadline changed.

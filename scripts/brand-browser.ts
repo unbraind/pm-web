@@ -103,7 +103,7 @@ async function capture(page: Page, name: string, width: number, theme: string, s
   }
   if (!screenshot) return;
   screenshotCount++;
-  await page.screenshot({ path: path.join(output!, `${name}-${width}-${theme}.png`), timeout: 60000, animations: name === 'live-arrival' ? 'allow' : 'disabled' });
+  await page.screenshot({ path: path.join(output!, `${name}-${width}-${theme}.png`), timeout: 60000, animations: name.startsWith('live-arrival') ? 'allow' : 'disabled' });
 }
 
 try {
@@ -170,11 +170,34 @@ try {
     const board = page.locator('[data-items-layout="board"]');
     if (await board.count()) await board.click();
     await capture(page, 'board', width, theme);
+    if (strict && width <= 480) {
+      const more = page.locator('.items-more-actions summary');
+      const header = page.locator('#content-items .page-actions');
+      assert.equal(await header.locator('button:visible').count(), 3);
+      const positions = await header.locator('button:visible, summary:visible').evaluateAll(actions => actions.map(el => el.getBoundingClientRect().y));
+      assert.ok(Math.max(...positions) - Math.min(...positions) < 2, 'Mobile actions must share one row');
+      await more.focus();
+      await page.keyboard.press('Enter');
+      await capture(page, 'board-more-actions', width, theme);
+      assert.equal(await page.locator('.items-actions-menu button:visible').count(), 3);
+      await more.focus();
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.items-more-actions').getAttribute('open'), null);
+    }
     if (await board.count()) await page.locator('[data-items-layout="list"]').click();
     for (const [index, status] of ['open', 'in-progress', 'blocked', 'closed'].entries()) {
       await page.evaluate(id => (window as unknown as ReviewWindow).__app.openItemDetail(id), `note-${index + 1}`);
       await page.locator('.item-detail-title').waitFor();
       await capture(page, `detail-${status}`, width, theme);
+      if (strict && status === 'closed') {
+        assert.equal(await page.locator('#item-detail-modal .closed-stamp').count(), 1);
+        assert.equal(await page.locator('#item-detail-modal .status-closed').count(), 0);
+        for (const action of ['start', 'pause', 'claim']) {
+          const button = page.locator(`[data-item-action="${action}"]`);
+          assert.equal(await button.getAttribute('aria-disabled'), 'true');
+          assert.match(await button.getAttribute('title') || '', /unavailable for a closed item/);
+        }
+      }
       if (strict && status === 'open') {
         for (const tab of ['Update', 'Notes', 'Deps', 'Graph', 'Learnings', 'Tests', 'Files', 'History', 'Close']) {
           await page.locator('#item-detail-modal .tab').filter({ hasText: new RegExp(`^(?:◎ )?${tab}(?: \\(|$)`) }).focus();
@@ -219,7 +242,23 @@ try {
       await page.waitForTimeout(220);
     }
     await capture(page, 'live-arrival', width, theme);
-    if (strict) report.push({ width, theme, liveCases: await checkLiveArrivals(page) });
+    if (strict) {
+      report.push({ width, theme, liveCases: await checkLiveArrivals(page, () => capture(page, 'live-arrival-settled', width, theme)) });
+      await page.evaluate(() => (window as unknown as ReviewWindow).__app.hideModal('item-detail-modal'));
+      await page.locator('[data-items-layout="board"]').click();
+      for (const surface of ['board', 'detail'] as const) {
+        if (surface === 'detail') {
+          await page.evaluate(() => (window as unknown as ReviewWindow).__app.openItemDetail('note-1'));
+          await page.locator('.item-detail-title').waitFor();
+        }
+        await holdArrivalFrame(page, surface);
+        await capture(page, `live-arrival-${surface}`, width, theme);
+        await page.clock.runFor(800);
+        assert.equal(await page.locator('.live-copy-sheet').count(), 0);
+        await capture(page, `live-arrival-${surface}-settled`, width, theme);
+        await page.clock.runFor(5000);
+      }
+    }
     console.log(`Captured ${width}/${theme}`);
     fixtureItems.splice(0, fixtureItems.length, ...structuredClone(originalItems));
     fixtureComments.splice(0, fixtureComments.length, ...structuredClone(originalComments));

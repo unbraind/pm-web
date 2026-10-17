@@ -4,15 +4,19 @@ WORKDIR /app
 # The held pm-brand release is pinned to a public Git commit at build time.
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
-    && npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+    && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
 COPY package.json package-lock.json* ./
-RUN npm_config_ignore_scripts=true npm ci --ignore-scripts --no-audit --no-fund
+# Supply the tracked configuration for this package's normal clone preparation.
+COPY .agents/pm/settings.json ./.agents/pm/settings.json
+COPY .agents/pm/schema/ ./.agents/pm/schema/
+COPY .gitattributes ./
+COPY scripts/prepare-merge-driver.ts ./scripts/
+RUN git init --quiet && npm ci --no-audit --no-fund
 
 # Copy server source and build
 COPY tsconfig.json ./
-COPY scripts/build-brand.ts scripts/brand-token-data.ts ./scripts/
+COPY scripts/build-brand.ts scripts/build-canvas.ts ./scripts/
 COPY src/ ./src/
 # Copy entire public directory for frontend build
 COPY public/ ./public/
@@ -23,7 +27,8 @@ FROM node:22.18.0-bookworm-slim@sha256:752ea8a2f758c34002a0461bd9f1cee4f9a3c36d4
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+COPY scripts/prepare-merge-driver.ts ./scripts/
+RUN npm ci --omit=dev --no-audit --no-fund
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public

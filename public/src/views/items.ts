@@ -1,4 +1,4 @@
-import { liveFieldValue, changedDraftFields, liveCollectionMarkup } from '../live-copy.js';
+import { liveFieldValue, changedDraftFields, liveCollectionMarkup, refreshActionState } from '../live-copy.js';
 // ═══════════════════════════════════════════════════════════════
 // ITEMS VIEW
 // ═══════════════════════════════════════════════════════════════
@@ -603,9 +603,19 @@ export async function renderItemsView(): Promise<void> {
           <button class="btn btn-secondary btn-sm" data-items-layout="list" aria-pressed="${itemsLayout === 'list'}" onclick="window.__app.setItemsLayout('list')">List</button>
           <button class="btn btn-secondary btn-sm" data-items-layout="board" aria-pressed="${itemsLayout === 'board'}" onclick="window.__app.setItemsLayout('board')">Board</button>
         </div>
+        <div class="items-secondary-actions">
         <button class="btn btn-secondary btn-sm" onclick="window.__app.renderItemsView()" title="Refresh">↺ Refresh</button>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkUpdateModal()">⊞ Bulk update</button>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.showBulkCloseModal()" title="Close or cancel many items at once">⊘ Bulk close</button>
+        </div>
+        <details class="items-more-actions">
+          <summary class="btn btn-secondary btn-sm">More actions</summary>
+          <div class="items-actions-menu">
+        <button class="btn btn-secondary btn-sm" onclick="this.closest('details').open = false; window.__app.renderItemsView()" title="Refresh">↺ Refresh</button>
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false; window.__app.showBulkUpdateModal()">⊞ Bulk update</button>
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false; window.__app.showBulkCloseModal()" title="Close or cancel many items at once">⊘ Bulk close</button>
+          </div>
+        </details>
         <button class="btn btn-primary" onclick="window.__app.showView('create')">+ New item</button>
       </div>
     </div>
@@ -711,6 +721,7 @@ export function renderItemRow(item: Item): string {
   const tags = (item.tags || []).map(tag => `<span class="tag">${escHtml(tag)}</span>`).join('');
   return `<div class="item-row" data-item-id="${escHtml(item.id)}" role="button" tabindex="0" onclick="window.__app.openItemDetail('${escHtml(item.id)}')">
     <div class="item-strip live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div>
+    <div class="live-copy-caption" data-live-caption></div>
     <span class="item-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title)}</span>
     <div class="item-meta"><div class="item-tags live-field" ${liveAttrs('tags', (item.tags || []).join(', '))}>${tags}</div>${statusBadge(item.status || 'draft')}</div>
   </div>`;
@@ -857,13 +868,12 @@ export async function openItemDetail(itemId: string): Promise<void> {
     if (bodyEl) {
       bodyEl.dataset.itemId = item.id;
       bodyEl.innerHTML = `
-      <div class="live-copy-caption" data-live-caption></div>
       <div class="item-detail-header">
         <div class="item-detail-id live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div>
+        <div class="live-copy-caption" data-live-caption></div>
         <div class="item-detail-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title)}</div>
         <div class="item-detail-meta">
-          ${statusBadge(item.status||'draft')}
-          <span class="closed-stamp-slot live-field" ${liveAttrs('closedStamp', liveFieldValue('closedStamp', item))}>${item.status === 'closed' ? '<span class="closed-stamp">Closed</span>' : ''}</span>
+          <span class="detail-status-slot live-field" ${liveAttrs('detailStatus', item.status || 'draft')}>${item.status === 'closed' ? '<span class="closed-stamp">Closed</span>' : statusBadge(item.status || 'draft')}</span>
           <div class="meta-chip">Priority <strong class="mono live-field" ${liveAttrs('priority', String(item.priority ?? 4))}>P${item.priority ?? 4}</strong></div>
           ${item.created_at ? `<div class="meta-chip">Created <strong>${fmtDate(item.created_at)}</strong></div>` : ''}
           ${item.updated_at ? `<div class="meta-chip">Updated <strong>${relTime(item.updated_at)}</strong></div>` : ''}
@@ -877,8 +887,8 @@ export async function openItemDetail(itemId: string): Promise<void> {
         </div>
         <div class="live-status-note live-field" ${liveAttrs('blockedReason', liveFieldValue('blockedReason', item))}>${liveFieldValue('blockedReason', item) ? `Blocked: ${escHtml(liveFieldValue('blockedReason', item))}` : ''}</div>
         <div class="claim-btn-wrap">
-          <button class="btn btn-secondary btn-sm" onclick="window.__app.claimItem('${escHtml(itemId)}')">⊕ Claim</button>
-          <button class="btn btn-ghost btn-sm" onclick="window.__app.releaseItem('${escHtml(itemId)}')">⊖ Release</button>
+          <button class="btn btn-secondary btn-sm" data-item-action="claim" onclick="window.__app.claimItem('${escHtml(itemId)}')">⊕ Claim</button>
+          <button class="btn btn-ghost btn-sm" data-item-action="release" onclick="window.__app.releaseItem('${escHtml(itemId)}')">⊖ Release</button>
           <button class="btn btn-secondary btn-sm" data-item-action="start" aria-disabled="${item.status !== 'open'}" onclick="window.__app.startItem('${escHtml(itemId)}')">Start</button>
           <button class="btn btn-secondary btn-sm" data-item-action="pause" aria-disabled="${item.status !== 'in_progress'}" onclick="window.__app.pauseItem('${escHtml(itemId)}')">Pause</button>
           <button class="btn btn-ghost btn-sm" data-template-item="${escHtml(JSON.stringify(item))}" onclick="window.__app.useItemAsTemplate(JSON.parse(this.dataset.templateItem))" title="Open create form pre-filled with this item's fields">⊡ Use as Template</button>
@@ -1108,6 +1118,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         </div>
       </div>
     `;
+      refreshActionState(bodyEl, item);
       if (modal) editBaselines.set(modal, readEditValues());
     }
   } catch(err: unknown) {

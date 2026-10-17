@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-17T01:18:11.332Z"
+updated_at: "2026-10-17T02:14:54.576Z"
 author: codex-agent
-comments[14]{created_at,author,text}:
+comments[24]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
@@ -23,7 +23,19 @@ comments[14]{created_at,author,text}:
   "2026-10-17T00:59:26.800Z",codex-agent,"The isolated CI run completed 666 tests: 664 passed and two release-policy guards failed. The guards correctly rejected the extra global npm installs and npm_config_ignore_scripts in the publisher workflow. The fix removes those additions, retains its original npm 11.19.0 trusted publisher, and uses only the ignore-scripts CLI flag there. All eight release-policy tests now pass unchanged. A separate fresh-cache install with compatible npm succeeds without any ignore-scripts environment override. The ordinary build/CI npm pin remains scoped outside the publishing job. Prior CI coverage exceeded all unchanged floors: statements/lines 92.51%, branches 81.48%, functions 95.22% or 96.12% by Node runtime; the failed test run is not acceptance."
   "2026-10-17T01:15:10.068Z",codex-agent,"Both isolated npm release gates now pass all 666 tests with zero failures, skips or cancellations. Node 22 coverage is statements/lines 92.51%, branches 81.48%, functions 95.22%; Node 26 functions are 96.12% with the same other dimensions. Bun then exposed a Git-archive checksum mismatch during lock migration. Removing only the optional pm-brand packed-archive integrity entry preserves its exact commit and every registry checksum and resolution. A separate fresh-cache Bun install passes with integrity verification enabled. The isolated image build is checking npm against the same lockfile before the next exact-head CI run."
   "2026-10-17T01:18:07.870Z",codex-agent,The complete Node 22 image build also passes with the cross-runtime lockfile and its test image is removed. Fresh Bun and Docker npm both consume the unchanged exact kit commit. The feature remains in progress and is released for orchestrator review; full npm and Bun CI gates will rerun at the checksum-fix head. No hosted service or data was accessed.
-files[80]:
+  "2026-10-17T01:46:23.559Z",codex-agent,"Round 1 screenshot review: pin the final held kit, remove prepare and token-export workarounds, attach arrival captions to item sheets, replace the closed chip with its stamp, and group mobile secondary actions. Re-run npm and Bun release gates, browser audit, pack and image checks; refresh the screenshot matrix and PR #216. Main is already an ancestor of this branch."
+  "2026-10-17T01:54:49.639Z",codex-agent,"The final kit installs with scripts enabled and exports tokens through its public entry. Removed the parser and prepare bypasses from build, CI, image, README and review notes. Canvas imports are bundled for the browser. Focused asset/contrast/live-value tests pass 9/9. Arrival slots are per sheet; closed detail status uses a single replaceable slot. Mobile secondary actions use a native disclosure with Escape focus return. Release gates use an isolated database on the disposable test service and isolated Git identity."
+  "2026-10-17T01:57:10.214Z",codex-agent,"Normal image installation also runs pm-web own canonical merge-driver prepare, which needs tracker configuration and Git metadata. The builder now receives only the tracked settings/schema and initializes build-local Git before npm ci; runtime still installs production dependencies only. No lifecycle scripts are suppressed. The fresh Bun fixture requires the same initialized-clone preconditions."
+  "2026-10-17T01:59:09.522Z",codex-agent,"Browser regression found the new board caption could enlarge the desktop card intrinsic width during arrival. Constrained the board item grid to minmax(0, 1fr), reserved two caption lines, and restarted the final screenshot matrix. Mobile light/dark already passed 112 audits and all lifecycle/arrival scenarios before this additional sizing fix. Geometry assertions remain exact."
+  "2026-10-17T02:00:34.931Z",codex-agent,"Behavioral revert proof: rebuilding with only caption targeting restored to the old modal-or-page selector makes BRAND_ACCEPTANCE=1 BRAND_QUICK=1 node scripts/brand-browser.ts fail: the affected row caption is empty instead of Updated by Alex just now. Rebuilding with only the closed-detail markup restored to chip plus stamp makes the same audit fail: one status-closed chip exists where zero is required. Both production functions were restored before final acceptance."
+  "2026-10-17T02:02:59.715Z",codex-agent,"Final image build passes with the base npm 10 and scripts enabled; image removed. Pack dry run has 357 files, including 61 generated brand assets and all three fonts, and zero runtime Git dependencies. Fresh-cache Bun installation also passes with the exact lock integrity retained. Local Node 24 release coverage hit the known unchanged 300-second catalog fixture deadline; stopped the failed run and retrying the entire gate with the installed supported Node 26 runtime. No gate budget or threshold changed."
+  "2026-10-17T02:04:11.256Z",codex-agent,"Removed the obsolete generated token-module URL from the service-worker precache list as the last token-export workaround. The browser palette bundle remains precached. The final 1440-pixel light/dark arrivals now pass exact card geometry checks for list, board and detail, including settled captions."
+  "2026-10-17T02:07:48.822Z",codex-agent,"The complete first final matrix passes: 140 screenshots, 332 browser audits and six live scenario groups. Visual inspection then caught desktop board tags squeezed by the status chip in narrow columns. Stacked those two metadata fields inside the existing reserved slot and refreshing the matrix so published images include the last visual correction."
+  "2026-10-17T02:10:39.521Z",codex-agent,"The unchanged catalog consumer fixture also exceeds its 300-second deadline on local Node 26 under host contention. Both failed npm attempts are retained as failures, with no acceptance claim. Running the full Bun command next. Full npm and Bun acceptance will be verified from the final-head GitHub CI matrix; unchanged budgets, coverage floors and zero-duplication gate remain required."
+  "2026-10-17T02:14:51.588Z",codex-agent,"Reviewed round 1 matrix passes 140 fresh AFTER screenshots, 332 screen/tab audits, 9806 Tab stops, 2167 painted contrast pairs and 42 live-update cases. Preserves 108 original BEFORE frames; list/board/detail each have mid-animation and settled frames in every width/theme. Focused tests pass 9/9 plus service-worker tests 9/9; both behavioral reverts fail as expected and are restored. Pack has 357 files, 61 generated brand files, three fonts and zero runtime Git dependencies. Final Docker build and image removal pass. Implementation is ready for review; final-head npm/Bun CI results will be published in PR #216 and its pr-screenshots release-gates receipt. Releasing the implementation claim for orchestrator verification; item remains in progress."
+files[81]:
+  - path: .dockerignore
+    scope: project
   - path: .github/workflows/ci.yml
     scope: project
   - path: .github/workflows/release.yml
@@ -169,9 +181,9 @@ files[80]:
     scope: project
   - path: scripts/brand-pixel-diff.ts
     scope: project
-  - path: scripts/brand-token-data.ts
-    scope: project
   - path: scripts/build-brand.ts
+    scope: project
+  - path: scripts/build-canvas.ts
     scope: project
   - path: src/app.ts
     scope: project
@@ -185,7 +197,7 @@ files[80]:
     scope: project
   - path: test/pm-collaboration.test.ts
     scope: project
-tests[6]:
+tests[8]:
   - command: node scripts/with-test-db.ts node --test test/brand-assets.test.ts
     scope: project
     provenance:
@@ -229,6 +241,20 @@ tests[6]:
     provenance:
       author: codex-agent
       created_at: "2026-10-17T00:15:53.556Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: node --test test/brand-assets.test.ts test/brand-contrast.test.ts test/live-copy.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-17T01:53:31.026Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: node --test test/static-scripts.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-17T02:04:06.895Z"
       source_kind: local_mutation
       source_ref: brand/triplicate-tokens-and-restyle
 docs[2]{path,scope}:

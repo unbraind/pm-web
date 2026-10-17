@@ -35,7 +35,6 @@ const STATIC_ASSETS: readonly string[] = [
   '/styles.css',
   '/app-tokens.css',
   '/brand/assets.css',
-  '/brand/tokens.js',
   '/brand/mark.svg',
   '/brand/mark-dark.svg',
   '/brand/favicon.svg',

@@ -34,6 +34,10 @@ export function initInteractions(): void {
     });
   };
   document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && event.target instanceof Element) {
+      const disclosure = event.target.closest<HTMLDetailsElement>('.items-more-actions[open]');
+      if (disclosure) { disclosure.open = false; disclosure.querySelector<HTMLElement>('summary')?.focus(); }
+    }
     if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof HTMLElement) {
       const el = event.target;
       if (el.matches('[role="button"][onclick]') && !el.matches('button,a') && (event.key === ' ' || !el.hasAttribute('onkeydown'))) { event.preventDefault(); el.click(); }

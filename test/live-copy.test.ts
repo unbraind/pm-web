@@ -33,7 +33,7 @@ test('local echo windows are item and project scoped and expire', () => {
 test('live readonly fields normalize aliases and escape user-supplied collection text', () => {
   const item = { id: 'note-3', title: 'A record', type: 'Bug', priority: 0, status: 'closed', acceptance_criteria: 'Prove the fix', 'blocked-reason': 'Needs a review' };
   assert.equal(liveFieldValue('strip', item), 'note-3 · Bug · P0');
-  assert.equal(liveFieldValue('closedStamp', item), 'closed');
+  assert.equal(liveFieldValue('detailStatus', item), 'closed');
   assert.equal(liveFieldValue('acceptanceCriteria', item), 'Prove the fix');
   assert.equal(liveFieldValue('blockedReason', item), 'Needs a review');
   assert.equal(liveFieldValue('description', item), '');

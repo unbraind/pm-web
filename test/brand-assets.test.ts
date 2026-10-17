@@ -3,6 +3,7 @@ import test from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { tokens } from 'pm-brand';
 import { buildBrand } from '../scripts/build-brand.ts';
 import { createApp } from '../src/app.ts';
 import { startEphemeralServer } from './helpers/ephemeral-server.ts';
@@ -28,8 +29,8 @@ test('brand build copies optional assets byte for byte and removes stale output'
   assert.equal(await readFile(path.join(root, `public/brand/${sha}/fonts/OFL.txt`), 'utf8'), 'Synthetic license fixture');
   await assert.rejects(readFile(path.join(root, 'public/brand/stale.txt')), { code: 'ENOENT' });
   const manifest = JSON.parse(await readFile(path.join(root, 'public/brand/manifest.json'), 'utf8')) as { background_color: string; theme_color: string; icons: { src: string }[] };
-  assert.equal(manifest.background_color, '#F3F5F8');
-  assert.equal(manifest.theme_color, '#5B3FC4');
+  assert.equal(manifest.background_color, tokens.light.paper);
+  assert.equal(manifest.theme_color, tokens.light.stamp);
   assert.equal(manifest.icons[0].src, `/brand/${sha}/icons/icon-192.png`);
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ dependencies: { 'pm-brand': 'git:invalid' }, devDependencies: { 'pm-brand': 'latest' } }));
   await assert.rejects(buildBrand(root), /devDependencies only/);

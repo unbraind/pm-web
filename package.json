@@ -20,7 +20,7 @@
     "typecheck": "npm run typecheck:server && npm run typecheck:frontend",
     "typecheck:server": "tsc --noEmit",
     "typecheck:frontend": "npm run build:brand && cd public && tsc --noEmit && tsc -p tsconfig.sw.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
-    "build:frontend": "npm run build:brand && cd public && tsc && tsc -p tsconfig.sw.json && tsc -p tsconfig.scripts.json",
+    "build:frontend": "npm run build:brand && cd public && tsc && tsc -p tsconfig.sw.json && tsc -p tsconfig.scripts.json && cd .. && node scripts/build-canvas.ts",
     "build:all": "npm run build",
     "check": "npm run typecheck",
     "docstring": "node scripts/docstring-gate.ts",
@@ -78,13 +78,14 @@
     "eslint": "10.12.0",
     "jscpd": "5.4.1",
     "playwright-core": "1.63.0",
-    "pm-brand": "github:unbraind/pm-brand#952a4bc8a42228e747b69ab31b8468ca43d54d08",
+    "pm-brand": "github:unbraind/pm-brand#c64fb9da7937c2d239f67357cab325f6a9cff29a",
     "pm-changelog": "2026.10.14",
     "pm-ops": "2026.10.14",
     "pngjs": "7.0.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "yaml": "2.9.1"
+    "yaml": "2.9.1",
+    "esbuild": "0.28.1"
   },
   "repository": {
     "type": "git",

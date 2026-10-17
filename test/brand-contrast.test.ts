@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { parseBrandTokens } from '../scripts/brand-token-data.ts';
+import { tokens } from 'pm-brand';
 
 /** Resolve aliases from one shared theme; no application-owned palette is involved. */
 function themeTokens(theme: 'light' | 'dark'): Map<string, string> {
-  const css = readFileSync('node_modules/pm-brand/tokens.css', 'utf8');
-  return new Map(Object.entries(parseBrandTokens(css)[theme]).map(([name, value]) => [`--pm-${name}`, value]));
+  return new Map(Object.entries(tokens[theme]).map(([name, value]) => [`--pm-${name}`, value]));
 }
 
 /** Convert sRGB into WCAG relative luminance, resolving token references first. */

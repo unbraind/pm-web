@@ -503,19 +503,13 @@ delivery latency and resource counters, and caps its ladder at 3000 subscribers.
 ### Triplicate assets and browser review
 
 The held `pm-brand` release is pinned by exact Git commit as a development
-dependency. Its current Git `prepare` assumes a full checkout. Development,
-CI and the image builder use npm 11.17.0 to honor script-disabled Git installs.
-Install built assets with
-`npm_config_ignore_scripts=true npm ci --ignore-scripts`, then run
-`npm run prepare` to register this repository's merge drivers.
-Runtime consumers install the packed package without a Git dependency.
+dependency. Install with `npm ci`; the kit's guarded preparation supports Git
+artifacts. Runtime consumers install the packed package without a Git dependency.
 
 `npm run build` copies tokens, self-hosted fonts and licenses, mark artwork and
-PWA icons into ignored, published `public/brand/`. Canvas colors resolve the
-shared CSS variables at runtime. The build uses the kit's compiled TypeScript
-tokens when available; the current script-disabled Git artifact omits that
-module, so it generates the same typed data from the installed CSS contract.
-There is no application-owned palette and no font CDN.
+PWA icons into ignored, published `public/brand/`. Graph and calendar import
+`tokens` from `pm-brand` through the browser palette bundle, with CSS variable
+resolution for the active theme. There is no application-owned palette or font CDN.
 
 See [brand review evidence](docs/brand-review.md) for the screenshot matrix,
 pixel comparison, accessibility checks and behavioral revert proof.

@@ -1,7 +1,7 @@
 import { isRecentOwnItemEdit } from './edit-origin.js';
 import { api } from './api.js';
 import { state } from './state.js';
-import { escHtml, fmtDate, relTime } from './utils.js';
+import { escHtml, fmtDate, relTime, statusBadge } from './utils.js';
 import type { Item, User, PresenceUser, Comment, HistoryEntry } from './types.js';
 import type { ItemResponse, ListResponse, CommentsResponse, HistoryResponse } from './api-types.js';
 
@@ -19,7 +19,7 @@ const authors = new Map<string, string>();
 const pending = new Map<string, number>();
 const fieldTimers = new Map<HTMLElement, ReturnType<typeof setTimeout>[]>();
 let nextRevision = 0;
-let captionTimer: ReturnType<typeof setTimeout> | undefined;
+const captionTimers = new Map<HTMLElement, ReturnType<typeof setTimeout>>();
 
 /** Ignore malformed or oversized identities without rejecting legacy payloads. */
 export function parseLiveUpdate(raw: string): LiveUpdate | null {
@@ -54,7 +54,8 @@ export function rememberLiveAuthors(users: PresenceUser[]): void {
 export function resetLiveCopies(): void {
   pending.clear();
   authors.clear();
-  if (captionTimer) clearTimeout(captionTimer);
+  captionTimers.forEach(clearTimeout);
+  captionTimers.clear();
   fieldTimers.forEach((timers, field) => {
     timers.forEach(clearTimeout);
     clearFieldCopy(field);
@@ -110,7 +111,7 @@ function reconcileCollection(field: HTMLElement, rows: LiveEntry[]): void {
 export function liveFieldValue(field: string, item: LiveRecord): string {
   if (field === 'strip') return `${item.id} · ${item.type || 'Item'} · P${item.priority ?? 4}`;
   if (field === 'acceptanceCriteria') return item.acceptanceCriteria || item.acceptance_criteria || '';
-  if (field === 'closedStamp') return item.status === 'closed' ? 'closed' : '';
+  if (field === 'detailStatus') return item.status || 'draft';
   if (field === 'blockedReason') return item.blockedReason || item['blocked-reason'] || '';
   if (field === 'comments' || field === 'history') return JSON.stringify(item[field] || []);
   const value = item[field as keyof Item];
@@ -121,7 +122,7 @@ export function liveFieldValue(field: string, item: LiveRecord): string {
 function writeField(field: HTMLElement, item: LiveRecord, value: string): void {
   const name = field.dataset.liveField;
   if (name === 'comments' || name === 'history') reconcileCollection(field, item[name] || []);
-  else if (name === 'closedStamp') field.innerHTML = value ? '<span class="closed-stamp">Closed</span>' : '';
+  else if (name === 'detailStatus') field.innerHTML = value === 'closed' ? '<span class="closed-stamp">Closed</span>' : statusBadge(value);
   else {
     const display = name === 'deadline' ? fmtDate(value) : name === 'priority' ? `P${value || '—'}` : name === 'updated_at' ? relTime(value) : name === 'blockedReason' ? (value ? `Blocked: ${value}` : '') : name === 'status' ? value.replace(/_/g, ' ') : value;
     field.textContent = display || (name === 'description' ? 'No description yet' : '—');
@@ -138,7 +139,7 @@ function writeField(field: HTMLElement, item: LiveRecord, value: string): void {
 }
 
 /** Keep action slots in place when a collaborator changes the lifecycle state. */
-function refreshActionState(root: HTMLElement, item: Item): void {
+export function refreshActionState(root: HTMLElement, item: Item): void {
   root.querySelectorAll<HTMLElement>('[data-item-action]').forEach(action => {
     const kind = action.dataset.itemAction;
     const enabled = kind === 'start' ? item.status === 'open' : kind === 'pause' ? item.status === 'in_progress' : !['closed', 'canceled'].includes(item.status || '');
@@ -180,15 +181,20 @@ function tintField(field: HTMLElement, blocked: boolean): void {
   fieldTimers.set(field, timers);
 }
 
-/** Write a reserved caption and one polite announcement without moving focus. */
-function caption(message: string, error = false): void {
-  const detail = document.querySelector<HTMLElement>('.modal-backdrop[style*="flex"] [data-live-caption]');
-  const target = detail || document.getElementById('live-copy-caption');
-  if (target) { target.textContent = message; target.dataset.error = String(error); }
+/** Attribute changes inside each affected sheet and announce once without moving focus. */
+function caption(roots: HTMLElement[], message: string, error = false, blocked = false): void {
+  for (const root of roots) {
+    const target = root.querySelector<HTMLElement>('[data-live-caption]');
+    if (!target) continue;
+    target.textContent = message;
+    target.dataset.error = String(error);
+    target.style.setProperty('--live-copy-ink', `var(--pm-${blocked ? 'rose' : 'canary'})`);
+    const timer = captionTimers.get(target);
+    if (timer) clearTimeout(timer);
+    captionTimers.set(target, setTimeout(() => { target.textContent = ''; captionTimers.delete(target); }, 5000));
+  }
   const region = document.getElementById('live-copy-announcement');
   if (region) region.textContent = message;
-  if (captionTimer) clearTimeout(captionTimer);
-  captionTimer = setTimeout(() => { if (target) target.textContent = ''; }, 5000);
 }
 
 /** Patch visible item sheets from authoritative reads, preserving drafts, focus and row order. */
@@ -206,7 +212,7 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
   const remote = isOtherAuthor(event, user, sessionId) && (Boolean(event.userId) || !event.itemId || !isRecentOwnItemEdit(projectId, event.itemId));
   const author = event.author || authors.get(event.userId || '') || 'Project member';
   if (/item[-_]deleted/.test(eventType)) {
-    if (remote) caption(`Deleted by ${author} just now. Refresh the list to remove this sheet.`);
+    if (remote) caption(roots, `Deleted by ${author} just now. Refresh the list to remove this sheet.`);
     return true;
   }
   try {
@@ -225,13 +231,13 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
       (detailItem as LiveRecord).history = history.history || [];
     }
     if (state.currentProject?.id !== projectId || state.user?.id !== user.id || pending.get(key) !== revision) return true;
-    let changed = false;
     for (const item of list) {
       if (!item.id || !item.title || (pending.get(`${projectId}:${item.id}`) || 0) > revision) continue;
       state.items = state.items.map(previous => previous.id === item.id ? { ...previous, ...item } : previous);
       for (const root of roots.filter(root => root.dataset.itemId === item.id && root.isConnected && root.checkVisibility())) {
+        let changed = false;
         for (const field of root.querySelectorAll<HTMLElement>('[data-live-field]')) {
-          if (field.closest('[data-item-id]') !== root) continue;
+          if (field.closest('[data-item-id]') !== root || (field.dataset.liveField !== 'detailStatus' && field.closest('.detail-status-slot'))) continue;
           const value = liveFieldValue(field.dataset.liveField || '', item);
           if (value === field.dataset.liveValue) continue;
           fieldTimers.get(field)?.forEach(clearTimeout);
@@ -241,12 +247,12 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
           if (remote && field.checkVisibility() && (!detail || root === detail)) tintField(field, item.status === 'blocked');
         }
         refreshActionState(root, item);
+        if (changed && remote && (!detail || root === detail)) caption([root], `Updated by ${author} just now`, false, item.status === 'blocked');
       }
     }
-    if (changed && remote) caption(`Updated by ${author} just now`);
     return true;
   } catch {
-    if (state.currentProject?.id === projectId && state.user?.id === user.id) caption('Live update failed. Refresh this view to try again.', true);
+    if (state.currentProject?.id === projectId && state.user?.id === user.id) caption(roots, 'Live update failed. Refresh this view to try again.', true);
     return true;
   }
 }

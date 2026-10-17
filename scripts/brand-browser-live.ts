@@ -11,13 +11,15 @@ async function emit(page: Page, own = false): Promise<void> {
 }
 
 /** Hold the real CSS animation at its 350 ms frame while its removal timer is paused. */
-export async function holdArrivalFrame(page: Page): Promise<void> {
+export async function holdArrivalFrame(page: Page, surface: 'list' | 'board' | 'detail' = 'list'): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
-  const row = page.locator('.item-row[data-item-id="note-1"]');
+  const row = page.locator(surface === 'detail' ? '.modal-body[data-item-id="note-1"]' : '.item-row[data-item-id="note-1"]');
   const original = await row.boundingBox();
-  await page.clock.install({ time: new Date('2026-10-17T12:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-10-17T12:01:00Z'));
-  updateFixtureItem('note-1', { title: 'Make the shared next step clear' });
+  if (surface === 'list') {
+    await page.clock.install({ time: new Date('2026-10-17T12:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-10-17T12:01:00Z'));
+  }
+  updateFixtureItem('note-1', { title: `Review the shared ${surface} next step`, status: 'open' });
   await emit(page);
   await page.locator('.live-copy-sheet').first().waitFor({ state: 'attached' });
   const durations = await page.locator('.live-copy-sheet').evaluateAll(copies => copies.map(copy => {
@@ -29,17 +31,23 @@ export async function holdArrivalFrame(page: Page): Promise<void> {
   }));
   assert.ok(durations.length && durations.every(duration => duration === 700), 'Live arrival must last 700 ms');
   assert.deepEqual(await row.boundingBox(), original, 'The arrival moved its item row');
-  assert.equal(await page.locator('#live-copy-caption').textContent(), 'Updated by Alex just now');
+  assert.equal(await page.locator('#live-copy-caption').count(), 0, 'The floating page caption returned');
+  assert.equal(await row.locator('[data-live-caption]').textContent(), 'Updated by Alex just now');
+  const captionBox = await row.locator('[data-live-caption]').boundingBox();
+  const stripBox = await row.locator('[data-live-field="strip"]').boundingBox();
+  assert.ok(captionBox && stripBox && original && captionBox.y >= stripBox.y + stripBox.height - 1 && captionBox.y + captionBox.height <= original.y + original.height, 'Caption must sit under the strip inside the changed sheet');
+  assert.equal(await row.locator('[data-live-caption]').evaluate(el => getComputedStyle(el).borderLeftColor), await row.evaluate(el => getComputedStyle(el).getPropertyValue('--pm-canary').trim()).then(value => /^#/.test(value) ? `rgb(${[1, 3, 5].map(offset => parseInt(value.slice(offset, offset + 2), 16)).join(', ')})` : value));
 }
 
 /** Exercise real readonly patches, draft isolation, echo suppression, border expiry and reduced motion. */
-export async function checkLiveArrivals(page: Page): Promise<string[]> {
+export async function checkLiveArrivals(page: Page, settled: () => Promise<void>): Promise<string[]> {
   const passed: string[] = [];
   await page.clock.runFor(650);
   assert.ok(await page.locator('.live-copy-sheet').count());
   await page.clock.runFor(100);
   assert.equal(await page.locator('.live-copy-sheet').count(), 0);
   assert.ok(await page.locator('.item-title.live-changed').count());
+  await settled();
   await page.clock.runFor(4000);
   assert.ok(await page.locator('.item-title.live-changed').count());
   await page.clock.runFor(300);
@@ -121,5 +129,26 @@ export async function checkLiveArrivals(page: Page): Promise<string[]> {
   assert.equal(await page.locator('.item-detail-title').evaluate(el => getComputedStyle(el).borderLeftWidth), '3px');
   assert.equal(await page.locator('#new-comment').evaluate(el => document.activeElement === el), true);
   passed.push('reduced motion keeps the border and caption without a sliding copy');
+
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  updateFixtureItem('note-1', { status: 'closed' });
+  await emit(page);
+  await page.waitForFunction(() => document.querySelector<HTMLElement>('.detail-status-slot')?.dataset.liveValue === 'closed');
+  await page.clock.runFor(800);
+  assert.equal(await page.locator('.detail-status-slot .closed-stamp').count(), 1);
+  assert.equal(await page.locator('.detail-status-slot .status-badge').count(), 0);
+  for (const action of ['start', 'pause', 'claim', 'release']) {
+    const button = page.locator(`[data-item-action="${action}"]`);
+    assert.equal(await button.getAttribute('aria-disabled'), 'true');
+    assert.match(await button.getAttribute('title') || '', /unavailable for a closed item/);
+  }
+  updateFixtureItem('note-1', { status: 'open' });
+  await emit(page);
+  await page.waitForFunction(() => document.querySelector<HTMLElement>('.detail-status-slot')?.dataset.liveValue === 'open');
+  await page.clock.runFor(800);
+  assert.equal(await page.locator('.detail-status-slot .closed-stamp').count(), 0);
+  assert.equal(await page.locator('[data-item-action="start"]').getAttribute('aria-disabled'), 'false');
+  assert.equal(await page.locator('[data-item-action="claim"]').getAttribute('aria-disabled'), 'false');
+  passed.push('live close replaces the chip with one stamp and disables unavailable actions; reopening restores them');
   return passed;
 }

@@ -1,5 +1,6 @@
 /** Runtime CSS-token access keeps canvas rendering in step with explicit and system themes. */
-import { tokens, type TokenName } from '../brand/tokens.js';
+import { tokens } from 'pm-brand';
+type TokenName = keyof typeof tokens.light;
 let paletteKey = '';
 let paletteStyle: CSSStyleDeclaration | null = null;
 

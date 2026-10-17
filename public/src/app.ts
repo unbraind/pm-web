@@ -55,6 +55,7 @@ import { initTheme, cycleTheme } from './theme.js';
 
 // Apply the persisted theme immediately on script load (before boot) so the UI
 // renders in the right palette without a flash.
+document.getElementById('live-copy-caption')?.remove();
 initTheme();
 initInteractions();
 
