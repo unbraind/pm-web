@@ -1,0 +1,11 @@
+{
+  "nodes": 2000,
+  "edges": 1999,
+  "callMs": 0,
+  "elapsedMs": 21589,
+  "workers": 1,
+  "yielded": true,
+  "staticUntilDone": true,
+  "canceled": true,
+  "moved": true
+}

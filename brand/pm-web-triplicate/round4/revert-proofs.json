@@ -1,0 +1,51 @@
+{
+  "base": "147ba52",
+  "receipts": [
+    {
+      "name": "locale",
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "name": "drag",
+      "failure": "AssertionError [ERR_ASSERTION]: Real mouse dragging must move the painted node immediately: {\"start\":{\"x\":217,\"y\":268},\"drag\":{\"dx\":-0.45775730588295005,\"dy\":-0.2815012713530791,\"vx\":9,\"vy\":7,\"cancele"
+    },
+    {
+      "name": "settle-auto",
+      "failure": "AssertionError [ERR_ASSERTION]: setData must schedule an initial force settle"
+    },
+    {
+      "name": "settle-fit",
+      "failure": "AssertionError [ERR_ASSERTION]: Worker completion fits the initial result"
+    },
+    {
+      "name": "palette-colors",
+      "failure": "AssertionError [ERR_ASSERTION]: Steady frames must reuse node colors and resolved CSS tokens"
+    },
+    {
+      "name": "palette-tokens",
+      "failure": "AssertionError [ERR_ASSERTION]: Steady frames must reuse node colors and resolved CSS tokens"
+    },
+    {
+      "name": "opacity",
+      "failure": "AssertionError [ERR_ASSERTION]: Opacity groups must report the painted failing ratio: []"
+    },
+    {
+      "name": "clears",
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "name": "sse",
+      "failure": "AssertionError [ERR_ASSERTION]: SSE condition timed out: [{\"type\":\"connected\",\"data\":{\"ok\":true,\"clientId\":\"0722be86-bb88-4af8-bad9-c128a0cb01de\"}},{\"type\":\"presence\",\"data\":{\"users\":[{\"userId\":\"6b653eaf-f8ab-4f9c-9585-b8b52d50e647\",\"displa"
+    }
+  ],
+  "hashes": {
+    "public/index.html": "8a7add79a0d4cbdb28102b47956644b96e8173c63499f39407858038c75dba07",
+    "public/src/views/graph-canvas.ts": "ad731f0d23ed88c4a5faa176488caf5f9a4cfd11c898aff56266976cd4d84a28",
+    "public/src/brand.ts": "9ac7422e80fa998ffd30c1be003e0771746860a62111f03afd16d6445dc16eac",
+    "scripts/brand-browser-contrast.ts": "bad6d449066f5cf63a669f931ad6611b481a99d316ea20612fe103eaa7abda38",
+    "src/routes/pm.ts": "65e8ece8debea4a58f0bd1dea0c75297ed200c3a11bcad696193985937dbb09d",
+    "test/pm-collaboration.test.ts": "fd7df00bedff498c9859d1dd5d8b01dc5b50ca70a5e7fc2868eb0f3a5774ed9a"
+  },
+  "productionUnchanged": true,
+  "executionNote": "Six completed independent probes retained; the opacity fixture was strengthened and the remaining three probes ran separately. Every probe uses current unrelated fixes."
+}
