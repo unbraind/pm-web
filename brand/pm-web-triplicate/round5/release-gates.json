@@ -1,0 +1,78 @@
+{
+  "brandPin": "98cbe45976b3111f09143c2a29ede906cb553c2a",
+  "runtimeAndTestInputsMatchFinalBranch": true,
+  "verifiedInputFiles": 247,
+  "inputSha256": "46d6db8341bd633ad7ebc604823aee2c5e11e9705b67d79d89c27297ea47187c",
+  "local": [
+    {
+      "command": "npm run release:check",
+      "exit": 1,
+      "status": "failed",
+      "profile": "Verified standalone inputs, separate fixture storage, fresh HOME and isolated global/system Git configuration",
+      "counts": {
+        "tests": 667,
+        "pass": 661,
+        "fail": 5,
+        "cancelled": 1,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 91.68,
+        "branches": 81.21,
+        "functions": 95.8,
+        "lines": 91.68
+      },
+      "nonPassingCases": [
+        "Catalog consumer 300-second deadline",
+        "Catalog source variant spawn ENOTDIR",
+        "2000-item graph wall-time budget",
+        "Initial standalone copy missing trusted Git ref; independently repaired and retested",
+        "Production-server startup deadline",
+        "Privacy fixture startup deadline before privacy assertions"
+      ]
+    },
+    {
+      "command": "bun run release:check",
+      "exit": 1,
+      "status": "failed",
+      "profile": "Verified standalone inputs, separate fixture storage, fresh HOME and isolated global/system Git configuration",
+      "counts": {
+        "tests": 667,
+        "pass": 662,
+        "fail": 4,
+        "cancelled": 1,
+        "skipped": 0,
+        "todo": 0
+      },
+      "coverage": {
+        "statements": 91.73,
+        "branches": 81.41,
+        "functions": 95.8,
+        "lines": 91.73
+      },
+      "nonPassingCases": [
+        "Catalog consumer 300-second deadline",
+        "Catalog source variant spawn ENOTDIR",
+        "2000-item graph wall-time budget",
+        "Initial standalone copy missing trusted Git ref; independently repaired and retested",
+        "Production-server startup deadline"
+      ]
+    }
+  ],
+  "identityRepair": {
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "profiles": 2,
+    "cause": "Standalone copies initially omitted required Git metadata; restored the independently verified trusted main ref without changing controls"
+  },
+  "ci": {
+    "status": "pending"
+  },
+  "thresholdsUnchanged": true,
+  "stagesAfterCoverageNotReachedLocally": true,
+  "head": "fc0447ce08336c9598a00be76b4e48def296e9ee"
+}

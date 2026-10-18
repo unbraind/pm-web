@@ -1,0 +1,6 @@
+{
+  "trustedMain": "dc7d2d32a9ba183e08dab5eea98178b1770d7436",
+  "reviewBaseHead": "4bcc41535bbfea7603204ba63f8c908418bed355",
+  "sourceFilesUnmodified": true,
+  "repairedPrerequisite": "standalone profiles now retain Git metadata and the independently verified trusted main ref"
+}

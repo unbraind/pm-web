@@ -1,0 +1,10 @@
+{
+  "name": "server-surface",
+  "target": "src/routes/pm.ts",
+  "command": "node scripts/with-test-db.ts node --test --test-name-pattern=\"item update SSE\" test/pm-collaboration.test.ts",
+  "fixedExit": 0,
+  "revertedExit": 1,
+  "failure": "Real HTTP/SSE payload omits the required pm-web surface stamp when only emitItemEvent is reverted",
+  "productionUnchanged": true,
+  "sourceSha256": "ab7daf2d6c3c0fcfcf523595cf498eae5fafc43d8be983fe3294384ce3769f58"
+}
