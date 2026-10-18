@@ -1,0 +1,69 @@
+{
+  "head": "4bcc41535bbfea7603204ba63f8c908418bed355",
+  "initialUnresolvedThreads": 7,
+  "repliedThreads": 7,
+  "agentResolveCalls": 0,
+  "unresolvedThreads": 0,
+  "threads": [
+    {
+      "id": "PRRT_kwDOSZgR5c6tgKHG",
+      "isResolved": true,
+      "resolvedBy": {
+        "login": "coderabbitai[bot]"
+      }
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6tgKHK",
+      "isResolved": true,
+      "resolvedBy": {
+        "login": "coderabbitai[bot]"
+      }
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6tgKHO",
+      "isResolved": true,
+      "resolvedBy": {
+        "login": "coderabbitai[bot]"
+      }
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6tgKHR",
+      "isResolved": true,
+      "resolvedBy": {
+        "login": "coderabbitai[bot]"
+      }
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6tgKHU",
+      "isResolved": true,
+      "resolvedBy": {
+        "login": "coderabbitai[bot]"
+      }
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6tgKHW",
+      "isResolved": true,
+      "resolvedBy": {
+        "login": "coderabbitai[bot]"
+      }
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6tgKHe",
+      "isResolved": true,
+      "resolvedBy": {
+        "login": "coderabbitai[bot]"
+      }
+    }
+  ],
+  "newestCodeRabbitReview": {
+    "state": "COMMENTED",
+    "body": "",
+    "submittedAt": "2026-10-18T03:45:10Z",
+    "commit": {
+      "oid": "4bcc41535bbfea7603204ba63f8c908418bed355"
+    },
+    "author": {
+      "login": "coderabbitai"
+    }
+  }
+}

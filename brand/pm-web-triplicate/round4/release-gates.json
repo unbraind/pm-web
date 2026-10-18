@@ -71,7 +71,17 @@
     }
   ],
   "ci": {
-    "status": "pending final-head push"
+    "status": "in_progress",
+    "head": "4bcc41535bbfea7603204ba63f8c908418bed355",
+    "runId": 39094642085,
+    "url": "https://github.com/unbraind/pm-web/actions/runs/39094642085",
+    "pollIntervalSeconds": 60,
+    "deadlineUtc": "2026-10-18T04:13:50Z",
+    "codeql": {
+      "runId": 39094642069,
+      "conclusion": "success",
+      "url": "https://github.com/unbraind/pm-web/actions/runs/39094642069"
+    }
   },
   "followups": [
     "pm-web-qdhx",
