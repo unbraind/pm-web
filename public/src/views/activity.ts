@@ -38,6 +38,6 @@ export async function renderActivityView(): Promise<void> {
       </div>`).join('');
   } catch(err: unknown) {
     const listEl = document.getElementById('activity-list');
-    if (listEl) listEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (listEl) listEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }

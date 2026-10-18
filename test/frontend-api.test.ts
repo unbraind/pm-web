@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { isRecentOwnItemEdit } from "../public/src/edit-origin.js";
 import { api, csrfTokenFromCookie, syncServiceWorkerSession } from "../public/src/api.ts";
 
 test("csrfTokenFromCookie decodes the named cookie and rejects malformed encoding", () => {
@@ -258,4 +259,36 @@ test("the originating tab attaches its expected account before a worker reads sh
     if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
     else Reflect.deleteProperty(globalThis, "navigator");
   }
+});
+
+test("failed item requests clear only their own echo marker across HTTP, network and overlapping writes", async t => {
+  const globals = globalThis as unknown as Record<string, unknown>;
+  const originalDocument = globals.document;
+  const originalFetch = globals.fetch;
+  globals.document = { cookie: "" };
+  t.after(() => { globals.document = originalDocument; globals.fetch = originalFetch; });
+  const project = "failed-edit-fixture";
+  const item = "note-1";
+  const route = `/projects/${project}/pm/update/${item}`;
+  for (const failure of ["http", "network"]) {
+    globals.fetch = async () => {
+      assert.equal(isRecentOwnItemEdit(project, item), true, "mark before sending so fast echoes stay local");
+      if (failure === "network") throw new Error("Fixture offline");
+      return Response.json({ error: "Fixture denied" }, { status: 403 });
+    };
+    await assert.rejects(api("PATCH", route, { title: "Fixture" }), /Fixture/);
+    assert.equal(isRecentOwnItemEdit(project, item), false, "failed writes must not suppress a collaborator's legacy event");
+  }
+  const originalNow = Date.now;
+  const overlapTime = originalNow();
+  Date.now = () => overlapTime;
+  t.after(() => { Date.now = originalNow; });
+  let rejectOlder: (reason: Error) => void = () => { throw new Error("No pending request"); };
+  globals.fetch = () => new Promise<Response>((_resolve, reject) => { rejectOlder = reject; });
+  const older = assert.rejects(api("PATCH", route, { title: "Older" }), /Older failed/);
+  globals.fetch = async () => Response.json({ ok: true });
+  await api("PATCH", route, { title: "Newer" });
+  rejectOlder(new Error("Older failed"));
+  await older;
+  assert.equal(isRecentOwnItemEdit(project, item), true, "an older failure must retain the newer successful write's marker");
 });

@@ -543,15 +543,22 @@ async function runMutation(
  * @param type - Event name to broadcast and graph-sync reason.
  * @param itemId - Item the event is about; defaults to the route's `itemId`.
  */
-function emitItemEvent(
+async function emitItemEvent(
   req: AuthRequest,
   project: ProjectRef,
   type: string,
   itemId = routeParam(req, "itemId"),
-): void {
+): Promise<void> {
+  let author = "Project member";
+  try {
+    const user = await pool.query<{ display_name: string | null }>("SELECT display_name FROM pm_users WHERE id = $1", [req.user!.userId]);
+    author = user.rows[0]?.display_name?.trim() || author;
+  } catch {
+    // Attribution is advisory; a committed edit must still be acknowledged.
+  }
   broadcastProjectEvent(routeParam(req, "projectId"), {
     type,
-    data: { itemId, userId: req.user!.userId },
+    data: { itemId, userId: req.user!.userId, author, surface: "pm-web" },
   });
   scheduleGraphSync(routeParam(req, "projectId"), project, type);
 }
@@ -635,7 +642,9 @@ async function runTextBodyMutation(
 ): Promise<PmRunResult | undefined> {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: errorMsg }); return undefined; }
-  return runMutation(res, project, [cmd, routeParam(req, "itemId"), text.trim()], failedMsg);
+  const result = await runMutation(res, project, [cmd, routeParam(req, "itemId"), text.trim()], failedMsg);
+  if (result) await emitItemEvent(req, project, "item-updated");
+  return result;
 }
 
 /** Validate a `reason` body field and run a mutation with it. Used by the
@@ -999,7 +1008,9 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   };
   for (const [key, flag] of Object.entries(stringFlags)) {
     const val = body[key];
-    if (val !== undefined && val !== null && val !== "") {
+    // The pinned CLI clears these built-ins with an explicit empty argument.
+    const explicitClear = (key === "tags" || key === "description") && val === "";
+    if (val !== undefined && val !== null && (val !== "" || explicitClear)) {
       args.push(flag, String(val));
     }
   }
@@ -1009,7 +1020,7 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   const result = await runMutation(res, project, args, "Failed to update item");
   if (!result) return;
   // Broadcast SSE update event
-  emitItemEvent(req, project, "item-updated");
+  await emitItemEvent(req, project, "item-updated");
   res.json(result.parsed || {});
 });
 
@@ -1020,7 +1031,7 @@ router.post("/close/:itemId", async (req: AuthRequest, res) => {
 
   const result = await runReasonBodyMutation(req, res, project, "close", "Close reason is required", "Failed to close item");
   if (!result) return;
-  emitItemEvent(req, project, "item-closed");
+  await emitItemEvent(req, project, "item-closed");
   res.json(result.parsed || {});
 });
 
@@ -1031,7 +1042,7 @@ router.delete("/delete/:itemId", async (req: AuthRequest, res) => {
 
   const result = await runMutation(res, project, ["delete", routeParam(req, "itemId"), "--yes"], "Failed to delete item", false);
   if (!result) return;
-  emitItemEvent(req, project, "item-deleted");
+  await emitItemEvent(req, project, "item-deleted");
   res.json({ ok: true });
 });
 

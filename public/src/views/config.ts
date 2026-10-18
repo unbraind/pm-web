@@ -110,10 +110,10 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
       <div class="card" style="margin-bottom:16px">
         <div class="card-header">
           <div class="card-title">${escHtml(k.key.replace(/_/g,' '))}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${escHtml(k.summary)}</div>
+          <div style="font-size:11px;color:var(--app-text-muted)">${escHtml(k.summary)}</div>
         </div>
         <div class="card-body">
-          <div id="config-arr-${escHtml(k.key)}-container">${items || '<div style="color:var(--text-muted);font-size:13px;margin-bottom:8px">No items yet</div>'}</div>
+          <div id="config-arr-${escHtml(k.key)}-container">${items || '<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:8px">No items yet</div>'}</div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <input class="form-input" id="config-arr-${escHtml(k.key)}-new" type="text" placeholder="Add item…" style="flex:1"
               onkeydown="if(event.key==='Enter'){event.preventDefault();window.__app.configAddArrayItem('${escHtml(k.key)}');}">
@@ -141,7 +141,7 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
             onkeydown="if(event.key==='Enter'){event.preventDefault();window.__app.configSaveSimple('${escHtml(k.key)}');}">
           <button class="btn btn-primary btn-sm" onclick="window.__app.configSaveSimple('${escHtml(k.key)}')">Save</button>
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">${escHtml(k.summary)}</div>
+        <div style="font-size:11px;color:var(--app-text-muted);margin-top:3px">${escHtml(k.summary)}</div>
       </div>`;
   }
 
@@ -156,8 +156,8 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
     return `
       <div class="form-group">
         <label class="form-label">${escHtml(k.key.replace(/_/g,' '))}</label>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">${escHtml(k.summary)}</div>
-        <textarea class="form-input" id="config-field-${escHtml(k.key)}" style="font-family:monospace;font-size:12px;min-height:120px;resize:vertical">${escHtml(val)}</textarea>
+        <div style="font-size:11px;color:var(--app-text-muted);margin-bottom:4px">${escHtml(k.summary)}</div>
+        <textarea class="form-input" id="config-field-${escHtml(k.key)}" style="font-family:var(--pm-font-mono);font-size:12px;min-height:120px;resize:vertical">${escHtml(val)}</textarea>
         <div style="margin-top:6px">
           <button class="btn btn-primary btn-sm" onclick="window.__app.configSaveObject('${escHtml(k.key)}')">Save</button>
         </div>
@@ -177,7 +177,7 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
 
     ${arrayKeys.length > 0 ? `
     <div style="margin-bottom:24px">
-      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">List Settings</div>
+      <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">List Settings</div>
       ${arrayKeys.map(renderArrayField).join('')}
     </div>` : ''}
 
@@ -197,12 +197,12 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
       </div>
     </div>` : ''}
 
-    ${data.settings_path ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Settings path: <code style="font-family:monospace;background:var(--bg-input);padding:1px 4px;border-radius:3px">${escHtml(data.settings_path)}</code></div>` : ''}
+    ${data.settings_path ? `<div style="font-size:11px;color:var(--app-text-muted);margin-top:8px">Settings path: <code style="font-family:var(--pm-font-mono);background:var(--app-bg-input);padding:1px 4px;border-radius:var(--pm-radius-sm)">${escHtml(data.settings_path)}</code></div>` : ''}
 
     <div class="card" style="margin-top:24px">
       <div class="card-header">
         <div class="card-title">Custom Schema Types</div>
-        <div style="font-size:11px;color:var(--text-muted)">Add a new item type using <code style="font-family:monospace">pm schema add-type</code></div>
+        <div style="font-size:11px;color:var(--app-text-muted)">Add a new item type using <code style="font-family:var(--pm-font-mono)">pm schema add-type</code></div>
       </div>
       <div class="card-body">
         <div class="two-col">
@@ -229,7 +229,7 @@ function renderConfigData(el: HTMLElement, data: ConfigResponse): void {
             <input class="form-input" id="schema-type-aliases" type="text" placeholder="e.g. b, defect">
           </div>
         </div>
-        <div id="schema-type-error" style="display:none;color:var(--status-blocked);font-size:13px;margin-bottom:8px"></div>
+        <div id="schema-type-error" style="display:none;color:var(--app-status-blocked);font-size:13px;margin-bottom:8px"></div>
         <button class="btn btn-primary btn-sm" onclick="window.__app.addSchemaType()">Add Custom Type</button>
       </div>
     </div>
@@ -293,7 +293,7 @@ export function configRemoveArrayItem(key: string, idx: number): void {
 
   // Show "no items" if empty
   if (container.querySelectorAll('[data-key]').length === 0) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;margin-bottom:8px">No items yet</div>';
+    container.innerHTML = '<div style="color:var(--app-text-muted);font-size:13px;margin-bottom:8px">No items yet</div>';
   }
 }
 

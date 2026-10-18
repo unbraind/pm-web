@@ -28,25 +28,25 @@ export async function renderNormalizeView(): Promise<void> {
     const el2 = document.getElementById('normalize-content');
     if (!el2) return;
     if (Array.isArray(items) && items.length === 0) {
-      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--status-closed);font-size:13px">✓ All items are normalized — no changes needed!</div></div></div>`;
+      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--app-status-closed);font-size:13px">✓ All items are normalized — no changes needed!</div></div></div>`;
     } else if (Array.isArray(items) && items.length > 0) {
       el2.innerHTML = `
         <div class="card">
           <div class="card-header"><div class="card-title">Suggested Changes (${items.length})</div></div>
           <div class="card-body">
-            ${items.map((i) => issueRow('⚡', 'var(--priority-3)', i.message || i.description || JSON.stringify(i), i.id)).join('')}
+            ${items.map((i) => issueRow('⚡', 'var(--app-priority-3)', i.message || i.description || JSON.stringify(i), i.id)).join('')}
           </div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
           <button class="btn btn-primary btn-sm" onclick="window.__app.applyNormalize()"><span>Apply Normalizations</span></button>
-          <span style="font-size:11px;color:var(--text-muted);align-self:center">Dry-run preview — no changes made yet</span>
+          <span style="font-size:11px;color:var(--app-text-muted);align-self:center">Dry-run preview — no changes made yet</span>
         </div>`;
     } else {
-      el2.innerHTML = `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(plan, null, 2))}</pre></div></div>`;
+      el2.innerHTML = `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--app-text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(plan, null, 2))}</pre></div></div>`;
     }
   } catch(err: unknown) {
     const el2 = document.getElementById('normalize-content');
-    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 

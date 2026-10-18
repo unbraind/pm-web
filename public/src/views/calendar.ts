@@ -22,7 +22,7 @@ export async function renderCalendarView(): Promise<void> {
         <span id="cal-month-label" style="font-size:13px;font-weight:600;min-width:120px;text-align:center"></span>
         <button class="btn btn-ghost btn-sm" onclick="window.__app.calNav(1)">Next →</button>
         <button class="btn btn-secondary btn-sm" onclick="window.__app.renderCalendarView()">↺ Today</button>
-        <a class="btn btn-secondary btn-sm" href="/api/projects/${escHtml(state.currentProject.id)}/pm/calendar.ics" download="pm-calendar.ics" title="Download an iCalendar (.ics) file of all item deadlines for Google/Outlook/Apple Calendar">📅 Export .ics</a>
+        <a class="btn btn-secondary btn-sm" href="/api/projects/${escHtml(state.currentProject.id)}/pm/calendar.ics" download="pm-calendar.ics" title="Download an iCalendar (.ics) file of all item deadlines for Google/Outlook/Apple Calendar">◷ Export .ics</a>
       </div>
     </div>
     <div id="calendar-content">${skeletonRows(6)}</div>`;
@@ -103,7 +103,7 @@ export async function renderCalendarView(): Promise<void> {
     if (contentEl) contentEl.innerHTML = gridHtml + upcomingHtml;
   } catch(err: unknown) {
     const contentEl = document.getElementById('calendar-content');
-    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 
@@ -125,10 +125,10 @@ export function showDayItems(dateStr: string): void {
     });
     const bodyEl = document.getElementById('day-items-modal')?.querySelector('.modal-body');
     if (bodyEl) bodyEl.innerHTML = items.length === 0
-      ? '<div style="color:var(--text-muted);font-size:13px">No items due on this date</div>'
+      ? '<div style="color:var(--app-text-muted);font-size:13px">No items due on this date</div>'
       : `<div class="item-list">${items.map((item) => renderItemRow(item)).join('')}</div>`;
   }).catch((err: unknown) => {
     const bodyEl = document.getElementById('day-items-modal')?.querySelector('.modal-body');
-    if (bodyEl) bodyEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (bodyEl) bodyEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   });
 }

@@ -30,3 +30,6 @@ coverage/
 
 # Downloaded managed extension implementation stays local.
 .agents/pm/extensions/pm-github/
+
+# Generated from the exact-commit pm-brand dev dependency; shipped in npm.
+public/brand/

@@ -3,7 +3,8 @@
 // ═══════════════════════════════════════════════════════════════
 import { state } from '../state.js';
 import { api } from '../api.js';
-import { escHtml, typeIcon, statusBadge } from '../utils.js';
+import { escHtml } from '../utils.js';
+import { renderItemRow } from './items.js';
 import type { DedupeResponse, DedupeGroup } from '../api-types.js';
 
 /** Renders the dedupe audit for the current project, showing each group of potential duplicate items with a similarity score and clickable member rows. */
@@ -13,7 +14,7 @@ export async function renderDedupeAuditView(): Promise<void> {
   if (!state.currentProject) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No project selected</div></div>'; return; }
   el.innerHTML = `
     <div class="page-header">
-      <div><div class="page-title">Dedupe Audit</div><div class="page-subtitle">Find potential duplicate items in ${escHtml(state.currentProject.name)}</div></div>
+      <div><div class="page-title">Dedupe audit</div><div class="page-subtitle">Find potential duplicate items in ${escHtml(state.currentProject.name)}</div></div>
       <div class="page-actions"><button class="btn btn-secondary btn-sm" onclick="window.__app.renderDedupeAuditView()">↺ Refresh</button></div>
     </div>
     <div id="dedupe-content"><div class="loading-state"><div class="loading-spinner"></div></div></div>`;
@@ -23,23 +24,18 @@ export async function renderDedupeAuditView(): Promise<void> {
     const el2 = document.getElementById('dedupe-content');
     if (!el2) return;
     if (groups.length === 0) {
-      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--status-closed);font-size:13px">✓ No potential duplicates found — project looks clean!</div></div></div>`;
+      el2.innerHTML = `<div class="card"><div class="card-body"><div style="color:var(--app-status-closed);font-size:13px">✓ No potential duplicates found — project looks clean!</div></div></div>`;
     } else {
       el2.innerHTML = groups.map((g, i: number) => `
         <div class="card" style="margin-bottom:12px">
-          <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
+          <div class="card-header"><div class="card-title">Potential Duplicate Group ${i+1} ${g.score!==undefined?`<span style="font-size:11px;color:var(--app-text-muted)">· ${Math.round((g.score||0)*100)}% similarity</span>`:''}</div></div>
           <div class="card-body">
-            ${(g.items||[]).map((raw)=>`
-              <div class="item-row" onclick="window.__app.openItemDetail('${escHtml(typeof raw === 'string' ? raw : (raw.id||''))}')" style="cursor:pointer">
-                ${typeIcon(typeof raw === 'object' ? (raw.type||'') : '')} <span class="item-id">${escHtml(typeof raw === 'string' ? raw : (raw.id||''))}</span>
-                <span class="item-title">${escHtml(typeof raw === 'object' ? (raw.title||'') : '')}</span>
-                <div class="item-meta">${statusBadge(typeof raw === 'object' ? (raw.status||'draft') : 'draft')}</div>
-              </div>`).join('')}
+            ${(g.items || []).map(raw => renderItemRow(typeof raw === 'string' ? { id: raw, title: 'Open this item' } : { ...raw, id: raw.id || '', title: raw.title || 'Open this item' }, typeof raw !== 'string' && !!raw.status)).join('')}
           </div>
-        </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
+        </div>`).join('') || `<div class="card"><div class="card-body"><pre style="font-size:12px;color:var(--app-text-secondary);white-space:pre-wrap">${escHtml(JSON.stringify(data,null,2))}</pre></div></div>`;
     }
   } catch(err: unknown) {
     const el2 = document.getElementById('dedupe-content');
-    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (el2) el2.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }

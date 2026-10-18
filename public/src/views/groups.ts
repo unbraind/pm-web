@@ -50,7 +50,7 @@ async function loadGroups(): Promise<void> {
     el.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">
       ${groups.map((g)=>`
         <div class="group-row" onclick="window.__app.openGroupDetail('${escHtml(g.id)}','${escHtml(g.name)}')">
-          <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--accent);flex-shrink:0">
+          <div style="width:36px;height:36px;border-radius:var(--pm-radius-sm);background:var(--app-accent-dim);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--app-accent);flex-shrink:0">
             ${escHtml((g.name||'?').slice(0,2).toUpperCase())}
           </div>
           <div style="flex:1">
@@ -62,7 +62,7 @@ async function loadGroups(): Promise<void> {
         </div>`).join('')}
     </div>`;
   } catch(err: unknown) {
-    if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 
@@ -82,7 +82,7 @@ export function openCreateGroupModal(): void {
     </div>
     <div class="form-error" id="cg-error" style="display:none"></div>`,
     `<button class="btn btn-ghost" onclick="window.__app.hideModal('create-group-modal')">Cancel</button>
-     <button class="btn btn-primary" onclick="window.__app.submitCreateGroup()"><span>Create Group</span></button>`
+     <button class="btn btn-primary" onclick="window.__app.submitCreateGroup()"><span>Create group</span></button>`
   );
   showModal('create-group-modal');
 }
@@ -144,7 +144,7 @@ export async function openGroupDetail(groupId: string, _groupName: string): Prom
     const groupName = group.name || _groupName || 'Group';
 
     const membersHtml = members.length === 0
-      ? `<div style="color:var(--text-muted);font-size:13px">No members yet</div>`
+      ? `<div style="color:var(--app-text-muted);font-size:13px">No members yet</div>`
       : members.map((m)=>`
           <div class="member-row">
             <div class="member-avatar">${escHtml((m.display_name||m.displayName||m.email||'?').slice(0,2).toUpperCase())}</div>
@@ -162,13 +162,13 @@ export async function openGroupDetail(groupId: string, _groupName: string): Prom
     if (bodyEl) {
       bodyEl.innerHTML = `
         <div style="margin-bottom:20px">
-          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
             Members (${members.length})
           </div>
           ${membersHtml}
         </div>
         <hr class="section-divider">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--app-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
           Invite Member
         </div>
         <div class="row">
@@ -178,7 +178,7 @@ export async function openGroupDetail(groupId: string, _groupName: string): Prom
     }
   } catch(err: unknown) {
     const bodyEl = document.getElementById('group-detail-modal')?.querySelector('.modal-body');
-    if (bodyEl) bodyEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (bodyEl) bodyEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }
 
@@ -208,7 +208,7 @@ export async function inviteMember(groupId: string): Promise<void> {
  * @param userId - identifier of the member to remove.
  */
 export function removeMember(groupId: string, userId: string): void {
-  confirmDialog('Remove Member?', 'Remove this member from the group?', async () => {
+  confirmDialog('Remove member?', 'Remove this member from the group?', async () => {
     try {
       await api('DELETE',`/groups/${groupId}/members/${userId}`);
       toast('Member removed','success');

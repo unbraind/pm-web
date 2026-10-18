@@ -149,14 +149,14 @@ async function fetchAndRenderPackages(): Promise<void> {
  */
 export function renderPackageCard(row: PackageRow, canManagePackages = true): string {
   const statusChip = row.installed
-    ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
-    : `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">${escHtml(t('packages.notInstalled'))}</span>`;
+    ? `<span style="font-size:11px;color:var(--app-text-muted);background:var(--app-bg-input);padding:2px 8px;border-radius:var(--pm-radius-sm)">${escHtml(t('packages.installed'))}${row.version ? ' · ' + escHtml(t('packages.version', { version: row.version })) : ''}</span>`
+    : `<span style="font-size:11px;color:var(--app-text-muted);background:var(--app-bg-input);padding:2px 8px;border-radius:var(--pm-radius-sm)">${escHtml(t('packages.notInstalled'))}</span>`;
 
   // Badge authoring reference templates so a user can tell a learning
   // scaffold from a product extension. Templates register real commands but
   // exist to be read and copied; the badge makes that purpose explicit.
   const templateBadge = row.category === 'template'
-    ? `<span style="font-size:11px;color:var(--text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:4px" data-i18n="packages.templateBadge">${escHtml(t('packages.templateBadge'))}</span>`
+    ? `<span style="font-size:11px;color:var(--app-text-secondary);background:var(--pm-stamp-wash);padding:2px 8px;border-radius:var(--pm-radius-sm)" data-i18n="packages.templateBadge">${escHtml(t('packages.templateBadge'))}</span>`
     : '';
 
   // A package with no published release is shown, because hiding it would make
@@ -164,30 +164,30 @@ export function renderPackageCard(row: PackageRow, canManagePackages = true): st
   // shown as unavailable, never with an install action that cannot succeed.
   const unreleased = row.availability === 'unreleased';
   const unreleasedBadge = unreleased
-    ? `<span style="font-size:11px;color:var(--text-secondary);background:var(--bg-accent);padding:2px 8px;border-radius:4px" data-i18n="packages.unreleasedBadge">${escHtml(t('packages.unreleasedBadge'))}</span>`
+    ? `<span style="font-size:11px;color:var(--app-text-secondary);background:var(--pm-stamp-wash);padding:2px 8px;border-radius:var(--pm-radius-sm)" data-i18n="packages.unreleasedBadge">${escHtml(t('packages.unreleasedBadge'))}</span>`
     : '';
   // The explanation is about not being installable, so it only applies while
   // the package is not installed. Showing it beside an installed package would
   // contradict the card's own status chip.
   const unreleasedNote = unreleased && !row.installed
-    ? `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:6px">🚧 ${escHtml(t('packages.unreleased'))}</div>`
+    ? `<div class="pkg-req" style="font-size:12px;color:var(--app-text-secondary);margin-top:6px">🚧 ${escHtml(t('packages.unreleased'))}</div>`
     : '';
 
   // Honest gating explanations — the UI must not promise a one-click install
   // for a package that needs a Neo4j instance or an API token.
   const serviceNote = row.requiresService
     ? row.requiresService.optional
-      ? `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:6px">⚠ ${escHtml(t('packages.requiresServiceOptional', { name: row.requiresService.name }))}</div>`
-      : `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:6px">⚠ ${escHtml(t('packages.requiresService', { name: row.requiresService.name }))}</div>`
+      ? `<div class="pkg-req" style="font-size:12px;color:var(--app-text-secondary);margin-top:6px">⚠ ${escHtml(t('packages.requiresServiceOptional', { name: row.requiresService.name }))}</div>`
+      : `<div class="pkg-req" style="font-size:12px;color:var(--app-text-secondary);margin-top:6px">⚠ ${escHtml(t('packages.requiresService', { name: row.requiresService.name }))}</div>`
     : '';
   const credNotes = (row.requiresCredentials ?? []).map((c) => {
     const label = c.optional ? t('packages.requiresCredentialsOptional') : t('packages.requiresCredentials');
-    const envs = c.envVars.map((e) => `<code style="font-family:var(--font-mono);background:var(--bg-input);padding:1px 4px;border-radius:3px">${escHtml(e)}</code>`).join(' ');
-    return `<div class="pkg-req" style="font-size:12px;color:var(--text-secondary);margin-top:4px">🔑 ${escHtml(label)} — ${escHtml(c.label)}<br><span style="color:var(--text-muted)">${escHtml(t('packages.envVars'))}: ${envs}</span></div>`;
+    const envs = c.envVars.map((e) => `<code style="font-family:var(--pm-font-mono);background:var(--app-bg-input);padding:1px 4px;border-radius:var(--pm-radius-sm)">${escHtml(e)}</code>`).join(' ');
+    return `<div class="pkg-req" style="font-size:12px;color:var(--app-text-secondary);margin-top:4px">🔑 ${escHtml(label)} — ${escHtml(c.label)}<br><span style="color:var(--app-text-muted)">${escHtml(t('packages.envVars'))}: ${envs}</span></div>`;
   }).join('');
 
   const caps = row.capabilities.length
-    ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">${escHtml(t('packages.capabilities'))}: ${row.capabilities.map((c) => escHtml(c)).join(', ')}</div>`
+    ? `<div style="font-size:11px;color:var(--app-text-muted);margin-top:6px">${escHtml(t('packages.capabilities'))}: ${row.capabilities.map((c) => escHtml(c)).join(', ')}</div>`
     : '';
 
   // Action buttons. The name is read from the row's catalog `name`, never from
@@ -231,7 +231,7 @@ export function renderPackageCard(row: PackageRow, canManagePackages = true): st
         ${unreleased && !row.installed ? '' : statusChip}
       </div>
       <div class="card-body" style="padding-top:0">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">${escHtml(row.description)}</div>
+        <div style="font-size:12px;color:var(--app-text-muted);margin-bottom:8px;line-height:1.4">${escHtml(row.description)}</div>
         ${row.unavailableReason ? `<div class="pkg-req">${escHtml(row.unavailableReason)}</div>` : unreleasedNote}${serviceNote}${credNotes}${caps}
         <div style="font-size:11px;margin-top:8px">${row.commands.map((command) => `<code>${escHtml(command)}</code>`).join(' · ')}</div>
         ${links ? `<div style="margin-top:8px">${links}</div>` : ''}

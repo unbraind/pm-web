@@ -1,6 +1,10 @@
 .git
 .github
-.agents
+.agents/**
+!.agents/pm/
+!.agents/pm/settings.json
+!.agents/pm/schema/
+!.agents/pm/schema/*.json
 .env
 .env.*
 !.env.example

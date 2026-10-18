@@ -499,3 +499,17 @@ For reproducible mixed HTTP/CLI load measurements against the disposable test
 database, see the [collaboration capacity harness](docs/capacity.md). It starts
 the built production server, records per-subscriber loss and duplicates plus
 delivery latency and resource counters, and caps its ladder at 3000 subscribers.
+
+### Triplicate assets and browser review
+
+The held `pm-brand` release is pinned by exact Git commit as a development
+dependency. Install with `npm ci`; the kit's guarded preparation supports Git
+artifacts. Runtime consumers install the packed package without a Git dependency.
+
+`npm run build` copies tokens, self-hosted fonts and licenses, mark artwork and
+PWA icons into ignored, published `public/brand/`. Graph and calendar import
+`tokens` from `pm-brand` through the browser palette bundle, with CSS variable
+resolution for the active theme. There is no application-owned palette or font CDN.
+
+See [brand review evidence](docs/brand-review.md) for the screenshot matrix,
+pixel comparison, accessibility checks and behavioral revert proof.

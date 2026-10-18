@@ -43,10 +43,10 @@ async function fetchAndRenderTemplates(): Promise<void> {
       el.innerHTML = `
         <div class="card">
           <div class="card-body">
-            <div style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
-              No templates defined yet. Create templates using the <code style="font-family:var(--font-mono);background:var(--bg-input);padding:2px 6px;border-radius:4px">pm templates create</code> CLI command.
+            <div style="color:var(--app-text-muted);font-size:13px;margin-bottom:16px">
+              No templates defined yet. Create templates using the <code style="font-family:var(--pm-font-mono);background:var(--app-bg-input);padding:2px 6px;border-radius:var(--pm-radius-sm)">pm templates create</code> CLI command.
             </div>
-            <div style="font-size:12px;color:var(--text-secondary)">
+            <div style="font-size:12px;color:var(--app-text-secondary)">
               Templates allow you to pre-fill item fields (type, priority, tags, description, etc.) when creating new items.
             </div>
           </div>
@@ -77,12 +77,12 @@ function renderTemplateCard(t: TemplateEntry): string {
           ${type ? typeIcon(type) : ''}
           <span>${escHtml(name)}</span>
         </div>
-        ${priority ? `<span style="font-size:11px;color:var(--text-muted);background:var(--bg-input);padding:2px 8px;border-radius:4px">P${priority}</span>` : ''}
+        ${priority ? `<span style="font-size:11px;color:var(--app-text-muted);background:var(--app-bg-input);padding:2px 8px;border-radius:var(--pm-radius-sm)">P${priority}</span>` : ''}
       </div>
       <div class="card-body" style="padding-top:0">
-        ${type ? `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type: <strong>${escHtml(type)}</strong></div>` : ''}
-        ${tags ? `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">Tags: ${escHtml(tags)}</div>` : ''}
-        ${desc ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.4">${escHtml(desc)}</div>` : ''}
+        ${type ? `<div style="font-size:12px;color:var(--app-text-secondary);margin-bottom:6px">Type: <strong>${escHtml(type)}</strong></div>` : ''}
+        ${tags ? `<div style="font-size:12px;color:var(--app-text-secondary);margin-bottom:6px">Tags: ${escHtml(tags)}</div>` : ''}
+        ${desc ? `<div style="font-size:12px;color:var(--app-text-muted);margin-bottom:10px;line-height:1.4">${escHtml(desc)}</div>` : ''}
         <button class="btn btn-primary btn-sm" style="width:100%" onclick="window.__app.createFromTemplate(${JSON.stringify(escHtml(name))}, ${JSON.stringify(t)})">
           + Create from Template
         </button>

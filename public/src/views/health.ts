@@ -84,10 +84,10 @@ export async function renderHealthView(): Promise<void> {
     const score = health.score !== undefined ? health.score : null;
     const issues = health.issues || [];
 
-    let scoreColor = '#4ade80';
+    let scoreColor = 'var(--pm-stamp)';
     if (score !== null) {
-      if (score < 50) scoreColor = '#f87171';
-      else if (score < 80) scoreColor = '#facc15';
+      if (score < 50) scoreColor = 'var(--pm-danger)';
+      else if (score < 80) scoreColor = 'var(--pm-graphite)';
     }
 
     const contentEl = document.getElementById('health-content');
@@ -97,7 +97,7 @@ export async function renderHealthView(): Promise<void> {
         <div class="card" style="margin-bottom:16px">
           <div class="health-score-display">
             <div class="health-score-number" style="color:${scoreColor}">${score}</div>
-            <div class="health-score-label">Health Score / 100</div>
+            <div class="health-score-label">Health score / 100 · ${score !== null && score < 50 ? 'Needs repair' : score !== null && score < 80 ? 'Needs attention' : 'Healthy'}</div>
           </div>
         </div>` : ''}
       <div class="card">
@@ -106,7 +106,7 @@ export async function renderHealthView(): Promise<void> {
         </div>
         <div class="card-body">
           ${issues.length === 0
-            ? '<div style="color:var(--status-closed);font-size:13px">✓ No issues found — project looks healthy!</div>'
+            ? '<div style="color:var(--app-status-closed);font-size:13px">✓ No issues found — project looks healthy!</div>'
             : issues.map((i) => renderIssueRow(i, projectId)).join('')
           }
         </div>
@@ -118,6 +118,6 @@ export async function renderHealthView(): Promise<void> {
         </div>` : ''}`;
   } catch(err: unknown) {
     const contentEl = document.getElementById('health-content');
-    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Error: ${escHtml(err instanceof Error ? err.message : String(err))}</div></div>`;
+    if (contentEl) contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-text">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div></div>`;
   }
 }

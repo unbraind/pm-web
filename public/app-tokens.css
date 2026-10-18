@@ -1,0 +1,36 @@
+/* App aliases point only to the shared Triplicate contract. */
+:root {
+  --app-bg-base: var(--pm-paper);
+  --app-bg-sidebar: var(--pm-paper);
+  --app-bg-sidebar-hover: var(--pm-stamp-wash);
+  --app-bg-card: var(--pm-sheet);
+  --app-bg-card2: var(--pm-paper);
+  --app-bg-input: var(--pm-sheet);
+  --app-bg-modal: var(--pm-sheet);
+  --app-border: var(--pm-rule);
+  --app-border-light: var(--pm-rule);
+  --app-accent: var(--pm-stamp);
+  --app-accent-dim: var(--pm-stamp-wash);
+  --app-accent-glow: var(--pm-stamp-wash);
+  --app-text-primary: var(--pm-carbon);
+  --app-text-secondary: var(--pm-graphite);
+  --app-text-muted: var(--pm-graphite);
+  --app-text-accent: var(--pm-stamp);
+  --app-status-draft: var(--pm-graphite);
+  --app-status-open: var(--pm-carbon);
+  --app-status-in_progress: var(--pm-carbon);
+  --app-status-blocked: var(--pm-carbon);
+  --app-status-closed: var(--pm-stamp);
+  --app-status-canceled: var(--pm-graphite);
+  --app-priority-1: var(--pm-carbon);
+  --app-priority-2: var(--pm-carbon);
+  --app-priority-3: var(--pm-graphite);
+  --app-priority-4: var(--pm-graphite);
+  --app-priority-5: var(--pm-graphite);
+  --app-radius: var(--pm-radius);
+  --app-radius-lg: var(--pm-radius);
+  --app-radius-sm: var(--pm-radius-sm);
+  --app-font-mono: var(--pm-font-mono);
+  --app-shadow: none;
+  --app-transition: none;
+}
