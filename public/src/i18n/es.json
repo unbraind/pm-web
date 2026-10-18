@@ -23,6 +23,7 @@
   "auth.button.register": "Crear cuenta",
   "auth.loading": "Por favor, espere…",
   "nav.skipLink": "Saltar al contenido principal",
+  "nav.accountActions": "Abrir navegación y acciones de la cuenta",
   "nav.settings": "Configuración",
   "nav.signOut": "Cerrar sesión",
   "nav.search": "⌘K Buscar",

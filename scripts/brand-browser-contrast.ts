@@ -13,11 +13,14 @@ export async function auditTextContrast(page: Page): Promise<{ pairs: number; fa
       context.fillRect(0, 0, 1, 1);
       return [...context.getImageData(0, 0, 1, 1).data].map(channel => channel / 255);
     };
-    /** Composite the foreground over an opaque background. */
-    const blend = (foreground: number[], background: number[]): number[] => foreground.slice(0, 3).map((channel, index) => channel * foreground[3] + background[index] * (1 - foreground[3]));
+    /** Composite two transparent layers before applying their containing opacity group. */
+    const blend = (foreground: number[], background: number[]): number[] => {
+      const alpha = foreground[3] + background[3] * (1 - foreground[3]);
+      return [...foreground.slice(0, 3).map((channel, index) => alpha ? (channel * foreground[3] + background[index] * background[3] * (1 - foreground[3])) / alpha : 0), alpha];
+    };
     /** Compute WCAG relative luminance from normalized sRGB channels. */
     const luminance = (color: number[]): number => {
-      const linear = color.map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
+      const linear = color.slice(0, 3).map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
       return linear[0] * .2126 + linear[1] * .7152 + linear[2] * .0722;
     };
     const scope = [...document.querySelectorAll<HTMLElement>('.modal-backdrop[style*="flex"] .modal')].at(-1) ?? document.body;
@@ -29,18 +32,21 @@ export async function auditTextContrast(page: Page): Promise<{ pairs: number; fa
       if (!text && !el.matches('input:not([type="checkbox"]):not([type="radio"]),textarea,select')) continue;
       const ancestors: HTMLElement[] = [];
       for (let parent: HTMLElement | null = el; parent; parent = parent.parentElement) ancestors.unshift(parent);
-      let background = [1, 1, 1];
-      let opacity = 1;
-      for (const ancestor of ancestors) {
-        const css = getComputedStyle(ancestor);
-        background = blend(rgba(css.backgroundColor), background);
-        opacity *= Number(css.opacity);
-      }
-      if (!opacity) continue;
       const css = getComputedStyle(el);
-      const ink = rgba(css.color);
-      ink[3] *= opacity;
-      const foreground = blend(ink, background);
+      let background = [0, 0, 0, 0];
+      let foreground = rgba(css.color);
+      // CSS opacity composites a whole subtree, including opaque child fills.
+      for (const ancestor of ancestors.reverse()) {
+        const style = getComputedStyle(ancestor);
+        const fill = rgba(style.backgroundColor);
+        background = blend(background, fill);
+        foreground = blend(foreground, fill);
+        background[3] *= Number(style.opacity);
+        foreground[3] *= Number(style.opacity);
+      }
+      if (!foreground[3]) continue;
+      background = blend(background, [1, 1, 1, 1]);
+      foreground = blend(foreground, [1, 1, 1, 1]);
       const key = `${foreground.join(',')}/${background.join(',')}`;
       pairs.add(key);
       const a = luminance(foreground), b = luminance(background);

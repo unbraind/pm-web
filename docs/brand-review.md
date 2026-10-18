@@ -332,3 +332,36 @@ structural checks and reproduces consumer/startup deadlines, server graph wall
 time, fatal-output child timing and a reset collaboration connection. These
 local attempts provide failure evidence; the four clean-runner CI gates provide
 release acceptance. The final receipt keeps each profile and outcome separate.
+
+Round 4 verifies all seven unresolved threads from the review of `147ba52`.
+The newest review contains seven inline findings and no outside-diff or nitpick
+sections. The review-input receipt preserves every unresolved thread, including
+all comments, plus the complete newest review body.
+
+| Review thread | Fix and regression |
+| --- | --- |
+| `discussion_r4302676333` | Account button uses `nav.accountActions` in all four shipped locales; `round4-locale` checks the actual accessible name without changing its icon. |
+| `discussion_r4302676340` and issue #218 | Dragging writes rendered coordinates and clears velocity while physics stays paused; `round4-drag` uses real mouse and single-touch input, cancels pending settling, retains released positions, and checks panning, click selection and keyboard navigation. |
+| `discussion_r4302676344` | Force `setData` starts/restarts cancellable settling and fits after the initial worker result. `round4-settle` checks replacement termination, stale-result rejection and hierarchical cancellation. An empty graph cannot consume the first fit, and an early switch to hierarchical layout fits synchronously. The older large-graph cancellation assertion now checks termination rather than requiring no replacement work. |
+| `discussion_r4302676348` | Theme-scoped token values and node colors are cached. `round4-palette` measures zero recolors and zero CSS property lookups over 20 steady frames, with one invalidation for theme and mode changes. |
+| `discussion_r4302676352` | A real pinned-CLI scratch tracker proves explicit empty tags and description are supported. PATCH forwards those two empty arguments; a real HTTP/PostgreSQL/CLI regression proves clearing and preservation of omitted fields. |
+| `discussion_r4302676354` | The contrast audit composites complete CSS opacity groups from the text outward. `round4-opacity` checks both white ink in a faded black container and an opaque white child inside a faded black parent; both paint 3.98:1 and fail AA. |
+| `discussion_r4302676364` | The wire regression selects authenticated route events by item and author, even after three additional watcher-style facts arrive. |
+
+The nine isolated revert probes restore only account binding, drag assignments,
+automatic settling, delayed fit, recoloring, resolved-token caching, opacity
+auditing, clear forwarding or SSE event selection. Each compiles first, then
+must fail a behavioral assertion. Production source hashes are verified after
+all probes. Source behavior remains static between explicit layout requests;
+background physics continues in the existing cancellable worker.
+
+Main is merged through `dc7d2d3`. The held kit's main remains the existing exact
+pin `7ad0970d96a20c24b8dbd9e0dcd1efeb8b4d5cc1`; no open brand PR is consumed.
+Round 4 screenshots cover account actions, the settled project graph and the
+item-detail graph at 1440/768/390 in both themes. Detail-graph captures scroll
+the graph itself into view after the keyboard/contrast audit.
+
+Final-source round 4 verification passes 42 keyboard/contrast audits, 778 actual
+Tab stops, 255 painted text-pair checks and 30 review cases. All nine independent
+revert probes compile and fail on their intended behavioral assertions; the
+complete suite exits successfully and all production hashes match.

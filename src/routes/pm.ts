@@ -1008,7 +1008,9 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   };
   for (const [key, flag] of Object.entries(stringFlags)) {
     const val = body[key];
-    if (val !== undefined && val !== null && val !== "") {
+    // The pinned CLI clears these built-ins with an explicit empty argument.
+    const explicitClear = (key === "tags" || key === "description") && val === "";
+    if (val !== undefined && val !== null && (val !== "" || explicitClear)) {
       args.push(flag, String(val));
     }
   }

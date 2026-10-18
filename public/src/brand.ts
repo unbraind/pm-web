@@ -3,17 +3,35 @@ import { tokens } from 'pm-brand';
 type TokenName = keyof typeof tokens.light;
 let paletteKey = '';
 let paletteStyle: CSSStyleDeclaration | null = null;
+let revision = 0;
+let dark = false;
+let media: MediaQueryList | null = null;
+const resolved = new Map<string, string>();
 
-/** Resolve a shared token after styles load, refreshing the palette when the theme changes. */
-export function brandValue(token: `--pm-${TokenName}`): string {
-  const key = `${document.documentElement.dataset.theme}:${matchMedia('(prefers-color-scheme: dark)').matches}`;
-  if (key !== paletteKey || !paletteStyle) {
-    paletteKey = key;
-    paletteStyle = getComputedStyle(document.documentElement);
-  }
+/** Invalidate resolved values only when the explicit or system theme changes. */
+export function brandRevision(): number {
+  media ??= matchMedia('(prefers-color-scheme: dark)');
   const theme = document.documentElement.dataset.theme;
-  const dark = theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-  return paletteStyle.getPropertyValue(token).trim() || tokens[dark ? 'dark' : 'light'][token.slice(5) as TokenName];
+  const key = `${theme}:${media.matches}`;
+  if (key !== paletteKey) {
+    paletteKey = key;
+    dark = theme === 'dark' || (theme !== 'light' && media.matches);
+    paletteStyle = null;
+    resolved.clear();
+    revision++;
+  }
+  return revision;
+}
+
+/** Resolve each shared token once per theme after styles load. */
+export function brandValue(token: `--pm-${TokenName}`): string {
+  brandRevision();
+  const cached = resolved.get(token);
+  if (cached !== undefined) return cached;
+  paletteStyle ??= getComputedStyle(document.documentElement);
+  const value = paletteStyle.getPropertyValue(token).trim() || tokens[dark ? 'dark' : 'light'][token.slice(5) as TokenName];
+  resolved.set(token, value);
+  return value;
 }
 
 /** Resolve palette entries lazily so existing graph nodes can repaint after a theme change. */

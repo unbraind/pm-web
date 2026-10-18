@@ -11,6 +11,7 @@ import type { AppBridge } from '../public/src/app.ts';
 import { holdArrivalFrame, checkLiveArrivals } from './brand-browser-live.ts';
 import { auditTextContrast } from './brand-browser-contrast.ts';
 import { checkReviewRegressions, assertFinishedActions } from './brand-browser-regressions.ts';
+import { checkRound4 } from './brand-browser-round4.ts';
 import { checkRound3 } from './brand-browser-round3.ts';
 
 interface ReviewWindow extends Window { __app: AppBridge; __fixtureEmit: (data: Record<string, unknown>) => void }
@@ -108,6 +109,7 @@ async function capture(page: Page, name: string, width: number, theme: string, s
     });
   }
   if (!screenshot || (process.env.BRAND_CAPTURE_ONLY && !process.env.BRAND_CAPTURE_ONLY.split(',').includes(name))) return;
+  if (name === 'detail-graph') await page.locator('#local-graph-canvas').scrollIntoViewIfNeeded();
   screenshotCount++;
   await page.screenshot({ path: path.join(output!, `${name}-${width}-${theme}.png`), timeout: 60000, animations: name.startsWith('live-arrival') ? 'allow' : 'disabled' });
 }
@@ -170,7 +172,7 @@ try {
     await page.evaluate(() => (window as unknown as ReviewWindow).__app.selectProject('fixture-project'));
     await page.locator('.item-row').first().waitFor();
     if (process.env.BRAND_REGRESSION_ONLY) {
-      report.push({ width, theme, reviewCases: process.env.BRAND_REGRESSION_ONLY.startsWith('round3') ? await checkRound3(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
+      report.push({ width, theme, reviewCases: process.env.BRAND_REGRESSION_ONLY.startsWith('round4') ? await checkRound4(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round3') ? await checkRound3(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
       await context.close();
       continue;
     }
@@ -248,6 +250,7 @@ try {
     if (strict) {
       report.push({ width, theme, reviewCases: await checkReviewRegressions(page) });
       report.push({ width, theme, round3Cases: await checkRound3(page, 'round3-ui', name => capture(page, name, width, theme)) });
+      report.push({ width, theme, round4Cases: await checkRound4(page, 'round4', name => capture(page, name, width, theme)) });
     }
     await page.goto(`${base}/privacy-policy.html`);
     await capture(page, 'legal', width, theme);

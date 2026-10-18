@@ -59,8 +59,12 @@ async function checkSettle(page: Page, baseline: boolean): Promise<string> {
     const coalescedWorkers = workers;
     graph.reheat();
     await waitForWorker();
+    const stale = inspect.settleWorker!;
+    let terminated = false;
+    const terminate = stale.terminate.bind(stale);
+    stale.terminate = () => { terminated = true; terminate(); };
     graph.setData(nodes.slice(0, 2), []);
-    const canceled = inspect.settleTimer === null && inspect.settleWorker === null && inspect.nodes.length === 2;
+    const canceled = terminated && inspect.settleWorker !== stale && inspect.nodes.length === 2;
     graph.setData(nodes, edges);
     graph.reheat();
     await waitForWorker();

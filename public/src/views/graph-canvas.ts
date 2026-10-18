@@ -1,5 +1,5 @@
 import { tickPhysics } from './graph-physics.js';
-import { brandValue, brandPalette } from '../brand.js';
+import { brandValue, brandPalette, brandRevision } from '../brand.js';
 // ═══════════════════════════════════════════════════════════════
 // GRAPH CANVAS — Triplicate knowledge graph
 // Canvas 2D + physics simulation, no external dependencies
@@ -299,7 +299,7 @@ export class GraphCanvas {
 
   // Initial load zoom-to-fit
   private initialFitDone = false;
-  private initialFitTimer: ReturnType<typeof setTimeout> | null = null;
+  private colorRevision = -1;
 
   // Callbacks
   private onSelectNode:   (id: string | null) => void;
@@ -338,7 +338,7 @@ export class GraphCanvas {
 
   // ── Public API ─────────────────────────────────────────────
 
-  /** Loads the given nodes and edges into the simulation, preserving prior node positions where possible, precomputing bidirectional edge pairs, recoloring nodes, scheduling the initial zoom-to-fit, and applying the hierarchical layout when selected. */
+  /** Loads the given nodes and edges into the simulation, preserving prior node positions where possible, precomputing bidirectional edge pairs, recoloring nodes, and settling force layouts before the first zoom-to-fit. */
   setData(nodes: CanvasNode[], edges: CanvasEdge[]): void {
     this.cancelSettle();
     const prevPos = new Map(this.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
@@ -382,17 +382,12 @@ export class GraphCanvas {
 
     this.recolorNodes();
 
-    // Initial zoom-to-fit animation
-    this.initialFitDone = false;
-    if (this.initialFitTimer) clearTimeout(this.initialFitTimer);
-    this.initialFitTimer = setTimeout(() => {
-      this.fitView();
-      this.initialFitDone = true;
-    }, 0);
-
-    // Apply hierarchical layout if selected
+    // Force layouts fit only after their first complete worker result.
     if (this.layout === 'hierarchical') {
       this.applyHierarchicalLayout();
+      this.fitInitialView();
+    } else {
+      this.reheat();
     }
 
     this.hoveredId = null;
@@ -492,6 +487,13 @@ export class GraphCanvas {
     this.settleWorker = null;
   }
 
+  /** Fit the first nonempty layout once; empty data cannot consume the initial fit. */
+  private fitInitialView(): void {
+    if (this.initialFitDone || !this.nodes.length) return;
+    this.fitView();
+    this.initialFitDone = true;
+  }
+
   /** Coalesce controls and compute all 180 steps off the main thread before painting. */
   reheat(): void {
     this.cancelSettle();
@@ -505,6 +507,7 @@ export class GraphCanvas {
         event.data.forEach((position, index) => Object.assign(this.nodes[index], position));
         worker.terminate();
         this.settleWorker = null;
+        this.fitInitialView();
       };
       worker.onerror = () => this.cancelSettle();
       worker.postMessage({ nodes: this.nodes, edges: this.edges, params: { ...this.getPhysicsParams(), facetDistance: this.LINK_DIST_FAC }, tags: this.filter.colorMode === 'tag' ? [...this.tagColorMap.keys()] : [] });
@@ -518,6 +521,7 @@ export class GraphCanvas {
     this.layout = layout;
     if (layout === 'hierarchical') {
       this.applyHierarchicalLayout();
+      this.fitInitialView();
     } else {
       // Scatter nodes slightly and reheat force simulation
       for (const n of this.nodes) {
@@ -805,7 +809,6 @@ export class GraphCanvas {
     this.cancelSettle();
     this.destroyed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
-    if (this.initialFitTimer) clearTimeout(this.initialFitTimer);
     this.abortCtrl.abort();
     this.ro.disconnect();
     this.canvas.remove();
@@ -833,6 +836,7 @@ export class GraphCanvas {
   }
 
   private recolorNodes(): void {
+    this.colorRevision = brandRevision();
     if (this.filter.colorMode === 'tag') {
       const freq = new Map<string, number>();
       for (const n of this.nodes) {
@@ -922,7 +926,7 @@ export class GraphCanvas {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w * this.dpr, h * this.dpr);
 
-    this.recolorNodes();
+    if (this.colorRevision !== brandRevision()) this.recolorNodes();
 
     // Background
     ctx.fillStyle = brandValue('--pm-paper');
@@ -1922,7 +1926,6 @@ export class GraphCanvas {
       this.dragNode = hit;
       hit.fx = hit.x;
       hit.fy = hit.y;
-      this.alpha = Math.max(this.alpha, 0.25);
       if (setCursor) this.canvas.style.cursor = 'grabbing';
     } else {
       this.isDraggingCanvas = true;
@@ -1944,6 +1947,10 @@ export class GraphCanvas {
       const [wx, wy] = this.toWorld(x, y);
       this.dragNode.fx = wx;
       this.dragNode.fy = wy;
+      this.dragNode.x = wx;
+      this.dragNode.y = wy;
+      this.dragNode.vx = 0;
+      this.dragNode.vy = 0;
       if (clearFlyOnNode) this.flyTarget = null;
       return true;
     }

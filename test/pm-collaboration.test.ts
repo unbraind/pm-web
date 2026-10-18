@@ -16,6 +16,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { createProjectWatchCycle } from "../src/services/project-watcher.ts";
+import { deliverProjectEvent } from "../src/services/sse.ts";
 import { connectLiveSSE } from "./helpers/live-sse.ts";
 import { pool } from "../src/db.ts";
 
@@ -146,6 +147,33 @@ test("concurrent collaborators update one item without a lost write or malformed
   assert.match(historyText, /editor concurrent edit/);
 });
 
+test("item updates clear explicit tags and description while omitted fields survive", async t => {
+  const { harness, server } = await setupCollabTest(t);
+  const itemId = await createItem(server, harness.owner, harness.projectId, "Clear built-ins");
+  for (const patch of [{ tags: "one,two" }, { title: "Preserve omitted fields" }]) {
+    const response = await authedFetch(server, harness.owner, `/api/projects/${harness.projectId}/pm/update/${itemId}`, {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch),
+    });
+    assert.equal(response.status, 200, await response.text());
+  }
+  const readItem = async (): Promise<{ title: string; description: string; tags: string[] }> => {
+    const response = await authedFetch(server, harness.owner, `/api/projects/${harness.projectId}/pm/get/${itemId}`);
+    const payload = await response.json() as { item: { title: string; description: string; tags: string[] } };
+    return payload.item;
+  };
+  const preserved = await readItem();
+  assert.equal(preserved.description, "Collaboration fixture");
+  assert.deepEqual(preserved.tags, ["one", "two"]);
+  const cleared = await authedFetch(server, harness.editor, `/api/projects/${harness.projectId}/pm/update/${itemId}`, {
+    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ tags: "", description: "" }),
+  });
+  assert.equal(cleared.status, 200, await cleared.text());
+  const item = await readItem();
+  assert.equal(item.description, "");
+  assert.deepEqual(item.tags, []);
+  assert.equal(item.title, "Preserve omitted fields");
+});
+
 test("item update SSE adds the authenticated display name while preserving legacy identity fields", async t => {
   const { harness, server, streams } = await setupLiveCollabTest(t, "owner");
   const itemId = await createItem(server, harness.owner, harness.projectId, "Attributed copy");
@@ -154,16 +182,20 @@ test("item update SSE adds the authenticated display name while preserving legac
     method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Another editor's copy", author: "Untrusted display override" }),
   });
   assert.equal(response.status, 200, await response.text());
-  await observer.waitFor(events => events.some(event => event.type === "item-updated" && event.data.itemId === itemId));
-  const event = observer.events.find(event => event.type === "item-updated" && event.data.itemId === itemId)!;
+  await observer.waitFor(events => events.some(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Editor"));
+  const event = observer.events.find(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Editor")!;
   assert.deepEqual(event.data, { itemId, userId: harness.editor.id, author: "Editor" });
   await pool.query("UPDATE pm_users SET display_name = NULL WHERE id = $1", [harness.editor.id]);
   const second = await authedFetch(server, harness.editor, `/api/projects/${harness.projectId}/pm/update/${itemId}`, {
     method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ description: "Fallback attribution" }),
   });
   assert.equal(second.status, 200);
-  await observer.waitFor(events => events.filter(event => event.type === "item-updated").length === 2);
-  assert.equal(observer.events.filter(event => event.type === "item-updated").at(-1)!.data.author, "Project member");
+  // Deterministically reproduce watcher facts arriving before the observer checks.
+  for (let index = 0; index < 3; index++) deliverProjectEvent(harness.projectId, { type: "item-updated", data: { itemId, source: "committed-mutation" } });
+  await observer.waitFor(events => events.filter(event => event.data.source === "committed-mutation").length >= 3);
+  await observer.waitFor(events => events.some(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Project member"));
+  const fallback = observer.events.find(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Project member")!;
+  assert.deepEqual(fallback.data, { itemId, userId: harness.editor.id, author: "Project member" });
 });
 
 /** Open owner/editor wire streams with their cleanup registered before server teardown. */

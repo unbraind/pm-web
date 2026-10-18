@@ -23,6 +23,7 @@
   "auth.button.register": "Create account",
   "auth.loading": "Please wait…",
   "nav.skipLink": "Skip to main content",
+  "nav.accountActions": "Open navigation and account actions",
   "nav.settings": "Settings",
   "nav.signOut": "Sign out",
   "nav.search": "⌘K Search",

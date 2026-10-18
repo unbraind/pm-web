@@ -23,6 +23,7 @@
   "auth.button.register": "创建账户",
   "auth.loading": "请稍候…",
   "nav.skipLink": "跳转到主要内容",
+  "nav.accountActions": "打开导航和账户操作",
   "nav.settings": "设置",
   "nav.signOut": "退出登录",
   "nav.search": "⌘K 搜索",
