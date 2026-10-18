@@ -1,0 +1,40 @@
+{
+  "head": "fc0447ce08336c9598a00be76b4e48def296e9ee",
+  "reviewedRound4Head": "4bcc41535bbfea7603204ba63f8c908418bed355",
+  "latestRound4Review": "2026-10-18T04:25:57Z",
+  "inlineFindings": 3,
+  "outsideDiffFindings": 0,
+  "nitpicks": 0,
+  "replies": [
+    {
+      "thread": 4305713653,
+      "url": "https://github.com/unbraind/pm-web/pull/216#discussion_r4305926821"
+    },
+    {
+      "thread": 4305713654,
+      "url": "https://github.com/unbraind/pm-web/pull/216#discussion_r4305926889"
+    },
+    {
+      "thread": 4305713657,
+      "url": "https://github.com/unbraind/pm-web/pull/216#discussion_r4305926948"
+    }
+  ],
+  "codeRabbitAcknowledgements": [
+    4305928138,
+    4305928384,
+    4305928323
+  ],
+  "originalThreadsResolvedByCodeRabbit": true,
+  "manualThreadResolutionsByThisWork": 0,
+  "freshFullReview": {
+    "status": "skipped",
+    "reason": "Manual review required for this OSS repository",
+    "approval": false
+  },
+  "otherAutomatedReviewsUnavailable": [
+    "Greptile",
+    "Cubic",
+    "Sourcery"
+  ],
+  "unavailableResultsAreNotApproval": true
+}

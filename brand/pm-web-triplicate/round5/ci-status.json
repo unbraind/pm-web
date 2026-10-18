@@ -1,0 +1,40 @@
+{
+  "time": "2026-10-18T06:14:23.506Z",
+  "head": "fc0447ce08336c9598a00be76b4e48def296e9ee",
+  "runs": [
+    {
+      "id": 39102042186,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/unbraind/pm-web/actions/runs/39102042186",
+      "jobs": [
+        {
+          "name": "test (22)",
+          "status": "completed",
+          "conclusion": "success",
+          "current": []
+        },
+        {
+          "name": "test (26)",
+          "status": "completed",
+          "conclusion": "success",
+          "current": []
+        }
+      ]
+    },
+    {
+      "id": 39102042185,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/unbraind/pm-web/actions/runs/39102042185",
+      "jobs": [
+        {
+          "name": "codeql",
+          "status": "completed",
+          "conclusion": "success",
+          "current": []
+        }
+      ]
+    }
+  ]
+}

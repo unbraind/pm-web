@@ -70,7 +70,273 @@
     "cause": "Standalone copies initially omitted required Git metadata; restored the independently verified trusted main ref without changing controls"
   },
   "ci": {
-    "status": "pending"
+    "status": "success",
+    "head": "fc0447ce08336c9598a00be76b4e48def296e9ee",
+    "run": "https://github.com/unbraind/pm-web/actions/runs/39102042186",
+    "codeql": "https://github.com/unbraind/pm-web/actions/runs/39102042185",
+    "codeqlStatus": "success",
+    "profiles": [
+      {
+        "node": 22,
+        "runner": "npm",
+        "command": "npm run release:check",
+        "status": "success",
+        "main": {
+          "tests": 670,
+          "pass": 670,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "capacity": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "packedConsumers": [
+          {
+            "scenario": "npm-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "npm-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          }
+        ],
+        "coverage": {
+          "statements": 92.51,
+          "branches": 81.5,
+          "functions": 95.22,
+          "lines": 92.51
+        },
+        "sourceScope": "All intended server sources in src",
+        "sourceFiles": 40,
+        "duplicationPercent": 0,
+        "documentedDeclarations": 750,
+        "productionAudit": "zero vulnerabilities",
+        "startedAt": "2026-10-18T05:53:11Z",
+        "completedAt": "2026-10-18T06:02:42Z"
+      },
+      {
+        "node": 22,
+        "runner": "bun",
+        "command": "bun run release:check",
+        "status": "success",
+        "main": {
+          "tests": 670,
+          "pass": 670,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "capacity": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "packedConsumers": [
+          {
+            "scenario": "npm-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "npm-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          }
+        ],
+        "coverage": {
+          "statements": 92.52,
+          "branches": 81.56,
+          "functions": 95.22,
+          "lines": 92.52
+        },
+        "sourceScope": "All intended server sources in src",
+        "sourceFiles": 40,
+        "duplicationPercent": 0,
+        "documentedDeclarations": 750,
+        "productionAudit": "zero vulnerabilities",
+        "startedAt": "2026-10-18T06:03:49Z",
+        "completedAt": "2026-10-18T06:13:26Z"
+      },
+      {
+        "node": 26,
+        "runner": "npm",
+        "command": "npm run release:check",
+        "status": "success",
+        "main": {
+          "tests": 670,
+          "pass": 670,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "capacity": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "packedConsumers": [
+          {
+            "scenario": "npm-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "npm-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          }
+        ],
+        "coverage": {
+          "statements": 92.52,
+          "branches": 81.55,
+          "functions": 96.12,
+          "lines": 92.52
+        },
+        "sourceScope": "All intended server sources in src",
+        "sourceFiles": 40,
+        "duplicationPercent": 0,
+        "documentedDeclarations": 750,
+        "productionAudit": "zero vulnerabilities",
+        "startedAt": "2026-10-18T05:53:12Z",
+        "completedAt": "2026-10-18T06:02:21Z"
+      },
+      {
+        "node": 26,
+        "runner": "bun",
+        "command": "bun run release:check",
+        "status": "success",
+        "main": {
+          "tests": 670,
+          "pass": 670,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "capacity": {
+          "tests": 2,
+          "pass": 2,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "packedConsumers": [
+          {
+            "scenario": "npm-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-current",
+            "host_version": "2026.10.15",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "npm-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          },
+          {
+            "scenario": "bun-minimum",
+            "host_version": "2026.10.4",
+            "standalone_sdk_version": "2026.10.15",
+            "deprecated_diagnostic": false,
+            "unpublished_npm_link_omitted": true
+          }
+        ],
+        "coverage": {
+          "statements": 92.51,
+          "branches": 81.5,
+          "functions": 96.12,
+          "lines": 92.51
+        },
+        "sourceScope": "All intended server sources in src",
+        "sourceFiles": 40,
+        "duplicationPercent": 0,
+        "documentedDeclarations": 750,
+        "productionAudit": "zero vulnerabilities",
+        "startedAt": "2026-10-18T06:03:33Z",
+        "completedAt": "2026-10-18T06:12:45Z"
+      }
+    ]
   },
   "thresholdsUnchanged": true,
   "stagesAfterCoverageNotReachedLocally": true,
