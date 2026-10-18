@@ -1,0 +1,9 @@
+{
+  "head": "54e7983f505dacf327f1c75a41d5c6ca96e4e8b5",
+  "brandPin": "505f386aaa68c0947b9380eae9cfe74dc48e47c7",
+  "validationRun": "https://github.com/unbraind/pm-web/actions/runs/39119817140",
+  "validationState": "in_progress",
+  "localAttempts": "local-release-attempts.json",
+  "freshCloneHealth": "health-report.json",
+  "noThresholdChanges": true
+}

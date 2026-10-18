@@ -1,6 +1,7 @@
 {
   "from": "98cbe45976b3111f09143c2a29ede906cb553c2a",
-  "to": "afc46c4352ef429afec38d5bcf04549dd3f1c87d",
+  "via": "afc46c4352ef429afec38d5bcf04549dd3f1c87d",
+  "to": "505f386aaa68c0947b9380eae9cfe74dc48e47c7",
   "consumedAssets": 54,
   "allAssetBytesEqual": true,
   "canvasBundleEqual": true,

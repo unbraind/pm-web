@@ -1,0 +1,21 @@
+{
+  "command": "node --test test/catalog.test.ts",
+  "head": "5ed1d5c",
+  "environment": "sibling worktree discovery",
+  "tests": 18,
+  "pass": 15,
+  "fail": 3,
+  "cancelled": 0,
+  "skipped": 0,
+  "todo": 0,
+  "findings": [
+    "inferred fleet membership",
+    "Jev catalog description differs from neighboring metadata",
+    "live metadata differs from committed snapshot"
+  ],
+  "followups": [
+    "pm-web-4p94",
+    "pm-web-5hdb"
+  ],
+  "scope": "Separate from standalone release acceptance; no catalog code or thresholds changed."
+}

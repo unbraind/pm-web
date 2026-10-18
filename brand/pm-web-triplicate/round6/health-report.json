@@ -1,0 +1,15 @@
+{
+  "head": "54e7983f505dacf327f1c75a41d5c6ca96e4e8b5",
+  "freshCloneNoLocal": true,
+  "dependencySetup": "clean npm ci; pinned managed extension installed",
+  "ok": true,
+  "verdict": {
+    "authority": "ok",
+    "strict_exit": true,
+    "require_merge_drivers": true,
+    "exit_code": 0
+  },
+  "warnings": [
+    "stale_in_progress_items:17"
+  ]
+}

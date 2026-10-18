@@ -16,7 +16,7 @@
     },
     {
       "path": "after/detail-open-1440-light.png",
-      "sha256": "94f7e9903a9ab63ad83b115087cb3d65c93c000f70181e050b0280338c2c8c46"
+      "sha256": "469407ec3e7786f5236b40aee85da68cd4c3c3d262abc43e2f1d70c1393e0238"
     },
     {
       "path": "after/detail-open-390-dark.png",
@@ -32,7 +32,7 @@
     },
     {
       "path": "after/detail-open-768-light.png",
-      "sha256": "202a9f3c0601cfbd3ca580372c11d1ef9c7d54c1f0cedc448608cce29516dea3"
+      "sha256": "14036d451d26ca9c0f062d8c4c7473bc7b466e99fa2277fcbb1f1e5ea028eb5a"
     },
     {
       "path": "after/graph-1440-dark.png",
@@ -60,7 +60,7 @@
     },
     {
       "path": "after/live-arrival-detail-1440-dark.png",
-      "sha256": "5e922013d066109ca293c1f4be0de2df7eecfdda2b8f5d781dcd316ec717904c"
+      "sha256": "b9b6cfdda64b9aa97ca10b22889b878751988e2b9a49ca2d38414213ac50defe"
     },
     {
       "path": "after/live-arrival-detail-1440-light.png",
@@ -72,7 +72,7 @@
     },
     {
       "path": "after/live-arrival-detail-390-light.png",
-      "sha256": "f2e3d26010c78766772c9dcc01d7b8c893099fcad48ddb40bf1ea14733ce862f"
+      "sha256": "0dda28d0019e4495d70549493d667d45886ff848fd1c175e29ca00e37b3890cf"
     },
     {
       "path": "after/live-arrival-detail-768-dark.png",
@@ -80,15 +80,15 @@
     },
     {
       "path": "after/live-arrival-detail-768-light.png",
-      "sha256": "6fbe077f956b63e09f1713ff7c878451ae5a31c6f7530dff03ba05d87836adc2"
+      "sha256": "1fe2ffb6fb1843b93a7dd35a52b413a1031a7d290376fc49db2d0997b66c971c"
     },
     {
       "path": "after/live-arrival-detail-settled-1440-dark.png",
-      "sha256": "c3dc4b455105420145a9c5b3549d02a45eacfd48ced1bd9175a3f12f14bc2ac1"
+      "sha256": "b04ee2e22332bebde300e9880ac188de9c200e0dc3e232bdbc3d977b0b749dc3"
     },
     {
       "path": "after/live-arrival-detail-settled-1440-light.png",
-      "sha256": "28defa0884f31ac2fc78a399d1e0145d3f43a34291ca5c2dbcb97908caa235c0"
+      "sha256": "fc78ccc23ebe178d8f7705007aac4cc6d4687e2c0a4e9ee0e126e1d9f7ada2cb"
     },
     {
       "path": "after/live-arrival-detail-settled-390-dark.png",
@@ -104,11 +104,11 @@
     },
     {
       "path": "after/live-arrival-detail-settled-768-light.png",
-      "sha256": "4f25aded642a82fa950d94f63e4596c3af75c8ee9872face630804572bdbd00c"
+      "sha256": "86d141be973745373780105a28d9fd2bdb22cbcdc3f657b9b10dad1a288c9c2a"
     }
   ],
-  "sourceHead": "267309ac4646e7e85a6635674f4486daa293640e",
-  "brandPin": "afc46c4352ef429afec38d5bcf04549dd3f1c87d",
+  "sourceHead": "54e7983f505dacf327f1c75a41d5c6ca96e4e8b5",
+  "brandPin": "505f386aaa68c0947b9380eae9cfe74dc48e47c7",
   "audits": {
     "groups": 6,
     "screenshots": 24,
