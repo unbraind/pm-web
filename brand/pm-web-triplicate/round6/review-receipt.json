@@ -27,5 +27,7 @@
   "manualThreadResolutionPerformed": false,
   "fullReviewState": "skipped: manual review required for this OSS repository",
   "substantiveReviewHead": "fc0447ce08336c9598a00be76b4e48def296e9ee",
-  "assurance": "Thread acknowledgments are static inspection, not a new full-review approval."
+  "assurance": "Thread acknowledgments are static inspection, not a new full-review approval.",
+  "finalUnresolvedThreads": 0,
+  "finalStateVerified": true
 }

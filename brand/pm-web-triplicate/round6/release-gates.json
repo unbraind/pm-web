@@ -262,8 +262,271 @@
   "localAttempts": "local-release-attempts.json",
   "freshCloneHealth": "health-report.json",
   "prRun": "https://github.com/unbraind/pm-web/actions/runs/39121131169",
-  "prRunState": "in_progress",
+  "prRunState": "success",
   "codeqlRun": "https://github.com/unbraind/pm-web/actions/runs/39121131163",
   "codeqlState": "success",
-  "noThresholdChanges": true
+  "noThresholdChanges": true,
+  "prGates": [
+    {
+      "node": 22,
+      "command": "npm run release:check",
+      "exit": 0,
+      "suite": {
+        "tests": 671,
+        "pass": 671,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "packed": [
+        {
+          "scenario": "npm-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "npm-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        }
+      ],
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.5,
+        "functions": 95.22,
+        "lines": 92.51
+      },
+      "reportedServerFiles": 40,
+      "duplicationPercent": 0,
+      "documentedDeclarations": 752,
+      "productionVulnerabilities": 0
+    },
+    {
+      "node": 22,
+      "command": "bun run release:check",
+      "exit": 0,
+      "suite": {
+        "tests": 671,
+        "pass": 671,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "packed": [
+        {
+          "scenario": "npm-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "npm-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        }
+      ],
+      "coverage": {
+        "statements": 92.52,
+        "branches": 81.55,
+        "functions": 95.22,
+        "lines": 92.52
+      },
+      "reportedServerFiles": 40,
+      "duplicationPercent": 0,
+      "documentedDeclarations": 752,
+      "productionVulnerabilities": 0
+    },
+    {
+      "node": 26,
+      "command": "npm run release:check",
+      "exit": 0,
+      "suite": {
+        "tests": 671,
+        "pass": 671,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "packed": [
+        {
+          "scenario": "npm-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "npm-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        }
+      ],
+      "coverage": {
+        "statements": 92.52,
+        "branches": 81.55,
+        "functions": 96.12,
+        "lines": 92.52
+      },
+      "reportedServerFiles": 40,
+      "duplicationPercent": 0,
+      "documentedDeclarations": 752,
+      "productionVulnerabilities": 0
+    },
+    {
+      "node": 26,
+      "command": "bun run release:check",
+      "exit": 0,
+      "suite": {
+        "tests": 671,
+        "pass": 671,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "capacity": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "packed": [
+        {
+          "scenario": "npm-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-current",
+          "host_version": "2026.10.15",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "npm-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        },
+        {
+          "scenario": "bun-minimum",
+          "host_version": "2026.10.4",
+          "standalone_sdk_version": "2026.10.15",
+          "command_status": "down",
+          "deprecated_diagnostic": false,
+          "unpublished_npm_link_omitted": true
+        }
+      ],
+      "coverage": {
+        "statements": 92.51,
+        "branches": 81.5,
+        "functions": 96.12,
+        "lines": 92.51
+      },
+      "reportedServerFiles": 40,
+      "duplicationPercent": 0,
+      "documentedDeclarations": 752,
+      "productionVulnerabilities": 0
+    }
+  ],
+  "prCompletedAt": "2026-10-18T11:18:20Z"
 }
