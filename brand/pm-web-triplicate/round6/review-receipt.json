@@ -1,0 +1,31 @@
+{
+  "head": "54e7983f505dacf327f1c75a41d5c6ca96e4e8b5",
+  "targetThreads": [
+    {
+      "id": "PRRT_kwDOSZgR5c6toKsq",
+      "path": "public/src/views/export.ts",
+      "resolved": true,
+      "outdated": true,
+      "acknowledgedBy": "coderabbitai"
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6toKsv",
+      "path": "public/src/views/items.ts",
+      "resolved": true,
+      "outdated": true,
+      "acknowledgedBy": "coderabbitai"
+    },
+    {
+      "id": "PRRT_kwDOSZgR5c6toKsw",
+      "path": "scripts/brand-pixel-diff.ts",
+      "resolved": true,
+      "outdated": true,
+      "acknowledgedBy": "coderabbitai"
+    }
+  ],
+  "additionalUnresolvedThreads": 0,
+  "manualThreadResolutionPerformed": false,
+  "fullReviewState": "skipped: manual review required for this OSS repository",
+  "substantiveReviewHead": "fc0447ce08336c9598a00be76b4e48def296e9ee",
+  "assurance": "Thread acknowledgments are static inspection, not a new full-review approval."
+}

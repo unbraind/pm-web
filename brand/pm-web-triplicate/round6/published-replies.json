@@ -1,0 +1,30 @@
+{
+  "head": "54e7983f505dacf327f1c75a41d5c6ca96e4e8b5",
+  "threadReplies": [
+    {
+      "html_url": "https://github.com/unbraind/pm-web/pull/216#discussion_r4306744399",
+      "id": 4306744399,
+      "in_reply_to_id": 4306074134
+    },
+    {
+      "html_url": "https://github.com/unbraind/pm-web/pull/216#discussion_r4306744504",
+      "id": 4306744504,
+      "in_reply_to_id": 4306074139
+    },
+    {
+      "html_url": "https://github.com/unbraind/pm-web/pull/216#discussion_r4306744558",
+      "id": 4306744558,
+      "in_reply_to_id": 4306074142
+    }
+  ],
+  "issue218": {
+    "html_url": "https://github.com/unbraind/pm-web/issues/218#issuecomment-6248985722",
+    "id": 6248985722
+  },
+  "screenshotComment": {
+    "html_url": "https://github.com/unbraind/pm-web/pull/216#issuecomment-6248985961",
+    "id": 6248985961
+  },
+  "publishedBodiesVerified": true,
+  "manualThreadResolutionPerformed": false
+}
