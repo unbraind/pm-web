@@ -506,3 +506,23 @@ controls; all 54 consumed assets and the canvas palette bundle remain
 byte-identical. Runtime dependency pins and the established exact-Git lock
 format are unchanged. The complete screenshot matrix is refreshed on this pin;
 final release results are recorded in the round-6 gate receipt.
+
+Final-pin local repeats are failed attempts: npm is 670 passed / 1 failed /
+0 canceled; Bun is 669 passed / 1 failed / 1 canceled, out of 671 each, with no
+skipped/todo. The unchanged missing-database child exceeds its 10-second limit
+under npm coverage; its focused identical-pin check passes 1/1 at 9.8 seconds.
+Bun exceeds the existing five-minute catalog deadline and then reports
+`spawn ENOTDIR` in the source case. These are retained under `pm-web-qdhx`;
+later release stages are not reached. Prior complete gates on the equivalent
+asset pin are historical evidence. Final-head CI is a separate receipt, and no
+failed, canceled or interrupted local attempt is treated as approval.
+
+Kit main advanced again to `505f386aaa68c0947b9380eae9cfe74dc48e47c7` before
+PR delivery. Its new banners and context-management documentation leave all
+54 consumed assets and the canvas bundle byte-identical. The final immutable
+candidate uses this pin. The repository's unchanged CI workflow is dispatched
+on a separate validation branch before updating the PR branch, executing full
+npm and Bun release checks with isolated Git identity on Node 22 and 26.
+Its exact-head results, fresh-clone health, refreshed fixture matrix and local
+failed-attempt boundaries are recorded in the linked round-6 receipts. No
+workflow, assertion, dependency floor or threshold is weakened.
