@@ -483,3 +483,26 @@ settle cancellation, panning, click selection and keyboard navigation.
 retain the six viewport/theme combinations for detail, graph, live title arrival
 and its settled state. Original main BEFORE frames remain in the original
 screenshot matrix. Review threads remain available for reviewer verification.
+
+Round 6 release acceptance uses a standalone clone of merged head `5ed1d5c`
+with trusted main, Node 26.12.0, a fresh HOME and disabled global/system Git
+identity. Both `npm run release:check` and `bun run release:check` pass: 671/671
+suite tests, 2/2 capacity cases and 4/4 packed consumers each; zero failures,
+cancellations, skips or todos. Each reports all 40 intended server files at
+92.52% statements/lines, 81.50% branches and 96.12% functions. Duplication is 0%;
+752 declarations are documented; production audits report zero vulnerabilities.
+All thresholds and runtime dependency pins remain unchanged.
+
+The separate sibling-worktree catalog check is 15/18 with three existing
+membership/metadata mismatches, owned by `pm-web-4p94` and `pm-web-5hdb`.
+Interrupted or stopped earlier attempts are not acceptance. The release-main
+merge changes version metadata without changing any of the 11 reviewed
+TypeScript/CSS inputs; their hashes preserve the screenshot provenance.
+Final-head health and CI receipts are maintained with the round-6 screenshots.
+
+The immediate pre-push kit check advanced the held dependency to
+`afc46c4352ef429afec38d5bcf04549dd3f1c87d`. Its change is in identity/workflow
+controls; all 54 consumed assets and the canvas palette bundle remain
+byte-identical. Runtime dependency pins and the established exact-Git lock
+format are unchanged. The complete screenshot matrix is refreshed on this pin;
+final release results are recorded in the round-6 gate receipt.
