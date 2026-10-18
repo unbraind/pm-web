@@ -365,3 +365,20 @@ Final-source round 4 verification passes 42 keyboard/contrast audits, 778 actual
 Tab stops, 255 painted text-pair checks and 30 review cases. All nine independent
 revert probes compile and fail on their intended behavioral assertions; the
 complete suite exits successfully and all production hashes match.
+
+The final committed-source 2,000-node worker repeat returns in 0 ms and completes
+in 23,309.8 ms; coalescing, input yielding, static intermediate positions and
+cancellation all pass.
+
+Completed isolated local npm and Bun profiles each run 667 tests: 663 passed,
+3 failed, 1 canceled, 0 skipped and 0 todo. The built catalog consumer exceeds
+300 seconds; the source consumer then returns `spawn ENOTDIR`. Canonical native
+command discovery detects four new pm-rust commands missing from the committed
+snapshot (`pm-web-5e1q`). The server graph budget measures 12,043 ms under npm
+and 10,017 ms under Bun versus the unchanged 10,000 ms bound (`pm-web-hqqp`).
+Process/startup details remain in `pm-web-qdhx`. Both changed clear-field and
+SSE regressions pass in both complete attempts. npm measures 91.94% statements/
+lines, 81.06% branches, 95.80% functions; Bun measures 92.07%, 81.34%, 95.80%.
+These are failed local profiles, not acceptance. Their prechecks began before
+the final browser-only initial-fit refactor; final-head CI is required separately.
+Thresholds, measurement scope and deadlines remain unchanged.
