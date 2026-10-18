@@ -1,0 +1,122 @@
+{
+  "fixtureOnly": true,
+  "widths": [
+    1440,
+    768,
+    390
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "files": [
+    {
+      "path": "after/detail-open-1440-dark.png",
+      "sha256": "d084f6dd78e0bc091af364ab03a5575e8d8c352b110300ce6430a6df3d0f7a11"
+    },
+    {
+      "path": "after/detail-open-1440-light.png",
+      "sha256": "94f7e9903a9ab63ad83b115087cb3d65c93c000f70181e050b0280338c2c8c46"
+    },
+    {
+      "path": "after/detail-open-390-dark.png",
+      "sha256": "23c8a6c2e34b654dcbaeef67f184b55d957aeb331572e458aed75d4cb4947807"
+    },
+    {
+      "path": "after/detail-open-390-light.png",
+      "sha256": "1fdf2aca52f80c90229d1ad615212857bac03a3f339735f220bc8c411c7451d8"
+    },
+    {
+      "path": "after/detail-open-768-dark.png",
+      "sha256": "831fb6927fcc0ad4455f50847372f949def4a46e43abce87e67b884fb4bf7f18"
+    },
+    {
+      "path": "after/detail-open-768-light.png",
+      "sha256": "14036d451d26ca9c0f062d8c4c7473bc7b466e99fa2277fcbb1f1e5ea028eb5a"
+    },
+    {
+      "path": "after/graph-1440-dark.png",
+      "sha256": "a464fa8f7cdf21da6442fd0e1f894d9424cb58f8e7982de218d31ae3f02c91f0"
+    },
+    {
+      "path": "after/graph-1440-light.png",
+      "sha256": "925f08aa66e8cb7447f88ae0a1e304ffc5cea5bac7836f09d0eaad40b1b40e27"
+    },
+    {
+      "path": "after/graph-390-dark.png",
+      "sha256": "7c92aeaa52ad2a77ea2ad262b94eca6fe367894c0a51b3e5e50b2b2670171c89"
+    },
+    {
+      "path": "after/graph-390-light.png",
+      "sha256": "337819dc87907a49a729452c5f3959bb0f286fea3482d11b243950db0fd33e4a"
+    },
+    {
+      "path": "after/graph-768-dark.png",
+      "sha256": "6a5213c5424f668a353274623a824667c67330fd7506cb98bde196c39f3abf19"
+    },
+    {
+      "path": "after/graph-768-light.png",
+      "sha256": "164e3bd4f0cca5ec373bc525e43fd250cda252d5b080ba7f8cb987dd67d545a0"
+    },
+    {
+      "path": "after/live-arrival-detail-1440-dark.png",
+      "sha256": "b9b6cfdda64b9aa97ca10b22889b878751988e2b9a49ca2d38414213ac50defe"
+    },
+    {
+      "path": "after/live-arrival-detail-1440-light.png",
+      "sha256": "4f28f672bf1cc5a4416e36b77ee2ffbc3606f90c1fd36c91ab08f8180b50f89b"
+    },
+    {
+      "path": "after/live-arrival-detail-390-dark.png",
+      "sha256": "c992f564cfdcb2e66b1bc2e3783c86cdf6a832c20a405124287904dc8e1851e3"
+    },
+    {
+      "path": "after/live-arrival-detail-390-light.png",
+      "sha256": "0dda28d0019e4495d70549493d667d45886ff848fd1c175e29ca00e37b3890cf"
+    },
+    {
+      "path": "after/live-arrival-detail-768-dark.png",
+      "sha256": "b967f78b6388747deb632739aef3a52c4d0ecb3cb4488114081b41220cbd6e41"
+    },
+    {
+      "path": "after/live-arrival-detail-768-light.png",
+      "sha256": "1fe2ffb6fb1843b93a7dd35a52b413a1031a7d290376fc49db2d0997b66c971c"
+    },
+    {
+      "path": "after/live-arrival-detail-settled-1440-dark.png",
+      "sha256": "ffa05aefcb8cf80735948f5f4927609bf16d7e4e8b2079c3f51bf5a96808b88e"
+    },
+    {
+      "path": "after/live-arrival-detail-settled-1440-light.png",
+      "sha256": "28defa0884f31ac2fc78a399d1e0145d3f43a34291ca5c2dbcb97908caa235c0"
+    },
+    {
+      "path": "after/live-arrival-detail-settled-390-dark.png",
+      "sha256": "9bed0db51d6ce99536001a0e8d4fef4b2fd0a3f7a6d3815fa4be931c0e7166b6"
+    },
+    {
+      "path": "after/live-arrival-detail-settled-390-light.png",
+      "sha256": "6fff767f0e73336264cb234dd3e296a7bbbf451ed45fc822108a731e42dd6432"
+    },
+    {
+      "path": "after/live-arrival-detail-settled-768-dark.png",
+      "sha256": "201e2b8f3c0cc52639b551db207d473ebcdabfe0ae6488e5916bc91a5a255702"
+    },
+    {
+      "path": "after/live-arrival-detail-settled-768-light.png",
+      "sha256": "86d141be973745373780105a28d9fd2bdb22cbcdc3f657b9b10dad1a288c9c2a"
+    }
+  ],
+  "sourceHead": "58edb5bf9fc723658e96965aee06236335b521a2",
+  "brandPin": "98cbe45976b3111f09143c2a29ede906cb553c2a",
+  "audits": {
+    "groups": 6,
+    "screenshots": 24,
+    "keyboardContrastAudits": 48,
+    "tabStops": 832,
+    "paintedTextPairs": 277,
+    "reviewCases": 24,
+    "issue218DragGroups": 6,
+    "revertProofs": 6
+  }
+}

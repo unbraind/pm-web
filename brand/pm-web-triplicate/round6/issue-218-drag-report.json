@@ -1,0 +1,44 @@
+[
+  {
+    "width": 1440,
+    "theme": "light",
+    "reviewCases": [
+      "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)"
+    ]
+  },
+  {
+    "width": 1440,
+    "theme": "dark",
+    "reviewCases": [
+      "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)"
+    ]
+  },
+  {
+    "width": 768,
+    "theme": "light",
+    "reviewCases": [
+      "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)"
+    ]
+  },
+  {
+    "width": 768,
+    "theme": "dark",
+    "reviewCases": [
+      "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)"
+    ]
+  },
+  {
+    "width": 390,
+    "theme": "light",
+    "reviewCases": [
+      "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)"
+    ]
+  },
+  {
+    "width": 390,
+    "theme": "dark",
+    "reviewCases": [
+      "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)"
+    ]
+  }
+]

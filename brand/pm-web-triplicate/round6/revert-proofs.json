@@ -1,0 +1,42 @@
+{
+  "base": "fc0447ce08336c9598a00be76b4e48def296e9ee",
+  "receipts": [
+    {
+      "name": "errors",
+      "file": "public/src/views/export.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "name": "detail",
+      "file": "public/src/views/items.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: One strip per detail sheet"
+    },
+    {
+      "name": "live",
+      "file": "public/src/live-copy.ts",
+      "exit": 1,
+      "failure": "locator.waitFor: Timeout 5000ms exceeded."
+    },
+    {
+      "name": "metadata",
+      "file": "public/src/views/graph.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Metadata follows the count-or-none rule"
+    },
+    {
+      "name": "pixels",
+      "file": "scripts/brand-pixel-diff.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Expected five views across three widths and two themes"
+    },
+    {
+      "name": "geometry",
+      "file": "public/styles.css",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: The arrival moved its item row"
+    }
+  ],
+  "productionUnchanged": true
+}
