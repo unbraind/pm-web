@@ -20,7 +20,7 @@
     },
     {
       "path": "after/detail-open-390-dark.png",
-      "sha256": "23c8a6c2e34b654dcbaeef67f184b55d957aeb331572e458aed75d4cb4947807"
+      "sha256": "4ac64eda5ddb1370e761a42b40f21e7968b14b753ffe3ae786f4770393ef61d4"
     },
     {
       "path": "after/detail-open-390-light.png",
@@ -28,11 +28,11 @@
     },
     {
       "path": "after/detail-open-768-dark.png",
-      "sha256": "831fb6927fcc0ad4455f50847372f949def4a46e43abce87e67b884fb4bf7f18"
+      "sha256": "a255de0d232e68f632c3bbd176c9bb7405b1e2c8f741cf50b969ffca78f6e769"
     },
     {
       "path": "after/detail-open-768-light.png",
-      "sha256": "14036d451d26ca9c0f062d8c4c7473bc7b466e99fa2277fcbb1f1e5ea028eb5a"
+      "sha256": "202a9f3c0601cfbd3ca580372c11d1ef9c7d54c1f0cedc448608cce29516dea3"
     },
     {
       "path": "after/graph-1440-dark.png",
@@ -60,7 +60,7 @@
     },
     {
       "path": "after/live-arrival-detail-1440-dark.png",
-      "sha256": "b9b6cfdda64b9aa97ca10b22889b878751988e2b9a49ca2d38414213ac50defe"
+      "sha256": "5e922013d066109ca293c1f4be0de2df7eecfdda2b8f5d781dcd316ec717904c"
     },
     {
       "path": "after/live-arrival-detail-1440-light.png",
@@ -72,7 +72,7 @@
     },
     {
       "path": "after/live-arrival-detail-390-light.png",
-      "sha256": "0dda28d0019e4495d70549493d667d45886ff848fd1c175e29ca00e37b3890cf"
+      "sha256": "f2e3d26010c78766772c9dcc01d7b8c893099fcad48ddb40bf1ea14733ce862f"
     },
     {
       "path": "after/live-arrival-detail-768-dark.png",
@@ -80,11 +80,11 @@
     },
     {
       "path": "after/live-arrival-detail-768-light.png",
-      "sha256": "1fe2ffb6fb1843b93a7dd35a52b413a1031a7d290376fc49db2d0997b66c971c"
+      "sha256": "6fbe077f956b63e09f1713ff7c878451ae5a31c6f7530dff03ba05d87836adc2"
     },
     {
       "path": "after/live-arrival-detail-settled-1440-dark.png",
-      "sha256": "ffa05aefcb8cf80735948f5f4927609bf16d7e4e8b2079c3f51bf5a96808b88e"
+      "sha256": "c3dc4b455105420145a9c5b3549d02a45eacfd48ced1bd9175a3f12f14bc2ac1"
     },
     {
       "path": "after/live-arrival-detail-settled-1440-light.png",
@@ -100,15 +100,15 @@
     },
     {
       "path": "after/live-arrival-detail-settled-768-dark.png",
-      "sha256": "201e2b8f3c0cc52639b551db207d473ebcdabfe0ae6488e5916bc91a5a255702"
+      "sha256": "ff7431960458c90285b21a9826b70256c8af2bc6ed838803aa99f638011edae9"
     },
     {
       "path": "after/live-arrival-detail-settled-768-light.png",
-      "sha256": "86d141be973745373780105a28d9fd2bdb22cbcdc3f657b9b10dad1a288c9c2a"
+      "sha256": "4f25aded642a82fa950d94f63e4596c3af75c8ee9872face630804572bdbd00c"
     }
   ],
-  "sourceHead": "58edb5bf9fc723658e96965aee06236335b521a2",
-  "brandPin": "98cbe45976b3111f09143c2a29ede906cb553c2a",
+  "sourceHead": "267309ac4646e7e85a6635674f4486daa293640e",
+  "brandPin": "afc46c4352ef429afec38d5bcf04549dd3f1c87d",
   "audits": {
     "groups": 6,
     "screenshots": 24,
@@ -118,5 +118,6 @@
     "reviewCases": 24,
     "issue218DragGroups": 6,
     "revertProofs": 6
-  }
+  },
+  "refreshedAfterKitUpdate": true
 }
