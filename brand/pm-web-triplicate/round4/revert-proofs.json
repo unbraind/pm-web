@@ -7,7 +7,7 @@
     },
     {
       "name": "drag",
-      "failure": "AssertionError [ERR_ASSERTION]: Real mouse dragging must move the painted node immediately: {\"start\":{\"x\":217,\"y\":268},\"drag\":{\"dx\":-0.45775730588295005,\"dy\":-0.2815012713530791,\"vx\":9,\"vy\":7,\"cancele"
+      "failure": "AssertionError [ERR_ASSERTION]: Real mouse dragging must move the painted node immediately: {\"start\":{\"x\":217,\"y\":268},\"drag\":{\"dx\":-0.45775730588295005,\"dy\":-0.2815012713530791,\"vx\":9,\"vy\":7,\"canceled\":true,\"x\":58.58506493398781,\"y\":6.4605"
     },
     {
       "name": "settle-auto",
@@ -35,17 +35,17 @@
     },
     {
       "name": "sse",
-      "failure": "AssertionError [ERR_ASSERTION]: SSE condition timed out: [{\"type\":\"connected\",\"data\":{\"ok\":true,\"clientId\":\"0722be86-bb88-4af8-bad9-c128a0cb01de\"}},{\"type\":\"presence\",\"data\":{\"users\":[{\"userId\":\"6b653eaf-f8ab-4f9c-9585-b8b52d50e647\",\"displa"
+      "failure": "AssertionError [ERR_ASSERTION]: SSE condition timed out: [{\"type\":\"connected\",\"data\":{\"ok\":true,\"clientId\":\"86457c81-aad9-446c-95bf-c7fc7b5b09cb\"}},{\"type\":\"presence\",\"data\":{\"users\":[{\"userId\":\"01688f21-df8d-4209-a770-fb1d42e8d490\",\"displa"
     }
   ],
   "hashes": {
     "public/index.html": "8a7add79a0d4cbdb28102b47956644b96e8173c63499f39407858038c75dba07",
-    "public/src/views/graph-canvas.ts": "ad731f0d23ed88c4a5faa176488caf5f9a4cfd11c898aff56266976cd4d84a28",
+    "public/src/views/graph-canvas.ts": "95bd321839bac374d9a3ea03a1055759e0e17acc045aa2a80f127b67a5099b48",
     "public/src/brand.ts": "9ac7422e80fa998ffd30c1be003e0771746860a62111f03afd16d6445dc16eac",
     "scripts/brand-browser-contrast.ts": "bad6d449066f5cf63a669f931ad6611b481a99d316ea20612fe103eaa7abda38",
     "src/routes/pm.ts": "65e8ece8debea4a58f0bd1dea0c75297ed200c3a11bcad696193985937dbb09d",
     "test/pm-collaboration.test.ts": "fd7df00bedff498c9859d1dd5d8b01dc5b50ca70a5e7fc2868eb0f3a5774ed9a"
   },
   "productionUnchanged": true,
-  "executionNote": "Six completed independent probes retained; the opacity fixture was strengthened and the remaining three probes ran separately. Every probe uses current unrelated fixes."
+  "codeHead": "3a061a9560faa0d84ffa1df16b5eeae7f804eb2c"
 }

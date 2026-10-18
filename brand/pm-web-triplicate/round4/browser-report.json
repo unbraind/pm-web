@@ -88,7 +88,7 @@
     "theme": "light",
     "reviewCases": [
       "locale: account action name follows all four shipped locales",
-      "settle: initial worker, delayed fit, replacement restart, stale rejection, hierarchical cancellation",
+      "settle: initial worker, delayed fit, replacement restart, stale rejection, empty data and early hierarchical fit",
       "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)",
       "palette: 20 steady frames, zero recolors/lookups; theme and mode invalidate once ({\"steady\":{\"recolors\":0,\"lookups\":0},\"changed\":{\"recolors\":1,\"lookups\":8,\"colorChanged\":true},\"filterRecolors\":2})",
       "opacity: own and nested opaque backgrounds composite as CSS opacity groups (3.98:1 fails AA)"
@@ -183,7 +183,7 @@
     "theme": "dark",
     "reviewCases": [
       "locale: account action name follows all four shipped locales",
-      "settle: initial worker, delayed fit, replacement restart, stale rejection, hierarchical cancellation",
+      "settle: initial worker, delayed fit, replacement restart, stale rejection, empty data and early hierarchical fit",
       "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)",
       "palette: 20 steady frames, zero recolors/lookups; theme and mode invalidate once ({\"steady\":{\"recolors\":0,\"lookups\":0},\"changed\":{\"recolors\":1,\"lookups\":8,\"colorChanged\":true},\"filterRecolors\":2})",
       "opacity: own and nested opaque backgrounds composite as CSS opacity groups (3.98:1 fails AA)"
@@ -278,7 +278,7 @@
     "theme": "light",
     "reviewCases": [
       "locale: account action name follows all four shipped locales",
-      "settle: initial worker, delayed fit, replacement restart, stale rejection, hierarchical cancellation",
+      "settle: initial worker, delayed fit, replacement restart, stale rejection, empty data and early hierarchical fit",
       "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)",
       "palette: 20 steady frames, zero recolors/lookups; theme and mode invalidate once ({\"steady\":{\"recolors\":0,\"lookups\":0},\"changed\":{\"recolors\":1,\"lookups\":8,\"colorChanged\":true},\"filterRecolors\":2})",
       "opacity: own and nested opaque backgrounds composite as CSS opacity groups (3.98:1 fails AA)"
@@ -373,7 +373,7 @@
     "theme": "dark",
     "reviewCases": [
       "locale: account action name follows all four shipped locales",
-      "settle: initial worker, delayed fit, replacement restart, stale rejection, hierarchical cancellation",
+      "settle: initial worker, delayed fit, replacement restart, stale rejection, empty data and early hierarchical fit",
       "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)",
       "palette: 20 steady frames, zero recolors/lookups; theme and mode invalidate once ({\"steady\":{\"recolors\":0,\"lookups\":0},\"changed\":{\"recolors\":1,\"lookups\":8,\"colorChanged\":true},\"filterRecolors\":2})",
       "opacity: own and nested opaque backgrounds composite as CSS opacity groups (3.98:1 fails AA)"
@@ -468,7 +468,7 @@
     "theme": "light",
     "reviewCases": [
       "locale: account action name follows all four shipped locales",
-      "settle: initial worker, delayed fit, replacement restart, stale rejection, hierarchical cancellation",
+      "settle: initial worker, delayed fit, replacement restart, stale rejection, empty data and early hierarchical fit",
       "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)",
       "palette: 20 steady frames, zero recolors/lookups; theme and mode invalidate once ({\"steady\":{\"recolors\":0,\"lookups\":0},\"changed\":{\"recolors\":1,\"lookups\":8,\"colorChanged\":true},\"filterRecolors\":2})",
       "opacity: own and nested opaque backgrounds composite as CSS opacity groups (3.98:1 fails AA)"
@@ -563,7 +563,7 @@
     "theme": "dark",
     "reviewCases": [
       "locale: account action name follows all four shipped locales",
-      "settle: initial worker, delayed fit, replacement restart, stale rejection, hierarchical cancellation",
+      "settle: initial worker, delayed fit, replacement restart, stale rejection, empty data and early hierarchical fit",
       "drag: real mouse and single-touch gestures move nodes, retain release positions and cancel pending settling; pan, click and keyboard remain available (issue 218)",
       "palette: 20 steady frames, zero recolors/lookups; theme and mode invalidate once ({\"steady\":{\"recolors\":0,\"lookups\":0},\"changed\":{\"recolors\":1,\"lookups\":8,\"colorChanged\":true},\"filterRecolors\":2})",
       "opacity: own and nested opaque backgrounds composite as CSS opacity groups (3.98:1 fails AA)"
