@@ -11,6 +11,7 @@ import type { AppBridge } from '../public/src/app.ts';
 import { checkLiveScreens } from './brand-browser-live.ts';
 import { auditTextContrast } from './brand-browser-contrast.ts';
 import { checkReviewRegressions, assertFinishedActions } from './brand-browser-regressions.ts';
+import { checkRound6 } from './brand-browser-round6.ts';
 import { checkRound5 } from './brand-browser-round5.ts';
 import { checkRound4 } from './brand-browser-round4.ts';
 import { checkRound3 } from './brand-browser-round3.ts';
@@ -183,7 +184,7 @@ try {
       continue;
     }
     if (process.env.BRAND_REGRESSION_ONLY) {
-      report.push({ width, theme, reviewCases: process.env.BRAND_REGRESSION_ONLY.startsWith('round5') ? await checkRound5(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round4') ? await checkRound4(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round3') ? await checkRound3(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
+      report.push({ width, theme, reviewCases: process.env.BRAND_REGRESSION_ONLY.startsWith('round6') ? await checkRound6(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round5') ? await checkRound5(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round4') ? await checkRound4(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round3') ? await checkRound3(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
       await writeFile(path.join(output, 'browser-report.json'), JSON.stringify(report, null, 2));
       await context.close();
       continue;

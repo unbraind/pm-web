@@ -863,7 +863,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
       const titleEl = modal.querySelector('.modal-title');
       if (titleEl) {
         titleEl.setAttribute('data-item-id', item.id);
-        titleEl.innerHTML = `<div class="item-detail-id live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div><h2 class="item-sheet-heading live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title || 'Untitled item')}</h2>`;
+        titleEl.innerHTML = `<div class="item-detail-id live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div><h2 class="item-sheet-heading item-detail-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title || 'Untitled item')}</h2><div class="live-copy-caption" data-live-caption></div>`;
       }
     }
 
@@ -894,9 +894,6 @@ export async function openItemDetail(itemId: string): Promise<void> {
       bodyEl.dataset.itemId = item.id;
       bodyEl.innerHTML = `
       <div class="item-detail-header">
-        <div class="item-detail-id live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div>
-        <div class="live-copy-caption" data-live-caption></div>
-        <div class="item-detail-title live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title)}</div>
         <div class="item-detail-meta">
           <span class="detail-status-slot live-field" ${liveAttrs('detailStatus', item.status || 'draft')}>${item.status === 'closed' ? '<span class="closed-stamp">Closed</span>' : statusBadge(item.status || 'draft')}</span>
           <div class="meta-chip">Priority <strong class="mono live-field" ${liveAttrs('priority', String(item.priority ?? 4))}>P${item.priority ?? 4}</strong></div>

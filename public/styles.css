@@ -2484,7 +2484,7 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 .graph-preset-rail { display: flex; flex-wrap: wrap; }
 .graph-preset-btn { flex: 0 0 auto; height: auto; min-height: 34px; }
 .graph-preset-btn span, .graph-preset-btn strong { overflow: visible; text-overflow: clip; }
-#item-detail-modal .modal-title { min-width: 0; }
+#item-detail-modal .modal-title { flex: 1; min-width: 0; }
 #item-detail-modal .modal-header { gap: 1rem; align-items: flex-start; }
 #item-detail-modal .modal-header .item-detail-id { padding: 0; margin-bottom: .5rem; }
 .item-sheet-heading { font-family: var(--pm-font-display); font-variation-settings: 'wdth' 125; font-weight: 800; font-size: var(--pm-step-1); line-height: 1.25; overflow-wrap: anywhere; margin: 0; height: 3rem; overflow: auto; scrollbar-gutter: stable; }

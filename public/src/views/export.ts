@@ -141,7 +141,7 @@ export async function exportData(format: string): Promise<void> {
     statusEl.innerHTML = `<div style="color:var(--app-status-closed);font-size:13px;padding:12px">✓ Exported ${items.length} items as ${format.toUpperCase()}</div>`;
     toast(`Exported ${items.length} items`, 'success');
   } catch(err: unknown) {
-    statusEl.innerHTML = `<div style="color:var(--app-status-blocked);font-size:13px;padding:12px">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
+    statusEl.innerHTML = `<div style="color:var(--app-status-blocked);font-size:13px;padding:12px">Export failed. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
   }
 }
 
@@ -274,6 +274,6 @@ export async function importData(file: File): Promise<void> {
     toast(`Imported ${created} items`, 'success');
     void loadItemsBadge();
   } catch(err: unknown) {
-    statusEl.innerHTML = `<div style="color:var(--app-status-blocked);font-size:13px;padding:12px">Could not load this view. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
+    statusEl.innerHTML = `<div style="color:var(--app-status-blocked);font-size:13px;padding:12px">Import failed. ${escHtml(err instanceof Error ? err.message : String(err))} Try again.</div>`;
   }
 }

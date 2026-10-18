@@ -6,9 +6,11 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-18T05:51:21.609Z"
+updated_at: "2026-10-18T08:48:39.613Z"
+assignee: codex-agent
+claim_principal: codex-agent
 author: codex-agent
-comments[70]{created_at,author,text}:
+comments[73]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
@@ -79,7 +81,10 @@ comments[70]{created_at,author,text}:
   "2026-10-18T04:56:36.750Z",codex-agent,"Final round 5 source passes all 10 independent behavioral reverts: API cleanup, same-item marker ownership, observer batching, health bands, facet clipping, titled header, disabled outline, surface parsing, owner copy and transparent-layer contrast. Both grouped runners exit zero and verify production target files remain unchanged. Proofs: https://github.com/unbraind/pm-web/blob/pr-screenshots/brand/pm-web-triplicate/round5/revert-proofs.json . The final fixture matrix has 72 AFTER images, 138 executed audits, 3032 Tab stops and 851 painted text pairs; 42 live cases pass across six viewport/theme groups. The extended stamp initially wrapped a tablet row; compact author/surface stamps plus a shrinking caption now preserve its geometry, with full tooltip and polite announcement retained. The issue #218 mouse/touch/pending-worker/pan/click/keyboard regression also passes against the final source. Focused tests pass 16/16, including overlap with identical marker expiry timestamps. Zero duplication and frontend type checks pass at unchanged policy. npm release coverage continues after reproducing an existing catalog-consumer failure; no failed run is acceptance."
   "2026-10-18T05:13:09.829Z",codex-agent,"The held kit main advanced to 98cbe45976b3111f09143c2a29ede906cb553c2a during verification. Re-pinned exactly and restarted npm/Bun gates from verified standalone inputs with independent test storage and isolated HOME/global/system Git identity. The kit update changes identity controls only: all 54 consumed assets and the browser palette bundle are byte-identical; a post-pin six-case UI smoke passes. The real HTTP/SSE surface-stamp test passes on the fix and fails when only emitItemEvent is reverted, bringing demonstrated revert proofs to 11. The superseded prior-kit gate attempts were explicitly stopped and are not acceptance. Strict tracker health passes; validation succeeds with existing metadata warnings, which is a separate result."
   "2026-10-18T05:51:19.649Z",codex-agent,"Final pinned local release results are failures: npm 661 passed, 5 failed, 1 canceled; Bun 662 passed, 4 failed, 1 canceled; 667 reported tests each, zero skipped/todo. Statement/line coverage is 91.68% / 91.73%, below the unchanged 92.07% floor. Branch/function results are npm 81.21% / 95.80% and Bun 81.41% / 95.80%. Both scripts stop at coverage, so later stages are not local acceptance. The missing standalone Git metadata suppressed the four identity test declarations; repaired profiles separately pass 4/4 each against trusted main, without changing controls. Catalog/startup evidence is retained in pm-web-qdhx and graph wall-time evidence in pm-web-hqqp. The build-first linked focused suite passes 16/16. All requested copy/layout/review fixes, 72 AFTER screenshots and 11 revert proofs are ready. Push and exact-head CI are the remaining delivery checks. Keep this item in progress for orchestrator verification; no item is closed."
-files[92]:
+  "2026-10-18T08:40:07.188Z",codex-agent,"Round 6: read all three unresolved threads, latest full review including outside-diff Metadata finding, screenshot review, and open issue #218. Branch contains current main. Plan: single detail title/strip with title-adjacent live slip; count metadata facets; action-specific import/export failures; exact screenshot matrix filter. Add behavioral regression and independent revert proofs, run isolated npm/Bun gates, publish six detail and graph frames plus live-detail frames, verify fresh-clone health and exact-head CI. No thread resolution, merge or release."
+  "2026-10-18T08:44:12.722Z",codex-agent,"Round 6 quick browser acceptance passes all four cases: escaped action-specific failures, two/zero metadata facets, one strip/title/caption, and title-owned live slip with stable draft geometry plus reduced motion. Browser discovered intrinsic header resizing; flex fill corrects it. Body-field updates route to the shared detail caption. npm ci initially hit ambient allow-scripts configuration; clean user-config install passes without tracked dependency changes. Current published CLI is 2026.10.18; pinned SDK remains 2026.10.15 as required."
+  "2026-10-18T08:48:39.612Z",codex-agent,"Round 6 matrix passes: 24 AFTER frames (detail, graph, live title arrival and settled state; 1440/768/390 x light/dark), 48 accessibility audits, 832 Tab stops, 277 painted text pairs and 24 review cases. Issue #218 real mouse/touch/pan/click/keyboard checks pass in all six groups. Six independent reverts fail: old export/import catch text; duplicate detail strip; live-root suppression (missing title slip); fixed Metadata text; broad PNG selector (34 frames fail expected 30); intrinsic header width (geometry assertion). All production targets remain unchanged by probes. Shared fixture-clock and event helpers restore 0% duplication; explicit child-process result typing passes the complete test TypeScript project. Full isolated npm/Bun gates are restarting on final inputs."
+files[95]:
   - path: .dockerignore
     scope: project
   - path: .github/workflows/ci.yml
@@ -241,6 +246,10 @@ files[92]:
   - path: scripts/brand-browser-round5.ts
     scope: project
     note: Round 5 browser regressions and independent behavioral proofs
+  - path: scripts/brand-browser-round6-reverts.ts
+    scope: project
+  - path: scripts/brand-browser-round6.ts
+    scope: project
   - path: scripts/brand-browser.ts
     scope: project
   - path: scripts/brand-fixtures.ts
@@ -261,13 +270,15 @@ files[92]:
     scope: project
   - path: test/brand-copy.test.ts
     scope: project
+  - path: test/brand-pixel-diff.test.ts
+    scope: project
   - path: test/i18n.test.ts
     scope: project
   - path: test/live-copy.test.ts
     scope: project
   - path: test/pm-collaboration.test.ts
     scope: project
-tests[13]:
+tests[16]:
   - command: node scripts/with-test-db.ts node --test test/brand-assets.test.ts
     scope: project
     provenance:
@@ -363,6 +374,29 @@ tests[13]:
     provenance:
       author: codex-agent
       created_at: "2026-10-18T05:28:11.264Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: node --test test/brand-pixel-diff.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-18T08:43:45.455Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: BRAND_ACCEPTANCE=1 BRAND_REGRESSION_ONLY=round6 node scripts/brand-browser.ts
+    scope: project
+    timeout_seconds: 900
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-18T08:45:56.007Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: node scripts/brand-browser-round6-reverts.ts
+    scope: project
+    timeout_seconds: 1800
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-18T08:46:02.442Z"
       source_kind: local_mutation
       source_ref: brand/triplicate-tokens-and-restyle
 docs[2]{path,scope}:

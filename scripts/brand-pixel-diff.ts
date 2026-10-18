@@ -7,7 +7,7 @@ import { PNG } from 'pngjs';
 const [before, after] = process.argv.slice(2);
 assert.ok(before && after, 'Supply before and token-migration screenshot directories');
 const results = [];
-for (const name of (await readdir(before)).filter(name => /^(sign-in|projects|items|board|detail-open)-.*\.png$/.test(name))) {
+for (const name of (await readdir(before)).filter(name => /^(sign-in|projects|items|board|detail-open)-(1440|768|390)-(light|dark)\.png$/.test(name))) {
   const original = PNG.sync.read(await readFile(path.join(before, name)));
   const migrated = PNG.sync.read(await readFile(path.join(after, name)));
   assert.equal(migrated.width, original.width);

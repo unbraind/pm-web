@@ -828,12 +828,13 @@ function renderGraphPresets(depRels: GraphRelationship[], isolatedCount: number)
     const tags = Array.isArray(n.properties?.tags) ? (n.properties.tags as unknown[]).map(String) : [];
     for (const t of tags) tagSet.add(t);
   }
+  const facetCount = allNodes.filter(isFacetNode).length;
   const presets = [
     { id: 'knowledge', label: 'Knowledge', value: String(allNodes.length) },
     { id: 'dependency', label: 'Dependencies', value: String(depRels.length) },
     { id: 'unlinked', label: 'Unlinked', value: String(isolatedCount) },
     { id: 'tags', label: 'Tags', value: tagSet.size ? String(tagSet.size) : 'none' },
-    { id: 'metadata', label: 'Metadata', value: 'facets' },
+    { id: 'metadata', label: 'Metadata', value: facetCount ? String(facetCount) : 'none' },
     { id: 'critical', label: 'Critical', value: criticalPath.size ? String(criticalPath.size) : 'pick node' },
   ];
   return `

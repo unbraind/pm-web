@@ -454,3 +454,32 @@ repaired, and the four identity tests pass separately in both profiles against
 the independently verified trusted main ref. The original full-run results are
 retained as failures. Later release stages are not reached locally. Exact-head
 CI acceptance is a separate receipt and does not turn these attempts green.
+
+## Round 6: one live detail heading and accurate facet counts
+
+The detail sheet owns one mono id/type/priority strip and one title in its
+persistent header. Its single caption follows the title. Header and body roots
+share the modal's live-record scope, so a title arrival tints that title and a
+body-only change still stamps the shared caption. A flexible header keeps its
+width stable when a longer title arrives; local drafts retain their position.
+
+The Metadata preset counts `PmFacet` nodes and shows `none` when there are zero,
+matching its accessible name. Export and import failures identify the action,
+escape the supplied detail and retain the retry prompt. The pixel-comparison
+filter selects exactly five named views at 1440/768/390 in light/dark, excluding
+extra tags, mobile-actions and unrelated width/theme frames.
+
+Run `BRAND_ACCEPTANCE=1 BRAND_REGRESSION_ONLY=round6 node scripts/brand-browser.ts`
+with external `BRAND_SCREENSHOTS` and `CHROMIUM_PATH` for the fixture matrix.
+Run `node --test test/brand-pixel-diff.test.ts` for the 30-frame selection
+regression. `node scripts/brand-browser-round6-reverts.ts` uses external
+`BRAND_REVERT_EVIDENCE` to independently restore each reviewed behavior in an
+isolated copy, rebuild browser code and require the corresponding assertion to
+fail. Production files are checked unchanged. The existing `round4-drag` cases
+cover issue #218 with actual mouse/touch delivery, release positions, pending
+settle cancellation, panning, click selection and keyboard navigation.
+
+[Round 6 screenshots and receipts](https://github.com/unbraind/pm-web/tree/pr-screenshots/brand/pm-web-triplicate/round6)
+retain the six viewport/theme combinations for detail, graph, live title arrival
+and its settled state. Original main BEFORE frames remain in the original
+screenshot matrix. Review threads remain available for reviewer verification.

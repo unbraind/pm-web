@@ -244,6 +244,8 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
       if (!item.id || !item.title || (pending.get(`${projectId}:${item.id}`) || 0) > revision) continue;
       state.items = state.items.map(previous => previous.id === item.id ? { ...previous, ...item } : previous);
       for (const root of roots.filter(root => root.dataset.itemId === item.id && root.isConnected && root.checkVisibility())) {
+        const detailSheet = root.closest<HTMLElement>('#item-detail-modal');
+        const showCopy = !detail || detailSheet === detail.closest('#item-detail-modal');
         let changed = false;
         for (const field of root.querySelectorAll<HTMLElement>('[data-live-field]')) {
           if (field.closest('[data-item-id]') !== root || (field.dataset.liveField !== 'detailStatus' && field.closest('.detail-status-slot'))) continue;
@@ -253,10 +255,10 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
           clearFieldCopy(field);
           writeField(field, item, value);
           changed = true;
-          if (remote && field.checkVisibility() && (!detail || root === detail)) tintField(field, item.status === 'blocked', origin);
+          if (remote && field.checkVisibility() && showCopy) tintField(field, item.status === 'blocked', origin);
         }
         refreshActionState(root, item);
-        if (changed && remote && (!detail || root === detail)) caption([root], `Updated by ${origin} just now`, false, item.status === 'blocked', `${origin} · now`);
+        if (changed && remote && showCopy) caption([detailSheet || root], `Updated by ${origin} just now`, false, item.status === 'blocked', `${origin} · now`);
       }
     }
     return true;

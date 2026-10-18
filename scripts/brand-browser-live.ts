@@ -11,16 +11,19 @@ async function emit(page: Page, own = false): Promise<void> {
   await page.evaluate(data => (window as unknown as LiveWindow).__fixtureEmit(data), { itemId: 'note-1', userId: own ? fixtureUser.id : 'fixture-reviewer', author: own ? 'Morgan' : 'Alex', surface: 'pm-web' });
 }
 
+/** Freeze fixture time so the live-copy frame and its expiry can be inspected independently. */
+export async function freezeFixtureClock(page: Page): Promise<void> {
+  await page.clock.install({ time: new Date('2026-10-17T12:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-17T12:01:00Z'));
+  await page.evaluate(() => { document.documentElement.dataset.fixtureClock = 'paused'; });
+}
+
 /** Hold the real CSS animation at its 350 ms frame while its removal timer is paused. */
 export async function holdArrivalFrame(page: Page, surface: 'list' | 'board' | 'detail' = 'list'): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
-  const row = page.locator(surface === 'detail' ? '.modal-body[data-item-id="note-1"]' : '.item-row[data-item-id="note-1"]');
+  const row = page.locator(surface === 'detail' ? '#item-detail-modal .modal-title[data-item-id="note-1"]' : '.item-row[data-item-id="note-1"]');
   const original = await row.boundingBox();
-  if (surface === 'list') {
-    await page.clock.install({ time: new Date('2026-10-17T12:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-10-17T12:01:00Z'));
-    await page.evaluate(() => { document.documentElement.dataset.fixtureClock = 'paused'; });
-  }
+  if (surface === 'list') await freezeFixtureClock(page);
   updateFixtureItem('note-1', { title: `Review the shared ${surface} next step`, status: 'open' });
   await emit(page);
   await page.locator('.live-copy-sheet').first().waitFor({ state: 'attached' });
@@ -40,7 +43,10 @@ export async function holdArrivalFrame(page: Page, surface: 'list' | 'board' | '
   assert.ok(captionBox && stripBox && original, 'Caption and strip must be visible inside the changed sheet');
   if (surface === 'list' && page.viewportSize()!.width >= 768) {
     assert.ok(Math.abs(captionBox.y - stripBox.y) < 2 && captionBox.x >= stripBox.x + stripBox.width, 'List caption must share the strip line on its right');
-  } else if (surface === 'detail') assert.ok(captionBox.y >= stripBox.y + stripBox.height - 1, 'Detail caption stays under its strip');
+  } else if (surface === 'detail') {
+    const titleBox = await row.locator('[data-live-field="title"]').boundingBox();
+    assert.ok(titleBox && captionBox.y >= titleBox.y + titleBox.height - 1, 'Detail caption stays under its title');
+  }
   assert.equal(await row.locator('[data-live-caption]').evaluate(el => getComputedStyle(el).borderLeftColor), await row.evaluate(el => getComputedStyle(el).getPropertyValue('--pm-canary').trim()).then(value => /^#/.test(value) ? `rgb(${[1, 3, 5].map(offset => parseInt(value.slice(offset, offset + 2), 16)).join(', ')})` : value));
 }
 
