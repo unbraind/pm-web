@@ -1,0 +1,66 @@
+{
+  "base": "4bcc41535bbfea7603204ba63f8c908418bed355",
+  "receipts": [
+    {
+      "name": "api",
+      "target": "public/src/api.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: failed writes must not suppress a collaborator's legacy event"
+    },
+    {
+      "name": "marker",
+      "target": "public/src/edit-origin.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: an older failure must retain the newer successful write's marker"
+    },
+    {
+      "name": "observer",
+      "target": "public/src/interactions.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Tooltip-only mutations do no enhancement work; relevant batches share one frame"
+    },
+    {
+      "name": "health",
+      "target": "public/src/views/health.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "name": "facets",
+      "target": "public/styles.css",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Facet must show complete words: Knowledge"
+    },
+    {
+      "name": "header",
+      "target": "public/src/views/items.ts",
+      "exit": 1,
+      "failure": "locator.waitFor: Timeout 5000ms exceeded."
+    },
+    {
+      "name": "disabled",
+      "target": "public/styles.css",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Disabled controls keep the surrounding sheet with a muted outline"
+    },
+    {
+      "name": "surface",
+      "target": "public/src/live-copy.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "copy",
+      "target": "public/src/i18n/en.json",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /\\bgit\\b|branch|merge|coding agent|\\.agents\\/pm/i. Input:"
+    },
+    {
+      "name": "contrast",
+      "target": "scripts/brand-browser-contrast.ts",
+      "exit": 1,
+      "failure": "AssertionError [ERR_ASSERTION]: Fully transparent source text is not painted"
+    }
+  ],
+  "productionUnchanged": true
+}

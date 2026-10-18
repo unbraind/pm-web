@@ -1,0 +1,20 @@
+{
+  "afterScreenshots": 72,
+  "beforeScreenshots": 24,
+  "audits": 138,
+  "tabStops": 3032,
+  "paintedTextPairs": 851,
+  "reviewCases": 36,
+  "liveCases": 42,
+  "liveGroups": 6,
+  "viewports": [
+    1440,
+    768,
+    390
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "fixtureOnly": true
+}
