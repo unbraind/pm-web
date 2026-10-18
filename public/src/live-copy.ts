@@ -11,6 +11,7 @@ export interface LiveUpdate {
   userId?: string;
   author?: string;
   sessionId?: string;
+  surface?: string;
 }
 
 type LiveEntry = Comment & HistoryEntry;
@@ -27,7 +28,7 @@ export function parseLiveUpdate(raw: string): LiveUpdate | null {
     const data: unknown = JSON.parse(raw);
     if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
     const result: LiveUpdate = {};
-    for (const key of ['itemId', 'userId', 'author', 'sessionId'] as const) {
+    for (const key of ['itemId', 'userId', 'author', 'sessionId', 'surface'] as const) {
       const value = (data as Record<string, unknown>)[key];
       if (typeof value === 'string' && value.trim() && value.length <= 256) result[key] = value.trim();
     }
@@ -153,7 +154,7 @@ export function refreshActionState(root: HTMLElement, item: Item): void {
 }
 
 /** Slide a duplicate over a fixed field, then leave its copy border for five seconds. */
-function tintField(field: HTMLElement, blocked: boolean): void {
+function tintField(field: HTMLElement, blocked: boolean, origin: string): void {
   field.style.setProperty('--live-copy-ink', `var(--pm-${blocked ? 'rose' : 'canary'})`);
   field.style.setProperty('--live-copy-wash', `var(--pm-${blocked ? 'rose' : 'canary'}-wash)`);
   field.style.setProperty('--live-copy-rest-bg', getComputedStyle(field).backgroundColor);
@@ -169,6 +170,8 @@ function tintField(field: HTMLElement, blocked: boolean): void {
     const copy = document.createElement('span');
     copy.className = 'live-copy-sheet';
     copy.setAttribute('aria-hidden', 'true');
+    copy.title = origin;
+    copy.dataset.liveOrigin = origin;
     copy.innerHTML = source.innerHTML;
     copy.style.top = `${field.scrollTop}px`;
     copy.style.bottom = 'auto';
@@ -186,11 +189,12 @@ function tintField(field: HTMLElement, blocked: boolean): void {
 }
 
 /** Attribute changes inside each affected sheet and announce once without moving focus. */
-function caption(roots: HTMLElement[], message: string, error = false, blocked = false): void {
+function caption(roots: HTMLElement[], message: string, error = false, blocked = false, stamp?: string): void {
   for (const root of roots) {
     const target = root.querySelector<HTMLElement>('[data-live-caption]');
     if (!target) continue;
-    target.textContent = message;
+    target.textContent = stamp || message;
+    target.title = message;
     target.dataset.error = String(error);
     target.style.setProperty('--live-copy-ink', `var(--pm-${blocked ? 'rose' : 'canary'})`);
     const timer = captionTimers.get(target);
@@ -215,8 +219,9 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
   roots.forEach(root => pending.set(`${projectId}:${root.dataset.itemId}`, revision));
   const remote = isOtherAuthor(event, user, sessionId) && (Boolean(event.userId) || !event.itemId || !isRecentOwnItemEdit(projectId, event.itemId));
   const author = event.author || authors.get(event.userId || '') || 'Project member';
+  const origin = `${author} · ${event.surface || 'shared workspace'}`;
   if (/item[-_]deleted/.test(eventType)) {
-    if (remote) caption(roots, `Deleted by ${author} just now. Refresh the list to remove this sheet.`);
+    if (remote) caption(roots, `Deleted by ${origin} just now. Refresh the list to remove this sheet.`);
     return true;
   }
   try {
@@ -248,10 +253,10 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
           clearFieldCopy(field);
           writeField(field, item, value);
           changed = true;
-          if (remote && field.checkVisibility() && (!detail || root === detail)) tintField(field, item.status === 'blocked');
+          if (remote && field.checkVisibility() && (!detail || root === detail)) tintField(field, item.status === 'blocked', origin);
         }
         refreshActionState(root, item);
-        if (changed && remote && (!detail || root === detail)) caption([root], `Updated by ${author} just now`, false, item.status === 'blocked');
+        if (changed && remote && (!detail || root === detail)) caption([root], `Updated by ${origin} just now`, false, item.status === 'blocked', `${origin} · now`);
       }
     }
     return true;

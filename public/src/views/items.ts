@@ -861,7 +861,10 @@ export async function openItemDetail(itemId: string): Promise<void> {
     const modal = document.getElementById('item-detail-modal');
     if (modal) {
       const titleEl = modal.querySelector('.modal-title');
-      if (titleEl) titleEl.textContent = item.id;
+      if (titleEl) {
+        titleEl.setAttribute('data-item-id', item.id);
+        titleEl.innerHTML = `<div class="item-detail-id live-field" ${liveAttrs('strip', liveFieldValue('strip', item))}>${escHtml(liveFieldValue('strip', item))}</div><h2 class="item-sheet-heading live-field" ${liveAttrs('title', item.title)}>${escHtml(item.title || 'Untitled item')}</h2>`;
+      }
     }
 
 

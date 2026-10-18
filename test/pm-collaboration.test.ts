@@ -184,7 +184,7 @@ test("item update SSE adds the authenticated display name while preserving legac
   assert.equal(response.status, 200, await response.text());
   await observer.waitFor(events => events.some(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Editor"));
   const event = observer.events.find(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Editor")!;
-  assert.deepEqual(event.data, { itemId, userId: harness.editor.id, author: "Editor" });
+  assert.deepEqual(event.data, { itemId, userId: harness.editor.id, author: "Editor", surface: "pm-web" });
   await pool.query("UPDATE pm_users SET display_name = NULL WHERE id = $1", [harness.editor.id]);
   const second = await authedFetch(server, harness.editor, `/api/projects/${harness.projectId}/pm/update/${itemId}`, {
     method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ description: "Fallback attribution" }),
@@ -193,9 +193,9 @@ test("item update SSE adds the authenticated display name while preserving legac
   // Deterministically reproduce watcher facts arriving before the observer checks.
   for (let index = 0; index < 3; index++) deliverProjectEvent(harness.projectId, { type: "item-updated", data: { itemId, source: "committed-mutation" } });
   await observer.waitFor(events => events.filter(event => event.data.source === "committed-mutation").length >= 3);
-  await observer.waitFor(events => events.some(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Project member"));
-  const fallback = observer.events.find(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Project member")!;
-  assert.deepEqual(fallback.data, { itemId, userId: harness.editor.id, author: "Project member" });
+  await observer.waitFor(events => events.some(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Project member" && event.data.surface === "pm-web"));
+  const fallback = observer.events.find(event => event.type === "item-updated" && event.data.itemId === itemId && event.data.author === "Project member" && event.data.surface === "pm-web")!;
+  assert.deepEqual(fallback.data, { itemId, userId: harness.editor.id, author: "Project member", surface: "pm-web" });
 });
 
 /** Open owner/editor wire streams with their cleanup registered before server teardown. */

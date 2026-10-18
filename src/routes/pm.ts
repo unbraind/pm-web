@@ -558,7 +558,7 @@ async function emitItemEvent(
   }
   broadcastProjectEvent(routeParam(req, "projectId"), {
     type,
-    data: { itemId, userId: req.user!.userId, author },
+    data: { itemId, userId: req.user!.userId, author, surface: "pm-web" },
   });
   scheduleGraphSync(routeParam(req, "projectId"), project, type);
 }

@@ -41,28 +41,33 @@ export function csrfTokenFromCookie(cookie = document.cookie): string | undefine
  * typed against the response interface declared in `api-types.ts`.
  */
 export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) noteOwnItemEdit(path);
-  const csrfToken = csrfTokenFromCookie();
-  const session = typeof navigator !== 'undefined' && 'serviceWorker' in navigator
-    ? workerSessions.get(navigator.serviceWorker) : undefined;
-  const expectedAccount = session?.userId;
-  const opts: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-      ...(expectedAccount && !['GET', 'HEAD'].includes(method.toUpperCase()) && !/^\/auth(?:\/|\?|$)/i.test(path)
-        ? { 'X-PM-Expected-Account': expectedAccount } : {}),
-    },
-    credentials: 'include',
-  };
-  if (body !== undefined) opts.body = JSON.stringify(body);
-  const res = await fetch('/api' + path, opts);
-  const data = await res.json().catch((): Record<string, unknown> => ({})) as T;
-  if (!res.ok) {
-    throw new ApiError(String((data as Record<string, unknown>).error || `HTTP ${res.status}`), data);
+  const clearOwnItemEdit = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase()) ? noteOwnItemEdit(path) : undefined;
+  try {
+    const csrfToken = csrfTokenFromCookie();
+    const session = typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+      ? workerSessions.get(navigator.serviceWorker) : undefined;
+    const expectedAccount = session?.userId;
+    const opts: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        ...(expectedAccount && !['GET', 'HEAD'].includes(method.toUpperCase()) && !/^\/auth(?:\/|\?|$)/i.test(path)
+          ? { 'X-PM-Expected-Account': expectedAccount } : {}),
+      },
+      credentials: 'include',
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const res = await fetch('/api' + path, opts);
+    const data = await res.json().catch((): Record<string, unknown> => ({})) as T;
+    if (!res.ok) {
+      throw new ApiError(String((data as Record<string, unknown>).error || `HTTP ${res.status}`), data);
+    }
+    return data;
+  } catch (error) {
+    clearOwnItemEdit?.();
+    throw error;
   }
-  return data;
 }
 
 /** Session bridge state belongs to one worker container and its current page. */

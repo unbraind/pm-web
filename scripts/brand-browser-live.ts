@@ -8,7 +8,7 @@ interface LiveWindow extends Window { __app: AppBridge; __fixtureEmit: (data: Re
 
 /** Emit a fixture event through the production EventSource listener, without bypassing the client. */
 async function emit(page: Page, own = false): Promise<void> {
-  await page.evaluate(data => (window as unknown as LiveWindow).__fixtureEmit(data), { itemId: 'note-1', userId: own ? fixtureUser.id : 'fixture-reviewer', author: own ? 'Morgan' : 'Alex' });
+  await page.evaluate(data => (window as unknown as LiveWindow).__fixtureEmit(data), { itemId: 'note-1', userId: own ? fixtureUser.id : 'fixture-reviewer', author: own ? 'Morgan' : 'Alex', surface: 'pm-web' });
 }
 
 /** Hold the real CSS animation at its 350 ms frame while its removal timer is paused. */
@@ -19,6 +19,7 @@ export async function holdArrivalFrame(page: Page, surface: 'list' | 'board' | '
   if (surface === 'list') {
     await page.clock.install({ time: new Date('2026-10-17T12:00:00Z') });
     await page.clock.pauseAt(new Date('2026-10-17T12:01:00Z'));
+    await page.evaluate(() => { document.documentElement.dataset.fixtureClock = 'paused'; });
   }
   updateFixtureItem('note-1', { title: `Review the shared ${surface} next step`, status: 'open' });
   await emit(page);
@@ -33,7 +34,7 @@ export async function holdArrivalFrame(page: Page, surface: 'list' | 'board' | '
   assert.ok(durations.length && durations.every(duration => duration === 700), 'Live arrival must last 700 ms');
   if (surface === 'detail' || (surface === 'list' && page.viewportSize()!.width >= 768)) assert.deepEqual(await row.boundingBox(), original, 'The arrival moved its item row');
   assert.equal(await page.locator('#live-copy-caption').count(), 0, 'The floating page caption returned');
-  assert.equal(await row.locator('[data-live-caption]').textContent(), 'Updated by Alex just now');
+  assert.equal(await row.locator('[data-live-caption]').textContent(), 'Alex · pm-web · now');
   const captionBox = await row.locator('[data-live-caption]').boundingBox();
   const stripBox = await row.locator('[data-live-field="strip"]').boundingBox();
   assert.ok(captionBox && stripBox && original, 'Caption and strip must be visible inside the changed sheet');
@@ -75,7 +76,7 @@ export async function checkLiveArrivals(page: Page, settled: () => Promise<void>
   assert.deepEqual(await draft.boundingBox(), before, 'A remote edit moved the comment field');
   assert.equal(await page.locator('.item-detail-title').evaluate(el => el.style.getPropertyValue('--live-copy-ink')), 'var(--pm-rose)');
   assert.equal(await page.locator('#live-copy-announcement').getAttribute('aria-live'), 'polite');
-  assert.equal(await page.locator('#live-copy-announcement').textContent(), 'Updated by Alex just now');
+  assert.equal(await page.locator('#live-copy-announcement').textContent(), 'Updated by Alex · pm-web just now');
   passed.push('blocked rose, polite announcement, stable geometry and draft focus');
   await page.clock.runFor(800);
 
@@ -151,4 +152,26 @@ export async function checkLiveArrivals(page: Page, settled: () => Promise<void>
   assert.equal(await page.locator('[data-item-action="claim"]').getAttribute('aria-disabled'), 'false');
   passed.push('live close replaces the chip with one stamp and disables unavailable actions; reopening restores them');
   return passed;
+}
+
+/** Capture the live record before and after settling on each supported item surface. */
+export async function checkLiveScreens(page: Page, capture: (name: string) => Promise<void>): Promise<string[]> {
+  await holdArrivalFrame(page);
+  await capture('live-arrival');
+  const cases = await checkLiveArrivals(page, () => capture('live-arrival-settled'));
+  await page.evaluate(() => (window as unknown as LiveWindow).__app.hideModal('item-detail-modal'));
+  await page.locator('[data-items-layout="board"]').click();
+  for (const surface of ['board', 'detail'] as const) {
+    if (surface === 'detail') {
+      await page.evaluate(() => (window as unknown as LiveWindow).__app.openItemDetail('note-1'));
+      await page.locator('.item-detail-title').waitFor();
+    }
+    await holdArrivalFrame(page, surface);
+    await capture(`live-arrival-${surface}`);
+    await page.clock.runFor(800);
+    assert.equal(await page.locator('.live-copy-sheet').count(), 0);
+    await capture(`live-arrival-${surface}-settled`);
+    await page.clock.runFor(5000);
+  }
+  return cases;
 }

@@ -382,3 +382,75 @@ lines, 81.06% branches, 95.80% functions; Bun measures 92.07%, 81.34%, 95.80%.
 These are failed local profiles, not acceptance. Their prechecks began before
 the final browser-only initial-fit refactor; final-head CI is required separately.
 Thresholds, measurement scope and deadlines remain unchanged.
+
+## Round 5: context management and review corrections
+
+The hosted workspace describes context management for any agent, the people beside it, and any workflow. The live record carries bounded author and surface attribution. Legacy events without a surface say "shared workspace". The factual operator-enabled Git integration entry in the privacy policy remains unchanged.
+
+| Locale / key | Before | After |
+| --- | --- | --- |
+| en / `auth.brand.tagline` | Git-native project management | Context management for agents and the people beside them |
+| en / `auth.feature.tasks` | Manage tasks, features, bugs, epics & more | Manage context, goals, tasks, decisions and memory |
+| en / `auth.feature.storage` | Git-native storage in .agents/pm/ | Every change stamped with who made it, live for everyone |
+| en / `auth.feature.history` | Full history, comments & activity feeds | Keep history, comments and evidence together |
+| en / `auth.feature.team` | Team-friendly project isolation | Share workspaces across any task or workflow |
+| de / `auth.brand.tagline` | Git-native Projektverwaltung | Kontextmanagement für Agenten und die Menschen an ihrer Seite |
+| de / `auth.feature.tasks` | Aufgaben, Features, Bugs, Epics & mehr verwalten | Kontext, Ziele, Aufgaben, Entscheidungen und Wissen verwalten |
+| de / `auth.feature.storage` | Git-native Speicherung in .agents/pm/ | Jede Änderung mit Urheber, live für alle |
+| de / `auth.feature.history` | Vollständiger Verlauf, Kommentare & Aktivitätsfeeds | Verlauf, Kommentare und Belege zusammenhalten |
+| de / `auth.feature.team` | Teamfreundliche Projektisolation | Arbeitsbereiche für jede Aufgabe und jeden Ablauf teilen |
+| es / `auth.brand.tagline` | Gestión de proyectos nativa de Git | Gestión de contexto para agentes y las personas que los acompañan |
+| es / `auth.feature.tasks` | Gestione tareas, funciones, errores, epics y más | Gestiona contexto, objetivos, tareas, decisiones y memoria |
+| es / `auth.feature.storage` | Almacenamiento nativo de Git en .agents/pm/ | Cada cambio con su autor, en vivo para todos |
+| es / `auth.feature.history` | Historial completo, comentarios y feeds de actividad | Reúne historial, comentarios y evidencias |
+| es / `auth.feature.team` | Aislamiento de proyectos apto para equipos | Comparte espacios para cualquier tarea o flujo de trabajo |
+| zh / `auth.brand.tagline` | 基于 Git 的项目管理 | 为智能体及其身边的人提供上下文管理 |
+| zh / `auth.feature.tasks` | 管理任务、功能、缺陷、史诗等 | 管理上下文、目标、任务、决策和记忆 |
+| zh / `auth.feature.storage` | 基于 Git 的存储，位于 .agents/pm/ | 每次变更都标明作者，实时同步给所有人 |
+| zh / `auth.feature.history` | 完整历史记录、评论和活动动态 | 将历史、评论和证据保存在一起 |
+| zh / `auth.feature.team` | 适合团队的项目隔离 | 为任何任务或工作流程共享工作空间 |
+
+The English static fallbacks match the English catalog, and the PWA name/description use the same context-management framing. The document title changes from "pm-web — Project Management" to "pm-web — Context management"; the description now names shared context, goals, tasks, decisions and memory for agents and people. Health scores add explicit "Needs repair", "Needs attention" and "Healthy" labels. Live captions change from "Updated by Alex just now" to the compact stamp "Alex · pm-web · now" for attributed web events; the full "Updated by Alex · pm-web just now" remains in the tooltip and polite announcement.
+
+| Review thread | Disposition and regression |
+| --- | --- |
+| `4305713653` API failures | Mark before fetch; clear on HTTP/network/serialization failure; identity-bound cleanup preserves a newer request marker. `test/frontend-api.test.ts` covers failure and overlap. |
+| `4305713654` observer | Ignore tooltip-only child/text/style mutations; batch relevant mutations once per animation frame. Isolated real-browser probe counts document enhancement queries. |
+| `4305713657` health | Fix warning/healthy conflation with graphite and explicit labels at 49/50/79/80 boundaries. Decline canary text: the owner reserves it for working states and copies; canary text on a sheet also fails AA. |
+
+Screenshot defects: graph preset labels wrap without ellipsis and retain full accessible names/tooltips; the persistent modal header shows a title heading plus mono id/type/priority; disabled actions use transparent fill, graphite text and a rule outline. Header geometry reserves space so remote title changes do not move drafts.
+
+Browser commands use `CHROMIUM_PATH="$PM_WEB_CHROMIUM"` and external `BRAND_SCREENSHOTS="$PM_WEB_BROWSER_EVIDENCE"`. Run `BRAND_ACCEPTANCE=1 BRAND_REGRESSION_ONLY=round5 node scripts/brand-browser.ts` for UI checks; select `round5-live` for live-record scenarios, or `round4-drag` for issue #218. `BRAND_REVERT_EVIDENCE="$PM_WEB_REVERT_EVIDENCE" node scripts/brand-browser-round5-reverts.ts` compiles isolated source copies and independently restores ten reviewed behaviors, leaving production sources unchanged.
+
+Evidence: [round 5 screenshots and receipts](https://github.com/unbraind/pm-web/tree/pr-screenshots/brand/pm-web-triplicate/round5). The original main BEFORE matrix and round-4 frames remain on that branch. No thresholds change. No review threads are resolved by this work.
+
+
+The final held-kit pin is `98cbe45976b3111f09143c2a29ede906cb553c2a`.
+Its identity-control update leaves all 54 consumed assets and the bundled browser
+palette byte-identical. A fresh post-pin smoke passes all six fifth-round UI
+cases. The screenshot matrix remains valid for the identical visual inputs.
+
+Completed browser evidence: 72 AFTER images and 24 round-4 comparison frames;
+138 executed keyboard/contrast audits, 3,032 Tab stops, 851 painted text pairs,
+36 selected review cases and 42 live cases across six viewport/theme groups.
+The independent grouped runner proves ten expected failures and unchanged
+production targets. A separate real HTTP/SSE probe passes with the server
+surface stamp and fails when only `emitItemEvent` is reverted, for 11 demonstrated
+proofs in total. The issue #218 drag regression and the 3.98:1 opacity fixtures
+also pass. Full release outcomes and exact-head CI are recorded in the linked
+round-5 receipt; failed or stopped local attempts are not acceptance.
+
+
+The final pinned local `npm run release:check` and `bun run release:check` attempts
+are red: npm reports 661 passed, 5 failed, 1 canceled; Bun reports 662 passed,
+4 failed, 1 canceled, out of 667 each, with zero skipped/todo. Statement/line
+coverage is 91.68% and 91.73%, below the unchanged 92.07% floor. Catalog timeout,
+subsequent `spawn ENOTDIR`, and production-server startup deadlines remain in
+`pm-web-qdhx`; the 10,877 ms / 11,465 ms graph reads exceed the unchanged
+10,000 ms limit and remain in `pm-web-hqqp`. The npm privacy fixture fails during
+server startup, before any privacy assertion. The initial standalone copies
+also omitted Git metadata needed by the identity audit; that setup error is
+repaired, and the four identity tests pass separately in both profiles against
+the independently verified trusted main ref. The original full-run results are
+retained as failures. Later release stages are not reached locally. Exact-head
+CI acceptance is a separate receipt and does not turn these attempts green.

@@ -839,7 +839,7 @@ function renderGraphPresets(depRels: GraphRelationship[], isolatedCount: number)
   return `
     <div class="graph-preset-rail" role="toolbar" aria-label="Graph views">
       ${presets.map((preset) => `
-        <button class="graph-preset-btn${graphPresetActive(preset.id) ? ' active' : ''}" data-graph-preset="${preset.id}">
+        <button class="graph-preset-btn${graphPresetActive(preset.id) ? ' active' : ''}" data-graph-preset="${preset.id}" aria-label="${escHtml(preset.label)}: ${escHtml(preset.value)}" title="${escHtml(preset.label)}">
           <span>${escHtml(preset.label)}</span>
           <strong>${escHtml(preset.value)}</strong>
         </button>`).join('')}

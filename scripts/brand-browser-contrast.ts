@@ -27,7 +27,7 @@ export async function auditTextContrast(page: Page): Promise<{ pairs: number; fa
     const failures: string[] = [];
     const pairs = new Set<string>();
     for (const el of scope.querySelectorAll<HTMLElement>('*')) {
-      if (!el.checkVisibility() || !el.getClientRects().length || getComputedStyle(el).visibility === 'hidden' || el.closest('[aria-hidden="true"],:disabled') || el.matches('script,style,option')) continue;
+      if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) || !el.getClientRects().length || getComputedStyle(el).visibility === 'hidden' || el.closest('[aria-hidden="true"],:disabled') || el.matches('script,style,option')) continue;
       const text = [...el.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent || '').join('').trim();
       if (!text && !el.matches('input:not([type="checkbox"]):not([type="radio"]),textarea,select')) continue;
       const ancestors: HTMLElement[] = [];

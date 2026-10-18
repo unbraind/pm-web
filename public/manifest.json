@@ -1,7 +1,7 @@
 {
-  "name": "pm-web — Project Management",
+  "name": "pm-web — Context management",
   "short_name": "pm-web",
-  "description": "Full-featured web UI for pm-cli — manage projects, tasks, epics, bugs, and more from any device",
+  "description": "Shared context, goals, tasks, decisions and memory for agents and people",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F3F5F8",

@@ -47,3 +47,8 @@ test('saving a stale draft submits only changed fields so a remote title survive
   assert.deepEqual(changedDraftFields(baseline, draft), { description: 'My new description' });
   assert.deepEqual(changedDraftFields(baseline, baseline), {});
 });
+
+test('live record retains bounded author and surface stamps without inventing legacy origins', () => {
+  assert.deepEqual(parseLiveUpdate('{"itemId":"note-1","author":"Alex","surface":"pm CLI"}'), { itemId: 'note-1', author: 'Alex', surface: 'pm CLI' });
+  assert.deepEqual(parseLiveUpdate(JSON.stringify({ itemId: 'note-1', surface: 'x'.repeat(257) })), { itemId: 'note-1' });
+});

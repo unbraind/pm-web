@@ -87,7 +87,7 @@ export async function renderHealthView(): Promise<void> {
     let scoreColor = 'var(--pm-stamp)';
     if (score !== null) {
       if (score < 50) scoreColor = 'var(--pm-danger)';
-      else if (score < 80) scoreColor = 'var(--pm-stamp)';
+      else if (score < 80) scoreColor = 'var(--pm-graphite)';
     }
 
     const contentEl = document.getElementById('health-content');
@@ -97,7 +97,7 @@ export async function renderHealthView(): Promise<void> {
         <div class="card" style="margin-bottom:16px">
           <div class="health-score-display">
             <div class="health-score-number" style="color:${scoreColor}">${score}</div>
-            <div class="health-score-label">Health Score / 100</div>
+            <div class="health-score-label">Health score / 100 · ${score !== null && score < 50 ? 'Needs repair' : score !== null && score < 80 ? 'Needs attention' : 'Healthy'}</div>
           </div>
         </div>` : ''}
       <div class="card">

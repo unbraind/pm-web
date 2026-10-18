@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-16T22:27:12.851Z"
-updated_at: "2026-10-18T03:42:29.156Z"
+updated_at: "2026-10-18T05:51:21.609Z"
 author: codex-agent
-comments[65]{created_at,author,text}:
+comments[70]{created_at,author,text}:
   "2026-10-16T22:27:46.814Z",codex-agent,"Started isolated package work. Baseline main is 54c694b. Plan: fixture-only screenshots first; generated dev-only pm-brand asset pipeline and pixel comparison; Triplicate screens and accessible board; attributed live-copy arrivals; full unchanged release gates, packaging, isolated image build and PR evidence. Current brand main contains tokens only; optional fonts and icons will be consumed when available. Existing test PostgreSQL is reachable; hosted resources stay outside this work."
   "2026-10-16T22:40:05.742Z",codex-agent,"Asset-copy and immutable static-cache regressions pass 2/2. Behavioral revert: restoring only the original static middleware makes the published-brand cache assertion fail (expected no-cache, received public max-age=0); the function was restored afterward. Baseline evidence covers 108 fixture screenshots. Temporary exact legacy aliases isolate the first migration; the following restyle replaces them with the shared contract."
   "2026-10-16T22:40:44.720Z",codex-agent,"Migration pixel comparison passed 30/30 main-view images. Across 1440/768/390 and both themes: items, board baseline and open detail are identical (max delta 0). Sign-in max channel delta 27/255 with at most 28 changed pixels (0.00718% area); projects max 15/255 with at most 31 pixels (0.00795%). Sparse glyph-edge antialiasing only. Lint passes; duplication 0%; docstrings 706/706."
@@ -74,7 +74,12 @@ comments[65]{created_at,author,text}:
   "2026-10-18T03:17:11.839Z",codex-agent,"Published 18 fixture-only AFTER PNGs for account actions, project graph and item-detail graph at all six width/theme combinations, plus complete unresolved-review input, browser report, nine revert receipts and scale evidence: https://github.com/unbraind/pm-web/tree/pr-screenshots/brand/pm-web-triplicate/round4 . Local strengthened-opacity positive case passes. npm and Bun release checks are running with isolated Git identity, original thresholds and canonical fleet oracle. No threads have been resolved."
   "2026-10-18T03:33:09.834Z",codex-agent,"Final-source rerun passes through pm test: 42 audits, 778 Tab stops, 255 painted contrast checks and 30 review cases in all six width/theme combinations. The initial-fit helper also preserves the first fit after empty data and fits an early hierarchical switch after canceling its worker. The complete nine-case revert script exits 0 after requiring nine independent compiled behavioral failures, with matching production hashes. Build, frontend/server/test type checks, lint, zero duplication and complete docstrings pass. No thresholds or dependencies changed; the held brand main pin is unchanged. Full isolated npm/Bun release attempts remain running and already reproduce tracked catalog/startup, canonical snapshot and server graph-budget failures."
   "2026-10-18T03:42:27.542Z",codex-agent,"Code fixes are committed as 3a061a9560faa0d84ffa1df16b5eeae7f804eb2c, including Fixes #218. Final-source browser acceptance and all nine independent behavioral reverts pass with matching source hashes. A fresh committed-source 2000-node worker run returns in 0 ms and completes in 23309.8 ms, with coalescing, input yielding, static intermediate positions and cancellation all passing. Both isolated local npm/Bun attempts finish with 663 passed, 3 failed, 1 canceled, 0 skipped/todo out of 667; details remain in pm-web-qdhx, pm-web-hqqp and new pm-web-5e1q. These local failed profiles began before the final browser-only refactor and are separate from required final-head CI. Thresholds, scope and deadlines remain unchanged. Final CI receipts and the per-thread replies will be linked in PR 216 and the published round4 evidence directory. Release the claim for orchestrator verification; keep this item in progress."
-files[89]:
+  "2026-10-18T04:33:43.035Z",codex-agent,"Round 5 started after reading the updated owner contract and synchronizing the PR branch; main is already included. Scope: context-management copy in four locales and static fallbacks, readable graph facets, persistent titled item-sheet header, outlined disabled actions, request-bound failed-edit cleanup, tooltip observer batching, and accessible health warning semantics. Read all unresolved threads and the latest full review body (three inline findings, no outside-diff or nitpick sections). Open issue #218 is already behaviorally fixed in round 4; add its closing keyword to the PR body. Tests will include independent behavioral revert proofs, fixture screenshots at six viewport/theme combinations, and both isolated-identity release gates at unchanged thresholds."
+  "2026-10-18T04:47:15.009Z",codex-agent,"Round 5 focused tests passed 16/16 through the pinned pm test runner. The main fixture matrix passed 48 keyboard/contrast audits and captured 36 AFTER screenshots across 1440/768/390 in light and dark. Independent reverts currently reproduce API cleanup, marker ownership, tooltip observer, health warning and facet clipping defects; remaining probes and live-record matrix continue. Decline the suggested canary health-score text: it is 1.68:1 on the light sheet and violates the owner rule reserving canary for working states/copies. Warning scores instead use graphite plus Needs attention, with 49/50/79/80 boundary checks. The contrast harness now skips fully transparent source layers while retaining the existing 3.98:1 partially transparent failure probes."
+  "2026-10-18T04:56:36.750Z",codex-agent,"Final round 5 source passes all 10 independent behavioral reverts: API cleanup, same-item marker ownership, observer batching, health bands, facet clipping, titled header, disabled outline, surface parsing, owner copy and transparent-layer contrast. Both grouped runners exit zero and verify production target files remain unchanged. Proofs: https://github.com/unbraind/pm-web/blob/pr-screenshots/brand/pm-web-triplicate/round5/revert-proofs.json . The final fixture matrix has 72 AFTER images, 138 executed audits, 3032 Tab stops and 851 painted text pairs; 42 live cases pass across six viewport/theme groups. The extended stamp initially wrapped a tablet row; compact author/surface stamps plus a shrinking caption now preserve its geometry, with full tooltip and polite announcement retained. The issue #218 mouse/touch/pending-worker/pan/click/keyboard regression also passes against the final source. Focused tests pass 16/16, including overlap with identical marker expiry timestamps. Zero duplication and frontend type checks pass at unchanged policy. npm release coverage continues after reproducing an existing catalog-consumer failure; no failed run is acceptance."
+  "2026-10-18T05:13:09.829Z",codex-agent,"The held kit main advanced to 98cbe45976b3111f09143c2a29ede906cb553c2a during verification. Re-pinned exactly and restarted npm/Bun gates from verified standalone inputs with independent test storage and isolated HOME/global/system Git identity. The kit update changes identity controls only: all 54 consumed assets and the browser palette bundle are byte-identical; a post-pin six-case UI smoke passes. The real HTTP/SSE surface-stamp test passes on the fix and fails when only emitItemEvent is reverted, bringing demonstrated revert proofs to 11. The superseded prior-kit gate attempts were explicitly stopped and are not acceptance. Strict tracker health passes; validation succeeds with existing metadata warnings, which is a separate result."
+  "2026-10-18T05:51:19.649Z",codex-agent,"Final pinned local release results are failures: npm 661 passed, 5 failed, 1 canceled; Bun 662 passed, 4 failed, 1 canceled; 667 reported tests each, zero skipped/todo. Statement/line coverage is 91.68% / 91.73%, below the unchanged 92.07% floor. Branch/function results are npm 81.21% / 95.80% and Bun 81.41% / 95.80%. Both scripts stop at coverage, so later stages are not local acceptance. The missing standalone Git metadata suppressed the four identity test declarations; repaired profiles separately pass 4/4 each against trusted main, without changing controls. Catalog/startup evidence is retained in pm-web-qdhx and graph wall-time evidence in pm-web-hqqp. The build-first linked focused suite passes 16/16. All requested copy/layout/review fixes, 72 AFTER screenshots and 11 revert proofs are ready. Push and exact-head CI are the remaining delivery checks. Keep this item in progress for orchestrator verification; no item is closed."
+files[92]:
   - path: .dockerignore
     scope: project
   - path: .github/workflows/ci.yml
@@ -230,6 +235,12 @@ files[89]:
     scope: project
   - path: scripts/brand-browser-round4.ts
     scope: project
+  - path: scripts/brand-browser-round5-reverts.ts
+    scope: project
+    note: Round 5 browser regressions and independent behavioral proofs
+  - path: scripts/brand-browser-round5.ts
+    scope: project
+    note: Round 5 browser regressions and independent behavioral proofs
   - path: scripts/brand-browser.ts
     scope: project
   - path: scripts/brand-fixtures.ts
@@ -248,13 +259,15 @@ files[89]:
     scope: project
   - path: test/brand-contrast.test.ts
     scope: project
+  - path: test/brand-copy.test.ts
+    scope: project
   - path: test/i18n.test.ts
     scope: project
   - path: test/live-copy.test.ts
     scope: project
   - path: test/pm-collaboration.test.ts
     scope: project
-tests[12]:
+tests[13]:
   - command: node scripts/with-test-db.ts node --test test/brand-assets.test.ts
     scope: project
     provenance:
@@ -343,6 +356,13 @@ tests[12]:
     provenance:
       author: codex-agent
       created_at: "2026-10-18T03:11:42.145Z"
+      source_kind: local_mutation
+      source_ref: brand/triplicate-tokens-and-restyle
+  - command: "npm run build:frontend && node --test test/frontend-api.test.ts test/live-copy.test.ts test/brand-copy.test.ts"
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-18T05:28:11.264Z"
       source_kind: local_mutation
       source_ref: brand/triplicate-tokens-and-restyle
 docs[2]{path,scope}:

@@ -8,9 +8,10 @@ import path from 'node:path';
 import { chromium, type Page } from 'playwright-core';
 import { fixtureResponse, fixtureItems, fixtureUser, fixtureComments, fixtureHistory, fixturePatches } from './brand-fixtures.ts';
 import type { AppBridge } from '../public/src/app.ts';
-import { holdArrivalFrame, checkLiveArrivals } from './brand-browser-live.ts';
+import { checkLiveScreens } from './brand-browser-live.ts';
 import { auditTextContrast } from './brand-browser-contrast.ts';
 import { checkReviewRegressions, assertFinishedActions } from './brand-browser-regressions.ts';
+import { checkRound5 } from './brand-browser-round5.ts';
 import { checkRound4 } from './brand-browser-round4.ts';
 import { checkRound3 } from './brand-browser-round3.ts';
 
@@ -56,6 +57,8 @@ const report: unknown[] = [];
 let screenshotCount = 0;
 const widths = process.env.BRAND_QUICK ? [1440] : process.env.BRAND_WIDTHS ? process.env.BRAND_WIDTHS.split(',').map(Number) : [1440, 768, 390];
 assert.ok(widths.length && widths.every(width => [1440, 768, 390].includes(width)), 'Use review widths 1440, 768 or 390');
+const themes = process.env.BRAND_THEMES ? process.env.BRAND_THEMES.split(',') : process.env.BRAND_QUICK ? ['light'] : ['light', 'dark'];
+assert.ok(themes.length && themes.every(theme => ['light', 'dark'].includes(theme)), 'Use light or dark review themes');
 const originalItems = structuredClone(fixtureItems);
 const originalComments = structuredClone(fixtureComments);
 const originalHistory = structuredClone(fixtureHistory);
@@ -71,6 +74,7 @@ async function submitFixtureCredentials(page: Page): Promise<void> {
 /** Capture a stable view and audit its responsive and keyboard affordances. */
 async function capture(page: Page, name: string, width: number, theme: string, screenshot = true): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
+  if (await page.evaluate(() => document.documentElement.dataset.fixtureClock === 'paused')) await page.clock.runFor(20);
   await page.waitForTimeout(120);
   if (strict) {
     const contrast = await auditTextContrast(page);
@@ -101,6 +105,7 @@ async function capture(page: Page, name: string, width: number, theme: string, s
     }
     assert.equal(visited.size, audit.count, `${name}: Tab did not reach every action`);
     report.push({ name, width, theme, ...audit, tabStops: visited.size, contrastPairs: contrast.pairs });
+    await writeFile(path.join(output!, 'browser-report.json'), JSON.stringify(report, null, 2));
     console.log(`Audited ${name}/${width}/${theme}: ${visited.size} actions, ${contrast.pairs} text pairs`);
     await page.evaluate(() => {
       (document.activeElement as HTMLElement)?.blur();
@@ -115,7 +120,7 @@ async function capture(page: Page, name: string, width: number, theme: string, s
 }
 
 try {
-  for (const width of widths) for (const theme of (process.env.BRAND_QUICK ? ['light'] : ['light', 'dark']) as ('light' | 'dark')[]) {
+  for (const width of widths) for (const theme of themes as ('light' | 'dark')[]) {
     fixtureItems.splice(0, fixtureItems.length, ...structuredClone(originalItems));
     fixtureComments.splice(0, fixtureComments.length, ...structuredClone(originalComments));
     fixtureHistory.splice(0, fixtureHistory.length, ...structuredClone(originalHistory));
@@ -171,8 +176,15 @@ try {
     await capture(page, 'projects', width, theme);
     await page.evaluate(() => (window as unknown as ReviewWindow).__app.selectProject('fixture-project'));
     await page.locator('.item-row').first().waitFor();
+    if (process.env.BRAND_REGRESSION_ONLY === 'round5-live') {
+      report.push({ width, theme, liveCases: await checkLiveScreens(page, name => capture(page, name, width, theme)) });
+      await writeFile(path.join(output, 'browser-report.json'), JSON.stringify(report, null, 2));
+      await context.close();
+      continue;
+    }
     if (process.env.BRAND_REGRESSION_ONLY) {
-      report.push({ width, theme, reviewCases: process.env.BRAND_REGRESSION_ONLY.startsWith('round4') ? await checkRound4(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round3') ? await checkRound3(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
+      report.push({ width, theme, reviewCases: process.env.BRAND_REGRESSION_ONLY.startsWith('round5') ? await checkRound5(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round4') ? await checkRound4(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : process.env.BRAND_REGRESSION_ONLY.startsWith('round3') ? await checkRound3(page, process.env.BRAND_REGRESSION_ONLY, name => capture(page, name, width, theme)) : await checkReviewRegressions(page, process.env.BRAND_REGRESSION_ONLY === 'all' ? '' : process.env.BRAND_REGRESSION_ONLY) });
+      await writeFile(path.join(output, 'browser-report.json'), JSON.stringify(report, null, 2));
       await context.close();
       continue;
     }
@@ -250,6 +262,7 @@ try {
     if (strict) {
       report.push({ width, theme, reviewCases: await checkReviewRegressions(page) });
       report.push({ width, theme, round3Cases: await checkRound3(page, 'round3-ui', name => capture(page, name, width, theme)) });
+      report.push({ width, theme, round5Cases: await checkRound5(page, 'round5', name => capture(page, name, width, theme)) });
       report.push({ width, theme, round4Cases: await checkRound4(page, 'round4', name => capture(page, name, width, theme)) });
     }
     await page.goto(`${base}/privacy-policy.html`);
@@ -258,29 +271,13 @@ try {
     await page.locator('.project-card').waitFor();
     await page.evaluate(() => (window as unknown as ReviewWindow).__app.selectProject('fixture-project'));
     await page.locator('.item-row').first().waitFor();
-    if (strict) await holdArrivalFrame(page);
-    else {
-      fixtureItems[0].title = 'Make the shared next step clear';
-      await page.evaluate(() => (window as unknown as ReviewWindow).__fixtureEmit({ itemId: 'note-1', userId: 'fixture-reviewer', author: 'Alex' }));
-      await page.waitForTimeout(220);
-    }
-    await capture(page, 'live-arrival', width, theme);
     if (strict) {
-      report.push({ width, theme, liveCases: await checkLiveArrivals(page, () => capture(page, 'live-arrival-settled', width, theme)) });
-      await page.evaluate(() => (window as unknown as ReviewWindow).__app.hideModal('item-detail-modal'));
-      await page.locator('[data-items-layout="board"]').click();
-      for (const surface of ['board', 'detail'] as const) {
-        if (surface === 'detail') {
-          await page.evaluate(() => (window as unknown as ReviewWindow).__app.openItemDetail('note-1'));
-          await page.locator('.item-detail-title').waitFor();
-        }
-        await holdArrivalFrame(page, surface);
-        await capture(page, `live-arrival-${surface}`, width, theme);
-        await page.clock.runFor(800);
-        assert.equal(await page.locator('.live-copy-sheet').count(), 0);
-        await capture(page, `live-arrival-${surface}-settled`, width, theme);
-        await page.clock.runFor(5000);
-      }
+      report.push({ width, theme, liveCases: await checkLiveScreens(page, name => capture(page, name, width, theme)) });
+    } else {
+      fixtureItems[0].title = 'Make the shared next step clear';
+      await page.evaluate(() => (window as unknown as ReviewWindow).__fixtureEmit({ itemId: 'note-1', userId: 'fixture-reviewer', author: 'Alex', surface: 'pm-web' }));
+      await page.waitForTimeout(220);
+      await capture(page, 'live-arrival', width, theme);
     }
     console.log(`Captured ${width}/${theme}`);
     if (strict) assert.deepEqual(errors, [], 'Browser errors');

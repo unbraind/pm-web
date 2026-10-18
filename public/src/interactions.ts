@@ -50,5 +50,16 @@ export function initInteractions(): void {
     }
   }, true);
   enhance();
-  new MutationObserver(enhance).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'hidden', 'aria-disabled'] });
+  let scheduled = false;
+  new MutationObserver(records => {
+    if (records.every(record => {
+      const target = record.target instanceof Element ? record.target : record.target.parentElement;
+      return target?.closest('#gc-tooltip');
+    }) || scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      enhance();
+    });
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'hidden', 'aria-disabled'] });
 }
