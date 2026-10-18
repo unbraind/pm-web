@@ -2,10 +2,11 @@
   "nodes": 2000,
   "edges": 1999,
   "callMs": 0,
-  "elapsedMs": 21589,
+  "elapsedMs": 23309.80000001192,
   "workers": 1,
   "yielded": true,
   "staticUntilDone": true,
   "canceled": true,
-  "moved": true
+  "moved": true,
+  "codeHead": "3a061a9560faa0d84ffa1df16b5eeae7f804eb2c"
 }
