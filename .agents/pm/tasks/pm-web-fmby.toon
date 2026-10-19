@@ -1,0 +1,13 @@
+id: pm-web-fmby
+title: Restore changelog gates with the SDK full-list projection
+description: "pm-changelog 2026.10.15 invokes pm list --all --json with unbounded output but without a full projection. SDK 2026.10.19 defaults to brief and emits omission_receipt.has_omissions=true, so changelog:full/check refuse generation even when every row is returned. Forwarding --output-include full makes the list complete but is also forwarded to schema list, which the CLI rejects. Repair the producer integration without disabling completeness checks or rewriting tracker histories; then adopt its reviewed release in the consumer."
+type: Task
+status: open
+priority: 1
+tags: []
+created_at: "2026-10-19T07:45:38.238Z"
+updated_at: "2026-10-19T07:45:38.238Z"
+author: codex-agent
+acceptance_criteria: "The existing complete-read guard remains enabled; changelog:full and changelog:check pass on SDK 2026.10.19 with custom item types and full item metadata; regression tests cover brief-list omission and schema discovery."
+parent: pm-web-8pml
+body: ""

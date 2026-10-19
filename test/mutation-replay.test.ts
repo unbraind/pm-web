@@ -59,9 +59,10 @@ test("a real idle follower takes no index locks between safety checks and detect
     state.readGate.begin = (fingerprint) => begin(fingerprint, 0);
     stream = followCommittedMutations({ pmRoot: ".agents/pm", cwd: dir, since: new Date(state.baseline).toISOString(), type: "update", intervalMs: 20, signal: controller.signal }, state);
     const next = stream.next();
-    await waitUntil(() => counter!.count() > 0, 3000, "first real replay scan");
+    await waitUntil(() => state.readGate.completedScanAt !== undefined, 3000, "first real replay scan");
     await delay(200);
     const settled = counter.count();
+    assert.equal(settled, 0, "the current SDK reads an up-to-date index without writer locks");
     await delay(300);
     assert.equal(counter.count(), settled, "unchanged history must take zero additional index locks");
     await capacityPm(dir, ["update", "idle-one", "--title", "CLI bypasses NOTIFY"]);
@@ -70,7 +71,7 @@ test("a real idle follower takes no index locks between safety checks and detect
     finally { clearTimeout(timeout); }
     controller.abort();
     await stream.return();
-    assert.ok(counter.count() > settled, "changed history requires a real SDK read");
+    assert.equal(counter.count(), 0, "a separately committed CLI write is visible without a reader writer-lock");
     await assert.rejects(followCommittedMutations({ pmRoot, since: "invalid" }, createMutationReplayState()).next(), /ISO timestamp/);
   } finally {
     controller.abort();

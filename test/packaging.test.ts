@@ -13,6 +13,7 @@ interface DependencyManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
   readonly devDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
+  readonly optionalDependencies?: Readonly<Record<string, string>>;
 }
 
 /** The published manifest, read from disk rather than imported so the assertions run against the same bytes npm publishes. */
@@ -33,6 +34,16 @@ const HOST_CLI = "@unbrained/pm-cli";
  * resolves one version rather than "whatever is newest and still matching".
  */
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
+
+test("each package is declared in exactly one dependency section", () => {
+  const owners = new Map<string, string>();
+  for (const section of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] as const) {
+    for (const name of Object.keys(manifest[section] ?? {})) {
+      assert.equal(owners.get(name), undefined, `${name} is declared in both ${owners.get(name)} and ${section}`);
+      owners.set(name, section);
+    }
+  }
+});
 
 /**
  * This package is dual-mode, and that is what decides the CLI's placement.
