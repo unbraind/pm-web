@@ -6,17 +6,18 @@ status: in_progress
 priority: 2
 tags[2]: capacity,realtime
 created_at: "2026-10-19T17:45:22.211Z"
-updated_at: "2026-10-19T18:55:31.057Z"
+updated_at: "2026-10-19T18:58:33.630Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
-comments[6]{created_at,author,text}:
+comments[7]{created_at,author,text}:
   "2026-10-19T18:20:50.917Z",codex-agent,"Investigating duplicate identities and delivery stages in an isolated package worktree based on the open capacity report. Plan: trace the 20-subscriber reproduction, add event-identity delivery receipts and only evidence-backed latency fixes, prove behavioral reverts, rerun the unchanged ladder and npm/Bun gates. No hosted access."
   "2026-10-19T18:20:51.102Z",codex-agent,"Tracing synthetic duplicate identities and latency stages in the package worktree; delivery receipts, behavioral revert proofs and unchanged capacity gates will be required. No hosted access."
   "2026-10-19T18:24:38.714Z",codex-agent,"20-subscriber trace reproduced 140 duplicates: HTTP write sequences 0,4,5,8,9,14,23 each had two socket writes per subscriber, first workspace-changed from mutation-events then item-updated from the route. This proves the watcher-before-route race in the one-shot item signal. NOTIFY self-echo, reconnect and harness double-counting are not the observed paths. Planned receipt identity is the committed item/version, shared across route, watcher and peer delivery."
   "2026-10-19T18:30:34.190Z",codex-agent,"Behavioral revert proof passed: keeping all other fixes and new tests, restoring only deliverProjectEvent from origin/main caused the 20-subscriber committed-version regression to fail (6 item frames instead of 2). Restoring the function passed. Covers watcher-first, route-first and peer-first deliveries, two distinct versions on the same item and real SDK history."
   "2026-10-19T18:36:06.938Z",codex-agent,Linked regression run passed 1/1 with real committed same-item versions and 20 subscribers in each delivery order. Peer identity validation plus trace tests passed 12/12. The fixed full ladder advanced beyond 100 subscribers; its final result is pending cleanup.
   "2026-10-19T18:54:52.768Z",codex-agent,"First full npm gate: 676/677 pass, one failure from adding version to the legacy HTTP SSE payload. Removing that unnecessary payload field preserves the existing contract; the receipt identity remains internal on SSEEvent and peer transport. Coverage floors were met (92.42 statements/lines, 81.57 branches, 96.17 functions). Focused compatibility and full gates will be rerun."
+  "2026-10-19T18:58:33.627Z",codex-agent,Restored legacy HTTP payload plus receipt regression passed 9/9. Final untraced 100/1000 ladder again has zero duplicates and zero lost receipts (5000 and 50000 expected). The 1000 rung failed latency and stopped the ladder; dedup correctness is separate from capacity acceptance.
 files[6]{path,scope}:
   src/routes/pm.ts,project
   src/services/mutation-event-watcher.ts,project
