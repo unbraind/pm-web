@@ -79,7 +79,7 @@
     "jscpd": "5.4.1",
     "playwright-core": "1.64.1",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
-    "pm-changelog": "2026.10.15",
+    "pm-changelog": "2026.10.19-1",
     "pm-ops": "2026.10.15",
     "pngjs": "7.0.0",
     "tsx": "4.23.15",

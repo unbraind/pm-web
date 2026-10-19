@@ -2,12 +2,26 @@ id: pm-web-fmby
 title: Restore changelog gates with the SDK full-list projection
 description: "pm-changelog 2026.10.15 invokes pm list --all --json with unbounded output but without a full projection. SDK 2026.10.19 defaults to brief and emits omission_receipt.has_omissions=true, so changelog:full/check refuse generation even when every row is returned. Forwarding --output-include full makes the list complete but is also forwarded to schema list, which the CLI rejects. Repair the producer integration without disabling completeness checks or rewriting tracker histories; then adopt its reviewed release in the consumer."
 type: Task
-status: open
+status: in_progress
 priority: 1
 tags: []
 created_at: "2026-10-19T07:45:38.238Z"
-updated_at: "2026-10-19T07:45:38.238Z"
+updated_at: "2026-10-19T10:42:04.025Z"
 author: codex-agent
 acceptance_criteria: "The existing complete-read guard remains enabled; changelog:full and changelog:check pass on SDK 2026.10.19 with custom item types and full item metadata; regression tests cover brief-list omission and schema discovery."
 parent: pm-web-8pml
+comments[5]{created_at,author,text}:
+  "2026-10-19T10:12:57.980Z",codex-agent,Adopt the published pm-changelog 2026.10.19-1 producer fix for whole-tracker --full projection. Re-run isolated npm and Bun release checks; compare the four catalog/fleet failures against current origin/main before deciding whether branch code needs a fix. Preserve thresholds and dependency declaration repair. Keep this item open; record producer resolution and exact CI evidence after push.
+  "2026-10-19T10:16:17.994Z",codex-agent,"Resolved by producer release pm-changelog 2026.10.19-1 (pm-changelog#256); exact devDependency and lock updated. Both previously failing assertions now pass: verify runs both halves against this checkout and reports through the process streams; main verifies this checkout and reports through the process streams. Catalog investigation: catalog/fleet source and tests are byte-identical to origin/main at 6f3dfe4. In the same sibling-worktree environment, origin/main focused catalog/fleet tests pass 30/34 with the same four failures as this branch. A standalone archive of that exact main source passes 34/34 under the same isolated HOME/Git profile. This confirms environment-only partial/drifting sibling-fleet discovery, already tracked in pm-web-4p94; do not regenerate snapshots or weaken assertions here. Main Daily Release run 39228921300 passed its release job at 73fd391. Keep this item open for orchestrator closure."
+  "2026-10-19T10:18:27.710Z",codex-agent,"Producer-only revert proof used a genuine scratch Git checkout, the same SDK 2026.10.19 binary, tracker, verifier source and tests. Selecting pm-changelog 2026.10.15 reproduced exactly the two named verifier failures: 19/21 pass, 2 fail. Selecting 2026.10.19-1 in that same fixture passed 21/21, zero skips. The PM-linked isolated command node --test test/verify-release-changelog-date.test.ts also passed 21/21. No verifier, catalog, fleet snapshot or test threshold was changed."
+  "2026-10-19T10:30:37.511Z",codex-agent,"Isolated npm run release:check completed: 669/673 passed, exactly the four origin/main-reproduced catalog/fleet assertions failed, zero skips or cancellations. Both producer-sensitive verifier tests passed in the full run. The command stops at coverage because of those environment-only assertions, so downstream chained stages are not claimed. The required isolated Bun release check is now running; thresholds and assertions remain unchanged."
+  "2026-10-19T10:42:02.731Z",codex-agent,"Final local gates: isolated npm run release:check and bun run release:check each pass 669/673, fail exactly the four catalog/fleet assertions reproduced on origin/main, and skip/cancel zero tests. Both formerly failing changelog verifier assertions pass in both full runs. Producer resolution is verified independently by the unchanged 21-test verifier suite and its two-failure old-producer revert. Catalog code, snapshots and thresholds remain untouched. Local strict PM health is true. Regenerate/check the changelog after these final PM writes, commit dependency plus append-only PM evidence, push, and wait for CI at 60-second intervals with a 40-minute cap. Item remains open for orchestrator closure."
+files[2]{path,scope}:
+  package-lock.json,project
+  package.json,project
+tests[1]{command,scope,timeout_seconds,pm_context_mode,workspace_context_mode,provenance{author,created_at,source_kind,source_ref}}:
+  env HOME=$(mktemp -d) GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 node --test test/verify-release-changelog-date.test.ts,project,180,schema,source,codex-agent,"2026-10-19T10:15:50.106Z",local_mutation,fix/single-pm-cli-declaration
+docs[2]{path,scope}:
+  "https://github.com/unbraind/pm-changelog/pull/256",project
+  "https://github.com/unbraind/pm-web/pull/223",project
 body: ""
