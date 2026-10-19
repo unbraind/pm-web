@@ -96,6 +96,15 @@ function isAbortError(err: unknown): boolean {
   return false;
 }
 
+/** Preserve lifecycle semantics when the durable follower wins the delivery race. */
+export function mutationSSEEvent(event: MutationEvent): SSEEvent {
+  return {
+    id: mutationEventIdentity(event),
+    type: event.type === "delete" ? "item-deleted" : event.type === "close" ? "item-closed" : "workspace-changed",
+    data: { source: "mutation-events", itemId: event.item_id, operation: event.type, author: event.author },
+  };
+}
+
 /**
  * Pure, testable reconciler. Holds per-project subscription state across
  * reconcile cycles. Drives the watcher without timers — tests call `reconcile()`
@@ -138,16 +147,7 @@ export function createMutationEventReconciler(deps: MutationEventWatcherDeps = {
           // An exact receipt cannot consume a different same-item mutation.
           const id = mutationEventIdentity(event);
           if (consumeSignal(projectId, event.item_id, id)) continue;
-          emit(projectId, {
-            id,
-            type: "workspace-changed",
-            data: {
-              source: "mutation-events",
-              itemId: event.item_id,
-              operation: event.type,
-              author: event.author,
-            },
-          });
+          emit(projectId, mutationSSEEvent(event));
         }
       } catch (err) {
         if (!isAbortError(err)) onError(err);

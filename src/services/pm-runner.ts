@@ -399,6 +399,8 @@ export interface PmRunOptions {
 export interface PmRunResult {
   /** Request boundary used to read committed identities, never inferred from the latest item version. */
   mutationSince?: string;
+  /** Exact invocation correlation recorded on immutable committed history entries. */
+  mutationEpisodeId?: string;
   stdout: string;
   stderr: string;
   ok: boolean;

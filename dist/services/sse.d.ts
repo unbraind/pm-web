@@ -23,7 +23,7 @@ export interface PresenceUser {
 export declare function noteSignaledMutation(projectId: string): void;
 /** Record one exact committed identity, or a legacy item signal when no identity is available. */
 export declare function noteSignaledItemMutation(projectId: string, itemId: string, eventId?: string): void;
-/** Consume only the requested identity; a different version on the same item remains deliverable. */
+/** Consume the exact identity first, then one legacy item signal when available. */
 export declare function consumeSignaledItemMutation(projectId: string, itemId: string, eventId?: string): boolean;
 /**
  * Report whether a project was signaled within the given time window.

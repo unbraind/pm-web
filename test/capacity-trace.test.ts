@@ -1,6 +1,7 @@
 /** Stage populations must remain complete, causal and explicitly transport-specific. */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { instrumentCapacityModule, stageSummary, traceCriticalPaths, traceDeliveries, type CapacityTrace } from "../scripts/capacity-trace.ts";
 import { capacityOptions } from "../scripts/capacity.ts";
 
@@ -92,4 +93,31 @@ test("trace source drift and malformed opt-in fail closed while unselected modul
   assert.equal(capacityOptions(["--trace", "true"]).trace, true);
   assert.equal(capacityOptions([]).trace, false);
   assert.throws(() => capacityOptions(["--trace", "maybe"]), /Trace must/);
+});
+
+test("delivery attribution counts suppressed broadcasts only as attempts", () => {
+  const writes = [{ sequence: 0, transport: "http" as const, itemId: "synthetic", committedAt: 1000, error: false }];
+  const traces: CapacityTrace[] = [
+    { stage: "broadcast", itemId: "synthetic", at: 1010, source: "mutation-events" },
+    { stage: "serialized", itemId: "synthetic", at: 1011, source: "mutation-events" },
+    { stage: "broadcast", itemId: "synthetic", at: 1020, source: "route" },
+    { stage: "write", itemId: "synthetic", at: 1012 },
+  ];
+  const [delivery] = traceDeliveries(writes, traces);
+  assert.deepEqual(delivery.emissions, [{ at: 1011, eventType: undefined, source: "mutation-events" }]);
+  assert.equal(delivery.attempts.length, 2);
+  assert.equal(delivery.socket_writes, 1);
+});
+
+test("capacity report reproduces the untraced primary ladder with a fresh output", async () => {
+  const report = await readFile(new URL("../docs/capacity/2026-10-19-ladder.md", import.meta.url), "utf8");
+  const commands = report.slice(report.indexOf("## Reproduction and retained evidence")).split("\n");
+  const index = commands.findIndex((line) => line.includes("--trace false"));
+  assert.ok(index > 0);
+  assert.match(commands[index - 1], /^CAPACITY_OUTPUT=\$\(mktemp -d\)\/capacity-untraced$/);
+  const args = commands[index].slice(commands[index].indexOf("--rungs")).split(" ");
+  const options = capacityOptions(args);
+  assert.equal(options.trace, false);
+  assert.deepEqual(options.rungs, [100, 1000, 3000]);
+  assert.ok(commands.some((line) => line.includes("--trace true")));
 });

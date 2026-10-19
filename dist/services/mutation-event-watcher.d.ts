@@ -32,6 +32,8 @@ export interface MutationEventWatcherDeps {
     /** Error sink for non-abort errors from a subscription loop. */
     onError?: (err: unknown) => void;
 }
+/** Preserve lifecycle semantics when the durable follower wins the delivery race. */
+export declare function mutationSSEEvent(event: MutationEvent): SSEEvent;
 /**
  * Pure, testable reconciler. Holds per-project subscription state across
  * reconcile cycles. Drives the watcher without timers — tests call `reconcile()`

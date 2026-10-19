@@ -15,7 +15,8 @@ export interface CapacityTrace {
 /** Retain per-write emission paths so a duplicate can be attributed without retaining payloads. */
 export function traceDeliveries(writes: readonly CapacityWrite[], traces: readonly CapacityTrace[]) {
   return writes.map((write) => ({ sequence: write.sequence, transport: write.transport,
-    emissions: traces.filter((entry) => entry.itemId === write.itemId && entry.stage === "broadcast").map(({ at, eventType, source }) => ({ at, eventType, source })),
+    attempts: traces.filter((entry) => entry.itemId === write.itemId && entry.stage === "broadcast").map(({ at, eventType, source }) => ({ at, eventType, source })),
+    emissions: traces.filter((entry) => entry.itemId === write.itemId && entry.stage === "serialized").map(({ at, eventType, source }) => ({ at, eventType, source })),
     socket_writes: traces.filter((entry) => entry.itemId === write.itemId && entry.stage === "write").length,
   }));
 }

@@ -12,7 +12,7 @@ import {
   resolveSearchScoreThreshold,
   resolveHybridSemanticWeight,
 } from "@unbrained/pm-cli/sdk/query";
-import { QUERY_CURSOR_CONTRACT } from "@unbrained/pm-cli/sdk";
+import { QUERY_CURSOR_CONTRACT, runWithAgentSessionContext } from "@unbrained/pm-cli/sdk";
 import { boardColumns, filterItemsByQuery } from "../board.ts";
 import { buildIcsCalendar, type CalendarItem } from "../ical.ts";
 import { verifyProjectAccess } from "./projects.ts";
@@ -22,7 +22,7 @@ import { signalMutationRead } from "../services/mutation-read-signals.ts";
 import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { routeParam } from "./route-params.ts";
 import { pool } from "../db.ts";
 
@@ -530,12 +530,14 @@ async function runMutation(
   jsonOutput = true,
 ): Promise<PmRunResult | undefined> {
   const mutationSince = new Date().toISOString();
-  const result = await projectPm(project, args, jsonOutput);
+  // Immutable invocation correlation survives concurrent writes to the same item.
+  const mutationEpisodeId = randomUUID();
+  const result = await runWithAgentSessionContext({ episode: { id: mutationEpisodeId } }, () => projectPm(project, args, jsonOutput));
   if (!result.ok) {
     res.status(pmErrorStatus(result)).json({ error: result.stderr || fallback });
     return undefined;
   }
-  return { ...result, mutationSince };
+  return { ...result, mutationSince, mutationEpisodeId };
 }
 
 /**
@@ -545,7 +547,7 @@ async function runMutation(
  * @param req - Authenticated request carrying the project and user ids.
  * @param project - Verified project that owns the workspace.
  * @param type - Event name to broadcast and graph-sync reason.
- * @param result - Successful command with its pre-dispatch timestamp boundary.
+ * @param result - Successful command with its exact invocation identity and read boundary.
  * @param itemId - Item the event is about; defaults to the route's `itemId`.
  */
 async function emitItemEvent(
@@ -568,8 +570,9 @@ async function emitItemEvent(
     const pmRoot = path.join(getProjectDir(project.ownerUserId, project.slug), ".agents", "pm");
     let since = result.mutationSince;
     for (;;) {
-      const page = await singleFlightMutationPage({ pmRoot, item: itemId, since, limit: 1000 });
+      const page = await singleFlightMutationPage({ pmRoot, item: itemId, since, limit: 1000, full: true });
       for (const event of page.events) {
+        if (!result.mutationEpisodeId || event.entry?.agent_episode?.id !== result.mutationEpisodeId) continue;
         broadcastProjectEvent(projectId, {
           id: mutationEventIdentity(event), type,
           data: { itemId, userId: req.user!.userId, author, surface: "pm-web" },

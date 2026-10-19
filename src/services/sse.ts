@@ -52,12 +52,12 @@ export function noteSignaledItemMutation(projectId: string, itemId: string, even
   signaledItemAt.set(JSON.stringify([projectId, itemId, eventId]), Date.now());
 }
 
-/** Consume only the requested identity; a different version on the same item remains deliverable. */
+/** Consume the exact identity first, then one legacy item signal when available. */
 export function consumeSignaledItemMutation(projectId: string, itemId: string, eventId?: string): boolean {
-  const key = JSON.stringify([projectId, itemId, eventId]);
-  if (!signaledItemAt.has(key)) return false;
-  signaledItemAt.delete(key);
-  return true;
+  const keys = [JSON.stringify([projectId, itemId, eventId])];
+  if (eventId !== undefined) keys.push(JSON.stringify([projectId, itemId, undefined]));
+  for (const key of keys) if (signaledItemAt.delete(key)) return true;
+  return false;
 }
 
 /**

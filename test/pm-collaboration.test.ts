@@ -16,7 +16,10 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { createProjectWatchCycle } from "../src/services/project-watcher.ts";
-import { deliverProjectEvent } from "../src/services/sse.ts";
+import { listMutationEvents } from "@unbrained/pm-cli/sdk";
+import { capacityPm } from "../scripts/capacity-fixture.ts";
+import { mutationSSEEvent } from "../src/services/mutation-event-watcher.ts";
+import { configureProjectEventPublisher, mutationEventIdentity, type SSEEvent, deliverProjectEvent } from "../src/services/sse.ts";
 import { connectLiveSSE } from "./helpers/live-sse.ts";
 import { pool } from "../src/db.ts";
 
@@ -625,4 +628,40 @@ test("the real HTTP command surface preserves an item's lifecycle and related re
     });
     assert.equal(response.status, 400, `${invalid.path}: ${await response.clone().text()}`);
   }
+});
+
+test("a close announcement cannot relabel or receipt another writer's committed version", { timeout: 30_000 }, async (t) => {
+  const { harness, server, streams } = await setupLiveCollabTest(t, "owner");
+  const itemId = await createItem(server, harness.owner, harness.projectId, "Correlated close");
+  const dir = path.dirname(path.dirname(harness.pmRoot));
+  const announced: SSEEvent[] = [];
+  configureProjectEventPublisher(async (projectId, event) => { if (projectId === harness.projectId && event.data !== null && typeof event.data === "object" && "itemId" in event.data && event.data.itemId === itemId) announced.push(event); });
+  t.after(() => configureProjectEventPublisher(null));
+  const query = pool.query.bind(pool);
+  let raced = false;
+  // Scheduling seam only: every SQL statement still executes on real PostgreSQL,
+  // and the competing writer is a separate pinned CLI process, never an SDK mock.
+  t.mock.method(pool, "query", async (sql: string, values: unknown[]) => {
+    if (!raced && sql.startsWith("SELECT display_name FROM pm_users")) {
+      raced = true;
+      await capacityPm(dir, ["update", itemId, "--title", "Independent update", "--author", "synthetic-other-writer"]);
+    }
+    return query(sql, values);
+  });
+  const response = await authedFetch(server, harness.editor, `/api/projects/${harness.projectId}/pm/close/${itemId}`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: "Synthetic completion" }),
+  });
+  assert.equal(response.status, 200, await response.text());
+  assert.equal(raced, true);
+  const page = await listMutationEvents({ pmRoot: harness.pmRoot, item: itemId, full: true });
+  const close = page.events.find((event) => event.type === "close")!;
+  const other = page.events.find((event) => event.author === "synthetic-other-writer")!;
+  assert.ok(close.entry?.agent_episode?.id, "the command must return a durable invocation correlation");
+  assert.ok(other);
+  assert.notEqual(mutationEventIdentity(close), mutationEventIdentity(other));
+  assert.deepEqual(announced.map((event) => ({ id: event.id, type: event.type })), [{ id: mutationEventIdentity(close), type: "item-closed" }]);
+  deliverProjectEvent(harness.projectId, mutationSSEEvent(other));
+  const observer = streams[0]!;
+  await observer.waitFor((events) => events.some((event) => event.type === "workspace-changed" && event.data.author === "synthetic-other-writer"));
+  assert.equal(observer.events.filter((event) => event.type === "item-closed" && event.data.itemId === itemId).length, 1);
 });
