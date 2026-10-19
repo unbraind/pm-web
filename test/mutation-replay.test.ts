@@ -16,29 +16,44 @@ import { historyFingerprint, HISTORY_READ_SAFETY_MS } from "../src/services/hist
 
 const execute = promisify(execFile);
 
-test("a real history append wakes an idle follower before its poll without taking idle writer locks", { timeout: 30_000 }, async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "pm-web-wake-replay-"));
-  const pmRoot = path.join(dir, ".agents/pm");
-  const controller = new AbortController();
-  let stream: ReturnType<typeof followCommittedMutations> | undefined;
-  try {
-    await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "wake", "--defaults", "--agent-guidance", "skip"]);
-    await capacityPm(dir, ["create", "Task", "Synthetic wake", "--id", "wake-one", "--description", "Synthetic"]);
-    const state = createMutationReplayState();
-    stream = followCommittedMutations({ pmRoot, since: new Date(state.baseline).toISOString(), type: "update", intervalMs: 10_000, signal: controller.signal }, state);
-    const next = stream.next();
-    await waitUntil(() => state.readGate.completedScanAt !== undefined, 3000, "follower is idle");
-    await capacityPm(dir, ["update", "wake-one", "--title", "Event driven append"]);
-    const timer = setTimeout(() => controller.abort(), 2000);
-    try { assert.equal((await next).value?.item_id, "wake-one", "filesystem notification must beat the unchanged poll interval"); }
-    finally { clearTimeout(timer); }
-  } finally {
-    controller.abort();
-    await stream?.return();
-    evictPmClient(pmRoot);
-    await rm(dir, { recursive: true, force: true });
-  }
-});
+for (const scenario of ["unchanged", "created", "replaced"] as const) {
+  test(`a later real append wakes the follower after history is ${scenario}`, { timeout: 30_000 }, async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "pm-web-history-reattach-"));
+    const pmRoot = path.join(dir, ".agents/pm");
+    const history = path.join(pmRoot, "history");
+    const saved = path.join(dir, "saved-history");
+    const controller = new AbortController();
+    let stream: ReturnType<typeof followCommittedMutations> | undefined;
+    try {
+      await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "reattach", "--defaults", "--agent-guidance", "skip"]);
+      await capacityPm(dir, ["create", "Task", "Synthetic reattachment", "--id", "reattach-one", "--description", "Synthetic"]);
+      if (scenario === "created") await fs.rename(history, saved);
+      else if (scenario === "replaced") await fs.cp(history, saved, { recursive: true });
+      const state = createMutationReplayState();
+      stream = followCommittedMutations({ pmRoot, since: new Date(state.baseline).toISOString(), type: "update", intervalMs: 10_000, signal: controller.signal }, state);
+      const next = stream.next();
+      await waitUntil(() => state.readGate.completedScanAt !== undefined, 3000, "initial replay scan");
+      if (scenario !== "unchanged") {
+        const firstScan = state.readGate.completedScanAt!;
+        await delay(20);
+        if (scenario === "replaced") await fs.rename(history, path.join(dir, "retired-history"));
+        await fs.rename(saved, history);
+        await waitUntil(() => state.readGate.completedScanAt! > firstScan, 5000, "directory notification consumed");
+        // Drain directory notifications before a separate process appends to the existing stream.
+        await delay(100);
+      }
+      await capacityPm(dir, ["update", "reattach-one", "--title", "Append after reattachment"]);
+      const timer = setTimeout(() => controller.abort(), 2000);
+      try { assert.equal((await next).value?.item_id, "reattach-one", "a later append must wake the new directory watcher before the 10-second poll"); }
+      finally { clearTimeout(timer); }
+    } finally {
+      controller.abort();
+      await stream?.return();
+      evictPmClient(pmRoot);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+}
 
 /** Observe real successful lock opens in this isolated test process and restore the builtin synchronously. */
 function countHistoryLocks(): { count: () => number; stop: () => void } {

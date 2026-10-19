@@ -87,22 +87,37 @@ export class HistoryReadGate {
 }
 /** Wake on authoritative appends; metadata polling remains authoritative when watch is unavailable or drops events. */
 export function watchHistoryChanges(pmRoot, gate) {
-    const watchers = [];
-    for (const directory of [pmRoot, path.join(pmRoot, "history")]) {
+    let historyWatcher;
+    /** Keep unsupported or temporarily absent directories on the metadata polling fallback. */
+    function watchDirectory(directory, onChange) {
         try {
-            const watcher = watch(directory, { persistent: false }, (_event, name) => {
-                if (name === null || name === "history" || name.toString().endsWith(".jsonl"))
-                    gate.invalidate();
-            });
+            const watcher = watch(directory, { persistent: false }, (_event, name) => onChange(name?.toString() ?? null));
             watcher.on("error", () => { watcher.close(); gate.invalidate(); });
-            watchers.push(watcher);
+            return watcher;
         }
         catch {
             // Missing directories and unsupported filesystems retain the metadata poll.
+            return undefined;
         }
     }
-    return () => { for (const watcher of watchers)
-        watcher.close(); };
+    /** Follow the directory currently at the history path instead of a detached inode. */
+    function attachHistoryWatcher() {
+        historyWatcher?.close();
+        historyWatcher = watchDirectory(path.join(pmRoot, "history"), (name) => {
+            if (name === null || name.endsWith(".jsonl"))
+                gate.invalidate();
+        });
+    }
+    const rootWatcher = watchDirectory(pmRoot, (name) => {
+        if (name === null || name === "history") {
+            attachHistoryWatcher();
+            gate.invalidate();
+        }
+        else if (name.endsWith(".jsonl"))
+            gate.invalidate();
+    });
+    attachHistoryWatcher();
+    return () => { rootWatcher?.close(); historyWatcher?.close(); };
 }
 const reads = new Map();
 /**
