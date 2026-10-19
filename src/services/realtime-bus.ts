@@ -20,13 +20,14 @@ interface RealtimeEnvelope {
   type: string;
   data: unknown;
   sourceId?: string;
+  id?: string;
 }
 
 /**
  * Project a raw event payload down to a small, safe object for cross-instance
  * transport.
  *
- * Only a fixed whitelist of keys (`itemId`, `userId`, `change`, `target`,
+ * Only a fixed whitelist of keys (`itemId`, `version`, `userId`, `change`, `target`,
  * `rel`, `reason`, `count`, `source`, `operation`) is copied, and only when the
  * value is a string of at most 256 characters or a finite number. Non-objects
  * and arrays yield an empty object, so the NOTIFY payload stays small and free
@@ -39,7 +40,7 @@ function safeSharedData(data: unknown): Record<string, unknown> {
   if (!data || typeof data !== "object" || Array.isArray(data)) return {};
   const source = data as Record<string, unknown>;
   const safe: Record<string, unknown> = {};
-  for (const key of ["itemId", "userId", "change", "target", "rel", "reason", "count", "source", "operation"]) {
+  for (const key of ["itemId", "version", "userId", "change", "target", "rel", "reason", "count", "source", "operation"]) {
     const value = source[key];
     if (typeof value === "string" && value.length <= 256) safe[key] = value;
     else if (typeof value === "number" && Number.isFinite(value)) safe[key] = value;
@@ -63,7 +64,8 @@ export function parseEnvelope(raw: string | undefined): RealtimeEnvelope | null 
   try {
     const value = JSON.parse(raw) as Partial<RealtimeEnvelope>;
     if (!value.projectId || !PROJECT_ID.test(value.projectId) || !value.type || !EVENT_TYPE.test(value.type)) return null;
-    return { projectId: value.projectId, type: value.type, data: safeSharedData(value.data), ...(value.sourceId ? { sourceId: value.sourceId } : {}) };
+    if (value.id !== undefined && (typeof value.id !== "string" || value.id.length === 0 || value.id.length > 1024)) return null;
+    return { projectId: value.projectId, type: value.type, data: safeSharedData(value.data), ...(value.sourceId ? { sourceId: value.sourceId } : {}), ...(value.id ? { id: value.id } : {}) };
   } catch {
     return null;
   }
@@ -84,7 +86,7 @@ export function parseEnvelope(raw: string | undefined): RealtimeEnvelope | null 
  */
 export function buildEnvelope(projectId: string, event: SSEEvent, sourceId: string): string | null {
   if (!PROJECT_ID.test(projectId) || !EVENT_TYPE.test(event.type)) return null;
-  const payload = JSON.stringify({ projectId, type: event.type, data: safeSharedData(event.data), sourceId });
+  const payload = JSON.stringify({ projectId, type: event.type, data: safeSharedData(event.data), sourceId, ...(event.id ? { id: event.id } : {}) });
   return Buffer.byteLength(payload, "utf8") <= 7_500 ? payload : null;
 }
 
@@ -107,7 +109,7 @@ export function handleIncomingEnvelope(
   const event = parseEnvelope(raw);
   if (!event || event.sourceId === instanceId) return;
   signalMutationRead(event.projectId);
-  deliver(event.projectId, { type: event.type, data: event.data });
+  deliver(event.projectId, { type: event.type, data: event.data, ...(event.id ? { id: event.id } : {}) });
 }
 
 /**

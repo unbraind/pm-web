@@ -3,7 +3,7 @@ import { logError } from "../observability.js";
 import { Router } from "express";
 import { readProjectGraph } from "../services/project-graph.js";
 import { requireAuth } from "../middleware/auth.js";
-import { ensureGraphExtension, readCompletePmItems, runPm, runGetItemAt, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
+import { ensureGraphExtension, getProjectDir, readCompletePmItems, runPm, runGetItemAt, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
 // aggregate sdk barrel documents itself as re-exporting every supported export but
 // omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
@@ -12,7 +12,10 @@ import { QUERY_CURSOR_CONTRACT } from "@unbrained/pm-cli/sdk";
 import { boardColumns, filterItemsByQuery } from "../board.js";
 import { buildIcsCalendar } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
-import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence } from "../services/sse.js";
+import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, mutationEventIdentity } from "../services/sse.js";
+import { singleFlightMutationPage } from "../services/history-read-gate.js";
+import { signalMutationRead } from "../services/mutation-read-signals.js";
+import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
 import { createHash } from "node:crypto";
@@ -430,12 +433,13 @@ async function runCursorList(res, project, baseArgs, flags, after) {
  * @returns The successful pm result, or `undefined` after the error response.
  */
 async function runMutation(res, project, args, fallback, jsonOutput = true) {
+    const mutationSince = new Date().toISOString();
     const result = await projectPm(project, args, jsonOutput);
     if (!result.ok) {
         res.status(pmErrorStatus(result)).json({ error: result.stderr || fallback });
         return undefined;
     }
-    return result;
+    return { ...result, mutationSince };
 }
 /**
  * Broadcast an item lifecycle event to the project's SSE clients and queue a
@@ -444,9 +448,10 @@ async function runMutation(res, project, args, fallback, jsonOutput = true) {
  * @param req - Authenticated request carrying the project and user ids.
  * @param project - Verified project that owns the workspace.
  * @param type - Event name to broadcast and graph-sync reason.
+ * @param result - Successful command with its pre-dispatch timestamp boundary.
  * @param itemId - Item the event is about; defaults to the route's `itemId`.
  */
-async function emitItemEvent(req, project, type, itemId = routeParam(req, "itemId")) {
+async function emitItemEvent(req, project, type, result, itemId = routeParam(req, "itemId")) {
     let author = "Project member";
     try {
         const user = await pool.query("SELECT display_name FROM pm_users WHERE id = $1", [req.user.userId]);
@@ -455,10 +460,31 @@ async function emitItemEvent(req, project, type, itemId = routeParam(req, "itemI
     catch {
         // Attribution is advisory; a committed edit must still be acknowledged.
     }
-    broadcastProjectEvent(routeParam(req, "projectId"), {
-        type,
-        data: { itemId, userId: req.user.userId, author, surface: "pm-web" },
-    });
+    const projectId = routeParam(req, "projectId");
+    signalMutationRead(projectId);
+    try {
+        const pmRoot = path.join(getProjectDir(project.ownerUserId, project.slug), ".agents", "pm");
+        let since = result.mutationSince;
+        for (;;) {
+            const page = await singleFlightMutationPage({ pmRoot, item: itemId, since, limit: 1000 });
+            for (const event of page.events) {
+                broadcastProjectEvent(projectId, {
+                    id: mutationEventIdentity(event), type,
+                    data: { itemId, userId: req.user.userId, author, surface: "pm-web" },
+                });
+            }
+            if (!page.has_more)
+                break;
+            if (!page.next_cursor || page.next_cursor === since)
+                throw new Error("Mutation announcement pagination made no progress");
+            since = page.next_cursor;
+        }
+    }
+    catch (error) {
+        // The durable follower retries committed facts; a read failure must neither
+        // turn a successful write into an HTTP failure nor emit an identity-free duplicate.
+        logError("mutation_delivery_read_error", error);
+    }
     scheduleGraphSync(routeParam(req, "projectId"), project, type);
 }
 /**
@@ -522,7 +548,7 @@ async function runTextBodyMutation(req, res, project, cmd, errorMsg, failedMsg) 
     }
     const result = await runMutation(res, project, [cmd, routeParam(req, "itemId"), text.trim()], failedMsg);
     if (result)
-        await emitItemEvent(req, project, "item-updated");
+        await emitItemEvent(req, project, "item-updated", result);
     return result;
 }
 /** Validate a `reason` body field and run a mutation with it. Used by the
@@ -940,7 +966,7 @@ router.patch("/update/:itemId", async (req, res) => {
     if (!result)
         return;
     // Broadcast SSE update event
-    await emitItemEvent(req, project, "item-updated");
+    await emitItemEvent(req, project, "item-updated", result);
     res.json(result.parsed || {});
 });
 // POST /api/projects/:projectId/pm/close/:itemId
@@ -951,7 +977,7 @@ router.post("/close/:itemId", async (req, res) => {
     const result = await runReasonBodyMutation(req, res, project, "close", "Close reason is required", "Failed to close item");
     if (!result)
         return;
-    await emitItemEvent(req, project, "item-closed");
+    await emitItemEvent(req, project, "item-closed", result);
     res.json(result.parsed || {});
 });
 // DELETE /api/projects/:projectId/pm/delete/:itemId
@@ -962,7 +988,7 @@ router.delete("/delete/:itemId", async (req, res) => {
     const result = await runMutation(res, project, ["delete", routeParam(req, "itemId"), "--yes"], "Failed to delete item", false);
     if (!result)
         return;
-    await emitItemEvent(req, project, "item-deleted");
+    await emitItemEvent(req, project, "item-deleted", result);
     res.json({ ok: true });
 });
 // POST /api/projects/:projectId/pm/comments/:itemId

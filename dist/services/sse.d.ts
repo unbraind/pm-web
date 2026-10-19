@@ -19,37 +19,12 @@ export interface PresenceUser {
     currentView: string;
     connectedAt: string;
 }
-/**
- * Record that a mutation in this project was just announced to clients, so the
- * filesystem change-detector can suppress re-announcing the same change.
- *
- * @param projectId - The project whose workspace changed.
- */
+/** Record a delivered invalidation for the raw-filesystem safety sweep. */
 export declare function noteSignaledMutation(projectId: string): void;
-/**
- * Record that a mutation of one specific item was just announced to clients.
- *
- * The mutation-event watcher consults {@link consumeSignaledItemMutation} to
- * skip the matching committed-mutation event, giving per-item dedupe so a
- * concurrent change to a different item by another agent is still delivered.
- *
- * @param projectId - The project containing the item.
- * @param itemId - The item that was announced.
- */
-export declare function noteSignaledItemMutation(projectId: string, itemId: string): void;
-/**
- * Consume one per-item signal, returning whether one was present.
- *
- * Returns `true` and deletes the entry when this instance already announced the
- * given project+item (so the mutation-event watcher skips its own write);
- * otherwise returns `false`. Consumption is one-shot: at most one event per
- * recorded signal is ever suppressed.
- *
- * @param projectId - The project containing the item.
- * @param itemId - The item to check.
- * @returns True when a signal was present and has been consumed.
- */
-export declare function consumeSignaledItemMutation(projectId: string, itemId: string): boolean;
+/** Record one exact committed identity, or a legacy item signal when no identity is available. */
+export declare function noteSignaledItemMutation(projectId: string, itemId: string, eventId?: string): void;
+/** Consume only the requested identity; a different version on the same item remains deliverable. */
+export declare function consumeSignaledItemMutation(projectId: string, itemId: string, eventId?: string): boolean;
 /**
  * Report whether a project was signaled within the given time window.
  *
@@ -107,6 +82,11 @@ export declare function addSSEClient(client: SSEClient): () => void;
 export declare function broadcastProjectEvent(projectId: string, event: SSEEvent): void;
 /**
  * Deliver an event to the local SSE clients of one project.
+ *
+ * A committed identity is receipted for the replay window before fan-out, so
+ * route, watcher and peer arrival order cannot write the same fact twice.
+ * Receipts are shared by project, expire after one minute, and are discarded
+ * when its last viewer disconnects. Identity-free refreshes remain independent.
  *
  * Records a project-level signal, then writes the SSE-formatted payload to every
  * client in the project's set; a write to a disconnected client is swallowed
@@ -172,6 +152,13 @@ export declare function cleanupStaleClients(): void;
  * `data` payload serialized to JSON on the wire.
  */
 export interface SSEEvent {
+    /** Committed item/version identity shared by route, peer and watcher delivery. */
+    id?: string;
     type: string;
     data: unknown;
 }
+/** Encode a committed fact without conflating same-item mutations or event types used as refetch triggers. */
+export declare function mutationEventIdentity(event: {
+    item_id: string;
+    version: number;
+}): string;

@@ -1,5 +1,6 @@
-/** Cheap metadata checks ahead of the SDK's exclusive history-index reader lock. */
+/** Cheap metadata checks and event-driven wakeups ahead of committed SDK reads. */
 import { readdir, stat } from "node:fs/promises";
+import { watch } from "node:fs";
 import path from "node:path";
 import { listMutationEvents } from "@unbrained/pm-cli/sdk";
 /** Full checks bound metadata-collision detection without a lock on every 250 ms poll. */
@@ -47,8 +48,30 @@ export class HistoryReadGate {
     checkedAt = -Infinity;
     generation = 0;
     checkedGeneration = -1;
+    wake;
+    pendingWake = false;
     /** Mark an HTTP or NOTIFY signal, including signals arriving during an in-flight scan. */
-    invalidate() { this.generation += 1; }
+    invalidate() {
+        this.generation += 1;
+        this.pendingWake = true;
+        this.wake?.();
+    }
+    /** Wait for a signal or the unchanged safety poll, preserving wakes arriving during a read. */
+    async wait(intervalMs, signal) {
+        if (signal?.aborted)
+            return;
+        if (this.pendingWake) {
+            this.pendingWake = false;
+            return;
+        }
+        await new Promise((resolve) => {
+            /** Release both timer and abort listener on every completion path. */
+            const finish = () => { clearTimeout(timer); signal?.removeEventListener("abort", finish); this.wake = undefined; this.pendingWake = false; resolve(); };
+            const timer = setTimeout(finish, intervalMs);
+            this.wake = finish;
+            signal?.addEventListener("abort", finish, { once: true });
+        });
+    }
     /** Admit changed, signaled or safety-due reads; capture metadata before querying to avoid hiding a racing write. */
     begin(fingerprint, now = performance.now()) {
         if (fingerprint === this.fingerprint && this.generation === this.checkedGeneration && now - this.checkedAt < HISTORY_READ_SAFETY_MS)
@@ -61,6 +84,25 @@ export class HistoryReadGate {
                 this.completedScanAt = scanAt;
             } };
     }
+}
+/** Wake on authoritative appends; metadata polling remains authoritative when watch is unavailable or drops events. */
+export function watchHistoryChanges(pmRoot, gate) {
+    const watchers = [];
+    for (const directory of [pmRoot, path.join(pmRoot, "history")]) {
+        try {
+            const watcher = watch(directory, { persistent: false }, (_event, name) => {
+                if (name === null || name === "history" || name.toString().endsWith(".jsonl"))
+                    gate.invalidate();
+            });
+            watcher.on("error", () => { watcher.close(); gate.invalidate(); });
+            watchers.push(watcher);
+        }
+        catch {
+            // Missing directories and unsupported filesystems retain the metadata poll.
+        }
+    }
+    return () => { for (const watcher of watchers)
+        watcher.close(); };
 }
 const reads = new Map();
 /**

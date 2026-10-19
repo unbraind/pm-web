@@ -10,95 +10,26 @@ const byProject = new Map();
 const presenceTimers = new Map();
 let projectEventPublisher = null;
 const lastSignaledAt = new Map();
-// Per-item signal tracking: keyed on `` `${projectId}\u0000${itemId}` `` → timestamp.
-// A NUL separator (never valid inside either id) keeps the composite key
-// unambiguous even if a caller passes an itemId containing the separator.
-// The mutation-event watcher uses this to skip events whose own API broadcast
-// already announced the change to clients (dedupe across this instance's writes).
+// Legacy identity-free callers retain one-shot signals. Committed paths include
+// the item/version identity, so one mutation cannot consume another's signal.
 const signaledItemAt = new Map();
+const deliveryReceipts = new Map();
 const SIGNAL_ENTRY_TTL_MS = 60_000;
-// Record that an item mutation for this project was just delivered to clients
-// (via API broadcast or a received cross-process NOTIFY). The filesystem
-// change-detector uses this to suppress re-announcing changes already signaled.
-/**
- * Record that a mutation in this project was just announced to clients, so the
- * filesystem change-detector can suppress re-announcing the same change.
- *
- * @param projectId - The project whose workspace changed.
- */
+/** Record a delivered invalidation for the raw-filesystem safety sweep. */
 export function noteSignaledMutation(projectId) {
     lastSignaledAt.set(projectId, Date.now());
 }
-// Record that a mutation of this specific item was just announced to clients
-// (typically via broadcastProjectEvent with a granular payload). The
-// mutation-event watcher consults consumeSignaledItemMutation to skip the
-// matching committed-mutation event so it does not duplicate its own API
-// broadcast. This is per-item dedupe: a concurrent change to a *different* item
-// by another agent is still delivered (unlike the coarse project-level window).
-//
-// Narrow race caveat: route handlers broadcast *after* the pm child process
-// commits, so if the watcher's poll lands between commit and broadcast one
-// duplicate workspace-changed can still reach clients. That is harmless because
-// the client handler is an idempotent refetch — noted rather than pretended away.
-/**
- * Record that a mutation of one specific item was just announced to clients.
- *
- * The mutation-event watcher consults {@link consumeSignaledItemMutation} to
- * skip the matching committed-mutation event, giving per-item dedupe so a
- * concurrent change to a different item by another agent is still delivered.
- *
- * @param projectId - The project containing the item.
- * @param itemId - The item that was announced.
- */
-export function noteSignaledItemMutation(projectId, itemId) {
-    signaledItemAt.set(`${projectId}\u0000${itemId}`, Date.now());
+/** Record one exact committed identity, or a legacy item signal when no identity is available. */
+export function noteSignaledItemMutation(projectId, itemId, eventId) {
+    signaledItemAt.set(JSON.stringify([projectId, itemId, eventId]), Date.now());
 }
-// Returns true and consumes the entry when a signal for this exact project+item
-// is present (i.e. this instance already announced this item's mutation);
-// returns false otherwise. The mutation-event watcher calls this for every
-// received event so its own API writes are not re-announced by the stream.
-//
-// The signal is keyed on project+item, NOT on a mutation id or event cursor, and
-// consumption is deliberately ONE-SHOT. That means a signal recorded for a later
-// mutation M2 can be consumed by an earlier mutation M1 on the same item, so the
-// event actually suppressed is not necessarily the one that was broadcast. This
-// mis-pairing cannot lose a change, and tightening the key would buy nothing,
-// because of three properties that hold together:
-//
-//   1. The SDK mutation stream is delivered in cursor order, so M1 (earlier
-//      cursor) is durably committed to disk BEFORE the broadcast that recorded
-//      M2's signal was ever issued.
-//   2. The event payload is a refetch TRIGGER, not a delta — clients never apply
-//      it as a patch. `refreshGraphData` in the frontend re-reads authoritative
-//      state, so any single surviving event converges the client to the latest
-//      state including every mutation that preceded it.
-//   3. Consumption is one-shot, so at most ONE event per recorded signal is ever
-//      suppressed; every subsequent event for that same item is delivered.
-//
-// Together: whichever event is suppressed, a later one still arrives and the
-// refetch it triggers already includes the suppressed mutation's effect. What a
-// mis-pair can do is attribute the surviving event's `operation`/`author`
-// metadata to the wrong mutation — that metadata drives only a cosmetic toast,
-// never state.
-/**
- * Consume one per-item signal, returning whether one was present.
- *
- * Returns `true` and deletes the entry when this instance already announced the
- * given project+item (so the mutation-event watcher skips its own write);
- * otherwise returns `false`. Consumption is one-shot: at most one event per
- * recorded signal is ever suppressed.
- *
- * @param projectId - The project containing the item.
- * @param itemId - The item to check.
- * @returns True when a signal was present and has been consumed.
- */
-export function consumeSignaledItemMutation(projectId, itemId) {
-    const key = `${projectId}\u0000${itemId}`;
-    if (signaledItemAt.has(key)) {
-        signaledItemAt.delete(key);
-        return true;
-    }
-    return false;
+/** Consume only the requested identity; a different version on the same item remains deliverable. */
+export function consumeSignaledItemMutation(projectId, itemId, eventId) {
+    const key = JSON.stringify([projectId, itemId, eventId]);
+    if (!signaledItemAt.has(key))
+        return false;
+    signaledItemAt.delete(key);
+    return true;
 }
 /**
  * Report whether a project was signaled within the given time window.
@@ -161,8 +92,10 @@ function removeClient(client, reason = "client_closed") {
     const set = byProject.get(client.projectId);
     if (set) {
         set.delete(client);
-        if (set.size === 0)
+        if (set.size === 0) {
             byProject.delete(client.projectId);
+            deliveryReceipts.delete(client.projectId);
+        }
     }
 }
 /**
@@ -260,17 +193,11 @@ export function addSSEClient(client) {
  */
 export function broadcastProjectEvent(projectId, event) {
     signalMutationRead(projectId);
-    // When a route broadcasts an item-scoped event, note it per-item so the
-    // mutation-event watcher can skip the corresponding committed-mutation fact.
-    // This gives per-item dedupe for free across all ~15 existing route call sites
-    // with no route changes — only events whose data carries a string `itemId` of
-    // plausible length are tracked. (See noteSignaledItemMutation for the narrow
-    // race caveat.)
     const data = event.data;
     if (data !== null && typeof data === "object" && !Array.isArray(data)) {
         const itemId = data.itemId;
         if (typeof itemId === "string" && itemId.length >= 1 && itemId.length <= 256) {
-            noteSignaledItemMutation(projectId, itemId);
+            noteSignaledItemMutation(projectId, itemId, event.id);
         }
     }
     deliverProjectEvent(projectId, event);
@@ -280,6 +207,11 @@ export function broadcastProjectEvent(projectId, event) {
 }
 /**
  * Deliver an event to the local SSE clients of one project.
+ *
+ * A committed identity is receipted for the replay window before fan-out, so
+ * route, watcher and peer arrival order cannot write the same fact twice.
+ * Receipts are shared by project, expire after one minute, and are discarded
+ * when its last viewer disconnects. Identity-free refreshes remain independent.
  *
  * Records a project-level signal, then writes the SSE-formatted payload to every
  * client in the project's set; a write to a disconnected client is swallowed
@@ -296,6 +228,19 @@ export function deliverProjectEvent(projectId, event) {
     recordBroadcast(projectId, event.type, set?.size ?? 0);
     if (!set || set.size === 0)
         return;
+    if (event.id) {
+        const receipts = deliveryReceipts.get(projectId) ?? new Map();
+        const now = Date.now();
+        for (const [id, at] of receipts) {
+            if (now - at <= SIGNAL_ENTRY_TTL_MS)
+                break;
+            receipts.delete(id);
+        }
+        if (receipts.has(event.id))
+            return;
+        receipts.set(event.id, now);
+        deliveryReceipts.set(projectId, receipts);
+    }
     const payload = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
     for (const client of set) {
         try {
@@ -431,5 +376,9 @@ export function cleanupStaleClients() {
         if (now - at > SIGNAL_ENTRY_TTL_MS)
             signaledItemAt.delete(key);
     }
+}
+/** Encode a committed fact without conflating same-item mutations or event types used as refetch triggers. */
+export function mutationEventIdentity(event) {
+    return JSON.stringify([event.item_id, event.version]);
 }
 //# sourceMappingURL=sse.js.map

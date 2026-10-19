@@ -5,6 +5,7 @@ export interface CapacityWrite {
   transport: "http" | "cli";
   committedAt: number | null;
   error: boolean;
+  requestedAt?: number;
 }
 
 /** One subscriber's bounded first-receipt and duplicate counters, indexed by write sequence. */

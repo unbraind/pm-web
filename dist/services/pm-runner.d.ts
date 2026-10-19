@@ -101,6 +101,8 @@ export interface PmRunOptions {
 }
 /** Transport-neutral result shared by in-process SDK and child-process calls. */
 export interface PmRunResult {
+    /** Request boundary used to read committed identities, never inferred from the latest item version. */
+    mutationSince?: string;
     stdout: string;
     stderr: string;
     ok: boolean;

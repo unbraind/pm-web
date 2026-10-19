@@ -2,16 +2,29 @@ id: pm-web-4p94
 title: Default catalog freshness tests interpret a partial sibling worktree farm as the complete fleet
 description: "Catalog tests default the fleet root to the package parent. In a worktree farm containing only some package worktrees, the tests infer an incomplete expected catalog and reject the complete committed snapshot. Reproduced while refreshing pm-web-5hdb: 22/24 focused tests passed with implicit discovery; selecting the canonical fleet through PM_FLEET_ROOT passed 24/24. Distinct from the corrected identity/deduplication behavior in pm-web-cqwm. Improve default root selection or distinguish partial discovery without weakening standalone snapshot checks. No hosted scope."
 type: Issue
-status: open
+status: in_progress
 priority: 3
 tags[2]: catalog,testing
 created_at: "2026-10-15T23:07:53.640Z"
-updated_at: "2026-10-17T11:01:31.050Z"
+updated_at: "2026-10-19T18:54:54.053Z"
+assignee: codex-agent
+claim_principal: codex-agent
 author: codex-agent
-comments[2]{created_at,author,text}:
+comments[7]{created_at,author,text}:
   "2026-10-16T11:26:38.059Z",codex-agent,"Related fleet-root workaround caveat reproduced during pm-web-pep7: a relative PM_FLEET_ROOT reaches scripts/read-fleet-commands.ts without normalization, so the dependency symlink created inside a disposable package copy points relative to that copy instead of the source checkout. The optional command-snapshot test then reports a missing @typesafe-ai/sdk dependency for Jev despite the canonical checkout dependency being present. Resolving the same fleet root at invocation time made the complete command-snapshot check pass. Follow-up: normalize the configured fleet root before constructing disposable dependency symlinks, alongside the existing partial-sibling root-selection work. No implementation or threshold changes for this follow-up."
   "2026-10-17T11:01:31.050Z",codex-agent,"Round 3 release attempts provide a controlled topology comparison: the package worktree fails catalog membership and live-fleet snapshot equality, while an isolated standalone copy passes those same checks. All 258 TypeScript/CSS source files were verified byte-identical between the two copies, and both use fresh HOME with global/system Git config disabled. The standalone profile matches CI and uses independent test storage. No catalog source, fixture roster, snapshot or test condition changed."
-files[2]{path,scope}:
+  "2026-10-19T18:20:53.351Z",codex-agent,"Checking whether catalog freshness reads ambient sibling packages. Will make external fleet validation explicit, retain committed snapshot invariants and synthetic farm coverage, and run both release gates with PM_FLEET_ROOT unset."
+  "2026-10-19T18:20:55.939Z",codex-agent,"Will make external fleet reads explicit, preserve committed snapshot invariants and synthetic farm coverage, and run npm/Bun release gates with PM_FLEET_ROOT unset."
+  "2026-10-19T18:30:39.913Z",codex-agent,"Hermetic regression passes with an ambient synthetic unpublished sibling and PM_FLEET_ROOT unset, but rejects the same farm when explicitly selected. Reverting catalog.test.ts to origin/main fails the new default-isolation assertion. Child node:test contexts are cleared so the synthetic standalone and explicit-farm assertions actually execute. Committed roster/snapshot invariants remain unchanged."
+  "2026-10-19T18:36:09.447Z",codex-agent,"Linked catalog/fleet command completed with PM_FLEET_ROOT unset: 38/38 pass, zero failures/cancelled/skipped/todo. Explicit synthetic-farm checks execute in a fresh node:test context; no ambient fleet snapshots or dependency pins were changed."
+  "2026-10-19T18:54:54.053Z",codex-agent,"The first full isolated-home npm run with PM_FLEET_ROOT unset passed every catalog/fleet test; all five original freshness failures are resolved. Its one unrelated-to-catalog failure is the new HTTP event payload field, being removed while preserving internal receipts."
+files[4]{path,scope}:
   scripts/read-fleet-commands.ts,project
+  test/catalog.test.ts,project
   test/fleet-commands.test.ts,project
+  test/fleet-snapshot.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/catalog.test.ts test/fleet-snapshot.test.ts test/fleet-commands.test.ts,project,codex-agent,"2026-10-19T18:31:27.427Z",local_mutation,fix/realtime-duplicate-and-delivery-latency
+docs[1]{path,scope}:
+  docs/capacity/2026-10-19-ladder.md,project
 body: ""

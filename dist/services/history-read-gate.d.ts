@@ -15,13 +15,19 @@ export declare class HistoryReadGate {
     private checkedAt;
     private generation;
     private checkedGeneration;
+    private wake;
+    private pendingWake;
     /** Mark an HTTP or NOTIFY signal, including signals arriving during an in-flight scan. */
     invalidate(): void;
+    /** Wait for a signal or the unchanged safety poll, preserving wakes arriving during a read. */
+    wait(intervalMs: number, signal?: AbortSignal): Promise<void>;
     /** Admit changed, signaled or safety-due reads; capture metadata before querying to avoid hiding a racing write. */
     begin(fingerprint: string, now?: number): {
         complete: (scanAt: number) => void;
     } | null;
 }
+/** Wake on authoritative appends; metadata polling remains authoritative when watch is unavailable or drops events. */
+export declare function watchHistoryChanges(pmRoot: string, gate: HistoryReadGate): () => void;
 /**
  * Share identical concurrent pages per tracker and query, retaining independent
  * replay receipts and authorization for each consumer. No settled page is cached.

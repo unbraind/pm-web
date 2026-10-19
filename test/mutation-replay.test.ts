@@ -16,6 +16,30 @@ import { historyFingerprint, HISTORY_READ_SAFETY_MS } from "../src/services/hist
 
 const execute = promisify(execFile);
 
+test("a real history append wakes an idle follower before its poll without taking idle writer locks", { timeout: 30_000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "pm-web-wake-replay-"));
+  const pmRoot = path.join(dir, ".agents/pm");
+  const controller = new AbortController();
+  let stream: ReturnType<typeof followCommittedMutations> | undefined;
+  try {
+    await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "wake", "--defaults", "--agent-guidance", "skip"]);
+    await capacityPm(dir, ["create", "Task", "Synthetic wake", "--id", "wake-one", "--description", "Synthetic"]);
+    const state = createMutationReplayState();
+    stream = followCommittedMutations({ pmRoot, since: new Date(state.baseline).toISOString(), type: "update", intervalMs: 10_000, signal: controller.signal }, state);
+    const next = stream.next();
+    await waitUntil(() => state.readGate.completedScanAt !== undefined, 3000, "follower is idle");
+    await capacityPm(dir, ["update", "wake-one", "--title", "Event driven append"]);
+    const timer = setTimeout(() => controller.abort(), 2000);
+    try { assert.equal((await next).value?.item_id, "wake-one", "filesystem notification must beat the unchanged poll interval"); }
+    finally { clearTimeout(timer); }
+  } finally {
+    controller.abort();
+    await stream?.return();
+    evictPmClient(pmRoot);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 /** Observe real successful lock opens in this isolated test process and restore the builtin synchronously. */
 function countHistoryLocks(): { count: () => number; stop: () => void } {
   const originalOpen = fs.open;

@@ -3,7 +3,7 @@ import { logError } from "../observability.ts";
 import { Router } from "express";
 import { readProjectGraph, type ProjectGraph } from "../services/project-graph.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { ensureGraphExtension, readCompletePmItems, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE, type PmRunResult } from "../services/pm-runner.ts";
+import { ensureGraphExtension, getProjectDir, readCompletePmItems, runPm, runGetItemAt, projectExists, readPmSettings, PmCliError, EXIT_CODE, type PmRunResult } from "../services/pm-runner.ts";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
 // aggregate sdk barrel documents itself as re-exporting every supported export but
 // omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
@@ -16,7 +16,10 @@ import { QUERY_CURSOR_CONTRACT } from "@unbrained/pm-cli/sdk";
 import { boardColumns, filterItemsByQuery } from "../board.ts";
 import { buildIcsCalendar, type CalendarItem } from "../ical.ts";
 import { verifyProjectAccess } from "./projects.ts";
-import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, type SSEEvent } from "../services/sse.ts";
+import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, mutationEventIdentity, type SSEEvent } from "../services/sse.ts";
+import { singleFlightMutationPage } from "../services/history-read-gate.ts";
+import { signalMutationRead } from "../services/mutation-read-signals.ts";
+import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
 import { createHash } from "node:crypto";
@@ -526,12 +529,13 @@ async function runMutation(
   fallback: string,
   jsonOutput = true,
 ): Promise<PmRunResult | undefined> {
+  const mutationSince = new Date().toISOString();
   const result = await projectPm(project, args, jsonOutput);
   if (!result.ok) {
     res.status(pmErrorStatus(result)).json({ error: result.stderr || fallback });
     return undefined;
   }
-  return result;
+  return { ...result, mutationSince };
 }
 
 /**
@@ -541,12 +545,14 @@ async function runMutation(
  * @param req - Authenticated request carrying the project and user ids.
  * @param project - Verified project that owns the workspace.
  * @param type - Event name to broadcast and graph-sync reason.
+ * @param result - Successful command with its pre-dispatch timestamp boundary.
  * @param itemId - Item the event is about; defaults to the route's `itemId`.
  */
 async function emitItemEvent(
   req: AuthRequest,
   project: ProjectRef,
   type: string,
+  result: PmRunResult,
   itemId = routeParam(req, "itemId"),
 ): Promise<void> {
   let author = "Project member";
@@ -556,10 +562,28 @@ async function emitItemEvent(
   } catch {
     // Attribution is advisory; a committed edit must still be acknowledged.
   }
-  broadcastProjectEvent(routeParam(req, "projectId"), {
-    type,
-    data: { itemId, userId: req.user!.userId, author, surface: "pm-web" },
-  });
+  const projectId = routeParam(req, "projectId");
+  signalMutationRead(projectId);
+  try {
+    const pmRoot = path.join(getProjectDir(project.ownerUserId, project.slug), ".agents", "pm");
+    let since = result.mutationSince;
+    for (;;) {
+      const page = await singleFlightMutationPage({ pmRoot, item: itemId, since, limit: 1000 });
+      for (const event of page.events) {
+        broadcastProjectEvent(projectId, {
+          id: mutationEventIdentity(event), type,
+          data: { itemId, userId: req.user!.userId, author, surface: "pm-web" },
+        });
+      }
+      if (!page.has_more) break;
+      if (!page.next_cursor || page.next_cursor === since) throw new Error("Mutation announcement pagination made no progress");
+      since = page.next_cursor;
+    }
+  } catch (error) {
+    // The durable follower retries committed facts; a read failure must neither
+    // turn a successful write into an HTTP failure nor emit an identity-free duplicate.
+    logError("mutation_delivery_read_error", error);
+  }
   scheduleGraphSync(routeParam(req, "projectId"), project, type);
 }
 
@@ -643,7 +667,7 @@ async function runTextBodyMutation(
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: errorMsg }); return undefined; }
   const result = await runMutation(res, project, [cmd, routeParam(req, "itemId"), text.trim()], failedMsg);
-  if (result) await emitItemEvent(req, project, "item-updated");
+  if (result) await emitItemEvent(req, project, "item-updated", result);
   return result;
 }
 
@@ -1020,7 +1044,7 @@ router.patch("/update/:itemId", async (req: AuthRequest, res) => {
   const result = await runMutation(res, project, args, "Failed to update item");
   if (!result) return;
   // Broadcast SSE update event
-  await emitItemEvent(req, project, "item-updated");
+  await emitItemEvent(req, project, "item-updated", result);
   res.json(result.parsed || {});
 });
 
@@ -1031,7 +1055,7 @@ router.post("/close/:itemId", async (req: AuthRequest, res) => {
 
   const result = await runReasonBodyMutation(req, res, project, "close", "Close reason is required", "Failed to close item");
   if (!result) return;
-  await emitItemEvent(req, project, "item-closed");
+  await emitItemEvent(req, project, "item-closed", result);
   res.json(result.parsed || {});
 });
 
@@ -1042,7 +1066,7 @@ router.delete("/delete/:itemId", async (req: AuthRequest, res) => {
 
   const result = await runMutation(res, project, ["delete", routeParam(req, "itemId"), "--yes"], "Failed to delete item", false);
   if (!result) return;
-  await emitItemEvent(req, project, "item-deleted");
+  await emitItemEvent(req, project, "item-deleted", result);
   res.json({ ok: true });
 });
 

@@ -16,11 +16,11 @@ import { logError } from "../observability.js";
 // Every pm-web instance reads the same shared volume and will independently observe
 // the same mutation events; publishing to the Postgres bus would duplicate them
 // across instances. Each instance dedupes against its own API broadcasts via the
-// per-item signal in sse.ts.
+// committed item/version receipt in sse.ts.
 import path from "node:path";
 import { createMutationReplayState, followCommittedMutations } from "./mutation-replay.js";
 import { resolveProjectDir } from "./pm-runner.js";
-import { consumeSignaledItemMutation, deliverProjectEvent, getActiveProjectIds, } from "./sse.js";
+import { consumeSignaledItemMutation, deliverProjectEvent, getActiveProjectIds, mutationEventIdentity, } from "./sse.js";
 import { cachedProjectDir, dropInactive, positiveIntEnv } from "./watcher-utils.js";
 import { onMutationReadSignal } from "./mutation-read-signals.js";
 const DEFAULT_INTERVAL_MS = 250;
@@ -69,10 +69,12 @@ export function createMutationEventReconciler(deps = {}) {
                 for await (const event of gen) {
                     if (event.cursor !== undefined)
                         sub.cursor = event.cursor;
-                    // Skip events that this instance's own API already announced (per-item dedupe).
-                    if (consumeSignal(projectId, event.item_id))
+                    // An exact receipt cannot consume a different same-item mutation.
+                    const id = mutationEventIdentity(event);
+                    if (consumeSignal(projectId, event.item_id, id))
                         continue;
                     emit(projectId, {
+                        id,
                         type: "workspace-changed",
                         data: {
                             source: "mutation-events",

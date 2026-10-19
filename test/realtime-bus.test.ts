@@ -121,3 +121,14 @@ test("parseEnvelope is exported and round-trips a built envelope", () => {
   assert.equal(parsed!.sourceId, "instance-C");
   assert.deepEqual(parsed!.data, { itemId: "y" });
 });
+
+test("peer envelopes preserve committed identity and reject malformed receipt keys", () => {
+  const id = JSON.stringify(["synthetic-item", 2]);
+  const raw = buildEnvelope(projectId, { id, type: "item-updated", data: { itemId: "synthetic-item", version: 2 } }, "peer")!;
+  const spy = deliverSpy();
+  handleIncomingEnvelope(raw, "local", spy.fn);
+  assert.deepEqual(spy.records[0].event, { id, type: "item-updated", data: { itemId: "synthetic-item", version: 2 } });
+  for (const invalid of [null, 1, "", "x".repeat(1025)]) {
+    assert.equal(parseEnvelope(JSON.stringify({ projectId, id: invalid, type: "item-updated", data: {} })), null);
+  }
+});

@@ -10,7 +10,7 @@ import { listMutationEvents } from "@unbrained/pm-cli/sdk";
 import { capacityFixture, capacityPm, capacityServer, waitUntil } from "./capacity-fixture.ts";
 import { deliverySummary, distribution, type CapacitySubscriber, type CapacityWrite } from "./capacity-metrics.ts";
 import { isMainInvocation } from "./main-invocation.ts";
-import { stageSummary, traceCriticalPaths, type CapacityTrace } from "./capacity-trace.ts";
+import { stageSummary, traceCriticalPaths, traceDeliveries, type CapacityTrace } from "./capacity-trace.ts";
 
 /** Bounded workload configuration; the CLI always builds before running it. */
 export interface CapacityOptions {
@@ -211,6 +211,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
           acquisitions_per_second: (last.count - first.count) * 1000 / (last.at - first.at) };
       }
       await server.begin();
+      const hostLoadBefore = loadavg();
       generatorDelay.enable();
       const startCpu = process.cpuUsage();
       const started = performance.now();
@@ -220,6 +221,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       // W concurrent lanes; each lane mutates independent items sequentially. Odd W gives CLI the extra lane.
       await Promise.all(Array.from({ length: options.writers }, async (_, writer) => {
         for (const write of writes.slice(writer * options.writesPerWriter, (writer + 1) * options.writesPerWriter)) {
+          write.requestedAt = Date.now();
           try {
             if (write.transport === "cli") await capacityPm(fixture.dir, ["update", write.itemId, "--title", `Committed ${write.sequence}`], traceDirectory);
             else {
@@ -263,6 +265,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       const delivery = deliverySummary(writes, streams.map((stream) => stream.state));
       let stages = null;
       let criticalPaths = null;
+      let tracedDeliveries = null;
       if (traceDirectory) {
         await server.flushTrace();
         const traces: CapacityTrace[] = [];
@@ -273,6 +276,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         }
         stages = stageSummary(writes, streams.map((stream) => stream.state), traces);
         criticalPaths = traceCriticalPaths(writes, streams.map((stream) => stream.state), traces);
+        tracedDeliveries = traceDeliveries(writes, traces);
       }
       if (!server.samples.length || !postgres.length || sampleState.error) throw Object.assign(new Error("Resource measurements are incomplete"), { code: !server.samples.length ? "MISSING_SERVER_PROBE" : !postgres.length ? "MISSING_DATABASE_PROBE" : "DATABASE_PROBE_ERROR" });
       const resources = {
@@ -284,6 +288,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         postgres_database_connections_peak: Math.max(...postgres.map((sample) => sample.database)), postgres_max_connections: postgres[0].max,
         process_samples: server.samples.length, database_samples: postgres.length,
         host_load_average_after: loadavg(), host_free_ram_after_bytes: freemem(),
+        host_load_average_before: hostLoadBefore,
       };
       const failedWrites = writes.filter((write) => write.error).length;
       const disconnected = streams.filter((stream) => stream.state.disconnected).length;
@@ -303,7 +308,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       return { subscribers, writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
         writes: writes.length, committed_writes: writes.filter((write) => write.committedAt !== null).length,
         failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
-        ...delivery, idle_index_locks: idleLocks, stages, trace_critical_paths: criticalPaths, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
+        ...delivery, idle_index_locks: idleLocks, stages, trace_critical_paths: criticalPaths, trace_deliveries: tracedDeliveries, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
         event_index_audit: { source: indexSource, missing_sequences: writes.filter((write) => write.committedAt !== null && !indexedIds.has(write.itemId)).map((write) => write.sequence) },
         write_receipts: writes.map((write) => ({ sequence: write.sequence, transport: write.transport, committed_at: write.committedAt, write_error: write.error })) };
     } catch (error) {

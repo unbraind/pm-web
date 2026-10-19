@@ -33,6 +33,6 @@ test("opt-in tracing accounts for every real HTTP and CLI delivery without chang
     assert.equal(run.stages[transport].write_return_to_client_receive.samples, 2);
   }
   assert.equal(run.stages.cli.append_to_detecting_poll.samples, 1);
-  assert.equal(run.stages.cli.index_lock_wait_nested_in_append.samples, 1);
+  assert.equal(run.stages.cli.request_to_process_entry.samples, 1);
   assert.equal(run.stages.http.append_to_route_broadcast.samples, 1);
 });

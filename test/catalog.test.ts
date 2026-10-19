@@ -26,28 +26,23 @@ const packageRoot = path.resolve(
   "..",
 );
 
-// The fleet sibling packages live alongside pm-web under the same fleet root.
-// In the monorepo dev environment this is ../<pkg>/manifest.json; in a
-// standalone CI checkout of pm-web the siblings are absent and the manifest
-// comparison is skipped (the structural invariants still run). PM_FLEET_ROOT
-// lets an operator point at a fleet root explicitly.
+// External fleet freshness is opt-in. Ambient sibling worktrees and unpublished
+// packages must not change the standalone CI contract or the committed roster.
 const FLEET_ROOT = process.env.PM_FLEET_ROOT
   ? path.resolve(process.env.PM_FLEET_ROOT)
-  : path.resolve(packageRoot, "..");
+  : undefined;
 
 // Canonical metadata, shared with the snapshot generator: checkout names are
 // never package names, including in a worktree farm.
-const { extensions: liveFleet, problems: fleetProblems } = readFleetExtensions(FLEET_ROOT, {
+const { extensions: liveFleet, problems: fleetProblems } = FLEET_ROOT ? readFleetExtensions(FLEET_ROOT, {
   existsSync, readdirSync, readFileSync,
-});
+}) : { extensions: [], problems: [] };
 const FLEET_EXTENSIONS = liveFleet.map((extension) => extension.name);
 
 // An operator who sets PM_FLEET_ROOT has asserted where the fleet is. If that
 // path resolves no pm extensions they have configured it wrongly, and silently
 // degrading to a self-check would hide the misconfiguration behind a green
-// suite — the failure this whole file exists to prevent. Only the IMPLICIT
-// default (a sibling directory that happens not to hold the fleet) is allowed
-// to fall back.
+// suite. With no explicit root, the committed snapshot invariants still run.
 if (process.env.PM_FLEET_ROOT && FLEET_EXTENSIONS.length === 0) {
   throw new Error(
     `PM_FLEET_ROOT is set to ${FLEET_ROOT} but no pm extension was found there. ` +
@@ -415,6 +410,7 @@ test("catalog commands match every package's declared command metadata in the sn
 });
 
 test("the committed snapshot still matches the live fleet, and the fleet is readable", () => {
+  if (!FLEET_ROOT) return;
   const { extensions: live, problems } = readFleetExtensions(FLEET_ROOT, {
     existsSync,
     readdirSync,
