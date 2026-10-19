@@ -1,0 +1,13 @@
+id: pm-web-4f52
+title: Investigate duplicate SSE receipts in the 100-subscriber mixed-writer run
+description: "The 2026-10-19 untraced disposable capacity run at revision 8e9cc9713778f9ff945eb28c57d827d20cf75995 observed 50 committed updates, zero missing deliveries and 100 duplicate mutation receipts: each of 100 subscribers counted one duplicate. All clients remained connected. The filesystem watcher recorded one change, but the untraced report cannot identify the duplicate item, delivery path or root cause. Investigate with synthetic real-Postgres fixtures before changing runtime behavior. Related pm-web-h4vh and companion pm-cli-website-ghe1; evidence in docs/capacity/2026-10-19-ladder.md. No runtime fix is included in the capacity documentation PR."
+type: Issue
+status: open
+priority: 2
+tags[2]: capacity,realtime
+created_at: "2026-10-19T17:45:22.211Z"
+updated_at: "2026-10-19T17:45:36.581Z"
+author: codex-agent
+docs[1]{path,scope}:
+  docs/capacity/2026-10-19-ladder.md,project
+body: ""
