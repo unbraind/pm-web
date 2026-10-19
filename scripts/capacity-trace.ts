@@ -84,8 +84,8 @@ export function stageSummary(writes: readonly CapacityWrite[], subscribers: read
       if (write.requestedAt !== undefined) add("request_to_mutation_timestamp", write.requestedAt, write.committedAt!);
       add("timestamp_to_history_append", write.committedAt!, history.at);
       const locks = events.filter((entry) => entry.stage === "index-lock" && entry.at >= write.committedAt! && entry.at <= history.at);
-      // The pinned SDK can append under SQLite's transaction without opening the
-      // rebuild lock file. A process-entry receipt proves the observer was active;
+      // The pinned SDK can append through authoritative fallback without acquiring
+      // the index lock. A process-entry receipt proves the observer was active;
       // absence of that optional lock is not a missing probe or a zero wait sample.
       if (transport === "cli") {
         const entry = events.find((event) => event.stage === "writer-start");
