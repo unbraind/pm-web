@@ -7,11 +7,11 @@ status: in_progress
 priority: 2
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-15T09:09:03.386Z"
-updated_at: "2026-10-20T18:24:31.850Z"
+updated_at: "2026-10-20T19:51:24.963Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
-comments[49]{created_at,author,text}:
+comments[50]{created_at,author,text}:
   "2026-10-16T08:11:29.603Z",codex-agent,"Additional real-PostgreSQL acceptance evidence from the route/bootstrap coverage candidate: the second final-floor npm run passes all 634 coverage tests and all four dimensions, then fails only test/capacity.acceptance.ts line 16: every delivery must meet the unchanged 2000 ms SLO. Earlier assertions pass for five committed writes, zero failed writes/lost/disconnected subscribers/duplicates, and five delivery samples. This is latency failure evidence, not mutation-loss evidence. The first final-floor npm and Bun gates pass, and both Node 22/26 CI matrix jobs pass their npm and Bun release gates on source/test commit e053bb1. Reproduction: npm run release:check with isolated Git identity and explicit fleet discovery; the second Bun repetition is still running. No SLO, capacity assertion or production behavior was changed."
   "2026-10-16T09:06:30.996Z",codex-agent,"Measuring unchanged origin/main first: three isolated 100-subscriber runs, 10 mixed writer lanes and 50 updates. Production watcher defaults and disposable test Postgres only. Then attribute each delivery stage, implement a measured repair if package-owned, prove behavioural revert, and repeat the ladder. No hosted resources or other agents are used."
   "2026-10-16T09:09:17.778Z",codex-agent,"Unchanged baseline at 3336ef6: three 100-subscriber runs all committed 50/50 writes with loss=0, duplicates=0. To-all p50/p95/p99/max ms: 145.3/583.0/1181.3/1181.3; 220.4/594.0/898.9/898.9; 149.7/462.9/913.2/913.2. Loop p99 22.0/25.1/24.2 ms; CPU p95 35.2/26.5/39.8 percent of one core; RSS 194.8/195.3/195.1 MiB. Initial uptime loads: 3.43,4.78,6.86; 4.73,4.94,6.83; 9.18,5.90,7.08. Historical 2163.5 ms breach did not reproduce. CLI tail exceeds HTTP; fan-out already shares serialization with no per-client awaits/auth reads. Next: opt-in test-only stage tracing including SDK index-lock waits and history append visibility, without changing production defaults."
@@ -61,18 +61,23 @@ comments[49]{created_at,author,text}:
   "2026-10-20T17:56:30.227Z",codex-agent,"The explicit warm-up diagnostic completed 50000 deliveries at 1000 viewers with zero lost/duplicate events; unoptimized setup took 279887 ms. Source inspection found generator work duplicated per reader: scanning full data for absent header fields and allocating the roster match array per socket. Parse headers separately and cache eight exact roster frames while keeping all network receipts independent. Twelve harness tests pass, including two real sockets with a withheld final byte; reverting only the cache function fails that test 1/1 and byte-for-byte restoration passes. Validate optimized 3000-viewer setup before freezing the final A/B sequence."
   "2026-10-20T18:12:47.494Z",codex-agent,"Final runtime refinement: a drained response with neither queued bytes nor an unsubmitted journal frame now performs no membership query. Sixty-four authorized sinks prove zero reads for empty connected drains, one read for a private batch, no extra reads after its completed writes, then a fresh read rejecting a revoked viewer before the next private frame. Focused runtime/browser/real-tracker/harness suite passes 33/33. Exact behavioral reversions fail 14/15 for event preparation, 1/1 for empty drains, and 1/1 for reader caching, followed by byte-for-byte restoration. Comparison-only setup uses ten slots and 120-second readiness; release defaults remain fifty slots and 15/45-second readiness, with all delivery thresholds unchanged. Cache up to 128 exact rosters within 64 MiB and publish hit/miss counts. Include aligned whole-server CPU totals to expose asynchronous costs outside scoped timers."
   "2026-10-20T18:24:31.740Z",codex-agent,"Freeze comparison setup at sixteen simultaneous starts, leaving three ordinary query slots after the default pool listener; both variants use the same 120-second warm-up and bounded reader cache. Ordinary release defaults and every latency/coverage/duplication floor remain unchanged. The ten-slot diagnostic remains separate exploratory evidence. Source/server/frontend typechecks, 33 focused tests, zero duplication and docstrings pass. Run the existing CI workflow on the frozen commit for full npm and Bun release gates under Node 22 and 26, keeping their extra CPU processes off the comparison host. Primary A/B runs retain immutable artifact hashes and a one-hour bound."
-files[31]{path,scope}:
+  "2026-10-20T19:50:42.703Z",codex-agent,"Fresh-permission regression: a heartbeat could flush queued private data while the next authorization read was pending. Heartbeats now preserve the queue until that decision; the targeted function-only revert fails 1/1. Hardened the load generator against buffered connected frames arriving after an expired startup deadline (revert fails 1/1). Client readers now use bounded worker threads, independent real sockets and receipt timestamps; the two-worker withholding test fails 1/1 when the measurement phase is reverted. Reverting only prepareFanout to the old direct shared-string loop fails 15/16 core/access cases. All restored sources pass 36/36 focused tests, with zero failed, skipped or canceled tests. The preceding runtime passed both complete npm and Bun release gates in both Node 22 and 26 CI jobs; the corrected runtime will receive fresh full gates."
+files[35]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
   docs/realtime-fanout.md,project
   public/src/app.ts,project
   README.md,project
+  scripts/capacity-client-worker.ts,project
+  scripts/capacity-clients.ts,project
   scripts/capacity-fanout-probe.ts,project
   scripts/capacity-fanout.ts,project
   scripts/capacity-fixture.ts,project
   scripts/capacity-metrics.ts,project
   scripts/capacity-probe.ts,project
+  scripts/capacity-subscriber.ts,project
   scripts/capacity-trace-preload.ts,project
   scripts/capacity-trace.ts,project
+  scripts/capacity-wait.ts,project
   scripts/capacity.ts,project
   src/routes/pm.ts,project
   src/services/history-read-gate.ts,project

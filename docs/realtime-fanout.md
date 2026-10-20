@@ -27,7 +27,8 @@ bytes must stay within 1 MiB, with at most 64 queued batches. A response blocked
 for 15 seconds, over either queue bound, or throwing during a write is destroyed
 and removed. There is one drain listener and at most one stall timer per viewer;
 there is no callback allocated for every response write. Heartbeats use the same
-queue. Catch-up is shared in batches of at most 64 KiB, allowing one larger
+queue. A heartbeat cannot flush queued private frames while a fresh permission
+read is pending. Catch-up is shared in batches of at most 64 KiB, allowing one larger
 frame when needed. It progresses after drain instead of buffering the entire
 journal per viewer. A single frame exceeding the queue byte budget disconnects.
 
@@ -76,6 +77,11 @@ The comparison explicitly allows 120 seconds for each connection and final-prese
 warm-up, separately from measured delivery. Setup duration is retained and no
 measured writer starts until all viewers and the final presence snapshot are ready;
 join-storm capacity is separate. Production pool and slow-viewer bounds are unchanged.
+The generator uses up to six worker threads, normally at most 500 independent
+sockets per worker. This separates real socket receipt/parsing from the main
+writer coordinator. Per-worker event-loop p99 values are retained separately;
+they are not combined into a fictitious pooled percentile. An expired startup
+transport is rejected even if a buffered connected frame arrives after abort.
 The generator parses headers before the data field and shares a cache of at most
 128 exact presence-frame strings within a 64 MiB text budget. Every socket must receive its own complete
 frame before its population count advances. This avoids rescanning a full roster

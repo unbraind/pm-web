@@ -8,7 +8,7 @@ import { runCapacity } from "./capacity.ts";
 const baseline = process.argv[2];
 const output = process.argv[3];
 if (!baseline || !output) throw new Error("Expected baseline artifact directory and new output file");
-const sourceFiles = ["dist/services/sse.js", "dist/services/sse-fanout.js", "dist/services/sse-access.js", "dist/routes/pm.js", "scripts/capacity-fanout-probe.ts", "scripts/capacity-probe.ts", "scripts/capacity-fixture.ts", "scripts/capacity-metrics.ts", "scripts/capacity.ts", "scripts/capacity-fanout.ts"];
+const sourceFiles = ["dist/services/sse.js", "dist/services/sse-fanout.js", "dist/services/sse-access.js", "dist/routes/pm.js", "scripts/capacity-fanout-probe.ts", "scripts/capacity-probe.ts", "scripts/capacity-fixture.ts", "scripts/capacity-metrics.ts", "scripts/capacity.ts", "scripts/capacity-subscriber.ts", "scripts/capacity-clients.ts", "scripts/capacity-client-worker.ts", "scripts/capacity-wait.ts", "scripts/capacity-fanout.ts"];
 const artifactHashes: Record<string, string> = {};
 for (const file of sourceFiles) artifactHashes[file] = createHash("sha256").update(await readFile(file)).digest("hex");
 for (const file of ["sse.js", "pm.js"]) artifactHashes[`baseline/${file}`] = createHash("sha256").update(await readFile(path.join(baseline, file))).digest("hex");

@@ -177,6 +177,33 @@ test("empty drain callbacks read no permissions while the next private batch rec
   for (const viewer of viewers.slice(1)) assert.equal(frames(viewer.writes).at(-1)?.type, "private-after-revoke");
 });
 
+test("a heartbeat cannot flush queued private data while fresh permission is pending", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), slow = sink(true), healthy = sink();
+  const members = new Set([slow.userId, healthy.userId]);
+  let reads = 0, release: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  const authorizeProject = async () => { if (++reads === 2) await held; return new Set(members); };
+  attachFanout(project, { ...slow, authorizeProject }, () => {});
+  attachFanout(project, { ...healthy, authorizeProject }, () => {});
+  prepareFanout(project, { type: "queued-private", data: { synthetic: true } });
+  await delay(15);
+  assert.equal(reads, 1);
+  assert.equal(slow.writes.length, 1);
+  members.delete(slow.userId);
+  slow.unblock();
+  await delay(15);
+  assert.equal(reads, 2);
+  heartbeatFanout(project, slow.id);
+  assert.equal(slow.writes.length, 1, "heartbeat must wait behind the fresh decision for queued project data");
+  prepareFanout(project, { type: "later-private", data: {} });
+  release!();
+  await delay(25);
+  assert.equal(slow.destroyed(), true);
+  assert.deepEqual(frames(slow.writes).map((frame) => frame.type), ["connected"]);
+  assert.equal(frames(healthy.writes).at(-1)?.type, "later-private");
+});
+
 test("a membership read in flight keeps later events ordered and never overlaps another read", async (t) => {
   t.after(clearFanout);
   const project = randomUUID(), viewer = sink();

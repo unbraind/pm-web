@@ -89,14 +89,17 @@ function drainViewer(state, viewer) {
     }
 }
 /** Enqueue a shared buffer with a hard bound, including bytes already buffered by Node. */
-function enqueue(state, viewer, payload) {
+function enqueue(state, viewer, payload, mayDrain = true) {
     if (viewer.bytes + payload.length + (viewer.sink.res.writableLength ?? 0) > FANOUT_LIMITS.queueBytes || viewer.queue.length >= FANOUT_LIMITS.queueBatches) {
         detach(state, viewer, true);
         return;
     }
     viewer.queue.push(payload);
     viewer.bytes += payload.length;
-    drainViewer(state, viewer);
+    if (mayDrain)
+        drainViewer(state, viewer);
+    else
+        schedule(state);
 }
 /** Write one pre-encoded batch to eligible viewers, grouping only identical replay positions. */
 function writeFanoutBatch(state, allowed, throughSequence, throughRegistration) {
@@ -222,7 +225,7 @@ export function heartbeatFanout(projectId, clientId) {
     const state = projects.get(projectId);
     const viewer = state?.viewers.get(clientId);
     if (state && viewer)
-        enqueue(state, viewer, Buffer.from(": heartbeat\n\n"));
+        enqueue(state, viewer, Buffer.from(": heartbeat\n\n"), !viewer.sink.authorizeProject || viewer.queue.length === 0);
 }
 /** Shutdown discards process-local replay and all scheduled work. */
 export function clearFanout() {
