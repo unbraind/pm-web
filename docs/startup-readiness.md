@@ -182,3 +182,47 @@ actual child failure as separate assertions. The focused lifecycle selection
 passes 1/1; reverting only the foreground preflight and rebuilding makes it fail
 0/1 with exit 1. Command: `node scripts/with-test-db.ts node --test
 --test-name-pattern="the extension starts, probes" test/server-bootstrap.test.ts`.
+
+### Review-round release gates
+
+[CI run 39458568307](https://github.com/unbraind/pm-web/actions/runs/39458568307)
+passed both complete release commands on source head `9415541`, with fresh HOME
+and isolated Git identity in each job. Committed dist matched a fresh build.
+Both Node versions also passed strict tracker health with the pinned managed
+extension, and CodeQL passed on the same head.
+
+| Node | Full command | Tests | Statements | Lines | Branches | Functions |
+| --- | --- | --- | --- | --- | --- | --- |
+| 22 | `npm run release:check` | 703/703 | 92.63% | 92.63% | 81.69% | 95.12% |
+| 22 | `bun run release:check` | 703/703 | 92.66% | 92.66% | 81.71% | 95.12% |
+| 26 | `npm run release:check` | 703/703 | 92.61% | 92.61% | 81.64% | 95.98% |
+| 26 | `bun run release:check` | 703/703 | 92.63% | 92.63% | 81.69% | 95.98% |
+| Unchanged minimum | | | 92.07% | 92.07% | 80.5% | 94.59% |
+
+Every gate reported all 44 required source files, zero failed/canceled/skipped/todo
+tests, capacity acceptance 2/2, packed consumers 4/4, zero production audit
+vulnerabilities, zero duplication and 764 documented declarations. Type checks,
+lint, package contents, changelog, release-date and publish-attestation checks
+also passed. Coverage scope, thresholds, dependency pins and repository test
+deadlines are unchanged.
+
+The linked startup suite passed 16/16 before the additional numeric case; linked
+numeric and corrected bootstrap selections each passed 1/1. The final full suites
+include all 17 startup tests and the corrected bootstrap test. Eight independent
+behavioral reverts failed nine selected cases as intended. No revert proof relied
+on a timeout or cancellation.
+
+The original linked run reached its default outer 120-second command timeout;
+the unchanged suite passed on retry with `--timeout 600`. A local full run hit
+the known catalog 300-second timeout/cascade and graph latency failures tracked
+by `pm-web-qdhx` and `pm-web-hqqp`; it was interrupted after CI exposed the stale
+bootstrap expectation. Those catalog and graph cases pass in both final CI
+runtimes. The genuine bootstrap assertion mismatch was corrected while retaining
+the separate missing-child failure assertion. The initial duplicated test setup
+was extracted into fixture helpers; the unchanged zero-duplication gate passes.
+
+The final evidence update preserves the 261 recorded runtime/test/build inputs
+and committed dist from `9415541`; it changes only pm records and this document.
+Local strict health separately reports an installed-extension version skew and
+stale active-item warnings; fresh CI uses the pinned extension and passes health.
+No new pm CLI/SDK defect was identified in this round.
