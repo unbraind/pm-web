@@ -200,7 +200,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       const indices = new Map(writes.map((write) => [write.itemId, write.sequence]));
       let nextConnection = 0;
       const rampAbort = new AbortController();
-      /** Refill each accepted slot immediately, keeping ten in flight without artificial cohort pauses. */
+      /** Refill each accepted slot immediately, keeping fifty in flight without artificial cohort pauses. */
       const openConnections = async (): Promise<void> => {
         while (!rampAbort.signal.aborted) {
           if (streams.some((stream) => stream.state.disconnected)) {
@@ -216,7 +216,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
           } catch (error) { rampAbort.abort(); throw error; }
         }
       };
-      const ramp = await Promise.allSettled(Array.from({ length: Math.min(10, subscribers) }, openConnections));
+      const ramp = await Promise.allSettled(Array.from({ length: Math.min(50, subscribers) }, openConnections));
       const rejected = ramp.find((result) => result.status === "rejected");
       if (rejected?.status === "rejected") {
         const exit = server.exitState();
@@ -344,7 +344,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         else if (resources.host_load_average_after[0] > cpus().length * 1.5) firstLimit = "host scheduling or I/O pressure (load average above logical CPU count); cause unproven";
         else firstLimit = "unidentified: observed loss, latency, write failure or unhealthy server without a saturated resource signal";
       }
-      return { subscribers, setup_ms: setupElapsed, setup_concurrency: Math.min(10, subscribers), writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
+      return { subscribers, setup_ms: setupElapsed, setup_concurrency: Math.min(50, subscribers), writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
         writes: writes.length, committed_writes: writes.filter((write) => write.committedAt !== null).length,
         failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
         ...delivery, idle_index_locks: idleLocks, stages, trace_critical_paths: criticalPaths, trace_deliveries: tracedDeliveries, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,

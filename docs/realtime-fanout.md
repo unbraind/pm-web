@@ -67,8 +67,8 @@ write-to-network latency. The existing [capacity harness](capacity.md) still use
 real authenticated HTTP streams, an isolated production server, the disposable
 test database, and separate pinned CLI writers. It first drains the complete
 presence snapshot at the requested population, then resets measurement counters.
-Connection startup continuously refills ten slots, leaving headroom below the
-package's default twenty-connection database pool. There are no artificial cohort
+Connection startup continuously refills fifty slots, retaining the existing
+harness connection-concurrency cap. There are no artificial cohort
 pauses that repeatedly trigger large presence snapshots during a ramp. Connection
 and presence deadlines are unchanged. Measured writes start only after all requested
 viewers and the final presence snapshot are ready; join-storm capacity is separate.
@@ -98,7 +98,8 @@ For each population, run A/B/A/B on the same host, with immutable baseline and
 candidate runtime artifacts. The comparison retains a one-second latency verdict
 and a ten-second post-writer loss/duplicate observation window, continuing to the
 next population after latency failures while asserting zero loss, duplicates,
-write failures, and disconnects. The ordinary release acceptance keeps its
+write failures, and disconnects. Baseline setup failures are retained explicitly
+with unavailable CPU and latency samples; every candidate rung must complete. The ordinary release acceptance keeps its
 unchanged two-second SLO. Report host load before and after every run; a busy-host
 result does not certify the quiet-host target.
 
