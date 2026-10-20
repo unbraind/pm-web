@@ -30,7 +30,7 @@ export function databaseConfigIssues(env = process.env) {
                 url = new URL(raw.replace("@/", "@___DUMMY___/"));
                 dummyHost = true;
             }
-            const host = url.protocol === "socket:" ? decodeURI(url.pathname) : url.searchParams.get("host") || (dummyHost ? "" : url.hostname);
+            const host = url.protocol === "socket:" ? decodeURI(url.pathname) : url.searchParams.getAll("host").at(-1) || (dummyHost ? "" : url.hostname);
             if (!["postgres:", "postgresql:", "socket:"].includes(url.protocol) || !host.trim() || url.hash)
                 throw new Error();
         }

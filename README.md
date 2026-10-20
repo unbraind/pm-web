@@ -15,6 +15,7 @@ and sharing, plus a writable `PROJECTS_ROOT` for plain-directory trackers. Provi
 PostgreSQL URLs may supply `host` in the query, including a Unix socket directory.
 Credentialed empty-host URLs, bare socket paths (`/socket-directory database`),
 and `socket:/socket-directory?db=database` are also supported by the driver.
+Repeated `host` query parameters use the driver's last-value precedence.
 An empty `DATABASE_URL` uses the discrete settings. A URL may omit the database
 path to use the PostgreSQL driver's defaults. Empty optional numeric environment
 settings use their documented defaults; nonempty invalid values are rejected.

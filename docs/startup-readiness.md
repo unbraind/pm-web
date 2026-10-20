@@ -361,6 +361,9 @@ preflight. The shared validator now accepts bare socket paths, `socket:` URLs,
 and credentialed empty-host URLs whose query provides the host, using the same
 placeholder-authority fallback as `pg`. Unsupported protocols, missing hosts,
 URL fragments and malformed authorities still produce setting-name-only errors.
+Extended self-review also found that repeated `host` query values must use the
+last value, matching the driver's parser. Tests cover both blank-first/valid-last
+acceptance and valid-first/blank-last refusal.
 
 `test/startup-socket-config.test.ts` compares all three forms against the real
 driver's parsed host and database and checks both source and committed output.
@@ -369,16 +372,26 @@ credentialed empty-host form through built detached readiness and both source an
 built doctor checks. It uses a query-provided TCP host so the integration test
 also works on platforms without Unix sockets. README lists the supported forms.
 
-The focused startup, socket, documentation and secret-fixture suites pass 27/27,
-with no failures, cancellations, skips or todo tests. The socket suite also
-passes 4/4 through the pinned pm linked-test runner. For the behavioral revert,
-only `databaseConfigIssues` was restored to its incoming implementation, the
-server was rebuilt, and all fixed tests were retained:
+The initial focused startup, socket, documentation and secret-fixture suites
+passed 27/27 on `bf7681e`, with no failures, cancellations, skips or todo tests.
+The expanded socket suite passes 6/6 after adding repeated-host cases. For the
+behavioral revert, only `databaseConfigIssues` was restored to its incoming
+implementation, the server was rebuilt, and all fixed tests were retained:
 
 | Exact command after `npm run build:server` | Reverted result |
 | --- | --- |
-| `node --test test/startup-socket-config.test.ts` | Exit 1; three accepted-socket cases fail, invalid-input control passes (1/4 passed) |
+| `node --test test/startup-socket-config.test.ts` | Exit 1; all six socket/configuration regressions fail (0/6 passed) |
 | `node scripts/with-test-db.ts node --test --test-name-pattern="credentialed empty-host" test/startup-readiness.test.ts` | Exit 1; intended configuration assertion fails (0/1 passed) |
 
 Both failures are assertion failures with zero timeouts, cancellations or skips.
 The fixed function and committed build were restored after the proof.
+
+An independent revert retained all socket support and restored only first-value
+`host` lookup. After rebuilding, `node --test test/startup-socket-config.test.ts`
+exits 1: the three original socket cases pass, while both repeated-host cases and
+the reversed-order invalid-host control fail (3/6 passed). These are intended
+assertion failures with zero timeouts, cancellations or skips. The fixed lookup
+and build were restored.
+
+After restoration, the expanded socket command passes 6/6 through the pinned pm
+runner, and the real-database credentialed-host selection passes 1/1 again.

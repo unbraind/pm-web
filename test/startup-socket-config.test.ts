@@ -9,6 +9,8 @@ for (const [name, connectionString] of [
   ["credentialed empty-host URL", "postgres://fixture:synthetic-password@/fixture?host=/var/run/postgresql"],
   ["bare socket path", "/var/run/postgresql fixture"],
   ["socket URL", "socket:/var/run/postgresql?db=fixture"],
+  ["repeated host with an empty first value", "postgres:///fixture?host=&host=/var/run/postgresql"],
+  ["repeated host with a blank first value", "postgres:///fixture?host=%20&host=/var/run/postgresql"],
 ] as const) {
   test(`source and built preflight accept pg's ${name}`, () => {
     const client = new pg.Client({ connectionString });
@@ -26,6 +28,7 @@ test("socket fallbacks preserve invalid-protocol, missing-host and fragment diag
     "postgres://fixture:synthetic-password@/fixture?host=%20", "ftp://fixture:synthetic-password@/fixture?host=/var/run/postgresql",
     "socket:/var/run/postgresql?db=fixture#fragment", "postgres://fixture:synthetic-password@/fixture?host=/var/run/postgresql#fragment",
     "postgres://fixture:synthetic-password@[/fixture",
+    "postgres:///fixture?host=/var/run/postgresql&host=%20",
   ]) {
     for (const validate of [sourceIssues, builtIssues]) {
       const issues = validate({ DATABASE_URL: connectionString });
