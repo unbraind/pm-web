@@ -75,7 +75,7 @@
     "@types/uuid": "11.0.0",
     "c8": "12.0.0",
     "esbuild": "0.28.2",
-    "eslint": "10.12.0",
+    "eslint": "10.13.0",
     "jscpd": "5.4.1",
     "playwright-core": "1.64.1",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
