@@ -259,3 +259,41 @@ was restored after each proof, then the full docs suite passed 3/3 again.
 | `DATABASE_URL` required unconditionally | `node --test --test-reporter=tap --test-name-pattern="README database" test/startup-docs.test.ts` |
 | `JWT_SECRET` required unconditionally | `node --test --test-reporter=tap --test-name-pattern="README signing" test/startup-docs.test.ts` |
 | OIDC validation unconditionally strict | `node --test --test-reporter=tap --test-name-pattern="README OIDC" test/startup-docs.test.ts` |
+
+### Documentation-round release gates
+
+[CI run 39471144995](https://github.com/unbraind/pm-web/actions/runs/39471144995)
+passes all four complete release gates on source commit `52570f8`, with isolated
+Git identity and fresh HOME. Both jobs also pass strict tracker health and the
+fresh committed-dist check. CodeQL passes on the same source commit.
+
+| Node | Full command | Tests | Statements | Lines | Branches | Functions |
+| --- | --- | --- | --- | --- | --- | --- |
+| 22 | `npm run release:check` | 706/706 | 92.61% | 92.61% | 81.66% | 95.12% |
+| 22 | `bun run release:check` | 706/706 | 92.61% | 92.61% | 81.71% | 95.12% |
+| 26 | `npm run release:check` | 706/706 | 92.61% | 92.61% | 81.66% | 95.98% |
+| 26 | `bun run release:check` | 706/706 | 92.61% | 92.61% | 81.66% | 95.98% |
+| Unchanged minimum | | | 92.07% | 92.07% | 80.5% | 94.59% |
+
+Each gate reports all 44 required source files, zero failures, cancellations,
+skips or todo tests, capacity acceptance 2/2, packed npm/native-Bun current/minimum
+consumers 4/4, zero production vulnerabilities, zero duplication and 764 documented
+declarations. Typecheck, lint, package contents, changelog, release-date and
+publish-attestation checks pass. The three new docs cases account for the increase
+from 703 to 706 tests. Pins, source scope, thresholds and test deadlines are unchanged.
+
+The local npm gate reproduced the catalog 300-second deadline and following
+source-case cascade tracked by `pm-web-qdhx`, plus the large-corpus graph latency
+failure tracked by `pm-web-hqqp`. Those cases pass in all four complete CI gates.
+After CI passed, the redundant local run was interrupted and the isolated native
+PostgreSQL fixture was stopped. The queued local Bun command was not started;
+its full validation is supplied by both passing CI jobs. No interrupted local
+run is reported as passing.
+
+The 395 frozen runtime/test/build inputs, including README and committed dist,
+still match source commit `52570f8`. The final evidence update changes only this
+document and append-only tracker records. Local tracker validation returns `ok`
+with metadata, resolution, lifecycle, file and command-reference warnings.
+Test-result tracking remains disabled, so linked-run
+receipts and the independent revert proofs are recorded in pm comments. No new
+pm CLI/SDK defect was found.
