@@ -1,0 +1,36 @@
+id: pm-web-xo0i
+title: Detached startup reports started after its child dies
+description: "Detached startup exits zero and reports started before the child reaches health; missing database configuration kills the child and status subsequently reports down. Require bounded configurable readiness, redacted last child log lines and pidfile state on nonzero failure, and no stale pidfile."
+type: Issue
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-20T10:00:13.921Z"
+updated_at: "2026-10-20T14:49:24.057Z"
+author: codex-agent
+comments[11]{created_at,author,text}:
+  "2026-10-20T10:01:16.427Z",codex-agent,"No exact duplicate found: onv4 covers configuration and odwq covers stop/pidfiles. Reproduce false success using a real built child. Readiness will require child-owned listening confirmation plus healthy HTTP, with a bounded configurable deadline and failure cleanup."
+  "2026-10-20T10:10:17.284Z",codex-agent,"Readiness uses child IPC listening confirmation plus healthy HTTP, preventing another listener from satisfying startup. Detached stdout/stderr are retained in a private per-port log file; failure terminates the child, reports its redacted tail and pidfile state, and clears owned stale state. A healthy child remains running after its launcher exits."
+  "2026-10-20T10:11:18.046Z",codex-agent,"Behavioral revert proof: restored only the previous detach spawn/unref/pidfile success block, rebuilt, then node scripts/with-test-db.ts node --test --test-name-pattern=detached test/startup-readiness.test.ts failed all 4 regressions (exit 1): missing database, immediate health/live pidfile, timeout and unrelated listener. Fixed code restored and rebuilt."
+  "2026-10-20T10:21:36.992Z",codex-agent,Linked detached regression selection passed 4/4 (exit 0) through pm test --run --progress --only-last with source/schema context. Existing result tracking is disabled. Full npm and Bun release gates remain required before the PR.
+  "2026-10-20T10:51:20.370Z",codex-agent,"Real CLI probing exposed a parsed-option mismatch: the host supplies startupTimeout while embedded callers may supply startup-timeout. Both are now accepted. Added a real CLI process test using a plain-directory tracker and the built extension, proving --startup-timeout 1 is honored; it and the unhealthy-child timeout selection pass 2/2. No SDK mocks or registry install are used."
+  "2026-10-20T10:53:22.297Z",codex-agent,"Behavioral revert of only the parsed startupTimeout option lookup makes both the real CLI deadline test and the normalized unhealthy-child deadline test fail (0/2, exit 1). Fixed code restored and rebuilt. This completes the real-parser regression proof in addition to the detach, preflight and doctor reverts."
+  "2026-10-20T11:00:53.115Z",codex-agent,"Final parser-aware linked validations pass: complete startup suite 10/10; real CLI deadline selection 1/1; detach/pidfile selection 4/4. Zero failures/cancellations/skips. Existing test-result tracking remains disabled, so receipts are recorded here."
+  "2026-10-20T12:21:18.933Z",codex-agent,"Hardened bounded child-log reads to discard an incomplete first line, preventing a retained tail from starting inside a long credential/connection string. A real built-server child bootstrap fixture proves privacy with and without a final newline. Removing only this guard fails the regression 0/1; restored implementation passes 1/1."
+  "2026-10-20T12:37:30.092Z",codex-agent,"Native Bun built-wrapper lifecycle acceptance also passes: detached command exit0, immediate real health HTTP200 after launcher exit, and stop exit0. Final gate attempts will use unchanged runtime/test/schema inputs and unchanged thresholds."
+  "2026-10-20T13:55:07.862Z",codex-agent,"Final privacy regression verifies actual oversized child-log fixtures with and without a newline. The bounded tail discards an incomplete first line before redaction so a truncated URL cannot leak credentials. Fixed selection passes 1/1; reverting only that guard fails 0/1. Full Bun gate on the preceding revision completed 699 tests: 696 passed, 2 failed, 1 canceled, 0 skipped. Failures were the catalog timeout/cascade and graph latency tracked by pm-web-qdhx and pm-web-hqqp. Coverage 91.84 statements/lines, 81.38 branches, 95.66 functions missed the unchanged 92.07 line floor; all four new startup modules measured 100 statements/lines/functions. Full gates are being rerun on frozen final inputs."
+  "2026-10-20T14:49:19.896Z",codex-agent,"Final verification: npm run release:check and bun run release:check both exit 0; 699/699 tests each with zero skipped/canceled/todo, unchanged thresholds and deadlines. All 393 runtime/test/schema/build inputs stayed unchanged. The final linked startup suite passes 13/13. Both earlier catalog and graph timing failures pass in the final full runs. Before/after diagnostics, bounded readiness, redacted log tails, pidfile state and all behavioral revert proofs are documented in docs/startup-readiness.md. Host CLI error labeling and source-install scan cap are reported as UX observations, not filed upstream. Leave this item open and release the claim."
+files[5]{path,scope}:
+  src/detached-start.ts,project
+  src/index.ts,project
+  src/server.ts,project
+  test/helpers/source-detached-command.ts,project
+  test/startup-readiness.test.ts,project
+tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test --test-name-pattern=detached test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T10:07:23.253Z",local_mutation,fix/startup-preflight-and-detached-health
+  node scripts/with-test-db.ts node --test --test-name-pattern=real.CLI test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T10:53:26.742Z",local_mutation,fix/startup-preflight-and-detached-health
+  node scripts/with-test-db.ts node --test --test-name-pattern=oversized test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T12:26:11.366Z",local_mutation,fix/startup-preflight-and-detached-health
+docs[2]{path,scope}:
+  docs/startup-readiness.md,project
+  README.md,project
+body: ""
