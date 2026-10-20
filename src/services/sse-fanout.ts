@@ -13,15 +13,15 @@ export interface FanoutSink {
 }
 
 interface Frame { sequence: number; payload: Buffer; at: number }
-interface Viewer { sink: FanoutSink; cursor: number; queue: Buffer[]; bytes: number; blocked: boolean; drain: () => void; deadline?: NodeJS.Timeout; onClose: () => void }
-interface Project { epoch: string; sequence: number; frames: Frame[]; bytes: number; viewers: Map<string, Viewer>; timer?: NodeJS.Timeout; expiry?: NodeJS.Timeout; flushing: boolean }
+interface Viewer { sink: FanoutSink; registration: number; cursor: number; queue: Buffer[]; bytes: number; blocked: boolean; drain: () => void; deadline?: NodeJS.Timeout; onClose: () => void }
+interface Project { epoch: string; sequence: number; registration: number; frames: Frame[]; bytes: number; viewers: Map<string, Viewer>; timer?: NodeJS.Timeout; expiry?: NodeJS.Timeout; flushing: boolean }
 const projects = new Map<string, Project>();
 
 /** Create one bounded journal for one project, including periods without a connected viewer. */
 function projectState(projectId: string): Project {
   let state = projects.get(projectId);
   if (!state) {
-    state = { epoch: randomUUID(), sequence: 0, frames: [], bytes: 0, viewers: new Map(), flushing: false };
+    state = { epoch: randomUUID(), sequence: 0, registration: 0, frames: [], bytes: 0, viewers: new Map(), flushing: false };
     projects.set(projectId, state);
   }
   return state;
@@ -113,13 +113,14 @@ function enqueue(state: Project, viewer: Viewer, payload: Buffer): void {
 }
 
 /** Write one pre-encoded batch to eligible viewers, grouping only identical replay positions. */
-function writeFanoutBatch(state: Project, allowed: ReadonlySet<string> | undefined): void {
+function writeFanoutBatch(state: Project, allowed: ReadonlySet<string> | undefined, throughSequence: number, throughRegistration: number): void {
   prune(state);
   const batches = new Map<number, { payload: Buffer; sequence: number }>();
   for (const viewer of state.viewers.values()) {
+    if (viewer.registration > throughRegistration) continue;
     if (viewer.sink.authorizeProject && !allowed?.has(viewer.sink.userId)) { detach(state, viewer, true); continue; }
     drainViewer(state, viewer);
-    if (viewer.cursor === state.sequence) continue;
+    if (viewer.cursor >= throughSequence) continue;
     if (viewer.cursor < (state.frames[0]?.sequence ?? state.sequence + 1) - 1) { detach(state, viewer, true); continue; }
     let batch = batches.get(viewer.cursor);
     if (!batch) {
@@ -127,6 +128,7 @@ function writeFanoutBatch(state: Project, allowed: ReadonlySet<string> | undefin
       let bytes = 0;
       for (const frame of state.frames) {
         if (frame.sequence <= viewer.cursor) continue;
+        if (frame.sequence > throughSequence) break;
         if (frames.length && bytes + frame.payload.length > 64 * 1024) break;
         frames.push(frame);
         bytes += frame.payload.length;
@@ -145,12 +147,15 @@ async function flushFanout(state: Project): Promise<void> {
   state.timer = undefined;
   if (state.flushing) { schedule(state); return; }
   state.flushing = true;
+  // Later arrivals need a later permission read, even if this query's snapshot predates revocation.
+  const throughSequence = state.sequence;
+  const throughRegistration = state.registration;
   const authorization = [...state.viewers.values()].find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
   try {
     const allowed = authorization ? await authorization() : undefined;
-    writeFanoutBatch(state, allowed);
+    writeFanoutBatch(state, allowed, throughSequence, throughRegistration);
   } catch {
-    for (const viewer of [...state.viewers.values()]) detach(state, viewer, true);
+    for (const viewer of [...state.viewers.values()]) if (viewer.registration <= throughRegistration) detach(state, viewer, true);
   } finally { state.flushing = false; }
 }
 
@@ -185,7 +190,7 @@ export function attachFanout(projectId: string, sink: FanoutSink, onClose: () =>
   }
   clearTimeout(state.expiry);
   state.expiry = undefined;
-  const viewer: Viewer = { sink, cursor, queue: [], bytes: 0, blocked: false, onClose,
+  const viewer: Viewer = { sink, registration: ++state.registration, cursor, queue: [], bytes: 0, blocked: false, onClose,
     drain: () => {
       viewer.blocked = false;
       clearTimeout(viewer.deadline);

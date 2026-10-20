@@ -6,7 +6,7 @@ const projects = new Map();
 function projectState(projectId) {
     let state = projects.get(projectId);
     if (!state) {
-        state = { epoch: randomUUID(), sequence: 0, frames: [], bytes: 0, viewers: new Map(), flushing: false };
+        state = { epoch: randomUUID(), sequence: 0, registration: 0, frames: [], bytes: 0, viewers: new Map(), flushing: false };
         projects.set(projectId, state);
     }
     return state;
@@ -99,16 +99,18 @@ function enqueue(state, viewer, payload) {
     drainViewer(state, viewer);
 }
 /** Write one pre-encoded batch to eligible viewers, grouping only identical replay positions. */
-function writeFanoutBatch(state, allowed) {
+function writeFanoutBatch(state, allowed, throughSequence, throughRegistration) {
     prune(state);
     const batches = new Map();
     for (const viewer of state.viewers.values()) {
+        if (viewer.registration > throughRegistration)
+            continue;
         if (viewer.sink.authorizeProject && !allowed?.has(viewer.sink.userId)) {
             detach(state, viewer, true);
             continue;
         }
         drainViewer(state, viewer);
-        if (viewer.cursor === state.sequence)
+        if (viewer.cursor >= throughSequence)
             continue;
         if (viewer.cursor < (state.frames[0]?.sequence ?? state.sequence + 1) - 1) {
             detach(state, viewer, true);
@@ -121,6 +123,8 @@ function writeFanoutBatch(state, allowed) {
             for (const frame of state.frames) {
                 if (frame.sequence <= viewer.cursor)
                     continue;
+                if (frame.sequence > throughSequence)
+                    break;
                 if (frames.length && bytes + frame.payload.length > 64 * 1024)
                     break;
                 frames.push(frame);
@@ -143,14 +147,18 @@ async function flushFanout(state) {
         return;
     }
     state.flushing = true;
+    // Later arrivals need a later permission read, even if this query's snapshot predates revocation.
+    const throughSequence = state.sequence;
+    const throughRegistration = state.registration;
     const authorization = [...state.viewers.values()].find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
     try {
         const allowed = authorization ? await authorization() : undefined;
-        writeFanoutBatch(state, allowed);
+        writeFanoutBatch(state, allowed, throughSequence, throughRegistration);
     }
     catch {
         for (const viewer of [...state.viewers.values()])
-            detach(state, viewer, true);
+            if (viewer.registration <= throughRegistration)
+                detach(state, viewer, true);
     }
     finally {
         state.flushing = false;
@@ -188,7 +196,7 @@ export function attachFanout(projectId, sink, onClose, lastEventId) {
     }
     clearTimeout(state.expiry);
     state.expiry = undefined;
-    const viewer = { sink, cursor, queue: [], bytes: 0, blocked: false, onClose,
+    const viewer = { sink, registration: ++state.registration, cursor, queue: [], bytes: 0, blocked: false, onClose,
         drain: () => {
             viewer.blocked = false;
             clearTimeout(viewer.deadline);

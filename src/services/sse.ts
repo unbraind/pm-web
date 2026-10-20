@@ -93,8 +93,8 @@ export function consumeSignaledMutation(projectId: string): void {
 }
 
 /**
- * Return the ids of projects that currently have at least one connected client,
- * in the order they were first connected.
+ * Return projects with connected viewers or a retained resume journal, keeping
+ * detection active during a bounded last-viewer disconnect.
  */
 export function getActiveProjectIds(): string[] {
   const active = new Set([...byProject.keys(), ...retainedFanoutProjects()]);

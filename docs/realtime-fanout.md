@@ -14,7 +14,9 @@ owner, direct shares, and group memberships. Each viewer must occur in that
 result. Read and edit roles have the same existing event visibility. A revoked
 viewer is disconnected before receiving the next batch; a failed membership read
 disconnects the affected viewers. Draining a previously blocked queue also requires
-a fresh membership decision. Unknown-project bus traffic creates no journal or
+a fresh membership decision. Each read covers only the events and viewer
+registrations captured before it started: later events and new viewers require
+the next fresh decision. Unknown-project bus traffic creates no journal or
 watcher subscription.
 
 Each response has its own queue. `write(false)` means the submitted buffer was
@@ -44,6 +46,11 @@ Unauthorized callers receive the existing HTTP 404. A client must refresh its
 project snapshot and open a new stream without the stale token after 409; it must
 not treat a rejected cursor as a successful replay. This is bounded reconnect
 recovery; it is not a durable cross-process event log.
+
+The SPA retains its native `EventSource` during transient failures so the browser
+resends its cursor. A terminally closed stream uses the existing replacement
+backoff and refreshes its live view after connecting afresh. Stale callbacks from
+another project cannot replace the current stream or change its session id.
 
 The response-boundary tests exercise 3,000 sinks, shared buffer identity,
 serialization count, ordering, byte/batch/stall limits, and exact replay after

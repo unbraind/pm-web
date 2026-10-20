@@ -504,8 +504,8 @@ function notifyPresenceView(view: string): void {
 
 /** Open an SSE stream for the given project (reusing an existing connection
  * when already live), wire handlers for connection, presence, item, graph,
- * and package events that refresh the active view, and reconnect with
- * exponential backoff on error. */
+ * and package events that refresh the active view. Native transient reconnects
+ * retain Last-Event-ID; terminal failures use a fresh stream and snapshot. */
 function connectSSE(projectId: string, attempt = 0): void {
   if (sseCurrentProjectId === projectId && sseSource && sseSource.readyState !== EventSource.CLOSED) return;
   disconnectSSE();
@@ -519,11 +519,17 @@ function connectSSE(projectId: string, attempt = 0): void {
     sseSource = source;
 
     source.addEventListener('connected', (evt: MessageEvent) => {
+      if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('connected');
       try {
         const data = JSON.parse(evt.data) as { clientId?: string };
         if (data.clientId) sseClientId = data.clientId;
       } catch { /* ignore */ }
+      if (attempt > 0 && state.currentProject?.id === projectId) {
+        refreshView();
+        refreshGraph();
+        refreshPackagesOnSSE(evt);
+      }
     });
 
     // Handle presence updates
@@ -642,7 +648,10 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('extensions_changed', refreshPackagesOnSSE);
 
     source.onerror = () => {
+      if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('reconnecting');
+      // Keeping this object preserves its native Last-Event-ID on transient errors.
+      if (source.readyState !== EventSource.CLOSED) return;
       source.close();
       sseSource = null;
       const delay = Math.min(1000 * Math.pow(2, attempt), 30000);

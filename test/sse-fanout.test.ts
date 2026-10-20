@@ -228,3 +228,57 @@ test("a catch-up larger than the client queue progresses in bounded shared chunk
     assert.strictEqual(a.writes[i], b.writes[i]);
   }
 });
+
+test("events arriving during a membership read require their own fresh authorization decision", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), viewer = sink();
+  const members = new Set([viewer.userId]);
+  let release: (() => void) | undefined, observed: (() => void) | undefined, reads = 0, closed = 0;
+  const started = new Promise<void>((resolve) => { observed = resolve; });
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  attachFanout(project, { ...viewer, authorizeProject: async () => {
+    const snapshot = new Set(members);
+    if (reads++ === 0) { observed!(); await held; }
+    return snapshot;
+  } }, () => { closed++; });
+  prepareFanout(project, { type: "authorized-before-revoke", data: {} });
+  await delay(10);
+  assert.equal(reads, 1, "Initial authorization read must start");
+  await started;
+  members.clear();
+  prepareFanout(project, { type: "private-after-revoke", data: {} });
+  release!();
+  await delay(25);
+  assert.equal(frames(viewer.writes).some((frame) => frame.type === "private-after-revoke"), false);
+  assert.equal(reads, 2);
+  assert.equal(closed, 1);
+});
+
+for (const readFails of [false, true]) {
+test(`a newly granted viewer never uses a prior registration's membership result (read fails: ${readFails})`, async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), old = sink(), added = sink();
+  const members = new Set([old.userId]);
+  let release: (() => void) | undefined, observed: (() => void) | undefined, reads = 0;
+  const started = new Promise<void>((resolve) => { observed = resolve; });
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  const authorizeProject = async () => {
+    const snapshot = new Set(members);
+    if (reads++ === 0) { observed!(); await held; if (readFails) throw new Error("Synthetic delayed membership failure"); }
+    return snapshot;
+  };
+  attachFanout(project, { ...old, authorizeProject }, () => {});
+  prepareFanout(project, { type: "before-join", data: {} });
+  await delay(10);
+  assert.equal(reads, 1, "Initial authorization read must start");
+  await started;
+  members.add(added.userId);
+  attachFanout(project, { ...added, authorizeProject }, () => {});
+  prepareFanout(project, { type: "after-join", data: {} });
+  release!();
+  await delay(25);
+  assert.equal(added.destroyed(), false);
+  assert.equal(old.destroyed(), readFails);
+  assert.deepEqual(frames(added.writes).map((frame) => frame.type), ["connected", "after-join"]);
+});
+}

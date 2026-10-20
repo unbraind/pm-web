@@ -7,11 +7,11 @@ status: in_progress
 priority: 2
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-15T09:09:03.386Z"
-updated_at: "2026-10-20T15:39:31.702Z"
+updated_at: "2026-10-20T16:11:21.657Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
-comments[39]{created_at,author,text}:
+comments[42]{created_at,author,text}:
   "2026-10-16T08:11:29.603Z",codex-agent,"Additional real-PostgreSQL acceptance evidence from the route/bootstrap coverage candidate: the second final-floor npm run passes all 634 coverage tests and all four dimensions, then fails only test/capacity.acceptance.ts line 16: every delivery must meet the unchanged 2000 ms SLO. Earlier assertions pass for five committed writes, zero failed writes/lost/disconnected subscribers/duplicates, and five delivery samples. This is latency failure evidence, not mutation-loss evidence. The first final-floor npm and Bun gates pass, and both Node 22/26 CI matrix jobs pass their npm and Bun release gates on source/test commit e053bb1. Reproduction: npm run release:check with isolated Git identity and explicit fleet discovery; the second Bun repetition is still running. No SLO, capacity assertion or production behavior was changed."
   "2026-10-16T09:06:30.996Z",codex-agent,"Measuring unchanged origin/main first: three isolated 100-subscriber runs, 10 mixed writer lanes and 50 updates. Production watcher defaults and disposable test Postgres only. Then attribute each delivery stage, implement a measured repair if package-owned, prove behavioural revert, and repeat the ladder. No hosted resources or other agents are used."
   "2026-10-16T09:09:17.778Z",codex-agent,"Unchanged baseline at 3336ef6: three 100-subscriber runs all committed 50/50 writes with loss=0, duplicates=0. To-all p50/p95/p99/max ms: 145.3/583.0/1181.3/1181.3; 220.4/594.0/898.9/898.9; 149.7/462.9/913.2/913.2. Loop p99 22.0/25.1/24.2 ms; CPU p95 35.2/26.5/39.8 percent of one core; RSS 194.8/195.3/195.1 MiB. Initial uptime loads: 3.43,4.78,6.86; 4.73,4.94,6.83; 9.18,5.90,7.08. Historical 2163.5 ms breach did not reproduce. CLI tail exceeds HTTP; fan-out already shares serialization with no per-client awaits/auth reads. Next: opt-in test-only stage tracing including SDK index-lock waits and history append visibility, without changing production defaults."
@@ -51,9 +51,13 @@ comments[39]{created_at,author,text}:
   "2026-10-20T15:23:44.867Z",codex-agent,"The production-process last-viewer resume regression passes: 1/1, three independent CLI updates made with zero connected viewers are replayed exactly once; the already-received update is absent on resume. The tracker is explicitly non-git. Test-only measurements now separate synchronous service CPU from non-overlapping event-loop-turn CPU (to include deferred response work without per-response callbacks), and JSON bytes from framed UTF-8 bytes for measured mutations. Final comparisons wait for the complete final presence snapshot before resetting counters."
   "2026-10-20T15:29:13.537Z",codex-agent,"Final behavioral revert proofs: reverting only prepareFanout to the former shared-string/direct-write loop fails 10 of 11 focused tests (one unrelated stall-timer case still passes). Independently removing only the per-viewer authorization check in writeFanoutBatch fails the real-Postgres HTTP adversarial test with an observed revoked-viewer private-frame leak (true versus false), while preserving framing/replay. Both candidate functions were restored byte-for-byte. Large replay is chunked through the same shared queue: a catch-up near 2 MiB passes without disconnect or duplicate, despite exceeding the 1 MiB client queue budget. The final comparison rejects any runtime/probe artifact hash drift between runs."
   "2026-10-20T15:39:31.688Z",codex-agent,"The original comparison stopped on fixture cleanup at 1000, so its partial data is not certification. Focused fixture lifecycle: 1000-identity cleanup took about 3.7 seconds; 3000 took 10.7 seconds, with successful root removal. The original observer client imposed a five-second query timeout on those FK cascades. Cleanup now uses a separate bounded 60-second SQL budget and retains an exact synthetic ownership receipt on failure. Resource-probe timeouts, delivery SLO, loss/duplicate assertions and release thresholds are unchanged. A narrowly scoped read of this task interval found no remaining synthetic Capacity project rows. Restarted the complete immutable A/B/A/B ladder; it asserts total elapsed time remains below one hour."
-files[27]{path,scope}:
+  "2026-10-20T16:03:09.147Z",codex-agent,"Authorization review reproduced an in-flight snapshot race: later events could use a membership result read before revocation. A behavioral revert of only the batch boundaries fails both the late-event and late-registration regressions. Flushes now capture event sequence and viewer registration before the SQL read; later events/viewers require a fresh decision, and an older failed read affects only its captured audience. Focused response/HTTP/real-tracker suite passes 30/30. The non-git resume test keeps every five-second receipt assertion but gives its new fixture lifecycle a 120-second outer budget (its instrumented preflight took 59.9 seconds). The completed preflight is explicitly red: 696/700 pass, 3 fail and 1 cancelled, matching tracked catalog/startup pm-web-qdhx and graph pm-web-hqqp classes; no thresholds changed. Full npm and Bun release commands will run on the frozen runtime."
+  "2026-10-20T16:09:26.161Z",codex-agent,"The SPA previously closed EventSource on every error, discarding its native Last-Event-ID. It now keeps the same source on transient errors; terminally closed streams use a fresh replacement and refresh existing live-view data paths, with project/source guards against stale callbacks. Tests execute the actual source callbacks in an isolated browser-like realm: 5/5 pass; removing only the transient-source guard is the browser behavioral revert. Server snapshot/registration boundary, late read failure, HTTP authorization and real-tracker focused checks pass 30/30. Preparing the frozen runtime and new A/B sequence with these required client and authorization corrections."
+  "2026-10-20T16:11:21.574Z",codex-agent,"Browser behavioral revert completed: removing only the transient EventSource preservation guard fails 2/5 callback tests (the terminal/replacement cases still pass). Candidate restored; browser callbacks pass 5/5, and server/HTTP/real-tracker focused tests pass 30/30. The batch-boundary behavioral revert fails both the post-revocation-event and newly-granted-viewer cases. Frozen code includes event/registration snapshots, bounded shared replay chunks, scoped cleanup ownership receipts, and native browser cursor retention; remaining work is final A/B evidence and full release validation."
+files[29]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
   docs/realtime-fanout.md,project
+  public/src/app.ts,project
   README.md,project
   scripts/capacity-fanout-probe.ts,project
   scripts/capacity-fanout.ts,project
@@ -75,11 +79,12 @@ files[27]{path,scope}:
   test/mutation-replay.test.ts,project
   test/out-of-band-delivery.test.ts,project
   test/realtime-delivery.test.ts,project
+  test/sse-browser-recovery.test.ts,project
   test/sse-fanout-access.test.ts,project
   test/sse-fanout-resume.test.ts,project
   test/sse-fanout.test.ts,project
   test/sse.test.ts,project
-tests[7]:
+tests[8]:
   - command: node --test test/capacity-trace.test.ts
     scope: project
     timeout_seconds: 60
@@ -136,6 +141,14 @@ tests[7]:
     provenance:
       author: codex-agent
       created_at: "2026-10-20T15:23:39.403Z"
+      source_kind: local_mutation
+      source_ref: perf/realtime-fanout-thousands
+  - command: node --test test/sse-browser-recovery.test.ts
+    scope: project
+    timeout_seconds: 120
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-20T16:11:07.298Z"
       source_kind: local_mutation
       source_ref: perf/realtime-fanout-thousands
 docs[5]{path,scope}:

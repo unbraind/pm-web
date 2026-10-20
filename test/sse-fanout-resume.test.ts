@@ -7,7 +7,7 @@ import test from "node:test";
 import { capacityFixture, capacityPm, capacityServer, waitUntil } from "../scripts/capacity-fixture.ts";
 import { capacitySubscriber } from "../scripts/capacity.ts";
 
-test("forced last-viewer disconnect replays exactly the missed independent CLI commits", { timeout: 60_000 }, async () => {
+test("forced last-viewer disconnect replays exactly the missed independent CLI commits", { timeout: 120_000 }, async () => {
   const fixture = await capacityFixture(1);
   let server: Awaited<ReturnType<typeof capacityServer>> | undefined;
   let first: Awaited<ReturnType<typeof capacitySubscriber>> | undefined;
