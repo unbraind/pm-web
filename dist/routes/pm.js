@@ -12,8 +12,9 @@ import { QUERY_CURSOR_CONTRACT, runWithAgentSessionContext } from "@unbrained/pm
 import { boardColumns, filterItemsByQuery } from "../board.js";
 import { buildIcsCalendar } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
-import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, mutationEventIdentity } from "../services/sse.js";
+import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, canResumeFanout, heartbeatFanout, mutationEventIdentity } from "../services/sse.js";
 import { singleFlightMutationPage } from "../services/history-read-gate.js";
+import { projectEventViewers } from "../services/sse-access.js";
 import { signalMutationRead } from "../services/mutation-read-signals.js";
 import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
@@ -2359,6 +2360,11 @@ router.get("/events", async (req, res) => {
         return;
     }
     const currentView = String(req.query["view"] ?? "items");
+    const lastEventId = req.get("Last-Event-ID");
+    if (lastEventId && !canResumeFanout(projectId, lastEventId)) {
+        res.status(409).json({ error: "Real-time cursor expired; refresh project state before reconnecting" });
+        return;
+    }
     setupSSEHeaders(res);
     const unsubscribe = addSSEClient({
         id: clientId,
@@ -2368,11 +2374,12 @@ router.get("/events", async (req, res) => {
         currentView,
         res,
         connectedAt: new Date(),
-    });
+        authorizeProject: () => projectEventViewers(projectId),
+    }, lastEventId);
     // Heartbeat every 30s to keep connection alive and refresh presence
     const heartbeat = setInterval(() => {
         try {
-            res.write(": heartbeat\n\n");
+            heartbeatFanout(projectId, clientId);
         }
         catch {
             clearInterval(heartbeat);

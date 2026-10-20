@@ -1,10 +1,12 @@
 /** Real committed identities exercise both sides of the route/watcher race at the shared delivery sink. */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Response } from "express";
 import { listMutationEvents } from "@unbrained/pm-cli/sdk";
 import { capacityPm, waitUntil } from "../scripts/capacity-fixture.ts";
@@ -28,6 +30,7 @@ test("20 subscribers receive each real same-item version once in watcher-first, 
   const stops: (() => void)[] = [];
   try {
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "receipts", "--defaults", "--agent-guidance", "skip"]);
+    assert.equal(existsSync(path.join(dir, ".git")), false, "delivery evidence uses a plain non-git tracker");
     const client = getPmClient(pmRoot);
     await client.run("create", { options: { id: "receipts-one", title: "Synthetic", type: "Task", description: "Synthetic" } });
     for (const title of ["First", "Second"]) await client.run("update", { options: { id: "receipts-one", title } });
@@ -38,8 +41,9 @@ test("20 subscribers receive each real same-item version once in watcher-first, 
       const projectId = randomUUID();
       const frames = Array.from({ length: 20 }, () => [] as string[]);
       for (const [index, received] of frames.entries()) {
+        const response = { write: (payload: Buffer) => { received.push(payload.toString()); return true; } } as unknown as Response;
         stops.push(addSSEClient({ id: randomUUID(), projectId, userId: `synthetic-${index}`, displayName: "Synthetic", currentView: "items", connectedAt: new Date(),
-          res: { write: (payload: string) => { received.push(payload); return true; } } as unknown as Response }));
+          res: response }));
       }
       for (const fact of page.events) {
         const id = mutationEventIdentity(fact);
@@ -50,8 +54,10 @@ test("20 subscribers receive each real same-item version once in watcher-first, 
         // A receipt for one version must never suppress another version of the same item.
         assert.equal(consumeSignaledItemMutation(projectId, fact.item_id, `${id}-distinct`), false);
       }
+      await delay(15);
       for (const received of frames) {
-        const mutations = received.filter((frame) => /event: (item-updated|workspace-changed)/.test(frame));
+        await delay(15);
+        const mutations = received.flatMap((batch) => batch.split("\n\n")).filter((frame) => /event: (item-updated|workspace-changed)/.test(frame));
         assert.equal(mutations.length, 2, `${order}: each committed version must reach each subscriber once`);
         for (const fact of page.events) assert.equal(mutations.filter((frame) => frame.includes(`"version":${fact.version}`)).length, 1);
       }
@@ -81,6 +87,7 @@ test("real close and delete facts retain lifecycle types once in every delivery 
   const stops: (() => void)[] = [];
   try {
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "lifecycle", "--defaults", "--agent-guidance", "skip"]);
+    assert.equal(existsSync(path.join(dir, ".git")), false, "delivery evidence uses a plain non-git tracker");
     const client = getPmClient(pmRoot);
     for (const operation of ["close", "delete"]) {
       const created = await client.run("create", { options: { id: `lifecycle-${operation}`, title: "Synthetic", type: "Task", description: "Synthetic" } }) as { id: string };
@@ -93,7 +100,7 @@ test("real close and delete facts retain lifecycle types once in every delivery 
         const projectId = randomUUID();
         const received: string[] = [];
         stops.push(addSSEClient({ id: randomUUID(), projectId, userId: "synthetic", displayName: "Synthetic", currentView: "items", connectedAt: new Date(),
-          res: { write: (payload: string) => { received.push(payload); return true; } } as unknown as Response }));
+          res: { write: (payload: string) => { received.push(String(payload)); return true; } } as unknown as Response }));
         const observed: Parameters<typeof deliverProjectEvent>[1][] = [];
         const reconciler = createMutationEventReconciler({
           getActiveProjectIds: () => [projectId], resolveProjectDir: async () => dir,
@@ -109,7 +116,8 @@ test("real close and delete facts retain lifecycle types once in every delivery 
         const watcher = observed[0];
         const route = { id: mutationEventIdentity(fact), type: expectedType, data: { itemId: fact.item_id } };
         deliverRace(projectId, order, route, watcher);
-        const mutations = received.filter((frame) => /event: (item-deleted|item-closed|workspace-changed)/.test(frame));
+        await delay(15);
+        const mutations = received.flatMap((batch) => batch.split("\n\n")).filter((frame) => /event: (item-deleted|item-closed|workspace-changed)/.test(frame));
         assert.equal(mutations.length, 1, `${operation} ${order}: exactly one committed frame`);
         assert.ok(mutations[0].startsWith(`event: ${expectedType}\n`), `${operation} ${order}: lifecycle caption must survive`);
       }

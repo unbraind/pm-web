@@ -55,7 +55,7 @@ function validateOptions(options: CapacityOptions): void {
 }
 
 /** Open an independent authenticated HTTP SSE socket and record only the experiment's item mutations. */
-async function subscriber(url: string, headers: Record<string, string>, indices: ReadonlyMap<string, number>, writes: number, observation: { open: boolean }) {
+export async function capacitySubscriber(url: string, headers: Record<string, string>, indices: ReadonlyMap<string, number>, writes: number, observation: { open: boolean }) {
   const state: CapacitySubscriber = { receivedAt: new Float64Array(writes), counts: new Uint32Array(writes), disconnected: false };
   const controller = new AbortController();
   let connected = false;
@@ -74,7 +74,10 @@ async function subscriber(url: string, headers: Record<string, string>, indices:
           const frames = pending.split("\n\n");
           pending = frames.pop()!;
           for (const frame of frames) {
+            const cursor = /^id: (.+)$/m.exec(frame)?.[1];
+            if (cursor) state.lastEventId = cursor;
             const type = /^event: (.+)$/m.exec(frame)?.[1];
+            if (type === "presence") state.presenceUsers = frame.match(/"userId":/g)?.length ?? 0;
             if (type === "connected") {
               connected = true;
               state.clientId = (JSON.parse(/^data: (.+)$/m.exec(frame)?.[1] ?? "{}") as { clientId: string }).clientId;
@@ -152,7 +155,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
   const fixture = await capacityFixture(Math.max(subscribers, options.writers));
   const traceDirectory = options.trace ? path.join(fixture.root, "traces") : undefined;
   let server: Awaited<ReturnType<typeof capacityServer>> | undefined;
-  const streams: Awaited<ReturnType<typeof subscriber>>[] = [];
+  const streams: Awaited<ReturnType<typeof capacitySubscriber>>[] = [];
   const observation = { open: false };
   const writes: CapacityWrite[] = Array.from({ length: options.writers * options.writesPerWriter }, (_, sequence) => ({
     sequence, itemId: `capacity-write-${sequence}`, transport: Math.floor(sequence / options.writesPerWriter) < Math.floor(options.writers / 2) ? "http" : "cli", committedAt: null, error: false,
@@ -186,11 +189,13 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       const indices = new Map(writes.map((write) => [write.itemId, write.sequence]));
       // Bound connection startup concurrency so the generator cannot flood the auth pool's wait queue.
       for (let start = 0; start < subscribers; start += 50) {
-        const batch = await Promise.allSettled(Array.from({ length: Math.min(50, subscribers - start) }, (_, offset) => subscriber(
+        const batch = await Promise.allSettled(Array.from({ length: Math.min(50, subscribers - start) }, (_, offset) => capacitySubscriber(
           `${server!.url}/api/projects/${fixture.projectId}/pm/events?view=items`, fixture.sessions[start + offset], indices, writes.length, observation)));
         for (const result of batch) if (result.status === "fulfilled") streams.push(result.value);
         if (batch.some((result) => result.status === "rejected")) throw new Error("SSE connection ramp failed");
       }
+      // Drain the final full presence snapshot before resetting CPU/encoding counters.
+      await waitUntil(() => streams.every((stream) => stream.state.presenceUsers === subscribers), 45_000, "complete project presence snapshot");
       phase = "measurement";
       // Keep the production 15s sweep and 2s subscription reconciliation cadence. Establish the
       // filesystem baseline before writes, avoiding both startup-tail loss and a shortened test cadence.
@@ -279,7 +284,10 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         tracedDeliveries = traceDeliveries(writes, traces);
       }
       if (!server.samples.length || !postgres.length || sampleState.error) throw Object.assign(new Error("Resource measurements are incomplete"), { code: !server.samples.length ? "MISSING_SERVER_PROBE" : !postgres.length ? "MISSING_DATABASE_PROBE" : "DATABASE_PROBE_ERROR" });
+      await server.sample();
+      const fanout = server.samples.at(-1)!.fanout;
       const resources = {
+        fanout: { ...fanout, cpu_us_per_delivery: fanout.cpu_us / fanout.delivered_events, serialized_bytes_per_event: fanout.serialized_bytes / fanout.prepared_events, cpu_us_per_delivered_mutation: fanout.cpu_us / fanout.delivered_mutations, turn_cpu_us_per_delivered_mutation: fanout.turn_cpu_us / fanout.delivered_mutations, mutation_frame_bytes_per_event: fanout.mutation_frame_bytes / fanout.mutation_events, mutation_json_bytes_per_event: fanout.mutation_json_bytes / fanout.mutation_events },
         server_rss_peak_bytes: Math.max(...server.samples.map((sample) => sample.rss_bytes)),
         server_cpu_core_percent: distribution(server.samples.map((sample) => sample.cpu_core_percent)),
         server_event_loop_p99_ms: server.samples.at(-1)!.event_loop_p99_ms,

@@ -11,6 +11,8 @@ export interface CapacityWrite {
 /** One subscriber's bounded first-receipt and duplicate counters, indexed by write sequence. */
 export interface CapacitySubscriber {
   clientId?: string;
+  lastEventId?: string;
+  presenceUsers?: number;
   receivedAt: Float64Array;
   counts: Uint32Array;
   disconnected: boolean;

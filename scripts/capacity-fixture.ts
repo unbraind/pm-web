@@ -1,7 +1,7 @@
 /** Real database, pinned CLI and built-server lifecycle for the isolated capacity experiment. */
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import pg from "pg";
 import jwt from "jsonwebtoken";
 import { getPmClient, evictPmClient } from "../src/services/pm-runner.ts";
+import type { FanoutMeasurement } from "./capacity-fanout-probe.ts";
 import type { RealtimeCounters } from "../src/services/realtime-observability.ts";
 
 const execute = promisify(execFile);
@@ -68,10 +69,22 @@ export async function capacityFixture(identities: number) {
   /** Delete only the fixture-owned identities, cascading its projects and shares. */
   const close = async (): Promise<void> => {
     evictPmClient(path.join(dir, ".agents", "pm"));
-    try { await database.query("DELETE FROM pm_users WHERE id = ANY($1::uuid[])", [[owner, ...users]]); }
-    finally { await database.end(); await rm(root, { recursive: true, force: true }); }
+    await database.end();
+    // Large FK cascades need a cleanup budget independent of five-second resource probes.
+    const cleanup = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-cleanup",
+      connectionTimeoutMillis: 5000, statement_timeout: 60_000, query_timeout: 65_000 });
+    try {
+      await cleanup.connect();
+      await cleanup.query("DELETE FROM pm_users WHERE id = ANY($1::uuid[])", [[owner, ...users]]);
+    } catch (cause) {
+      throw Object.assign(new Error("Synthetic fixture row cleanup failed", { cause }), { code: "FIXTURE_ROWS_CLEANUP_FAILED" });
+    } finally { await cleanup.end(); }
+    // Failed row cleanup deliberately retains the ownership receipt and tracker.
+    await rm(root, { recursive: true, force: true });
   };
   try {
+    // Preserve exact synthetic ownership for recovery if cleanup cannot complete.
+    await writeFile(path.join(root, "capacity-ownership.json"), JSON.stringify({ projectId, users: [owner, ...users] }), { mode: 0o600 });
     await database.query("INSERT INTO pm_users (id, email, password_hash) SELECT id, id::text || '@capacity.test', 'x' FROM unnest($1::uuid[]) AS id", [[owner, ...users]]);
     await database.query("INSERT INTO pm_projects (id, user_id, name, slug, prefix) VALUES ($1, $2, 'Capacity', 'capacity', 'capacity')", [projectId, owner]);
     await database.query("INSERT INTO pm_project_shares (project_id, shared_with_user_id, permission) SELECT $1, id, 'edit' FROM unnest($2::uuid[]) AS id", [projectId, users]);
@@ -84,6 +97,7 @@ export async function capacityFixture(identities: number) {
 
 /** A process sample read from the preload, with CPU expressed as percent of one core. */
 export interface CapacityProbe {
+  fanout: FanoutMeasurement;
   rss_bytes: number;
   cpu_core_percent: number;
   event_loop_p99_ms: number;
@@ -110,7 +124,7 @@ export async function capacityServer(root: string, secret: string, traceDirector
     PM_WEB_RATE_LIMIT_READ: "100000", PM_WEB_RATE_LIMIT_WRITE: "100000" };
   const preload = traceDirectory ? ["--import", path.join(repo, "scripts/capacity-trace-preload.ts")] : [];
   const child = spawn(process.execPath, ["--import", path.join(repo, "scripts/capacity-probe.ts"), ...preload, "dist/server.js"], {
-    cwd: repo, env: { ...env, ...(traceDirectory ? { PM_WEB_CAPACITY_TRACE_DIR: traceDirectory } : {}) }, stdio: ["ignore", "pipe", "pipe", "ipc"],
+    cwd: repo, env: { ...env, ...(process.env.PM_WEB_CAPACITY_BASELINE_DIR ? { PM_WEB_CAPACITY_BASELINE_DIR: process.env.PM_WEB_CAPACITY_BASELINE_DIR } : {}), ...(traceDirectory ? { PM_WEB_CAPACITY_TRACE_DIR: traceDirectory } : {}) }, stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
   let port = 0;
   let pending = "";
@@ -160,6 +174,8 @@ export async function capacityServer(root: string, secret: string, traceDirector
       begin: async () => { reset = false; child.send("capacity-reset"); await waitUntil(() => reset, 2000, "probe reset"); },
       /** Flush stage probes only after measured writes and receipts finish. */
       flushTrace: async () => { if (traceDirectory) { child.send("capacity-trace-flush"); await waitUntil(() => traceFlushed, 5000, "trace flush"); } },
+      /** Obtain a final sample through acknowledged IPC rather than a periodic-sample race. */
+      sample: async () => { const count = samples.length; child.send("capacity-sample"); await waitUntil(() => samples.length > count, 5000, "final process sample"); },
       close: () => stopServer(child) };
   } catch (error) { await stopServer(child); throw error; }
 }

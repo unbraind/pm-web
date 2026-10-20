@@ -1,12 +1,15 @@
 import { recordConnection, recordDisconnection, recordBroadcast } from "./realtime-observability.js";
 import { logError } from "../observability.js";
 import { signalMutationRead } from "./mutation-read-signals.js";
+import { attachFanout, clearFanout, hasFanoutProject, prepareFanout, retainedFanoutProjects } from "./sse-fanout.js";
+export { canResumeFanout, heartbeatFanout } from "./sse-fanout.js";
 // Clients are indexed two ways so that per-event work scales with the number of
 // clients on the *affected project*, not the total number of connected clients.
 // This is what lets a single project sustain many concurrent viewers without an
 // O(total-clients) scan on every event, presence update, and disconnect.
 const byId = new Map();
 const byProject = new Map();
+const detachFanout = new Map();
 const presenceTimers = new Map();
 let projectEventPublisher = null;
 const lastSignaledAt = new Map();
@@ -65,7 +68,11 @@ export function consumeSignaledMutation(projectId) {
  * in the order they were first connected.
  */
 export function getActiveProjectIds() {
-    return [...byProject.keys()];
+    const active = new Set([...byProject.keys(), ...retainedFanoutProjects()]);
+    for (const projectId of deliveryReceipts.keys())
+        if (!active.has(projectId))
+            deliveryReceipts.delete(projectId);
+    return [...active];
 }
 /**
  * Install (or clear, with `null`) the cross-instance event publisher.
@@ -90,13 +97,14 @@ function removeClient(client, reason = "client_closed") {
     if (byId.get(client.id) !== client)
         return;
     byId.delete(client.id);
+    detachFanout.get(client.id)?.();
+    detachFanout.delete(client.id);
     recordDisconnection(client.projectId, Math.max(0, Date.now() - client.connectedAt.getTime()), reason);
     const set = byProject.get(client.projectId);
     if (set) {
         set.delete(client);
         if (set.size === 0) {
             byProject.delete(client.projectId);
-            deliveryReceipts.delete(client.projectId);
         }
     }
 }
@@ -149,7 +157,7 @@ function schedulePresence(projectId) {
  * @param client - The client to register.
  * @returns A function that unregisters the client.
  */
-export function addSSEClient(client) {
+export function addSSEClient(client, lastEventId) {
     const previous = byId.get(client.id);
     if (previous) {
         try {
@@ -171,8 +179,10 @@ export function addSSEClient(client) {
         byProject.set(client.projectId, set);
     }
     set.add(client);
-    // Send initial connection confirmation
-    client.res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, clientId: client.id })}\n\n`);
+    detachFanout.set(client.id, attachFanout(client.projectId, client, () => {
+        removeClient(client, "slow_or_unauthorized");
+        schedulePresence(client.projectId);
+    }, lastEventId));
     // Broadcast presence update to all project viewers
     schedulePresence(client.projectId);
     // Return unsubscribe function
@@ -212,14 +222,12 @@ export function broadcastProjectEvent(projectId, event) {
  *
  * A committed identity is receipted for the replay window before fan-out, so
  * route, watcher and peer arrival order cannot write the same fact twice.
- * Receipts are shared by project, expire after one minute, and are discarded
- * when its last viewer disconnects. Identity-free refreshes remain independent.
+ * Receipts are shared by project and expire after one minute. They survive the
+ * last viewer's disconnect until the bounded resume journal expires.
  *
- * Records a project-level signal, then writes the SSE-formatted payload to every
- * client in the project's set; a write to a disconnected client is swallowed
- * (cleanup happens on the next heartbeat). The project-level signal is recorded
- * even when the project has no clients, so a no-client call is not a complete
- * no-op.
+ * Records a project-level signal, then prepares one shared UTF-8 frame for the
+ * authorized batch writer. Unknown projects retain no payload or receipt. A
+ * disconnected project's existing journal keeps recording during its resume window.
  *
  * @param projectId - The project to deliver to.
  * @param event - The SSE event.
@@ -228,7 +236,7 @@ export function deliverProjectEvent(projectId, event) {
     noteSignaledMutation(projectId);
     const set = byProject.get(projectId);
     recordBroadcast(projectId, event.type, set?.size ?? 0);
-    if (!set || set.size === 0)
+    if (!hasFanoutProject(projectId))
         return;
     if (event.id) {
         const receipts = deliveryReceipts.get(projectId) ?? new Map();
@@ -243,15 +251,7 @@ export function deliverProjectEvent(projectId, event) {
         receipts.set(event.id, now);
         deliveryReceipts.set(projectId, receipts);
     }
-    const payload = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
-    for (const client of set) {
-        try {
-            client.res.write(payload);
-        }
-        catch {
-            // Client disconnected; will be cleaned up on next heartbeat
-        }
-    }
+    prepareFanout(projectId, event);
 }
 /**
  * Broadcast the current presence list to a project's viewers.
@@ -267,15 +267,7 @@ export function broadcastPresence(projectId) {
         return;
     recordBroadcast(projectId, "presence", set.size);
     const users = presenceUsers(set);
-    const payload = `event: presence\ndata: ${JSON.stringify({ users })}\n\n`;
-    for (const client of set) {
-        try {
-            client.res.write(payload);
-        }
-        catch {
-            // Client disconnected
-        }
-    }
+    prepareFanout(projectId, { type: "presence", data: { users } });
 }
 /**
  * Update a client's current view when caller and client agree.
@@ -342,6 +334,11 @@ export function closeAllSSEClients() {
             removeClient(client, "server_shutdown");
         }
     }
+    clearFanout();
+    deliveryReceipts.clear();
+    for (const timer of presenceTimers.values())
+        clearTimeout(timer);
+    presenceTimers.clear();
 }
 /**
  * Close long-lived clients and prune stale signal entries.

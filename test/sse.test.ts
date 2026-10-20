@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Response } from "express";
 import { realtimeHealth } from "../src/services/realtime-observability.ts";
 
@@ -22,12 +23,12 @@ function fakeResponse() {
   const writes: string[] = [];
   return {
     writes,
-    response: { write: (value: string) => { writes.push(value); return true; } } as unknown as Response,
+    response: { write: (value: string) => { writes.push(String(value)); return true; } } as unknown as Response,
   };
 }
 
 for (const endFails of [false, true]) {
-  test(`replacing an SSE client closes the old response and preserves the gauge (end fails: ${endFails})`, (t) => {
+  test(`replacing an SSE client closes the old response and preserves the gauge (end fails: ${endFails})`, async (t) => {
     const before = realtimeHealth().counters;
     let ended = 0;
     const oldResponse = {
@@ -54,6 +55,7 @@ for (const endFails of [false, true]) {
     unsubscribeOld();
     assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients + 1, "late old cleanup must preserve the new client");
     broadcastProjectEvent(otherProjectId, { type: "workspace-changed", data: {} });
+    await delay(15);
     assert.match(current.writes.join(""), /event: workspace-changed/);
     unsubscribeNew();
     assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients);
@@ -99,7 +101,7 @@ test("project events deliver locally and invoke the configured cross-process pub
   configureProjectEventPublisher(async (id, event) => { published.push({ projectId: id, type: event.type }); });
   try {
     broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "test" } });
-    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    await new Promise((resolve) => { setTimeout(resolve, 15); });
     assert.match(target.writes.join(""), /event: workspace-changed/);
     assert.deepEqual(published, [{ projectId, type: "workspace-changed" }]);
   } finally {
@@ -126,7 +128,7 @@ test("project events and presence are isolated per project and clients are index
 
     // An event for `projectId` must reach only that project's clients.
     broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "iso" } });
-    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    await new Promise((resolve) => { setTimeout(resolve, 15); });
     assert.match(a.writes.join(""), /event: workspace-changed/);
     assert.doesNotMatch(b.writes.join(""), /event: workspace-changed/);
   } finally {

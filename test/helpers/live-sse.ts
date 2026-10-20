@@ -4,19 +4,21 @@ import { authHeaders, type AppServer, type SeedUser } from "./pg-harness.ts";
 
 /** A decoded message received from the production HTTP SSE endpoint. */
 export interface LiveEvent {
+  /** Opaque resume cursor assigned to this complete wire frame. */
+  readonly id?: string;
   readonly type: string;
   readonly data: Record<string, unknown>;
 }
 
 /** Keep a real SSE connection open while collecting complete wire frames. */
-export async function connectLiveSSE(server: AppServer, user: SeedUser, projectId: string): Promise<{
+export async function connectLiveSSE(server: AppServer, user: SeedUser, projectId: string, lastEventId?: string): Promise<{
   events: LiveEvent[];
   waitFor: (predicate: (events: LiveEvent[]) => boolean) => Promise<void>;
   close: () => Promise<void>;
 }> {
   const controller = new AbortController();
   const response = await fetch(server.url(`/api/projects/${projectId}/pm/events?view=items`), {
-    headers: authHeaders(user), signal: controller.signal,
+    headers: { ...authHeaders(user), ...(lastEventId ? { "Last-Event-ID": lastEventId } : {}) }, signal: controller.signal,
   });
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/event-stream/);
@@ -36,7 +38,7 @@ export async function connectLiveSSE(server: AppServer, user: SeedUser, projectI
           pending = pending.slice(end + 2);
           const type = /^event: (.+)$/m.exec(frame)?.[1];
           const data = /^data: (.+)$/m.exec(frame)?.[1];
-          if (type && data) events.push({ type, data: JSON.parse(data) as Record<string, unknown> });
+          if (type && data) events.push({ type, id: /^id: (.+)$/m.exec(frame)?.[1], data: JSON.parse(data) as Record<string, unknown> });
           end = pending.indexOf("\n\n");
         }
       }

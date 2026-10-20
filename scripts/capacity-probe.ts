@@ -1,4 +1,5 @@
 /** Test-only preload: observe the actual production process through a private IPC channel. */
+import { fanoutMeasurement, resetFanoutMeasurement } from "./capacity-fanout-probe.ts";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -31,7 +32,7 @@ function sample(): void {
   const cpu = process.cpuUsage();
   process.send?.({ capacity_probe: true, rss_bytes: process.memoryUsage().rss,
     cpu_core_percent: ((cpu.user - previousCpu.user) + (cpu.system - previousCpu.system)) / ((now - previousTime) * 10),
-    event_loop_p99_ms: histogram.percentile(99) / 1e6 });
+    event_loop_p99_ms: histogram.percentile(99) / 1e6, fanout: fanoutMeasurement() });
   previousCpu = cpu;
   previousTime = now;
 }
@@ -43,6 +44,7 @@ process.on("message", (message: unknown) => {
     process.send?.({ capacity_lock_count: indexLocks, at: performance.now() });
   } else if (message === "capacity-reset") {
     histogram.reset();
+    resetFanoutMeasurement();
     previousCpu = process.cpuUsage();
     previousTime = performance.now();
     process.send?.({ capacity_reset: true });
