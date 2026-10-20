@@ -112,6 +112,31 @@ test("client B receives client A's item mutation over the real SSE route", async
   assert.equal(created.data.userId, harness.owner.id);
 });
 
+test("plan fallback mutations retain distinct durable episodes and their manual SSE broadcasts", async (t) => {
+  const { harness, server, streams } = await setupLiveCollabTest(t, "owner");
+  const base = `/api/projects/${harness.projectId}/pm/plan`;
+  const created = await authedFetch(server, harness.owner, base, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Correlated plan" }),
+  });
+  const planId = await createdItemId(created);
+  const episodes: string[] = [];
+  for (const title of ["First step", "Second step"]) {
+    const response = await authedFetch(server, harness.editor, `${base}/${planId}/steps`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title }),
+    });
+    assert.equal(response.status, 201, await response.text());
+    const page = await listMutationEvents({ pmRoot: harness.pmRoot, item: planId, full: true });
+    const latest = page.events.reduce((a, b) => a.version > b.version ? a : b);
+    const episode = latest.entry?.agent_episode?.id;
+    assert.ok(episode, "spawned plan writes must persist the route invocation episode");
+    episodes.push(episode);
+  }
+  assert.notEqual(episodes[0], episodes[1], "each plan mutation must keep its own correlation");
+  const observer = streams[0]!;
+  await observer.waitFor(events => events.filter(event => event.type === "item-updated" && event.data.itemId === planId).length === 2);
+  assert.ok(observer.events.filter(event => event.type === "item-updated" && event.data.itemId === planId).every(event => event.data.userId === harness.editor.id));
+});
+
 test("concurrent collaborators update one item without a lost write or malformed history", async (t) => {
   const { harness, server } = await setupCollabTest(t);
 

@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import type { GetResult } from "@unbrained/pm-cli/sdk";
+import { listMutationEvents, type AgentSessionContext, type GetResult } from "@unbrained/pm-cli/sdk";
 
 import {
   certifyPmWebCompleteList,
@@ -215,6 +215,47 @@ const timer = setInterval(() => {
     restoreEnvVars(previousRoot, previousBin);
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("CLI fallbacks persist each invocation's episode and provenance without leaking session environment", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "pm-web-session-"));
+  const previousRoot = process.env.PROJECTS_ROOT;
+  process.env.PROJECTS_ROOT = root;
+  t.after(async () => {
+    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
+    else process.env.PROJECTS_ROOT = previousRoot;
+    await rm(root, { recursive: true, force: true });
+  });
+  const options = { userId: "owner", slug: "session", jsonOutput: true };
+  const dir = path.join(root, options.userId, options.slug);
+  await mkdir(dir, { recursive: true });
+  const initialized = await runPm({ ...options, args: ["init", "session"] });
+  assert.equal(initialized.ok, true, initialized.stderr);
+  const environmentBefore = { ...process.env };
+  const sessions: AgentSessionContext[] = [
+    { episode: { id: "plan-episode", label: "Plan write", parent_id: "parent-episode" }, provenance: { role: "implementer", topic: "plan correlation" } },
+    { episode: { id: "timeout-episode" }, provenance: { role: "reviewer", topic: "fallback correlation" } },
+  ];
+  // An intrinsically spawned action and a normally in-process action forced to
+  // spawn must use the same session transport, with separate durable identities.
+  const calls = [
+    { args: ["plan", "create", "--title", "Correlated plan"] },
+    { args: ["create", "--title", "Correlated task", "--type", "Task"], timeoutMs: 30_000 },
+  ];
+  for (const [index, call] of calls.entries()) {
+    const session = sessions[index]!;
+    const result = await runPm({ ...options, ...call, agentSession: session });
+    assert.equal(result.ok, true, result.stderr);
+    const id = (result.parsed as { id: string }).id;
+    const history = await listMutationEvents({ pmRoot: path.join(dir, ".agents", "pm"), item: id, full: true });
+    assert.ok(history.events.length > 0);
+    for (const event of history.events) {
+      assert.deepEqual(event.entry?.agent_episode, session.episode);
+      assert.deepEqual(event.entry?.agent_provenance?.role, { value: session.provenance!.role, source: "session" });
+      assert.deepEqual(event.entry?.agent_provenance?.topic, { value: session.provenance!.topic, source: "session" });
+    }
+  }
+  assert.deepEqual({ ...process.env }, environmentBefore, "per-call context must never mutate the parent environment");
 });
 
 test("in-process SDK dispatch preserves positionals, camel-case flags, pagination, and expected errors", async () => {

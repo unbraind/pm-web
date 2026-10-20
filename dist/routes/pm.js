@@ -370,13 +370,15 @@ async function requireProject(req, res) {
  * @param project - Owner and slug that locate the workspace.
  * @param args - pm arguments, already validated by the route.
  * @param jsonOutput - When set, request JSON output; omit to keep the CLI default.
+ * @param agentSession - Session declaration to preserve across the CLI fallback.
  * @returns The pm invocation result.
  */
-function projectPm(project, args, jsonOutput) {
+function projectPm(project, args, jsonOutput, agentSession) {
     return runPm({
         args,
         userId: project.ownerUserId,
         slug: project.slug,
+        agentSession,
         ...(jsonOutput === undefined ? {} : { jsonOutput }),
     });
 }
@@ -436,7 +438,8 @@ async function runMutation(res, project, args, fallback, jsonOutput = true) {
     const mutationSince = new Date().toISOString();
     // Immutable invocation correlation survives concurrent writes to the same item.
     const mutationEpisodeId = randomUUID();
-    const result = await runWithAgentSessionContext({ episode: { id: mutationEpisodeId } }, () => projectPm(project, args, jsonOutput));
+    const agentSession = { episode: { id: mutationEpisodeId } };
+    const result = await runWithAgentSessionContext(agentSession, () => projectPm(project, args, jsonOutput, agentSession));
     if (!result.ok) {
         res.status(pmErrorStatus(result)).json({ error: result.stderr || fallback });
         return undefined;

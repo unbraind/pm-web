@@ -12,7 +12,7 @@ import {
   resolveSearchScoreThreshold,
   resolveHybridSemanticWeight,
 } from "@unbrained/pm-cli/sdk/query";
-import { QUERY_CURSOR_CONTRACT, runWithAgentSessionContext } from "@unbrained/pm-cli/sdk";
+import { QUERY_CURSOR_CONTRACT, runWithAgentSessionContext, type AgentSessionContext } from "@unbrained/pm-cli/sdk";
 import { boardColumns, filterItemsByQuery } from "../board.ts";
 import { buildIcsCalendar, type CalendarItem } from "../ical.ts";
 import { verifyProjectAccess } from "./projects.ts";
@@ -454,13 +454,15 @@ async function requireProject(req: AuthRequest, res: Response): Promise<ProjectR
  * @param project - Owner and slug that locate the workspace.
  * @param args - pm arguments, already validated by the route.
  * @param jsonOutput - When set, request JSON output; omit to keep the CLI default.
+ * @param agentSession - Session declaration to preserve across the CLI fallback.
  * @returns The pm invocation result.
  */
-function projectPm(project: ProjectRef, args: string[], jsonOutput?: boolean): ReturnType<typeof runPm> {
+function projectPm(project: ProjectRef, args: string[], jsonOutput?: boolean, agentSession?: AgentSessionContext): ReturnType<typeof runPm> {
   return runPm({
     args,
     userId: project.ownerUserId,
     slug: project.slug,
+    agentSession,
     ...(jsonOutput === undefined ? {} : { jsonOutput }),
   });
 }
@@ -532,7 +534,8 @@ async function runMutation(
   const mutationSince = new Date().toISOString();
   // Immutable invocation correlation survives concurrent writes to the same item.
   const mutationEpisodeId = randomUUID();
-  const result = await runWithAgentSessionContext({ episode: { id: mutationEpisodeId } }, () => projectPm(project, args, jsonOutput));
+  const agentSession: AgentSessionContext = { episode: { id: mutationEpisodeId } };
+  const result = await runWithAgentSessionContext(agentSession, () => projectPm(project, args, jsonOutput, agentSession));
   if (!result.ok) {
     res.status(pmErrorStatus(result)).json({ error: result.stderr || fallback });
     return undefined;
