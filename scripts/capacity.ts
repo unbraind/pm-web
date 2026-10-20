@@ -203,6 +203,10 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       /** Refill each accepted slot immediately, keeping ten in flight without artificial cohort pauses. */
       const openConnections = async (): Promise<void> => {
         while (!rampAbort.signal.aborted) {
+          if (streams.some((stream) => stream.state.disconnected)) {
+            rampAbort.abort();
+            throw new RungFailure("setup", "DisconnectedStream", "SSE_SETUP_DISCONNECTED");
+          }
           const index = nextConnection++;
           if (index >= subscribers) return;
           try {

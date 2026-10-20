@@ -30,7 +30,9 @@ for (const rung of [100, 1000, 3000]) {
     process.stdout.write(JSON.stringify({ rung, variant, repeat: Math.floor(index / 2) + 1, failure: report.failure,
       ...(run ? { p99_ms: run.to_every_subscriber_ms.p99, lost: run.lost, duplicates: run.duplicates,
         fanout: run.resources.fanout, load: run.resources.host_load_average_before } : {}) }) + "\n");
-    assert.equal(report.failure, null, "Each rung must finish completely");
+    // A failed baseline setup is an observed limit, never a fabricated zero-delivery sample.
+    if (variant === "before" && report.failure?.phase === "setup") continue;
+    assert.equal(report.failure, null, "Each candidate rung and every measured baseline must finish completely");
     assert.equal(run.failed_writes, 0);
     assert.equal(run.committed_writes, 50);
     assert.equal(run.lost, 0);
