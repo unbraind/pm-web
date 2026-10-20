@@ -194,7 +194,9 @@ export function attachFanout(projectId: string, sink: FanoutSink, onClose: () =>
     drain: () => {
       viewer.blocked = false;
       clearTimeout(viewer.deadline);
-      if (sink.authorizeProject) schedule(state);
+      if (sink.authorizeProject) {
+        if (viewer.queue.length || viewer.cursor < state.sequence) schedule(state);
+      }
       else { drainViewer(state, viewer); if (viewer.cursor < state.sequence && !viewer.blocked) schedule(state); }
     } };
   state.viewers.set(sink.id, viewer);

@@ -102,6 +102,8 @@ export async function capacityFixture(identities: number) {
 /** A process sample read from the preload, with CPU expressed as percent of one core. */
 export interface CapacityProbe {
   fanout: FanoutMeasurement;
+  cpu_since_reset_us: number;
+  cpu_window_ms: number;
   rss_bytes: number;
   cpu_core_percent: number;
   event_loop_p99_ms: number;

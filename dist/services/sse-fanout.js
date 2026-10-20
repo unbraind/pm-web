@@ -200,8 +200,10 @@ export function attachFanout(projectId, sink, onClose, lastEventId) {
         drain: () => {
             viewer.blocked = false;
             clearTimeout(viewer.deadline);
-            if (sink.authorizeProject)
-                schedule(state);
+            if (sink.authorizeProject) {
+                if (viewer.queue.length || viewer.cursor < state.sequence)
+                    schedule(state);
+            }
             else {
                 drainViewer(state, viewer);
                 if (viewer.cursor < state.sequence && !viewer.blocked)

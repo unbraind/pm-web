@@ -7,11 +7,11 @@ status: in_progress
 priority: 2
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-15T09:09:03.386Z"
-updated_at: "2026-10-20T17:22:53.617Z"
+updated_at: "2026-10-20T18:24:31.850Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
-comments[45]{created_at,author,text}:
+comments[49]{created_at,author,text}:
   "2026-10-16T08:11:29.603Z",codex-agent,"Additional real-PostgreSQL acceptance evidence from the route/bootstrap coverage candidate: the second final-floor npm run passes all 634 coverage tests and all four dimensions, then fails only test/capacity.acceptance.ts line 16: every delivery must meet the unchanged 2000 ms SLO. Earlier assertions pass for five committed writes, zero failed writes/lost/disconnected subscribers/duplicates, and five delivery samples. This is latency failure evidence, not mutation-loss evidence. The first final-floor npm and Bun gates pass, and both Node 22/26 CI matrix jobs pass their npm and Bun release gates on source/test commit e053bb1. Reproduction: npm run release:check with isolated Git identity and explicit fleet discovery; the second Bun repetition is still running. No SLO, capacity assertion or production behavior was changed."
   "2026-10-16T09:06:30.996Z",codex-agent,"Measuring unchanged origin/main first: three isolated 100-subscriber runs, 10 mixed writer lanes and 50 updates. Production watcher defaults and disposable test Postgres only. Then attribute each delivery stage, implement a measured repair if package-owned, prove behavioural revert, and repeat the ladder. No hosted resources or other agents are used."
   "2026-10-16T09:09:17.778Z",codex-agent,"Unchanged baseline at 3336ef6: three 100-subscriber runs all committed 50/50 writes with loss=0, duplicates=0. To-all p50/p95/p99/max ms: 145.3/583.0/1181.3/1181.3; 220.4/594.0/898.9/898.9; 149.7/462.9/913.2/913.2. Loop p99 22.0/25.1/24.2 ms; CPU p95 35.2/26.5/39.8 percent of one core; RSS 194.8/195.3/195.1 MiB. Initial uptime loads: 3.43,4.78,6.86; 4.73,4.94,6.83; 9.18,5.90,7.08. Historical 2163.5 ms breach did not reproduce. CLI tail exceeds HTTP; fan-out already shares serialization with no per-client awaits/auth reads. Next: opt-in test-only stage tracing including SDK index-lock waits and history append visibility, without changing production defaults."
@@ -57,7 +57,11 @@ comments[45]{created_at,author,text}:
   "2026-10-20T17:03:56.742Z",codex-agent,"Freeze the comparison method with constant-count CPU scopes, actual event-frame counters and continuously refilled ten-slot startup below the default database pool size. A fifty-slot exploratory baseline ramp returned HTTP 500 before measurement, while the candidate completed 150000 mutation deliveries at 3000 viewers with zero lost, duplicate or disconnected deliveries. Startup and final full-presence deadlines remain unchanged; this measures an established subscriber population, not join-storm capacity. Safe setup phase codes and setup duration are retained. Lint caught two async cleanup flags; use abort state and idempotent stream cleanup without changing assertions."
   "2026-10-20T17:07:27.711Z",codex-agent,"The ten-slot exploratory baseline ramp also became invalid: an owned server health sample showed 2395 connections registered and 80 already disconnected before 3000 were established. Keep this as a setup failure with no CPU/latency sample. The comparison now aborts a ramp on an existing disconnected stream and records baseline setup failures while continuing A/B/A/B; every measured baseline and every candidate rung still strictly asserts all 50 commits, every delivery, zero loss, zero duplicates and zero disconnects. Never interpret unavailable baseline samples as zeros or a speedup."
   "2026-10-20T17:22:53.526Z",codex-agent,"The exploratory ten-slot interleaved sequence stopped on candidate SSE_STARTUP_TIMEOUT during 1000-viewer setup, before any measured writes for that rung. Do not publish it as a successful comparison. Restore the original harness cap of fifty simultaneous starts, continuously refilling accepted slots for both builds; the separate candidate 3000-viewer success used fifty. The ten-slot attempt allowed repeated large presence rounds during the longer ramp. No startup, presence, queue, delivery or correctness threshold changes. Freeze and repeat the complete sequence under the shared fifty-slot method."
-files[29]{path,scope}:
+  "2026-10-20T17:44:43.707Z",codex-agent,"The fifty-slot sequence also reached 1000 candidate streams but failed the 45-second final-presence readiness check before writers started. Preserve both failed methods. Add aggregate setup diagnostics (reader presence-count histogram, opened/disconnected counts, owned-server client count and process sample) with no identities or error messages. Add an explicit bounded comparison-only 120-second warm-up option; default connection readiness remains 15 seconds and final presence 45 seconds for release acceptance, with all production pool/queue bounds and delivery SLOs unchanged. Warm-up is excluded from measured fan-out CPU/latency and its elapsed time is reported. Run one diagnostic rung before freezing a new interleaved comparison."
+  "2026-10-20T17:56:30.227Z",codex-agent,"The explicit warm-up diagnostic completed 50000 deliveries at 1000 viewers with zero lost/duplicate events; unoptimized setup took 279887 ms. Source inspection found generator work duplicated per reader: scanning full data for absent header fields and allocating the roster match array per socket. Parse headers separately and cache eight exact roster frames while keeping all network receipts independent. Twelve harness tests pass, including two real sockets with a withheld final byte; reverting only the cache function fails that test 1/1 and byte-for-byte restoration passes. Validate optimized 3000-viewer setup before freezing the final A/B sequence."
+  "2026-10-20T18:12:47.494Z",codex-agent,"Final runtime refinement: a drained response with neither queued bytes nor an unsubmitted journal frame now performs no membership query. Sixty-four authorized sinks prove zero reads for empty connected drains, one read for a private batch, no extra reads after its completed writes, then a fresh read rejecting a revoked viewer before the next private frame. Focused runtime/browser/real-tracker/harness suite passes 33/33. Exact behavioral reversions fail 14/15 for event preparation, 1/1 for empty drains, and 1/1 for reader caching, followed by byte-for-byte restoration. Comparison-only setup uses ten slots and 120-second readiness; release defaults remain fifty slots and 15/45-second readiness, with all delivery thresholds unchanged. Cache up to 128 exact rosters within 64 MiB and publish hit/miss counts. Include aligned whole-server CPU totals to expose asynchronous costs outside scoped timers."
+  "2026-10-20T18:24:31.740Z",codex-agent,"Freeze comparison setup at sixteen simultaneous starts, leaving three ordinary query slots after the default pool listener; both variants use the same 120-second warm-up and bounded reader cache. Ordinary release defaults and every latency/coverage/duplication floor remain unchanged. The ten-slot diagnostic remains separate exploratory evidence. Source/server/frontend typechecks, 33 focused tests, zero duplication and docstrings pass. Run the existing CI workflow on the frozen commit for full npm and Bun release gates under Node 22 and 26, keeping their extra CPU processes off the comparison host. Primary A/B runs retain immutable artifact hashes and a one-hour bound."
+files[31]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
   docs/realtime-fanout.md,project
   public/src/app.ts,project
@@ -66,6 +70,7 @@ files[29]{path,scope}:
   scripts/capacity-fanout.ts,project
   scripts/capacity-fixture.ts,project
   scripts/capacity-metrics.ts,project
+  scripts/capacity-probe.ts,project
   scripts/capacity-trace-preload.ts,project
   scripts/capacity-trace.ts,project
   scripts/capacity.ts,project
@@ -77,6 +82,7 @@ files[29]{path,scope}:
   src/services/sse.ts,project
   test/capacity-trace.test.ts,project
   test/capacity.acceptance.ts,project
+  test/capacity.test.ts,project
   test/extensions-routes.test.ts,project
   test/helpers/live-sse.ts,project
   test/mutation-replay.test.ts,project
@@ -87,7 +93,7 @@ files[29]{path,scope}:
   test/sse-fanout-resume.test.ts,project
   test/sse-fanout.test.ts,project
   test/sse.test.ts,project
-tests[8]:
+tests[9]:
   - command: node --test test/capacity-trace.test.ts
     scope: project
     timeout_seconds: 60
@@ -152,6 +158,14 @@ tests[8]:
     provenance:
       author: codex-agent
       created_at: "2026-10-20T16:11:07.298Z"
+      source_kind: local_mutation
+      source_ref: perf/realtime-fanout-thousands
+  - command: node --test test/capacity.test.ts test/capacity-trace.test.ts
+    scope: project
+    timeout_seconds: 120
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-20T17:56:53.860Z"
       source_kind: local_mutation
       source_ref: perf/realtime-fanout-thousands
 docs[5]{path,scope}:

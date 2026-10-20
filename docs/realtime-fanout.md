@@ -14,7 +14,8 @@ owner, direct shares, and group memberships. Each viewer must occur in that
 result. Read and edit roles have the same existing event visibility. A revoked
 viewer is disconnected before receiving the next batch; a failed membership read
 disconnects the affected viewers. Draining a previously blocked queue also requires
-a fresh membership decision. Each read covers only the events and viewer
+a fresh membership decision. An empty drain performs no query; the next event
+still requires fresh authorization. Each read covers only the events and viewer
 registrations captured before it started: later events and new viewers require
 the next fresh decision. Unknown-project bus traffic creates no journal or
 watcher subscription.
@@ -67,11 +68,20 @@ write-to-network latency. The existing [capacity harness](capacity.md) still use
 real authenticated HTTP streams, an isolated production server, the disposable
 test database, and separate pinned CLI writers. It first drains the complete
 presence snapshot at the requested population, then resets measurement counters.
-Connection startup continuously refills fifty slots, retaining the existing
-harness connection-concurrency cap. There are no artificial cohort
+Comparison startup continuously refills sixteen slots, leaving three request
+slots after the default pool's reserved listener. Ordinary acceptance retains the original fifty-slot cap. There are no artificial cohort
 pauses that repeatedly trigger large presence snapshots during a ramp. Connection
-and presence deadlines are unchanged. Measured writes start only after all requested
-viewers and the final presence snapshot are ready; join-storm capacity is separate.
+and presence defaults remain 15 and 45 seconds for ordinary release acceptance.
+The comparison explicitly allows 120 seconds for each connection and final-presence
+warm-up, separately from measured delivery. Setup duration is retained and no
+measured writer starts until all viewers and the final presence snapshot are ready;
+join-storm capacity is separate. Production pool and slow-viewer bounds are unchanged.
+The generator parses headers before the data field and shares a cache of at most
+128 exact presence-frame strings within a 64 MiB text budget. Every socket must receive its own complete
+frame before its population count advances. This avoids rescanning a full roster
+for an absent header and allocating the same match array for every reader. A
+two-socket fragmented-frame test proves the cache cannot acknowledge missing bytes.
+Setup failures retain only aggregate reader populations and owned-process samples.
 
 The test-only preload wraps the same local delivery and presence functions in
 both builds, plus the candidate's encoding and batch-write scopes. Authorized
@@ -84,7 +94,11 @@ also include other server work in the turn; it is not an exclusive allocation of
 all asynchronous transport CPU. Neither metric includes the external writer or
 reader processes, database-process CPU, or network transit. No per-response
 completion callback is added by the probe. The report also retains whole-server
-CPU samples and event-loop delay.
+CPU samples and event-loop delay. An aligned reset/final sample also records
+inclusive server CPU microseconds and its full sampling window, covering later
+socket callbacks, membership-set construction, SDK request work and background
+watchers. It excludes writer-child, generator and database-process CPU and is
+reported separately from the scoped fan-out cost.
 
 Counters record actual UTF-8 JSON and complete wire-frame bytes once per prepared
 event, separately for the synthetic measured mutations and all control events.

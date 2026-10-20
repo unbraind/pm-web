@@ -25,12 +25,16 @@ const histogram = monitorEventLoopDelay({ resolution: 10 });
 histogram.enable();
 let previousCpu = process.cpuUsage();
 let previousTime = performance.now();
+let measurementCpu = previousCpu;
+let measurementStarted = previousTime;
 
 /** Send process-only telemetry, excluding writer children and the load generator. */
 function sample(): void {
   const now = performance.now();
   const cpu = process.cpuUsage();
   process.send?.({ capacity_probe: true, rss_bytes: process.memoryUsage().rss,
+    cpu_since_reset_us: cpu.user + cpu.system - measurementCpu.user - measurementCpu.system,
+    cpu_window_ms: now - measurementStarted,
     cpu_core_percent: ((cpu.user - previousCpu.user) + (cpu.system - previousCpu.system)) / ((now - previousTime) * 10),
     event_loop_p99_ms: histogram.percentile(99) / 1e6, fanout: fanoutMeasurement() });
   previousCpu = cpu;
@@ -47,6 +51,8 @@ process.on("message", (message: unknown) => {
     resetFanoutMeasurement();
     previousCpu = process.cpuUsage();
     previousTime = performance.now();
+    measurementCpu = previousCpu;
+    measurementStarted = previousTime;
     process.send?.({ capacity_reset: true });
   } else if (message === "capacity-sample") sample();
 });

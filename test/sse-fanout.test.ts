@@ -18,7 +18,7 @@ function sink(block = false, fail = false) {
     destroy: () => { destroyed = true; },
   });
   return { id: randomUUID(), userId: randomUUID(), res: response as Response, writes,
-    destroyed: () => destroyed, unblock: () => { block = false; response.emit("drain"); } };
+    destroyed: () => destroyed, pause: () => { block = true; }, unblock: () => { block = false; response.emit("drain"); } };
 }
 
 /** Decode every frame, since a single response write can contain an ordered burst. */
@@ -149,6 +149,32 @@ test("one membership read applies to each viewer and fails closed on revocation 
   await delay(15);
   assert.equal(closed, 3);
   assert.equal(frames(failure.writes).length, 1);
+});
+
+test("empty drain callbacks read no permissions while the next private batch rechecks every viewer", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), viewers = Array.from({ length: 64 }, () => sink(true));
+  const members = new Set(viewers.map((viewer) => viewer.userId));
+  let reads = 0;
+  const authorizeProject = async () => { reads++; return new Set(members); };
+  for (const viewer of viewers) attachFanout(project, { ...viewer, authorizeProject }, () => {});
+  viewers.forEach((viewer) => viewer.unblock());
+  await delay(15);
+  assert.equal(reads, 0, "draining a connected frame with no pending data needs no database query");
+  viewers.forEach((viewer) => viewer.pause());
+  prepareFanout(project, { type: "private-before-revoke", data: {} });
+  await delay(15);
+  assert.equal(reads, 1);
+  viewers.forEach((viewer) => viewer.unblock());
+  await delay(15);
+  assert.equal(reads, 1, "completed response writes must not trigger empty permission reads");
+  members.delete(viewers[0].userId);
+  prepareFanout(project, { type: "private-after-revoke", data: {} });
+  await delay(15);
+  assert.equal(reads, 2);
+  assert.equal(viewers[0].destroyed(), true);
+  assert.equal(frames(viewers[0].writes).at(-1)?.type, "private-before-revoke");
+  for (const viewer of viewers.slice(1)) assert.equal(frames(viewer.writes).at(-1)?.type, "private-after-revoke");
 });
 
 test("a membership read in flight keeps later events ordered and never overlaps another read", async (t) => {

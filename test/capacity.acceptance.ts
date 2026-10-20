@@ -17,6 +17,7 @@ test("capacity smoke: 20 distinct authenticated SSE subscribers and 5 mixed writ
   assert.equal(run.health_after.realtime.sse_clients, 20);
   assert.ok(run.resources.postgres_server_connections_peak >= 1);
   assert.ok(run.resources.fanout.cpu_us > 0, "fanout CPU must be measured inside the server");
+  assert.ok(run.resources.server_cpu_us >= run.resources.fanout.cpu_us, "whole-process CPU includes the scoped fanout CPU");
   assert.ok(run.resources.fanout.delivered_events >= 20 * 5, "all mutation frames contribute to the CPU denominator");
   assert.ok(run.resources.fanout.serialized_bytes_per_event > 0);
   assert.equal(run.passed, true);

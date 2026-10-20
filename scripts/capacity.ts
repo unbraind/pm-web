@@ -7,7 +7,7 @@ import path from "node:path";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 import { listMutationEvents } from "@unbrained/pm-cli/sdk";
-import { capacityFixture, capacityPm, capacityServer, waitUntil } from "./capacity-fixture.ts";
+import { capacityFixture, capacityPm, capacityServer, waitUntil, type CapacityProbe } from "./capacity-fixture.ts";
 import { deliverySummary, distribution, type CapacitySubscriber, type CapacityWrite } from "./capacity-metrics.ts";
 import { isMainInvocation } from "./main-invocation.ts";
 import { stageSummary, traceCriticalPaths, traceDeliveries, type CapacityTrace } from "./capacity-trace.ts";
@@ -15,6 +15,8 @@ import { stageSummary, traceCriticalPaths, traceDeliveries, type CapacityTrace }
 /** Bounded workload configuration; the CLI always builds before running it. */
 export interface CapacityOptions {
   idleMs?: number;
+  warmupMs?: number;
+  setupConcurrency?: number;
   trace?: boolean;
   rungs: number[];
   writers: number;
@@ -29,7 +31,7 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     const value = args[i + 1];
-    if (!["--rungs", "--writers", "--writes-per-writer", "--slo-ms", "--drain-ms", "--output", "--trace", "--idle-ms"].includes(key) || !value || values.has(key)) throw new Error("Unknown, repeated or incomplete capacity option");
+    if (!["--rungs", "--writers", "--writes-per-writer", "--slo-ms", "--drain-ms", "--output", "--trace", "--idle-ms", "--warmup-ms", "--setup-concurrency"].includes(key) || !value || values.has(key)) throw new Error("Unknown, repeated or incomplete capacity option");
     values.set(key, value);
   }
   const options = {
@@ -39,6 +41,8 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
     output: values.get("--output"),
     trace: values.get("--trace") === "true",
     idleMs: Number(values.get("--idle-ms") ?? 0),
+    setupConcurrency: values.has("--setup-concurrency") ? Number(values.get("--setup-concurrency")) : undefined,
+    warmupMs: values.has("--warmup-ms") ? Number(values.get("--warmup-ms")) : undefined,
   };
   if (values.has("--trace") && !["true", "false"].includes(values.get("--trace")!)) throw new Error("Trace must be true or false");
   validateOptions(options);
@@ -47,6 +51,8 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
 
 /** Keep measured populations and memory bounded even when invoked through the exported runner. */
 function validateOptions(options: CapacityOptions): void {
+  if (options.setupConcurrency !== undefined && (!Number.isInteger(options.setupConcurrency) || options.setupConcurrency < 1 || options.setupConcurrency > 50)) throw new Error("Setup concurrency must be between 1 and 50");
+  if (options.warmupMs !== undefined && (!Number.isInteger(options.warmupMs) || options.warmupMs < 15_000 || options.warmupMs > 120_000)) throw new Error("Warm-up must be between 15 and 120 seconds");
   if (!Number.isInteger(options.idleMs ?? 0) || (options.idleMs ?? 0) < 0 || (options.idleMs ?? 0) > 120_000) throw new Error("Idle observation must be between zero and 120 seconds");
   if (options.rungs.length === 0 || options.rungs.some((n, i) => !Number.isInteger(n) || n < 1 || n > 3000 || (i > 0 && n <= options.rungs[i - 1]))) throw new Error("Rungs must increase from 1 through 3000");
   if (!Number.isInteger(options.writers) || options.writers < 2 || options.writers > 32) throw new Error("Writers must be between 2 and 32");
@@ -54,13 +60,43 @@ function validateOptions(options: CapacityOptions): void {
   if (!Number.isInteger(options.sloMs) || options.sloMs < 1 || options.sloMs > 60_000 || !Number.isInteger(options.drainMs) || options.drainMs < options.sloMs || options.drainMs > 120_000) throw new Error("Drain must cover the positive SLO, with a maximum of 120 seconds");
 }
 
+/** Reader observations share only parsing work; receipt state remains independent per socket. */
+export interface CapacityObservation {
+  open: boolean;
+  presenceCounts?: Map<string, number>;
+  presenceBytes?: number;
+  presenceCacheHits?: number;
+  presenceCacheMisses?: number;
+}
+
+/** Parse identical roster content once, retaining at most 128 complete snapshots within a 64 MiB text budget. */
+function presencePopulation(frame: string, observation: CapacityObservation): number {
+  const counts = observation.presenceCounts ?? new Map<string, number>();
+  observation.presenceCounts = counts;
+  let count = counts.get(frame);
+  if (count === undefined) {
+    observation.presenceCacheMisses = (observation.presenceCacheMisses ?? 0) + 1;
+    count = frame.match(/"userId":/g)?.length ?? 0;
+    const bytes = frame.length * 2;
+    let retained = observation.presenceBytes ?? 0;
+    while (counts.size && (counts.size >= 128 || retained + bytes > 64 * 1024 * 1024)) {
+      const first = counts.keys().next().value!;
+      retained -= first.length * 2;
+      counts.delete(first);
+    }
+    observation.presenceBytes = retained;
+    if (bytes <= 64 * 1024 * 1024) { counts.set(frame, count); observation.presenceBytes = retained + bytes; }
+  } else observation.presenceCacheHits = (observation.presenceCacheHits ?? 0) + 1;
+  return count;
+}
+
 /** Open an independent authenticated HTTP SSE socket and record only the experiment's item mutations. */
-export async function capacitySubscriber(url: string, headers: Record<string, string>, indices: ReadonlyMap<string, number>, writes: number, observation: { open: boolean }) {
+export async function capacitySubscriber(url: string, headers: Record<string, string>, indices: ReadonlyMap<string, number>, writes: number, observation: CapacityObservation, startupMs = 15_000) {
   const state: CapacitySubscriber = { receivedAt: new Float64Array(writes), counts: new Uint32Array(writes), disconnected: false };
   const controller = new AbortController();
   let connected = false;
   let startupExpired = false;
-  const startup = setTimeout(() => { startupExpired = true; controller.abort(); }, 15_000);
+  const startup = setTimeout(() => { startupExpired = true; controller.abort(); }, startupMs);
   try {
     const response = await fetch(url, { headers, signal: controller.signal });
     if (response.status !== 200 || !response.body || !response.headers.get("content-type")?.includes("text/event-stream")) {
@@ -80,10 +116,12 @@ export async function capacitySubscriber(url: string, headers: Record<string, st
           const frames = pending.split("\n\n");
           pending = frames.pop()!;
           for (const frame of frames) {
-            const cursor = /^id: (.+)$/m.exec(frame)?.[1];
+            const dataAt = frame.indexOf("\ndata:");
+            const header = dataAt < 0 ? frame : frame.slice(0, dataAt);
+            const cursor = /^id: (.+)$/m.exec(header)?.[1];
             if (cursor) state.lastEventId = cursor;
-            const type = /^event: (.+)$/m.exec(frame)?.[1];
-            if (type === "presence") state.presenceUsers = frame.match(/"userId":/g)?.length ?? 0;
+            const type = /^event: (.+)$/m.exec(header)?.[1];
+            if (type === "presence") state.presenceUsers = presencePopulation(frame, observation);
             if (type === "connected") {
               connected = true;
               state.clientId = (JSON.parse(/^data: (.+)$/m.exec(frame)?.[1] ?? "{}") as { clientId: string }).clientId;
@@ -102,7 +140,7 @@ export async function capacitySubscriber(url: string, headers: Record<string, st
         if (!controller.signal.aborted) state.disconnected = true;
       } catch { if (!controller.signal.aborted) state.disconnected = true; }
     })();
-    await waitUntil(() => connected || state.disconnected, 15_000, "SSE connected frame");
+    await waitUntil(() => connected || state.disconnected, startupMs, "SSE connected frame");
     if (!connected) throw Object.assign(new Error("SSE disconnected during startup"), { code: "SSE_STARTUP_DISCONNECTED" });
     clearTimeout(startup);
     return { state, close: async () => { controller.abort(); await reading; } };
@@ -125,6 +163,16 @@ async function committedTime(dir: string, itemId: string): Promise<number> {
 /** Exercise one independent rung with unique items, identities and server, always joining cleanup. */
 type RungPhase = "setup" | "measurement" | "cleanup";
 
+/** Safe aggregate startup evidence; no request data or fixture identities are retained. */
+interface CapacitySetupDiagnostics {
+  streams_opened: number;
+  streams_disconnected: number;
+  presence_populations: Record<string, number>;
+  sse_clients: number | null;
+  server_probe: CapacityProbe | null;
+  host_load: number[];
+}
+
 /** A rung failure that remembers the phase it came from. It carries only string-valued identifiers, never messages or request data. */
 export class RungFailure extends Error {
   /** The rung phase that was running when the error surfaced. */
@@ -133,6 +181,8 @@ export class RungFailure extends Error {
   readonly causeName: string;
   /** The error's string `code` when it had one, such as a system error code. */
   readonly causeCode: string | null;
+  /** Aggregate warm-up diagnostics on setup failure only. */
+  diagnostics?: CapacitySetupDiagnostics;
   constructor(phase: RungPhase, causeName: string, causeCode: string | null) {
     super(`rung ${phase} failed`);
     this.name = "RungFailure";
@@ -163,11 +213,12 @@ export function rungPassed(input: { lost: number; duplicates: number; failedWrit
  */
 async function runRung(subscribers: number, options: CapacityOptions) {
   const setupStarted = performance.now();
+  const setupConcurrency = Math.min(options.setupConcurrency ?? 50, subscribers);
   const fixture = await capacityFixture(Math.max(subscribers, options.writers));
   const traceDirectory = options.trace ? path.join(fixture.root, "traces") : undefined;
   let server: Awaited<ReturnType<typeof capacityServer>> | undefined;
   const streams: Awaited<ReturnType<typeof capacitySubscriber>>[] = [];
-  const observation = { open: false };
+  const observation: CapacityObservation = { open: false };
   const writes: CapacityWrite[] = Array.from({ length: options.writers * options.writesPerWriter }, (_, sequence) => ({
     sequence, itemId: `capacity-write-${sequence}`, transport: Math.floor(sequence / options.writesPerWriter) < Math.floor(options.writers / 2) ? "http" : "cli", committedAt: null, error: false,
   }));
@@ -200,7 +251,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       const indices = new Map(writes.map((write) => [write.itemId, write.sequence]));
       let nextConnection = 0;
       const rampAbort = new AbortController();
-      /** Refill each accepted slot immediately, keeping fifty in flight without artificial cohort pauses. */
+      /** Refill each accepted slot immediately, keeping the configured number in flight without artificial cohort pauses. */
       const openConnections = async (): Promise<void> => {
         while (!rampAbort.signal.aborted) {
           if (streams.some((stream) => stream.state.disconnected)) {
@@ -211,12 +262,12 @@ async function runRung(subscribers: number, options: CapacityOptions) {
           if (index >= subscribers) return;
           try {
             streams.push(await capacitySubscriber(`${server!.url}/api/projects/${fixture.projectId}/pm/events?view=items`,
-              fixture.sessions[index], indices, writes.length, observation));
+              fixture.sessions[index], indices, writes.length, observation, options.warmupMs));
             if (streams.length % 500 === 0) process.stderr.write(`capacity setup: ${streams.length}/${subscribers} SSE streams connected\n`);
           } catch (error) { rampAbort.abort(); throw error; }
         }
       };
-      const ramp = await Promise.allSettled(Array.from({ length: Math.min(50, subscribers) }, openConnections));
+      const ramp = await Promise.allSettled(Array.from({ length: setupConcurrency }, openConnections));
       const rejected = ramp.find((result) => result.status === "rejected");
       if (rejected?.status === "rejected") {
         const exit = server.exitState();
@@ -224,7 +275,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         throw describeRungFailure(rejected.reason, "setup");
       }
       // Drain the final full presence snapshot before resetting CPU/encoding counters.
-      await waitUntil(() => streams.every((stream) => stream.state.presenceUsers === subscribers) || streams.some((stream) => stream.state.disconnected), 45_000, "complete project presence snapshot");
+      await waitUntil(() => streams.every((stream) => stream.state.presenceUsers === subscribers) || streams.some((stream) => stream.state.disconnected), options.warmupMs ?? 45_000, "complete project presence snapshot");
       if (streams.some((stream) => stream.state.disconnected)) throw new RungFailure("setup", "DisconnectedStream", "SSE_SETUP_DISCONNECTED");
       phase = "measurement";
       // Keep the production 15s sweep and 2s subscription reconciliation cadence. Establish the
@@ -246,12 +297,14 @@ async function runRung(subscribers: number, options: CapacityOptions) {
           acquisitions_per_second: (last.count - first.count) * 1000 / (last.at - first.at) };
       }
       const setupElapsed = performance.now() - setupStarted;
+      const setupReaderCache = { hits: observation.presenceCacheHits ?? 0, misses: observation.presenceCacheMisses ?? 0,
+        retained_frames: observation.presenceCounts?.size ?? 0, retained_text_bytes: observation.presenceBytes ?? 0 };
       await server.begin();
       const hostLoadBefore = loadavg();
       generatorDelay.enable();
       const startCpu = process.cpuUsage();
       const started = performance.now();
-      observation.open = true;
+      Object.assign(observation, { open: true });
       await sampleDatabase();
       timer = setInterval(() => { void sampleDatabase(); }, 500);
       // W concurrent lanes; each lane mutates independent items sequentially. Odd W gives CLI the extra lane.
@@ -273,7 +326,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       }));
       // Full grace window also catches duplicates arriving after the last expected delivery.
       await delay(options.drainMs);
-      observation.open = false;
+      Object.assign(observation, { open: false });
       const elapsed = performance.now() - started;
       const cpu = process.cpuUsage(startCpu);
       const generatorP99 = generatorDelay.percentile(99) / 1e6;
@@ -319,6 +372,9 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       const fanout = server.samples.at(-1)!.fanout;
       const resources = {
         fanout: { ...fanout, cpu_us_per_delivery: fanout.cpu_us / fanout.delivered_events, serialized_bytes_per_event: fanout.serialized_bytes / fanout.prepared_events, cpu_us_per_delivered_mutation: fanout.cpu_us / fanout.delivered_mutations, turn_cpu_us_per_delivered_mutation: fanout.turn_cpu_us / fanout.delivered_mutations, mutation_frame_bytes_per_event: fanout.mutation_frame_bytes / fanout.mutation_events, mutation_json_bytes_per_event: fanout.mutation_json_bytes / fanout.mutation_events },
+        server_cpu_us: server.samples.at(-1)!.cpu_since_reset_us,
+        server_cpu_window_ms: server.samples.at(-1)!.cpu_window_ms,
+        server_cpu_us_per_delivered_mutation: server.samples.at(-1)!.cpu_since_reset_us / fanout.delivered_mutations,
         server_rss_peak_bytes: Math.max(...server.samples.map((sample) => sample.rss_bytes)),
         server_cpu_core_percent: distribution(server.samples.map((sample) => sample.cpu_core_percent)),
         server_event_loop_p99_ms: server.samples.at(-1)!.event_loop_p99_ms,
@@ -344,7 +400,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         else if (resources.host_load_average_after[0] > cpus().length * 1.5) firstLimit = "host scheduling or I/O pressure (load average above logical CPU count); cause unproven";
         else firstLimit = "unidentified: observed loss, latency, write failure or unhealthy server without a saturated resource signal";
       }
-      return { subscribers, setup_ms: setupElapsed, setup_concurrency: Math.min(50, subscribers), writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
+      return { subscribers, setup_ms: setupElapsed, setup_concurrency: setupConcurrency, setup_reader_cache: setupReaderCache, writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
         writes: writes.length, committed_writes: writes.filter((write) => write.committedAt !== null).length,
         failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
         ...delivery, idle_index_locks: idleLocks, stages, trace_critical_paths: criticalPaths, trace_deliveries: tracedDeliveries, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
@@ -352,9 +408,15 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         write_receipts: writes.map((write) => ({ sequence: write.sequence, transport: write.transport, committed_at: write.committedAt, write_error: write.error })) };
     } catch (error) {
       firstError = describeRungFailure(error, phase);
+      if (phase === "setup") {
+        const populations: Record<string, number> = {};
+        for (const stream of streams) { const count = String(stream.state.presenceUsers ?? "none"); populations[count] = (populations[count] ?? 0) + 1; }
+        const health = await server?.health().catch(() => null);
+        firstError.diagnostics = { streams_opened: streams.length, streams_disconnected: streams.filter((stream) => stream.state.disconnected).length,
+          presence_populations: populations, sse_clients: health?.realtime.sse_clients ?? null, server_probe: server?.samples.at(-1) ?? null, host_load: loadavg() };
+      }
       return null;
     } finally {
-      phase = "cleanup";
       try {
         clearInterval(timer);
         generatorDelay.disable();
@@ -364,7 +426,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         await fixture.close();
       } catch (cleanupError) {
         // A cleanup failure never hides the measurement or setup failure that preceded it.
-        cleanupFailure = describeRungFailure(cleanupError, phase);
+        cleanupFailure = describeRungFailure(cleanupError, "cleanup");
       }
     }
   })();
@@ -381,7 +443,7 @@ export async function runCapacity(options: CapacityOptions) {
   const runs: Awaited<ReturnType<typeof runRung>>[] = [];
   const hardware = { logical_cpus: cpus().length, cpu_model: cpus()[0]?.model ?? "unknown", ram_bytes: totalmem(),
     free_ram_before_bytes: freemem(), load_average_before: loadavg(), platform: process.platform, arch: process.arch, node: process.version };
-  let failure: { subscribers: number; reason: string; phase: RungPhase; error_name: string; error_code: string | null } | null = null;
+  let failure: { subscribers: number; reason: string; phase: RungPhase; error_name: string; error_code: string | null; diagnostics?: CapacitySetupDiagnostics } | null = null;
   for (const rung of options.rungs) {
     try {
       const run = await runRung(rung, options);
@@ -389,13 +451,13 @@ export async function runCapacity(options: CapacityOptions) {
       if (!run.passed) break;
     } catch (error) {
       const described = describeRungFailure(error, "setup");
-      failure = { subscribers: rung, reason: `Rung ${described.phase} failed; no capacity claim for this rung`, phase: described.phase, error_name: described.causeName, error_code: described.causeCode };
+      failure = { subscribers: rung, reason: `Rung ${described.phase} failed; no capacity claim for this rung`, phase: described.phase, error_name: described.causeName, error_code: described.causeCode, diagnostics: described.diagnostics };
       break;
     }
   }
   return { schema_version: 1, date: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
     hardware, options, runs, failure, stopped_early: runs.length < options.rungs.length,
-    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""}${options.idleMs ? ` --idle-ms ${options.idleMs}` : ""} --output "$CAPACITY_OUTPUT"` };
+    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""}${options.idleMs ? ` --idle-ms ${options.idleMs}` : ""}${options.warmupMs ? ` --warmup-ms ${options.warmupMs}` : ""}${options.setupConcurrency ? ` --setup-concurrency ${options.setupConcurrency}` : ""} --output "$CAPACITY_OUTPUT"` };
 }
 
 /** Render a public-safe summary; paths, credentials, fixture identities and process logs are omitted. */

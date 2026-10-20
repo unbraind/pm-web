@@ -20,7 +20,7 @@ for (const rung of [100, 1000, 3000]) {
   for (const [index, variant] of ["before", "after", "before", "after"].entries()) {
     if (variant === "before") process.env.PM_WEB_CAPACITY_BASELINE_DIR = baseline;
     else delete process.env.PM_WEB_CAPACITY_BASELINE_DIR;
-    const report = await runCapacity({ rungs: [rung], writers: 10, writesPerWriter: 5, sloMs: 1000, drainMs: 10_000 });
+    const report = await runCapacity({ rungs: [rung], writers: 10, writesPerWriter: 5, sloMs: 1000, drainMs: 10_000, warmupMs: 120_000, setupConcurrency: 16 });
     for (const file of sourceFiles) assert.equal(createHash("sha256").update(await readFile(file)).digest("hex"), artifactHashes[file], "Candidate artifact changed during comparison");
     for (const file of ["sse.js", "pm.js"]) assert.equal(createHash("sha256").update(await readFile(path.join(baseline, file))).digest("hex"), artifactHashes[`baseline/${file}`], "Baseline artifact changed during comparison");
     assert.ok(performance.now() - startedClock < 60 * 60_000, "Comparison must complete within one hour");
@@ -39,6 +39,7 @@ for (const rung of [100, 1000, 3000]) {
     assert.equal(run.duplicates, 0);
     assert.equal(run.disconnected_subscribers, 0);
     assert.equal(run.resources.fanout.mutation_events, 50);
+    assert.ok(run.resources.server_cpu_us >= run.resources.fanout.cpu_us);
     assert.equal(run.resources.fanout.delivered_mutations, 50 * rung);
     assert.equal(run.to_every_subscriber_ms.samples, 50);
   }
