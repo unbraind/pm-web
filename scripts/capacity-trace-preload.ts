@@ -19,11 +19,15 @@ function trace(stage: string, itemId?: string, extra: Partial<CapacityTrace> = {
 
 const observer = Object.assign(trace, {
   /** Record only an item's identity from SSE data. */
-  event(stage: string, event: { data: unknown }, extra?: Partial<CapacityTrace>): void {
-    if (event.data && typeof event.data === "object" && "itemId" in event.data && typeof event.data.itemId === "string") trace(stage, event.data.itemId, extra);
+  event(stage: string, event: { type: string; data: unknown }, extra?: Partial<CapacityTrace>): void {
+    if (event.data && typeof event.data === "object" && "itemId" in event.data && typeof event.data.itemId === "string") {
+      const source = "source" in event.data && typeof event.data.source === "string" ? event.data.source : "route";
+      trace(stage, event.data.itemId, { ...extra, eventType: event.type, source });
+    }
   },
 });
 Reflect.set(globalThis, Symbol.for("pm-web.capacity.trace"), observer);
+trace("writer-start", process.env.PM_WEB_CAPACITY_TRACE_WRITER_ITEM);
 const originalOpen = fs.open;
 const lockAttempts = new Map<string, number>();
 // The CLI uses a focused bundle while the SDK can use core modules. Observe the

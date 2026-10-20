@@ -8,6 +8,17 @@ export interface CapacityTrace {
   at: number;
   start?: number;
   clientId?: string;
+  eventType?: string;
+  source?: string;
+}
+
+/** Retain per-write emission paths so a duplicate can be attributed without retaining payloads. */
+export function traceDeliveries(writes: readonly CapacityWrite[], traces: readonly CapacityTrace[]) {
+  return writes.map((write) => ({ sequence: write.sequence, transport: write.transport,
+    attempts: traces.filter((entry) => entry.itemId === write.itemId && entry.stage === "broadcast").map(({ at, eventType, source }) => ({ at, eventType, source })),
+    emissions: traces.filter((entry) => entry.itemId === write.itemId && entry.stage === "serialized").map(({ at, eventType, source }) => ({ at, eventType, source })),
+    socket_writes: traces.filter((entry) => entry.itemId === write.itemId && entry.stage === "write").length,
+  }));
 }
 
 const probe = 'globalThis[Symbol.for("pm-web.capacity.trace")]';
@@ -27,6 +38,9 @@ export function instrumentCapacityModule(url: string, source: string): string {
   if (url.endsWith("/dist/services/mutation-replay.js")) {
     source = replaceProbe(source, "const page = await singleFlightMutationPage", "const capacityReadStarted = performance.timeOrigin + performance.now();\n            const page = await singleFlightMutationPage");
     source = replaceProbe(source, "yield { ...event, cursor: boundary };", `${probe}("classified", event.item_id, { start: capacityReadStarted });\n                yield { ...event, cursor: boundary };`);
+  } else if (url.endsWith("/dist/routes/pm.js") && source.includes("singleFlightMutationPage")) {
+    source = replaceProbe(source, "const page = await singleFlightMutationPage", "const capacityReadStarted = performance.timeOrigin + performance.now();\n            const page = await singleFlightMutationPage");
+    source = replaceProbe(source, "for (const event of page.events) {", `for (const event of page.events) {\n                ${probe}("route-classified", event.item_id, { start: capacityReadStarted });`);
   } else if (url.endsWith("/dist/services/sse.js")) {
     source = replaceProbe(source, "export function deliverProjectEvent(projectId, event) {", `export function deliverProjectEvent(projectId, event) {\n    ${probe}.event("broadcast", event);`);
     const payload = 'const payload = `event: ${event.type}\\ndata: ${JSON.stringify(event.data)}\\n\\n`;';
@@ -66,21 +80,33 @@ export function stageSummary(writes: readonly CapacityWrite[], subscribers: read
         return found;
       };
       const history = first("history-written");
-      const broadcast = first("broadcast");
       const serialized = first("serialized");
+      const broadcast = first("broadcast");
+      if (write.requestedAt !== undefined) add("request_to_mutation_timestamp", write.requestedAt, write.committedAt!);
       add("timestamp_to_history_append", write.committedAt!, history.at);
       const locks = events.filter((entry) => entry.stage === "index-lock" && entry.at >= write.committedAt! && entry.at <= history.at);
-      if (transport === "cli" && locks.length === 0) {
-        throw Object.assign(new Error(`Missing capacity stage: index-lock for write ${write.sequence} (${write.itemId})`), { code: "TRACE_MISSING_index-lock" });
+      // The pinned SDK can append through authoritative fallback without acquiring
+      // the index lock. A process-entry receipt proves the observer was active;
+      // absence of that optional lock is not a missing probe or a zero wait sample.
+      if (transport === "cli") {
+        const entry = events.find((event) => event.stage === "writer-start");
+        if (!entry) throw Object.assign(new Error("Missing capacity CLI observer"), { code: "TRACE_MISSING_writer-start" });
+        if (write.requestedAt !== undefined) {
+          add("request_to_process_entry", write.requestedAt, entry.at);
+          add("process_entry_to_mutation_timestamp", entry.at, write.committedAt!);
+        }
       }
       for (const lock of locks) add("index_lock_wait_nested_in_append", lock.start!, lock.at);
-      if (transport === "cli") {
-        const classified = first("classified");
+      const viaWatcher = transport === "cli" || serialized.source === "mutation-events";
+      if (viaWatcher || events.some((entry) => entry.stage === "route-classified" && entry.at <= serialized.at)) {
+        const classified = first(viaWatcher ? "classified" : "route-classified");
         const readStart = Math.max(history.at, classified.start!);
-        add("append_to_detecting_poll", history.at, readStart);
-        add("detecting_read_and_classification", readStart, classified.at);
-        add("classification_to_broadcast", classified.at, broadcast.at);
-      } else add("append_to_route_broadcast", history.at, broadcast.at);
+        const prefix = viaWatcher ? "" : "route_";
+        add(`${prefix}append_to_detecting_poll`, history.at, readStart);
+        add(`${prefix}detecting_read_and_classification`, readStart, classified.at);
+        add(`${prefix}classification_to_broadcast`, classified.at, broadcast.at);
+      }
+      if (transport === "http") add("append_to_route_broadcast", history.at, broadcast.at);
       add("broadcast_serialization", broadcast.at, serialized.at);
       for (const subscriber of subscribers) {
         if (!subscriber.counts[write.sequence]) continue;

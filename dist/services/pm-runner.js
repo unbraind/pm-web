@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadataLight, stripGlobalBootstrapTokens, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { agentSessionEnvironment, certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadataLight, stripGlobalBootstrapTokens, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -878,7 +878,7 @@ export async function runPm(opts) {
     // spawn fallback — in a single `runSerialized` restores the guarantee for
     // every action regardless of which path serves it.
     return runSerialized(dir, async () => {
-        const env = { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` };
+        const env = { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}`, ...agentSessionEnvironment(opts.agentSession ?? {}) };
         if (opts.commandOwner) {
             const error = await commandOwnershipError(dir, opts.commandOwner, env);
             if (error)

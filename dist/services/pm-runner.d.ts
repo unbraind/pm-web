@@ -1,4 +1,4 @@
-import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult, type PmCompleteListResult, type ExtensionDescribeResult } from "@unbrained/pm-cli/sdk";
+import { PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult, type PmCompleteListResult, type ExtensionDescribeResult, type AgentSessionContext } from "@unbrained/pm-cli/sdk";
 export { PmCliError, isPmCliExpectedError, EXIT_CODE, type GetItemAtResult };
 /**
  * Async semaphore bounding concurrent work to a fixed `limit`.
@@ -92,6 +92,8 @@ export interface PmRunOptions {
     input?: string;
     jsonOutput?: boolean;
     timeoutMs?: number;
+    /** Session declaration serialized for commands that fall back to the CLI. */
+    agentSession?: AgentSessionContext;
     /** Require the runtime winner for this command, and for every path its positional args extend it to, to be the catalog package. */
     commandOwner?: {
         command: string;
@@ -101,6 +103,10 @@ export interface PmRunOptions {
 }
 /** Transport-neutral result shared by in-process SDK and child-process calls. */
 export interface PmRunResult {
+    /** Request boundary used to read committed identities, never inferred from the latest item version. */
+    mutationSince?: string;
+    /** Exact invocation correlation recorded on immutable committed history entries. */
+    mutationEpisodeId?: string;
     stdout: string;
     stderr: string;
     ok: boolean;

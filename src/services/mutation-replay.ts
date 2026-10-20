@@ -1,8 +1,7 @@
 /** Bounded overlap for committed facts whose mutation timestamps precede their visibility. */
 import { type MutationEvent, type SubscribeMutationEventsOptions } from "@unbrained/pm-cli/sdk";
-import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
-import { HistoryReadGate, historyFingerprint, singleFlightMutationPage } from "./history-read-gate.ts";
+import { HistoryReadGate, historyFingerprint, singleFlightMutationPage, watchHistoryChanges } from "./history-read-gate.ts";
 
 /** One minute covers the web command timeout and the capacity writer timeout, with scheduling headroom. */
 export const MUTATION_REPLAY_WINDOW_MS = 60_000;
@@ -37,34 +36,36 @@ export async function* followCommittedMutations(options: SubscribeMutationEvents
   if (!Number.isFinite(since)) throw new Error("Mutation replay requires an ISO timestamp boundary");
   state.baseline = Math.min(state.baseline, since);
   const pmRoot = path.resolve(options.cwd ?? process.cwd(), options.pmRoot ?? path.join(".agents", "pm"));
-  while (!options.signal?.aborted) {
-    const scanAt = Date.now();
-    const read = state.readGate.begin(await historyFingerprint(pmRoot));
-    if (read) {
-      // Never age past a fact that could have become visible since the previous
-      // complete scan. A safety check after skipped polls still sees facts that
-      // appeared within the original one-minute visibility contract.
-      const floor = Math.max(state.baseline, (state.readGate.completedScanAt ?? scanAt) - MUTATION_REPLAY_WINDOW_MS);
-      for (const [key, timestamp] of state.seen) if (timestamp < floor) state.seen.delete(key);
-      const boundary = new Date(floor).toISOString();
-      let cursor: string | undefined = boundary;
-      for (;;) {
-        const page = await singleFlightMutationPage({ ...options, pmRoot, since: cursor, limit: 1000 });
-        for (const event of page.events) {
-          if (options.signal?.aborted) return;
-          const key = `${event.item_id}:${event.version}`;
-          if (state.seen.has(key)) continue;
-          if (state.seen.size >= MUTATION_REPLAY_MAX_EVENTS) throw new Error("Mutation replay window exceeded its bounded event capacity");
-          state.seen.set(key, Date.parse(event.ts));
-          yield { ...event, cursor: boundary };
+  const stopWatching = watchHistoryChanges(pmRoot, state.readGate);
+  try {
+    while (!options.signal?.aborted) {
+      const scanAt = Date.now();
+      const read = state.readGate.begin(await historyFingerprint(pmRoot));
+      if (read) {
+        // Never age past a fact that could have become visible since the previous
+        // complete scan. A safety check after skipped polls still sees facts that
+        // appeared within the original one-minute visibility contract.
+        const floor = Math.max(state.baseline, (state.readGate.completedScanAt ?? scanAt) - MUTATION_REPLAY_WINDOW_MS);
+        for (const [key, timestamp] of state.seen) if (timestamp < floor) state.seen.delete(key);
+        const boundary = new Date(floor).toISOString();
+        let cursor: string | undefined = boundary;
+        for (;;) {
+          const page = await singleFlightMutationPage({ ...options, pmRoot, since: cursor, limit: 1000 });
+          for (const event of page.events) {
+            if (options.signal?.aborted) return;
+            const key = `${event.item_id}:${event.version}`;
+            if (state.seen.has(key)) continue;
+            if (state.seen.size >= MUTATION_REPLAY_MAX_EVENTS) throw new Error("Mutation replay window exceeded its bounded event capacity");
+            state.seen.set(key, Date.parse(event.ts));
+            yield { ...event, cursor: boundary };
+          }
+          if (!page.has_more) break;
+          if (!page.next_cursor || page.next_cursor === cursor) throw new Error("Mutation replay pagination made no progress");
+          cursor = page.next_cursor;
         }
-        if (!page.has_more) break;
-        if (!page.next_cursor || page.next_cursor === cursor) throw new Error("Mutation replay pagination made no progress");
-        cursor = page.next_cursor;
+        read.complete(scanAt);
       }
-      read.complete(scanAt);
+      await state.readGate.wait(options.intervalMs ?? 250, options.signal);
     }
-    try { await delay(options.intervalMs ?? 250, undefined, { signal: options.signal }); }
-    catch (error) { if (options.signal?.aborted) return; throw error; }
-  }
+  } finally { stopWatching(); }
 }

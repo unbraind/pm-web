@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-11T07:18:59.939Z"
-updated_at: "2026-10-18T05:51:14.542Z"
+updated_at: "2026-10-20T03:09:30.392Z"
 author: codex-sol
-comments[31]{created_at,author,text}:
+comments[34]{created_at,author,text}:
   "2026-10-11T07:21:13.813Z",codex-sol,"PM-linked focused missing-database startup check passes 1/1 with zero skips and reports 9065 ms against the unchanged 10000 ms subprocess deadline. The full coverage run timed out instead and returned a nonnumeric status. This difference supports investigating instrumentation/resource contention; it does not establish a server or SDK root cause. Linked result tracking is disabled, so this comment records the focused receipt. No startup code, guard or test deadline was changed."
   "2026-10-11T07:39:25.686Z",codex-sol,"Corrected full Bun coverage completes 496/498, zero skips. The independent-workspace overlap assertion fails with log order: start first, end first, start independent, end independent, start second, end second. Same-workspace serialization and command success assertions passed before this check. The missing-database startup test passes in this full run. Retain both contrasting full-suite results; no process/startup code or timing assertion was changed."
   "2026-10-11T07:42:37.056Z",codex-sol,"The PM-linked focused independent-workspace spawn test passes 1/1, zero skips, at 674 ms. This contrasts with its full Bun coverage ordering failure. Retain the failing full-run log and the passing focused receipt, and investigate scheduling/instrumentation before changing any assertion. The result is recorded manually because linked-test persistence is disabled."
@@ -40,6 +40,9 @@ comments[31]{created_at,author,text}:
   "2026-10-18T03:22:25.625Z",codex-agent,"Round 4 isolated npm and Bun release attempts reproduce the existing built catalog consumer 300-second timeout, followed by source-variant startup failure. Both use unchanged suite deadlines and isolated Git identity. Full counts will follow after the runners finish. This review changes no catalog/runtime consumer code or budgets; clean-runner CI remains a separate required result."
   "2026-10-18T03:42:26.185Z",codex-agent,"Completed isolated round 4 npm and Bun release attempts each execute 667 tests: 663 pass, 3 fail, 1 canceled, 0 skipped, 0 todo. The 300-second built catalog timeout is canceled; the source consumer returns spawn ENOTDIR. The other failures are canonical pm-rust command-snapshot drift (new follow-up pm-web-5e1q) and the tracked 2000-item graph wall-time budget (pm-web-hqqp). Both changed clear-field and SSE regressions pass within both full attempts. npm statement/line coverage is 91.94%, branches 81.06%, functions 95.80%; Bun measures 92.07%, 81.34%, 95.80%. These attempts are failures and not exact-head acceptance; their prechecks began before the final browser-only initial-fit helper refactor. Clean-runner final-head CI is required separately."
   "2026-10-18T05:51:14.541Z",codex-agent,"Round 5 on held kit 98cbe459 reproduces the existing full-release catalog/startup failures without deadline changes: both npm and Bun hit the built consumer 300-second timeout, followed by spawn ENOTDIR in the source variant. Both production realtime fixtures fail at the server-start deadline; npm also stops the privacy fixture at server startup before privacy assertions. These are failed local attempts, not acceptance. Full raw logs remain private because their stack paths are local; sanitized counts and reasons are in the round5 release receipt. An additional standalone-profile identity failure was our missing Git metadata; that prerequisite is repaired and the trusted-base identity test passes 4/4 in each profile. No audit controls changed."
+  "2026-10-19T19:19:25.920Z",codex-agent,"Observed the existing source catalog-install E2E aggregate deadline during realtime-fix validation: 676/677 pass, zero assertion failures, one 300000 ms cancellation. Repeated successful Presets run requests took roughly 4-6 seconds each until the aggregate budget expired; cleanup then caused an expected follow-on deactivate error. No timeout or workload assertion is changed. Separate from the now-fixed hermetic fleet-root issue pm-web-4p94."
+  "2026-10-19T19:51:53.342Z",codex-agent,"The active local Bun run completed 677/677 coverage tests and 2/2 capacity scenarios, with zero failures/cancellations/skips/todo; 40-source coverage S/L 92.42, branches 81.57, functions 96.17 and zero production vulnerabilities. Its unchanged 1800000 ms linked-command limit then sent SIGTERM during accept:packed, so the full local gate is incomplete. In contrast, both complete npm and Bun gates pass in CI on Node 22/26 at ad380c7 (677/677, capacity 2/2, packed 4/4). Preserving every local failure and deadline; no timing workaround or repeated local pass is substituted for the accepted CI receipts."
+  "2026-10-20T03:09:30.392Z",codex-agent,"PR #226 session-correlation review validation reproduces the existing built catalog-install E2E aggregate timeout at its unchanged 300000 ms deadline during isolated npm run release:check. Test and workload are unchanged. Successful Presets requests and later ownership refusals continued until the deadline. The same full run has substantial shared-host scheduling pressure; this is a failure receipt, not acceptance or proof of root cause. No timeout or coverage workaround is introduced. Final full-gate counts will be linked from pm-web-4f52."
 files[5]{path,scope}:
   src/server.ts,project
   src/services/pm-runner.ts,project
@@ -49,7 +52,8 @@ files[5]{path,scope}:
 tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test --test-name-pattern='server entrypoint exits non-zero without DATABASE_URL' test/smoke.test.ts,project,120,codex-sol,"2026-10-11T07:20:01.089Z",local_mutation,task/finish-catalog-175
   node --test --test-name-pattern='spawn fallback stays non-blocking' test/pm-runner.test.ts,project,120,codex-sol,"2026-10-11T07:39:19.519Z",local_mutation,task/finish-catalog-175
-docs[2]{path,scope}:
+docs[3]{path,scope}:
+  docs/capacity/2026-10-19-ladder.md,project
   docs/SDK_2026_10_14.md,project
   README.md,project
 body: ""

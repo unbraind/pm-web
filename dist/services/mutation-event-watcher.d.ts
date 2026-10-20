@@ -26,12 +26,14 @@ export interface MutationEventWatcherDeps {
     /** Subscription factory; defaults to bounded overlap over real committed SDK facts. */
     subscribe?: SubscribeFn;
     /** Checks whether an item mutation was already announced by this instance; returns true and consumes it. */
-    consumeSignaledItemMutation?: (projectId: string, itemId: string) => boolean;
+    consumeSignaledItemMutation?: (projectId: string, itemId: string, eventId?: string) => boolean;
     /** Emits an SSE event to the local clients of one project. */
     emit?: (projectId: string, event: SSEEvent) => void;
     /** Error sink for non-abort errors from a subscription loop. */
     onError?: (err: unknown) => void;
 }
+/** Preserve lifecycle semantics when the durable follower wins the delivery race. */
+export declare function mutationSSEEvent(event: MutationEvent): SSEEvent;
 /**
  * Pure, testable reconciler. Holds per-project subscription state across
  * reconcile cycles. Drives the watcher without timers — tests call `reconcile()`

@@ -1,13 +1,15 @@
 /** Stage populations must remain complete, causal and explicitly transport-specific. */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { instrumentCapacityModule, stageSummary, traceCriticalPaths, type CapacityTrace } from "../scripts/capacity-trace.ts";
+import { readFile } from "node:fs/promises";
+import { instrumentCapacityModule, stageSummary, traceCriticalPaths, traceDeliveries, type CapacityTrace } from "../scripts/capacity-trace.ts";
 import { capacityOptions } from "../scripts/capacity.ts";
 
 test("stage attribution separates overlapping CLI detection from direct HTTP delivery and keeps every subscriber", () => {
   const writes = ["http", "cli"].map((transport, sequence) => ({ sequence, transport: transport as "http" | "cli", itemId: `capacity-write-${sequence}`, committedAt: 1000, error: false }));
   const subscribers = ["a", "b"].map((clientId, offset) => ({ clientId, receivedAt: new Float64Array([1100 + offset, 1100 + offset]), counts: new Uint32Array([1, 1]), disconnected: false }));
   const traces: CapacityTrace[] = writes.flatMap(({ itemId }) => [
+    { stage: "writer-start", itemId, at: 900 },
     { stage: "index-lock", itemId, start: 1001, at: 1020 },
     { stage: "history-written", itemId, at: 1030 },
     { stage: "classified", itemId, start: 1025, at: 1040 },
@@ -26,6 +28,9 @@ test("stage attribution separates overlapping CLI detection from direct HTTP del
   assert.equal(result.cli.client_write_call.p99, 10);
   assert.equal(result.cli.write_return_to_client_receive.p99, 20);
   const paths = traceCriticalPaths(writes, subscribers, traces);
+  const attempts = traceDeliveries(writes, traces);
+  assert.equal(attempts[0].emissions.length, 1);
+  assert.equal(attempts[0].socket_writes, 2);
   assert.equal(paths[0].to_all_ms, 101);
   assert.equal(paths[0].timestamp_to_append_ms, 30);
   assert.equal(paths[0].append_to_broadcast_ms + paths[0].broadcast_to_write_return_ms + paths[0].write_return_to_receive_ms, 71);
@@ -41,6 +46,7 @@ test("stage attribution separates overlapping CLI detection from direct HTTP del
 function cliLockFixture() {
   const writes = [0, 1].map((sequence) => ({ sequence, transport: "cli" as const, itemId: `capacity-write-${sequence}`, committedAt: 1000, error: false }));
   const traces: CapacityTrace[] = writes.flatMap(({ itemId }) => [
+    { stage: "writer-start", itemId, at: 900 },
     { stage: "index-lock", itemId, start: 1000, at: 1000 },
     { stage: "index-lock", itemId, start: 1010, at: 1030 },
     { stage: "history-written", itemId, at: 1030 },
@@ -61,9 +67,11 @@ test("stage attribution retains every matching CLI lock including append-window 
   assert.equal(stageSummary(http, [], traces.filter((row) => row.stage !== "index-lock")).http.timestamp_to_history_append.samples, 2);
 });
 
-test("stage attribution rejects each committed CLI write without its own in-window index-lock", () => {
+test("stage attribution requires every CLI observer and permits measured absence of optional rebuild locks", () => {
   const { writes, traces } = cliLockFixture();
-  const incomplete = traces.filter((row) => row.itemId !== writes[1].itemId || row.stage !== "index-lock");
+  const noLocks = traces.filter((row) => row.stage !== "index-lock");
+  assert.equal(stageSummary(writes, [], noLocks).cli.index_lock_wait_nested_in_append, undefined);
+  const incomplete = traces.filter((row) => row.itemId !== writes[1].itemId || row.stage !== "writer-start");
   const unrelated: CapacityTrace[] = [
     { stage: "index-lock", itemId: "capacity-write-other", start: 1000, at: 1020 },
     { stage: "index-lock", itemId: writes[1].itemId, start: 990, at: 999 },
@@ -71,8 +79,8 @@ test("stage attribution rejects each committed CLI write without its own in-wind
   ];
   for (const records of [incomplete, [...incomplete, ...unrelated]]) {
     assert.throws(() => stageSummary(writes, [], records), {
-      name: "Error", code: "TRACE_MISSING_index-lock",
-      message: "Missing capacity stage: index-lock for write 1 (capacity-write-1)",
+      name: "Error", code: "TRACE_MISSING_writer-start",
+      message: "Missing capacity CLI observer",
     });
   }
   const uncommitted = writes.map((write) => write.sequence === 1 ? { ...write, committedAt: null } : write);
@@ -85,4 +93,31 @@ test("trace source drift and malformed opt-in fail closed while unselected modul
   assert.equal(capacityOptions(["--trace", "true"]).trace, true);
   assert.equal(capacityOptions([]).trace, false);
   assert.throws(() => capacityOptions(["--trace", "maybe"]), /Trace must/);
+});
+
+test("delivery attribution counts suppressed broadcasts only as attempts", () => {
+  const writes = [{ sequence: 0, transport: "http" as const, itemId: "synthetic", committedAt: 1000, error: false }];
+  const traces: CapacityTrace[] = [
+    { stage: "broadcast", itemId: "synthetic", at: 1010, source: "mutation-events" },
+    { stage: "serialized", itemId: "synthetic", at: 1011, source: "mutation-events" },
+    { stage: "broadcast", itemId: "synthetic", at: 1020, source: "route" },
+    { stage: "write", itemId: "synthetic", at: 1012 },
+  ];
+  const [delivery] = traceDeliveries(writes, traces);
+  assert.deepEqual(delivery.emissions, [{ at: 1011, eventType: undefined, source: "mutation-events" }]);
+  assert.equal(delivery.attempts.length, 2);
+  assert.equal(delivery.socket_writes, 1);
+});
+
+test("capacity report reproduces the untraced primary ladder with a fresh output", async () => {
+  const report = await readFile(new URL("../docs/capacity/2026-10-19-ladder.md", import.meta.url), "utf8");
+  const commands = report.slice(report.indexOf("## Reproduction and retained evidence")).split("\n");
+  const index = commands.findIndex((line) => line.includes("--trace false"));
+  assert.ok(index > 0);
+  assert.match(commands[index - 1], /^CAPACITY_OUTPUT=\$\(mktemp -d\)\/capacity-untraced$/);
+  const args = commands[index].slice(commands[index].indexOf("--rungs")).split(" ");
+  const options = capacityOptions(args);
+  assert.equal(options.trace, false);
+  assert.deepEqual(options.rungs, [100, 1000, 3000]);
+  assert.ok(commands.some((line) => line.includes("--trace true")));
 });

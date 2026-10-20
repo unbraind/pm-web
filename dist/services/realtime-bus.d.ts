@@ -5,6 +5,7 @@ interface RealtimeEnvelope {
     type: string;
     data: unknown;
     sourceId?: string;
+    id?: string;
 }
 /**
  * Parse and validate a realtime NOTIFY payload into an envelope.

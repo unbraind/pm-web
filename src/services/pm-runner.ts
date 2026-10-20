@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.ts";
 import {
+  agentSessionEnvironment,
   certifyCompleteListResult,
   getItemAt,
   listAllComplete,
@@ -16,6 +17,7 @@ import {
   type GetItemAtResult,
   type PmCompleteListResult,
   type ExtensionDescribeResult,
+  type AgentSessionContext,
 } from "@unbrained/pm-cli/sdk";
 import { resolveNpmSpec } from "./package-catalog.ts";
 
@@ -391,12 +393,18 @@ export interface PmRunOptions {
   input?: string;
   jsonOutput?: boolean;
   timeoutMs?: number;
+  /** Session declaration serialized for commands that fall back to the CLI. */
+  agentSession?: AgentSessionContext;
   /** Require the runtime winner for this command, and for every path its positional args extend it to, to be the catalog package. */
   commandOwner?: { command: string; name: string; args?: readonly string[] };
 }
 
 /** Transport-neutral result shared by in-process SDK and child-process calls. */
 export interface PmRunResult {
+  /** Request boundary used to read committed identities, never inferred from the latest item version. */
+  mutationSince?: string;
+  /** Exact invocation correlation recorded on immutable committed history entries. */
+  mutationEpisodeId?: string;
   stdout: string;
   stderr: string;
   ok: boolean;
@@ -1057,7 +1065,7 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
   // spawn fallback — in a single `runSerialized` restores the guarantee for
   // every action regardless of which path serves it.
   return runSerialized(dir, async (): Promise<PmRunResult> => {
-    const env = { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}` };
+    const env = { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}`, ...agentSessionEnvironment(opts.agentSession ?? {}) };
     if (opts.commandOwner) {
       const error = await commandOwnershipError(dir, opts.commandOwner, env);
       if (error) return { ok: false, stdout: "", stderr: error, ownershipRefused: true };

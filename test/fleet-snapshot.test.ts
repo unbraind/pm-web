@@ -1,11 +1,34 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { readFleetExtensions, type FleetExtension } from "../src/services/fleet-snapshot.ts";
+
+test("standalone catalog validation ignores an ambient partial farm unless explicitly configured", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pm-web-hermetic-catalog-"));
+  try {
+    writePackage(root, "unpublished-sibling", { name: "pm-unpublished" }, {
+      name: "pm-unpublished", repository: "https://github.com/unbraind/pm-unpublished",
+    });
+    const checkout = path.join(root, "package");
+    mkdirSync(path.join(checkout, "test"), { recursive: true });
+    writeFileSync(path.join(checkout, "package.json"), '{"type":"module"}');
+    symlinkSync(path.resolve("src"), path.join(checkout, "src"), "dir");
+    for (const name of ["catalog.test.ts", "fleet-package-repos.fixture.ts", "fleet-extensions.snapshot.json", "fleet-native-commands.snapshot.json"]) {
+      copyFileSync(path.join("test", name), path.join(checkout, "test", name));
+    }
+    const env = { ...process.env };
+    delete env.PM_FLEET_ROOT;
+    delete env.NODE_TEST_CONTEXT;
+    execFileSync(process.execPath, ["--test", "test/catalog.test.ts"], { cwd: checkout, env, stdio: "pipe" });
+    assert.throws(() => execFileSync(process.execPath, ["--test", "test/catalog.test.ts"], {
+      cwd: checkout, env: { ...env, PM_FLEET_ROOT: root }, stdio: "pipe",
+    }), "an explicitly configured incomplete farm must still fail freshness checks");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 /** Write real package metadata with optional malformed fields for discovery tests. */
 function writePackage(root: string, directory: string, manifest: Record<string, unknown>, pkg: Record<string, unknown> = {}): string {
@@ -125,7 +148,7 @@ test("a fleet containing a sibling git worktree of another package yields one ca
     // Exercise the actual optional live-fleet assertions against renamed
     // checkouts plus the duplicate Git worktree, including manifest comparisons.
     execFileSync(process.execPath, ["--test", "test/catalog.test.ts"], {
-      env: { ...process.env, PM_FLEET_ROOT: fleet }, stdio: "pipe",
+      env: { ...process.env, NODE_TEST_CONTEXT: undefined, PM_FLEET_ROOT: fleet }, stdio: "pipe",
     });
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

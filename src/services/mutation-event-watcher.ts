@@ -16,7 +16,7 @@ import { logError } from "../observability.ts";
 // Every pm-web instance reads the same shared volume and will independently observe
 // the same mutation events; publishing to the Postgres bus would duplicate them
 // across instances. Each instance dedupes against its own API broadcasts via the
-// per-item signal in sse.ts.
+// committed item/version receipt in sse.ts.
 
 import path from "node:path";
 import type { MutationEvent } from "@unbrained/pm-cli/sdk";
@@ -26,6 +26,7 @@ import {
   consumeSignaledItemMutation,
   deliverProjectEvent,
   getActiveProjectIds,
+  mutationEventIdentity,
   type SSEEvent,
 } from "./sse.ts";
 import { cachedProjectDir, dropInactive, positiveIntEnv } from "./watcher-utils.ts";
@@ -78,7 +79,7 @@ export interface MutationEventWatcherDeps {
   /** Subscription factory; defaults to bounded overlap over real committed SDK facts. */
   subscribe?: SubscribeFn;
   /** Checks whether an item mutation was already announced by this instance; returns true and consumes it. */
-  consumeSignaledItemMutation?: (projectId: string, itemId: string) => boolean;
+  consumeSignaledItemMutation?: (projectId: string, itemId: string, eventId?: string) => boolean;
   /** Emits an SSE event to the local clients of one project. */
   emit?: (projectId: string, event: SSEEvent) => void;
   /** Error sink for non-abort errors from a subscription loop. */
@@ -93,6 +94,15 @@ function isAbortError(err: unknown): boolean {
     return err.name === "AbortError" || /^aborted/i.test(err.message);
   }
   return false;
+}
+
+/** Preserve lifecycle semantics when the durable follower wins the delivery race. */
+export function mutationSSEEvent(event: MutationEvent): SSEEvent {
+  return {
+    id: mutationEventIdentity(event),
+    type: event.type === "delete" ? "item-deleted" : event.type === "close" ? "item-closed" : "workspace-changed",
+    data: { source: "mutation-events", itemId: event.item_id, operation: event.type, author: event.author },
+  };
 }
 
 /**
@@ -134,17 +144,10 @@ export function createMutationEventReconciler(deps: MutationEventWatcherDeps = {
         const gen = subscribe ? subscribe(options) : followCommittedMutations(options, replay);
         for await (const event of gen) {
           if (event.cursor !== undefined) sub.cursor = event.cursor;
-          // Skip events that this instance's own API already announced (per-item dedupe).
-          if (consumeSignal(projectId, event.item_id)) continue;
-          emit(projectId, {
-            type: "workspace-changed",
-            data: {
-              source: "mutation-events",
-              itemId: event.item_id,
-              operation: event.type,
-              author: event.author,
-            },
-          });
+          // An exact receipt cannot consume a different same-item mutation.
+          const id = mutationEventIdentity(event);
+          if (consumeSignal(projectId, event.item_id, id)) continue;
+          emit(projectId, mutationSSEEvent(event));
         }
       } catch (err) {
         if (!isAbortError(err)) onError(err);
