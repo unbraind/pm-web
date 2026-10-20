@@ -6,10 +6,12 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-05-29T15:44:53.057Z"
-updated_at: "2026-10-20T18:27:21.584Z"
+updated_at: "2026-10-20T18:55:35.701Z"
+assignee: codex-agent
+claim_principal: codex-agent
 author: codex
 parent: pm-web-ul0n
-comments[31]{created_at,author,text}:
+comments[35]{created_at,author,text}:
   "2026-10-20T10:00:09.069Z",codex-agent,"Confirmed the missing-database guard is hidden by generic error redaction. Plan: value-free startup validation before binding, database configuration/reachability/schema doctor check, built-process regressions, and explicit plain-directory SDK acceptance."
   "2026-10-20T10:10:10.720Z",codex-agent,"Built-process doctor and no-git acceptance passed (2/2): database missing/unreachable/schema-missing/current diagnostics, read-only schema inspection, and SDK create/get/update/list with no git executable. Restoring the old startup guard made both foreground diagnostic regressions fail (0/2), exit 1, after rebuilding; full revert receipts follow."
   "2026-10-20T10:11:15.039Z",codex-agent,"Behavioral revert proof: restored only the old startup guard placement and generic logging, rebuilt, then node scripts/with-test-db.ts node --test --test-name-pattern=\"foreground built|built server reports every invalid\" test/startup-readiness.test.ts failed 2/2 (exit 1). Restored fixed sources and rebuilt."
@@ -41,7 +43,11 @@ comments[31]{created_at,author,text}:
   "2026-10-20T17:54:21.417Z",codex-agent,"Documentation fixes and regression proofs complete. README now lists DATABASE_URL and POSTGRES_HOST plus POSTGRES_DB as alternative methods, with optional discrete settings. Self-review corrected JWT_SECRET production-only requirements and OIDC soft-disable wording. node --test test/startup-docs.test.ts passes 3/3 directly and through pm test pm-web-onv4 --run --progress --only-last; existing result tracking is disabled, so this comment records the receipt. Three independent documentation reverts each restore only the original README table row and fail their intended assertion 0/1 with exit 1, no timeout/cancellation/skip. Exact commands: node --test --test-reporter=tap --test-name-pattern=\"README database\" test/startup-docs.test.ts; replace pattern with \"README signing\" and \"README OIDC\" for the other proofs. All fixed docs restored and 3/3 rerun passed. Full evidence is in docs/startup-readiness.md. Initial npm ci failed because a host script-policy setting was rejected during Git dependency preparation; retry with isolated npm user configuration passed without changing pins. Full unchanged release gates follow."
   "2026-10-20T18:07:46.560Z",codex-agent,Source fix 52570f8 is pushed and CI run 39471144995 is executing full npm/Bun gates on Node 22 and 26 with isolated Git identity. Local full npm run has reproduced the known catalog acceptance 300-second deadline and following source-case cascade tracked by pm-web-qdhx; no test deadline or coverage threshold changed. Focused docs suite remains 3/3 with all three independent row reverts failing as intended. Will report final complete CI and local receipts separately. Review refresh still has zero unresolved threads and only the addressed outside-diff finding; no threads were replied to or resolved.
   "2026-10-20T18:27:16.846Z",codex-agent,"FINAL documentation-round evidence: source commit 52570f840c7cb635d14ef775803893f010e0679f passes CI run https://github.com/unbraind/pm-web/actions/runs/39471144995, full npm run release:check AND bun run release:check on Node 22 and 26. All four gates: 706/706 tests, zero failures/cancellations/skips/todo, all 44 required sources, capacity 2/2, packed npm/native-Bun current/minimum consumers 4/4, zero production vulnerabilities, duplication 0%, 764 documented declarations, and every remaining release check passed. Coverage statements/lines/branches/functions: Node22 npm 92.61/92.61/81.66/95.12; Node22 Bun 92.61/92.61/81.71/95.12; Node26 npm and Bun each 92.61/92.61/81.66/95.98. Strict tracker health, fresh committed-dist verification and CodeQL pass in CI. Local npm reproduced catalog deadline/cascade (pm-web-qdhx) and graph latency (pm-web-hqqp); these cases pass in all four CI gates. The redundant local run was interrupted after CI passed; queued local Bun was not started, and its full gates passed in both CI jobs. Isolated native PostgreSQL fixture stopped. Focused docs suite passes 3/3 directly and via linked pm test. Each independent README row revert (database, signing, OIDC) fails 0/1 with intended assertions; all fixed docs restored. All 395 frozen runtime/test/build inputs and committed dist still match the tested source commit; this final update changes only evidence and pm records. Latest review refresh has zero unresolved threads and only the addressed outside-diff finding. Local metadata warnings and disabled test-result tracking remain existing limitations. No new pm CLI/SDK bug identified. Claim will be released; item stays in_progress."
-files[17]{path,scope}:
+  "2026-10-20T18:48:15.137Z",codex-agent,"PR 230 new review round at 11b3903: fetched remote head; origin/main is fully included. Complete GraphQL read has three threads, one unresolved (PRRT_kwDOSZgR5c6ueKVd), all comments included and no further pages. Latest CodeRabbit review PRR_kwDOSZgR5c8AAAABTS7ypw adds detached log retention finding 4b9a421ab314258d3bb14735, with no Outside diff range section. Verify cleanup failure behavior and document private log lifetime, then self-review, behavioral reverts, unchanged npm and Bun release gates. No thread replies or resolutions."
+  "2026-10-20T18:52:43.977Z",codex-agent,"Verified PRRT_kwDOSZgR5c6ueKVd: intermediate JWT_SECRET restoration ran only after a passing assertion. Added a scoped fixture with try/finally, used by the real bootstrap lifecycle, and a regression injecting an asynchronous assertion failure for both present and absent secrets plus success controls. Log finding 4b9a421ab314258d3bb14735 is valid; selected its documentation remedy. Guide and README disclose pidfile log location/default, mode 0600, raw sensitive output, whole-child lifetime, truncation on next launch, retention after stop, unlimited growth and external copytruncate/stopped cleanup. Whole diff self-review checked environment cleanup and log wording; surrounding extension fixture and OIDC cleanup already use finally. Fixed focused tests pass 5/5. Independent reverts: after-success-only cleanup makes node --test --test-reporter=tap test/signing-secret-fixture.test.ts fail 0/1, exit 1, on leaked empty secret; removing only retention section makes node --test --test-reporter=tap --test-name-pattern=\"detached log documentation\" test/startup-docs.test.ts fail 0/1, exit 1. No timeout/cancellation/skip. Fixed files restored; focused suite passes 5/5. npm ci hit existing local EALLOWSCRIPTS policy; retry with isolated user config passed without pin changes."
+  "2026-10-20T18:54:40.091Z",codex-agent,"Linked focused command passes 5/5 via pm test --run --progress --only-last --timeout 600. Test-result tracking is disabled in the existing tracker, so this comment records the receipt. Direct real database lifecycle selection also passes 1/1 with node scripts/with-test-db.ts node --test --test-name-pattern=\"the extension starts, probes\" test/server-bootstrap.test.ts, preserving actual detached start/health/stop and numeric child failure checks. Initial pm files call supplied two positional values and was rejected without mutation; linked the two new files separately using documented path entries."
+  "2026-10-20T18:55:35.687Z",codex-agent,"Build and test TypeScript checks pass; committed dist is identical to a fresh build. Duplication passes at 0%, 0 clone pairs across 236 sources. Froze 406 runtime/test/schema/build/documentation inputs before sequential full npm and Bun release commands, each using fresh HOME and isolated Git identity, unchanged thresholds. Local tracker validation is ok with existing advisory warnings; strict health separately reports existing managed pm-github host-version skew (pinned host 2026.10.19 versus extension 2026.10.20) and stale active-item advisory. No history drift or pending merge receipts. Push concrete reviewed changes for independent full Node 22/26 CI gates; final receipts will follow."
+files[19]{path,scope}:
   README.md,project
   sql/schema.sql,project
   src/database-check.ts,project
@@ -50,6 +56,7 @@ files[17]{path,scope}:
   src/server-preflight.ts,project
   src/server.ts,project
   src/startup-config.ts,project
+  test/helpers/empty-signing-secret.ts,project
   test/helpers/source-detached-command.ts,project
   test/helpers/source-doctor-command.ts,project
   test/helpers/startup-command.ts,project
@@ -57,13 +64,15 @@ files[17]{path,scope}:
   test/helpers/startup-no-git.ts,project
   test/oidc.test.ts,project
   test/server-bootstrap.test.ts,project
+  test/signing-secret-fixture.test.ts,project
   test/startup-docs.test.ts,project
   test/startup-readiness.test.ts,project
-tests[4]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+tests[5]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T10:07:14.248Z",local_mutation,fix/startup-preflight-and-detached-health
   node scripts/with-test-db.ts node --test --test-name-pattern=empty.optional.numeric test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T15:57:28.059Z",local_mutation,fix/startup-preflight-and-detached-health
   "node scripts/with-test-db.ts node --test --test-name-pattern=the.extension.starts,.probes test/server-bootstrap.test.ts",project,codex-agent,"2026-10-20T16:30:36.345Z",local_mutation,fix/startup-preflight-and-detached-health
   node --test test/startup-docs.test.ts,project,codex-agent,"2026-10-20T17:53:29.182Z",local_mutation,fix/startup-preflight-and-detached-health
+  node --test test/signing-secret-fixture.test.ts test/startup-docs.test.ts,project,codex-agent,"2026-10-20T18:52:36.276Z",local_mutation,fix/startup-preflight-and-detached-health
 docs[2]{path,scope}:
   docs/startup-readiness.md,project
   README.md,project

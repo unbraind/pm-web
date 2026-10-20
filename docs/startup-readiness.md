@@ -47,6 +47,23 @@ without modifying the database. PostgreSQL URLs with a query-provided host are
 accepted by the preflight and exercised against a real database and built server. The README describes PostgreSQL prerequisites
 and plain-directory tracker operation without git.
 
+### Detached log retention
+
+The detached child writes stdout and stderr to `${pidfile}.log` for its entire
+lifetime, including after readiness succeeds. The filename is
+`pm-web-<port>.pid.log` in `PM_WEB_STATE_DIR`, or the OS temporary directory when
+that setting is unset. The file has mode `0600`. Each detached launch truncates
+the existing log after checking the pidfile; `pm web stop` leaves the log on disk.
+
+Only the diagnostic tail printed by a failed launch is bounded and redacted.
+The retained file contains raw child output and may contain credentials or
+connection details. It has no size limit or automatic rotation and can fill the
+temporary volume during a long run, especially with `LOG_LEVEL=info` request
+logging. Keep it private, monitor its size, and configure external rotation with
+`copytruncate` to preserve the child's open file descriptor. Delete the retained
+log only after the detached server has stopped; deleting or renaming an active
+log does not redirect the child's output or reliably reclaim disk space.
+
 ## Initial implementation release checks
 
 The final `npm run release:check` and `bun run release:check` both exited 0.
@@ -297,3 +314,42 @@ with metadata, resolution, lifecycle, file and command-reference warnings.
 Test-result tracking remains disabled, so linked-run
 receipts and the independent revert proofs are recorded in pm comments. No new
 pm CLI/SDK defect was found.
+
+## Cleanup and log-retention review
+
+The complete review read at `11b3903` includes all three threads and every
+comment, with no pagination gaps. Only `PRRT_kwDOSZgR5c6ueKVd` is unresolved.
+The latest CodeRabbit review, `PRR_kwDOSZgR5c8AAAABTS7ypw`, has no outside-diff
+section and adds one log-retention nitpick. Both findings are valid.
+
+| Thread or finding | Remedy |
+| --- | --- |
+| `PRRT_kwDOSZgR5c6ueKVd` | Run the missing-secret assertion through `withEmptySigningSecret`, which restores the original value or absence in `finally`, even when an asynchronous assertion fails. |
+| Review-body fingerprint `4b9a421ab314258d3bb14735` | Apply the reviewer's documentation option: disclose the raw log's location, permissions, lifetime, unlimited growth, truncation, retention after stop and external rotation/cleanup requirements. Link the policy from the README. |
+
+Whole-diff self-review checked environment mutation and restoration, child log
+sinks, and operator-facing retention wording. The surrounding extension fixture
+and OIDC database cleanup already use `finally`; no additional instance required
+a code change. The existing bounded, redacted failure tail and private raw log
+are now explicitly distinguished in the documentation.
+
+The fixture regression injects an asynchronous `AssertionError` with the secret
+both present and absent, checks restoration before another assertion can run,
+and covers successful completion. The existing real extension lifecycle test
+uses that same fixture. The documentation regression requires every retention
+contract and the README link. The focused suite passes 5/5:
+
+```sh
+node --test test/signing-secret-fixture.test.ts test/startup-docs.test.ts
+```
+
+Independent behavioral reverts retain all fixed tests:
+
+| Reverted behavior | Exact command | Result |
+| --- | --- | --- |
+| Restore the secret only after successful callback completion | `node --test --test-reporter=tap test/signing-secret-fixture.test.ts` | 0/1 passed, exit 1; detects leaked empty secret after the injected assertion failure |
+| Remove only the detached log-retention section | `node --test --test-reporter=tap --test-name-pattern="detached log documentation" test/startup-docs.test.ts` | 0/1 passed, exit 1; detects missing policy |
+
+Both failures are intended assertion failures with zero timeouts, cancellations
+or skips. Fixed files were restored and the focused suite passed 5/5 again.
+No runtime source, dependency pin, coverage threshold or test deadline changed.

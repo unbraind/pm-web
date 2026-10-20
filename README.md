@@ -89,6 +89,9 @@ If the child exits or the deadline expires, the command exits nonzero, terminate
 the child, reports the pidfile state and its last ten redacted log lines, and
 leaves no stale pidfile. Child logs are retained beside the pidfile as
 `pm-web-<port>.pid.log` (replaced on each start, private file permissions).
+This raw log grows for the child's lifetime without automatic rotation; see
+[detached log retention](docs/startup-readiness.md#detached-log-retention) for
+its location, sensitive contents and cleanup/rotation requirements.
 
 #### `pm web status`
 

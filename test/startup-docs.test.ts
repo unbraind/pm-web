@@ -49,3 +49,17 @@ test("README OIDC requirements preserve non-production soft disable", () => {
   assert.equal(issuer.required, "With OIDC");
   assert.match(issuer.description, /incomplete or invalid.*fail startup in production.*soft-disabled outside production/);
 });
+
+test("detached log documentation states location, raw contents and unbounded retention", () => {
+  const guide = readFileSync(new URL("../docs/startup-readiness.md", import.meta.url), "utf8");
+  const retention = guide.split("### Detached log retention\n")[1]?.split("\n##")[0];
+  assert.ok(retention, "detached startup must disclose its log retention policy");
+  for (const requirement of [
+    /\$\{pidfile\}\.log/, /pm-web-<port>\.pid\.log/, /PM_WEB_STATE_DIR/,
+    /OS temporary directory/, /0600/, /entire\s+lifetime/, /launch truncates/,
+    /stop` leaves the log on disk/, /raw child output/, /credentials/,
+    /no size limit or automatic rotation/, /fill the\s+temporary volume/,
+    /copytruncate/, /only after the detached server has stopped/,
+  ]) assert.match(retention, requirement);
+  assert.match(readme, /docs\/startup-readiness\.md#detached-log-retention/);
+});
