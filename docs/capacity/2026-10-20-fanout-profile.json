@@ -1,0 +1,3581 @@
+{
+  "runs": [
+    {
+      "variant": "before",
+      "report": {
+        "schema_version": 1,
+        "date": "2026-10-20T15:19:13.988Z",
+        "revision": "5346b6496a9d1868edea41c68240117a37008ad9",
+        "hardware": {
+          "logical_cpus": 4,
+          "cpu_model": "Intel(R) Core(TM) i5-7400 CPU @ 3.00GHz",
+          "ram_bytes": 33579786240,
+          "free_ram_before_bytes": 16067960832,
+          "load_average_before": [
+            415.56,
+            404.05,
+            392.3
+          ],
+          "platform": "linux",
+          "arch": "x64",
+          "node": "v24.19.0"
+        },
+        "options": {
+          "rungs": [
+            100
+          ],
+          "writers": 10,
+          "writesPerWriter": 2,
+          "sloMs": 1000,
+          "drainMs": 5000,
+          "trace": true
+        },
+        "runs": [
+          {
+            "subscribers": 100,
+            "writers": 10,
+            "http_writers": 5,
+            "cli_writers": 5,
+            "writes": 20,
+            "committed_writes": 20,
+            "failed_writes": 0,
+            "disconnected_subscribers": 0,
+            "measured_ms": 17818.334992000004,
+            "latency_ms": {
+              "samples": 2000,
+              "p50": 309.124755859375,
+              "p95": 817.612060546875,
+              "p99": 859.046630859375,
+              "max": 890.1806640625
+            },
+            "to_every_subscriber_ms": {
+              "samples": 20,
+              "p50": 325.031982421875,
+              "p95": 821.698974609375,
+              "p99": 890.1806640625,
+              "max": 890.1806640625
+            },
+            "http_latency_ms": {
+              "samples": 1000,
+              "p50": 254.205078125,
+              "p95": 694.77880859375,
+              "p99": 709.0283203125,
+              "max": 738.5048828125
+            },
+            "cli_latency_ms": {
+              "samples": 1000,
+              "p50": 323.177001953125,
+              "p95": 857.6708984375,
+              "p99": 889.76904296875,
+              "max": 890.1806640625
+            },
+            "lost": 0,
+            "duplicates": 0,
+            "per_subscriber": [
+              {
+                "subscriber": 0,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 1,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 2,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 3,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 4,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 5,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 6,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 7,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 8,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 9,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 10,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 11,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 12,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 13,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 14,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 15,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 16,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 17,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 18,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 19,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 20,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 21,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 22,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 23,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 24,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 25,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 26,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 27,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 28,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 29,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 30,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 31,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 32,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 33,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 34,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 35,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 36,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 37,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 38,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 39,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 40,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 41,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 42,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 43,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 44,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 45,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 46,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 47,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 48,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 49,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 50,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 51,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 52,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 53,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 54,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 55,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 56,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 57,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 58,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 59,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 60,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 61,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 62,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 63,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 64,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 65,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 66,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 67,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 68,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 69,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 70,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 71,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 72,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 73,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 74,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 75,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 76,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 77,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 78,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 79,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 80,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 81,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 82,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 83,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 84,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 85,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 86,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 87,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 88,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 89,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 90,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 91,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 92,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 93,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 94,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 95,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 96,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 97,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 98,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 99,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              }
+            ],
+            "idle_index_locks": null,
+            "stages": {
+              "http": {
+                "request_to_mutation_timestamp": {
+                  "samples": 10,
+                  "p50": 1661,
+                  "p95": 3028,
+                  "p99": 3028,
+                  "max": 3028
+                },
+                "timestamp_to_history_append": {
+                  "samples": 10,
+                  "p50": 75.77685546875,
+                  "p95": 401.4228515625,
+                  "p99": 401.4228515625,
+                  "max": 401.4228515625
+                },
+                "append_to_detecting_poll": {
+                  "samples": 10,
+                  "p50": 43.8427734375,
+                  "p95": 96.60009765625,
+                  "p99": 96.60009765625,
+                  "max": 96.60009765625
+                },
+                "detecting_read_and_classification": {
+                  "samples": 10,
+                  "p50": 37.515380859375,
+                  "p95": 151.751953125,
+                  "p99": 151.751953125,
+                  "max": 151.751953125
+                },
+                "classification_to_broadcast": {
+                  "samples": 10,
+                  "p50": 0.031982421875,
+                  "p95": 0.319091796875,
+                  "p99": 0.319091796875,
+                  "max": 0.319091796875
+                },
+                "append_to_route_broadcast": {
+                  "samples": 10,
+                  "p50": 89.980224609375,
+                  "p95": 237.1611328125,
+                  "p99": 237.1611328125,
+                  "max": 237.1611328125
+                },
+                "broadcast_serialization": {
+                  "samples": 10,
+                  "p50": 0.131591796875,
+                  "p95": 3.749755859375,
+                  "p99": 3.749755859375,
+                  "max": 3.749755859375
+                },
+                "fanout_queue_to_client_write": {
+                  "samples": 1000,
+                  "p50": 0.78173828125,
+                  "p95": 13.18310546875,
+                  "p99": 15.881103515625,
+                  "max": 16.0087890625
+                },
+                "client_write_call": {
+                  "samples": 1000,
+                  "p50": 0.004150390625,
+                  "p95": 0.015380859375,
+                  "p99": 0.283203125,
+                  "max": 11.375244140625
+                },
+                "write_return_to_client_receive": {
+                  "samples": 1000,
+                  "p50": 51.6171875,
+                  "p95": 112.644775390625,
+                  "p99": 141.924072265625,
+                  "max": 144.712646484375
+                }
+              },
+              "cli": {
+                "request_to_mutation_timestamp": {
+                  "samples": 10,
+                  "p50": 5534,
+                  "p95": 6752,
+                  "p99": 6752,
+                  "max": 6752
+                },
+                "timestamp_to_history_append": {
+                  "samples": 10,
+                  "p50": 148.7587890625,
+                  "p95": 574.5751953125,
+                  "p99": 574.5751953125,
+                  "max": 574.5751953125
+                },
+                "request_to_process_entry": {
+                  "samples": 10,
+                  "p50": 1066.624267578125,
+                  "p95": 1544.29638671875,
+                  "p99": 1544.29638671875,
+                  "max": 1544.29638671875
+                },
+                "process_entry_to_mutation_timestamp": {
+                  "samples": 10,
+                  "p50": 4068.70361328125,
+                  "p95": 5577.534423828125,
+                  "p99": 5577.534423828125,
+                  "max": 5577.534423828125
+                },
+                "index_lock_wait_nested_in_append": {
+                  "samples": 8,
+                  "p50": 2.448486328125,
+                  "p95": 8.478515625,
+                  "p99": 8.478515625,
+                  "max": 8.478515625
+                },
+                "append_to_detecting_poll": {
+                  "samples": 10,
+                  "p50": 7.0322265625,
+                  "p95": 89.033447265625,
+                  "p99": 89.033447265625,
+                  "max": 89.033447265625
+                },
+                "detecting_read_and_classification": {
+                  "samples": 10,
+                  "p50": 71.98046875,
+                  "p95": 422.8984375,
+                  "p99": 422.8984375,
+                  "max": 422.8984375
+                },
+                "classification_to_broadcast": {
+                  "samples": 10,
+                  "p50": 0.023193359375,
+                  "p95": 1.13818359375,
+                  "p99": 1.13818359375,
+                  "max": 1.13818359375
+                },
+                "broadcast_serialization": {
+                  "samples": 10,
+                  "p50": 0.123046875,
+                  "p95": 0.389892578125,
+                  "p99": 0.389892578125,
+                  "max": 0.389892578125
+                },
+                "fanout_queue_to_client_write": {
+                  "samples": 1000,
+                  "p50": 0.304443359375,
+                  "p95": 20.531982421875,
+                  "p99": 20.66650390625,
+                  "max": 20.69921875
+                },
+                "client_write_call": {
+                  "samples": 1000,
+                  "p50": 0.00341796875,
+                  "p95": 0.006591796875,
+                  "p99": 0.029052734375,
+                  "max": 20.331298828125
+                },
+                "write_return_to_client_receive": {
+                  "samples": 1000,
+                  "p50": 33.254638671875,
+                  "p95": 171.814453125,
+                  "p99": 219.093017578125,
+                  "max": 225.287109375
+                }
+              }
+            },
+            "trace_critical_paths": [
+              {
+                "sequence": 16,
+                "transport": "cli",
+                "to_all_ms": 890.1806640625,
+                "timestamp_to_append_ms": 574.5751953125,
+                "append_to_broadcast_ms": 235.963623046875,
+                "broadcast_to_write_return_ms": 0.53857421875,
+                "write_return_to_receive_ms": 79.103271484375
+              },
+              {
+                "sequence": 13,
+                "transport": "cli",
+                "to_all_ms": 821.698974609375,
+                "timestamp_to_append_ms": 282.820068359375,
+                "append_to_broadcast_ms": 475.920654296875,
+                "broadcast_to_write_return_ms": 1.249267578125,
+                "write_return_to_receive_ms": 61.708984375
+              },
+              {
+                "sequence": 7,
+                "transport": "http",
+                "to_all_ms": 738.5048828125,
+                "timestamp_to_append_ms": 401.4228515625,
+                "append_to_broadcast_ms": 237.1611328125,
+                "broadcast_to_write_return_ms": 5.32080078125,
+                "write_return_to_receive_ms": 94.60009765625
+              },
+              {
+                "sequence": 0,
+                "transport": "http",
+                "to_all_ms": 547.117919921875,
+                "timestamp_to_append_ms": 243.33642578125,
+                "append_to_broadcast_ms": 190.81640625,
+                "broadcast_to_write_return_ms": 13.4423828125,
+                "write_return_to_receive_ms": 99.522705078125
+              },
+              {
+                "sequence": 14,
+                "transport": "cli",
+                "to_all_ms": 538.6435546875,
+                "timestamp_to_append_ms": 177.3134765625,
+                "append_to_broadcast_ms": 135.404541015625,
+                "broadcast_to_write_return_ms": 0.638427734375,
+                "write_return_to_receive_ms": 225.287109375
+              },
+              {
+                "sequence": 5,
+                "transport": "http",
+                "to_all_ms": 504.0302734375,
+                "timestamp_to_append_ms": 274.9580078125,
+                "append_to_broadcast_ms": 115.26220703125,
+                "broadcast_to_write_return_ms": 0.6826171875,
+                "write_return_to_receive_ms": 113.12744140625
+              },
+              {
+                "sequence": 9,
+                "transport": "http",
+                "to_all_ms": 458.52587890625,
+                "timestamp_to_append_ms": 232.42431640625,
+                "append_to_broadcast_ms": 153.423828125,
+                "broadcast_to_write_return_ms": 0.606201171875,
+                "write_return_to_receive_ms": 72.071533203125
+              },
+              {
+                "sequence": 18,
+                "transport": "cli",
+                "to_all_ms": 432.834228515625,
+                "timestamp_to_append_ms": 232.498046875,
+                "append_to_broadcast_ms": 94.96435546875,
+                "broadcast_to_write_return_ms": 0.68896484375,
+                "write_return_to_receive_ms": 104.682861328125
+              },
+              {
+                "sequence": 12,
+                "transport": "cli",
+                "to_all_ms": 408.31298828125,
+                "timestamp_to_append_ms": 143.587158203125,
+                "append_to_broadcast_ms": 211.2421875,
+                "broadcast_to_write_return_ms": 8.65380859375,
+                "write_return_to_receive_ms": 44.829833984375
+              },
+              {
+                "sequence": 8,
+                "transport": "http",
+                "to_all_ms": 346.693359375,
+                "timestamp_to_append_ms": 102.701416015625,
+                "append_to_broadcast_ms": 89.980224609375,
+                "broadcast_to_write_return_ms": 9.299072265625,
+                "write_return_to_receive_ms": 144.712646484375
+              },
+              {
+                "sequence": 10,
+                "transport": "cli",
+                "to_all_ms": 325.031982421875,
+                "timestamp_to_append_ms": 144.612548828125,
+                "append_to_broadcast_ms": 67.330322265625,
+                "broadcast_to_write_return_ms": 20.79296875,
+                "write_return_to_receive_ms": 92.296142578125
+              },
+              {
+                "sequence": 19,
+                "transport": "cli",
+                "to_all_ms": 322.1943359375,
+                "timestamp_to_append_ms": 148.7587890625,
+                "append_to_broadcast_ms": 135.123779296875,
+                "broadcast_to_write_return_ms": 3.75439453125,
+                "write_return_to_receive_ms": 34.557373046875
+              },
+              {
+                "sequence": 1,
+                "transport": "http",
+                "to_all_ms": 286.675537109375,
+                "timestamp_to_append_ms": 61.64404296875,
+                "append_to_broadcast_ms": 99.740966796875,
+                "broadcast_to_write_return_ms": 6.028564453125,
+                "write_return_to_receive_ms": 119.261962890625
+              },
+              {
+                "sequence": 15,
+                "transport": "cli",
+                "to_all_ms": 249.087158203125,
+                "timestamp_to_append_ms": 63.311767578125,
+                "append_to_broadcast_ms": 77.718017578125,
+                "broadcast_to_write_return_ms": 4.99609375,
+                "write_return_to_receive_ms": 103.061279296875
+              },
+              {
+                "sequence": 3,
+                "transport": "http",
+                "to_all_ms": 231.753173828125,
+                "timestamp_to_append_ms": 75.77685546875,
+                "append_to_broadcast_ms": 78.816650390625,
+                "broadcast_to_write_return_ms": 0.7900390625,
+                "write_return_to_receive_ms": 76.36962890625
+              },
+              {
+                "sequence": 2,
+                "transport": "http",
+                "to_all_ms": 214.078125,
+                "timestamp_to_append_ms": 63.894775390625,
+                "append_to_broadcast_ms": 51.77099609375,
+                "broadcast_to_write_return_ms": 16.15771484375,
+                "write_return_to_receive_ms": 82.254638671875
+              },
+              {
+                "sequence": 11,
+                "transport": "cli",
+                "to_all_ms": 189.5400390625,
+                "timestamp_to_append_ms": 157.052490234375,
+                "append_to_broadcast_ms": 5.72509765625,
+                "broadcast_to_write_return_ms": 2.21044921875,
+                "write_return_to_receive_ms": 24.552001953125
+              },
+              {
+                "sequence": 4,
+                "transport": "http",
+                "to_all_ms": 181.80322265625,
+                "timestamp_to_append_ms": 47.947265625,
+                "append_to_broadcast_ms": 53.926025390625,
+                "broadcast_to_write_return_ms": 3.111328125,
+                "write_return_to_receive_ms": 76.818603515625
+              },
+              {
+                "sequence": 6,
+                "transport": "http",
+                "to_all_ms": 181.60791015625,
+                "timestamp_to_append_ms": 39.8291015625,
+                "append_to_broadcast_ms": 25.96826171875,
+                "broadcast_to_write_return_ms": 1.5576171875,
+                "write_return_to_receive_ms": 114.2529296875
+              },
+              {
+                "sequence": 17,
+                "transport": "cli",
+                "to_all_ms": 161.172607421875,
+                "timestamp_to_append_ms": 64.448486328125,
+                "append_to_broadcast_ms": 32.316162109375,
+                "broadcast_to_write_return_ms": 2.89794921875,
+                "write_return_to_receive_ms": 61.510009765625
+              }
+            ],
+            "trace_deliveries": [
+              {
+                "sequence": 0,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509536250.1528,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509536412.2737,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509536250.3352,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 1,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509538197.385,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509538388.591,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509538197.514,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 2,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509536672.6658,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509536832.3777,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509536672.8054,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 3,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509538649.5935,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509538769.6484,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509538649.713,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 4,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509537579.8733,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509537699.4705,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509537580.005,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 5,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509540303.2202,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509541527.0508,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509540303.3438,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 6,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509537828.7974,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509537923.7676,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509537829.5476,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 7,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509541611.584,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509541859.7144,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509541615.3337,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 8,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509537156.6816,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509537396.663,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509537156.8242,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 9,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509539318.8481,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509539832.531,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509539318.968,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 10,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509540303.9429,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509540304.034,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 11,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509547010.7776,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509547011.1675,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 12,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509539089.8293,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509539089.9492,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 13,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509546712.7407,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509546713.009,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 14,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509539759.718,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509539759.841,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 15,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509545986.0298,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509545986.1523,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 16,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509541927.5388,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509541927.6655,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 17,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509547853.7646,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509547853.9297,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 18,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509540123.4624,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509540123.5864,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 19,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509547159.8826,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509547160.0034,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              }
+            ],
+            "resources": {
+              "fanout": {
+                "cpu_us": 23847,
+                "serialized_bytes": 3650,
+                "json_bytes": 2792,
+                "mutation_events": 20,
+                "mutation_frame_bytes": 2810,
+                "mutation_json_bytes": 2150,
+                "delivered_mutations": 2000,
+                "prepared_events": 26,
+                "response_writes": 2600,
+                "delivered_events": 2600,
+                "cpu_us_per_delivery": 9.171923076923077,
+                "serialized_bytes_per_event": 140.3846153846154,
+                "cpu_us_per_delivered_mutation": 11.9235,
+                "mutation_frame_bytes_per_event": 140.5,
+                "mutation_json_bytes_per_event": 107.5
+              },
+              "server_rss_peak_bytes": 200704000,
+              "server_cpu_core_percent": {
+                "samples": 73,
+                "p50": 3.3269724657185393,
+                "p95": 13.210689896386924,
+                "p99": 17.033025068244253,
+                "max": 17.033025068244253
+              },
+              "server_event_loop_p99_ms": 47.579135,
+              "generator_cpu_core_percent": 2.1278138511270837,
+              "generator_event_loop_p99_ms": 50.659327,
+              "postgres_server_connections_peak": 20,
+              "postgres_database_connections_peak": 26,
+              "postgres_max_connections": 100,
+              "process_samples": 73,
+              "database_samples": 37,
+              "host_load_average_after": [
+                413.65,
+                405.06,
+                393.19
+              ],
+              "host_free_ram_after_bytes": 15922184192,
+              "host_load_average_before": [
+                412.52,
+                404.41,
+                392.79
+              ]
+            },
+            "server_error_counts": {},
+            "health_before": {
+              "ok": true,
+              "version": "2026.10.20",
+              "dependencies": {
+                "postgres": {
+                  "ok": true,
+                  "latency_ms": 3
+                },
+                "projects_root": {
+                  "ok": true,
+                  "latency_ms": 11
+                },
+                "project_watcher": {
+                  "ok": true,
+                  "latency_ms": 0
+                }
+              },
+              "status": "ok",
+              "realtime": {
+                "sse_clients": 100,
+                "sse_connections_total": 100,
+                "sse_disconnections_total": 0,
+                "broadcasts_total": 3,
+                "watcher_last_sweep_at": "2026-10-20T15:18:55.095Z",
+                "watcher_last_sweep_ms": 87,
+                "watcher_changes_total": 0,
+                "watcher_errors_total": 0
+              }
+            },
+            "health_after": {
+              "ok": true,
+              "version": "2026.10.20",
+              "dependencies": {
+                "postgres": {
+                  "ok": true,
+                  "latency_ms": 1
+                },
+                "projects_root": {
+                  "ok": true,
+                  "latency_ms": 3
+                },
+                "project_watcher": {
+                  "ok": true,
+                  "latency_ms": 0
+                }
+              },
+              "status": "ok",
+              "realtime": {
+                "sse_clients": 100,
+                "sse_connections_total": 100,
+                "sse_disconnections_total": 0,
+                "broadcasts_total": 39,
+                "watcher_last_sweep_at": "2026-10-20T15:19:10.033Z",
+                "watcher_last_sweep_ms": 24,
+                "watcher_changes_total": 1,
+                "watcher_errors_total": 0
+              }
+            },
+            "passed": true,
+            "first_observed_limit": "none observed",
+            "event_index_audit": {
+              "source": "derived_index",
+              "missing_sequences": []
+            },
+            "write_receipts": [
+              {
+                "sequence": 0,
+                "transport": "http",
+                "committed_at": 1792509535816,
+                "write_error": false
+              },
+              {
+                "sequence": 1,
+                "transport": "http",
+                "committed_at": 1792509538036,
+                "write_error": false
+              },
+              {
+                "sequence": 2,
+                "transport": "http",
+                "committed_at": 1792509536557,
+                "write_error": false
+              },
+              {
+                "sequence": 3,
+                "transport": "http",
+                "committed_at": 1792509538495,
+                "write_error": false
+              },
+              {
+                "sequence": 4,
+                "transport": "http",
+                "committed_at": 1792509537478,
+                "write_error": false
+              },
+              {
+                "sequence": 5,
+                "transport": "http",
+                "committed_at": 1792509539913,
+                "write_error": false
+              },
+              {
+                "sequence": 6,
+                "transport": "http",
+                "committed_at": 1792509537763,
+                "write_error": false
+              },
+              {
+                "sequence": 7,
+                "transport": "http",
+                "committed_at": 1792509540973,
+                "write_error": false
+              },
+              {
+                "sequence": 8,
+                "transport": "http",
+                "committed_at": 1792509536964,
+                "write_error": false
+              },
+              {
+                "sequence": 9,
+                "transport": "http",
+                "committed_at": 1792509538933,
+                "write_error": false
+              },
+              {
+                "sequence": 10,
+                "transport": "cli",
+                "committed_at": 1792509540092,
+                "write_error": false
+              },
+              {
+                "sequence": 11,
+                "transport": "cli",
+                "committed_at": 1792509546848,
+                "write_error": false
+              },
+              {
+                "sequence": 12,
+                "transport": "cli",
+                "committed_at": 1792509538735,
+                "write_error": false
+              },
+              {
+                "sequence": 13,
+                "transport": "cli",
+                "committed_at": 1792509545954,
+                "write_error": false
+              },
+              {
+                "sequence": 14,
+                "transport": "cli",
+                "committed_at": 1792509539447,
+                "write_error": false
+              },
+              {
+                "sequence": 15,
+                "transport": "cli",
+                "committed_at": 1792509545845,
+                "write_error": false
+              },
+              {
+                "sequence": 16,
+                "transport": "cli",
+                "committed_at": 1792509541117,
+                "write_error": false
+              },
+              {
+                "sequence": 17,
+                "transport": "cli",
+                "committed_at": 1792509547757,
+                "write_error": false
+              },
+              {
+                "sequence": 18,
+                "transport": "cli",
+                "committed_at": 1792509539796,
+                "write_error": false
+              },
+              {
+                "sequence": 19,
+                "transport": "cli",
+                "committed_at": 1792509546876,
+                "write_error": false
+              }
+            ]
+          }
+        ],
+        "failure": null,
+        "stopped_early": false,
+        "command": "node scripts/with-test-db.ts node scripts/capacity.ts --rungs 100 --writers 10 --writes-per-writer 2 --slo-ms 1000 --drain-ms 5000 --trace true --output \"$CAPACITY_OUTPUT\""
+      }
+    },
+    {
+      "variant": "after",
+      "report": {
+        "schema_version": 1,
+        "date": "2026-10-20T15:19:58.401Z",
+        "revision": "5346b6496a9d1868edea41c68240117a37008ad9",
+        "hardware": {
+          "logical_cpus": 4,
+          "cpu_model": "Intel(R) Core(TM) i5-7400 CPU @ 3.00GHz",
+          "ram_bytes": 33579786240,
+          "free_ram_before_bytes": 15951368192,
+          "load_average_before": [
+            413.67,
+            405.21,
+            393.31
+          ],
+          "platform": "linux",
+          "arch": "x64",
+          "node": "v24.19.0"
+        },
+        "options": {
+          "rungs": [
+            100
+          ],
+          "writers": 10,
+          "writesPerWriter": 2,
+          "sloMs": 1000,
+          "drainMs": 5000,
+          "trace": true
+        },
+        "runs": [
+          {
+            "subscribers": 100,
+            "writers": 10,
+            "http_writers": 5,
+            "cli_writers": 5,
+            "writes": 20,
+            "committed_writes": 20,
+            "failed_writes": 0,
+            "disconnected_subscribers": 0,
+            "measured_ms": 17376.954906,
+            "latency_ms": {
+              "samples": 2000,
+              "p50": 322.8642578125,
+              "p95": 938.65625,
+              "p99": 1222.2109375,
+              "max": 1246.273681640625
+            },
+            "to_every_subscriber_ms": {
+              "samples": 20,
+              "p50": 379.448974609375,
+              "p95": 938.65625,
+              "p99": 1246.273681640625,
+              "max": 1246.273681640625
+            },
+            "http_latency_ms": {
+              "samples": 1000,
+              "p50": 327.935302734375,
+              "p95": 581.261962890625,
+              "p99": 667.071533203125,
+              "max": 671.023681640625
+            },
+            "cli_latency_ms": {
+              "samples": 1000,
+              "p50": 264.518310546875,
+              "p95": 1211.730712890625,
+              "p99": 1237.615966796875,
+              "max": 1246.273681640625
+            },
+            "lost": 0,
+            "duplicates": 0,
+            "per_subscriber": [
+              {
+                "subscriber": 0,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 1,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 2,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 3,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 4,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 5,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 6,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 7,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 8,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 9,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 10,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 11,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 12,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 13,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 14,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 15,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 16,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 17,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 18,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 19,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 20,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 21,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 22,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 23,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 24,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 25,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 26,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 27,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 28,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 29,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 30,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 31,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 32,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 33,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 34,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 35,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 36,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 37,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 38,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 39,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 40,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 41,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 42,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 43,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 44,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 45,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 46,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 47,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 48,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 49,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 50,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 51,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 52,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 53,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 54,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 55,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 56,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 57,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 58,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 59,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 60,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 61,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 62,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 63,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 64,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 65,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 66,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 67,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 68,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 69,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 70,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 71,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 72,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 73,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 74,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 75,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 76,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 77,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 78,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 79,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 80,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 81,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 82,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 83,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 84,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 85,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 86,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 87,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 88,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 89,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 90,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 91,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 92,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 93,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 94,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 95,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 96,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 97,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 98,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              },
+              {
+                "subscriber": 99,
+                "lost": 0,
+                "duplicates": 0,
+                "missing_sequences": [],
+                "disconnected": false
+              }
+            ],
+            "idle_index_locks": null,
+            "stages": {
+              "http": {
+                "request_to_mutation_timestamp": {
+                  "samples": 10,
+                  "p50": 2855,
+                  "p95": 4622,
+                  "p99": 4622,
+                  "max": 4622
+                },
+                "timestamp_to_history_append": {
+                  "samples": 10,
+                  "p50": 120.525146484375,
+                  "p95": 399.0439453125,
+                  "p99": 399.0439453125,
+                  "max": 399.0439453125
+                },
+                "append_to_detecting_poll": {
+                  "samples": 10,
+                  "p50": 51.11865234375,
+                  "p95": 200.294677734375,
+                  "p99": 200.294677734375,
+                  "max": 200.294677734375
+                },
+                "detecting_read_and_classification": {
+                  "samples": 10,
+                  "p50": 53.801025390625,
+                  "p95": 223.763916015625,
+                  "p99": 223.763916015625,
+                  "max": 223.763916015625
+                },
+                "classification_to_broadcast": {
+                  "samples": 10,
+                  "p50": 0.040771484375,
+                  "p95": 4.227294921875,
+                  "p99": 4.227294921875,
+                  "max": 4.227294921875
+                },
+                "append_to_route_broadcast": {
+                  "samples": 10,
+                  "p50": 113.022705078125,
+                  "p95": 315.66455078125,
+                  "p99": 315.66455078125,
+                  "max": 315.66455078125
+                },
+                "broadcast_serialization": {
+                  "samples": 10,
+                  "p50": 0.50634765625,
+                  "p95": 8.05615234375,
+                  "p99": 8.05615234375,
+                  "max": 8.05615234375
+                },
+                "fanout_queue_to_client_write": {
+                  "samples": 1000,
+                  "p50": 22.49560546875,
+                  "p95": 49.194580078125,
+                  "p99": 63.003662109375,
+                  "max": 63.160888671875
+                },
+                "client_write_call": {
+                  "samples": 1000,
+                  "p50": 0.0068359375,
+                  "p95": 0.04052734375,
+                  "p99": 3.21728515625,
+                  "max": 12.997314453125
+                },
+                "write_return_to_client_receive": {
+                  "samples": 1000,
+                  "p50": 43.755126953125,
+                  "p95": 116.39208984375,
+                  "p99": 162.569580078125,
+                  "max": 166.39990234375
+                }
+              },
+              "cli": {
+                "request_to_mutation_timestamp": {
+                  "samples": 10,
+                  "p50": 4847,
+                  "p95": 6580,
+                  "p99": 6580,
+                  "max": 6580
+                },
+                "timestamp_to_history_append": {
+                  "samples": 10,
+                  "p50": 126.960693359375,
+                  "p95": 983.23876953125,
+                  "p99": 983.23876953125,
+                  "max": 983.23876953125
+                },
+                "request_to_process_entry": {
+                  "samples": 10,
+                  "p50": 960.90478515625,
+                  "p95": 1334.790771484375,
+                  "p99": 1334.790771484375,
+                  "max": 1334.790771484375
+                },
+                "process_entry_to_mutation_timestamp": {
+                  "samples": 10,
+                  "p50": 4068.068603515625,
+                  "p95": 5374.09521484375,
+                  "p99": 5374.09521484375,
+                  "max": 5374.09521484375
+                },
+                "append_to_detecting_poll": {
+                  "samples": 10,
+                  "p50": 13.469482421875,
+                  "p95": 103.841796875,
+                  "p99": 103.841796875,
+                  "max": 103.841796875
+                },
+                "detecting_read_and_classification": {
+                  "samples": 10,
+                  "p50": 46.80322265625,
+                  "p95": 202.0302734375,
+                  "p99": 202.0302734375,
+                  "max": 202.0302734375
+                },
+                "classification_to_broadcast": {
+                  "samples": 10,
+                  "p50": 0.02001953125,
+                  "p95": 3.618408203125,
+                  "p99": 3.618408203125,
+                  "max": 3.618408203125
+                },
+                "broadcast_serialization": {
+                  "samples": 10,
+                  "p50": 0.13134765625,
+                  "p95": 2.353759765625,
+                  "p99": 2.353759765625,
+                  "max": 2.353759765625
+                },
+                "fanout_queue_to_client_write": {
+                  "samples": 1000,
+                  "p50": 16.62939453125,
+                  "p95": 30.03662109375,
+                  "p99": 32.52197265625,
+                  "max": 32.61376953125
+                },
+                "client_write_call": {
+                  "samples": 1000,
+                  "p50": 0.00537109375,
+                  "p95": 0.016845703125,
+                  "p99": 1.607421875,
+                  "max": 8.9072265625
+                },
+                "write_return_to_client_receive": {
+                  "samples": 1000,
+                  "p50": 30.523681640625,
+                  "p95": 78.11376953125,
+                  "p99": 95.76806640625,
+                  "max": 100.1845703125
+                },
+                "index_lock_wait_nested_in_append": {
+                  "samples": 6,
+                  "p50": 0.5,
+                  "p95": 4.955810546875,
+                  "p99": 4.955810546875,
+                  "max": 4.955810546875
+                }
+              }
+            },
+            "trace_critical_paths": [
+              {
+                "sequence": 12,
+                "transport": "cli",
+                "to_all_ms": 1246.273681640625,
+                "timestamp_to_append_ms": 983.23876953125,
+                "append_to_broadcast_ms": 171.238525390625,
+                "broadcast_to_write_return_ms": 22.35107421875,
+                "write_return_to_receive_ms": 69.4453125
+              },
+              {
+                "sequence": 18,
+                "transport": "cli",
+                "to_all_ms": 938.65625,
+                "timestamp_to_append_ms": 527.68017578125,
+                "append_to_broadcast_ms": 278.18603515625,
+                "broadcast_to_write_return_ms": 32.60546875,
+                "write_return_to_receive_ms": 100.1845703125
+              },
+              {
+                "sequence": 4,
+                "transport": "http",
+                "to_all_ms": 671.023681640625,
+                "timestamp_to_append_ms": 151.14697265625,
+                "append_to_broadcast_ms": 310.01171875,
+                "broadcast_to_write_return_ms": 43.465087890625,
+                "write_return_to_receive_ms": 166.39990234375
+              },
+              {
+                "sequence": 10,
+                "transport": "cli",
+                "to_all_ms": 591.62890625,
+                "timestamp_to_append_ms": 356.45458984375,
+                "append_to_broadcast_ms": 154.950439453125,
+                "broadcast_to_write_return_ms": 36.467041015625,
+                "write_return_to_receive_ms": 43.7568359375
+              },
+              {
+                "sequence": 5,
+                "transport": "http",
+                "to_all_ms": 563.447021484375,
+                "timestamp_to_append_ms": 399.0439453125,
+                "append_to_broadcast_ms": 40.839111328125,
+                "broadcast_to_write_return_ms": 27.531982421875,
+                "write_return_to_receive_ms": 96.031982421875
+              },
+              {
+                "sequence": 3,
+                "transport": "http",
+                "to_all_ms": 528.630859375,
+                "timestamp_to_append_ms": 135.199462890625,
+                "append_to_broadcast_ms": 315.66455078125,
+                "broadcast_to_write_return_ms": 34.01171875,
+                "write_return_to_receive_ms": 43.755126953125
+              },
+              {
+                "sequence": 8,
+                "transport": "http",
+                "to_all_ms": 435.213623046875,
+                "timestamp_to_append_ms": 96.175048828125,
+                "append_to_broadcast_ms": 161.457275390625,
+                "broadcast_to_write_return_ms": 24.105712890625,
+                "write_return_to_receive_ms": 153.4755859375
+              },
+              {
+                "sequence": 0,
+                "transport": "http",
+                "to_all_ms": 427.647216796875,
+                "timestamp_to_append_ms": 117.10107421875,
+                "append_to_broadcast_ms": 128.335205078125,
+                "broadcast_to_write_return_ms": 71.23046875,
+                "write_return_to_receive_ms": 110.98046875
+              },
+              {
+                "sequence": 16,
+                "transport": "cli",
+                "to_all_ms": 426.4296875,
+                "timestamp_to_append_ms": 254.132568359375,
+                "append_to_broadcast_ms": 91.55126953125,
+                "broadcast_to_write_return_ms": 12.001220703125,
+                "write_return_to_receive_ms": 68.74462890625
+              },
+              {
+                "sequence": 2,
+                "transport": "http",
+                "to_all_ms": 409.46337890625,
+                "timestamp_to_append_ms": 137.505615234375,
+                "append_to_broadcast_ms": 113.022705078125,
+                "broadcast_to_write_return_ms": 26.490966796875,
+                "write_return_to_receive_ms": 132.444091796875
+              },
+              {
+                "sequence": 14,
+                "transport": "cli",
+                "to_all_ms": 379.448974609375,
+                "timestamp_to_append_ms": 126.960693359375,
+                "append_to_broadcast_ms": 129.102294921875,
+                "broadcast_to_write_return_ms": 27.353759765625,
+                "write_return_to_receive_ms": 96.0322265625
+              },
+              {
+                "sequence": 6,
+                "transport": "http",
+                "to_all_ms": 326.12646484375,
+                "timestamp_to_append_ms": 127.668701171875,
+                "append_to_broadcast_ms": 127.341064453125,
+                "broadcast_to_write_return_ms": 35.683837890625,
+                "write_return_to_receive_ms": 35.432861328125
+              },
+              {
+                "sequence": 11,
+                "transport": "cli",
+                "to_all_ms": 264.518310546875,
+                "timestamp_to_append_ms": 108.063232421875,
+                "append_to_broadcast_ms": 74.85546875,
+                "broadcast_to_write_return_ms": 19.78955078125,
+                "write_return_to_receive_ms": 61.81005859375
+              },
+              {
+                "sequence": 13,
+                "transport": "cli",
+                "to_all_ms": 255.643310546875,
+                "timestamp_to_append_ms": 108.13427734375,
+                "append_to_broadcast_ms": 34.90673828125,
+                "broadcast_to_write_return_ms": 17.794677734375,
+                "write_return_to_receive_ms": 94.8076171875
+              },
+              {
+                "sequence": 17,
+                "transport": "cli",
+                "to_all_ms": 250.520751953125,
+                "timestamp_to_append_ms": 136.750732421875,
+                "append_to_broadcast_ms": 32.353759765625,
+                "broadcast_to_write_return_ms": 19.60498046875,
+                "write_return_to_receive_ms": 61.811279296875
+              },
+              {
+                "sequence": 1,
+                "transport": "http",
+                "to_all_ms": 234.170654296875,
+                "timestamp_to_append_ms": 61.158447265625,
+                "append_to_broadcast_ms": 86.355712890625,
+                "broadcast_to_write_return_ms": 25.066650390625,
+                "write_return_to_receive_ms": 61.58984375
+              },
+              {
+                "sequence": 7,
+                "transport": "http",
+                "to_all_ms": 222.091552734375,
+                "timestamp_to_append_ms": 92.629150390625,
+                "append_to_broadcast_ms": 48.2353515625,
+                "broadcast_to_write_return_ms": 29.888671875,
+                "write_return_to_receive_ms": 51.33837890625
+              },
+              {
+                "sequence": 9,
+                "transport": "http",
+                "to_all_ms": 211.950927734375,
+                "timestamp_to_append_ms": 120.525146484375,
+                "append_to_broadcast_ms": 24.83447265625,
+                "broadcast_to_write_return_ms": 13.97021484375,
+                "write_return_to_receive_ms": 52.62109375
+              },
+              {
+                "sequence": 19,
+                "transport": "cli",
+                "to_all_ms": 158.805419921875,
+                "timestamp_to_append_ms": 72.468505859375,
+                "append_to_broadcast_ms": 25.943115234375,
+                "broadcast_to_write_return_ms": 20.470703125,
+                "write_return_to_receive_ms": 39.923095703125
+              },
+              {
+                "sequence": 15,
+                "transport": "cli",
+                "to_all_ms": 157.86083984375,
+                "timestamp_to_append_ms": 50.851318359375,
+                "append_to_broadcast_ms": 66.53125,
+                "broadcast_to_write_return_ms": 13.990234375,
+                "write_return_to_receive_ms": 26.488037109375
+              }
+            ],
+            "trace_deliveries": [
+              {
+                "sequence": 0,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509580964.4363,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509581194.4216,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509580972.4924,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 1,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509585316.5142,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509585450.7852,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509585318.5757,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 2,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509581673.5283,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509581937.8953,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509581675.7932,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 3,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509586069.864,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509586666.076,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509586070.0334,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 4,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509582661.1587,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509583362.2373,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509582661.665,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 5,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509586763.883,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509587138.8757,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509586764.0127,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 6,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509583991.0098,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509584363.9539,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509583991.2117,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 7,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509587362.8645,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509587458.186,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509587363.002,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 8,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509584750.6323,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509585019.5107,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509584751.7214,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 9,
+                "transport": "http",
+                "attempts": [
+                  {
+                    "at": 1792509587632.3596,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  },
+                  {
+                    "at": 1792509587764.4924,
+                    "eventType": "item-updated",
+                    "source": "route"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509587633.4915,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 10,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509586067.405,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509586068.3557,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 11,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509591332.9187,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509591333.0588,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 12,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509587269.4773,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509587271.831,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 13,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509591869.041,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509591869.1724,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 14,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509586764.063,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509586764.1184,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 15,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509591215.3826,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509591215.6394,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 16,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509586625.6838,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509586626.215,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 17,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509591333.1045,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509591333.1687,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 18,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509587126.8662,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509587126.9915,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              },
+              {
+                "sequence": 19,
+                "transport": "cli",
+                "attempts": [
+                  {
+                    "at": 1792509592035.4116,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "emissions": [
+                  {
+                    "at": 1792509592035.543,
+                    "eventType": "workspace-changed",
+                    "source": "mutation-events"
+                  }
+                ],
+                "socket_writes": 100
+              }
+            ],
+            "resources": {
+              "fanout": {
+                "cpu_us": 46793,
+                "serialized_bytes": 5155,
+                "json_bytes": 3006,
+                "mutation_events": 20,
+                "mutation_frame_bytes": 3686,
+                "mutation_json_bytes": 2150,
+                "delivered_mutations": 2000,
+                "prepared_events": 28,
+                "response_writes": 2200,
+                "delivered_events": 2800,
+                "cpu_us_per_delivery": 16.711785714285714,
+                "serialized_bytes_per_event": 184.10714285714286,
+                "cpu_us_per_delivered_mutation": 23.3965,
+                "mutation_frame_bytes_per_event": 184.3,
+                "mutation_json_bytes_per_event": 107.5
+              },
+              "server_rss_peak_bytes": 201248768,
+              "server_cpu_core_percent": {
+                "samples": 70,
+                "p50": 3.7447280383980277,
+                "p95": 12.265566279275232,
+                "p99": 17.710023638093855,
+                "max": 17.710023638093855
+              },
+              "server_event_loop_p99_ms": 52.297727,
+              "generator_cpu_core_percent": 1.849771733533208,
+              "generator_event_loop_p99_ms": 42.303487,
+              "postgres_server_connections_peak": 20,
+              "postgres_database_connections_peak": 22,
+              "postgres_max_connections": 100,
+              "process_samples": 70,
+              "database_samples": 36,
+              "host_load_average_after": [
+                415.75,
+                406.74,
+                394.32
+              ],
+              "host_free_ram_after_bytes": 16946753536,
+              "host_load_average_before": [
+                413.49,
+                405.85,
+                393.83
+              ]
+            },
+            "server_error_counts": {},
+            "health_before": {
+              "ok": true,
+              "version": "2026.10.20",
+              "dependencies": {
+                "postgres": {
+                  "ok": true,
+                  "latency_ms": 0
+                },
+                "projects_root": {
+                  "ok": true,
+                  "latency_ms": 6
+                },
+                "project_watcher": {
+                  "ok": true,
+                  "latency_ms": 0
+                }
+              },
+              "status": "ok",
+              "realtime": {
+                "sse_clients": 100,
+                "sse_connections_total": 100,
+                "sse_disconnections_total": 0,
+                "broadcasts_total": 2,
+                "watcher_last_sweep_at": "2026-10-20T15:19:39.821Z",
+                "watcher_last_sweep_ms": 30,
+                "watcher_changes_total": 0,
+                "watcher_errors_total": 0
+              }
+            },
+            "health_after": {
+              "ok": true,
+              "version": "2026.10.20",
+              "dependencies": {
+                "postgres": {
+                  "ok": true,
+                  "latency_ms": 2
+                },
+                "projects_root": {
+                  "ok": true,
+                  "latency_ms": 2
+                },
+                "project_watcher": {
+                  "ok": true,
+                  "latency_ms": 0
+                }
+              },
+              "status": "ok",
+              "realtime": {
+                "sse_clients": 100,
+                "sse_connections_total": 100,
+                "sse_disconnections_total": 0,
+                "broadcasts_total": 40,
+                "watcher_last_sweep_at": "2026-10-20T15:19:54.818Z",
+                "watcher_last_sweep_ms": 26,
+                "watcher_changes_total": 1,
+                "watcher_errors_total": 0
+              }
+            },
+            "passed": false,
+            "first_observed_limit": "host scheduling or I/O pressure (load average above logical CPU count); cause unproven",
+            "event_index_audit": {
+              "source": "authoritative_history",
+              "missing_sequences": []
+            },
+            "write_receipts": [
+              {
+                "sequence": 0,
+                "transport": "http",
+                "committed_at": 1792509580719,
+                "write_error": false
+              },
+              {
+                "sequence": 1,
+                "transport": "http",
+                "committed_at": 1792509585169,
+                "write_error": false
+              },
+              {
+                "sequence": 2,
+                "transport": "http",
+                "committed_at": 1792509581423,
+                "write_error": false
+              },
+              {
+                "sequence": 3,
+                "transport": "http",
+                "committed_at": 1792509585619,
+                "write_error": false
+              },
+              {
+                "sequence": 4,
+                "transport": "http",
+                "committed_at": 1792509582200,
+                "write_error": false
+              },
+              {
+                "sequence": 5,
+                "transport": "http",
+                "committed_at": 1792509586324,
+                "write_error": false
+              },
+              {
+                "sequence": 6,
+                "transport": "http",
+                "committed_at": 1792509583736,
+                "write_error": false
+              },
+              {
+                "sequence": 7,
+                "transport": "http",
+                "committed_at": 1792509587222,
+                "write_error": false
+              },
+              {
+                "sequence": 8,
+                "transport": "http",
+                "committed_at": 1792509584493,
+                "write_error": false
+              },
+              {
+                "sequence": 9,
+                "transport": "http",
+                "committed_at": 1792509587487,
+                "write_error": false
+              },
+              {
+                "sequence": 10,
+                "transport": "cli",
+                "committed_at": 1792509585556,
+                "write_error": false
+              },
+              {
+                "sequence": 11,
+                "transport": "cli",
+                "committed_at": 1792509591150,
+                "write_error": false
+              },
+              {
+                "sequence": 12,
+                "transport": "cli",
+                "committed_at": 1792509586115,
+                "write_error": false
+              },
+              {
+                "sequence": 13,
+                "transport": "cli",
+                "committed_at": 1792509591726,
+                "write_error": false
+              },
+              {
+                "sequence": 14,
+                "transport": "cli",
+                "committed_at": 1792509586508,
+                "write_error": false
+              },
+              {
+                "sequence": 15,
+                "transport": "cli",
+                "committed_at": 1792509591098,
+                "write_error": false
+              },
+              {
+                "sequence": 16,
+                "transport": "cli",
+                "committed_at": 1792509586280,
+                "write_error": false
+              },
+              {
+                "sequence": 17,
+                "transport": "cli",
+                "committed_at": 1792509591164,
+                "write_error": false
+              },
+              {
+                "sequence": 18,
+                "transport": "cli",
+                "committed_at": 1792509586321,
+                "write_error": false
+              },
+              {
+                "sequence": 19,
+                "transport": "cli",
+                "committed_at": 1792509591937,
+                "write_error": false
+              }
+            ]
+          }
+        ],
+        "failure": null,
+        "stopped_early": false,
+        "command": "node scripts/with-test-db.ts node scripts/capacity.ts --rungs 100 --writers 10 --writes-per-writer 2 --slo-ms 1000 --drain-ms 5000 --trace true --output \"$CAPACITY_OUTPUT\""
+      }
+    }
+  ],
+  "scope": "Historical 100-viewer diagnostic; early uncommitted prototype compared with baseline. Both recorded revisions name the baseline checkout. This is not a final-runtime latency comparison."
+}

@@ -7,11 +7,9 @@ status: in_progress
 priority: 2
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-15T09:09:03.386Z"
-updated_at: "2026-10-20T20:43:55.278Z"
-assignee: codex-agent
-claim_principal: codex-agent
+updated_at: "2026-10-20T21:13:41.887Z"
 author: codex-agent
-comments[53]{created_at,author,text}:
+comments[54]{created_at,author,text}:
   "2026-10-16T08:11:29.603Z",codex-agent,"Additional real-PostgreSQL acceptance evidence from the route/bootstrap coverage candidate: the second final-floor npm run passes all 634 coverage tests and all four dimensions, then fails only test/capacity.acceptance.ts line 16: every delivery must meet the unchanged 2000 ms SLO. Earlier assertions pass for five committed writes, zero failed writes/lost/disconnected subscribers/duplicates, and five delivery samples. This is latency failure evidence, not mutation-loss evidence. The first final-floor npm and Bun gates pass, and both Node 22/26 CI matrix jobs pass their npm and Bun release gates on source/test commit e053bb1. Reproduction: npm run release:check with isolated Git identity and explicit fleet discovery; the second Bun repetition is still running. No SLO, capacity assertion or production behavior was changed."
   "2026-10-16T09:06:30.996Z",codex-agent,"Measuring unchanged origin/main first: three isolated 100-subscriber runs, 10 mixed writer lanes and 50 updates. Production watcher defaults and disposable test Postgres only. Then attribute each delivery stage, implement a measured repair if package-owned, prove behavioural revert, and repeat the ladder. No hosted resources or other agents are used."
   "2026-10-16T09:09:17.778Z",codex-agent,"Unchanged baseline at 3336ef6: three 100-subscriber runs all committed 50/50 writes with loss=0, duplicates=0. To-all p50/p95/p99/max ms: 145.3/583.0/1181.3/1181.3; 220.4/594.0/898.9/898.9; 149.7/462.9/913.2/913.2. Loop p99 22.0/25.1/24.2 ms; CPU p95 35.2/26.5/39.8 percent of one core; RSS 194.8/195.3/195.1 MiB. Initial uptime loads: 3.43,4.78,6.86; 4.73,4.94,6.83; 9.18,5.90,7.08. Historical 2163.5 ms breach did not reproduce. CLI tail exceeds HTTP; fan-out already shares serialization with no per-client awaits/auth reads. Next: opt-in test-only stage tracing including SDK index-lock waits and history append visibility, without changing production defaults."
@@ -65,8 +63,15 @@ comments[53]{created_at,author,text}:
   "2026-10-20T20:27:50.590Z",codex-agent,"The frozen worker-reader sequence completed all eight 100/1000-viewer runs and the first 3000-viewer baseline with exact delivery, then stopped before candidate measurement at 3000: project verification returned HTTP 500 around 1800 connected sockets, with zero observed disconnects. This is a setup failure, not a passing capacity sample. Preserve it as exploratory evidence. Diagnose initial verification separately with eight startup slots for more default-pool headroom, retaining the same 120-second warm-up and every delivery/auth/queue threshold. Runtime 90ac471 passed all four full npm/Bun release gates under Node 22/26: 712 suite tests, two capacity acceptance tests and four packed scenarios per gate, unchanged floors."
   "2026-10-20T20:41:11.829Z",codex-agent,"Establishing 3000 viewers with ordinary incremental rosters remained unstable: the eight-slot diagnostic disconnected readers during setup. Added an opt-in test-preload setup control for both builds: defer incremental presence until all real authenticated sockets connect, release one actual full roster through production fan-out, and require every socket receipt before resetting counters. Ordinary release joining remains unchanged. Real two-socket hold/release/normal-presence test passes; reverting only instrumentCapacitySetup fails 1/1, then byte-for-byte restoration passes. The controlled 3000 pilot delivered all 150000 mutation frames with 50 committed writes, zero loss/duplicates/disconnects; four HTTP acknowledgments failed under the 20-second experiment deadline. Comparison-only acknowledgment budget is now 120 seconds, separately from the unchanged 1-second latency verdict and ordinary 20-second release writer budget. Raw writer receipts retain safe error names/codes. This measures established fan-out; ordinary join-storm failures remain a published production limitation."
   "2026-10-20T20:43:55.224Z",codex-agent,"Deduplicated presence, roster and join-storm tracker searches; recorded ordinary joining failures and acceptance separately in follow-up pm-web-jstr. Keep that limitation explicit in the report and PR. The controlled setup test passed through pm test; 14 harness tests, TypeScript, lint, complete docstrings and zero duplication pass on the frozen comparison source."
-files[37]{path,scope}:
+  "2026-10-20T21:13:39.337Z",codex-agent,"Measurement stopped at the requested final 3000 pair. The final sequence contains nine completed runs with 370000 deliveries plus one baseline setup failure before writes. Reuse the earlier successful 3000 baseline for another 150000 deliveries: ten completed retained runs total 520000 delivered mutations, zero loss, duplicates, acknowledgment failures or disconnects. All selected runs fit the same-host 54.86-minute interval. Supplemental baseline is labeled separately, with its earlier harness checkpoint and 20-second acknowledgment budget; final runs used 120 seconds. Production artifacts and scoped CPU probe match across checkpoints. Found and fixed preload registration order after measurement: baseline source replacement had discarded the setup hold, while candidate setup deferred incremental presence. Both still required every complete real roster before counters reset; warm-up asymmetry is an explicit attribution limit. New real source-replacement regression passes, fails 1/1 with only registration order reverted, then passes after byte-for-byte restoration. Final harness tests pass 15/15, typecheck/lint/docstrings pass. Measured source 3f86759 passed all four full npm/Bun release gates under Node 22/26: 713 suite tests, two real capacity tests and four packed scenarios per execution; unchanged floors. Final PR-head CI will cover the setup-order correction. Exact owned disposable database OID/marker/owner matched, zero rows/connections remained, drop used no force, absence was verified, and the protected credential record was removed. Report and raw receipts are linked. No further load measurements."
+files[43]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
+  docs/capacity/2026-10-20-fanout-cleanup.json,project
+  docs/capacity/2026-10-20-fanout-exploratory.json,project
+  docs/capacity/2026-10-20-fanout-numbers.json,project
+  docs/capacity/2026-10-20-fanout-profile.json,project
+  docs/capacity/2026-10-20-fanout-validation.json,project
+  docs/capacity/2026-10-20-fanout.md,project
   docs/realtime-fanout.md,project
   public/src/app.ts,project
   README.md,project
@@ -186,10 +191,11 @@ tests[10]:
       created_at: "2026-10-20T20:41:19.786Z"
       source_kind: local_mutation
       source_ref: perf/realtime-fanout-thousands
-docs[5]{path,scope}:
+docs[6]{path,scope}:
   docs/capacity.md,project
   docs/capacity/2026-10-15-local.md,project
   docs/capacity/2026-10-16-local.md,project
   docs/capacity/2026-10-19-ladder.md,project
+  docs/capacity/2026-10-20-fanout.md,project
   docs/realtime-fanout.md,project
 body: ""

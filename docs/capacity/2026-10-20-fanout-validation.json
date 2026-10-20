@@ -1,6 +1,7 @@
 {
-  "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
-  "ci_url": "https://github.com/unbraind/pm-web/actions/runs/39487382504",
+  "revision": "3f86759a42d6fcfeb5d0eb014861013da71c0c47",
+  "scope": "Measured source receipt. Final preload-order fix and PR-head results are linked in the PR.",
+  "ci_url": "https://github.com/unbraind/pm-web/actions/runs/39494784168",
   "coverage_thresholds": {
     "statements": 92.07,
     "branches": 80.5,
@@ -9,13 +10,13 @@
   },
   "intended_source_files": 42,
   "duplication_percent": 0,
-  "docstring_files": 139,
-  "documented_declarations": 784,
+  "docstring_files": 140,
+  "documented_declarations": 785,
   "executions": [
     {
       "node_major": 22,
       "command": "npm run release:check",
-      "suite_tests": 712,
+      "suite_tests": 713,
       "capacity_acceptance_tests": 2,
       "packed_acceptance_scenarios": 4,
       "failures": 0,
@@ -31,7 +32,7 @@
     {
       "node_major": 22,
       "command": "bun run release:check",
-      "suite_tests": 712,
+      "suite_tests": 713,
       "capacity_acceptance_tests": 2,
       "packed_acceptance_scenarios": 4,
       "failures": 0,
@@ -47,23 +48,7 @@
     {
       "node_major": 26,
       "command": "npm run release:check",
-      "suite_tests": 712,
-      "capacity_acceptance_tests": 2,
-      "packed_acceptance_scenarios": 4,
-      "failures": 0,
-      "cancellations": 0,
-      "skips": 0,
-      "coverage_percent": {
-        "statements": 92.62,
-        "branches": 82.37,
-        "functions": 96.42,
-        "lines": 92.62
-      }
-    },
-    {
-      "node_major": 26,
-      "command": "bun run release:check",
-      "suite_tests": 712,
+      "suite_tests": 713,
       "capacity_acceptance_tests": 2,
       "packed_acceptance_scenarios": 4,
       "failures": 0,
@@ -72,6 +57,22 @@
       "coverage_percent": {
         "statements": 92.62,
         "branches": 82.36,
+        "functions": 96.42,
+        "lines": 92.62
+      }
+    },
+    {
+      "node_major": 26,
+      "command": "bun run release:check",
+      "suite_tests": 713,
+      "capacity_acceptance_tests": 2,
+      "packed_acceptance_scenarios": 4,
+      "failures": 0,
+      "cancellations": 0,
+      "skips": 0,
+      "coverage_percent": {
+        "statements": 92.62,
+        "branches": 82.35,
         "functions": 96.42,
         "lines": 92.62
       }

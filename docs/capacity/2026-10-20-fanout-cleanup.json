@@ -1,0 +1,10 @@
+{
+  "ownership_receipt_sha256": "cc8a966e76d2ec8025bbe9a937db0f039738eda8704c88ef37954fb43a0ed3ac",
+  "exact_database_oid_marker_and_owner_matched": true,
+  "fixture_users_remaining": 0,
+  "fixture_projects_remaining": 0,
+  "connections_before_drop": 0,
+  "drop_used_force": false,
+  "database_absent_after_drop": true,
+  "existing_test_database_retained": true
+}

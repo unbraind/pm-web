@@ -1,6 +1,6 @@
 /** Test-only preload: observe the actual production process through a private IPC channel. */
-import "./capacity-setup-probe.ts";
 import { fanoutMeasurement, resetFanoutMeasurement } from "./capacity-fanout-probe.ts";
+import "./capacity-setup-probe.ts";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import fs from "node:fs/promises";
 import path from "node:path";
