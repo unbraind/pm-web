@@ -226,3 +226,36 @@ and committed dist from `9415541`; it changes only pm records and this document.
 Local strict health separately reports an installed-extension version skew and
 stale active-item warnings; fresh CI uses the pinned extension and passes health.
 No new pm CLI/SDK defect was identified in this round.
+
+## Outside-diff configuration documentation review
+
+The next complete review read found zero unresolved inline threads and no
+pagination gaps. CodeRabbit review `PRR_kwDOSZgR5c8AAAABTR3jXw` reports one
+outside-diff finding at `README.md:144` (fingerprint
+`158f0c65fd1f0464cbb39328`). The environment table incorrectly required
+`DATABASE_URL`, although the setup text, validator, pool and doctor support
+`POSTGRES_HOST` plus `POSTGRES_DB` instead. The table now lists both methods as
+alternatives and documents the optional discrete port and credentials.
+
+Whole-diff self-review found two more instances of misleading requirement
+wording: the table made `JWT_SECRET` unconditionally required and described
+optional OIDC validation as unconditionally strict. It now describes production
+signing requirements and OIDC soft-disable outside production, consistent with
+the existing runtime and startup regressions.
+
+`node --test test/startup-docs.test.ts` passes 3/3 directly and through
+`pm test pm-web-onv4 --run --progress --only-last`. The contracts compare the
+table with actual validator results for alternative and incomplete database
+settings, production signing configuration and partial OIDC settings.
+
+Each independent revert restores only its original README table row, retaining
+the fixed tests and all other changes. No build is needed for these documentation
+reverts. Each command below fails its intended assertion with exit 1, zero passed
+and one failed test, without timeouts, cancellations or skips. Fixed documentation
+was restored after each proof, then the full docs suite passed 3/3 again.
+
+| Reverted row | Exact command |
+| --- | --- |
+| `DATABASE_URL` required unconditionally | `node --test --test-reporter=tap --test-name-pattern="README database" test/startup-docs.test.ts` |
+| `JWT_SECRET` required unconditionally | `node --test --test-reporter=tap --test-name-pattern="README signing" test/startup-docs.test.ts` |
+| OIDC validation unconditionally strict | `node --test --test-reporter=tap --test-name-pattern="README OIDC" test/startup-docs.test.ts` |

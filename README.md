@@ -141,8 +141,11 @@ pm web doctor --json
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `JWT_SECRET` | Yes | Secret for signing JWT tokens |
+| `DATABASE_URL` | Unless `POSTGRES_HOST` + `POSTGRES_DB` are set | PostgreSQL connection string; alternative to the discrete settings below |
+| `POSTGRES_HOST` / `POSTGRES_DB` | Unless `DATABASE_URL` is set | PostgreSQL host and database; set both for discrete configuration |
+| `POSTGRES_PORT` | No | Discrete PostgreSQL port (default: `5432`) |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` | No | Optional discrete PostgreSQL credentials |
+| `JWT_SECRET` | In production | Secret for signing JWT tokens; an unset value uses a random development secret outside production |
 | `PM_WEB_SECRET_KEY` | Recommended | At-rest encryption key for saved GitHub PATs. Falls back to `JWT_SECRET`; use at least 32 characters |
 | `PM_WEB_BOOTSTRAP_ADMIN_EMAIL` | Recommended | Email of the user account to auto-promote to admin on schema init. Leave unset to skip auto-promotion (manage admins via the admin UI). |
 | `PORT` | No | Server port (default: 4000) |
@@ -161,7 +164,7 @@ pm web doctor --json
 | `NEO4J_USER` / `NEO4J_USERNAME` | No | Neo4j username |
 | `NEO4J_PASSWORD` | No | Neo4j password |
 | `PM_WEB_LEGAL_DIR` | Production | Absolute path to a complete, private, operator-reviewed legal-page overlay; see `docs/LEGAL_DEPLOYMENT_BOUNDARY.md` |
-| `OIDC_ISSUER` | No | Provider issuer URL; setting any OIDC variable enables strict configuration validation |
+| `OIDC_ISSUER` | With OIDC | Provider issuer URL; incomplete or invalid OIDC settings fail startup in production and are soft-disabled outside production |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | With OIDC | OIDC confidential client credentials |
 | `OIDC_REDIRECT_URI` | With OIDC | Exact HTTPS callback URL ending in `/api/auth/oidc/callback` in production |
 | `OIDC_COOKIE_SECRET` | With OIDC | Dedicated secret for signed, short-lived login state; at least 32 characters in production |
