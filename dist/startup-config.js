@@ -15,14 +15,27 @@ export function postgresPort(env = process.env) {
 export function databaseConfigIssues(env = process.env) {
     const issues = [];
     if (env.DATABASE_URL) {
+        const raw = env.DATABASE_URL;
+        // pg treats a leading slash as a bare socket directory, optionally followed by a database.
+        if (raw.startsWith("/"))
+            return issues;
         try {
-            const url = new URL(env.DATABASE_URL);
-            const host = url.searchParams.get("host") || url.hostname;
-            if (!["postgres:", "postgresql:"].includes(url.protocol) || !host.trim() || url.hash)
+            let url;
+            let dummyHost = false;
+            try {
+                url = new URL(raw);
+            }
+            catch {
+                // Match pg's fallback for credentials with an empty authority host.
+                url = new URL(raw.replace("@/", "@___DUMMY___/"));
+                dummyHost = true;
+            }
+            const host = url.protocol === "socket:" ? decodeURI(url.pathname) : url.searchParams.get("host") || (dummyHost ? "" : url.hostname);
+            if (!["postgres:", "postgresql:", "socket:"].includes(url.protocol) || !host.trim() || url.hash)
                 throw new Error();
         }
         catch {
-            issues.push("DATABASE_URL must be a PostgreSQL URL with a host; export DATABASE_URL with your PostgreSQL connection settings.");
+            issues.push("DATABASE_URL must be a PostgreSQL connection string with a host; export DATABASE_URL with your PostgreSQL connection settings.");
         }
     }
     else {

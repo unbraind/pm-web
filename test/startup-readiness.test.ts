@@ -131,6 +131,24 @@ test("database preflight accepts empty URL fallback and pg database defaults in 
   }
 });
 
+test("credentialed empty-host URLs reach the real database through built startup and both doctors", { timeout: 90_000 }, async (t) => {
+  const f = await fixture(t);
+  const original = new URL(f.env.DATABASE_URL!);
+  const url = new URL(queryHostDatabaseUrl(original.href));
+  url.searchParams.delete("user");
+  url.searchParams.delete("password");
+  const connectionString = `${url.protocol}//${original.username}:${original.password}@${url.pathname}${url.search}`;
+  const changes = { DATABASE_URL: connectionString };
+  assert.deepEqual(databaseConfigIssues(changes), []);
+  await f.startHealthy(changes);
+  const doctor = await f.command("web doctor", {}, changes);
+  assert.match(doctor.output, /"name":\s*"database",\s*"ok":\s*true/);
+  const source = await run(["test/helpers/source-doctor-command.ts"], { ...f.env, ...changes });
+  assert.equal(source.code, 0, source.output);
+  assert.equal((JSON.parse(source.output) as { ok: boolean }).ok, true);
+  assert.equal((await f.command("web stop")).code, 0);
+});
+
 test("empty optional numeric settings preserve runtime defaults and reject explicit invalid values", { timeout: 60_000 }, async (t) => {
   const f = await fixture(t);
   const empty = { PORT: "", PM_WEB_DB_POOL_MAX: "", PM_WEB_STARTUP_TIMEOUT_MS: "" };

@@ -353,3 +353,32 @@ Independent behavioral reverts retain all fixed tests:
 Both failures are intended assertion failures with zero timeouts, cancellations
 or skips. Fixed files were restored and the focused suite passed 5/5 again.
 No runtime source, dependency pin, coverage threshold or test deadline changed.
+
+## Review round: PostgreSQL socket connection syntax
+
+Thread `PRRT_kwDOSZgR5c6ufsM1` identified valid driver syntax rejected by the
+preflight. The shared validator now accepts bare socket paths, `socket:` URLs,
+and credentialed empty-host URLs whose query provides the host, using the same
+placeholder-authority fallback as `pg`. Unsupported protocols, missing hosts,
+URL fragments and malformed authorities still produce setting-name-only errors.
+
+`test/startup-socket-config.test.ts` compares all three forms against the real
+driver's parsed host and database and checks both source and committed output.
+The real-database regression in `test/startup-readiness.test.ts` exercises the
+credentialed empty-host form through built detached readiness and both source and
+built doctor checks. It uses a query-provided TCP host so the integration test
+also works on platforms without Unix sockets. README lists the supported forms.
+
+The focused startup, socket, documentation and secret-fixture suites pass 27/27,
+with no failures, cancellations, skips or todo tests. The socket suite also
+passes 4/4 through the pinned pm linked-test runner. For the behavioral revert,
+only `databaseConfigIssues` was restored to its incoming implementation, the
+server was rebuilt, and all fixed tests were retained:
+
+| Exact command after `npm run build:server` | Reverted result |
+| --- | --- |
+| `node --test test/startup-socket-config.test.ts` | Exit 1; three accepted-socket cases fail, invalid-input control passes (1/4 passed) |
+| `node scripts/with-test-db.ts node --test --test-name-pattern="credentialed empty-host" test/startup-readiness.test.ts` | Exit 1; intended configuration assertion fails (0/1 passed) |
+
+Both failures are assertion failures with zero timeouts, cancellations or skips.
+The fixed function and committed build were restored after the proof.
