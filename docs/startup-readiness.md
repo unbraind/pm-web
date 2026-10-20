@@ -173,3 +173,12 @@ Base command: `node scripts/with-test-db.ts node --test
 | Reject empty optional numeric environment settings | `empty optional numeric` | 0/1 passed; exit 1 |
 | Reject empty discrete PostgreSQL port | `empty optional numeric` | 0/1 passed; exit 1 |
 | Reject empty startup-timeout environment in launcher | `empty optional numeric` | 0/1 passed; exit 1 |
+
+The existing bootstrap lifecycle test now requires an actionable foreground
+configuration error for a missing JWT secret. It restores valid signing
+configuration before independently proving that a missing source-wrapper child
+still propagates a numeric child-exit error. This keeps refusal-before-spawn and
+actual child failure as separate assertions. The focused lifecycle selection
+passes 1/1; reverting only the foreground preflight and rebuilding makes it fail
+0/1 with exit 1. Command: `node scripts/with-test-db.ts node --test
+--test-name-pattern="the extension starts, probes" test/server-bootstrap.test.ts`.

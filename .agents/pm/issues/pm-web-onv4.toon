@@ -6,12 +6,12 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-05-29T15:44:53.057Z"
-updated_at: "2026-10-20T16:13:55.530Z"
+updated_at: "2026-10-20T16:32:14.862Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex
 parent: pm-web-ul0n
-comments[23]{created_at,author,text}:
+comments[25]{created_at,author,text}:
   "2026-10-20T10:00:09.069Z",codex-agent,"Confirmed the missing-database guard is hidden by generic error redaction. Plan: value-free startup validation before binding, database configuration/reachability/schema doctor check, built-process regressions, and explicit plain-directory SDK acceptance."
   "2026-10-20T10:10:10.720Z",codex-agent,"Built-process doctor and no-git acceptance passed (2/2): database missing/unreachable/schema-missing/current diagnostics, read-only schema inspection, and SDK create/get/update/list with no git executable. Restoring the old startup guard made both foreground diagnostic regressions fail (0/2), exit 1, after rebuilding; full revert receipts follow."
   "2026-10-20T10:11:15.039Z",codex-agent,"Behavioral revert proof: restored only the old startup guard placement and generic logging, rebuilt, then node scripts/with-test-db.ts node --test --test-name-pattern=\"foreground built|built server reports every invalid\" test/startup-readiness.test.ts failed 2/2 (exit 1). Restored fixed sources and rebuilt."
@@ -35,7 +35,9 @@ comments[23]{created_at,author,text}:
   "2026-10-20T16:01:09.061Z",codex-agent,"First full npm gate stopped at the unchanged zero-duplication threshold: two repeated assertion blocks in the new tests (8 duplicated lines). Refactored shared built-child readiness assertions into a documented fixture helper, retaining exit/status/HTTP/JSON assertions and the existing parent-exit/live-pidfile checks. Production code is unchanged by this test refactor. Repeat all seven behavioral reverts against the final tests, then rerun npm and Bun full release gates. No thresholds or deadlines relaxed."
   "2026-10-20T16:03:41.802Z",codex-agent,"Final test refactor clears duplication at 0% (zero clone pairs). Repeated all seven behavioral reverts against these exact tests: six single-test selections fail 0/1 each and the foreground built|real CLI selection fails 0/2, all exit 1 from intended assertions with zero timeouts/cancellations/skips. Restored final code and rebuilt committed dist. Restarted full npm then Bun release checks sequentially with fresh HOME and disabled global/system Git config, recording hashes of 261 runtime/test/build inputs and checking for drift after each gate. Thresholds, source scope and repository deadlines remain unchanged."
   "2026-10-20T16:13:55.527Z",codex-agent,"Current npm full run reproduces the previously tracked catalog 300-second timeout and subsequent source-case failure under heavy shared-host load (pm-web-qdhx); it is continuing to collect the rest of the suite. Typecheck, lint, zero-duplication and 764 documented declarations pass. All seven final behavioral revert proofs are complete. Push the concrete fixes with this evidence so the existing CI can verify both complete npm and Bun release gates on Node 22 and 26 independently of local load. Keep all existing deadlines, thresholds and dependency pins unchanged. Gate completion and CI results will be recorded before the final handoff."
-files[14]{path,scope}:
+  "2026-10-20T16:28:08.151Z",codex-agent,"CI source-head run 39455980587 completed both npm suites: 703 tests, 702 passed, 1 failed, zero cancellations/skips. Catalog and graph timing failures from the overloaded local host pass in CI. The sole genuine failure is an existing bootstrap assertion expecting generic child exit for an empty JWT secret; preflight now correctly refuses before spawn. Updated that assertion to require the actionable configuration error, then restore the valid secret before the separate source-wrapper missing-child scenario so child-failure coverage remains intact. Node 22 also missed the unchanged function floor because the early assertion aborted the rest of this lifecycle test. Interrupted only the superseded local gate process group after recording its catalog/graph timing failures. Focused validation and another bootstrap revert proof precede the next CI full gates."
+  "2026-10-20T16:32:14.862Z",codex-agent,"Corrected bootstrap lifecycle selection passes 1/1 directly and 1/1 through pm test --run --progress --only-last --timeout 600. It separately proves actionable missing-JWT refusal and a real numeric missing-child error after restoring valid signing configuration. New behavioral revert: removed only the foreground preflight block, rebuilt, and ran node scripts/with-test-db.ts node --test --test-name-pattern=\"the extension starts, probes\" test/server-bootstrap.test.ts; failed 0/1 with exit 1 on the intended preflight-error assertion, no timeout/cancellation/skip. Restored fixed code and rebuilt; production source/dist match 4fbead1. Total this round: 8 independent behavioral reverts, 9 intended failing cases. Duplication remains 0% and test TypeScript build passes. Push the assertion correction for full Node 22/26 npm and Bun CI gates."
+files[15]{path,scope}:
   sql/schema.sql,project
   src/database-check.ts,project
   src/db.ts,project
@@ -49,10 +51,12 @@ files[14]{path,scope}:
   test/helpers/startup-doctor-human.ts,project
   test/helpers/startup-no-git.ts,project
   test/oidc.test.ts,project
+  test/server-bootstrap.test.ts,project
   test/startup-readiness.test.ts,project
-tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T10:07:14.248Z",local_mutation,fix/startup-preflight-and-detached-health
   node scripts/with-test-db.ts node --test --test-name-pattern=empty.optional.numeric test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T15:57:28.059Z",local_mutation,fix/startup-preflight-and-detached-health
+  "node scripts/with-test-db.ts node --test --test-name-pattern=the.extension.starts,.probes test/server-bootstrap.test.ts",project,codex-agent,"2026-10-20T16:30:36.345Z",local_mutation,fix/startup-preflight-and-detached-health
 docs[2]{path,scope}:
   docs/startup-readiness.md,project
   README.md,project
