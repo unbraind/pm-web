@@ -1,5 +1,5 @@
 import pg from "pg";
-import { databaseConfigIssues } from "./startup-config.js";
+import { databaseConfigIssues, postgresPort } from "./startup-config.js";
 import { DATABASE_SCHEMA_VERSION } from "./database-check.js";
 const { Pool } = pg;
 /**
@@ -18,7 +18,7 @@ function resolvePoolConfig() {
     if (process.env.POSTGRES_HOST && process.env.POSTGRES_DB) {
         return {
             host: process.env.POSTGRES_HOST,
-            port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
+            port: postgresPort(),
             user: process.env.POSTGRES_USER,
             password: process.env.POSTGRES_PASSWORD,
             database: process.env.POSTGRES_DB,

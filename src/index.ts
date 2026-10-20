@@ -3,7 +3,7 @@
 
 import { startDetached } from "./detached-start.ts";
 import { checkDatabase } from "./database-check.ts";
-import { integerSetting } from "./startup-config.ts";
+import { integerSetting, startupConfigIssues } from "./startup-config.ts";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -351,7 +351,7 @@ export default defineExtension({
         try {
           integerSetting(port, "--port / PORT", 0, 65535);
           // CLI hosts camel-case flags; embedded callers can use their literal names.
-          const configuredTimeout = ctx.options["startupTimeout"] ?? ctx.options["startup-timeout"] ?? process.env.PM_WEB_STARTUP_TIMEOUT_MS ?? "30000";
+          const configuredTimeout = ctx.options["startupTimeout"] ?? ctx.options["startup-timeout"] ?? (process.env.PM_WEB_STARTUP_TIMEOUT_MS || "30000");
           timeout = integerSetting(String(configuredTimeout), "--startup-timeout / PM_WEB_STARTUP_TIMEOUT_MS", 1, 300000);
         } catch (error) { throw new CommandError((error as Error).message, 2); }
 
@@ -374,6 +374,8 @@ export default defineExtension({
         }
 
         // Foreground mode — the server takes over the process
+        const issues = startupConfigIssues({ ...process.env, PORT: port });
+        if (issues.length) throw new CommandError(`pm-web startup preflight failed:\n${issues.join("\n")}`);
         console.error(`Starting pm-web on port ${port}…`);
         console.error("Press Ctrl+C to stop.\n");
 

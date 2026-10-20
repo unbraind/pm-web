@@ -13,6 +13,9 @@ and sharing, plus a writable `PROJECTS_ROOT` for plain-directory trackers. Provi
 `DATABASE_URL`, or `POSTGRES_HOST` and `POSTGRES_DB` with optional
 `POSTGRES_PORT` (default `5432`), `POSTGRES_USER` and `POSTGRES_PASSWORD`.
 PostgreSQL URLs may supply `host` in the query, including a Unix socket directory.
+An empty `DATABASE_URL` uses the discrete settings. A URL may omit the database
+path to use the PostgreSQL driver's defaults. Empty optional numeric environment
+settings use their documented defaults; nonempty invalid values are rejected.
 Production also requires `JWT_SECRET`. Startup validates settings before binding
 and names missing or invalid settings without printing credentials or connection
 strings. The database user needs permission to create and alter the packaged schema.

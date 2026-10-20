@@ -6,7 +6,8 @@ and an isolated PostgreSQL test server were used.
 ## Observable behavior without database settings
 
 `$port` below denotes a free scratch port. The first diagnostic lines are shown;
-foreground startup also retains its existing starting/Ctrl+C banner.
+foreground startup prints its starting/Ctrl+C banner only after configuration
+preflight succeeds.
 
 | Command | Before exit / first diagnostic lines | After exit / first diagnostic lines |
 | --- | --- | --- |
@@ -46,7 +47,7 @@ without modifying the database. PostgreSQL URLs with a query-provided host are
 accepted by the preflight and exercised against a real database and built server. The README describes PostgreSQL prerequisites
 and plain-directory tracker operation without git.
 
-## Full release checks
+## Initial implementation release checks
 
 The final `npm run release:check` and `bun run release:check` both exited 0.
 Each used a fresh HOME, `GIT_CONFIG_GLOBAL=/dev/null`,
@@ -127,3 +128,48 @@ acceptance of already-working behavior rather than a newly fixed no-git defect.
 Reopening the two existing released items causes the required full changelog
 regeneration to omit their former historical entries. History records remain
 append-only; the generated changelog is retained exactly as checked by the gate.
+
+## PR 230 review round
+
+All comments in both unresolved review threads were read, including pagination
+receipts confirming no omitted threads or comments. The latest CodeRabbit review
+had no outside-diff findings. Both findings were valid.
+
+| Thread or finding | Fix |
+| --- | --- |
+| `PRRT_kwDOSZgR5c6uZXBh` | Match the pool and doctor's truthy `DATABASE_URL` selection. An empty value falls back to discrete settings. Permit an omitted database path so `pg` can apply its database defaults. Keep whitespace-only values invalid, matching the runtime's URL selection. |
+| `PRRT_kwDOSZgR5c6uZXB1` | Preserve non-production OIDC soft-disable behavior while retaining production configuration refusal. |
+| Orchestrator: premature foreground banner | Run the shared configuration preflight with the effective port before printing either foreground progress line. The child still independently validates its own configuration. |
+| Self-review: empty optional numeric settings | Preserve runtime defaults for empty port, pool-size and startup-timeout environment settings. Share discrete PostgreSQL port resolution between validation, pool and doctor. Explicit invalid flags and nonempty invalid numeric values still fail. |
+
+Whole-PR self-review checked the configuration consumers, server bootstrap,
+doctor, detached readiness, and progress/success output for the same defects.
+The database fix also applies to the source assertion, doctor and detached child
+through their shared validator. Detached success already follows child-owned
+readiness. The additional empty-numeric-settings defect is fixed as listed above.
+
+New real-process regressions exercise empty-URL discrete fallback and an omitted
+database path with `PGDATABASE`, through both built startup and doctor. OIDC tests
+cover incomplete and invalid settings in development and test, production
+refusal, and unset `NODE_ENV`. The actual CLI runs `web --json` in a non-git
+temporary tracker and must fail without either foreground progress line. Valid
+preflight still prints progress when a later bind operation fails.
+Empty numeric settings are exercised in source validation and real built
+detached startup, with explicit invalid-value and invalid-flag controls.
+
+Each independent behavioral revert rebuilt the server and ran the unchanged
+selection below. Every failure was the intended assertion, with no timeout,
+cancellation or skip. Fixed sources were restored and rebuilt afterwards.
+
+Base command: `node scripts/with-test-db.ts node --test
+--test-name-pattern="PATTERN" test/startup-readiness.test.ts`.
+
+| Reverted behavior | Pattern | Reverted result |
+| --- | --- | --- |
+| Treat empty `DATABASE_URL` as supplied | `database preflight` | 0/1 passed; exit 1 |
+| Require database path in URL | `database preflight` | 0/1 passed; exit 1 |
+| Make non-production OIDC soft-disable fatal | `OIDC preflight` | 0/1 passed; exit 1 |
+| Remove foreground preflight before banner | `foreground built\|real CLI` | 0/2 passed; exit 1 |
+| Reject empty optional numeric environment settings | `empty optional numeric` | 0/1 passed; exit 1 |
+| Reject empty discrete PostgreSQL port | `empty optional numeric` | 0/1 passed; exit 1 |
+| Reject empty startup-timeout environment in launcher | `empty optional numeric` | 0/1 passed; exit 1 |

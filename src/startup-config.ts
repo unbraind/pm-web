@@ -9,26 +9,29 @@ export function integerSetting(value: string, name: string, min: number, max: nu
   return parsed;
 }
 
+/** Resolve the discrete PostgreSQL port, treating an empty setting as unset. */
+export function postgresPort(env: NodeJS.ProcessEnv = process.env): number {
+  return integerSetting(env.POSTGRES_PORT || "5432", "POSTGRES_PORT", 1, 65535);
+}
+
 /** Return all database configuration problems using setting names only. */
 export function databaseConfigIssues(env: NodeJS.ProcessEnv = process.env): string[] {
   const issues: string[] = [];
-  if (env.DATABASE_URL !== undefined) {
+  if (env.DATABASE_URL) {
     try {
       const url = new URL(env.DATABASE_URL);
       const host = url.searchParams.get("host") || url.hostname;
-      if (!["postgres:", "postgresql:"].includes(url.protocol) || !host.trim() || url.pathname.length < 2 || url.hash) throw new Error();
+      if (!["postgres:", "postgresql:"].includes(url.protocol) || !host.trim() || url.hash) throw new Error();
     } catch {
-      issues.push("DATABASE_URL must be a PostgreSQL URL with a host and database; export DATABASE_URL with your PostgreSQL connection settings.");
+      issues.push("DATABASE_URL must be a PostgreSQL URL with a host; export DATABASE_URL with your PostgreSQL connection settings.");
     }
   } else {
     for (const name of ["POSTGRES_HOST", "POSTGRES_DB"]) {
       if (!env[name]?.trim()) issues.push(`${name} is missing; export ${name}, or export DATABASE_URL instead.`);
     }
     if (issues.length) issues.unshift("DATABASE_URL is not set. pm-web requires PostgreSQL.");
-    if (env.POSTGRES_PORT !== undefined) {
-      try { integerSetting(env.POSTGRES_PORT, "POSTGRES_PORT", 1, 65535); }
-      catch (error) { issues.push((error as Error).message); }
-    }
+    try { postgresPort(env); }
+    catch (error) { issues.push((error as Error).message); }
   }
   return issues;
 }
@@ -40,7 +43,7 @@ export function startupConfigIssues(env: NodeJS.ProcessEnv = process.env): strin
     ["PORT", "4000", 0, 65535], ["PM_WEB_DB_POOL_MAX", "20", 2, 10000],
     ["PM_WEB_STARTUP_TIMEOUT_MS", "30000", 1, 300000],
   ] as const) {
-    try { integerSetting(env[name] ?? fallback, name, min, max); }
+    try { integerSetting(env[name] || fallback, name, min, max); }
     catch (error) { issues.push((error as Error).message); }
   }
   if (env.JWT_SECRET === "" || (env.NODE_ENV === "production" && !env.JWT_SECRET?.trim())) {
@@ -48,7 +51,7 @@ export function startupConfigIssues(env: NodeJS.ProcessEnv = process.env): strin
   }
   try {
     const oidc = resolveOidcSettings(env);
-    if (!oidc.enabled && oidc.reason) issues.push(`${oidc.reason} Set the named OIDC_* environment variables or unset OIDC configuration.`);
+    if (!oidc.enabled && oidc.reason && env.NODE_ENV === "production") issues.push(`${oidc.reason} Set the named OIDC_* environment variables or unset OIDC configuration.`);
   } catch (error) {
     issues.push(`${(error as Error).message} Set the named OIDC_* environment variables or unset OIDC configuration.`);
   }

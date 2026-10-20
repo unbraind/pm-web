@@ -2,7 +2,7 @@
 // This file registers the web server as a pm extension command.
 import { startDetached } from "./detached-start.js";
 import { checkDatabase } from "./database-check.js";
-import { integerSetting } from "./startup-config.js";
+import { integerSetting, startupConfigIssues } from "./startup-config.js";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -291,7 +291,7 @@ export default defineExtension({
                 try {
                     integerSetting(port, "--port / PORT", 0, 65535);
                     // CLI hosts camel-case flags; embedded callers can use their literal names.
-                    const configuredTimeout = ctx.options["startupTimeout"] ?? ctx.options["startup-timeout"] ?? process.env.PM_WEB_STARTUP_TIMEOUT_MS ?? "30000";
+                    const configuredTimeout = ctx.options["startupTimeout"] ?? ctx.options["startup-timeout"] ?? (process.env.PM_WEB_STARTUP_TIMEOUT_MS || "30000");
                     timeout = integerSetting(String(configuredTimeout), "--startup-timeout / PM_WEB_STARTUP_TIMEOUT_MS", 1, 300000);
                 }
                 catch (error) {
@@ -316,6 +316,9 @@ export default defineExtension({
                     return { status: "started", port: Number(port), pid: started.pid };
                 }
                 // Foreground mode — the server takes over the process
+                const issues = startupConfigIssues({ ...process.env, PORT: port });
+                if (issues.length)
+                    throw new CommandError(`pm-web startup preflight failed:\n${issues.join("\n")}`);
                 console.error(`Starting pm-web on port ${port}…`);
                 console.error("Press Ctrl+C to stop.\n");
                 const child = spawn("node", [serverPath], {

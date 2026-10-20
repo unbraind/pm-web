@@ -9,7 +9,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import pg from "pg";
-import { databaseConfigIssues, integerSetting, redactStartupLog, startupConfigIssues } from "../src/startup-config.ts";
+import { databaseConfigIssues, integerSetting, postgresPort, redactStartupLog, startupConfigIssues } from "../src/startup-config.ts";
 
 /** Capture a subprocess through actual close, rejecting hangs and external signals. */
 async function run(args: string[], env: NodeJS.ProcessEnv, cwd?: string) {
@@ -65,7 +65,22 @@ async function fixture(t: test.TestContext) {
   /** Execute a registered command in a fresh process using the built extension. */
   const command = (name: string, options: Record<string, unknown> = {}, changes: NodeJS.ProcessEnv = {}) =>
     run(["test/helpers/startup-command.ts", name, JSON.stringify({ port, ...options })], { ...env, ...changes });
-  return { root, env, port, pidfile, command };
+  /** Require a built detached child to report started and serve healthy JSON. */
+  const startHealthy = async (changes: NodeJS.ProcessEnv = {}) => {
+    const result = await command("web", { detach: true }, changes);
+    assert.equal(result.code, 0, result.output);
+    assert.match(result.output, /"status":"started"/);
+    const health = await fetch(`http://127.0.0.1:${port}/healthz`);
+    assert.equal(health.status, 200);
+    assert.equal((await health.json() as { ok: boolean }).ok, true);
+  };
+  /** Occupy the chosen port with a separate healthy listener until cleanup. */
+  const occupyPort = async () => {
+    const listener = createServer((socket) => { socket.end('HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\n{"ok":true}'); });
+    await new Promise<void>((resolve) => { listener.listen(port, resolve); });
+    t.after(() => new Promise<void>((resolve) => { listener.close(() => resolve()); }));
+  };
+  return { root, env, port, pidfile, command, startHealthy, occupyPort };
 }
 
 for (const detach of [false, true]) {
@@ -81,6 +96,8 @@ for (const detach of [false, true]) {
     if (detach) {
       assert.match(result.output, /Last child log lines \(redacted\)/);
       assert.match(result.output, /pidfile: absent/);
+    } else {
+      assert.doesNotMatch(result.output, /Starting pm-web|Press Ctrl\+C/);
     }
     assert.equal(existsSync(f.pidfile), false);
     await assert.rejects(fetch(`http://127.0.0.1:${f.port}/healthz`));
@@ -95,17 +112,81 @@ test("built server reports every invalid database/port setting before binding wi
   assert.doesNotMatch(result.output, /private-user|private-password|private-port|bad-pool|postgres:\/\//);
 });
 
+test("database preflight accepts empty URL fallback and pg database defaults in built startup and doctor", { timeout: 90_000 }, async (t) => {
+  const f = await fixture(t);
+  const url = new URL(f.env.DATABASE_URL!);
+  const database = decodeURIComponent(url.pathname.slice(1));
+  const discrete = { DATABASE_URL: "", POSTGRES_HOST: url.hostname, POSTGRES_PORT: url.port || "5432",
+    POSTGRES_DB: database, POSTGRES_USER: decodeURIComponent(url.username), POSTGRES_PASSWORD: decodeURIComponent(url.password) };
+  assert.deepEqual(databaseConfigIssues(discrete), []);
+  url.pathname = "";
+  assert.deepEqual(databaseConfigIssues({ DATABASE_URL: url.href }), []);
+  assert.deepEqual(databaseConfigIssues({ DATABASE_URL: "postgres://fixture@db.example" }), []);
+  assert.ok(databaseConfigIssues({ DATABASE_URL: " ", POSTGRES_HOST: "db.example", POSTGRES_DB: "fixture" }).length);
+  for (const changes of [discrete, { DATABASE_URL: url.href, PGDATABASE: database }]) {
+    await f.startHealthy(changes);
+    const doctor = await f.command("web doctor", {}, changes);
+    assert.match(doctor.output, /"name":\s*"database",\s*"ok":\s*true/);
+    assert.equal((await f.command("web stop")).code, 0);
+  }
+});
+
+test("empty optional numeric settings preserve runtime defaults and reject explicit invalid values", { timeout: 60_000 }, async (t) => {
+  const f = await fixture(t);
+  const empty = { PORT: "", PM_WEB_DB_POOL_MAX: "", PM_WEB_STARTUP_TIMEOUT_MS: "" };
+  assert.deepEqual(startupConfigIssues({ ...f.env, ...empty }), []);
+  assert.deepEqual(databaseConfigIssues({ DATABASE_URL: "", POSTGRES_HOST: "db.example", POSTGRES_DB: "fixture", POSTGRES_PORT: "" }), []);
+  assert.equal(postgresPort({ POSTGRES_PORT: "" }), 5432);
+  assert.equal(postgresPort({}), 5432);
+  for (const value of [" ", "bad", "0", "65536"]) assert.throws(() => postgresPort({ POSTGRES_PORT: value }), /POSTGRES_PORT must be/);
+  for (const name of Object.keys(empty)) {
+    assert.match(startupConfigIssues({ ...f.env, [name]: "bad" }).join(), new RegExp(name));
+  }
+  await f.startHealthy(empty);
+  assert.equal((await f.command("web stop")).code, 0);
+  const invalidFlag = await f.command("web", { detach: true, startupTimeout: "" });
+  assert.equal(invalidFlag.code, 1, invalidFlag.output);
+  assert.match(invalidFlag.output, /must be an integer/);
+});
+
+test("OIDC preflight preserves non-production soft disable and production refusal", { timeout: 120_000 }, async (t) => {
+  const f = await fixture(t);
+  const incomplete = { OIDC_CLIENT_SECRET: "synthetic-client-secret" };
+  const invalid = { ...incomplete, OIDC_ISSUER: "https://issuer.example", OIDC_CLIENT_ID: "fixture",
+    OIDC_REDIRECT_URI: "https://app.example/callback", OIDC_COOKIE_SECRET: "short-private-cookie" };
+  for (const configuration of [incomplete, invalid]) {
+    for (const mode of [undefined, "development", "test"]) {
+      assert.deepEqual(startupConfigIssues({ ...f.env, ...configuration, NODE_ENV: mode }), []);
+    }
+    assert.match(startupConfigIssues({ ...f.env, ...configuration }).join(), /OIDC_/);
+    const refused = await run(["dist/server.js"], { ...f.env, ...configuration });
+    assert.equal(refused.code, 1, refused.output);
+    assert.match(refused.output, /startup preflight failed/);
+    assert.doesNotMatch(refused.output, /synthetic-client-secret|short-private-cookie|server_started/);
+    for (const mode of ["development", "test"]) {
+      await f.startHealthy({ ...configuration, NODE_ENV: mode });
+      assert.equal((await f.command("web stop")).code, 0);
+    }
+  }
+});
+
+test("foreground banner appears after valid preflight even when a later bind fails", { timeout: 60_000 }, async (t) => {
+  const f = await fixture(t);
+  await f.occupyPort();
+  const result = await f.command("web");
+  assert.equal(result.code, 1, result.output);
+  assert.match(result.output, new RegExp(`Starting pm-web on port ${f.port}`));
+  assert.match(result.output, /Press Ctrl\+C/);
+  assert.match(result.output, /bind_error/);
+  assert.doesNotMatch(result.output, /startup preflight failed/);
+});
+
 test("detached startup waits for real health, survives parent exit, and rejects a live pidfile", { timeout: 90_000 }, async (t) => {
   const f = await fixture(t);
   await writeFile(f.pidfile, "invalid-stale-pid");
-  const result = await f.command("web", { detach: true });
-  assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /"status":"started"/);
+  await f.startHealthy();
   const pid = Number(await readFile(f.pidfile, "utf8"));
   assert.ok(pid > 0);
-  const health = await fetch(`http://127.0.0.1:${f.port}/healthz`);
-  assert.equal(health.status, 200);
-  assert.equal((await health.json() as { ok: boolean }).ok, true);
   await delay(100);
   assert.equal((await fetch(`http://127.0.0.1:${f.port}/healthz`)).status, 200);
   const duplicate = await f.command("web", { detach: true });
@@ -132,9 +213,7 @@ test("detached unhealthy child times out, reports redacted logs, and removes sta
 
 test("an unrelated healthy listener cannot satisfy detached startup", { timeout: 60_000 }, async (t) => {
   const f = await fixture(t);
-  const listener = createServer((socket) => { socket.end('HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\n{"ok":true}'); });
-  await new Promise<void>((resolve) => { listener.listen(f.port, resolve); });
-  t.after(() => new Promise<void>((resolve) => { listener.close(() => resolve()); }));
+  await f.occupyPort();
   const result = await f.command("web", { detach: true });
   assert.equal(result.code, 1, result.output);
   assert.match(result.output, /child exited before becoming healthy/);
@@ -227,6 +306,10 @@ test("real CLI honors the parsed startup-timeout flag in a plain-directory track
   assert.match(result.output, /pidfile: absent/);
   assert.doesNotMatch(result.output, /pm-web started|synthetic-private-jwt/);
   assert.equal(existsSync(f.pidfile), false);
+  const foreground = await run([cli, "--pm-path", pmRoot, "web", "--port", String(f.port), "--json"], env, f.root);
+  assert.equal(foreground.code, 1, foreground.output);
+  assert.match(foreground.output, /startup preflight failed|DATABASE_URL is not set/);
+  assert.doesNotMatch(foreground.output, /Starting pm-web|Press Ctrl\+C/);
 });
 
 test("source helper preserves built-server readiness, failure cleanup and live pidfile ownership", { timeout: 120_000 }, async (t) => {

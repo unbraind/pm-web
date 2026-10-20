@@ -1,5 +1,5 @@
 import pg from "pg";
-import { databaseConfigIssues } from "./startup-config.js";
+import { databaseConfigIssues, postgresPort } from "./startup-config.js";
 /** Schema revision recorded after all idempotent startup migrations complete. */
 export const DATABASE_SCHEMA_VERSION = 1;
 /** Diagnose configuration, connectivity and schema without changing the database. */
@@ -13,7 +13,7 @@ export async function checkDatabase() {
         client = new pg.Client({
             ...(process.env.DATABASE_URL ? { connectionString: process.env.DATABASE_URL } : {
                 host: process.env.POSTGRES_HOST, database: process.env.POSTGRES_DB,
-                port: Number(process.env.POSTGRES_PORT ?? "5432"), user: process.env.POSTGRES_USER, password: process.env.POSTGRES_PASSWORD,
+                port: postgresPort(), user: process.env.POSTGRES_USER, password: process.env.POSTGRES_PASSWORD,
             }),
             connectionTimeoutMillis: 2000, query_timeout: 2000, statement_timeout: 2000,
         });

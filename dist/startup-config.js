@@ -7,18 +7,22 @@ export function integerSetting(value, name, min, max) {
     }
     return parsed;
 }
+/** Resolve the discrete PostgreSQL port, treating an empty setting as unset. */
+export function postgresPort(env = process.env) {
+    return integerSetting(env.POSTGRES_PORT || "5432", "POSTGRES_PORT", 1, 65535);
+}
 /** Return all database configuration problems using setting names only. */
 export function databaseConfigIssues(env = process.env) {
     const issues = [];
-    if (env.DATABASE_URL !== undefined) {
+    if (env.DATABASE_URL) {
         try {
             const url = new URL(env.DATABASE_URL);
             const host = url.searchParams.get("host") || url.hostname;
-            if (!["postgres:", "postgresql:"].includes(url.protocol) || !host.trim() || url.pathname.length < 2 || url.hash)
+            if (!["postgres:", "postgresql:"].includes(url.protocol) || !host.trim() || url.hash)
                 throw new Error();
         }
         catch {
-            issues.push("DATABASE_URL must be a PostgreSQL URL with a host and database; export DATABASE_URL with your PostgreSQL connection settings.");
+            issues.push("DATABASE_URL must be a PostgreSQL URL with a host; export DATABASE_URL with your PostgreSQL connection settings.");
         }
     }
     else {
@@ -28,13 +32,11 @@ export function databaseConfigIssues(env = process.env) {
         }
         if (issues.length)
             issues.unshift("DATABASE_URL is not set. pm-web requires PostgreSQL.");
-        if (env.POSTGRES_PORT !== undefined) {
-            try {
-                integerSetting(env.POSTGRES_PORT, "POSTGRES_PORT", 1, 65535);
-            }
-            catch (error) {
-                issues.push(error.message);
-            }
+        try {
+            postgresPort(env);
+        }
+        catch (error) {
+            issues.push(error.message);
         }
     }
     return issues;
@@ -47,7 +49,7 @@ export function startupConfigIssues(env = process.env) {
         ["PM_WEB_STARTUP_TIMEOUT_MS", "30000", 1, 300000],
     ]) {
         try {
-            integerSetting(env[name] ?? fallback, name, min, max);
+            integerSetting(env[name] || fallback, name, min, max);
         }
         catch (error) {
             issues.push(error.message);
@@ -58,7 +60,7 @@ export function startupConfigIssues(env = process.env) {
     }
     try {
         const oidc = resolveOidcSettings(env);
-        if (!oidc.enabled && oidc.reason)
+        if (!oidc.enabled && oidc.reason && env.NODE_ENV === "production")
             issues.push(`${oidc.reason} Set the named OIDC_* environment variables or unset OIDC configuration.`);
     }
     catch (error) {
