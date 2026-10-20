@@ -144,3 +144,11 @@ CREATE OR REPLACE TRIGGER pm_users_updated_at
 CREATE OR REPLACE TRIGGER pm_projects_updated_at
   BEFORE UPDATE ON pm_projects
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Revision is recorded after all packaged schema statements have completed.
+CREATE TABLE IF NOT EXISTS pm_web_schema_version (
+  singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+  version INTEGER NOT NULL
+);
+INSERT INTO pm_web_schema_version (singleton, version) VALUES (TRUE, 1)
+  ON CONFLICT (singleton) DO UPDATE SET version = EXCLUDED.version;

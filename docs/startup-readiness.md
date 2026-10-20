@@ -1,0 +1,129 @@
+# Startup readiness regression evidence
+
+Baseline: public package main at `5346b64`. Only package code, scratch trackers
+and an isolated PostgreSQL test server were used.
+
+## Observable behavior without database settings
+
+`$port` below denotes a free scratch port. The first diagnostic lines are shown;
+foreground startup also retains its existing starting/Ctrl+C banner.
+
+| Command | Before exit / first diagnostic lines | After exit / first diagnostic lines |
+| --- | --- | --- |
+| `pm web --port $port --json` | 1 / `Server operation failed (private details redacted)` | 1 / `pm-web startup preflight failed:`; `DATABASE_URL is not set. pm-web requires PostgreSQL.`; missing `POSTGRES_HOST` and `POSTGRES_DB`, with export guidance |
+| `pm web --detach --port $port --json` | 0 / `pm-web started on port ...` although the child dies | 1 / `Detached startup failed: child exited before becoming healthy.`; `pidfile: absent (no stale pidfile)`; last redacted child log lines |
+| `pm web doctor --port $port --json` | 0 / `ok: true`, five checks without a database check | 0 / `ok: false`; database `configured: no; reachable: unchecked; schema version: unchecked`, with setting names and guidance |
+| `pm web status --port $port --json` | 0 / `status: down` after false detached success | 0 / `status: down` after explicit failed startup; no stale pidfile |
+
+The host currently labels detailed detached JSON errors `invalid_argument_value`;
+the actionable child diagnostics remain in `detail`. This is a host error-labeling
+UX gap, not a successful startup.
+
+Doctor retains its existing diagnostic exit convention: consumers should inspect
+`ok` and the named checks. Successful database checks report configured/reachable
+and schema revision 1. An empty or incompatible database fails the schema check;
+doctor does not apply migrations.
+
+## Design
+
+A first-import preflight validates database configuration, port, pool size,
+startup deadline, production signing configuration and optional OIDC settings.
+Its messages contain setting names and instructions, never configured values.
+The ordinary generic-error redaction remains in place for arbitrary exceptions.
+
+Detached startup requires IPC confirmation that its own child bound the port,
+then a successful healthy JSON response. Its deadline defaults to 30000 ms;
+`--startup-timeout` overrides `PM_WEB_STARTUP_TIMEOUT_MS` (range 1–300000).
+The PID is published only after readiness. Failure terminates and joins the
+child, reports the pidfile state, and includes at most ten lines from a bounded
+log tail with connection strings and configured credentials redacted. Logs use
+private file permissions and survive launcher exit.
+
+Startup records schema revision 1 after the packaged idempotent migrations.
+Doctor catches client-construction errors (including certificate options) without
+printing their configured values. It checks configuration, a bounded real connection and that schema revision
+without modifying the database. PostgreSQL URLs with a query-provided host are
+accepted by the preflight and exercised against a real database and built server. The README describes PostgreSQL prerequisites
+and plain-directory tracker operation without git.
+
+## Full release checks
+
+The final `npm run release:check` and `bun run release:check` both exited 0.
+Each used a fresh HOME, `GIT_CONFIG_GLOBAL=/dev/null`,
+`GIT_CONFIG_NOSYSTEM=1` and an isolated UTF-8 PostgreSQL test database.
+Hashes of all 393 runtime, test, schema and build inputs remained unchanged
+through both sequential commands. Dependency pins, source scope, thresholds and
+existing test deadlines were unchanged.
+
+| Gate | Tests | Statements | Lines | Branches | Functions |
+| --- | --- | --- | --- | --- | --- |
+| `npm run release:check` | 699/699 | 92.61% | 92.61% | 81.55% | 95.97% |
+| `bun run release:check` | 699/699 | 92.65% | 92.65% | 81.63% | 95.97% |
+| Unchanged minimum | — | 92.07% | 92.07% | 80.5% | 94.59% |
+
+Both runs reported all 44 required source files, zero test failures,
+cancellations, skips or todo cases, capacity acceptance 2/2, packed consumers
+4/4 (npm/Bun, pinned/minimum host), zero production audit vulnerabilities,
+and successful typecheck, lint, duplication, docstrings, package dry run,
+changelog, release-date and publish-attestation checks.
+The separate native Bun detached start/health/stop acceptance also passed.
+
+Earlier full attempts reproduced catalog deadline/cascade failures and graph
+latency covered by `pm-web-qdhx` and `pm-web-hqqp`; one earlier fatal-output case
+also reached its existing child deadline. Final full runs passed all of these
+without changing their deadlines or lowering any coverage floor.
+
+Host CLI observations: detailed detached runtime failures are labeled
+`invalid_argument_value`, and source-directory installation reached its
+10,000-entry scan cap. Packed archive installation and all four consumer
+scenarios passed. These host UX gaps were observed rather than filed upstream.
+
+## Tests and behavioral reverts
+
+The focused suite runs real processes loading `dist/server.js` or the built
+extension. It passed **13/13**, with no skipped or canceled tests, through:
+
+```sh
+node scripts/with-test-db.ts node --test test/startup-readiness.test.ts
+```
+
+The source-helper contracts additionally execute the lifecycle helper with a real
+built child and the database diagnostic against real PostgreSQL. Focused source
+coverage measures 100% statements, lines and functions for both helpers; branch
+coverage remains below 100% and is reported by the full gate. Oversized child log
+lines are tested with and without a final newline, including an independent
+check that the private log really contains the synthetic credential.
+
+It is also linked to `pm-web-onv4` and passed through `pm test --run --progress`
+with source workspace and schema tracker context. The real CLI parser selection
+is also linked to `pm-web-xo0i` and passed **1/1**. The detached selection is
+linked to `pm-web-odwq` and `pm-web-xo0i`; each passed **4/4**. Test-result tracking
+is disabled in the existing tracker, so the explicit receipts are in comments.
+
+Each revert below restored only the relevant behavior, rebuilt with
+`npm run build:server`, and ran the unchanged selected tests. Each exited 1;
+fixed sources were restored and rebuilt afterwards.
+
+| Behavior restored | Test selection in `test/startup-readiness.test.ts` | Result |
+| --- | --- | --- |
+| Old startup guard placement and generic diagnostics | `--test-name-pattern='foreground built\|built server reports every invalid'` | 0/2 passed; both regressions failed |
+| Immediate detach spawn/unref/pidfile success | `--test-name-pattern=detached` | 0/4 passed; missing configuration, immediate health/live pidfile, timeout and unrelated-listener regressions failed |
+| Doctor client construction outside the redacted diagnostic catch | `--test-name-pattern='doctor process'` | 0/1 passed; invalid certificate configuration regression failed |
+| Camel-case parsed deadline lookup removed | `--test-name-pattern='real CLI\|detached unhealthy'` | 0/2 passed; real parser and normalized deadline regressions failed |
+| Packaged SQL revision marker removed | `--test-name-pattern='doctor process'` | 0/1 passed; SQL-initialized database readiness failed |
+| Log redaction removed | `--test-name-pattern='configuration validation'` | 0/1 passed; credential/connection-string privacy assertion failed |
+| Incomplete oversized-line guard removed | `--test-name-pattern='redacted log tails'` | 0/1 passed; synthetic credential reached the diagnostic output |
+| Source lifecycle restored to immediate success | `--test-name-pattern='source helper'` | 0/1 passed; missing-database startup falsely succeeded |
+| Source database diagnostic restored to blind success | `--test-name-pattern='source database'` | 0/1 passed; missing configuration falsely passed |
+| Valid query-provided PostgreSQL host rejected | `--test-name-pattern='source helper\|source database\|configuration validation'` | 0/3 passed; real startup, connectivity and configuration assertions failed |
+| Doctor without the database check | `--test-name-pattern='doctor process'` | 0/1 passed; database diagnostic regression failed |
+
+The SDK compatibility test creates a real tracker with `pm init` in a temporary
+plain directory, explicitly sets its tracker path, sets
+`GIT_CEILING_DIRECTORIES` to the temporary directory's parent and uses a `PATH`
+with no git executable. SDK-dispatched create/get/update/list all pass. This is
+acceptance of already-working behavior rather than a newly fixed no-git defect.
+
+Reopening the two existing released items causes the required full changelog
+regeneration to omit their former historical entries. History records remain
+append-only; the generated changelog is retained exactly as checked by the gate.

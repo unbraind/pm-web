@@ -2,12 +2,46 @@ id: pm-web-onv4
 title: Server hangs/cryptic error when DATABASE_URL is unset
 description: "SYMPTOM: Starting pm-web without DATABASE_URL produced no output for several seconds, then a cryptic 'getaddrinfo EAI_AGAIN pm-telemetry-postgres' DNS error. db.ts silently fell back to a hardcoded telemetry-specific host (pm-telemetry-postgres) with undefined credentials, and the failure only surfaced after the 5s pool connectionTimeout. REPRO: env -u DATABASE_URL node dist/server.js  (observed ~5s silent wait then DNS error stack). EXPECTED: a server that requires a DB should fail fast with a clear actionable message and exit non-zero. OBSERVED vs EXPECTED: cryptic delayed DNS error vs clear 'DATABASE_URL is not set' guidance. FIX: added assertDbConfigured() in db.ts (validates DATABASE_URL or POSTGRES_HOST+POSTGRES_DB, removed the pm-telemetry-postgres default), called at the top of server.ts before any DB use; also collapsed the schema-init catch to print err.message instead of a full stack. Now: no DATABASE_URL -> instant clear message + exit 1 (1s); unreachable DB -> clean one-line timeout error + exit 1."
 type: Issue
-status: closed
+status: in_progress
 priority: 1
 tags: []
 created_at: "2026-05-29T15:44:53.057Z"
-updated_at: "2026-05-29T15:45:25.667Z"
+updated_at: "2026-10-20T14:49:21.350Z"
 author: codex
 parent: pm-web-ul0n
-close_reason: "Fixed: assertDbConfigured() in db.ts + fast-fail in server.ts. Verified: no DATABASE_URL -> instant clear message + exit 1; unreachable DB -> clean error + exit 1; good DB -> server runs and full API works."
+comments[15]{created_at,author,text}:
+  "2026-10-20T10:00:09.069Z",codex-agent,"Confirmed the missing-database guard is hidden by generic error redaction. Plan: value-free startup validation before binding, database configuration/reachability/schema doctor check, built-process regressions, and explicit plain-directory SDK acceptance."
+  "2026-10-20T10:10:10.720Z",codex-agent,"Built-process doctor and no-git acceptance passed (2/2): database missing/unreachable/schema-missing/current diagnostics, read-only schema inspection, and SDK create/get/update/list with no git executable. Restoring the old startup guard made both foreground diagnostic regressions fail (0/2), exit 1, after rebuilding; full revert receipts follow."
+  "2026-10-20T10:11:15.039Z",codex-agent,"Behavioral revert proof: restored only the old startup guard placement and generic logging, rebuilt, then node scripts/with-test-db.ts node --test --test-name-pattern=\"foreground built|built server reports every invalid\" test/startup-readiness.test.ts failed 2/2 (exit 1). Restored fixed sources and rebuilt."
+  "2026-10-20T10:21:04.858Z",codex-agent,"Final focused linked run passed 9/9 (exit 0), including explicit tracker-path isolation under pm test. Existing result tracking is disabled; receipt recorded here. Startup/revert evidence is documented in docs/startup-readiness.md."
+  "2026-10-20T10:26:39.191Z",codex-agent,"Additional doctor edge case confirmed: PostgreSQL client construction can throw before connecting when DATABASE_URL names a missing certificate. Moved client construction inside the redacted diagnostic catch and added a real doctor-process regression ensuring the certificate value is not emitted. Final gates will cover this hardened version."
+  "2026-10-20T10:31:52.028Z",codex-agent,Doctor certificate-value regression passes 1/1. Behavioral revert moving only client construction back outside the catch fails the same process regression 0/1 (exit 1); fixed sources restored and rebuilt. The broad npm gate has reproduced the existing built-catalog 300-second timeout and following source-case failure documented in pm-web-qdhx; startup regressions and full gate results will be reported separately.
+  "2026-10-20T10:44:39.915Z",codex-agent,"Final hardened implementation passes the full linked startup suite 9/9, zero failures/cancellations/skips, exit 0. This rerun includes missing-certificate client construction. The current broad npm suite separately reproduces known catalog timing failures (pm-web-qdhx) and the unchanged large-corpus graph latency assertion (pm-web-hqqp); no thresholds or deadlines were relaxed."
+  "2026-10-20T11:00:41.628Z",codex-agent,"The broad gate exposed an implementation-layout assertion requiring assertOidcConfiguration literally in server.ts. Replaced that assertion with reliance on the existing real-process OIDC refusal test, preserving behavior before binding. Added the revision marker to the shipped SQL schema too, and extended real doctor acceptance to a database initialized from sql/schema.sql."
+  "2026-10-20T11:04:56.921Z",codex-agent,"SQL-initialized doctor acceptance, the OIDC contract and real-process OIDC startup refusal pass 3/3. Restoring only the original packaged SQL without its revision marker makes the doctor regression fail 0/1 (exit 1); fixed SQL restored. Runtime/schema test expectations retain all existing deadlines and numeric gate thresholds."
+  "2026-10-20T11:07:32.646Z",codex-agent,Removing only startup log redaction makes the supporting privacy unit fail 0/1 (exit 1); fixed code restored. The preliminary broad gate was interrupted after its known timing failures and the now-corrected OIDC layout assertion so clean final-code npm and Bun runs can start without overlapping development tests. No interrupted result is accepted as a passing gate.
+  "2026-10-20T12:06:26.191Z",codex-agent,"Completed final-code npm attempt: 696 tests, 692 pass, 3 fail, 1 canceled, 0 skipped. Timing failures: catalog deadline/cascade, 2000-item graph read 27732ms against unchanged 10000ms, and fatal-output child SIGTERM at its unchanged 10s deadline. Coverage was 91.58 statements/lines, 81.19 branches, 95.35 functions; line/statement floor92.07 remained unmet. Built-only detached helper execution was not counted in source coverage, so added source contract tests using real built child processes and real PostgreSQL. No thresholds or source scope changed."
+  "2026-10-20T12:21:05.869Z",codex-agent,"Focused source contract tests for database diagnostics and detached lifecycle pass against real processes/PostgreSQL, measuring 100 statements/lines/functions for each new helper. Reverting only the source helper to immediate spawn success fails 0/1; reverting only database readiness to blind success fails 0/1. Both implementations restored. The unchanged fatal-output tests pass focused 2/2, contrasting with the 10-second full-coverage deadline failure."
+  "2026-10-20T12:37:24.779Z",codex-agent,"Final linked startup suite passes 13/13, source lifecycle selection passes 1/1, and oversized-log privacy selection passes 1/1. Direct configured/discrete/unreachable/certificate diagnostics use real PostgreSQL. The API-key redaction assertion also passes; disabling redaction still fails 0/1. All reversions restored before final gates."
+  "2026-10-20T13:54:56.956Z",codex-agent,"Preserved PostgreSQL URLs whose host is supplied through the query (including socket-directory form). Real PostgreSQL accepts this form. Fixed configuration, source doctor and built-child startup selections pass 3/3; reverting only host-query support and rebuilding fails all 3/3, then the implementation was restored and rebuilt. The built doctor also verifies the packaged SQL schema marker without mutating an empty database."
+  "2026-10-20T14:49:16.920Z",codex-agent,"Final frozen-input release checks PASS, both exit 0. npm: 699/699 tests, coverage statements/lines 92.61, branches 81.55, functions 95.97. Bun: 699/699, coverage statements/lines 92.65, branches 81.63, functions 95.97. Both report all 44 required sources, zero failures/cancellations/skips/todo, capacity 2/2, packed consumers 4/4, audit zero vulnerabilities and all typecheck/lint/duplication/docstring/package/changelog/release checks. All 393 runtime/test/schema/build inputs stayed unchanged; thresholds and deadlines are unchanged. Latest linked startup suite passes 13/13. Evidence and all 11 behavioral revert proofs (18 selected failing cases across the reverts) are in docs/startup-readiness.md. Claims will be released and items left open."
+files[13]{path,scope}:
+  sql/schema.sql,project
+  src/database-check.ts,project
+  src/db.ts,project
+  src/server-preflight.ts,project
+  src/server.ts,project
+  src/startup-config.ts,project
+  test/helpers/source-detached-command.ts,project
+  test/helpers/source-doctor-command.ts,project
+  test/helpers/startup-command.ts,project
+  test/helpers/startup-doctor-human.ts,project
+  test/helpers/startup-no-git.ts,project
+  test/oidc.test.ts,project
+  test/startup-readiness.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T10:07:14.248Z",local_mutation,fix/startup-preflight-and-detached-health
+docs[2]{path,scope}:
+  docs/startup-readiness.md,project
+  README.md,project
 body: ""

@@ -1,6 +1,9 @@
 // pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 
+import { startDetached } from "./detached-start.ts";
+import { checkDatabase } from "./database-check.ts";
+import { integerSetting } from "./startup-config.ts";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -339,41 +342,35 @@ export default defineExtension({
       flags: [
         { long: "--port", value_name: "port", description: "Port to listen on (default: 4000 or PORT env var)" },
         { long: "--detach", description: "Run the server in the background" },
+        { long: "--startup-timeout", value_name: "ms", description: "Detached health deadline in milliseconds (default: 30000 or PM_WEB_STARTUP_TIMEOUT_MS)" },
       ],
       async run(ctx: CommandHandlerContext) {
         const port = resolvePort(ctx.options);
         const detach = Boolean(ctx.options["detach"]);
+        let timeout: number;
+        try {
+          integerSetting(port, "--port / PORT", 0, 65535);
+          // CLI hosts camel-case flags; embedded callers can use their literal names.
+          const configuredTimeout = ctx.options["startupTimeout"] ?? ctx.options["startup-timeout"] ?? process.env.PM_WEB_STARTUP_TIMEOUT_MS ?? "30000";
+          timeout = integerSetting(String(configuredTimeout), "--startup-timeout / PM_WEB_STARTUP_TIMEOUT_MS", 1, 300000);
+        } catch (error) { throw new CommandError((error as Error).message, 2); }
 
         const serverPath = path.resolve(__dirname, "server.js");
         ensureRuntimeDependencies();
 
         if (detach) {
-          if (serverProcess) {
+          if (serverProcess?.pid && processAlive(serverProcess.pid)) {
             console.error(`pm-web is already running (PID ${serverProcess.pid})`);
             return { status: "already_running", pid: serverProcess.pid };
           }
 
-          serverProcess = spawn("node", [serverPath], {
-            env: { ...process.env, PORT: String(port) },
-            detached: true,
-            stdio: "ignore",
-          });
+          serverProcess = null;
+          let started;
+          try { started = await startDetached(serverPath, port, pidfilePath(port), timeout).then((child) => { serverProcess = child; return child; }); }
+          catch (error) { throw new CommandError((error as Error).message); }
 
-          serverProcess.unref();
-
-          // Track the detached PID so `pm web stop` can terminate it.
-          if (serverProcess.pid) {
-            try {
-              fs.writeFileSync(pidfilePath(port), String(serverProcess.pid), "utf8");
-            } catch (err) {
-              console.error(
-                `Warning: could not write pidfile: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
-          }
-
-          console.error(`pm-web started on port ${port} (PID ${serverProcess.pid})`);
-          return { status: "started", port: Number(port), pid: serverProcess.pid };
+          console.error(`pm-web started on port ${port} (PID ${started.pid})`);
+          return { status: "started", port: Number(port), pid: started.pid };
         }
 
         // Foreground mode — the server takes over the process
@@ -511,7 +508,7 @@ export default defineExtension({
     // -----------------------------------------------------------------------
     api.registerCommand({
       name: "web doctor",
-      description: "Preflight diagnostics for running pm-web (Node, deps, port, pm, workspace).",
+      description: "Preflight diagnostics for running pm-web (Node, deps, database, port, pm, workspace).",
       intent: "diagnose pm-web preflight readiness",
       examples: ["pm web doctor", "pm web doctor --json"],
       flags: [
@@ -528,7 +525,9 @@ export default defineExtension({
         const pmAvailable = pmOnPath();
         const wsInit = workspaceInitialized(ctx.pm_root);
 
+        const database = await checkDatabase();
         const checks = [
+          database,
           {
             name: "node_version",
             ok: nodeVersionMeetsRequirement(),

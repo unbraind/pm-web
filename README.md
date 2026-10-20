@@ -8,6 +8,24 @@ Features user auth, multi-project support, sharing, groups, GitHub import/sync, 
 
 ## Quick Start (Self-Hosted)
 
+pm-web requires a reachable **PostgreSQL** database for accounts, project metadata
+and sharing, plus a writable `PROJECTS_ROOT` for plain-directory trackers. Provide
+`DATABASE_URL`, or `POSTGRES_HOST` and `POSTGRES_DB` with optional
+`POSTGRES_PORT` (default `5432`), `POSTGRES_USER` and `POSTGRES_PASSWORD`.
+PostgreSQL URLs may supply `host` in the query, including a Unix socket directory.
+Production also requires `JWT_SECRET`. Startup validates settings before binding
+and names missing or invalid settings without printing credentials or connection
+strings. The database user needs permission to create and alter the packaged schema.
+
+### Without git
+
+The item APIs read and write a plain-directory pm tracker through the SDK.
+Creating, reading, updating, listing, searching and validating items do not need a
+git repository or the git executable. PostgreSQL is still required by the web
+server. GitHub import/sync additionally needs GitHub credentials and access;
+Git-based operations such as worktree commands and changelog generation from tags
+need a git repository.
+
 ### Docker
 
 ```bash
@@ -57,7 +75,17 @@ The package repository is at **github.com/unbraind/pm-web**.
 | `pm web --detach` | Start the server in the background (tracked via a pidfile) |
 | `pm web status` | Report whether a server is reachable (probes `/healthz`); `--json` supported |
 | `pm web stop` | Stop a server previously started with `--detach`; `--json` supported |
-| `pm web doctor` | Preflight diagnostics (Node, runtime deps, port, pm, workspace); `--json` supported |
+| `pm web doctor` | Preflight diagnostics (Node, runtime deps, database, port, pm, workspace); `--json` supported |
+
+#### Detached startup
+
+`pm web --detach` prints `started` only after its child binds and `/healthz`
+reports healthy. The default deadline is 30 seconds; set
+`--startup-timeout <milliseconds>` or `PM_WEB_STARTUP_TIMEOUT_MS` (1–300000).
+If the child exits or the deadline expires, the command exits nonzero, terminates
+the child, reports the pidfile state and its last ten redacted log lines, and
+leaves no stale pidfile. Child logs are retained beside the pidfile as
+`pm-web-<port>.pid.log` (replaced on each start, private file permissions).
 
 #### `pm web status`
 
@@ -89,6 +117,10 @@ pm web stop --port 8080 --json
 Runs preflight checks before starting the server: Node version (>= 22.18.0), whether
 runtime dependencies (express, etc.) are installed, whether the target port is
 free, whether `pm` is on `PATH`, and whether the workspace is initialized.
+The `database` check reports configuration, reachability and schema version
+(expected revision 1). Missing configuration, connection failure or a missing or
+incompatible schema yields a clear failing line and overall `ok: false`. Doctor
+is read-only; start `pm web` to apply the packaged schema migrations.
 Returns an overall `ok` boolean. The `port_available` check is informational (a
 busy port may just be a server you already started) and does not gate `ok`.
 
@@ -111,6 +143,7 @@ pm web doctor --json
 | `PM_WEB_SECRET_KEY` | Recommended | At-rest encryption key for saved GitHub PATs. Falls back to `JWT_SECRET`; use at least 32 characters |
 | `PM_WEB_BOOTSTRAP_ADMIN_EMAIL` | Recommended | Email of the user account to auto-promote to admin on schema init. Leave unset to skip auto-promotion (manage admins via the admin UI). |
 | `PORT` | No | Server port (default: 4000) |
+| `PM_WEB_STARTUP_TIMEOUT_MS` | No | Detached health deadline (default: 30000 ms; `--startup-timeout` takes precedence) |
 | `PM_WEB_STATE_DIR` | No | Directory for the `--detach` pidfile used by `pm web stop` (default: OS temp dir) |
 | `PROJECTS_ROOT` | No | Host-mounted root for persistent pm workspaces (default: `/app/projects`) |
 | `PM_WEB_PM_CONCURRENCY` | No | Maximum concurrent child processes for CLI-only fallback commands (default: `8`); fallback commands for one workspace always serialize |

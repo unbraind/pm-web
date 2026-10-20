@@ -152,7 +152,6 @@ test("general schema includes the idempotent external identity contract", () => 
   const schema = readFileSync(new URL("../sql/schema.sql", import.meta.url), "utf8");
   const runtimeSchema = readFileSync(new URL("../src/db.ts", import.meta.url), "utf8");
   const app = readFileSync(new URL("../src/app.ts", import.meta.url), "utf8");
-  const server = readFileSync(new URL("../src/server.ts", import.meta.url), "utf8");
   const authView = readFileSync(new URL("../public/src/views/auth.ts", import.meta.url), "utf8");
   const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
   const oidcRoute = readFileSync(new URL("../src/routes/oidc.ts", import.meta.url), "utf8");
@@ -192,7 +191,7 @@ test("general schema includes the idempotent external identity contract", () => 
       }
     }
   }
-  assert.match(server, /assertOidcConfiguration\(\)/);
+  // The real-process bootstrap suite proves OIDC refusal before listening.
   assert.match(authView, /\/auth\/oidc\/config/);
   assert.match(authView, /\/api\/auth\/oidc\/start/);
   assert.match(styles, /\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/);

@@ -1,4 +1,6 @@
 import pg from "pg";
+import { databaseConfigIssues } from "./startup-config.js";
+import { DATABASE_SCHEMA_VERSION } from "./database-check.js";
 const { Pool } = pg;
 /**
  * Resolve the PostgreSQL connection config from the environment.
@@ -33,14 +35,9 @@ function resolvePoolConfig() {
  * server fails fast with guidance instead.
  */
 export function assertDbConfigured() {
-    const configured = Boolean(process.env.DATABASE_URL) ||
-        Boolean(process.env.POSTGRES_HOST && process.env.POSTGRES_DB);
-    if (configured)
-        return;
-    throw new Error("DATABASE_URL is not set. pm-web requires a PostgreSQL database.\n" +
-        "  Set it before starting, e.g.:\n" +
-        "    export DATABASE_URL=postgres://user:pass@localhost:5432/pmweb\n" +
-        "  (or provide POSTGRES_HOST + POSTGRES_DB and related POSTGRES_* vars).");
+    const issues = databaseConfigIssues();
+    if (issues.length)
+        throw new Error(issues.join("\n"));
 }
 /**
  * Shared PostgreSQL connection pool for all pm-web queries.
@@ -201,6 +198,8 @@ export async function initSchema() {
     await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_created_at ON pm_idempotency_keys (created_at) WHERE status_code IS NOT NULL");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_settled_at ON pm_idempotency_keys (updated_at) WHERE status_code IS NOT NULL");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_pending_at ON pm_idempotency_keys (created_at) WHERE status_code IS NULL");
+    await pool.query(`CREATE TABLE IF NOT EXISTS pm_web_schema_version (singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton), version INTEGER NOT NULL)`);
+    await pool.query("INSERT INTO pm_web_schema_version (singleton, version) VALUES (TRUE, $1) ON CONFLICT (singleton) DO UPDATE SET version = EXCLUDED.version", [DATABASE_SCHEMA_VERSION]);
     if (bootstrapAdminEmail) {
         await pool.query(`UPDATE pm_users SET is_admin = TRUE, updated_at = NOW() WHERE lower(email) = lower($1)`, [bootstrapAdminEmail]);
     }

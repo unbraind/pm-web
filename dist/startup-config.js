@@ -1,0 +1,78 @@
+import { resolveOidcSettings } from "./oidc.js";
+/** Validate a numeric setting without reflecting its potentially private value. */
+export function integerSetting(value, name, min, max) {
+    const parsed = Number(value);
+    if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+        throw new Error(`${name} must be an integer from ${min} to ${max}; set ${name} before starting.`);
+    }
+    return parsed;
+}
+/** Return all database configuration problems using setting names only. */
+export function databaseConfigIssues(env = process.env) {
+    const issues = [];
+    if (env.DATABASE_URL !== undefined) {
+        try {
+            const url = new URL(env.DATABASE_URL);
+            const host = url.searchParams.get("host") || url.hostname;
+            if (!["postgres:", "postgresql:"].includes(url.protocol) || !host.trim() || url.pathname.length < 2 || url.hash)
+                throw new Error();
+        }
+        catch {
+            issues.push("DATABASE_URL must be a PostgreSQL URL with a host and database; export DATABASE_URL with your PostgreSQL connection settings.");
+        }
+    }
+    else {
+        for (const name of ["POSTGRES_HOST", "POSTGRES_DB"]) {
+            if (!env[name]?.trim())
+                issues.push(`${name} is missing; export ${name}, or export DATABASE_URL instead.`);
+        }
+        if (issues.length)
+            issues.unshift("DATABASE_URL is not set. pm-web requires PostgreSQL.");
+        if (env.POSTGRES_PORT !== undefined) {
+            try {
+                integerSetting(env.POSTGRES_PORT, "POSTGRES_PORT", 1, 65535);
+            }
+            catch (error) {
+                issues.push(error.message);
+            }
+        }
+    }
+    return issues;
+}
+/** Collect startup errors before importing modules that open resources or require secrets. */
+export function startupConfigIssues(env = process.env) {
+    const issues = databaseConfigIssues(env);
+    for (const [name, fallback, min, max] of [
+        ["PORT", "4000", 0, 65535], ["PM_WEB_DB_POOL_MAX", "20", 2, 10000],
+        ["PM_WEB_STARTUP_TIMEOUT_MS", "30000", 1, 300000],
+    ]) {
+        try {
+            integerSetting(env[name] ?? fallback, name, min, max);
+        }
+        catch (error) {
+            issues.push(error.message);
+        }
+    }
+    if (env.JWT_SECRET === "" || (env.NODE_ENV === "production" && !env.JWT_SECRET?.trim())) {
+        issues.push("JWT_SECRET is required in production; export JWT_SECRET with a private random signing secret.");
+    }
+    try {
+        const oidc = resolveOidcSettings(env);
+        if (!oidc.enabled && oidc.reason)
+            issues.push(`${oidc.reason} Set the named OIDC_* environment variables or unset OIDC configuration.`);
+    }
+    catch (error) {
+        issues.push(`${error.message} Set the named OIDC_* environment variables or unset OIDC configuration.`);
+    }
+    return issues;
+}
+/** Remove connection strings and configured credentials from bounded child diagnostics. */
+export function redactStartupLog(text, env = process.env) {
+    let safe = text.replace(/postgres(?:ql)?:\/\/[^\s"'\\]+/gi, "[redacted PostgreSQL URL]");
+    for (const [name, value] of Object.entries(env)) {
+        if (value && /PASSWORD|SECRET|TOKEN|API_?KEY|AUTHORIZATION|CREDENTIAL|DATABASE_URL|POSTGRES_USER/i.test(name))
+            safe = safe.split(value).join("[redacted]");
+    }
+    return safe;
+}
+//# sourceMappingURL=startup-config.js.map
