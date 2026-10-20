@@ -19,7 +19,11 @@ const repo = path.resolve(import.meta.dirname, "..");
 export async function waitUntil(predicate: () => boolean, timeoutMs: number, label: string): Promise<void> {
   const deadline = performance.now() + timeoutMs;
   while (!predicate()) {
-    if (performance.now() >= deadline) throw new Error(`Capacity timeout: ${label}`);
+    if (performance.now() >= deadline) {
+      const codes: Record<string, string> = { "SSE connected frame": "SSE_CONNECTED_TIMEOUT", "complete project presence snapshot": "SSE_PRESENCE_TIMEOUT",
+        "production server startup": "SERVER_STARTUP_TIMEOUT", "database sample completion": "DATABASE_SAMPLE_TIMEOUT", "database cleanup": "DATABASE_CLEANUP_TIMEOUT" };
+      throw Object.assign(new Error(`Capacity timeout: ${label}`), { code: codes[label] ?? "CAPACITY_WAIT_TIMEOUT" });
+    }
     await delay(20);
   }
 }
@@ -176,6 +180,8 @@ export async function capacityServer(root: string, secret: string, traceDirector
       flushTrace: async () => { if (traceDirectory) { child.send("capacity-trace-flush"); await waitUntil(() => traceFlushed, 5000, "trace flush"); } },
       /** Obtain a final sample through acknowledged IPC rather than a periodic-sample race. */
       sample: async () => { const count = samples.length; child.send("capacity-sample"); await waitUntil(() => samples.length > count, 5000, "final process sample"); },
+      /** Expose only this owned child's exit state for public-safe setup diagnostics. */
+      exitState: () => ({ code: child.exitCode, signal: child.signalCode }),
       close: () => stopServer(child) };
   } catch (error) { await stopServer(child); throw error; }
 }

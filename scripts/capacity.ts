@@ -59,10 +59,16 @@ export async function capacitySubscriber(url: string, headers: Record<string, st
   const state: CapacitySubscriber = { receivedAt: new Float64Array(writes), counts: new Uint32Array(writes), disconnected: false };
   const controller = new AbortController();
   let connected = false;
-  const startup = setTimeout(() => controller.abort(), 15_000);
+  let startupExpired = false;
+  const startup = setTimeout(() => { startupExpired = true; controller.abort(); }, 15_000);
   try {
     const response = await fetch(url, { headers, signal: controller.signal });
-    if (response.status !== 200 || !response.body || !response.headers.get("content-type")?.includes("text/event-stream")) throw new Error("SSE subscription was rejected");
+    if (response.status !== 200 || !response.body || !response.headers.get("content-type")?.includes("text/event-stream")) {
+      const failure = response.status === 500 ? await response.text() : "";
+      const phase = failure.includes("Failed to verify project for real-time sync") ? "_VERIFY"
+        : failure.includes("Failed to initialize real-time presence") ? "_PRESENCE" : "";
+      throw Object.assign(new Error("SSE subscription was rejected"), { code: `SSE_HTTP_${response.status}${phase}` });
+    }
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
     const reading = (async () => {
       let pending = "";
@@ -97,10 +103,14 @@ export async function capacitySubscriber(url: string, headers: Record<string, st
       } catch { if (!controller.signal.aborted) state.disconnected = true; }
     })();
     await waitUntil(() => connected || state.disconnected, 15_000, "SSE connected frame");
-    if (!connected) throw new Error("SSE disconnected during startup");
+    if (!connected) throw Object.assign(new Error("SSE disconnected during startup"), { code: "SSE_STARTUP_DISCONNECTED" });
     clearTimeout(startup);
     return { state, close: async () => { controller.abort(); await reading; } };
-  } catch (error) { clearTimeout(startup); controller.abort(); throw error; }
+  } catch (error) {
+    clearTimeout(startup); controller.abort();
+    if (startupExpired) throw Object.assign(new Error("SSE startup deadline exceeded"), { code: "SSE_STARTUP_TIMEOUT" });
+    throw error;
+  }
 }
 
 /** Read the authoritative committed update, rather than using response/exit time as a commit proxy. */
@@ -152,6 +162,7 @@ export function rungPassed(input: { lost: number; duplicates: number; failedWrit
  * cleanup error never hides the setup or measurement error that preceded it.
  */
 async function runRung(subscribers: number, options: CapacityOptions) {
+  const setupStarted = performance.now();
   const fixture = await capacityFixture(Math.max(subscribers, options.writers));
   const traceDirectory = options.trace ? path.join(fixture.root, "traces") : undefined;
   let server: Awaited<ReturnType<typeof capacityServer>> | undefined;
@@ -187,15 +198,30 @@ async function runRung(subscribers: number, options: CapacityOptions) {
       for (const write of writes) await fixture.client.run("create", { options: { id: write.itemId, title: `Synthetic ${write.sequence}`, type: "Task", description: "Capacity fixture" } });
       server = await capacityServer(fixture.root, fixture.secret, traceDirectory);
       const indices = new Map(writes.map((write) => [write.itemId, write.sequence]));
-      // Bound connection startup concurrency so the generator cannot flood the auth pool's wait queue.
-      for (let start = 0; start < subscribers; start += 50) {
-        const batch = await Promise.allSettled(Array.from({ length: Math.min(50, subscribers - start) }, (_, offset) => capacitySubscriber(
-          `${server!.url}/api/projects/${fixture.projectId}/pm/events?view=items`, fixture.sessions[start + offset], indices, writes.length, observation)));
-        for (const result of batch) if (result.status === "fulfilled") streams.push(result.value);
-        if (batch.some((result) => result.status === "rejected")) throw new Error("SSE connection ramp failed");
+      let nextConnection = 0;
+      const rampAbort = new AbortController();
+      /** Refill each accepted slot immediately, keeping ten in flight without artificial cohort pauses. */
+      const openConnections = async (): Promise<void> => {
+        while (!rampAbort.signal.aborted) {
+          const index = nextConnection++;
+          if (index >= subscribers) return;
+          try {
+            streams.push(await capacitySubscriber(`${server!.url}/api/projects/${fixture.projectId}/pm/events?view=items`,
+              fixture.sessions[index], indices, writes.length, observation));
+            if (streams.length % 500 === 0) process.stderr.write(`capacity setup: ${streams.length}/${subscribers} SSE streams connected\n`);
+          } catch (error) { rampAbort.abort(); throw error; }
+        }
+      };
+      const ramp = await Promise.allSettled(Array.from({ length: Math.min(10, subscribers) }, openConnections));
+      const rejected = ramp.find((result) => result.status === "rejected");
+      if (rejected?.status === "rejected") {
+        const exit = server.exitState();
+        if (exit.signal || exit.code !== null) throw new RungFailure("setup", "ServerExit", `SERVER_EXIT_${exit.signal ?? exit.code}`);
+        throw describeRungFailure(rejected.reason, "setup");
       }
       // Drain the final full presence snapshot before resetting CPU/encoding counters.
-      await waitUntil(() => streams.every((stream) => stream.state.presenceUsers === subscribers), 45_000, "complete project presence snapshot");
+      await waitUntil(() => streams.every((stream) => stream.state.presenceUsers === subscribers) || streams.some((stream) => stream.state.disconnected), 45_000, "complete project presence snapshot");
+      if (streams.some((stream) => stream.state.disconnected)) throw new RungFailure("setup", "DisconnectedStream", "SSE_SETUP_DISCONNECTED");
       phase = "measurement";
       // Keep the production 15s sweep and 2s subscription reconciliation cadence. Establish the
       // filesystem baseline before writes, avoiding both startup-tail loss and a shortened test cadence.
@@ -215,6 +241,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         idleLocks = { acquisitions: last.count - first.count, elapsed_ms: last.at - first.at,
           acquisitions_per_second: (last.count - first.count) * 1000 / (last.at - first.at) };
       }
+      const setupElapsed = performance.now() - setupStarted;
       await server.begin();
       const hostLoadBefore = loadavg();
       generatorDelay.enable();
@@ -313,7 +340,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         else if (resources.host_load_average_after[0] > cpus().length * 1.5) firstLimit = "host scheduling or I/O pressure (load average above logical CPU count); cause unproven";
         else firstLimit = "unidentified: observed loss, latency, write failure or unhealthy server without a saturated resource signal";
       }
-      return { subscribers, writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
+      return { subscribers, setup_ms: setupElapsed, setup_concurrency: Math.min(10, subscribers), writers: options.writers, http_writers: Math.floor(options.writers / 2), cli_writers: Math.ceil(options.writers / 2),
         writes: writes.length, committed_writes: writes.filter((write) => write.committedAt !== null).length,
         failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
         ...delivery, idle_index_locks: idleLocks, stages, trace_critical_paths: criticalPaths, trace_deliveries: tracedDeliveries, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,

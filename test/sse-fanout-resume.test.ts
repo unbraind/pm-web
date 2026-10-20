@@ -29,7 +29,6 @@ test("forced last-viewer disconnect replays exactly the missed independent CLI c
     const cursor = first.state.lastEventId;
     assert.ok(cursor, "a complete received frame must carry a resume cursor");
     await first.close();
-    first = undefined;
     const goneDeadline = performance.now() + 5000;
     while ((await server.health()).realtime.sse_clients !== 0) {
       assert.ok(performance.now() < goneDeadline, "the last viewer must actually disconnect");

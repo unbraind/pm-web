@@ -54,6 +54,7 @@ const observer = {
   },
   /** Count response calls rather than pretending each callback means a network receipt. */
   write: (payload: string | Buffer) => {
+    if (typeof payload === "string" ? !payload.startsWith("event: ") : payload[0] !== 101) return;
     totals.response_writes += 1;
     let count = frameCounts.get(payload);
     if (count === undefined) {
@@ -71,7 +72,7 @@ Reflect.set(globalThis, Symbol.for("pm-web.capacity.fanout"), observer);
 /** Add checked CPU boundaries and encoding counters to baseline or candidate compiled service code. */
 export function instrumentFanoutCpu(source: string, baseline: boolean): string {
   const parsed = parse(source, { sourceType: "module" });
-  const names = new Set(baseline ? ["deliverProjectEvent", "broadcastPresence"] : ["prepareFanout", "writeFanoutBatch", "drainViewer"]);
+  const names = new Set(baseline ? ["deliverProjectEvent", "broadcastPresence"] : ["prepareFanout", "writeFanoutBatch"]);
   const edits: { at: number; text: string }[] = [];
   for (const node of parsed.program.body) {
     const declaration = node.type === "ExportNamedDeclaration" ? node.declaration : node;

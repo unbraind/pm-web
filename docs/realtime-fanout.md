@@ -67,10 +67,16 @@ write-to-network latency. The existing [capacity harness](capacity.md) still use
 real authenticated HTTP streams, an isolated production server, the disposable
 test database, and separate pinned CLI writers. It first drains the complete
 presence snapshot at the requested population, then resets measurement counters.
+Connection startup continuously refills ten slots, leaving headroom below the
+package's default twenty-connection database pool. There are no artificial cohort
+pauses that repeatedly trigger large presence snapshots during a ramp. Connection
+and presence deadlines are unchanged. Measured writes start only after all requested
+viewers and the final presence snapshot are ready; join-storm capacity is separate.
 
 The test-only preload wraps the same local delivery and presence functions in
-both builds, plus the candidate's encoding, batch-write, and deferred-drain
-functions. Nested CPU scopes are counted once. `process.cpuUsage()` differences
+both builds, plus the candidate's encoding and batch-write scopes. Authorized
+deferred drains run through that same batch scope, so no CPU timer is added per
+viewer. Nested CPU scopes are counted once. `process.cpuUsage()` differences
 sum synchronous service CPU, independent of scheduler waiting. A second union of
 non-overlapping CPU windows extends through `setImmediate`, capturing work later
 in the turn, including ordinary response-write callbacks. That broader metric can
@@ -85,7 +91,7 @@ event, separately for the synthetic measured mutations and all control events.
 The primary denominator is the number of measured mutation frames submitted to
 responses, checked against committed writes times subscribers and independently
 against actual network receipts. There are separate counters for response write
-calls and all submitted frames, so burst batching cannot masquerade as fewer
+calls carrying events and all submitted frames, so burst batching cannot masquerade as fewer
 delivered events. Probe bookkeeping adds overhead to both builds.
 
 For each population, run A/B/A/B on the same host, with immutable baseline and
