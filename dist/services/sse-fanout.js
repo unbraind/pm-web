@@ -47,6 +47,7 @@ function detach(state, viewer, disconnect) {
     clearTimeout(viewer.deadline);
     viewer.sink.res.off?.("drain", viewer.drain);
     viewer.queue.length = 0;
+    viewer.presence = undefined;
     viewer.bytes = 0;
     if (disconnect) {
         try {
@@ -69,13 +70,18 @@ function detach(state, viewer, disconnect) {
     }
 }
 /** Drain only this response; a false write already accepted that buffer and must never be retried. */
-function drainViewer(state, viewer) {
+function drainViewer(state, viewer, presence) {
     if (state.viewers.get(viewer.sink.id) !== viewer || viewer.blocked)
         return;
     try {
-        while (viewer.queue.length) {
-            const payload = viewer.queue.shift();
-            viewer.bytes -= payload.length;
+        for (;;) {
+            const payload = viewer.queue.shift() ?? (viewer.presence === presence ? presence : undefined);
+            if (!payload)
+                return;
+            if (payload === viewer.presence)
+                viewer.presence = undefined;
+            else
+                viewer.bytes -= payload.length;
             if (!viewer.sink.res.write(payload)) {
                 viewer.blocked = true;
                 viewer.deadline = setTimeout(() => detach(state, viewer, true), FANOUT_LIMITS.stallMs);
@@ -90,7 +96,7 @@ function drainViewer(state, viewer) {
 }
 /** Enqueue a shared buffer with a hard bound, including bytes already buffered by Node. */
 function enqueue(state, viewer, payload, mayDrain = true) {
-    if (viewer.bytes + payload.length + (viewer.sink.res.writableLength ?? 0) > FANOUT_LIMITS.queueBytes || viewer.queue.length >= FANOUT_LIMITS.queueBatches) {
+    if (viewer.bytes + (viewer.presence?.length ?? 0) + payload.length + (viewer.sink.res.writableLength ?? 0) > FANOUT_LIMITS.queueBytes || viewer.queue.length >= FANOUT_LIMITS.queueBatches) {
         detach(state, viewer, true);
         return;
     }
@@ -102,7 +108,7 @@ function enqueue(state, viewer, payload, mayDrain = true) {
         schedule(state);
 }
 /** Write one pre-encoded batch to eligible viewers, grouping only identical replay positions. */
-function writeFanoutBatch(state, allowed, throughSequence, throughRegistration) {
+function writeFanoutBatch(state, allowed, throughSequence, throughRegistration, presence) {
     prune(state);
     const batches = new Map();
     for (const viewer of state.viewers.values()) {
@@ -112,7 +118,7 @@ function writeFanoutBatch(state, allowed, throughSequence, throughRegistration) 
             detach(state, viewer, true);
             continue;
         }
-        drainViewer(state, viewer);
+        drainViewer(state, viewer, presence);
         if (viewer.cursor >= throughSequence)
             continue;
         if (viewer.cursor < (state.frames[0]?.sequence ?? state.sequence + 1) - 1) {
@@ -153,10 +159,11 @@ async function flushFanout(state) {
     // Later arrivals need a later permission read, even if this query's snapshot predates revocation.
     const throughSequence = state.sequence;
     const throughRegistration = state.registration;
+    const throughPresence = state.presence;
     const authorization = [...state.viewers.values()].find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
     try {
         const allowed = authorization ? await authorization() : undefined;
-        writeFanoutBatch(state, allowed, throughSequence, throughRegistration);
+        writeFanoutBatch(state, allowed, throughSequence, throughRegistration, throughPresence);
     }
     catch {
         for (const viewer of [...state.viewers.values()])
@@ -174,11 +181,23 @@ function schedule(state) {
         state.timer.unref();
     }
 }
-/** Encode each event exactly once as UTF-8, retain it for replay, and schedule an ordered burst. */
+/** Encode once: journal mutations for replay and replace each viewer's pending presence snapshot. */
 export function prepareFanout(projectId, event) {
     const state = projects.get(projectId);
     if (!state)
         return;
+    if (event.type === "presence") {
+        const payload = Buffer.from(`event: presence\ndata: ${JSON.stringify(event.data)}\n\n`);
+        state.presence = payload;
+        for (const viewer of state.viewers.values()) {
+            viewer.presence = payload;
+            if (viewer.bytes + payload.length + (viewer.sink.res.writableLength ?? 0) > FANOUT_LIMITS.queueBytes)
+                detach(state, viewer, true);
+        }
+        if (state.viewers.size)
+            schedule(state);
+        return;
+    }
     const sequence = state.sequence + 1;
     const payload = Buffer.from(`event: ${event.type}\nid: ${state.epoch}:${sequence}\ndata: ${JSON.stringify(event.data)}\n\n`);
     state.sequence = sequence;
@@ -204,11 +223,11 @@ export function attachFanout(projectId, sink, onClose, lastEventId) {
             viewer.blocked = false;
             clearTimeout(viewer.deadline);
             if (sink.authorizeProject) {
-                if (viewer.queue.length || viewer.cursor < state.sequence)
+                if (viewer.queue.length || viewer.presence || viewer.cursor < state.sequence)
                     schedule(state);
             }
             else {
-                drainViewer(state, viewer);
+                drainViewer(state, viewer, viewer.presence);
                 if (viewer.cursor < state.sequence && !viewer.blocked)
                     schedule(state);
             }

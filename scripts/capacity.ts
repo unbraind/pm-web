@@ -361,7 +361,7 @@ export async function runCapacity(options: CapacityOptions) {
   }
   return { schema_version: 1, date: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
     hardware, options, runs, failure, stopped_early: runs.length < options.rungs.length,
-    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""}${options.idleMs ? ` --idle-ms ${options.idleMs}` : ""}${options.warmupMs ? ` --warmup-ms ${options.warmupMs}` : ""}${options.setupConcurrency ? ` --setup-concurrency ${options.setupConcurrency}` : ""}${options.quietSetup ? " --quiet-setup true" : ""}${options.writerTimeoutMs ? ` --writer-timeout-ms ${options.writerTimeoutMs}` : ""} --output "$CAPACITY_OUTPUT"` };
+    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""}${options.idleMs ? ` --idle-ms ${options.idleMs}` : ""}${options.warmupMs ? ` --warmup-ms ${options.warmupMs}` : ""}${options.setupConcurrency ? ` --setup-concurrency ${options.setupConcurrency}` : ""}${options.quietSetup !== undefined ? ` --quiet-setup ${options.quietSetup}` : ""}${options.writerTimeoutMs ? ` --writer-timeout-ms ${options.writerTimeoutMs}` : ""} --output "$CAPACITY_OUTPUT"` };
 }
 
 /** Render a public-safe summary; paths, credentials, fixture identities and process logs are omitted. */
@@ -390,8 +390,9 @@ async function main(): Promise<void> {
   const options = capacityOptions(process.argv.slice(2));
   const build = spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], { stdio: "inherit", shell: process.platform === "win32" });
   if (build.status !== 0) throw new Error("Production build failed");
-  const report = await runCapacity({ rungs: options.rungs, writers: options.writers, writesPerWriter: options.writesPerWriter, sloMs: options.sloMs, drainMs: options.drainMs, trace: options.trace, idleMs: options.idleMs });
-  const prefix = options.output ?? path.join(await mkdtemp(path.join(tmpdir(), "pm-web-capacity-report-")), "capacity");
+  const { output, ...runOptions } = options;
+  const report = await runCapacity(runOptions);
+  const prefix = output ?? path.join(await mkdtemp(path.join(tmpdir(), "pm-web-capacity-report-")), "capacity");
   await mkdir(path.dirname(prefix), { recursive: true });
   await writeFile(`${prefix}.json`, JSON.stringify(report, null, 2) + "\n", { flag: "wx" });
   await writeFile(`${prefix}.md`, capacityMarkdown(report), { flag: "wx" });

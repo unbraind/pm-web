@@ -94,8 +94,10 @@ export function instrumentFanoutCpu(source: string, baseline: boolean): string {
     const loop = source.indexOf("    for (const client of set) {", presence);
     if (loop < 0) throw new Error("Fanout presence probe source drift");
     source = source.slice(0, loop) + `${probe}.serialized(payload);\n` + source.slice(loop);
+  } else {
+    source = source.replace("state.presence = payload;", `${probe}.serialized(payload); state.presence = payload;`);
   }
-  return source.replaceAll(baseline ? "client.res.write(payload);" : "viewer.bytes -= payload.length;", baseline ? `${probe}.write(payload); client.res.write(payload);` : `viewer.bytes -= payload.length; ${probe}.write(payload);`);
+  return source.replaceAll(baseline ? "client.res.write(payload);" : "if (!viewer.sink.res.write(payload)) {", baseline ? `${probe}.write(payload); client.res.write(payload);` : `${probe}.write(payload); if (!viewer.sink.res.write(payload)) {`);
 }
 
 registerHooks({

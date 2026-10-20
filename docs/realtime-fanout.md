@@ -32,12 +32,18 @@ read is pending. Catch-up is shared in batches of at most 64 KiB, allowing one l
 frame when needed. It progresses after drain instead of buffering the entire
 journal per viewer. A single frame exceeding the queue byte budget disconnects.
 
-Every complete SSE frame, including `connected` and presence, carries an opaque
+Every mutation frame and the initial `connected` frame carries an opaque
 project-epoch/sequence `id`. Native `EventSource` reconnects with `Last-Event-ID`;
 other clients should retain the last fully received frame's ID and send that
 header. Only frames strictly after that cursor are replayed, followed by live
 events through the same ordered queue. Detection stays active while the last
 viewer reconnects. Partial frames do not advance the client's cursor.
+
+Presence snapshots carry no ID and consume no mutation replay space. Each viewer
+retains only the newest pending snapshot, within the same total byte budget.
+Connect and reconnect schedule a fresh current roster separately from mutation
+replay; historical rosters are never replayed. Snapshot delivery uses the same
+fresh membership checks as mutation batches, including after transport drain.
 
 Resume is bounded to the current process and the retained contiguous journal:
 60 seconds, 10,000 frames, or 8 MiB per project, whichever is reached first.

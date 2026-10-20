@@ -335,3 +335,73 @@ test(`a newly granted viewer never uses a prior registration's membership result
   assert.deepEqual(frames(added.writes).map((frame) => frame.type), ["connected", "after-join"]);
 });
 }
+
+/** Flush more than a replay budget of full rosters without creating a measured workload. */
+async function churnPresence(project: string): Promise<void> {
+  for (let index = 0; index < 25; index++) {
+    prepareFanout(project, { type: "presence", data: { index, text: "x".repeat(432 * 1024) } });
+    await delay(6);
+  }
+}
+
+test("presence churn cannot evict mutations or replay historical rosters", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), live = sink();
+  attachFanout(project, live, () => {});
+  const cursor = frames(live.writes)[0].id;
+  prepareFanout(project, { type: "mutation", data: { index: 1 } });
+  await churnPresence(project);
+  assert.ok(canResumeFanout(project, cursor), "rosters must not consume the mutation replay budget");
+  const resumed = sink();
+  attachFanout(project, resumed, () => {}, cursor);
+  await delay(20);
+  assert.deepEqual(frames(resumed.writes).map((frame) => frame.type), ["connected", "mutation"]);
+  assert.equal(frames(resumed.writes).at(-1)?.id.split(":")[1], "1");
+  assert.ok(frames(live.writes).filter((frame) => frame.type === "presence").every((frame) => frame.id === ""));
+});
+
+test("blocked viewers retain only the newest presence snapshot within the transport byte budget", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), slow = sink(true), fast = sink();
+  attachFanout(project, slow, () => {});
+  attachFanout(project, fast, () => {});
+  Object.assign(slow.res, { writableLength: 432 * 1024 });
+  await churnPresence(project);
+  prepareFanout(project, { type: "mutation", data: { index: 99 } });
+  await delay(15);
+  assert.equal(slow.destroyed(), false, "replaced snapshots must not accumulate against queue limits");
+  Object.assign(slow.res, { writableLength: 0 });
+  slow.unblock();
+  const received = frames(slow.writes);
+  assert.deepEqual(received.map((frame) => frame.type), ["connected", "mutation", "presence"]);
+  assert.equal(JSON.parse(received.at(-1)!.data!).index, 24);
+  assert.equal(received.at(-1)!.id, "");
+  assert.equal(frames(fast.writes).filter((frame) => frame.type === "mutation").length, 1);
+  prepareFanout(project, { type: "presence", data: "x".repeat(FANOUT_LIMITS.queueBytes) });
+  assert.equal(slow.destroyed(), true, "a single oversized snapshot still obeys the hard byte limit");
+});
+
+test("a presence snapshot arriving during authorization requires a later decision, including drain and heartbeat", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), viewer = sink(true);
+  let release: (() => void) | undefined, reads = 0;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  const members = new Set([viewer.userId]);
+  attachFanout(project, { ...viewer, authorizeProject: async () => {
+    const snapshot = new Set(members);
+    if (++reads === 1) await held;
+    return snapshot;
+  } }, () => {});
+  prepareFanout(project, { type: "presence", data: { users: ["old"] } });
+  await delay(15);
+  assert.equal(reads, 1);
+  members.clear();
+  prepareFanout(project, { type: "presence", data: { users: ["private-new"] } });
+  viewer.unblock();
+  heartbeatFanout(project, viewer.id);
+  release!();
+  await delay(30);
+  assert.equal(viewer.destroyed(), true);
+  assert.equal(reads, 2);
+  assert.equal(frames(viewer.writes).some((frame) => frame.type === "presence"), false);
+});

@@ -7,6 +7,7 @@ import { realtimeHealth } from "../src/services/realtime-observability.ts";
 import {
   addSSEClient,
   broadcastProjectEvent,
+  broadcastPresence,
   closeAllSSEClients,
   configureProjectEventPublisher,
   consumeSignaledItemMutation,
@@ -229,4 +230,27 @@ test("shutdown keeps closing the remaining SSE clients when one response fails t
   assert.equal(getSSEClientCount(), 0);
   assert.deepEqual(getProjectPresence(projectId), []);
   assert.deepEqual(getProjectPresence(otherProjectId), []);
+});
+
+
+test("connect and resume send a fresh current roster separately from mutation replay", async (t) => {
+  t.after(closeAllSSEClients);
+  const first = fakeResponse();
+  const client = { id: "presence-resume", projectId, userId: "roster-user", displayName: "Roster User", currentView: "items", connectedAt: new Date() };
+  const stop = addSSEClient({ ...client, res: first.response });
+  broadcastPresence(projectId);
+  broadcastProjectEvent(projectId, { type: "mutation", data: { itemId: "roster-mutation" } });
+  await delay(20);
+  assert.match(first.writes.join(""), /event: presence/);
+  const cursor = /^id: (.+)$/m.exec(first.writes[0])![1];
+  stop();
+  const resumed = fakeResponse();
+  addSSEClient({ ...client, currentView: "graph", res: resumed.response }, cursor);
+  await delay(120);
+  const events = resumed.writes.join("").split("\n\n").filter(Boolean);
+  const rosters = events.filter((event) => event.startsWith("event: presence"));
+  assert.equal(rosters.length, 1, "resume must send one current snapshot, never historical rosters");
+  assert.match(rosters[0], /"currentView":"graph"/);
+  assert.doesNotMatch(rosters[0], /^id:/m);
+  assert.equal(events.filter((event) => event.startsWith("event: mutation")).length, 1);
 });

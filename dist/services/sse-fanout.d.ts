@@ -22,7 +22,7 @@ export declare function canResumeFanout(projectId: string, cursor: string): bool
 export declare function retainedFanoutProjects(): string[];
 /** Ignore bus traffic for projects this process has never served or whose replay journal expired. */
 export declare function hasFanoutProject(projectId: string): boolean;
-/** Encode each event exactly once as UTF-8, retain it for replay, and schedule an ordered burst. */
+/** Encode once: journal mutations for replay and replace each viewer's pending presence snapshot. */
 export declare function prepareFanout(projectId: string, event: {
     type: string;
     data: unknown;
