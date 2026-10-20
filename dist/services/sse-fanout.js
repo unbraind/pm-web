@@ -188,7 +188,7 @@ export function prepareFanout(projectId, event) {
         return;
     if (event.type === "presence") {
         const payload = Buffer.from(`event: presence\ndata: ${JSON.stringify(event.data)}\n\n`);
-        state.presence = payload;
+        state.presence = payload.length <= FANOUT_LIMITS.queueBytes ? payload : undefined;
         for (const viewer of state.viewers.values()) {
             viewer.presence = payload;
             if (viewer.bytes + payload.length + (viewer.sink.res.writableLength ?? 0) > FANOUT_LIMITS.queueBytes)

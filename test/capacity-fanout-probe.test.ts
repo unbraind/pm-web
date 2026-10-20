@@ -8,12 +8,14 @@ import test from "node:test";
 import type { Response } from "express";
 import { transformSync } from "esbuild";
 import { fanoutMeasurement, instrumentFanoutCpu, resetFanoutMeasurement } from "../scripts/capacity-fanout-probe.ts";
-import type { attachFanout, clearFanout, prepareFanout } from "../src/services/sse-fanout.ts";
+import { FANOUT_LIMITS, type attachFanout, type clearFanout, type prepareFanout } from "../src/services/sse-fanout.ts";
 
 test("fanout probes count non-journaled snapshot encoding and actual snapshot writes", async (t) => {
   const compiled = readFileSync(new URL("../dist/services/sse-fanout.js", import.meta.url), "utf8");
-  const observed = instrumentFanoutCpu(compiled, false);
-  const module = { exports: {} as { attachFanout: typeof attachFanout; clearFanout: typeof clearFanout; prepareFanout: typeof prepareFanout } };
+  // Inspect retained buffers in the actual module without adding a production diagnostics API.
+  const inspection = "\nexport function retainedPresenceBytes() { return [...projects.values()].reduce((sum, state) => sum + (state.presence?.length ?? 0), 0); }";
+  const observed = instrumentFanoutCpu(compiled + inspection, false);
+  const module = { exports: {} as { attachFanout: typeof attachFanout; clearFanout: typeof clearFanout; prepareFanout: typeof prepareFanout; retainedPresenceBytes: () => number } };
   const realm = { module, exports: module.exports, require: createRequire(import.meta.url), Buffer, setTimeout, clearTimeout, setImmediate, process };
   Reflect.set(realm, Symbol.for("pm-web.capacity.fanout"), Reflect.get(globalThis, Symbol.for("pm-web.capacity.fanout")));
   runInNewContext(transformSync(observed, { format: "cjs", target: "es2022" }).code, realm);
@@ -34,4 +36,6 @@ test("fanout probes count non-journaled snapshot encoding and actual snapshot wr
   assert.equal(measured.delivered_mutations, 1);
   assert.equal(measured.response_writes, writes.length);
   assert.ok(measured.serialized_bytes > writes.reduce((sum, payload) => sum + payload.length, 0));
+  service.prepareFanout("probe-project", { type: "presence", data: "x".repeat(FANOUT_LIMITS.queueBytes) });
+  assert.equal(service.retainedPresenceBytes(), 0, "rejected oversized snapshots must not remain cached after all viewers detach");
 });

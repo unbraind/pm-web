@@ -95,7 +95,7 @@ export function instrumentFanoutCpu(source: string, baseline: boolean): string {
     if (loop < 0) throw new Error("Fanout presence probe source drift");
     source = source.slice(0, loop) + `${probe}.serialized(payload);\n` + source.slice(loop);
   } else {
-    source = source.replace("state.presence = payload;", `${probe}.serialized(payload); state.presence = payload;`);
+    source = source.replace("state.presence =", `${probe}.serialized(payload); state.presence =`);
   }
   return source.replaceAll(baseline ? "client.res.write(payload);" : "if (!viewer.sink.res.write(payload)) {", baseline ? `${probe}.write(payload); client.res.write(payload);` : `${probe}.write(payload); if (!viewer.sink.res.write(payload)) {`);
 }
