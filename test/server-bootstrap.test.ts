@@ -13,6 +13,7 @@ import { createExtensionTestHarness } from "@unbrained/pm-cli/sdk/testing";
 import { pool } from "../src/db.ts";
 import sourceExtension from "../src/index.ts";
 import { withExtensionBootstrap } from "./helpers/extension-bootstrap.ts";
+import { withEmptySigningSecret } from "./helpers/empty-signing-secret.ts";
 import { authHeaders, ensureSchema, seedProject, seedUser } from "./helpers/pg-harness.ts";
 
 /** Poll observable state under a deadline that includes loaded-host process startup. */
@@ -207,8 +208,11 @@ test("the extension starts, probes and stops PostgreSQL servers and propagates c
     }, () => "stopped detached server must exit");
     delete detached.pid;
     await assert.rejects(readFile(path.join(root, `pm-web-${port}.pid`)), { code: "ENOENT" });
-    process.env.JWT_SECRET = "";
-    await assert.rejects(host.runCommand({ command: "web", options: { port } }), /pm-web exited with code 1/);
+    await withEmptySigningSecret(async () => {
+      await assert.rejects(host.runCommand({ command: "web", options: { port } }), {
+        name: "CommandError", message: /startup preflight failed:[\s\S]*JWT_SECRET is required/, exitCode: 1,
+      });
+    });
     // The source wrapper has no emitted server sibling. Exercise its real child
     // failure through the shipped host, including the numeric command error.
     const sourceHost = await createExtensionTestHarness(sourceExtension, { name: "pm-web", capabilities: ["commands", "schema"] });

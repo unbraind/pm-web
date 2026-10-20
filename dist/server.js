@@ -1,13 +1,13 @@
+import "./server-preflight.js";
 import { logEvent, logError } from "./observability.js";
 import { realtimeHealth } from "./services/realtime-observability.js";
-import { initSchema, assertDbConfigured, pool } from "./db.js";
+import { initSchema, pool } from "./db.js";
 import { createApp, readPackageVersion } from "./app.js";
 import { projectsRoot } from "./services/pm-runner.js";
 import { cleanupStaleClients, closeAllSSEClients } from "./services/sse.js";
 import { startRealtimeBus } from "./services/realtime-bus.js";
 import { startProjectWatcher } from "./services/project-watcher.js";
 import { startMutationEventWatcher } from "./services/mutation-event-watcher.js";
-import { assertOidcConfiguration } from "./oidc.js";
 /** Preserve fatal semantics while emitting privacy-safe structured diagnostics. */
 function fatalError(error) {
     logError("unhandled_error", error);
@@ -30,17 +30,6 @@ const app = createApp({
         version: readPackageVersion(),
     },
 });
-// Validate configuration before doing anything that needs the database, so a
-// missing DATABASE_URL fails fast with a clear message instead of hanging on a
-// DNS/connection timeout.
-try {
-    assertDbConfigured();
-    assertOidcConfiguration();
-}
-catch (err) {
-    logError("configuration_error", err);
-    process.exit(1);
-}
 // Init DB schema, then start server
 initSchema()
     .then(async () => {
@@ -57,6 +46,8 @@ initSchema()
             process.exit(1);
         }
         const address = server.address();
+        if (process.send && typeof address === "object" && address)
+            process.send({ type: "pm-web-listening", port: address.port });
         logEvent("server_started", { port: typeof address === "object" && address ? address.port : PORT });
     });
     server.on("error", (err) => {
@@ -82,6 +73,7 @@ initSchema()
     process.once("SIGTERM", shutdown);
 })
     .catch((err) => {
+    process.stderr.write("PostgreSQL initialization failed. Check DATABASE_URL or POSTGRES_* settings, database reachability and CREATE/ALTER permissions. Connection details redacted.\n");
     logError("initialization_error", err);
     process.exit(1);
 });

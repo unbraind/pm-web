@@ -1,13 +1,13 @@
+import "./server-preflight.ts";
 import { logEvent, logError } from "./observability.ts";
 import { realtimeHealth } from "./services/realtime-observability.ts";
-import { initSchema, assertDbConfigured, pool } from "./db.ts";
+import { initSchema, pool } from "./db.ts";
 import { createApp, readPackageVersion } from "./app.ts";
 import { projectsRoot } from "./services/pm-runner.ts";
 import { cleanupStaleClients, closeAllSSEClients } from "./services/sse.ts";
 import { startRealtimeBus } from "./services/realtime-bus.ts";
 import { startProjectWatcher } from "./services/project-watcher.ts";
 import { startMutationEventWatcher } from "./services/mutation-event-watcher.ts";
-import { assertOidcConfiguration } from "./oidc.ts";
 
 /** Preserve fatal semantics while emitting privacy-safe structured diagnostics. */
 function fatalError(error: unknown): void {
@@ -34,17 +34,6 @@ const app = createApp({
   },
 });
 
-// Validate configuration before doing anything that needs the database, so a
-// missing DATABASE_URL fails fast with a clear message instead of hanging on a
-// DNS/connection timeout.
-try {
-  assertDbConfigured();
-  assertOidcConfiguration();
-} catch (err) {
-  logError("configuration_error", err);
-  process.exit(1);
-}
-
 // Init DB schema, then start server
 initSchema()
   .then(async () => {
@@ -61,6 +50,7 @@ initSchema()
         process.exit(1);
       }
       const address = server.address();
+      if (process.send && typeof address === "object" && address) process.send({ type: "pm-web-listening", port: address.port });
       logEvent("server_started", { port: typeof address === "object" && address ? address.port : PORT });
     });
     server.on("error", (err: Error) => {
@@ -86,6 +76,7 @@ initSchema()
     process.once("SIGTERM", shutdown);
   })
   .catch((err) => {
+    process.stderr.write("PostgreSQL initialization failed. Check DATABASE_URL or POSTGRES_* settings, database reachability and CREATE/ALTER permissions. Connection details redacted.\n");
     logError("initialization_error", err);
     process.exit(1);
   });
