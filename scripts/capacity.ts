@@ -20,6 +20,8 @@ export interface CapacityOptions {
   idleMs?: number;
   warmupMs?: number;
   setupConcurrency?: number;
+  quietSetup?: boolean;
+  writerTimeoutMs?: number;
   trace?: boolean;
   rungs: number[];
   writers: number;
@@ -34,7 +36,7 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     const value = args[i + 1];
-    if (!["--rungs", "--writers", "--writes-per-writer", "--slo-ms", "--drain-ms", "--output", "--trace", "--idle-ms", "--warmup-ms", "--setup-concurrency"].includes(key) || !value || values.has(key)) throw new Error("Unknown, repeated or incomplete capacity option");
+    if (!["--rungs", "--writers", "--writes-per-writer", "--slo-ms", "--drain-ms", "--output", "--trace", "--idle-ms", "--warmup-ms", "--setup-concurrency", "--quiet-setup", "--writer-timeout-ms"].includes(key) || !value || values.has(key)) throw new Error("Unknown, repeated or incomplete capacity option");
     values.set(key, value);
   }
   const options = {
@@ -46,14 +48,18 @@ export function capacityOptions(args: string[]): CapacityOptions & { output?: st
     idleMs: Number(values.get("--idle-ms") ?? 0),
     setupConcurrency: values.has("--setup-concurrency") ? Number(values.get("--setup-concurrency")) : undefined,
     warmupMs: values.has("--warmup-ms") ? Number(values.get("--warmup-ms")) : undefined,
+    quietSetup: values.has("--quiet-setup") ? values.get("--quiet-setup") === "true" : undefined,
+    writerTimeoutMs: values.has("--writer-timeout-ms") ? Number(values.get("--writer-timeout-ms")) : undefined,
   };
   if (values.has("--trace") && !["true", "false"].includes(values.get("--trace")!)) throw new Error("Trace must be true or false");
+  if (values.has("--quiet-setup") && !["true", "false"].includes(values.get("--quiet-setup")!)) throw new Error("Quiet setup must be true or false");
   validateOptions(options);
   return options;
 }
 
 /** Keep measured populations and memory bounded even when invoked through the exported runner. */
 function validateOptions(options: CapacityOptions): void {
+  if (options.writerTimeoutMs !== undefined && (!Number.isInteger(options.writerTimeoutMs) || options.writerTimeoutMs < 20_000 || options.writerTimeoutMs > 120_000)) throw new Error("Writer timeout must be between 20 and 120 seconds");
   if (options.setupConcurrency !== undefined && (!Number.isInteger(options.setupConcurrency) || options.setupConcurrency < 1 || options.setupConcurrency > 50)) throw new Error("Setup concurrency must be between 1 and 50");
   if (options.warmupMs !== undefined && (!Number.isInteger(options.warmupMs) || options.warmupMs < 15_000 || options.warmupMs > 120_000)) throw new Error("Warm-up must be between 15 and 120 seconds");
   if (!Number.isInteger(options.idleMs ?? 0) || (options.idleMs ?? 0) < 0 || (options.idleMs ?? 0) > 120_000) throw new Error("Idle observation must be between zero and 120 seconds");
@@ -158,7 +164,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
     try {
       if (traceDirectory) await mkdir(traceDirectory);
       for (const write of writes) await fixture.client.run("create", { options: { id: write.itemId, title: `Synthetic ${write.sequence}`, type: "Task", description: "Capacity fixture" } });
-      server = await capacityServer(fixture.root, fixture.secret, traceDirectory);
+      server = await capacityServer(fixture.root, fixture.secret, traceDirectory, options.quietSetup);
       const indices = new Map(writes.map((write) => [write.itemId, write.sequence]));
       let logged = 0;
       clients = createCapacityClients({ url: `${server.url}/api/projects/${fixture.projectId}/pm/events?view=items`,
@@ -166,6 +172,7 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         population: subscribers, concurrency: setupConcurrency, startupMs: options.warmupMs, presenceMs: options.warmupMs },
       (opened) => { if (opened >= logged + 500) { logged = opened; process.stderr.write(`capacity setup: ${opened}/${subscribers} SSE streams connected\n`); } });
       await clients.ready;
+      await server.releaseSetup(options.warmupMs);
       await clients.presence();
       phase = "measurement";
       // Keep the production 15s sweep and 2s subscription reconciliation cadence. Establish the
@@ -201,16 +208,21 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         for (const write of writes.slice(writer * options.writesPerWriter, (writer + 1) * options.writesPerWriter)) {
           write.requestedAt = Date.now();
           try {
-            if (write.transport === "cli") await capacityPm(fixture.dir, ["update", write.itemId, "--title", `Committed ${write.sequence}`], traceDirectory);
+            if (write.transport === "cli") await capacityPm(fixture.dir, ["update", write.itemId, "--title", `Committed ${write.sequence}`], traceDirectory, options.writerTimeoutMs);
             else {
               const response = await fetch(`${server!.url}/api/projects/${fixture.projectId}/pm/update/${write.itemId}`, {
                 method: "PATCH", headers: { ...fixture.sessions[writer], "content-type": "application/json" },
-                body: JSON.stringify({ title: `Committed ${write.sequence}` }), signal: AbortSignal.timeout(20_000),
+                body: JSON.stringify({ title: `Committed ${write.sequence}` }), signal: AbortSignal.timeout(options.writerTimeoutMs ?? 20_000),
               });
               await response.arrayBuffer();
-              if (response.status !== 200) throw new Error("HTTP write failed");
+              if (response.status !== 200) throw Object.assign(new Error("HTTP write failed"), { code: `HTTP_${response.status}` });
             }
-          } catch { write.error = true; }
+          } catch (error) {
+            write.error = true;
+            const failure = describeRungFailure(error, "measurement");
+            write.errorName = failure.causeName;
+            write.errorCode = failure.causeCode;
+          }
         }
       }));
       // Full grace window also catches duplicates arriving after the last expected delivery.
@@ -295,7 +307,8 @@ async function runRung(subscribers: number, options: CapacityOptions) {
         failed_writes: failedWrites, disconnected_subscribers: disconnected, measured_ms: elapsed,
         ...delivery, idle_index_locks: idleLocks, stages, trace_critical_paths: criticalPaths, trace_deliveries: tracedDeliveries, resources, server_error_counts: { ...server.errors }, health_before: before, health_after: after, passed, first_observed_limit: firstLimit,
         event_index_audit: { source: indexSource, missing_sequences: writes.filter((write) => write.committedAt !== null && !indexedIds.has(write.itemId)).map((write) => write.sequence) },
-        write_receipts: writes.map((write) => ({ sequence: write.sequence, transport: write.transport, committed_at: write.committedAt, write_error: write.error })) };
+        write_receipts: writes.map((write) => ({ sequence: write.sequence, transport: write.transport, committed_at: write.committedAt, write_error: write.error,
+          error_name: write.errorName ?? null, error_code: write.errorCode ?? null })) };
     } catch (error) {
       firstError = describeRungFailure(error, phase);
       if (phase === "setup") {
@@ -348,7 +361,7 @@ export async function runCapacity(options: CapacityOptions) {
   }
   return { schema_version: 1, date: new Date().toISOString(), revision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
     hardware, options, runs, failure, stopped_early: runs.length < options.rungs.length,
-    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""}${options.idleMs ? ` --idle-ms ${options.idleMs}` : ""}${options.warmupMs ? ` --warmup-ms ${options.warmupMs}` : ""}${options.setupConcurrency ? ` --setup-concurrency ${options.setupConcurrency}` : ""} --output "$CAPACITY_OUTPUT"` };
+    command: `node scripts/with-test-db.ts node scripts/capacity.ts --rungs ${options.rungs.join(",")} --writers ${options.writers} --writes-per-writer ${options.writesPerWriter} --slo-ms ${options.sloMs} --drain-ms ${options.drainMs}${options.trace ? " --trace true" : ""}${options.idleMs ? ` --idle-ms ${options.idleMs}` : ""}${options.warmupMs ? ` --warmup-ms ${options.warmupMs}` : ""}${options.setupConcurrency ? ` --setup-concurrency ${options.setupConcurrency}` : ""}${options.quietSetup ? " --quiet-setup true" : ""}${options.writerTimeoutMs ? ` --writer-timeout-ms ${options.writerTimeoutMs}` : ""} --output "$CAPACITY_OUTPUT"` };
 }
 
 /** Render a public-safe summary; paths, credentials, fixture identities and process logs are omitted. */
@@ -357,6 +370,7 @@ export function capacityMarkdown(report: Awaited<ReturnType<typeof runCapacity>>
   return `# Local collaboration capacity: ${report.date.slice(0, 10)}\n\n` +
     `Measured revision: \`${report.revision}\`. Node ${report.hardware.node}; ${report.hardware.logical_cpus} logical CPUs (${report.hardware.cpu_model}); ${(report.hardware.ram_bytes / 2 ** 30).toFixed(1)} GiB RAM. Platform/architecture: ${report.hardware.platform}/${report.hardware.arch}. Initial load average: ${report.hardware.load_average_before.map((n) => n.toFixed(2)).join(", ")}.\n\n` +
     `One production server, real test Postgres, one temporary project per rung, distinct authenticated subscriber identities. ${report.options.writers} concurrent writer lanes (${Math.floor(report.options.writers / 2)} HTTP, ${Math.ceil(report.options.writers / 2)} separate pinned pm processes), ${report.options.writesPerWriter} writes per lane. SLO: ${report.options.sloMs} ms; final duplicate/loss observation window: ${report.options.drainMs} ms.\n\n` +
+    (report.options.quietSetup ? "Comparison-only setup defers incremental presence until all authenticated sockets connect, then requires every real full-roster receipt before measurement. Ordinary join-storm capacity is separate.\n\n" : "") +
     "| Subscribers | Committed writes | To all p50 ms | p95 ms | p99 ms | Max ms | Lost | Duplicates | RSS MiB | CPU p95 % core | Loop p99 ms | PG server/DB | Result |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---|\n" +
     report.runs.map((run) => `| ${run.subscribers} | ${run.committed_writes}/${run.writes} | ${number(run.to_every_subscriber_ms.p50)} | ${number(run.to_every_subscriber_ms.p95)} | ${number(run.to_every_subscriber_ms.p99)} | ${number(run.to_every_subscriber_ms.max)} | ${run.lost} | ${run.duplicates} | ${(run.resources.server_rss_peak_bytes / 2 ** 20).toFixed(1)} | ${number(run.resources.server_cpu_core_percent.p95)} | ${number(run.resources.server_event_loop_p99_ms)} | ${run.resources.postgres_server_connections_peak}/${run.resources.postgres_database_connections_peak} | ${run.passed ? "PASS" : "STOP"} |`).join("\n") +
     "\n\nIdle successful server index-lock acquisitions (zero writers, after baseline):\n\n| Subscribers | Acquisitions | Seconds | Locks/sec |\n|---:|---:|---:|---:|\n" +

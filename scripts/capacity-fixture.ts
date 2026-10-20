@@ -29,7 +29,7 @@ export function capacityEnvironment(root: string): NodeJS.ProcessEnv {
 }
 
 /** Execute the repo-pinned pm in a separate OS process, exclusively inside a temporary project. */
-export async function capacityPm(dir: string, args: string[], traceDirectory?: string): Promise<void> {
+export async function capacityPm(dir: string, args: string[], traceDirectory?: string, timeoutMs = 20_000): Promise<void> {
   const target = args[0] === "workspace" ? [] : ["--pm-path", path.join(dir, ".agents", "pm")];
   const preload = traceDirectory ? ["--import", path.join(repo, "scripts/capacity-trace-preload.ts")] : [];
   const env = capacityEnvironment(dir);
@@ -38,7 +38,7 @@ export async function capacityPm(dir: string, args: string[], traceDirectory?: s
     if (args[0] === "update") env.PM_WEB_CAPACITY_TRACE_WRITER_ITEM = args[1];
   }
   await execute(process.execPath, [...preload, path.join(repo, "node_modules/@unbrained/pm-cli/dist/cli.js"),
-    ...target, "--no-extensions", ...args], { cwd: dir, env, timeout: 20_000, maxBuffer: 1024 * 1024 });
+    ...target, "--no-extensions", ...args], { cwd: dir, env, timeout: timeoutMs, maxBuffer: 1024 * 1024 });
 }
 
 /** Signed sessions use the same cookie and double-submit CSRF contract as the real-Postgres tests. */
@@ -106,13 +106,14 @@ async function stopServer(child: ChildProcess): Promise<void> {
   try { await exited; } finally { clearTimeout(timer); }
 }
 
-/** Start dist/server.js with production defaults; the preload adds no public endpoint or route seam. */
-export async function capacityServer(root: string, secret: string, traceDirectory?: string) {
+/** Start dist/server.js with production resource/auth bounds and optional test-only presence setup control. */
+export async function capacityServer(root: string, secret: string, traceDirectory?: string, quietSetup = false) {
   const databaseUrl = new URL(process.env.DATABASE_URL!);
   const applicationName = `capacity-server-${randomUUID()}`;
   databaseUrl.searchParams.set("application_name", applicationName);
   const env = { ...capacityEnvironment(root), DATABASE_URL: databaseUrl.href, JWT_SECRET: secret,
     NODE_ENV: "production", PORT: "0", PROJECTS_ROOT: root, LOG_LEVEL: "info",
+    ...(quietSetup ? { PM_WEB_CAPACITY_QUIET_SETUP: "1" } : {}),
     // All sockets originate at loopback; match the integration wrapper's tiers rather than
     // measuring the single-IP abuse limit as if it were thousands of independent clients.
     PM_WEB_RATE_LIMIT_READ: "100000", PM_WEB_RATE_LIMIT_WRITE: "100000" };
@@ -125,6 +126,7 @@ export async function capacityServer(root: string, secret: string, traceDirector
   let reset = false;
   let failed = false;
   let traceFlushed = false;
+  let setupReleased = false;
   let lockSnapshot: { count: number; at: number } | undefined;
   const samples: CapacityProbe[] = [];
   const errors: Record<string, number> = {};
@@ -147,7 +149,8 @@ export async function capacityServer(root: string, secret: string, traceDirector
   });
   child.stderr!.resume();
   child.on("message", (message: unknown) => {
-    const record = message as Partial<CapacityProbe> & { capacity_probe?: boolean; capacity_reset?: boolean; capacity_trace_flushed?: boolean; capacity_lock_count?: number; at?: number };
+    const record = message as Partial<CapacityProbe> & { capacity_probe?: boolean; capacity_reset?: boolean; capacity_trace_flushed?: boolean; capacity_setup_released?: boolean; capacity_lock_count?: number; at?: number };
+    if (record.capacity_setup_released) setupReleased = true;
     if (typeof record.capacity_lock_count === "number" && typeof record.at === "number") lockSnapshot = { count: record.capacity_lock_count, at: record.at };
     if (record.capacity_trace_flushed) traceFlushed = true;
     if (record.capacity_reset) { reset = true; samples.length = 0; }
@@ -162,6 +165,8 @@ export async function capacityServer(root: string, secret: string, traceDirector
     await waitUntil(() => port > 0 || failed || child.exitCode !== null || child.signalCode !== null, 20_000, "production server startup");
     if (!port || failed) throw new Error("Production server failed to start");
     return { url: `http://127.0.0.1:${port}`, applicationName, samples, errors, health,
+      /** Release one actual full roster only after every real authenticated socket is connected. */
+      releaseSetup: async (timeoutMs = 5000) => { if (quietSetup) { child.send("capacity-setup-release"); await waitUntil(() => setupReleased, timeoutMs, "setup release"); } },
       /** Snapshot successful server index-lock acquisitions through private test IPC. */
       lockCount: async () => { lockSnapshot = undefined; child.send("capacity-lock-count"); await waitUntil(() => lockSnapshot !== undefined, 5000, "lock snapshot"); return lockSnapshot!; },
       /** Reset the server histogram at the start of the measured write phase. */

@@ -6,6 +6,8 @@ export interface CapacityWrite {
   committedAt: number | null;
   error: boolean;
   requestedAt?: number;
+  errorName?: string;
+  errorCode?: string | null;
 }
 
 /** One subscriber's bounded first-receipt and duplicate counters, indexed by write sequence. */

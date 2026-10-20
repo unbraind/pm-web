@@ -8,7 +8,7 @@ import { runCapacity } from "./capacity.ts";
 const baseline = process.argv[2];
 const output = process.argv[3];
 if (!baseline || !output) throw new Error("Expected baseline artifact directory and new output file");
-const sourceFiles = ["dist/services/sse.js", "dist/services/sse-fanout.js", "dist/services/sse-access.js", "dist/routes/pm.js", "scripts/capacity-fanout-probe.ts", "scripts/capacity-probe.ts", "scripts/capacity-fixture.ts", "scripts/capacity-metrics.ts", "scripts/capacity.ts", "scripts/capacity-subscriber.ts", "scripts/capacity-clients.ts", "scripts/capacity-client-worker.ts", "scripts/capacity-wait.ts", "scripts/capacity-fanout.ts"];
+const sourceFiles = ["dist/services/sse.js", "dist/services/sse-fanout.js", "dist/services/sse-access.js", "dist/routes/pm.js", "scripts/capacity-fanout-probe.ts", "scripts/capacity-probe.ts", "scripts/capacity-setup-probe.ts", "scripts/capacity-fixture.ts", "scripts/capacity-metrics.ts", "scripts/capacity.ts", "scripts/capacity-subscriber.ts", "scripts/capacity-clients.ts", "scripts/capacity-client-worker.ts", "scripts/capacity-wait.ts", "scripts/capacity-fanout.ts"];
 const artifactHashes: Record<string, string> = {};
 for (const file of sourceFiles) artifactHashes[file] = createHash("sha256").update(await readFile(file)).digest("hex");
 for (const file of ["sse.js", "pm.js"]) artifactHashes[`baseline/${file}`] = createHash("sha256").update(await readFile(path.join(baseline, file))).digest("hex");
@@ -20,7 +20,7 @@ for (const rung of [100, 1000, 3000]) {
   for (const [index, variant] of ["before", "after", "before", "after"].entries()) {
     if (variant === "before") process.env.PM_WEB_CAPACITY_BASELINE_DIR = baseline;
     else delete process.env.PM_WEB_CAPACITY_BASELINE_DIR;
-    const report = await runCapacity({ rungs: [rung], writers: 10, writesPerWriter: 5, sloMs: 1000, drainMs: 10_000, warmupMs: 120_000, setupConcurrency: 16 });
+    const report = await runCapacity({ rungs: [rung], writers: 10, writesPerWriter: 5, sloMs: 1000, drainMs: 10_000, warmupMs: 120_000, setupConcurrency: 16, quietSetup: true, writerTimeoutMs: 120_000 });
     for (const file of sourceFiles) assert.equal(createHash("sha256").update(await readFile(file)).digest("hex"), artifactHashes[file], "Candidate artifact changed during comparison");
     for (const file of ["sse.js", "pm.js"]) assert.equal(createHash("sha256").update(await readFile(path.join(baseline, file))).digest("hex"), artifactHashes[`baseline/${file}`], "Baseline artifact changed during comparison");
     assert.ok(performance.now() - startedClock < 60 * 60_000, "Comparison must complete within one hour");

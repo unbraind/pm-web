@@ -32,6 +32,13 @@ test("capacity refuses a ladder beyond the host safety cap", () => {
 test("comparison warm-up is explicit and bounded while release defaults stay unchanged", () => {
   assert.equal(capacityOptions([]).warmupMs, undefined);
   assert.equal(capacityOptions([]).setupConcurrency, undefined);
+  assert.equal(capacityOptions([]).quietSetup, undefined);
+  assert.equal(capacityOptions([]).writerTimeoutMs, undefined);
+  assert.equal(capacityOptions(["--writer-timeout-ms", "120000"]).writerTimeoutMs, 120_000);
+  for (const value of ["19999", "120001", "NaN"]) assert.throws(() => capacityOptions(["--writer-timeout-ms", value]), /Writer timeout/);
+  assert.equal(capacityOptions(["--quiet-setup", "true"]).quietSetup, true);
+  assert.equal(capacityOptions(["--quiet-setup", "false"]).quietSetup, false);
+  assert.throws(() => capacityOptions(["--quiet-setup", "sometimes"]), /Quiet setup/);
   assert.equal(capacityOptions(["--setup-concurrency", "10"]).setupConcurrency, 10);
   for (const value of ["0", "51", "NaN"]) assert.throws(() => capacityOptions(["--setup-concurrency", value]), /Setup concurrency/);
   assert.equal(capacityOptions(["--warmup-ms", "120000"]).warmupMs, 120_000);

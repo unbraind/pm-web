@@ -74,7 +74,17 @@ slots after the default pool's reserved listener. Ordinary acceptance retains th
 pauses that repeatedly trigger large presence snapshots during a ramp. Connection
 and presence defaults remain 15 and 45 seconds for ordinary release acceptance.
 The comparison explicitly allows 120 seconds for each connection and final-presence
-warm-up, separately from measured delivery. Setup duration is retained and no
+warm-up, separately from measured delivery.
+For both builds, comparison-only `--quiet-setup true` defers incremental presence
+generation in the test preload until every real authenticated socket connects.
+It then releases one real full roster through the ordinary production fan-out;
+every socket must receive the complete population before counters reset.
+Authorization, the default pool and response queue/stall bounds remain active.
+The comparison allows 120 seconds for HTTP/CLI acknowledgment, independently of
+the one-second delivery verdict. Acknowledgment and committed delivery remain
+separate counters; ordinary release acceptance retains its 20-second writer
+budget and normal joining behavior. Unmodified join storms
+failed in exploratory runs and remain an open production limitation. Setup duration is retained and no
 measured writer starts until all viewers and the final presence snapshot are ready;
 join-storm capacity is separate. Production pool and slow-viewer bounds are unchanged.
 The generator uses up to six worker threads, normally at most 500 independent
@@ -83,7 +93,7 @@ writer coordinator. Per-worker event-loop p99 values are retained separately;
 they are not combined into a fictitious pooled percentile. An expired startup
 transport is rejected even if a buffered connected frame arrives after abort.
 The generator parses headers before the data field and shares a cache of at most
-128 exact presence-frame strings within a 64 MiB text budget. Every socket must receive its own complete
+128 exact presence-frame strings within a 64 MiB text budget per worker. Every socket must receive its own complete
 frame before its population count advances. This avoids rescanning a full roster
 for an absent header and allocating the same match array for every reader. A
 two-socket fragmented-frame test proves the cache cannot acknowledge missing bytes.
