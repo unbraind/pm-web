@@ -40,7 +40,8 @@ child, reports the pidfile state, and includes at most ten lines from a bounded
 log tail with connection strings and configured credentials redacted. Logs use
 private file permissions and survive launcher exit.
 
-Startup records schema revision 1 after the packaged idempotent migrations.
+Startup records schema revision 1 after the packaged idempotent migrations,
+preserving any higher revision already recorded by a newer release.
 Doctor catches client-construction errors (including certificate options) without
 printing their configured values. It checks configuration, a bounded real connection and that schema revision
 without modifying the database. PostgreSQL URLs with a query-provided host are
@@ -395,3 +396,35 @@ and build were restored.
 
 After restoration, the expanded socket command passes 6/6 through the pinned pm
 runner, and the real-database credentialed-host selection passes 1/1 again.
+
+## Review round: monotone schema revisions
+
+Thread `PRRT_kwDOSZgR5c6uhVKc` correctly identified that both runtime initialization
+and `sql/schema.sql` could replace a newer schema marker with revision 1. Both
+upserts now retain the greater stored or incoming revision atomically. Fresh and
+older revisions still advance to the packaged revision, and repeated runs are
+idempotent. This preserves the marker for compatibility diagnostics; it does not
+establish that an older binary is compatible with a newer schema.
+
+Whole-PR self-review also found that doctor recommended applying migrations to a
+newer schema. Source and built doctor now request a compatible pm-web release in
+that case. Missing and older schemas retain migration advice, and diagnostics
+remain read-only. README describes both cases.
+
+The real PostgreSQL regressions in `test/schema-version.test.ts` exercise source
+initialization, committed `dist/` initialization, and the complete packaged SQL
+in separate disposable schemas. Each checks fresh initialization, preservation
+of a future revision across repeated runs, upgrade from an older revision and
+current-version idempotence. The expanded doctor process test checks source and
+built diagnostics for newer revisions, older-version advice and unchanged stored
+markers. The fixed focused selections initially passed 3/3 and 1/1 respectively.
+
+Each independent behavioral revert retains all fixed tests and rebuilds with
+`npm run build:server`. All three exit 1 on intended assertions with no timeout,
+cancellation, skip or todo. Fixed sources and build output are restored afterwards.
+
+| Behavior restored | Exact command after rebuilding | Reverted result |
+| --- | --- | --- |
+| Runtime upsert replaces the stored revision | `node scripts/with-test-db.ts node --test test/schema-version.test.ts` | 1/3 passes; source and built assertions fail with actual 1, expected 2 |
+| Packaged SQL upsert replaces the stored revision | `node scripts/with-test-db.ts node --test test/schema-version.test.ts` | 2/3 pass; packaged SQL assertion fails with actual 1, expected 2 |
+| Doctor recommends migration for every mismatch | `node scripts/with-test-db.ts node --test --test-name-pattern="doctor process" test/startup-readiness.test.ts` | 0/1 passes; newer-schema guidance assertion fails |

@@ -129,7 +129,9 @@ free, whether `pm` is on `PATH`, and whether the workspace is initialized.
 The `database` check reports configuration, reachability and schema version
 (expected revision 1). Missing configuration, connection failure or a missing or
 incompatible schema yields a clear failing line and overall `ok: false`. Doctor
-is read-only; start `pm web` to apply the packaged schema migrations.
+is read-only; start `pm web` to apply the packaged schema migrations when the
+schema is missing or older. A newer schema requires a compatible pm-web release.
+Startup and packaged SQL preserve the highest recorded schema revision.
 Returns an overall `ok` boolean. The `port_available` check is informational (a
 busy port may just be a server you already started) and does not gate `ok`.
 

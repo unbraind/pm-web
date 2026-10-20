@@ -221,7 +221,7 @@ export async function initSchema(): Promise<void> {
   await pool.query("CREATE INDEX IF NOT EXISTS idx_pm_idempotency_pending_at ON pm_idempotency_keys (created_at) WHERE status_code IS NULL");
 
   await pool.query(`CREATE TABLE IF NOT EXISTS pm_web_schema_version (singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton), version INTEGER NOT NULL)`);
-  await pool.query("INSERT INTO pm_web_schema_version (singleton, version) VALUES (TRUE, $1) ON CONFLICT (singleton) DO UPDATE SET version = EXCLUDED.version", [DATABASE_SCHEMA_VERSION]);
+  await pool.query("INSERT INTO pm_web_schema_version (singleton, version) VALUES (TRUE, $1) ON CONFLICT (singleton) DO UPDATE SET version = GREATEST(pm_web_schema_version.version, EXCLUDED.version)", [DATABASE_SCHEMA_VERSION]);
 
   if (bootstrapAdminEmail) {
     await pool.query(

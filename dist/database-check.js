@@ -25,7 +25,10 @@ export async function checkDatabase() {
             ? (await client.query("SELECT version FROM pm_web_schema_version WHERE singleton = TRUE")).rows[0]?.version
             : undefined;
         const ok = version === DATABASE_SCHEMA_VERSION;
-        return { name: "database", ok, detail: `configured: yes; reachable: yes; schema version: ${version ?? "missing"} (expected ${DATABASE_SCHEMA_VERSION}).${ok ? "" : " Run pm web to apply the packaged schema migrations."}` };
+        const guidance = ok ? "" : version !== undefined && version > DATABASE_SCHEMA_VERSION
+            ? " The database schema is newer than this binary; use a compatible pm-web release."
+            : " Run pm web to apply the packaged schema migrations.";
+        return { name: "database", ok, detail: `configured: yes; reachable: yes; schema version: ${version ?? "missing"} (expected ${DATABASE_SCHEMA_VERSION}).${guidance}` };
     }
     catch {
         return { name: "database", ok: false, detail: `configured: yes; reachable: ${reachable ? "yes" : "no"}; schema version: unchecked. Check DATABASE_URL or POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER and POSTGRES_PASSWORD; verify PostgreSQL access and schema permissions.` };

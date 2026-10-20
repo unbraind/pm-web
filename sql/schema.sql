@@ -151,4 +151,4 @@ CREATE TABLE IF NOT EXISTS pm_web_schema_version (
   version INTEGER NOT NULL
 );
 INSERT INTO pm_web_schema_version (singleton, version) VALUES (TRUE, 1)
-  ON CONFLICT (singleton) DO UPDATE SET version = EXCLUDED.version;
+  ON CONFLICT (singleton) DO UPDATE SET version = GREATEST(pm_web_schema_version.version, EXCLUDED.version);
