@@ -15,6 +15,7 @@ import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, canResumeFanout, heartbeatFanout, mutationEventIdentity } from "../services/sse.js";
 import { singleFlightMutationPage } from "../services/history-read-gate.js";
 import { projectEventViewers } from "../services/sse-access.js";
+import { createSSEAdmission } from "../services/sse-admission.js";
 import { signalMutationRead } from "../services/mutation-read-signals.js";
 import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
@@ -2335,7 +2336,9 @@ router.patch("/presence/:clientId", async (req, res) => {
 });
 // ─── SSE endpoint ───
 // GET /api/projects/:projectId/pm/events
-router.get("/events", async (req, res) => {
+const admitEvents = createSSEAdmission(Math.max(1, Math.min(16, (pool.options.max ?? 20) - 4)), 4096);
+/** Perform each subscriber's original access, profile and cursor checks after bounded admission. */
+async function connectProjectEvents(req, res) {
     try {
         const project = await requireProject(req, res);
         if (!project)
@@ -2365,6 +2368,8 @@ router.get("/events", async (req, res) => {
         res.status(409).json({ error: "Real-time cursor expired; refresh project state before reconnecting" });
         return;
     }
+    if (res.destroyed || res.writableEnded)
+        return;
     setupSSEHeaders(res);
     const unsubscribe = addSSEClient({
         id: clientId,
@@ -2390,6 +2395,17 @@ router.get("/events", async (req, res) => {
         clearInterval(heartbeat);
         unsubscribe();
     });
+}
+router.get("/events", async (req, res) => {
+    const release = await admitEvents(res);
+    if (!release)
+        return;
+    try {
+        await connectProjectEvents(req, res);
+    }
+    finally {
+        release();
+    }
 });
 // ─── Presence endpoint ───
 // GET /api/projects/:projectId/pm/presence

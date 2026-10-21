@@ -28,7 +28,8 @@ strings. The database user needs permission to create and alter the packaged sch
 The item APIs read and write a plain-directory pm tracker through the SDK.
 Creating, reading, updating, listing, searching and validating items do not need a
 git repository or the git executable. PostgreSQL is still required by the web
-server. GitHub import/sync additionally needs GitHub credentials and access;
+server. Real-time presence and event replay also work with a plain tracker and
+no git executable. GitHub import/sync additionally needs GitHub credentials and access;
 Git-based operations such as worktree commands and changelog generation from tags
 need a git repository.
 

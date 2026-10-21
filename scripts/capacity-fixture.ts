@@ -25,6 +25,7 @@ export function capacityEnvironment(root: string): NodeJS.ProcessEnv {
   env.XDG_CONFIG_HOME = path.join(root, ".config");
   env.PM_AUTHOR = "capacity-synthetic";
   env.PM_TELEMETRY_DISABLED = "1";
+  env.GIT_CEILING_DIRECTORIES = path.dirname(root);
   return env;
 }
 

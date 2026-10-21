@@ -2,21 +2,46 @@ id: pm-web-jstr
 title: Ordinary presence join storms fail readiness before 3000 subscribers
 description: "Follow-up to pm-web-h4vh. With unchanged production queue, stall, authorization and pool bounds, a sixteen-slot ordinary ramp returned an SSE project-verification HTTP 500 around 1800 subscriptions; an eight-slot diagnostic disconnected readers around 1400 subscriptions. No measured mutations had started in either failed setup. Preserve the failed sequences in docs/capacity/2026-10-20-fanout-exploratory.json. The fan-out comparison defers incremental presence only in its test preload, then requires every real full-roster receipt before measuring established subscribers. This does not certify ordinary join storms. Profile roster generation/transport, membership reads, pool waits and safe verification error categories; repair the ordinary join path without weakening authorization or slow-viewer bounds."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-20T20:43:47.665Z"
-updated_at: "2026-10-20T21:13:40.945Z"
+updated_at: "2026-10-21T05:36:17.138Z"
 author: codex-agent
 acceptance_criteria: "Ordinary startup with no quiet-setup control reaches and retains 100, 1000 and 3000 distinct authorized subscribers on one project; every socket receives the complete final roster; mixed committed mutations retain zero loss and duplicates; normal release thresholds and queue/auth bounds remain unchanged."
-comments[1]{created_at,author,text}:
+comments[9]{created_at,author,text}:
   "2026-10-20T21:13:40.945Z",codex-agent,"The final baseline ordinary ramp also failed before measurement, while the deferred-presence candidate held 3000 subscribers and delivered 150000 mutations exactly. An earlier baseline ordinary ramp succeeded, so readiness remains variable. Corrected test-preload registration order after archiving the data; the source-replacement regression fails on the old order. This only repairs comparison setup control. Production ordinary joining remains unresolved; retain the unchanged authorization, queue/stall and pool bounds in any follow-up."
-files[7]{path,scope}:
+  "2026-10-21T04:41:48.359Z",codex-agent,"Measuring ordinary authenticated join bursts with the existing disposable capacity fixture, production process and independent SSE readers. Extending the harness to sample readiness during admission and roster convergence for bursts of 100, 500 and 1000 up to 3000 subscribers. No quiet-setup interception; authorization and replay bounds remain required."
+  "2026-10-21T04:46:23.462Z",codex-agent,"Exploratory unchanged-server burst-100 run reproduced a setup failure at 1397 opened streams: 41 failed readiness samples (39 HTTP 503, two client deadlines), readiness p99 1858 ms, event-loop p99 257 ms, peak server RSS 279 MiB. This first driver overallocated reader workers; correcting it to reuse four workers before the controlled before/after comparison. Candidate design coalesces roster updates into fixed one-second windows and yields bounded socket batches, refreshing authorization between batches while preserving replay cursors and byte/stall limits."
+  "2026-10-21T04:55:23.876Z",codex-agent,"Source-level fan-out and SSE regressions pass 35/35, including fresh membership checks after yielded slices, shared batch identity for 3000 sinks, queue/stall limits, ordered replay, and fresh rosters on resume. The baseline runtime artifacts still exactly match main while measurement runs; production source edits have not been built into that baseline. Shared-host load has exceeded 60 on four logical CPUs, so setup deadlines and latency samples remain explicit limitations, not capacity approval."
+  "2026-10-21T05:01:34.797Z",codex-agent,"The controlled 1000-request baseline burst failed project verification before meaningful roster traffic (one opened reader, three readiness deadlines). Join setup now has bounded FIFO admission: up to eight concurrent initializations, reduced for smaller SQL pools, with 4096 pending slots and cancellation on socket close. Each admitted request retains all original authorization and cursor checks. Real HTTP admission regression passes 1/1 for overload, cancellation, idempotent release and responsive readiness."
+  "2026-10-21T05:13:09.968Z",codex-agent,"Final 16-slot admission campaign retains healthy readiness in all observed probes but does NOT reach the 3000-subscriber goal. Bursts 100/500/1000 complete cohorts through 2500/1500/1000; opened readers total 2500/1850/1813 before unchanged 15-second connection deadlines. Readiness failures 0/819, 0/217, 0/211; p99 349.5/345.7/309.6 ms. Server loop p99 155.1/153.7/109.4 ms; peak RSS 325.9/338.1/312.5 MiB. No observed disconnections, but no complete 3000-person roster barrier and no capacity approval. Load averages ranged roughly 46-71 on four logical CPUs. Retaining raw aggregate evidence and the earlier eight-slot attempts; no percentage speedup claim."
+  "2026-10-21T05:16:49.859Z",codex-agent,"Behavioral revert proofs succeeded. Reverting only schedulePresence to main and rebuilding makes the real production-process regression fail 0/1: presence population 1 arrived during the coalescing window. Restoring it and reverting only flushFanout to main makes the same real-process regression fail 0/1 on the bounded socket-slice assertion. Disabling only the admission concurrency branch makes the real HTTP admission test fail 0/1: four initializations enter a two-slot gate. Every changed source was restored byte-for-byte after each proof."
+  "2026-10-21T05:22:10.410Z",codex-agent,"Restored implementation passes PM-linked focused checks: 40/40 real-process, fan-out, SSE delivery and recovery tests, plus 1/1 real HTTP admission test; zero skipped/canceled. Lint passes, duplication is 0% (0 clone pairs), and docstring gate passes. The project disables automatic test-result tracking, so pm test returned tracking_disabled; this public-safe comment and the dated report retain the results without storing raw execution contexts."
+  "2026-10-21T05:36:15.104Z",codex-agent,"Checkpoint for orchestrator: implementation, public aggregate measurements and three behavioral revert proofs are retained. PM-linked checks pass 40/40 plus 1/1; lint, zero-duplication and docstrings pass. Full npm release:check is still executing with isolated HOME/Git identity and has no final verdict. Bun release:check has not run. The measured 3000-subscriber goal remains unmet: final observed complete cohorts 2500/1500/1000 for bursts 100/500/1000, with zero failed readiness samples in those three attempts. Remaining work: finish both release gates, repeat measurements against the final built artifacts after lint-only changes, update the report and open the PR. No PR, merge or release has occurred."
+files[19]{path,scope}:
   docs/capacity/2026-10-20-fanout-exploratory.json,project
   docs/capacity/2026-10-20-fanout-numbers.json,project
   docs/capacity/2026-10-20-fanout.md,project
+  docs/capacity/2026-10-21-joinstorm-numbers.json,project
   docs/realtime-fanout.md,project
+  scripts/capacity-client-worker.ts,project
+  scripts/capacity-clients.ts,project
+  scripts/capacity-fanout-probe.ts,project
+  scripts/capacity-fixture.ts,project
+  scripts/capacity-joinstorm.ts,project
   scripts/capacity.ts,project
+  src/routes/pm.ts,project
+  src/services/sse-admission.ts,project
   src/services/sse-fanout.ts,project
   src/services/sse.ts,project
+  test/presence-joinstorm.test.ts,project
+  test/sse-admission.test.ts,project
+  test/sse-fanout.test.ts,project
+  test/sse.test.ts,project
+tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/presence-joinstorm.test.ts test/sse-fanout.test.ts test/sse.test.ts test/realtime-delivery.test.ts test/realtime-recovery.test.ts,project,codex-agent,"2026-10-21T04:48:37.002Z",local_mutation,fix/presence-join-storm-readiness
+  node --test test/sse-admission.test.ts,project,codex-agent,"2026-10-21T05:16:52.320Z",local_mutation,fix/presence-join-storm-readiness
+docs[1]{path,scope}:
+  docs/capacity/2026-10-21-joinstorm.md,project
 body: ""

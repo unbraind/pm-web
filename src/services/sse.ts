@@ -163,19 +163,18 @@ function presenceUsers(set: Set<SSEClient> | undefined): PresenceUser[] {
 }
 
 /**
- * Debounce a presence broadcast for a project by 75 ms.
+ * Coalesce presence changes into one roster per project per second.
  *
- * Replaces any pending presence timer for the project, so a burst of
- * joins/leaves/view changes triggers a single {@link broadcastPresence} rather
- * than one per event.
+ * The first change starts a fixed window; later joins do constant work and
+ * cannot postpone the roster indefinitely. Full rosters are replaceable state,
+ * so they need neither a replay entry nor a broadcast for every joining user.
  */
 function schedulePresence(projectId: string): void {
-  const active = presenceTimers.get(projectId);
-  if (active) clearTimeout(active);
+  if (presenceTimers.has(projectId)) return;
   presenceTimers.set(projectId, setTimeout(() => {
     presenceTimers.delete(projectId);
     broadcastPresence(projectId);
-  }, 75));
+  }, 1000));
 }
 
 /**

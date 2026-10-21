@@ -5,6 +5,33 @@ recovery are documented in [Project event delivery and resume](realtime-fanout.m
 The [fan-out comparison](capacity/2026-10-20-fanout.md) adds CPU/encoding evidence
 and interleaves baseline/candidate runs at each requested subscriber population.
 
+For ordinary join storms, build the selected runtime, then run:
+
+```sh
+npm run build
+node scripts/with-test-db.ts node scripts/capacity-joinstorm.ts "$CAPACITY_OUTPUT"
+```
+
+This reuses the same disposable database fixture, production process and real
+authenticated SSE readers. Four reader workers admit cohorts of 100, 500 or 1000
+concurrent connection attempts, retaining earlier sockets until 3000 are open.
+Each cohort waits for its connected frames, then pauses 100 ms; it does not wait
+for presence between cohorts. No quiet-setup control is used. Connection and
+final-roster deadlines remain 15 and 45 seconds. Readiness is sampled serially
+every 100 ms with a two-second client deadline throughout admission and final
+roster convergence, followed by another 2.5 seconds of observation. The server's
+dependency probe cache remains enabled. Reports count failed HTTP statuses,
+client timeouts and dependency failure categories separately from latency.
+Event-loop p99 covers the whole server lifetime, with 250 ms RSS/CPU samples.
+Every actual socket must receive the final complete roster. Each cohort's
+cumulative accepted population, disconnections, process resources and before/after
+host load are retained even when setup fails. JSONL saves each finished attempt
+before the next starts; a failed fixture/resource setup is explicitly inconclusive.
+An optional third argument selects comma-separated burst sizes for a repeat.
+This workload measures ordinary joining and readiness; mixed-writer delivery
+remains a separate capacity run and release acceptance requirement. See the
+[join-storm report](capacity/2026-10-21-joinstorm.md) for measured limits.
+
 Use a package checkout and the **existing disposable real-Postgres test service** used by `scripts/with-test-db.ts`. The harness never provisions a database service. Do not point it at a live deployment or a database containing real projects. It seeds unique synthetic rows in the selected test database and deletes only those rows after stopping its server. Project directories and child configuration homes are temporary. No hosted URL or existing project directory is accepted.
 
 Install dependencies with `npm ci --ignore-scripts`. Pick an external output prefix in `CAPACITY_OUTPUT`; the two files must not exist. The normal test wrapper supplies the same `DATABASE_URL`, schema initialization and disposable database preflight used by the integration suite. For another isolated test service, export `DATABASE_URL` first.

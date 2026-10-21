@@ -7,6 +7,7 @@ import { runInNewContext } from "node:vm";
 import type { Response } from "express";
 import { transformSync } from "esbuild";
 import { realtimeHealth } from "../src/services/realtime-observability.ts";
+import { waitUntil } from "../scripts/capacity-wait.ts";
 
 import {
   addSSEClient,
@@ -114,7 +115,7 @@ test("presence view updates require the exact user and project session", async (
     assert.equal(updateClientView("client-a", "user-b", projectId, "graph"), false);
     assert.equal(updateClientView("client-a", "user-a", "22222222-2222-4222-8222-222222222222", "graph"), false);
     assert.equal(updateClientView("client-a", "user-a", projectId, "graph"), true);
-    await new Promise((resolve) => { setTimeout(resolve, 100); });
+    await waitUntil(() => target.writes.join("").includes('"currentView":"graph"'), 3000, "coalesced view update");
     assert.match(target.writes.join(""), /"currentView":"graph"/);
   } finally {
     unsubscribe();
@@ -280,7 +281,7 @@ test("connect and resume send a fresh current roster separately from mutation re
   stop();
   const resumed = fakeResponse();
   addSSEClient({ ...client, currentView: "graph", res: resumed.response }, cursor);
-  await delay(120);
+  await waitUntil(() => resumed.writes.join("").includes("event: presence"), 3000, "fresh resumed roster");
   const events = resumed.writes.join("").split("\n\n").filter(Boolean);
   const rosters = events.filter((event) => event.startsWith("event: presence"));
   assert.equal(rosters.length, 1, "resume must send one current snapshot, never historical rosters");

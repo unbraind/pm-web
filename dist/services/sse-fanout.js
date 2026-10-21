@@ -108,10 +108,11 @@ function enqueue(state, viewer, payload, mayDrain = true) {
         schedule(state);
 }
 /** Write one pre-encoded batch to eligible viewers, grouping only identical replay positions. */
-function writeFanoutBatch(state, allowed, throughSequence, throughRegistration, presence) {
+function writeFanoutBatch(state, allowed, throughSequence, throughRegistration, presence, viewers = state.viewers.values(), batches = new Map()) {
     prune(state);
-    const batches = new Map();
-    for (const viewer of state.viewers.values()) {
+    for (const viewer of viewers) {
+        if (state.viewers.get(viewer.sink.id) !== viewer)
+            continue;
         if (viewer.registration > throughRegistration)
             continue;
         if (viewer.sink.authorizeProject && !allowed?.has(viewer.sink.userId)) {
@@ -125,7 +126,8 @@ function writeFanoutBatch(state, allowed, throughSequence, throughRegistration, 
             detach(state, viewer, true);
             continue;
         }
-        let batch = batches.get(viewer.cursor);
+        const key = `${viewer.cursor}:${throughSequence}`;
+        let batch = batches.get(key);
         if (!batch) {
             const frames = [];
             let bytes = 0;
@@ -140,7 +142,7 @@ function writeFanoutBatch(state, allowed, throughSequence, throughRegistration, 
                 bytes += frame.payload.length;
             }
             batch = { payload: frames.length === 1 ? frames[0].payload : Buffer.concat(frames.map((frame) => frame.payload)), sequence: frames.at(-1).sequence };
-            batches.set(viewer.cursor, batch);
+            batches.set(key, batch);
         }
         viewer.cursor = batch.sequence;
         enqueue(state, viewer, batch.payload);
@@ -156,14 +158,35 @@ async function flushFanout(state) {
         return;
     }
     state.flushing = true;
-    // Later arrivals need a later permission read, even if this query's snapshot predates revocation.
-    const throughSequence = state.sequence;
-    const throughRegistration = state.registration;
-    const throughPresence = state.presence;
-    const authorization = [...state.viewers.values()].find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
+    // A finite snapshot prevents continuous new arrivals from extending this pass.
+    const viewers = [...state.viewers.values()].values();
+    const batches = new Map();
+    let throughRegistration = state.registration;
     try {
-        const allowed = authorization ? await authorization() : undefined;
-        writeFanoutBatch(state, allowed, throughSequence, throughRegistration, throughPresence);
+        for (;;) {
+            // Bound socket work in one turn. A large roster otherwise submits gigabytes
+            // before readiness, pending joins and transport drain callbacks can run.
+            const slice = [];
+            while (slice.length < 32) {
+                const next = viewers.next();
+                if (next.done)
+                    break;
+                slice.push(next.value);
+            }
+            if (!slice.length)
+                break;
+            // Each slice gets a fresh decision, with event/registration boundaries
+            // captured before its query. No permission snapshot spans a yielded slice.
+            const throughSequence = state.sequence;
+            throughRegistration = state.registration;
+            const throughPresence = state.presence;
+            const authorization = slice.find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
+            const allowed = authorization ? await authorization() : undefined;
+            writeFanoutBatch(state, allowed, throughSequence, throughRegistration, throughPresence, slice, batches);
+            if (slice.length < 32)
+                break;
+            await new Promise((resolve) => { setImmediate(resolve); });
+        }
     }
     catch {
         for (const viewer of [...state.viewers.values()])

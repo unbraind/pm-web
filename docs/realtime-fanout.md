@@ -9,7 +9,7 @@ events and their order are retained. A viewer joining during a pending burst sta
 at its connection cursor and receives only subsequent events.
 
 The HTTP route checks each subscriber's project access before connecting or
-examining a resume token. Before a batch, one SQL statement reads the project's
+examining a resume token. Before each slice of at most 32 viewers, one SQL statement reads the project's
 owner, direct shares, and group memberships. Each viewer must occur in that
 result. Read and edit roles have the same existing event visibility. A revoked
 viewer is disconnected before receiving the next batch; a failed membership read
@@ -19,6 +19,20 @@ still requires fresh authorization. Each read covers only the events and viewer
 registrations captured before it started: later events and new viewers require
 the next fresh decision. Unknown-project bus traffic creates no journal or
 watcher subscription.
+
+Connection setup admits at most sixteen concurrent requests per process, reduced
+for smaller configured database pools. Waiting joins occupy a bounded FIFO of
+4096 callbacks, rather than filling the shared SQL pool with thousands of access
+queries ahead of readiness. A disconnected waiting socket is removed; overload
+returns HTTP 503 with `Retry-After: 1`. Admission ends after initialization, so
+established streams consume no admission slot. Every admitted subscriber still
+performs its original project access, display-name and resume checks.
+
+Fan-out yields between these slices so roster transport cannot submit every
+project socket in one event-loop turn. Common replay positions still share the
+same encoded batch across slices. Each slice captures its event and registration
+boundaries before its own membership read; revocations between slices apply to
+the remaining viewers.
 
 Each response has its own queue. `write(false)` means the submitted buffer was
 accepted: it is never retried. Subsequent batches wait for that response's `drain`
@@ -46,6 +60,13 @@ retains only the newest pending snapshot, within the same total byte budget.
 Connect and reconnect schedule a fresh current roster separately from mutation
 replay; historical rosters are never replayed. Snapshot delivery uses the same
 fresh membership checks as mutation batches, including after transport drain.
+Joins, leaves and view updates do constant scheduling work and coalesce into
+one full roster per project per second. This is a fixed window from the first
+change, so continuous joining cannot starve presence forever. Roster construction
+and assignment are linear in connected project viewers per window. A complete
+roster sent to every viewer still requires quadratic total network bytes in the
+population; the work is rate limited and transport is sliced rather than repeated
+for every join. The presence payload and frontend contract are unchanged.
 
 Resume is bounded to the current process and the retained contiguous journal:
 60 seconds, 10,000 frames, or 8 MiB per project, whichever is reached first.
