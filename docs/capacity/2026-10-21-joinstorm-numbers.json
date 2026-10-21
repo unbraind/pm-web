@@ -859,5 +859,16 @@
         "passed": false
       }
     ]
+  },
+  "release_verification_runtime": {
+    "source_revision": "0a15d7839d74b6efaf0ebee53fd2fd3858763516",
+    "modules_sha256": {
+      "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+      "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+      "dist/services/sse-fanout.js": "16d77402ba089b5d39c6d1b869911959426f1479841d6d149517a720cb4cec36",
+      "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+    },
+    "campaign_repeated": false,
+    "note": "Release gates use this committed build. Campaign hashes precede equivalent lint spelling changes in the admission loop and fan-out promise callback."
   }
 }

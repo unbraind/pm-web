@@ -1,6 +1,6 @@
 # Ordinary presence join storms: 2026-10-21
 
-**The 3000-subscriber goal is not reached.** The final implementation keeps all
+**The 3000-subscriber goal is not reached.** The measured sixteen-slot candidate kept all
 1247 observed readiness probes healthy, but connection admission still exceeds
 the unchanged 15-second client deadline below 3000. The largest completed cohort
 is **2500 subscribers** in the burst-100 run. This is an observed readiness and
@@ -12,9 +12,16 @@ The [aggregate evidence](2026-10-21-joinstorm-numbers.json) retains failed and
 inconclusive attempts, intermediate eight-slot admission, final sixteen-slot
 admission, resource samples and runtime SHA-256 hashes. Baseline runtime is main
 at `87b1dc2`. Its built SSE modules were verified byte-for-byte against that
-commit before candidate builds. The installed registry CLI was 2026.10.21;
+commit before candidate builds. The registry CLI version was 2026.10.21;
 tracker writes and synthetic CLI operations use the unchanged package pin,
 2026.10.19.
+
+The campaign hashes identify the measured build. The committed build subsequently
+received equivalent lint fixes to the admission loop and the fan-out promise
+callback; the completed campaign was not rerun after those spelling changes.
+Release gates and restored regression tests ran against the committed source.
+The evidence's `release_verification_runtime` entry records that source revision
+and its compiled module hashes separately from the campaign hashes.
 
 ## Measured stopping points
 
@@ -96,6 +103,15 @@ active/backlog limits, cancellation, idempotent release and readiness while
 initializations are held. Response-boundary tests cover membership revocation
 between yielded slices and preserve shared frames, ordering and replay bounds.
 
+Three isolated behavioral reverts fail as required: restoring only the old
+presence scheduler fails the production-process test on an early one-person
+roster; restoring only the old fan-out flush fails its bounded-write assertion;
+disabling only the admission limit fails the real HTTP test with four active
+initializations against a two-slot limit. All sources were restored after each
+proof, rebuilt, and the PM-linked checks passed 40/40 plus 1/1 with no skips or
+cancellations. Automatic PM test-result tracking is disabled in this project;
+the item comment records these results without raw execution contexts.
+
 ```sh
 npm run build
 node scripts/with-test-db.ts node scripts/capacity-joinstorm.ts "$CAPACITY_OUTPUT"
@@ -105,3 +121,47 @@ node scripts/with-test-db.ts node --test test/presence-joinstorm.test.ts test/ss
 PM: [pm-web-jstr](../../.agents/pm/issues/pm-web-jstr.toon). The item remains in
 progress. The requested historical reference `pm-web-8kqg` is absent from this
 tracker; capacity context comes from `pm-web-lh4b`, `pm-web-h4vh` and PR #231.
+
+## Release verification
+
+Both release commands use an isolated HOME and Git identity, with npm user
+configuration disabled. Coverage thresholds and exclusions are unchanged.
+
+`npm run release:check` exits **1** at coverage: **761 tests, 758 passed, two
+failed, one canceled, zero skipped**. The built catalog-install test reaches its
+unchanged 300-second deadline; the following source catalog test reports
+`stateError: spawn ENOTDIR` on the initial listing. The large-corpus graph test
+reports **11467 ms wall / 3000 ms CPU**, exceeding its unchanged 10000 ms wall
+budget (7028 involuntary context switches; 2022 nodes and 23063 edges). These
+failures are retained and linked to existing investigations
+[pm-web-qdhx](../../.agents/pm/issues/pm-web-qdhx.toon) and
+[pm-web-hqqp](../../.agents/pm/issues/pm-web-hqqp.toon); no causal baseline proof
+was made for them in this task.
+
+The new real-process join regression, admission test and fan-out/SSE regressions
+pass in the full npm run. Aggregate coverage is statements/lines **92.10%**,
+branches **82.47%**, functions **95.97%**, above the respective existing
+92.07/80.5/94.59 thresholds. Failed tests still make the release gate fail;
+subsequent capacity, audit, pack and changelog stages do not execute in that
+command chain. Type checking, lint, zero duplication and docstrings pass.
+
+`bun run release:check` also exits **1** at coverage: **761 tests, 756 passed,
+four failed, one canceled, zero skipped**. The built catalog case again reaches
+the 300-second deadline. The source catalog case returns `spawn ENOTDIR` where
+an inactive-package refusal was expected. The graph read reports **13451 ms wall
+/ 3269 ms CPU** (8037 involuntary context switches), exceeding the same budget.
+The spawn-runner test misses its independent-workspace overlap assertion. Those
+receipts enrich the existing timing investigations above.
+
+The additional graph-provisioning failure returns HTTP **424** after a
+**30000 ms command timeout** during activation. Both concurrent POSTs return
+that failure after roughly 140 seconds overall. It is linked to existing
+[pm-web-jpa6](../../.agents/pm/issues/pm-web-jpa6.toon); observational GET/HEAD
+tests still pass. The provisioning test passed under the full npm gate, and no
+causal baseline investigation was performed here.
+
+The new real-process regression and admission/fan-out/SSE checks pass under
+both full gates. The release commands remain red, and neither command reaches
+its later release stages. No source or test code changed between these gates.
+Bun aggregate coverage is statements/lines **92.36%**, branches **82.24%** and
+functions **95.97%**; every existing threshold is retained.

@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-11T07:18:59.939Z"
-updated_at: "2026-10-20T03:09:30.392Z"
+updated_at: "2026-10-21T07:12:44.182Z"
 author: codex-sol
-comments[34]{created_at,author,text}:
+comments[36]{created_at,author,text}:
   "2026-10-11T07:21:13.813Z",codex-sol,"PM-linked focused missing-database startup check passes 1/1 with zero skips and reports 9065 ms against the unchanged 10000 ms subprocess deadline. The full coverage run timed out instead and returned a nonnumeric status. This difference supports investigating instrumentation/resource contention; it does not establish a server or SDK root cause. Linked result tracking is disabled, so this comment records the focused receipt. No startup code, guard or test deadline was changed."
   "2026-10-11T07:39:25.686Z",codex-sol,"Corrected full Bun coverage completes 496/498, zero skips. The independent-workspace overlap assertion fails with log order: start first, end first, start independent, end independent, start second, end second. Same-workspace serialization and command success assertions passed before this check. The missing-database startup test passes in this full run. Retain both contrasting full-suite results; no process/startup code or timing assertion was changed."
   "2026-10-11T07:42:37.056Z",codex-sol,"The PM-linked focused independent-workspace spawn test passes 1/1, zero skips, at 674 ms. This contrasts with its full Bun coverage ordering failure. Retain the failing full-run log and the passing focused receipt, and investigate scheduling/instrumentation before changing any assertion. The result is recorded manually because linked-test persistence is disabled."
@@ -43,6 +43,8 @@ comments[34]{created_at,author,text}:
   "2026-10-19T19:19:25.920Z",codex-agent,"Observed the existing source catalog-install E2E aggregate deadline during realtime-fix validation: 676/677 pass, zero assertion failures, one 300000 ms cancellation. Repeated successful Presets run requests took roughly 4-6 seconds each until the aggregate budget expired; cleanup then caused an expected follow-on deactivate error. No timeout or workload assertion is changed. Separate from the now-fixed hermetic fleet-root issue pm-web-4p94."
   "2026-10-19T19:51:53.342Z",codex-agent,"The active local Bun run completed 677/677 coverage tests and 2/2 capacity scenarios, with zero failures/cancellations/skips/todo; 40-source coverage S/L 92.42, branches 81.57, functions 96.17 and zero production vulnerabilities. Its unchanged 1800000 ms linked-command limit then sent SIGTERM during accept:packed, so the full local gate is incomplete. In contrast, both complete npm and Bun gates pass in CI on Node 22/26 at ad380c7 (677/677, capacity 2/2, packed 4/4). Preserving every local failure and deadline; no timing workaround or repeated local pass is substituted for the accepted CI receipts."
   "2026-10-20T03:09:30.392Z",codex-agent,"PR #226 session-correlation review validation reproduces the existing built catalog-install E2E aggregate timeout at its unchanged 300000 ms deadline during isolated npm run release:check. Test and workload are unchanged. Successful Presets requests and later ownership refusals continued until the deadline. The same full run has substantial shared-host scheduling pressure; this is a failure receipt, not acceptance or proof of root cause. No timeout or coverage workaround is introduced. Final full-gate counts will be linked from pm-web-4f52."
+  "2026-10-21T06:22:34.330Z",codex-agent,"Related receipt from pm-web-jstr: isolated npm run release:check ended with 758/761 passing, two failures and one cancellation. The built catalog-install acceptance was canceled at its unchanged 300000 ms outer deadline; the following source acceptance failed its initial listing assertion with stateError spawn ENOTDIR. The changed presence regression passed. This does not establish whether timeout cleanup or resource scheduling caused the source failure. Retaining the exact gate failure; no assertions or deadlines changed. The dated join-storm report records the final npm/Bun verdicts."
+  "2026-10-21T07:12:39.452Z",codex-agent,"The full Bun runner for pm-web-jstr completed 761 tests: 756 pass, four fail, one canceled, zero skipped. The built catalog case again hit its 300000 ms deadline; source catalog command refusal returned spawn ENOTDIR rather than the expected inactive-package message. The existing spawn fallback overlap test also failed: first-workspace work completed before the independent-workspace start receipt. No runner implementation or overlap assertion changed. The new join-storm regression passed under both full gates."
 files[5]{path,scope}:
   src/server.ts,project
   src/services/pm-runner.ts,project
@@ -52,8 +54,9 @@ files[5]{path,scope}:
 tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test --test-name-pattern='server entrypoint exits non-zero without DATABASE_URL' test/smoke.test.ts,project,120,codex-sol,"2026-10-11T07:20:01.089Z",local_mutation,task/finish-catalog-175
   node --test --test-name-pattern='spawn fallback stays non-blocking' test/pm-runner.test.ts,project,120,codex-sol,"2026-10-11T07:39:19.519Z",local_mutation,task/finish-catalog-175
-docs[3]{path,scope}:
+docs[4]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
+  docs/capacity/2026-10-21-joinstorm.md,project
   docs/SDK_2026_10_14.md,project
   README.md,project
 body: ""
