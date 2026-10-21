@@ -46,7 +46,6 @@ same sunflower seed and the same 180 steps.
 
 | Nodes | Settle before (s) | Settle after (s) | Before/after | Frame p95 before/after (ms) | 50 ms task delay p95 before/after (ms) |
 |---:|---:|---:|---:|---:|---:|
-
 | 500 | 2.534 | 7.086 | 0.36× | 283.3 / 716.7 | 342.6 / 837.3 |
 | 2,000 | 36.048 | 22.415 | 1.61× | 566.6 / 716.7 | 741.4 / 1127.8 |
 | 5,000 | 283.712 | 46.669 | 6.08× | 866.6 / 733.3 | 1180.2 / 1232.4 |
