@@ -223,6 +223,41 @@ test("yielded socket slices refresh membership before delivering to the next vie
   assert.deepEqual(frames(revoked.writes).map((frame) => frame.type), ["connected"]);
 });
 
+for (const failedSlice of [2, 3]) {
+test(`an authorization failure in slice ${failedSlice} detaches only unprocessed snapshot viewers`, async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), viewers = Array.from({ length: 96 }, () => sink()), joined = sink();
+  const members = new Set([...viewers, joined].map((viewer) => viewer.userId));
+  const processed = viewers.slice(0, (failedSlice - 1) * 32);
+  const unprocessed = viewers.slice(processed.length);
+  let reads = 0, closed = 0;
+  const authorizeProject = async () => {
+    reads++;
+    if (reads === 1) attachFanout(project, { ...joined, authorizeProject }, () => { closed++; });
+    if (reads === failedSlice) throw new Error("Synthetic later-slice membership failure");
+    return new Set(members);
+  };
+  for (const viewer of viewers) attachFanout(project, { ...viewer, authorizeProject }, () => { closed++; });
+  prepareFanout(project, { type: "before-failure", data: {} });
+  await waitUntil(() => unprocessed.every((viewer) => viewer.destroyed()), 3000, "failed and remaining slice cleanup");
+  assert.equal(reads, failedSlice);
+  assert.equal(closed, unprocessed.length, "processed viewers and post-snapshot joins must survive");
+  for (const viewer of [...processed, joined]) {
+    assert.equal(viewer.destroyed(), false);
+    assert.equal(viewer.res.listenerCount("drain"), 1);
+  }
+  for (const viewer of unprocessed) {
+    assert.deepEqual(frames(viewer.writes).map((frame) => frame.type), ["connected"]);
+    assert.equal(viewer.res.listenerCount("drain"), 0);
+  }
+  assert.deepEqual(frames(joined.writes).map((frame) => frame.type), ["connected"]);
+  prepareFanout(project, { type: "after-recovery", data: {} });
+  await waitUntil(() => [...processed, joined].every((viewer) => frames(viewer.writes).at(-1)?.type === "after-recovery"), 3000, "surviving viewer recovery");
+  for (const viewer of processed) assert.deepEqual(frames(viewer.writes).map((frame) => frame.type), ["connected", "before-failure", "after-recovery"]);
+  assert.deepEqual(frames(joined.writes).map((frame) => frame.type), ["connected", "after-recovery"]);
+});
+}
+
 test("a membership read in flight keeps later events ordered and never overlaps another read", async (t) => {
   t.after(clearFanout);
   const project = randomUUID(), viewer = sink();

@@ -16,12 +16,15 @@ commit before candidate builds. The registry CLI version was 2026.10.21;
 tracker writes and synthetic CLI operations use the unchanged package pin,
 2026.10.19.
 
-The campaign hashes identify the measured build. The committed build subsequently
-received equivalent lint fixes to the admission loop and the fan-out promise
+The campaign hashes identify the measured build. The initial release-verification
+build subsequently received equivalent lint fixes to the admission loop and the fan-out promise
 callback; the completed campaign was not rerun after those spelling changes.
-Release gates and restored regression tests ran against the committed source.
+The initial release gates and restored regression tests ran against that source.
 The evidence's `release_verification_runtime` entry records that source revision
 and its compiled module hashes separately from the campaign hashes.
+The subsequent PR #234 review fix limits authorization-failure cleanup to
+unprocessed snapshot viewers. Neither this fix nor the earlier lint changes
+were part of the measured campaign; its capacity results remain historical.
 
 ## Measured stopping points
 
@@ -122,7 +125,7 @@ PM: [pm-web-jstr](../../.agents/pm/issues/pm-web-jstr.toon). The item remains in
 progress. The requested historical reference `pm-web-8kqg` is absent from this
 tracker; capacity context comes from `pm-web-lh4b`, `pm-web-h4vh` and PR #231.
 
-## Release verification
+## Initial release verification
 
 Both release commands use an isolated HOME and Git identity, with npm user
 configuration disabled. Coverage thresholds and exclusions are unchanged.
@@ -165,3 +168,44 @@ both full gates. The release commands remain red, and neither command reaches
 its later release stages. No source or test code changed between these gates.
 Bun aggregate coverage is statements/lines **92.36%**, branches **82.24%** and
 functions **95.97%**; every existing threshold is retained.
+
+## PR #234 review verification
+
+Thread `PRRT_kwDOSZgR5c6uqz62` identified overbroad disconnection after a
+later slice's membership read fails. Cleanup now detaches only the current and
+remaining snapshot viewers. Earlier authorized slices and post-snapshot joins
+stay connected and require fresh authorization for subsequent private events.
+The review refresh found no additional unresolved threads or outside-diff findings.
+
+Two new 96-viewer regressions cover failures in slices two and three, including
+listener cleanup, no delivery to failed viewers, late joins and ordered recovery.
+Restoring only the pre-review `flushFanout` makes both fail: 97 viewers close
+instead of the expected 64 or 32. The fixed source was restored byte-for-byte;
+the fan-out file passes 21/21. PM-linked production-process, fan-out, SSE delivery
+and recovery checks pass 42/42, with admission separately passing 1/1.
+
+Both full commands ran with isolated HOME/Git identity and unchanged thresholds.
+Neither full command passed: each stopped at coverage despite exceeding every
+coverage threshold. All changed regressions passed in both runs.
+
+| Command | Passed / total | Failed / canceled / skipped | Statements and lines | Branches | Functions |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `npm run release:check` | 761 / 763 | 1 / 1 / 0 | 92.31% | 82.24% | 95.97% |
+| `bun run release:check` | 760 / 763 | 2 / 1 / 0 | 92.34% | 82.41% | 95.68% |
+
+Both runs hit the existing built catalog's 300-second deadline, followed by
+`spawn ENOTDIR` in the source catalog case. An interrupted earlier attempt on
+the fixed code passed the built case in 242.4 seconds; a subsequent isolated
+catalog-file retry still passes only 1/3, with one failure and one cancellation.
+These gaps remain tracked in [pm-web-qdhx](../../.agents/pm/issues/pm-web-qdhx.toon).
+Bun also misses the independent-workspace spawn-overlap assertion; that check
+passes in the full npm run and in its isolated 1/1 retry.
+
+The unchanged 2000-item graph budget passes in both full runs: 8868 ms under npm
+and 6589 ms under Bun, against 10000 ms. Graph provisioning also passes in both.
+The later release stages were run independently because the full command chains
+stopped at coverage: capacity acceptance passes 2/2 and the production audit finds
+zero vulnerabilities. Package dry-run and packed consumer acceptance pass,
+including all four npm/native-Bun current/minimum-host scenarios. Changelog,
+release-date and publish-attestation checks pass. This review does not repeat the
+join-storm campaign or certify the unmet 3000-subscriber target.

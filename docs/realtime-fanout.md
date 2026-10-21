@@ -13,7 +13,9 @@ examining a resume token. Before each slice of at most 32 viewers, one SQL state
 owner, direct shares, and group memberships. Each viewer must occur in that
 result. Read and edit roles have the same existing event visibility. A revoked
 viewer is disconnected before receiving the next batch; a failed membership read
-disconnects the affected viewers. Draining a previously blocked queue also requires
+disconnects only the current and remaining viewers in that pass's snapshot.
+Earlier authorized slices and viewers joining after the snapshot stay connected.
+Draining a previously blocked queue also requires
 a fresh membership decision. An empty drain performs no query; the next event
 still requires fresh authorization. Each read covers only the events and viewer
 registrations captured before it started: later events and new viewers require

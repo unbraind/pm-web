@@ -161,12 +161,12 @@ async function flushFanout(state) {
     // A finite snapshot prevents continuous new arrivals from extending this pass.
     const viewers = [...state.viewers.values()].values();
     const batches = new Map();
-    let throughRegistration = state.registration;
+    let slice = [];
     try {
         for (;;) {
             // Bound socket work in one turn. A large roster otherwise submits gigabytes
             // before readiness, pending joins and transport drain callbacks can run.
-            const slice = [];
+            slice = [];
             while (slice.length < 32) {
                 const next = viewers.next();
                 if (next.done)
@@ -178,7 +178,7 @@ async function flushFanout(state) {
             // Each slice gets a fresh decision, with event/registration boundaries
             // captured before its query. No permission snapshot spans a yielded slice.
             const throughSequence = state.sequence;
-            throughRegistration = state.registration;
+            const throughRegistration = state.registration;
             const throughPresence = state.presence;
             const authorization = slice.find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
             const allowed = authorization ? await authorization() : undefined;
@@ -189,9 +189,11 @@ async function flushFanout(state) {
         }
     }
     catch {
-        for (const viewer of [...state.viewers.values()])
-            if (viewer.registration <= throughRegistration)
-                detach(state, viewer, true);
+        // Earlier slices already passed authorization; later joins need their own pass.
+        for (const viewer of slice)
+            detach(state, viewer, true);
+        for (const viewer of viewers)
+            detach(state, viewer, true);
     }
     finally {
         state.flushing = false;
