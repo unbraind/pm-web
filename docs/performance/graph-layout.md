@@ -55,7 +55,7 @@ same sunflower seed and the same 180 steps.
 The 16.7 ms frame budget is unmet in both phases on this loaded host. At 500
 nodes the exact force law is retained; its radius is identical. A later
 candidate-only observation measured 2.523 s at 500 and 9.204 s at 2,000,
-showing the scheduling variation. These later samples do not replace the
+showing run-to-run variation. The later harness also initializes translations before timing. These later samples do not replace the
 primary table. The artifact runner separately observed 2,000-node settling
 at 2.090 s before and 0.793 s after, with frame p95 near 16.8 ms. CI numbers
 are not local-host measurements.
@@ -83,3 +83,49 @@ are retained for 30 days and are not committed. The screenshot harness
 initializes production translations and rejects unresolved package keys.
 The catalog's added cards are visible as not yet released, with optional RLM
 service/key requirements and no install action.
+
+## Validation boundaries
+
+At implementation head `67fd2de55bd12cf7049e0382f5c4a1b1b9c1c351`, both
+Node 22 and Node 26 CI jobs pass complete isolated-identity
+`npm run release:check` and `bun run release:check`: **770/770 tests per
+gate**, zero failures/cancellations/skips, capacity **2/2**, and packed
+npm/native-Bun consumers **4/4**. The consumer hosts are the package-pinned
+2026.10.19 and minimum 2026.10.4; the standalone SDK is 2026.10.19. These
+receipts do not claim latest-registry 2026.10.21 consumer acceptance.
+Configured `src` coverage reports 47 sources, statements/lines 92.85%,
+branches 82.58–82.59% and functions 95.45–96.26%, above unchanged floors.
+[Complete CI run](https://github.com/unbraind/pm-web/actions/runs/39639377337).
+The browser physics regressions supplement that server-source coverage scope.
+
+The complete local npm command exits 1: **770 tests, 767 pass, 2 fail,
+1 canceled, zero skipped**. The built catalog acceptance hits 300000 ms,
+the following source case reports `spawn ENOTDIR` (pm-web-qdhx), and the
+unchanged server 2,000-item graph read takes 13922 ms against its 10000 ms
+bound (pm-web-hqqp). Observed S/L 92.13%, B 82.49%, F 95.97% does not make
+that failed run accepted coverage evidence. The local Bun attempt is
+terminated at its 3600000 ms outer linked-runner bound, without terminal
+suite totals; partial output contains catalog, graph-read and other
+process/timing failures. The repository's internal limits are unchanged.
+
+The focused local commands pass physics **4/4**, no-git **1/1**, catalog/UI
+**26/26** and scoped workflow policy **8/8**, including real SDK scratch
+trackers. Independent automated reviews returned policy/quota availability
+responses rather than substantive review or approval. No independent
+approval is claimed. Full-fleet SDK registration compatibility is separately
+tracked in pm-web-v6p4; scoped snapshot refresh does not certify other
+packages' freshness. The PR links final metadata-head checks and the current
+artifact. Both requested items remain in progress for orchestrator review.
+
+A separate local capacity attempt also fails: **2 tests, 0 pass, 1 fail,
+1 canceled**, zero skipped. Its 20-subscriber/five-writer smoke reaches
+60000 ms; the next two-subscriber trace case reports setup failure. This
+local failure is separate from the four complete CI capacity receipts.
+
+The separate local production audit reports zero vulnerabilities and package
+packing dry-run succeeds. Local packed acceptance stops when its first npm
+consumer installation exceeds the existing 300000 ms command bound; no local
+consumer receipt is accepted. Separate changelog freshness, version-derived
+date and publish-attestation checks pass. Complete CI receipts remain the
+positive packed-consumer evidence. These local holds and missing independent
+approval remain review limitations, rather than being hidden by the CI pass.
