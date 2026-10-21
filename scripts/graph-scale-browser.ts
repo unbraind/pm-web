@@ -56,7 +56,7 @@ if (phase === 'before') {
   catalog = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `import { PACKAGE_CATALOG } from ${JSON.stringify(filename)};console.log(JSON.stringify(PACKAGE_CATALOG));`], { encoding: 'utf8' })) as PackageCatalogEntry[];
 }
 const app = express();
-app.get('/review', (_req, res) => res.type('html').send(`<!doctype html><html data-theme="light"><head><link rel="stylesheet" href="/styles.css"><style>body{margin:0}header{padding:16px 24px}#graph{height:810px;width:1440px}#packages{padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}</style></head><body><header><h1>Project graph</h1><p id="caption">Synthetic tracker · local browser review</p></header><div id="graph"></div><section id="packages"></section><script type="module">import {GraphCanvas} from '/src/views/graph-canvas.js';import {renderPackageCard} from '/src/views/packages.js';window.Canvas=GraphCanvas;window.renderCard=renderPackageCard;</script></body></html>`));
+app.get('/review', (_req, res) => res.type('html').send(`<!doctype html><html data-theme="light"><head><link rel="stylesheet" href="/styles.css"><style>body{margin:0}header{padding:16px 24px}#graph{height:810px;width:1440px}#packages{padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}</style></head><body><header><h1>Project graph</h1><p id="caption">Synthetic tracker · local browser review</p></header><div id="graph"></div><section id="packages"></section><script type="module">import {GraphCanvas} from '/src/views/graph-canvas.js';import {renderPackageCard} from '/src/views/packages.js';import {initI18n} from '/src/i18n.js';await initI18n();window.Canvas=GraphCanvas;window.renderCard=renderPackageCard;</script></body></html>`));
 app.use(express.static(staticRoot));
 const server = await new Promise<Server>((resolve, reject) => {
   const listener = app.listen(0, '127.0.0.1', () => { resolve(listener); });
@@ -128,6 +128,7 @@ try {
     document.getElementById('caption')!.textContent = 'Synthetic project · public package catalog';
     document.getElementById('packages')!.innerHTML = entries.map(entry => w.renderCard({ ...entry, installed: false, version: null, commands: entry.commands ?? [] })).join('');
   }, catalog);
+  assert.ok(!(await page.locator('#packages').innerText()).includes('packages.'), 'Package screenshots must resolve translations');
   // The first cards include the two additions; BEFORE shows the preceding catalog.
   await page.screenshot({ path: path.join(output, `${phase}-packages.png`) });
   assert.deepEqual(errors, []);

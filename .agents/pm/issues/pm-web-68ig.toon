@@ -7,18 +7,20 @@ status: in_progress
 priority: 2
 tags[3]: browser,graph,performance
 created_at: "2026-10-17T10:32:17.790Z"
-updated_at: "2026-10-21T16:31:21.686Z"
+updated_at: "2026-10-21T16:38:29.752Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
 acceptance_criteria: "Record seeded 2,000-, 5,000- and 10,000-node browser measurements with graph shape, edge count, environment class, input responsiveness, completion time and layout-quality comparisons; preserve cancellation and static final publication; use behavioral regressions rather than loosening timing or coverage gates."
-comments[6]{created_at,author,text}:
+comments[8]{created_at,author,text}:
   "2026-10-21T16:05:48.489Z",codex-agent,"Plan: replace pairwise repulsion in the shared worker/frame physics with deterministic Barnes-Hut aggregation; preserve cooling, springs, pins, cancellation and final publication. Measure seeded 500/2000/5000/10000-node chains before and after, add force-quality and behavioral complexity regressions, and capture local synthetic tracker browser evidence. Public package only."
   "2026-10-21T16:19:38.252Z",codex-agent,"Behavioral revert proof: restored only tickPhysics to its original pairwise body and rebuilt frontend output. The growth regression failed with 499500 to 7998000 distance evaluations (16.01x versus the 7x ceiling). Restored the candidate function and rebuilt. Four physics regressions pass; exact small forces, less than 5% RMS spatial force error, deterministic settling, pins/tags/facets and degenerate points are covered. Host CPU pressure exceeds 95%; browser frame budgets will be reported separately from algorithmic work."
   "2026-10-21T16:22:25.556Z",codex-agent,Linked physics tests pass 4/4 and catalog tests pass 26/26 through pm test --run --progress. The initial complete release command exceeded the linked runner default of 120 seconds during lint; the retry grants the outer runner 3600 seconds without changing any package thresholds or internal test deadlines. Added an artifact-only screenshot workflow so review images can be attached to the PR without binary files in Git history.
   "2026-10-21T16:25:43.483Z",codex-agent,"The full npm gate exposed two lint errors in the new browser evidence harness: promise executors returned server handles. Both callbacks now use explicit void bodies. No production calculation or gate threshold changed; retrying both complete runtime gates on the corrected source."
   "2026-10-21T16:29:16.888Z",codex-agent,"Existing headless canvas cancellation regression passed: initial worker scheduling, delayed fit, replacement restart, stale-result rejection, empty data and early hierarchical cancellation. Added a real SDK-seeded non-git tracker regression with GIT_CEILING_DIRECTORIES and a PATH containing only Node; graph physics and memory catalog discovery/gating pass without a git executable."
   "2026-10-21T16:31:21.603Z",codex-agent,"The zero-duplication gate found shared listener boilerplate between the new and existing browser harnesses. The new harness now awaits the listen callback and rejects listener errors, removing the clone without changing thresholds. CI artifact review also confirms the same 2000-node production layout result: 2090.2 ms before versus 793.3 ms after on the CI runner; those timings are separate from the loaded local host."
+  "2026-10-21T16:34:07.886Z",codex-agent,Visual inspection caught untranslated package keys in the standalone screenshot harness. It now awaits the production i18n initializer and asserts that no packages.* keys remain in the captured card text. Fresh local captures pass; production UI and physics are unchanged.
+  "2026-10-21T16:38:29.731Z",codex-agent,"Complete local browser chain ladder (500/2000/5000/10000 nodes, n-1 edges, 180 steps): settle before 2.534/36.048/283.712/920.313 s; after 7.086/22.415/46.669/117.877 s. The 10000-node run is 7.81x faster. Radius changes are 0/-1.04/-1.00/-1.12 percent, with finite static-until-final positions throughout. Shared CPU pressure was 95-97 percent; frame p95 remains over 16.7 ms in both phases. Later 500/2000 candidate observations were 2.523/9.204 s. Raw bounded evidence and source hashes are in docs/performance/graph-layout-measurements.json."
 files[9]{path,scope}:
   .github/workflows/graph-scale-evidence.yml,project
   public/src/sw.ts,project
@@ -64,7 +66,8 @@ tests[4]:
       created_at: "2026-10-21T16:28:36.297Z"
       source_kind: local_mutation
       source_ref: feat/graph-layout-scale
-docs[2]{path,scope}:
+docs[3]{path,scope}:
   docs/brand-review.md,project
+  docs/performance/graph-layout-measurements.json,project
   docs/performance/graph-layout.md,project
 body: ""
