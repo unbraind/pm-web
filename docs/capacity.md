@@ -1,5 +1,10 @@
 # Reproduce collaboration capacity
 
+Shared UTF-8 fan-out, bounded slow-viewer queues, authorization and `Last-Event-ID`
+recovery are documented in [Project event delivery and resume](realtime-fanout.md).
+The [fan-out comparison](capacity/2026-10-20-fanout.md) adds CPU/encoding evidence
+and interleaves baseline/candidate runs at each requested subscriber population.
+
 Use a package checkout and the **existing disposable real-Postgres test service** used by `scripts/with-test-db.ts`. The harness never provisions a database service. Do not point it at a live deployment or a database containing real projects. It seeds unique synthetic rows in the selected test database and deletes only those rows after stopping its server. Project directories and child configuration homes are temporary. No hosted URL or existing project directory is accepted.
 
 Install dependencies with `npm ci --ignore-scripts`. Pick an external output prefix in `CAPACITY_OUTPUT`; the two files must not exist. The normal test wrapper supplies the same `DATABASE_URL`, schema initialization and disposable database preflight used by the integration suite. For another isolated test service, export `DATABASE_URL` first.

@@ -1,0 +1,2532 @@
+{
+  "scope": "Condensed superseded exploratory receipts. Source hashes identify the retained original numbers; these summaries are not substituted for the main selected measurements.",
+  "exploratory": [
+    {
+      "source_name": "complete-abab.json",
+      "source_sha256": "4e7bb897cefb50c834a874af7a43470e86473ffa2698ed9837012726059d7c45",
+      "artifactHashes": {
+        "dist/services/sse.js": "ec515883e568de88e1fb07f8d651f352922ec9bf2e7f017142f66093790327be",
+        "dist/services/sse-fanout.js": "364fac74cb68d2dc15666bb67ada51d16c7d5380c39592076feb1d60445a7461",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/routes/pm.js": "2e25ddc5582049b2040fa8680582c1f50937224f1432372905e0db2a4daf10cf",
+        "scripts/capacity-fanout-probe.ts": "295f4b8d15d800b7bf146ff7d206120702cc8ba6c1f44eaae8916547b168157c",
+        "scripts/capacity-probe.ts": "3498810a96cce8c7a898948d1c0c78531d951c09e5518ac53f8748d636c77e94",
+        "scripts/capacity-fixture.ts": "85600c3ea5540de87fb80c33870cab7b7a586f8afae5e0159ad1f6e47fe6d420",
+        "scripts/capacity-metrics.ts": "16fe84bfb8003e5d7b0a66e5f2b102482e8dd0c752d663ee8474f398c944bc0d",
+        "scripts/capacity.ts": "30260144aa85e094001e0fde66ad1590108b7e5ffc79b83cf4d7d91596e209d5",
+        "scripts/capacity-fanout.ts": "5f74c83b295012706cf3e8bfb6bbfc114186afcdd78edb061926d74c2d25afb3",
+        "baseline/sse.js": "939220a55ec0e88010485933ee625c04b70fa209dac801e141b38f7027add472",
+        "baseline/pm.js": "087b6b44e8100ac3ae4405fde2a60cd107a77fbf2b7d089cec38d69349aa291c"
+      },
+      "reports": [
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "78c90e881412b88ef3790968d28e73d8dfa84860",
+          "date": "2026-10-20T17:10:25.925Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 28860.064939,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 571.91259765625,
+                "p95": 1210.906494140625,
+                "p99": 1374.148681640625,
+                "max": 1374.148681640625
+              },
+              "fanout": {
+                "cpu_us": 42111,
+                "turn_cpu_us": 265521,
+                "serialized_bytes": 10430,
+                "json_bytes": 8003,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7070,
+                "mutation_json_bytes": 5435,
+                "delivered_mutations": 5000,
+                "prepared_events": 74,
+                "response_writes": 7400,
+                "delivered_events": 7400,
+                "cpu_us_per_delivery": 5.690675675675676,
+                "serialized_bytes_per_event": 140.94594594594594,
+                "cpu_us_per_delivered_mutation": 8.4222,
+                "turn_cpu_us_per_delivered_mutation": 53.1042,
+                "mutation_frame_bytes_per_event": 141.4,
+                "mutation_json_bytes_per_event": 108.7
+              },
+              "server_event_loop_p99_ms": 58.589183,
+              "host_load_before": [
+                43.56,
+                45.2,
+                68.6
+              ],
+              "host_load_after": [
+                51.98,
+                47.08,
+                68.23
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "78c90e881412b88ef3790968d28e73d8dfa84860",
+          "date": "2026-10-20T17:11:39.728Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 29837.516055999993,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 590.121826171875,
+                "p95": 1537.448486328125,
+                "p99": 1999.599365234375,
+                "max": 1999.599365234375
+              },
+              "fanout": {
+                "cpu_us": 52997,
+                "turn_cpu_us": 281237,
+                "serialized_bytes": 14087,
+                "json_bytes": 8277,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9303,
+                "mutation_json_bytes": 5495,
+                "delivered_mutations": 5000,
+                "prepared_events": 76,
+                "response_writes": 5200,
+                "delivered_events": 7600,
+                "cpu_us_per_delivery": 6.97328947368421,
+                "serialized_bytes_per_event": 185.35526315789474,
+                "cpu_us_per_delivered_mutation": 10.5994,
+                "turn_cpu_us_per_delivered_mutation": 56.2474,
+                "mutation_frame_bytes_per_event": 186.06,
+                "mutation_json_bytes_per_event": 109.9
+              },
+              "server_event_loop_p99_ms": 54.067199,
+              "host_load_before": [
+                47.12,
+                46.39,
+                67.22
+              ],
+              "host_load_after": [
+                46.83,
+                46.57,
+                66.41
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "revision": "78c90e881412b88ef3790968d28e73d8dfa84860",
+          "date": "2026-10-20T17:12:47.310Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 25670.557277000014,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 479.41015625,
+                "p95": 1301.6806640625,
+                "p99": 1628.234130859375,
+                "max": 1628.234130859375
+              },
+              "fanout": {
+                "cpu_us": 37963,
+                "turn_cpu_us": 255433,
+                "serialized_bytes": 8790,
+                "json_bytes": 6779,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7110,
+                "mutation_json_bytes": 5495,
+                "delivered_mutations": 5000,
+                "prepared_events": 62,
+                "response_writes": 6200,
+                "delivered_events": 6200,
+                "cpu_us_per_delivery": 6.123064516129032,
+                "serialized_bytes_per_event": 141.7741935483871,
+                "cpu_us_per_delivered_mutation": 7.5926,
+                "turn_cpu_us_per_delivered_mutation": 51.0866,
+                "mutation_frame_bytes_per_event": 142.2,
+                "mutation_json_bytes_per_event": 109.9
+              },
+              "server_event_loop_p99_ms": 55.836671,
+              "host_load_before": [
+                45.12,
+                46.19,
+                65.65
+              ],
+              "host_load_after": [
+                41.46,
+                45.24,
+                64.52
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "revision": "78c90e881412b88ef3790968d28e73d8dfa84860",
+          "date": "2026-10-20T17:14:22.208Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 46500.51346299998,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 604.4921875,
+                "p95": 1110.79443359375,
+                "p99": 1493.194580078125,
+                "max": 1493.194580078125
+              },
+              "fanout": {
+                "cpu_us": 38162,
+                "turn_cpu_us": 252603,
+                "serialized_bytes": 11849,
+                "json_bytes": 6948,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9275,
+                "mutation_json_bytes": 5450,
+                "delivered_mutations": 5000,
+                "prepared_events": 64,
+                "response_writes": 4900,
+                "delivered_events": 6400,
+                "cpu_us_per_delivery": 5.9628125,
+                "serialized_bytes_per_event": 185.140625,
+                "cpu_us_per_delivered_mutation": 7.6324,
+                "turn_cpu_us_per_delivered_mutation": 50.5206,
+                "mutation_frame_bytes_per_event": 185.5,
+                "mutation_json_bytes_per_event": 109
+              },
+              "server_event_loop_p99_ms": 58.228735,
+              "host_load_before": [
+                41.42,
+                44.82,
+                63.47
+              ],
+              "host_load_after": [
+                43.48,
+                44.71,
+                62.44
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "78c90e881412b88ef3790968d28e73d8dfa84860",
+          "date": "2026-10-20T17:17:24.178Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 109107.03202599997,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1967.643310546875,
+                "p95": 2820.573486328125,
+                "p99": 3203.88916015625,
+                "max": 3203.88916015625
+              },
+              "fanout": {
+                "cpu_us": 206114,
+                "turn_cpu_us": 1740267,
+                "serialized_bytes": 12690,
+                "json_bytes": 9745,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7090,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 50000,
+                "prepared_events": 90,
+                "response_writes": 90000,
+                "delivered_events": 90000,
+                "cpu_us_per_delivery": 2.2901555555555557,
+                "serialized_bytes_per_event": 141,
+                "cpu_us_per_delivered_mutation": 4.12228,
+                "turn_cpu_us_per_delivered_mutation": 34.80534,
+                "mutation_frame_bytes_per_event": 141.8,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 433.848319,
+              "host_load_before": [
+                42.13,
+                43.96,
+                60.2
+              ],
+              "host_load_after": [
+                44.79,
+                44.34,
+                59.31
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "78c90e881412b88ef3790968d28e73d8dfa84860",
+          "date": "2026-10-20T17:22:05.188Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": {
+            "subscribers": 1000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "Error",
+            "error_code": "SSE_STARTUP_TIMEOUT"
+          },
+          "runs": []
+        }
+      ]
+    },
+    {
+      "source_name": "comparison-abab.json",
+      "source_sha256": "abb410259f0026dcb21c6ee14a01c93a18143cc14fb865199d443986f5f63e1a",
+      "artifactHashes": {
+        "dist/services/sse.js": "ec515883e568de88e1fb07f8d651f352922ec9bf2e7f017142f66093790327be",
+        "dist/services/sse-fanout.js": "364fac74cb68d2dc15666bb67ada51d16c7d5380c39592076feb1d60445a7461",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/routes/pm.js": "2e25ddc5582049b2040fa8680582c1f50937224f1432372905e0db2a4daf10cf",
+        "scripts/capacity-fanout-probe.ts": "295f4b8d15d800b7bf146ff7d206120702cc8ba6c1f44eaae8916547b168157c",
+        "scripts/capacity-probe.ts": "3498810a96cce8c7a898948d1c0c78531d951c09e5518ac53f8748d636c77e94",
+        "scripts/capacity-fixture.ts": "85600c3ea5540de87fb80c33870cab7b7a586f8afae5e0159ad1f6e47fe6d420",
+        "scripts/capacity-metrics.ts": "16fe84bfb8003e5d7b0a66e5f2b102482e8dd0c752d663ee8474f398c944bc0d",
+        "scripts/capacity.ts": "06355c4f8c280f934f914e289c8a99192e388764f9fb1ab4e14c6b893de3d81a",
+        "scripts/capacity-fanout.ts": "5f74c83b295012706cf3e8bfb6bbfc114186afcdd78edb061926d74c2d25afb3",
+        "baseline/sse.js": "939220a55ec0e88010485933ee625c04b70fa209dac801e141b38f7027add472",
+        "baseline/pm.js": "087b6b44e8100ac3ae4405fde2a60cd107a77fbf2b7d089cec38d69349aa291c"
+      },
+      "reports": [
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T17:27:21.321Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 64284.649228999995,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 994.347412109375,
+                "p95": 1766.143798828125,
+                "p99": 1998.2919921875,
+                "max": 1998.2919921875
+              },
+              "fanout": {
+                "cpu_us": 47642,
+                "turn_cpu_us": 304600,
+                "serialized_bytes": 11280,
+                "json_bytes": 8660,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7080,
+                "mutation_json_bytes": 5450,
+                "delivered_mutations": 5000,
+                "prepared_events": 80,
+                "response_writes": 8000,
+                "delivered_events": 8000,
+                "cpu_us_per_delivery": 5.95525,
+                "serialized_bytes_per_event": 141,
+                "cpu_us_per_delivered_mutation": 9.5284,
+                "turn_cpu_us_per_delivered_mutation": 60.92,
+                "mutation_frame_bytes_per_event": 141.6,
+                "mutation_json_bytes_per_event": 109
+              },
+              "server_event_loop_p99_ms": 80.347135,
+              "host_load_before": [
+                54.38,
+                51.2,
+                56.4
+              ],
+              "host_load_after": [
+                54.79,
+                51.83,
+                56.31
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T17:29:39.229Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 76851.69537800002,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 919.853759765625,
+                "p95": 1971.592529296875,
+                "p99": 1996.61572265625,
+                "max": 1996.61572265625
+              },
+              "fanout": {
+                "cpu_us": 49461,
+                "turn_cpu_us": 293860,
+                "serialized_bytes": 17013,
+                "json_bytes": 9944,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9285,
+                "mutation_json_bytes": 5450,
+                "delivered_mutations": 5000,
+                "prepared_events": 92,
+                "response_writes": 5600,
+                "delivered_events": 9200,
+                "cpu_us_per_delivery": 5.376195652173913,
+                "serialized_bytes_per_event": 184.92391304347825,
+                "cpu_us_per_delivered_mutation": 9.8922,
+                "turn_cpu_us_per_delivered_mutation": 58.772,
+                "mutation_frame_bytes_per_event": 185.7,
+                "mutation_json_bytes_per_event": 109
+              },
+              "server_event_loop_p99_ms": 76.218367,
+              "host_load_before": [
+                63.31,
+                55.32,
+                57.17
+              ],
+              "host_load_after": [
+                54.43,
+                54.45,
+                56.77
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T17:31:27.573Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 51185.30012500001,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 756.306640625,
+                "p95": 1465.87841796875,
+                "p99": 1609.849609375,
+                "max": 1609.849609375
+              },
+              "fanout": {
+                "cpu_us": 45664,
+                "turn_cpu_us": 304708,
+                "serialized_bytes": 12110,
+                "json_bytes": 9287,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7070,
+                "mutation_json_bytes": 5435,
+                "delivered_mutations": 5000,
+                "prepared_events": 86,
+                "response_writes": 8600,
+                "delivered_events": 8600,
+                "cpu_us_per_delivery": 5.3097674418604655,
+                "serialized_bytes_per_event": 140.8139534883721,
+                "cpu_us_per_delivered_mutation": 9.1328,
+                "turn_cpu_us_per_delivered_mutation": 60.9416,
+                "mutation_frame_bytes_per_event": 141.4,
+                "mutation_json_bytes_per_event": 108.7
+              },
+              "server_event_loop_p99_ms": 78.118911,
+              "host_load_before": [
+                49.52,
+                53.03,
+                56.14
+              ],
+              "host_load_after": [
+                49.07,
+                52.72,
+                55.88
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T17:33:28.441Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 54599.21660099999,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1110.529052734375,
+                "p95": 2222.37744140625,
+                "p99": 3474.765869140625,
+                "max": 3474.765869140625
+              },
+              "fanout": {
+                "cpu_us": 48800,
+                "turn_cpu_us": 300861,
+                "serialized_bytes": 17011,
+                "json_bytes": 9959,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9286,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 5000,
+                "prepared_events": 92,
+                "response_writes": 5800,
+                "delivered_events": 9200,
+                "cpu_us_per_delivery": 5.304347826086956,
+                "serialized_bytes_per_event": 184.90217391304347,
+                "cpu_us_per_delivered_mutation": 9.76,
+                "turn_cpu_us_per_delivered_mutation": 60.1722,
+                "mutation_frame_bytes_per_event": 185.72,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 71.237631,
+              "host_load_before": [
+                51.16,
+                52.49,
+                55.61
+              ],
+              "host_load_after": [
+                61.92,
+                55.71,
+                56.53
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T17:36:45.051Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": {
+            "subscribers": 1000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "Error",
+            "error_code": "SSE_STARTUP_TIMEOUT"
+          },
+          "runs": []
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T17:40:52.116Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": {
+            "subscribers": 1000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "Error",
+            "error_code": "SSE_PRESENCE_TIMEOUT"
+          },
+          "runs": []
+        }
+      ]
+    },
+    {
+      "source_name": "warm-abab.json",
+      "source_sha256": "9d29371c0a5353a488f056a0baa03bd76724a745e53b83ecdf71dfd02d4127e3",
+      "artifactHashes": {
+        "dist/services/sse.js": "ec515883e568de88e1fb07f8d651f352922ec9bf2e7f017142f66093790327be",
+        "dist/services/sse-fanout.js": "d57cf92a1be5fad6ba882309feb9baaddb832786a0ab7682ce89c78db3ac910f",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/routes/pm.js": "2e25ddc5582049b2040fa8680582c1f50937224f1432372905e0db2a4daf10cf",
+        "scripts/capacity-fanout-probe.ts": "295f4b8d15d800b7bf146ff7d206120702cc8ba6c1f44eaae8916547b168157c",
+        "scripts/capacity-probe.ts": "cf140103c70bf98803df2bfb95bbd4b374c0afc71e5e048be1741974e4462043",
+        "scripts/capacity-fixture.ts": "94a261bcd876b3bfa06e162d598ac7eba02f519b001c3ffdb7190c5030be3cd8",
+        "scripts/capacity-metrics.ts": "16fe84bfb8003e5d7b0a66e5f2b102482e8dd0c752d663ee8474f398c944bc0d",
+        "scripts/capacity.ts": "65818b37adf0aa6505fdb7b1d596369210e5e279419c32ea74a3563c3bb06cb2",
+        "scripts/capacity-fanout.ts": "c2671abe32004d4d5856027520867427549d148ac2bb8680b1048e26809cf021",
+        "baseline/sse.js": "939220a55ec0e88010485933ee625c04b70fa209dac801e141b38f7027add472",
+        "baseline/pm.js": "087b6b44e8100ac3ae4405fde2a60cd107a77fbf2b7d089cec38d69349aa291c"
+      },
+      "reports": [
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:39:38.253Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 34094.370692,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 534.945556640625,
+                "p95": 1022.50244140625,
+                "p99": 1132.208984375,
+                "max": 1132.208984375
+              },
+              "fanout": {
+                "cpu_us": 35683,
+                "turn_cpu_us": 230889,
+                "serialized_bytes": 9050,
+                "json_bytes": 6963,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7090,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 5000,
+                "prepared_events": 64,
+                "response_writes": 6400,
+                "delivered_events": 6400,
+                "cpu_us_per_delivery": 5.57546875,
+                "serialized_bytes_per_event": 141.40625,
+                "cpu_us_per_delivered_mutation": 7.1366,
+                "turn_cpu_us_per_delivered_mutation": 46.1778,
+                "mutation_frame_bytes_per_event": 141.8,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 60.194815,
+              "host_load_before": [
+                24.63,
+                25.79,
+                31.11
+              ],
+              "host_load_after": [
+                26.56,
+                26.21,
+                31.03
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:40:46.996Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 28274.845023,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 695.926513671875,
+                "p95": 1316.07080078125,
+                "p99": 1946.462158203125,
+                "max": 1946.462158203125
+              },
+              "fanout": {
+                "cpu_us": 47496,
+                "turn_cpu_us": 252863,
+                "serialized_bytes": 12604,
+                "json_bytes": 7406,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9296,
+                "mutation_json_bytes": 5480,
+                "delivered_mutations": 5000,
+                "prepared_events": 68,
+                "response_writes": 4700,
+                "delivered_events": 6800,
+                "cpu_us_per_delivery": 6.984705882352941,
+                "serialized_bytes_per_event": 185.35294117647058,
+                "cpu_us_per_delivered_mutation": 9.4992,
+                "turn_cpu_us_per_delivered_mutation": 50.5726,
+                "mutation_frame_bytes_per_event": 185.92,
+                "mutation_json_bytes_per_event": 109.6
+              },
+              "server_event_loop_p99_ms": 54.132735,
+              "host_load_before": [
+                30.73,
+                27.13,
+                31.18
+              ],
+              "host_load_after": [
+                32.03,
+                28.04,
+                31.32
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:41:57.162Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 29255.807692000002,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 601.048095703125,
+                "p95": 1303.919677734375,
+                "p99": 1685.88330078125,
+                "max": 1685.88330078125
+              },
+              "fanout": {
+                "cpu_us": 40027,
+                "turn_cpu_us": 282660,
+                "serialized_bytes": 10450,
+                "json_bytes": 8033,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7090,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 5000,
+                "prepared_events": 74,
+                "response_writes": 7400,
+                "delivered_events": 7400,
+                "cpu_us_per_delivery": 5.409054054054054,
+                "serialized_bytes_per_event": 141.21621621621622,
+                "cpu_us_per_delivered_mutation": 8.0054,
+                "turn_cpu_us_per_delivered_mutation": 56.532,
+                "mutation_frame_bytes_per_event": 141.8,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 62.783487,
+              "host_load_before": [
+                33.22,
+                28.67,
+                31.42
+              ],
+              "host_load_after": [
+                30.77,
+                28.74,
+                31.34
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:43:04.007Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 35657.61041200001,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 395.75146484375,
+                "p95": 1007.201904296875,
+                "p99": 1428.731201171875,
+                "max": 1428.731201171875
+              },
+              "fanout": {
+                "cpu_us": 45005,
+                "turn_cpu_us": 231455,
+                "serialized_bytes": 10397,
+                "json_bytes": 6122,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9297,
+                "mutation_json_bytes": 5480,
+                "delivered_mutations": 5000,
+                "prepared_events": 56,
+                "response_writes": 4200,
+                "delivered_events": 5600,
+                "cpu_us_per_delivery": 8.036607142857143,
+                "serialized_bytes_per_event": 185.66071428571428,
+                "cpu_us_per_delivered_mutation": 9.001,
+                "turn_cpu_us_per_delivered_mutation": 46.291,
+                "mutation_frame_bytes_per_event": 185.94,
+                "mutation_json_bytes_per_event": 109.6
+              },
+              "server_event_loop_p99_ms": 51.118079,
+              "host_load_before": [
+                27.84,
+                28.35,
+                31.12
+              ],
+              "host_load_after": [
+                29.58,
+                28.68,
+                31.14
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:44:13.470Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 30093.59627400001,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1091.25341796875,
+                "p95": 2475.2353515625,
+                "p99": 2533.69970703125,
+                "max": 2533.69970703125
+              },
+              "fanout": {
+                "cpu_us": 150742,
+                "turn_cpu_us": 1396615,
+                "serialized_bytes": 10450,
+                "json_bytes": 8033,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7090,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 50000,
+                "prepared_events": 74,
+                "response_writes": 74000,
+                "delivered_events": 74000,
+                "cpu_us_per_delivery": 2.037054054054054,
+                "serialized_bytes_per_event": 141.21621621621622,
+                "cpu_us_per_delivered_mutation": 3.01484,
+                "turn_cpu_us_per_delivered_mutation": 27.9323,
+                "mutation_frame_bytes_per_event": 141.8,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 232.914943,
+              "host_load_before": [
+                30.58,
+                29.03,
+                31.18
+              ],
+              "host_load_after": [
+                31.74,
+                29.45,
+                31.24
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:45:47.629Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 53349.259820000036,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1068.92822265625,
+                "p95": 2125.951416015625,
+                "p99": 2258.107666015625,
+                "max": 2258.107666015625
+              },
+              "fanout": {
+                "cpu_us": 176383,
+                "turn_cpu_us": 1472030,
+                "serialized_bytes": 15186,
+                "json_bytes": 8889,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9294,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 50000,
+                "prepared_events": 82,
+                "response_writes": 46000,
+                "delivered_events": 82000,
+                "cpu_us_per_delivery": 2.151012195121951,
+                "serialized_bytes_per_event": 185.1951219512195,
+                "cpu_us_per_delivered_mutation": 3.52766,
+                "turn_cpu_us_per_delivered_mutation": 29.4406,
+                "mutation_frame_bytes_per_event": 185.88,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 288.096255,
+              "host_load_before": [
+                34.12,
+                30.38,
+                31.44
+              ],
+              "host_load_after": [
+                31.79,
+                30.31,
+                31.38
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:46:53.659Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 28056.00393899996,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1058.24169921875,
+                "p95": 1797.927734375,
+                "p99": 1892.065185546875,
+                "max": 1892.065185546875
+              },
+              "fanout": {
+                "cpu_us": 179535,
+                "turn_cpu_us": 1503312,
+                "serialized_bytes": 10730,
+                "json_bytes": 8247,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7090,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 50000,
+                "prepared_events": 76,
+                "response_writes": 76000,
+                "delivered_events": 76000,
+                "cpu_us_per_delivery": 2.3623026315789475,
+                "serialized_bytes_per_event": 141.18421052631578,
+                "cpu_us_per_delivered_mutation": 3.5907,
+                "turn_cpu_us_per_delivered_mutation": 30.06624,
+                "mutation_frame_bytes_per_event": 141.8,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 269.221887,
+              "host_load_before": [
+                30.34,
+                30.06,
+                31.26
+              ],
+              "host_load_after": [
+                32.59,
+                30.68,
+                31.42
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:48:28.782Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 48807.21567000006,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1485.595947265625,
+                "p95": 2516.020751953125,
+                "p99": 3442.938232421875,
+                "max": 3442.938232421875
+              },
+              "fanout": {
+                "cpu_us": 169665,
+                "turn_cpu_us": 1519043,
+                "serialized_bytes": 14798,
+                "json_bytes": 8660,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9278,
+                "mutation_json_bytes": 5450,
+                "delivered_mutations": 50000,
+                "prepared_events": 80,
+                "response_writes": 48000,
+                "delivered_events": 80000,
+                "cpu_us_per_delivery": 2.1208125,
+                "serialized_bytes_per_event": 184.975,
+                "cpu_us_per_delivered_mutation": 3.3933,
+                "turn_cpu_us_per_delivered_mutation": 30.38086,
+                "mutation_frame_bytes_per_event": 185.56,
+                "mutation_json_bytes_per_event": 109
+              },
+              "server_event_loop_p99_ms": 345.243647,
+              "host_load_before": [
+                29.4,
+                30.12,
+                31.19
+              ],
+              "host_load_after": [
+                33.8,
+                31.27,
+                31.54
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T19:01:54.400Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": {
+            "subscribers": 3000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "Error",
+            "error_code": "SSE_PRESENCE_TIMEOUT",
+            "diagnostics": {
+              "streams_opened": 3000,
+              "streams_disconnected": 0,
+              "presence_populations": {
+                "2828": 4,
+                "2984": 2984,
+                "none": 12
+              },
+              "sse_clients": 2984,
+              "server_probe": {
+                "capacity_probe": true,
+                "rss_bytes": 183001088,
+                "cpu_since_reset_us": 40104195,
+                "cpu_window_ms": 783197.030544,
+                "cpu_core_percent": 4.465803978664965,
+                "event_loop_p99_ms": 27.443199,
+                "fanout": {
+                  "cpu_us": 5572635,
+                  "turn_cpu_us": 17047193,
+                  "serialized_bytes": 7958774,
+                  "json_bytes": 7957958,
+                  "mutation_events": 0,
+                  "mutation_frame_bytes": 0,
+                  "mutation_json_bytes": 0,
+                  "delivered_mutations": 0,
+                  "prepared_events": 34,
+                  "response_writes": 55261,
+                  "delivered_events": 55261
+                }
+              },
+              "host_load": [
+                28.5,
+                34.36,
+                33.53
+              ]
+            }
+          },
+          "runs": []
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T19:16:22.332Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": {
+            "subscribers": 3000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "DisconnectedStream",
+            "error_code": "SSE_SETUP_DISCONNECTED",
+            "diagnostics": {
+              "streams_opened": 1498,
+              "streams_disconnected": 710,
+              "presence_populations": {
+                "764": 259,
+                "1423": 161,
+                "1450": 774,
+                "1474": 1,
+                "1490": 6,
+                "1495": 53,
+                "1498": 226,
+                "none": 18
+              },
+              "sse_clients": null,
+              "server_probe": {
+                "capacity_probe": true,
+                "rss_bytes": 222167040,
+                "cpu_since_reset_us": 31153819,
+                "cpu_window_ms": 805856.657344,
+                "cpu_core_percent": 2.077654693518698,
+                "event_loop_p99_ms": 30.261247,
+                "fanout": {
+                  "cpu_us": 877052,
+                  "turn_cpu_us": 11703487,
+                  "serialized_bytes": 17996196,
+                  "json_bytes": 17989059,
+                  "mutation_events": 0,
+                  "mutation_frame_bytes": 0,
+                  "mutation_json_bytes": 0,
+                  "delivered_mutations": 0,
+                  "prepared_events": 105,
+                  "response_writes": 126414,
+                  "delivered_events": 126414
+                }
+              },
+              "host_load": [
+                45.45,
+                42.03,
+                37.6
+              ]
+            }
+          },
+          "runs": []
+        }
+      ]
+    },
+    {
+      "source_name": "threaded-abab.json",
+      "source_sha256": "9db4e25d7f13734a2b522b9efce8534a76cec3c953c3f6417b18a0950dec0076",
+      "artifactHashes": {
+        "dist/services/sse.js": "ec515883e568de88e1fb07f8d651f352922ec9bf2e7f017142f66093790327be",
+        "dist/services/sse-fanout.js": "b7ac27592bce986222ea156318cd2ea45da7c51a14c8ca09f956a3fee3d5a885",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/routes/pm.js": "2e25ddc5582049b2040fa8680582c1f50937224f1432372905e0db2a4daf10cf",
+        "scripts/capacity-fanout-probe.ts": "295f4b8d15d800b7bf146ff7d206120702cc8ba6c1f44eaae8916547b168157c",
+        "scripts/capacity-probe.ts": "cf140103c70bf98803df2bfb95bbd4b374c0afc71e5e048be1741974e4462043",
+        "scripts/capacity-fixture.ts": "81d2c00b9b40545616c23fc0556e9cf82e5abd4c35aab4e71bce1011c9859eda",
+        "scripts/capacity-metrics.ts": "16fe84bfb8003e5d7b0a66e5f2b102482e8dd0c752d663ee8474f398c944bc0d",
+        "scripts/capacity.ts": "af4954b4113d40099f0cdb7a8a332c45cce6e6c34c48874b559816ce1abb513e",
+        "scripts/capacity-subscriber.ts": "5407460d944b2b4fe105e0e42d3e61314522321b2bcaed9db6f1b4e44b1d5480",
+        "scripts/capacity-clients.ts": "26af7866ebe48d81389782c1e8a576399266e356ed356b054b2d20e83a02948b",
+        "scripts/capacity-client-worker.ts": "dcba0a7712c08688836bc9e64ebed532f694c0a6726b12e0f54aa2043f5cbd1f",
+        "scripts/capacity-wait.ts": "1d31c589f2eb34f1f61347324e998420601df8eee8f4dc4427aa36033eb27832",
+        "scripts/capacity-fanout.ts": "4c1a6ed469d08554c5acdfd923926ee6e19af6b3b0c5b9576245f125160d09bb",
+        "baseline/sse.js": "939220a55ec0e88010485933ee625c04b70fa209dac801e141b38f7027add472",
+        "baseline/pm.js": "087b6b44e8100ac3ae4405fde2a60cd107a77fbf2b7d089cec38d69349aa291c"
+      },
+      "reports": [
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T19:56:07.871Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 47544.728954,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 473.520263671875,
+                "p95": 987.076416015625,
+                "p99": 1262.25146484375,
+                "max": 1262.25146484375
+              },
+              "fanout": {
+                "cpu_us": 41139,
+                "turn_cpu_us": 265651,
+                "serialized_bytes": 9900,
+                "json_bytes": 7620,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7100,
+                "mutation_json_bytes": 5480,
+                "delivered_mutations": 5000,
+                "prepared_events": 70,
+                "response_writes": 7000,
+                "delivered_events": 7000,
+                "cpu_us_per_delivery": 5.877,
+                "serialized_bytes_per_event": 141.42857142857142,
+                "cpu_us_per_delivered_mutation": 8.2278,
+                "turn_cpu_us_per_delivered_mutation": 53.1302,
+                "mutation_frame_bytes_per_event": 142,
+                "mutation_json_bytes_per_event": 109.6
+              },
+              "server_event_loop_p99_ms": 57.671679,
+              "host_load_before": [
+                41.38,
+                37.58,
+                36.91
+              ],
+              "host_load_after": [
+                46.44,
+                39.5,
+                37.6
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T19:57:44.671Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 45502.841851000005,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 725.7158203125,
+                "p95": 1915.0732421875,
+                "p99": 2097.062255859375,
+                "max": 2097.062255859375
+              },
+              "fanout": {
+                "cpu_us": 51114,
+                "turn_cpu_us": 291110,
+                "serialized_bytes": 15563,
+                "json_bytes": 9133,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9308,
+                "mutation_json_bytes": 5495,
+                "delivered_mutations": 5000,
+                "prepared_events": 84,
+                "response_writes": 5400,
+                "delivered_events": 8400,
+                "cpu_us_per_delivery": 6.085,
+                "serialized_bytes_per_event": 185.27380952380952,
+                "cpu_us_per_delivered_mutation": 10.2228,
+                "turn_cpu_us_per_delivered_mutation": 58.222,
+                "mutation_frame_bytes_per_event": 186.16,
+                "mutation_json_bytes_per_event": 109.9
+              },
+              "server_event_loop_p99_ms": 69.074943,
+              "host_load_before": [
+                41.31,
+                39.3,
+                37.63
+              ],
+              "host_load_after": [
+                44.62,
+                40.85,
+                38.27
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T19:59:23.381Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 48774.715203,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 649.4189453125,
+                "p95": 1602.957763671875,
+                "p99": 1948.937255859375,
+                "max": 1948.937255859375
+              },
+              "fanout": {
+                "cpu_us": 40853,
+                "turn_cpu_us": 274109,
+                "serialized_bytes": 9900,
+                "json_bytes": 7620,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7100,
+                "mutation_json_bytes": 5480,
+                "delivered_mutations": 5000,
+                "prepared_events": 70,
+                "response_writes": 7000,
+                "delivered_events": 7000,
+                "cpu_us_per_delivery": 5.836142857142857,
+                "serialized_bytes_per_event": 141.42857142857142,
+                "cpu_us_per_delivered_mutation": 8.1706,
+                "turn_cpu_us_per_delivered_mutation": 54.8218,
+                "mutation_frame_bytes_per_event": 142,
+                "mutation_json_bytes_per_event": 109.6
+              },
+              "server_event_loop_p99_ms": 64.651263,
+              "host_load_before": [
+                40.06,
+                40.34,
+                38.24
+              ],
+              "host_load_after": [
+                42.79,
+                41.02,
+                38.58
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:00:57.528Z",
+          "options": {
+            "rungs": [
+              100
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 100,
+              "setup_ms": 44606.63100699999,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 651.643798828125,
+                "p95": 1761.990234375,
+                "p99": 2616.23193359375,
+                "max": 2616.23193359375
+              },
+              "fanout": {
+                "cpu_us": 52345,
+                "turn_cpu_us": 299538,
+                "serialized_bytes": 15183,
+                "json_bytes": 8904,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9297,
+                "mutation_json_bytes": 5480,
+                "delivered_mutations": 5000,
+                "prepared_events": 82,
+                "response_writes": 5600,
+                "delivered_events": 8200,
+                "cpu_us_per_delivery": 6.383536585365854,
+                "serialized_bytes_per_event": 185.15853658536585,
+                "cpu_us_per_delivered_mutation": 10.469,
+                "turn_cpu_us_per_delivered_mutation": 59.9076,
+                "mutation_frame_bytes_per_event": 185.94,
+                "mutation_json_bytes_per_event": 109.6
+              },
+              "server_event_loop_p99_ms": 66.715647,
+              "host_load_before": [
+                41.52,
+                40.93,
+                38.66
+              ],
+              "host_load_after": [
+                42.45,
+                41.41,
+                38.94
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:02:57.669Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 63877.85289400001,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1285.08056640625,
+                "p95": 2390.90673828125,
+                "p99": 2794.873046875,
+                "max": 2794.873046875
+              },
+              "fanout": {
+                "cpu_us": 160024,
+                "turn_cpu_us": 1612001,
+                "serialized_bytes": 12420,
+                "json_bytes": 9546,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7100,
+                "mutation_json_bytes": 5480,
+                "delivered_mutations": 50000,
+                "prepared_events": 88,
+                "response_writes": 88000,
+                "delivered_events": 88000,
+                "cpu_us_per_delivery": 1.8184545454545455,
+                "serialized_bytes_per_event": 141.13636363636363,
+                "cpu_us_per_delivered_mutation": 3.20048,
+                "turn_cpu_us_per_delivered_mutation": 32.24002,
+                "mutation_frame_bytes_per_event": 142,
+                "mutation_json_bytes_per_event": 109.6
+              },
+              "server_event_loop_p99_ms": 443.547647,
+              "host_load_before": [
+                40.62,
+                40.86,
+                38.91
+              ],
+              "host_load_after": [
+                48.49,
+                43.14,
+                39.81
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:06:49.651Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 159537.36400199996,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 2219.838623046875,
+                "p95": 5164.5361328125,
+                "p99": 5894.83203125,
+                "max": 5894.83203125
+              },
+              "fanout": {
+                "cpu_us": 215833,
+                "turn_cpu_us": 1671614,
+                "serialized_bytes": 15974,
+                "json_bytes": 9317,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9324,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 50000,
+                "prepared_events": 86,
+                "response_writes": 50000,
+                "delivered_events": 86000,
+                "cpu_us_per_delivery": 2.5096860465116277,
+                "serialized_bytes_per_event": 185.74418604651163,
+                "cpu_us_per_delivered_mutation": 4.31666,
+                "turn_cpu_us_per_delivered_mutation": 33.43228,
+                "mutation_frame_bytes_per_event": 186.48,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 433.324031,
+              "host_load_before": [
+                47.71,
+                45.11,
+                41.12
+              ],
+              "host_load_after": [
+                49.23,
+                46.47,
+                41.89
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 2,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:09:03.857Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 85309.993303,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1405.978515625,
+                "p95": 2420.307861328125,
+                "p99": 2772.697021484375,
+                "max": 2772.697021484375
+              },
+              "fanout": {
+                "cpu_us": 160123,
+                "turn_cpu_us": 1593062,
+                "serialized_bytes": 11880,
+                "json_bytes": 9148,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7120,
+                "mutation_json_bytes": 5510,
+                "delivered_mutations": 50000,
+                "prepared_events": 84,
+                "response_writes": 84000,
+                "delivered_events": 84000,
+                "cpu_us_per_delivery": 1.9062261904761906,
+                "serialized_bytes_per_event": 141.42857142857142,
+                "cpu_us_per_delivered_mutation": 3.20246,
+                "turn_cpu_us_per_delivered_mutation": 31.86124,
+                "mutation_frame_bytes_per_event": 142.4,
+                "mutation_json_bytes_per_event": 110.2
+              },
+              "server_event_loop_p99_ms": 370.671615,
+              "host_load_before": [
+                44.99,
+                45.87,
+                42.1
+              ],
+              "host_load_after": [
+                42.35,
+                45.12,
+                42.03
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 2,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:10:33.943Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 45295.74854499998,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1028.029541015625,
+                "p95": 2520.651611328125,
+                "p99": 2758.897216796875,
+                "max": 2758.897216796875
+              },
+              "fanout": {
+                "cpu_us": 156898,
+                "turn_cpu_us": 1375052,
+                "serialized_bytes": 14432,
+                "json_bytes": 8446,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9280,
+                "mutation_json_bytes": 5450,
+                "delivered_mutations": 50000,
+                "prepared_events": 78,
+                "response_writes": 44000,
+                "delivered_events": 78000,
+                "cpu_us_per_delivery": 2.0115128205128205,
+                "serialized_bytes_per_event": 185.02564102564102,
+                "cpu_us_per_delivered_mutation": 3.13796,
+                "turn_cpu_us_per_delivered_mutation": 27.50104,
+                "mutation_frame_bytes_per_event": 185.6,
+                "mutation_json_bytes_per_event": 109
+              },
+              "server_event_loop_p99_ms": 337.903615,
+              "host_load_before": [
+                36.69,
+                43.14,
+                41.52
+              ],
+              "host_load_after": [
+                39.66,
+                43.12,
+                41.58
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "repeat": 1,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:20:39.682Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 3000,
+              "setup_ms": 540709.8860840001,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 2526.236572265625,
+                "p95": 4828.454345703125,
+                "p99": 4969.452880859375,
+                "max": 4969.452880859375
+              },
+              "fanout": {
+                "cpu_us": 439766,
+                "turn_cpu_us": 4413468,
+                "serialized_bytes": 11280,
+                "json_bytes": 8660,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 7080,
+                "mutation_json_bytes": 5450,
+                "delivered_mutations": 150000,
+                "prepared_events": 80,
+                "response_writes": 240000,
+                "delivered_events": 240000,
+                "cpu_us_per_delivery": 1.8323583333333333,
+                "serialized_bytes_per_event": 141,
+                "cpu_us_per_delivered_mutation": 2.931773333333333,
+                "turn_cpu_us_per_delivered_mutation": 29.42312,
+                "mutation_frame_bytes_per_event": 141.6,
+                "mutation_json_bytes_per_event": 109
+              },
+              "server_event_loop_p99_ms": 857.735167,
+              "host_load_before": [
+                37.64,
+                39.12,
+                40.24
+              ],
+              "host_load_after": [
+                34.73,
+                38.16,
+                39.85
+              ]
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "repeat": 1,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:24:23.262Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16
+          },
+          "failure": {
+            "subscribers": 3000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "Error",
+            "error_code": "SSE_HTTP_500_VERIFY",
+            "diagnostics": {
+              "streams_opened": 1811,
+              "streams_disconnected": 0,
+              "presence_populations": {},
+              "sse_clients": 1839,
+              "server_probe": {
+                "capacity_probe": true,
+                "rss_bytes": 241057792,
+                "cpu_since_reset_us": 19803599,
+                "cpu_window_ms": 204818.388269,
+                "cpu_core_percent": 10.686248292863144,
+                "event_loop_p99_ms": 60.260351,
+                "fanout": {
+                  "cpu_us": 683153,
+                  "turn_cpu_us": 11574050,
+                  "serialized_bytes": 13274842,
+                  "json_bytes": 13270703,
+                  "mutation_events": 0,
+                  "mutation_frame_bytes": 0,
+                  "mutation_json_bytes": 0,
+                  "delivered_mutations": 0,
+                  "prepared_events": 61,
+                  "response_writes": 93988,
+                  "delivered_events": 93988
+                }
+              },
+              "host_load": [
+                36.93,
+                37.41,
+                39.17
+              ]
+            }
+          },
+          "runs": []
+        }
+      ]
+    },
+    {
+      "source_name": "eight-slot-diagnostic.json",
+      "source_sha256": "65560412f2bf1ffc0c13e10d54ab6178355141cef33d766abdde2a4033993ea4",
+      "artifactHashes": null,
+      "reports": [
+        {
+          "variant": "diagnostic",
+          "repeat": null,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:30:54.192Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 8
+          },
+          "failure": {
+            "subscribers": 3000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "Error",
+            "error_code": "SSE_SETUP_DISCONNECTED",
+            "diagnostics": {
+              "streams_opened": 1428,
+              "streams_disconnected": 2,
+              "presence_populations": {
+                "816": 107,
+                "817": 185,
+                "818": 479,
+                "821": 9,
+                "823": 1,
+                "827": 1,
+                "828": 20,
+                "1254": 11,
+                "1269": 4,
+                "1340": 1,
+                "1341": 1,
+                "1348": 1,
+                "1351": 2,
+                "1362": 1,
+                "1367": 7,
+                "1368": 104,
+                "1374": 2,
+                "1375": 44,
+                "1376": 28,
+                "1378": 154,
+                "1380": 42,
+                "1381": 10,
+                "1383": 6,
+                "1384": 6,
+                "1385": 165,
+                "none": 1
+              },
+              "sse_clients": 968,
+              "server_probe": {
+                "capacity_probe": true,
+                "rss_bytes": 238407680,
+                "cpu_since_reset_us": 17617414,
+                "cpu_window_ms": 192252.855015,
+                "cpu_core_percent": 14.104536437594746,
+                "event_loop_p99_ms": 632.291327,
+                "fanout": {
+                  "cpu_us": 768043,
+                  "turn_cpu_us": 10043670,
+                  "serialized_bytes": 16088212,
+                  "json_bytes": 16080316,
+                  "mutation_events": 0,
+                  "mutation_frame_bytes": 0,
+                  "mutation_json_bytes": 0,
+                  "delivered_mutations": 0,
+                  "prepared_events": 116,
+                  "response_writes": 110345,
+                  "delivered_events": 110345
+                }
+              },
+              "host_load": [
+                44.96,
+                40.96,
+                39.73
+              ]
+            }
+          },
+          "runs": []
+        }
+      ]
+    },
+    {
+      "source_name": "quiet-3000.json",
+      "source_sha256": "9b38bcf44d216335c5bca2164758c8cb787c7a484399fbe920190da25bfaa43b",
+      "artifactHashes": null,
+      "reports": [
+        {
+          "variant": "diagnostic",
+          "repeat": null,
+          "revision": "90ac4713709f9d32726f544c9fed98a9a5a99b87",
+          "date": "2026-10-20T20:38:30.844Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16,
+            "quietSetup": true
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 3000,
+              "setup_ms": 106260.93181200001,
+              "committed_writes": 50,
+              "failed_writes": 4,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 2577.190185546875,
+                "p95": 5171.456787109375,
+                "p99": 5577.449951171875,
+                "max": 5577.449951171875
+              },
+              "fanout": {
+                "cpu_us": 411231,
+                "turn_cpu_us": 4303387,
+                "serialized_bytes": 15906,
+                "json_bytes": 9317,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9284,
+                "mutation_json_bytes": 5465,
+                "delivered_mutations": 150000,
+                "prepared_events": 86,
+                "response_writes": 141000,
+                "delivered_events": 258000,
+                "cpu_us_per_delivery": 1.5939186046511629,
+                "serialized_bytes_per_event": 184.95348837209303,
+                "cpu_us_per_delivered_mutation": 2.74154,
+                "turn_cpu_us_per_delivered_mutation": 28.689246666666666,
+                "mutation_frame_bytes_per_event": 185.68,
+                "mutation_json_bytes_per_event": 109.3
+              },
+              "server_event_loop_p99_ms": 791.674879,
+              "host_load_before": [
+                49.93,
+                42.48,
+                40.23
+              ],
+              "host_load_after": [
+                52.27,
+                44.82,
+                41.22
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_name": "quiet-ack-3000.json",
+      "source_sha256": "d6ea32425985745a48d0f2404aac69780678c764f10d8b24ddf2e78aac14e55f",
+      "artifactHashes": null,
+      "reports": [
+        {
+          "variant": "diagnostic",
+          "repeat": null,
+          "revision": "3f86759a42d6fcfeb5d0eb014861013da71c0c47",
+          "date": "2026-10-20T20:46:47.899Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 16,
+            "quietSetup": true,
+            "writerTimeoutMs": 120000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 3000,
+              "setup_ms": 78458.229033,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 1752.575439453125,
+                "p95": 5011.210693359375,
+                "p99": 5387.204833984375,
+                "max": 5387.204833984375
+              },
+              "fanout": {
+                "cpu_us": 354990,
+                "turn_cpu_us": 3699532,
+                "serialized_bytes": 14414,
+                "json_bytes": 8431,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9266,
+                "mutation_json_bytes": 5435,
+                "delivered_mutations": 150000,
+                "prepared_events": 78,
+                "response_writes": 129000,
+                "delivered_events": 234000,
+                "cpu_us_per_delivery": 1.517051282051282,
+                "serialized_bytes_per_event": 184.7948717948718,
+                "cpu_us_per_delivered_mutation": 2.3666,
+                "turn_cpu_us_per_delivered_mutation": 24.663546666666665,
+                "mutation_frame_bytes_per_event": 185.32,
+                "mutation_json_bytes_per_event": 108.7
+              },
+              "server_event_loop_p99_ms": 629.145599,
+              "host_load_before": [
+                34.54,
+                36.74,
+                38.55
+              ],
+              "host_load_after": [
+                33.72,
+                36.32,
+                38.31
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_name": "warmup-diagnostic.json",
+      "source_sha256": "9f33cfbfcb0c68d9e239cec441e3b658aea36fdd14f8463714354ceec55e0b1c",
+      "artifactHashes": null,
+      "reports": [
+        {
+          "variant": "diagnostic",
+          "repeat": null,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T17:50:17.459Z",
+          "options": {
+            "rungs": [
+              1000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000
+          },
+          "failure": null,
+          "runs": [
+            {
+              "subscribers": 1000,
+              "setup_ms": 279886.73779,
+              "committed_writes": 50,
+              "failed_writes": 0,
+              "lost": 0,
+              "duplicates": 0,
+              "disconnected_subscribers": 0,
+              "to_every_subscriber_ms": {
+                "samples": 50,
+                "p50": 2525.078857421875,
+                "p95": 6129.097412109375,
+                "p99": 6569.09423828125,
+                "max": 6569.09423828125
+              },
+              "fanout": {
+                "cpu_us": 268764,
+                "turn_cpu_us": 1919788,
+                "serialized_bytes": 17474,
+                "json_bytes": 10203,
+                "mutation_events": 50,
+                "mutation_frame_bytes": 9348,
+                "mutation_json_bytes": 5495,
+                "delivered_mutations": 50000,
+                "prepared_events": 94,
+                "response_writes": 57000,
+                "delivered_events": 94000,
+                "cpu_us_per_delivery": 2.8591914893617023,
+                "serialized_bytes_per_event": 185.89361702127658,
+                "cpu_us_per_delivered_mutation": 5.37528,
+                "turn_cpu_us_per_delivered_mutation": 38.39576,
+                "mutation_frame_bytes_per_event": 186.96,
+                "mutation_json_bytes_per_event": 109.9
+              },
+              "server_event_loop_p99_ms": 530.579455,
+              "host_load_before": [
+                46.5,
+                46.55,
+                50.2
+              ],
+              "host_load_after": [
+                48.03,
+                46.99,
+                50.06
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_name": "verified-3000.json",
+      "source_sha256": "e8a087b17e710c6edb6ccbf8cdd1debc4bca3c871d21b006487eb9a5761845c2",
+      "artifactHashes": null,
+      "reports": [
+        {
+          "variant": "diagnostic",
+          "repeat": null,
+          "revision": "53ecdc22dc11f5ebe708ff46599f5755bfe525be",
+          "date": "2026-10-20T18:27:24.734Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000,
+            "setupConcurrency": 10
+          },
+          "failure": {
+            "subscribers": 3000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "DisconnectedStream",
+            "error_code": "SSE_SETUP_DISCONNECTED",
+            "diagnostics": {
+              "streams_opened": 1836,
+              "streams_disconnected": 1749,
+              "presence_populations": {
+                "78": 78,
+                "1784": 1,
+                "1785": 1,
+                "1829": 376,
+                "1830": 741,
+                "1832": 57,
+                "1836": 535,
+                "none": 47
+              },
+              "sse_clients": 78,
+              "server_probe": {
+                "capacity_probe": true,
+                "rss_bytes": 225128448,
+                "cpu_since_reset_us": 31270480,
+                "cpu_window_ms": 818885.118225,
+                "cpu_core_percent": 4.044461139229549,
+                "event_loop_p99_ms": 35.520511,
+                "fanout": {
+                  "cpu_us": 885221,
+                  "turn_cpu_us": 10798532,
+                  "serialized_bytes": 14745172,
+                  "json_bytes": 14737483,
+                  "mutation_events": 0,
+                  "mutation_frame_bytes": 0,
+                  "mutation_json_bytes": 0,
+                  "delivered_mutations": 0,
+                  "prepared_events": 113,
+                  "response_writes": 100655,
+                  "delivered_events": 100655
+                }
+              },
+              "host_load": [
+                38,
+                38.29,
+                38.13
+              ]
+            }
+          },
+          "runs": []
+        }
+      ]
+    },
+    {
+      "source_name": "optimized-3000.json",
+      "source_sha256": "16ecbcf00c36dda20f853825982827be98a4a8fa63eefbcc347b96186f20b510",
+      "artifactHashes": null,
+      "reports": [
+        {
+          "variant": "diagnostic",
+          "repeat": null,
+          "revision": "b4f3864d2a01cb9cb1cd25980fd9bcb9a3e06ee0",
+          "date": "2026-10-20T18:02:59.205Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000,
+            "warmupMs": 120000
+          },
+          "failure": {
+            "subscribers": 3000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "DisconnectedStream",
+            "error_code": "SSE_SETUP_DISCONNECTED",
+            "diagnostics": {
+              "streams_opened": 1313,
+              "streams_disconnected": 1206,
+              "presence_populations": {
+                "13": 3,
+                "1150": 13,
+                "1263": 55,
+                "1264": 1,
+                "1268": 1,
+                "1270": 2,
+                "1278": 1,
+                "1281": 5,
+                "1284": 490,
+                "1286": 217,
+                "1295": 28,
+                "1298": 14,
+                "1300": 463,
+                "1302": 12,
+                "1303": 8
+              },
+              "sse_clients": 2,
+              "server_probe": {
+                "capacity_probe": true,
+                "rss_bytes": 220876800,
+                "cpu_core_percent": 1.740934413445684,
+                "event_loop_p99_ms": 74.383359,
+                "fanout": {
+                  "cpu_us": 435486,
+                  "turn_cpu_us": 4568107,
+                  "serialized_bytes": 8632469,
+                  "json_bytes": 8625814,
+                  "mutation_events": 0,
+                  "mutation_frame_bytes": 0,
+                  "mutation_json_bytes": 0,
+                  "delivered_mutations": 0,
+                  "prepared_events": 98,
+                  "response_writes": 55349,
+                  "delivered_events": 55349
+                }
+              },
+              "host_load": [
+                42.96,
+                44.96,
+                46.22
+              ]
+            }
+          },
+          "runs": []
+        }
+      ]
+    },
+    {
+      "source_name": "staged-3000-before.json",
+      "source_sha256": "714b05084f45e6c69c9176f7515f5f408cfee5f4f135bea58ae10ad06e3e2fab",
+      "artifactHashes": null,
+      "reports": [
+        {
+          "variant": "diagnostic",
+          "repeat": null,
+          "revision": "f05d5d57a5d69374ead2b17fa84edca5501c9542",
+          "date": "2026-10-20T17:07:03.193Z",
+          "options": {
+            "rungs": [
+              3000
+            ],
+            "writers": 10,
+            "writesPerWriter": 5,
+            "sloMs": 1000,
+            "drainMs": 10000
+          },
+          "failure": {
+            "subscribers": 3000,
+            "reason": "Rung setup failed; no capacity claim for this rung",
+            "phase": "setup",
+            "error_name": "Error",
+            "error_code": "SSE_HTTP_500_VERIFY"
+          },
+          "runs": []
+        }
+      ]
+    }
+  ]
+}

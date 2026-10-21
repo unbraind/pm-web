@@ -1,0 +1,18 @@
+id: pm-web-gy4k
+title: Await asynchronous ledger settlement in the concurrent writer regression
+description: "PR #231 verification at code commit 391328f exposed an immediate-read timing race in test/pm-command-access.test.ts: concurrent users commit distinct fields, ledger outcomes and matching SSE updates. CI run 39514101744 job 118941976568 returned both HTTP 200 responses and both SSE mutation receipts, then observed one ledger row still pending while the other was completed. Source captureOutcome in src/idempotency.ts deliberately starts persistOutcome asynchronously from the response finish event, so response and SSE completion do not guarantee the subsequent SQL update has finished. The test reads once and asserts both rows completed. Keep this outside the fanout review fixes; establish a bounded condition-based wait for both exact rows to settle, retain all actor/status/outcome assertions, and prove failure when settlement never happens. Preserve the failed CI receipt and distinguish this assertion race from timeout or production data-loss claims."
+type: Issue
+status: open
+priority: 2
+tags[2]: idempotency,tests
+created_at: "2026-10-20T23:27:31.182Z"
+updated_at: "2026-10-20T23:28:38.458Z"
+author: codex-agent
+acceptance_criteria: Use real PostgreSQL and a controlled delayed settlement to prove the test waits for completion without fixed sleeps or relaxed assertions; retain exact two-user outcomes and matching SSE/history checks; full npm/Bun gates retain every existing threshold
+parent: pm-web-ulgy
+comments[1]{created_at,author,text}:
+  "2026-10-20T23:28:38.458Z",codex-agent,"Contrasting same-code evidence: node scripts/with-test-db.ts node --test --test-name-pattern=\"concurrent users commit distinct fields, ledger outcomes and matching SSE updates\" test/pm-command-access.test.ts passes 1/1 on the unchanged 391328f source, zero skipped/canceled. The earlier Node 26 full coverage assertion failure remains valid evidence, not a timeout. It observes an asynchronous ledger settlement boundary before completion; use a bounded SQL-condition barrier in a separate follow-up without changing actor/status/outcome assertions. The fanout review does not modify this test or idempotency production code."
+files[2]{path,scope}:
+  test/pm-command-access.test.ts,project
+  src/idempotency.ts,project
+body: ""

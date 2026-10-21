@@ -6,11 +6,15 @@ export interface CapacityWrite {
   committedAt: number | null;
   error: boolean;
   requestedAt?: number;
+  errorName?: string;
+  errorCode?: string | null;
 }
 
 /** One subscriber's bounded first-receipt and duplicate counters, indexed by write sequence. */
 export interface CapacitySubscriber {
   clientId?: string;
+  lastEventId?: string;
+  presenceUsers?: number;
   receivedAt: Float64Array;
   counts: Uint32Array;
   disconnected: boolean;

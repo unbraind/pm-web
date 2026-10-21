@@ -43,6 +43,7 @@ export function instrumentCapacityModule(url: string, source: string): string {
     source = replaceProbe(source, "for (const event of page.events) {", `for (const event of page.events) {\n                ${probe}("route-classified", event.item_id, { start: capacityReadStarted });`);
   } else if (url.endsWith("/dist/services/sse.js")) {
     source = replaceProbe(source, "export function deliverProjectEvent(projectId, event) {", `export function deliverProjectEvent(projectId, event) {\n    ${probe}.event("broadcast", event);`);
+    if (source.includes("prepareFanout(projectId, event)")) return source;
     const payload = 'const payload = `event: ${event.type}\\ndata: ${JSON.stringify(event.data)}\\n\\n`;';
     source = replaceProbe(source, payload, `${payload}\n    ${probe}.event("serialized", event);`);
     // Only the delivery function has an event parameter; presence has its own loop.
@@ -50,6 +51,9 @@ export function instrumentCapacityModule(url: string, source: string): string {
     const end = source.indexOf("export function broadcastPresence(", begin);
     const delivery = replaceProbe(source.slice(begin, end), "client.res.write(payload);", `const capacityWriteStarted = performance.timeOrigin + performance.now();\n            client.res.write(payload);\n            ${probe}.event("write", event, { clientId: client.id, start: capacityWriteStarted });`);
     source = source.slice(0, begin) + delivery + source.slice(end);
+  } else if (url.endsWith("/dist/services/sse-fanout.js")) {
+    source = replaceProbe(source, "state.frames.push({ sequence, payload, at: Date.now() });", `${probe}.event("serialized", event);\n    state.frames.push({ sequence, payload, at: Date.now() });`);
+    source = replaceProbe(source, "if (!viewer.sink.res.write(payload)) {", `const capacityWriteStarted = performance.timeOrigin + performance.now();\n            const capacityAccepted = viewer.sink.res.write(payload);\n            ${probe}.frames(payload, viewer.sink.id, capacityWriteStarted, performance.timeOrigin + performance.now());\n            if (!capacityAccepted) {`);
   }
   return source;
 }

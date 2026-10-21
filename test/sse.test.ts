@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { runInNewContext } from "node:vm";
 import type { Response } from "express";
+import { transformSync } from "esbuild";
 import { realtimeHealth } from "../src/services/realtime-observability.ts";
 
 import {
   addSSEClient,
   broadcastProjectEvent,
+  broadcastPresence,
   closeAllSSEClients,
   configureProjectEventPublisher,
   consumeSignaledItemMutation,
@@ -17,17 +23,47 @@ import {
 const projectId = "11111111-1111-4111-8111-111111111111";
 const otherProjectId = "33333333-3333-4333-8333-333333333333";
 
+test("failed initial SSE writes retain no detach handle after unsubscribe or shutdown", (t) => {
+  const source = readFileSync(new URL("../src/services/sse.ts", import.meta.url), "utf8");
+  const inspection = "\nexport function retainedDetachHandles() { return detachFanout.size; }";
+  const module = { exports: {} as { addSSEClient: typeof addSSEClient; closeAllSSEClients: typeof closeAllSSEClients; retainedDetachHandles: () => number } };
+  runInNewContext(transformSync(source + inspection, { loader: "ts", format: "cjs", target: "es2022" }).code, {
+    module, exports: module.exports, require: createRequire(new URL("../src/services/sse.ts", import.meta.url)), setTimeout, clearTimeout,
+  });
+  const service = module.exports;
+  t.after(service.closeAllSSEClients);
+  const before = realtimeHealth().counters.sse_clients;
+  const res = { write: () => { throw new Error("synthetic failed initial write"); }, destroy: () => {} } as unknown as Response;
+  for (let i = 0; i < 3; i++) {
+    const unsubscribe = service.addSSEClient({ id: `failed-attach-${i}`, projectId, userId: "user-a", displayName: "User A", currentView: "items", connectedAt: new Date(), res });
+    unsubscribe();
+  }
+  service.closeAllSSEClients();
+  assert.equal(realtimeHealth().counters.sse_clients, before);
+  assert.equal(service.retainedDetachHandles(), 0, "failed sockets must not stay reachable through detach closures");
+});
+
+test("a rejected SSE resume attachment rolls back connection indexes and gauge", (t) => {
+  t.after(closeAllSSEClients);
+  const before = realtimeHealth().counters.sse_clients;
+  const response = fakeResponse();
+  assert.throws(() => addSSEClient({ id: "rejected-resume", projectId, userId: "user-a", displayName: "User A", currentView: "items", connectedAt: new Date(), res: response.response }, "expired:1"), /expired/);
+  assert.equal(getSSEClientCount(), before);
+  assert.equal(realtimeHealth().counters.sse_clients, before);
+  assert.deepEqual(getProjectPresence(projectId), []);
+});
+
 /** Capture SSE writes for unit assertions without opening an HTTP connection. */
 function fakeResponse() {
   const writes: string[] = [];
   return {
     writes,
-    response: { write: (value: string) => { writes.push(value); return true; } } as unknown as Response,
+    response: { write: (value: string) => { writes.push(String(value)); return true; } } as unknown as Response,
   };
 }
 
 for (const endFails of [false, true]) {
-  test(`replacing an SSE client closes the old response and preserves the gauge (end fails: ${endFails})`, (t) => {
+  test(`replacing an SSE client closes the old response and preserves the gauge (end fails: ${endFails})`, async (t) => {
     const before = realtimeHealth().counters;
     let ended = 0;
     const oldResponse = {
@@ -54,6 +90,7 @@ for (const endFails of [false, true]) {
     unsubscribeOld();
     assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients + 1, "late old cleanup must preserve the new client");
     broadcastProjectEvent(otherProjectId, { type: "workspace-changed", data: {} });
+    await delay(15);
     assert.match(current.writes.join(""), /event: workspace-changed/);
     unsubscribeNew();
     assert.equal(realtimeHealth().counters.sse_clients, before.sse_clients);
@@ -99,7 +136,7 @@ test("project events deliver locally and invoke the configured cross-process pub
   configureProjectEventPublisher(async (id, event) => { published.push({ projectId: id, type: event.type }); });
   try {
     broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "test" } });
-    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    await new Promise((resolve) => { setTimeout(resolve, 15); });
     assert.match(target.writes.join(""), /event: workspace-changed/);
     assert.deepEqual(published, [{ projectId, type: "workspace-changed" }]);
   } finally {
@@ -126,7 +163,7 @@ test("project events and presence are isolated per project and clients are index
 
     // An event for `projectId` must reach only that project's clients.
     broadcastProjectEvent(projectId, { type: "workspace-changed", data: { source: "iso" } });
-    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    await new Promise((resolve) => { setTimeout(resolve, 15); });
     assert.match(a.writes.join(""), /event: workspace-changed/);
     assert.doesNotMatch(b.writes.join(""), /event: workspace-changed/);
   } finally {
@@ -227,4 +264,27 @@ test("shutdown keeps closing the remaining SSE clients when one response fails t
   assert.equal(getSSEClientCount(), 0);
   assert.deepEqual(getProjectPresence(projectId), []);
   assert.deepEqual(getProjectPresence(otherProjectId), []);
+});
+
+
+test("connect and resume send a fresh current roster separately from mutation replay", async (t) => {
+  t.after(closeAllSSEClients);
+  const first = fakeResponse();
+  const client = { id: "presence-resume", projectId, userId: "roster-user", displayName: "Roster User", currentView: "items", connectedAt: new Date() };
+  const stop = addSSEClient({ ...client, res: first.response });
+  broadcastPresence(projectId);
+  broadcastProjectEvent(projectId, { type: "mutation", data: { itemId: "roster-mutation" } });
+  await delay(20);
+  assert.match(first.writes.join(""), /event: presence/);
+  const cursor = /^id: (.+)$/m.exec(first.writes[0])![1];
+  stop();
+  const resumed = fakeResponse();
+  addSSEClient({ ...client, currentView: "graph", res: resumed.response }, cursor);
+  await delay(120);
+  const events = resumed.writes.join("").split("\n\n").filter(Boolean);
+  const rosters = events.filter((event) => event.startsWith("event: presence"));
+  assert.equal(rosters.length, 1, "resume must send one current snapshot, never historical rosters");
+  assert.match(rosters[0], /"currentView":"graph"/);
+  assert.doesNotMatch(rosters[0], /^id:/m);
+  assert.equal(events.filter((event) => event.startsWith("event: mutation")).length, 1);
 });

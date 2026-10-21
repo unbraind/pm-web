@@ -1,4 +1,6 @@
 /** Test-only preload: observe the actual production process through a private IPC channel. */
+import { fanoutMeasurement, resetFanoutMeasurement } from "./capacity-fanout-probe.ts";
+import "./capacity-setup-probe.ts";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -24,14 +26,18 @@ const histogram = monitorEventLoopDelay({ resolution: 10 });
 histogram.enable();
 let previousCpu = process.cpuUsage();
 let previousTime = performance.now();
+let measurementCpu = previousCpu;
+let measurementStarted = previousTime;
 
 /** Send process-only telemetry, excluding writer children and the load generator. */
 function sample(): void {
   const now = performance.now();
   const cpu = process.cpuUsage();
   process.send?.({ capacity_probe: true, rss_bytes: process.memoryUsage().rss,
+    cpu_since_reset_us: cpu.user + cpu.system - measurementCpu.user - measurementCpu.system,
+    cpu_window_ms: now - measurementStarted,
     cpu_core_percent: ((cpu.user - previousCpu.user) + (cpu.system - previousCpu.system)) / ((now - previousTime) * 10),
-    event_loop_p99_ms: histogram.percentile(99) / 1e6 });
+    event_loop_p99_ms: histogram.percentile(99) / 1e6, fanout: fanoutMeasurement() });
   previousCpu = cpu;
   previousTime = now;
 }
@@ -43,8 +49,11 @@ process.on("message", (message: unknown) => {
     process.send?.({ capacity_lock_count: indexLocks, at: performance.now() });
   } else if (message === "capacity-reset") {
     histogram.reset();
+    resetFanoutMeasurement();
     previousCpu = process.cpuUsage();
     previousTime = performance.now();
+    measurementCpu = previousCpu;
+    measurementStarted = previousTime;
     process.send?.({ capacity_reset: true });
   } else if (message === "capacity-sample") sample();
 });

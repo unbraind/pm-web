@@ -1,0 +1,22 @@
+id: pm-web-jstr
+title: Ordinary presence join storms fail readiness before 3000 subscribers
+description: "Follow-up to pm-web-h4vh. With unchanged production queue, stall, authorization and pool bounds, a sixteen-slot ordinary ramp returned an SSE project-verification HTTP 500 around 1800 subscriptions; an eight-slot diagnostic disconnected readers around 1400 subscriptions. No measured mutations had started in either failed setup. Preserve the failed sequences in docs/capacity/2026-10-20-fanout-exploratory.json. The fan-out comparison defers incremental presence only in its test preload, then requires every real full-roster receipt before measuring established subscribers. This does not certify ordinary join storms. Profile roster generation/transport, membership reads, pool waits and safe verification error categories; repair the ordinary join path without weakening authorization or slow-viewer bounds."
+type: Issue
+status: open
+priority: 2
+tags[3]: capacity,performance,realtime
+created_at: "2026-10-20T20:43:47.665Z"
+updated_at: "2026-10-20T21:13:40.945Z"
+author: codex-agent
+acceptance_criteria: "Ordinary startup with no quiet-setup control reaches and retains 100, 1000 and 3000 distinct authorized subscribers on one project; every socket receives the complete final roster; mixed committed mutations retain zero loss and duplicates; normal release thresholds and queue/auth bounds remain unchanged."
+comments[1]{created_at,author,text}:
+  "2026-10-20T21:13:40.945Z",codex-agent,"The final baseline ordinary ramp also failed before measurement, while the deferred-presence candidate held 3000 subscribers and delivered 150000 mutations exactly. An earlier baseline ordinary ramp succeeded, so readiness remains variable. Corrected test-preload registration order after archiving the data; the source-replacement regression fails on the old order. This only repairs comparison setup control. Production ordinary joining remains unresolved; retain the unchanged authorization, queue/stall and pool bounds in any follow-up."
+files[7]{path,scope}:
+  docs/capacity/2026-10-20-fanout-exploratory.json,project
+  docs/capacity/2026-10-20-fanout-numbers.json,project
+  docs/capacity/2026-10-20-fanout.md,project
+  docs/realtime-fanout.md,project
+  scripts/capacity.ts,project
+  src/services/sse-fanout.ts,project
+  src/services/sse.ts,project
+body: ""

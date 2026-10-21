@@ -14,10 +14,18 @@ if (!directory) throw new Error("Capacity trace requires an owned output directo
 function trace(stage: string, itemId?: string, extra: Partial<CapacityTrace> = {}): void {
   if (!itemId || !/^capacity-write-\d+$/.test(itemId)) return;
   if (records.length >= 400_000) { overflow = true; return; }
-  records.push({ ...extra, stage, itemId, at: performance.timeOrigin + performance.now() });
+  records.push({ ...extra, stage, itemId, at: extra.at ?? performance.timeOrigin + performance.now() });
 }
 
 const observer = Object.assign(trace, {
+  /** Attribute each event in a shared batch to the same actual response write. */
+  frames(payload: Buffer, clientId: string, start: number, at: number): void {
+    for (const frame of payload.toString("utf8").split("\n\n")) {
+      const type = /^event: (.+)$/m.exec(frame)?.[1];
+      const data = /^data: (.+)$/m.exec(frame)?.[1];
+      if (type && data) observer.event("write", { type, data: JSON.parse(data) as unknown }, { clientId, start, at });
+    }
+  },
   /** Record only an item's identity from SSE data. */
   event(stage: string, event: { type: string; data: unknown }, extra?: Partial<CapacityTrace>): void {
     if (event.data && typeof event.data === "object" && "itemId" in event.data && typeof event.data.itemId === "string") {

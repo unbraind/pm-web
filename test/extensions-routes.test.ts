@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -337,6 +338,7 @@ test("the realtime extensions-changed event fires on a successful install mutati
       assert.match(log, /install npm:pm-graph --project/);
       // The SSE client on the project must have received an extensions-changed
       // event so collaborators see the install live.
+      await delay(15);
       const events = target.writes.join("");
       assert.match(events, /event: extensions-changed/);
       assert.match(events, /"name":"pm-graph"/);

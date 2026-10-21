@@ -1,10 +1,12 @@
 import type { Response } from "express";
+import { type FanoutSink } from "./sse-fanout.ts";
+export { canResumeFanout, heartbeatFanout } from "./sse-fanout.ts";
 /**
  * One connected SSE viewer, indexed both by client id and by project so that
  * per-event work scales with the clients on the affected project rather than
  * the total number of connected clients.
  */
-export interface SSEClient {
+export interface SSEClient extends FanoutSink {
     id: string;
     projectId: string;
     userId: string;
@@ -43,8 +45,8 @@ export declare function wasSignaledWithin(projectId: string, windowMs: number, n
  */
 export declare function consumeSignaledMutation(projectId: string): void;
 /**
- * Return the ids of projects that currently have at least one connected client,
- * in the order they were first connected.
+ * Return projects with connected viewers or a retained resume journal, keeping
+ * detection active during a bounded last-viewer disconnect.
  */
 export declare function getActiveProjectIds(): string[];
 /**
@@ -67,7 +69,7 @@ export declare function configureProjectEventPublisher(publisher: ((projectId: s
  * @param client - The client to register.
  * @returns A function that unregisters the client.
  */
-export declare function addSSEClient(client: SSEClient): () => void;
+export declare function addSSEClient(client: SSEClient, lastEventId?: string): () => void;
 /**
  * Broadcast an event to a project's viewers locally and across instances.
  *
@@ -85,14 +87,12 @@ export declare function broadcastProjectEvent(projectId: string, event: SSEEvent
  *
  * A committed identity is receipted for the replay window before fan-out, so
  * route, watcher and peer arrival order cannot write the same fact twice.
- * Receipts are shared by project, expire after one minute, and are discarded
- * when its last viewer disconnects. Identity-free refreshes remain independent.
+ * Receipts are shared by project and expire after one minute. They survive the
+ * last viewer's disconnect until the bounded resume journal expires.
  *
- * Records a project-level signal, then writes the SSE-formatted payload to every
- * client in the project's set; a write to a disconnected client is swallowed
- * (cleanup happens on the next heartbeat). The project-level signal is recorded
- * even when the project has no clients, so a no-client call is not a complete
- * no-op.
+ * Records a project-level signal, then prepares one shared UTF-8 frame for the
+ * authorized batch writer. Unknown projects retain no payload or receipt. A
+ * disconnected project's existing journal keeps recording during its resume window.
  *
  * @param projectId - The project to deliver to.
  * @param event - The SSE event.

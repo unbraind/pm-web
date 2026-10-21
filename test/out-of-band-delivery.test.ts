@@ -24,6 +24,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Response } from "express";
 
 import { createProjectWatchCycle, computeWorkspaceSignature } from "../src/services/project-watcher.ts";
@@ -32,7 +33,7 @@ import { addSSEClient, consumeSignaledMutation, deliverProjectEvent, wasSignaled
 /** A subscriber that records the SSE frames written to it. */
 function recordingClient(projectId: string, id: string): { frames: string[]; stop: () => void } {
   const frames: string[] = [];
-  const res = { write: (chunk: string): boolean => { frames.push(chunk); return true; } } as unknown as Response;
+  const res = { write: (chunk: string): boolean => { frames.push(String(chunk)); return true; } } as unknown as Response;
   const stop = addSSEClient({
     id,
     projectId,
@@ -87,12 +88,14 @@ test("a write made outside this process reaches a connected subscriber", async (
     const { tick } = createTestWatchCycle(projectId, ws.dir);
 
     await tick();
+    await delay(15);
     const afterBaseline = subscriber.frames.length;
 
     // The out-of-band write: no request touched this process, exactly as a
     // write arriving through pm-gpt or the pm-mcp endpoint would appear.
     await ws.write('id: "item-1"\nstatus: "closed"\n');
     await tick();
+    await delay(15);
 
     const delivered = subscriber.frames.slice(afterBaseline).join("");
     assert.match(delivered, /event: workspace-changed/u, "the subscriber must receive the change");
@@ -111,7 +114,9 @@ test("the first observation baselines rather than announcing a change that did n
     const { tick } = createTestWatchCycle(projectId, ws.dir);
     const afterConnect = subscriber.frames.length;
     await tick();
+    await delay(15);
     await tick();
+    await delay(15);
     const delivered = subscriber.frames.slice(afterConnect).join("");
     assert.doesNotMatch(delivered, /workspace-changed/u, "an unchanged workspace must announce nothing");
   } finally {
@@ -137,10 +142,12 @@ test("a subscriber on a different project is not told about this one's write", a
       onError: (err) => assert.fail(`watcher tick failed: ${String(err)}`),
     });
     await tick();
+    await delay(15);
     const mineAfter = mine.frames.length;
     const theirsAfter = theirs.frames.length;
     await ws.write('id: "item-1"\nstatus: "closed"\n');
     await tick();
+    await delay(15);
     assert.match(mine.frames.slice(mineAfter).join(""), /workspace-changed/u, "the owning project's subscriber must be told");
     assert.doesNotMatch(theirs.frames.slice(theirsAfter).join(""), /workspace-changed/u, "another project's subscriber must not be");
   } finally {
@@ -150,7 +157,7 @@ test("a subscriber on a different project is not told about this one's write", a
   }
 });
 
-test("delivery through the default sink records the signal that suppresses a duplicate", () => {
+test("delivery through the default sink records the signal that suppresses a duplicate", async () => {
   // `deliverProjectEvent` notes a signaled mutation as well as writing to
   // subscribers, and the signal is what stops the next tick re-announcing a
   // change this process already delivered.
@@ -168,6 +175,7 @@ test("delivery through the default sink records the signal that suppresses a dup
   try {
     deliverProjectEvent(projectId, { type: "workspace-changed", data: { source: "filesystem" } });
     assert.equal(wasSignaledWithin(projectId, 10_000), true, "the sink must record the signal, not only write the frame");
+    await delay(15);
     assert.match(subscriber.frames.join(""), /event: workspace-changed/u, "and must still write the frame");
 
     consumeSignaledMutation(projectId);
@@ -186,6 +194,7 @@ test("a change this process delivered is not re-announced by the next sweep", as
   try {
     const { tick } = createTestWatchCycle(projectId, ws.dir);
     await tick();
+    await delay(15);
 
     // Deliver as this process would for its own write, which signals the
     // project, then make the write the sweep will see.
@@ -193,6 +202,7 @@ test("a change this process delivered is not re-announced by the next sweep", as
     await ws.write('id: "item-1"\nstatus: "closed"\n');
     const before = subscriber.frames.length;
     await tick();
+    await delay(15);
 
     const delivered = subscriber.frames.slice(before).join("");
     assert.doesNotMatch(

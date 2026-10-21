@@ -515,8 +515,8 @@ These values are read on every health request even when database/mount probes
 are cached. Counters reset on restart and are not cluster totals. Broadcasts
 count local delivery attempts (including zero-recipient project events), plus
 presence broadcasts; the recipient count is the number of targeted clients.
-Disconnects count once, with `client_closed`, `max_age`, `replaced`, or
-`server_shutdown` as the reason.
+Disconnects count once, with `client_closed`, `max_age`, `replaced`, `attach_failed`,
+`slow_or_unauthorized`, or `server_shutdown` as the reason.
 
 The filesystem watcher reports completion of each bounded timer tick, including
 idle ticks with no subscribers. `files_scanned` counts file stat attempts in that
@@ -546,6 +546,8 @@ For reproducible mixed HTTP/CLI load measurements against the disposable test
 database, see the [collaboration capacity harness](docs/capacity.md). It starts
 the built production server, records per-subscriber loss and duplicates plus
 delivery latency and resource counters, and caps its ladder at 3000 subscribers.
+See [project event delivery and resume](docs/realtime-fanout.md) for shared frames,
+bounded slow-viewer queues, authorization and `Last-Event-ID` recovery.
 
 ### Triplicate assets and browser review
 
