@@ -2,12 +2,15 @@ id: pm-web-bazs
 title: Skip unchanged history reads in real-time project watchers
 description: "Mitigate upstream https://github.com/unbraind/pm-cli/issues/1485 with cheap project history change detection, signal invalidation, bounded replay safety checks and single-flight queries. Related investigation pm-web-h4vh and PR #211. Measure idle lock acquisitions and mixed-writer delivery before and after on synthetic projects."
 type: Feature
-status: in_progress
+status: closed
 priority: 1
 tags[3]: capacity,performance,realtime
 created_at: "2026-10-16T12:48:33.614Z"
-updated_at: "2026-10-16T13:56:18.048Z"
+updated_at: "2026-10-21T19:31:32.911Z"
+closed_at: "2026-10-21T19:31:29.870Z"
+completed_at: "2026-10-21T19:31:29.870Z"
 author: codex-agent
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #214](https://github.com/unbraind/pm-web/pull/214) (a0c32f9) avoids unchanged history-index reads and retains signal invalidation/replay checks, with synthetic capacity measurements. Retained evidence: scripts/capacity-fixture.ts, scripts/capacity-metrics.ts, scripts/capacity-probe.ts."
 comments[8]{created_at,author,text}:
   "2026-10-16T12:48:48.204Z",codex-agent,"Created after keyword searches and open-item review found no duplicate mitigation feature. Based on perf/realtime-delivery-p99 (PR #211 remains open) to reuse real-process stage tracing. Related investigation pm-web-h4vh; upstream https://github.com/unbraind/pm-cli/issues/1485. First verify watcher multiplicity and SDK marker API, then collect matched baseline measurements before production changes. Hosted services and data are outside scope."
   "2026-10-16T12:49:56.765Z",codex-agent,"Inspection correction: viewers of one project already share one subscription (getActiveProjectIds plus the reconciler map); the 250 ms loop is per active project, not per viewer. Each idle loop calls listMutationEvents and therefore takes the SDK index lock. The pinned SDK has no public cheap generation marker. Test-only IPC now counts successful index-lock payload writes; idle observations occur after the production filesystem baseline with zero writers, followed by the unchanged traced 100-subscriber mixed-writer workload. Host load is currently elevated; record load and short CPU samples and avoid overlapping our own experiments."
@@ -38,4 +41,5 @@ tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
 docs[2]{path,scope}:
   docs/capacity.md,project
   docs/capacity/2026-10-16-reader-lock.md,project
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #214](https://github.com/unbraind/pm-web/pull/214) (a0c32f9) avoids unchanged history-index reads and retains signal invalidation/replay checks, with synthetic capacity measurements. Retained evidence: scripts/capacity-fixture.ts, scripts/capacity-metrics.ts, scripts/capacity-probe.ts."
 body: ""

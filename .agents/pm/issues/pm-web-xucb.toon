@@ -2,15 +2,18 @@ id: pm-web-xucb
 title: Resolve pm-web full development audit through unpatched braces and fast-glob
 description: "CLI/ops/changelog2026.10.4 has clean production audit but four high full-audit entries through fast-glob/micromatch/braces and pm-ops. GHSA-vfj7-8cjw-p6xm affects every published braces3 release. pm-ops declares fast-glob^3.3.3 as an optional peer; its duplication entrypoint statically imports that peer, so this consumer must supply it. Removing the repository dependency makes audit clean but breaks the required canonical gate. Retain exact latest pins and audit/gate requirements pending a compatible clean peer chain."
 type: Issue
-status: in_progress
+status: closed
 priority: 1
 tags: []
 created_at: "2026-10-04T13:45:56.448Z"
-updated_at: "2026-10-10T17:22:27.997Z"
+updated_at: "2026-10-21T19:33:21.438Z"
+closed_at: "2026-10-21T19:33:18.810Z"
+completed_at: "2026-10-21T19:33:18.810Z"
 author: codex-sol
 acceptance_criteria: "Full npm audit and npm audit --omit=dev both zero on exact required pins; canonical pm-ops duplication and full package release gates pass without suppressions, skipped tests or forced breaking overrides."
 severity: high
 repro_steps: npm ci; npm audit --json; npm ls braces micromatch fast-glob pm-ops; npm view braces version
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #204](https://github.com/unbraind/pm-web/pull/204) (b4322d4) adopts the braces-free tooling; fresh npm audit exits 0 with zero findings. The older 'no compatible fix' comment is stale. Retained evidence: scripts/prepare-merge-driver.ts, test/graph-export-fidelity.test.ts, test/workflow-security.test.ts."
 expected_result: All audit requirements clean with functional canonical gates.
 actual_result: "SDK2026.10.10 candidate: production audit0; current-author linked full npm audit executes and rejects four high development entries for GHSA-vfj7-8cjw-p6xm. Installed and registry-latest compatible chain is pm-ops2026.10.6,fast-glob3.3.3,micromatch4.0.8,braces3.0.3. No safe patched compatible version is available; suggested pm-ops2026.9.13 is a downgrade. Retain required peer and all gates; owner remains unclosed."
 comments[4]{created_at,author,text}:
@@ -53,4 +56,5 @@ tests[3]:
 docs[2]{path,scope}:
   docs/certification-2026.10.4.md,project
   docs/sdk-update-automation.md,project
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #204](https://github.com/unbraind/pm-web/pull/204) (b4322d4) adopts the braces-free tooling; fresh npm audit exits 0 with zero findings. The older 'no compatible fix' comment is stale. Retained evidence: scripts/prepare-merge-driver.ts, test/graph-export-fidelity.test.ts, test/workflow-security.test.ts."
 body: ""

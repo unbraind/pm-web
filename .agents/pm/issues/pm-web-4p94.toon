@@ -2,12 +2,15 @@ id: pm-web-4p94
 title: Default catalog freshness tests interpret a partial sibling worktree farm as the complete fleet
 description: "Fixed in PR #226: catalog freshness reads a sibling farm only when PM_FLEET_ROOT is explicitly configured. Default committed roster, snapshot, native-command and synthetic discovery checks remain enabled; an explicit incomplete farm still fails. The ambient partial-farm regression fails with the default-selection fix reverted and passes when restored. Child node:test contexts are cleared so subprocess assertions execute. Focused tests pass 38/38; actual CI with PM_FLEET_ROOT unset passes both npm and Bun full gates on Node 22 and 26, each 677/677. No catalog snapshots, pins or thresholds changed."
 type: Issue
-status: in_progress
+status: closed
 priority: 3
 tags[2]: catalog,testing
 created_at: "2026-10-15T23:07:53.640Z"
-updated_at: "2026-10-19T19:52:02.036Z"
+updated_at: "2026-10-21T19:41:08.381Z"
+closed_at: "2026-10-21T19:41:07.424Z"
+completed_at: "2026-10-21T19:41:07.424Z"
 author: codex-agent
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #226](https://github.com/unbraind/pm-web/pull/226) (bc43fda) reads a sibling farm only when PM_FLEET_ROOT is explicitly configured; default committed catalog checks remain enabled and explicit incomplete farms still fail. Retained evidence: scripts/capacity-metrics.ts, scripts/capacity-trace-preload.ts, scripts/capacity-trace.ts."
 comments[8]{created_at,author,text}:
   "2026-10-16T11:26:38.059Z",codex-agent,"Related fleet-root workaround caveat reproduced during pm-web-pep7: a relative PM_FLEET_ROOT reaches scripts/read-fleet-commands.ts without normalization, so the dependency symlink created inside a disposable package copy points relative to that copy instead of the source checkout. The optional command-snapshot test then reports a missing @typesafe-ai/sdk dependency for Jev despite the canonical checkout dependency being present. Resolving the same fleet root at invocation time made the complete command-snapshot check pass. Follow-up: normalize the configured fleet root before constructing disposable dependency symlinks, alongside the existing partial-sibling root-selection work. No implementation or threshold changes for this follow-up."
   "2026-10-17T11:01:31.050Z",codex-agent,"Round 3 release attempts provide a controlled topology comparison: the package worktree fails catalog membership and live-fleet snapshot equality, while an isolated standalone copy passes those same checks. All 258 TypeScript/CSS source files were verified byte-identical between the two copies, and both use fresh HOME with global/system Git config disabled. The standalone profile matches CI and uses independent test storage. No catalog source, fixture roster, snapshot or test condition changed."
@@ -26,4 +29,5 @@ tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node --test test/catalog.test.ts test/fleet-snapshot.test.ts test/fleet-commands.test.ts,project,codex-agent,"2026-10-19T18:31:27.427Z",local_mutation,fix/realtime-duplicate-and-delivery-latency
 docs[1]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #226](https://github.com/unbraind/pm-web/pull/226) (bc43fda) reads a sibling farm only when PM_FLEET_ROOT is explicitly configured; default committed catalog checks remain enabled and explicit incomplete farms still fail. Retained evidence: scripts/capacity-metrics.ts, scripts/capacity-trace-preload.ts, scripts/capacity-trace.ts."
 body: ""

@@ -2,12 +2,15 @@ id: pm-web-auc2
 title: Enable GitHub CodeQL code scanning
 description: "Add .github/workflows/codeql.yml (javascript-typescript, build-mode none, weekly staggered schedule). GET code-scanning/alerts returned 404 no-analysis-found, so the Security tab could not distinguish clean from never-ran. Advisory check only, not added to branch protection."
 type: Chore
-status: in_progress
+status: closed
 priority: 2
 tags: []
 created_at: "2026-08-22T18:08:21.678Z"
-updated_at: "2026-08-22T18:08:34.527Z"
+updated_at: "2026-10-21T19:40:43.199Z"
+closed_at: "2026-10-21T19:40:42.809Z"
+completed_at: "2026-10-21T19:40:42.809Z"
 author: "harness:ox-alpha"
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): .github/workflows/codeql.yml is present on main and registers code scanning. The request to enable the workflow is delivered; this is not a whole-package security certification. Retained evidence: .github/workflows/codeql.yml."
 notes[1]{created_at,author,text}:
   "2026-08-22T18:08:33.397Z","harness:ox-alpha","Verified 2026-08-22: gh api repos/unbraind/pm-web/code-scanning/alerts -> 404 'no analysis found'. Workflow SHA-pins github/codeql-action db488dde (v4.37.8) matching this repo's full-SHA pinning convention; permissions limited to security-events:write/actions:read/contents:read."
 files[1]{path,scope,note}:
@@ -20,4 +23,5 @@ tests[2]:
     scope: project
     assert_stdout_regex[1]: rule_id|most_recent_instance|analysis_key
     note: code-scanning alerts endpoint returns an analysis instead of 404 no-analysis-found
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): .github/workflows/codeql.yml is present on main and registers code scanning. The request to enable the workflow is delivered; this is not a whole-package security certification. Retained evidence: .github/workflows/codeql.yml."
 body: ""

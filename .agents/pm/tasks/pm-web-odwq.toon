@@ -2,13 +2,16 @@ id: pm-web-odwq
 title: Implement 'pm web stop' command + pidfile-on-detach
 description: "Extend --detach to write a pidfile (PM_WEB_STATE_DIR or OS tmp, keyed by port). pm web stop reads the pidfile/in-process handle, SIGTERMs the process, clears the pidfile. Graceful not_running + stale-pidfile cleanup. --json supported. pidfilePath unit-tested."
 type: Task
-status: in_progress
+status: closed
 priority: 2
 tags: []
 created_at: "2026-06-02T11:38:03.027Z"
-updated_at: "2026-10-20T14:49:22.685Z"
+updated_at: "2026-10-21T19:35:32.823Z"
+closed_at: "2026-10-21T19:35:31.336Z"
+completed_at: "2026-10-21T19:35:31.336Z"
 author: codex
 parent: pm-web-7pxa
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #230](https://github.com/unbraind/pm-web/pull/230) (61d77c7) validates database settings at startup, implements bounded detached readiness, pidfile/stop lifecycle and redacted failure diagnostics; 13 startup regressions are committed. Retained evidence: src/database-check.ts, src/db.ts, src/detached-start.ts."
 comments[5]{created_at,author,text}:
   "2026-10-20T10:00:10.303Z",codex-agent,"Extend detach lifecycle with bounded health confirmation, child log capture, failure cleanup and pidfile-state diagnostics. Existing item covers pidfile lifecycle but does not specify the false-success defect."
   "2026-10-20T10:11:21.908Z",codex-agent,"The detached behavioral revert fails 4/4 regressions including stale-pidfile cleanup and preservation of a live owned pidfile. Removing only the database entry from doctor checks and rebuilding fails its regression 1/1, exit 1. Fixed code restored. The no-git SDK test is compatibility acceptance of already-working behavior, not a new defect claim."
@@ -25,4 +28,5 @@ tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test --test-name-pattern=source.helper test/startup-readiness.test.ts,project,codex-agent,"2026-10-20T12:26:04.810Z",local_mutation,fix/startup-preflight-and-detached-health
 docs[1]{path,scope}:
   docs/startup-readiness.md,project
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #230](https://github.com/unbraind/pm-web/pull/230) (61d77c7) validates database settings at startup, implements bounded detached readiness, pidfile/stop lifecycle and redacted failure diagnostics; 13 startup regressions are committed. Retained evidence: src/database-check.ts, src/db.ts, src/detached-start.ts."
 body: ""

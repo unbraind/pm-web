@@ -2,15 +2,18 @@ id: pm-web-4fgv
 title: Graph auto-sync provisions an extension before checking whether Neo4j is configured
 description: "Every item mutation schedules graph synchronization. With no Neo4j credentials, syncProjectGraph still installs and activates pm-graph in the workspace before syncGraphToNeo4j refuses the operation. This causes unnecessary network work, workspace mutation, delayed failures, and slow test teardown. Validate graph configuration before provisioning; retain both existing failure notifications and prove the behavior over real HTTP and SSE."
 type: Issue
-status: in_progress
+status: closed
 priority: 2
 tags: []
 created_at: "2026-10-05T05:07:55.330Z"
-updated_at: "2026-10-05T05:54:49.286Z"
+updated_at: "2026-10-21T19:39:33.265Z"
+closed_at: "2026-10-21T19:39:32.538Z"
+completed_at: "2026-10-21T19:39:32.538Z"
 author: codex-sol
 estimated_minutes: 90
 acceptance_criteria: An unconfigured graph sync delivers both established SSE error aliases to two clients without creating extension state or changing workspace settings.
 parent: pm-web-fy9a
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #171](https://github.com/unbraind/pm-web/pull/171) (139b75b) invalidates stale coverage reports, confines spawned PM_PATH, checks graph prerequisites before provisioning, and repairs close-many/test-add/plan positional and step-flag contracts with real integration regressions. Retained evidence: scripts/coverage-gate.ts, src/routes/pm.ts, src/services/pm-runner.ts."
 comments[2]{created_at,author,text}:
   "2026-10-05T05:19:30.701Z",codex-sol,"Regression fails before the fix: unconfigured auto-sync cannot report its expected failure to both HTTP SSE viewers within five seconds because it first provisions pm-graph. Validate credentials before any graph assembly/provisioning and retain both failure event spellings. The regression also checks byte-identical workspace settings and no installed graph extension."
   "2026-10-05T05:30:38.388Z",codex-sol,"Verified fix with real HTTP/SSE and two viewers: graph-sync-failed and its legacy spelling carry the same configuration error, settings stay byte-identical, and no graph package is provisioned. The linked pm test passes. Concurrent same-key requests/replay, competing item edits with verified history, presence session ownership, and default filesystem watcher delivery also pass. Test-pool teardown removes the former 30-second idle wait without changing production pool settings."
@@ -20,4 +23,5 @@ files[3]{path,scope}:
   test/pm-collaboration.test.ts,project
 tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test --test-name-pattern=unconfigured test/pm-collaboration.test.ts,project,codex-sol,"2026-10-05T05:27:33.681Z",local_mutation,test/full-source-coverage-gate
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #171](https://github.com/unbraind/pm-web/pull/171) (139b75b) invalidates stale coverage reports, confines spawned PM_PATH, checks graph prerequisites before provisioning, and repairs close-many/test-add/plan positional and step-flag contracts with real integration regressions. Retained evidence: scripts/coverage-gate.ts, src/routes/pm.ts, src/services/pm-runner.ts."
 body: ""
