@@ -6,13 +6,14 @@ status: in_progress
 priority: 2
 tags[2]: catalog,follow-up
 created_at: "2026-10-19T17:58:26.126Z"
-updated_at: "2026-10-21T16:22:16.090Z"
+updated_at: "2026-10-21T16:29:07.378Z"
 assignee: codex-agent
 claim_principal: codex-agent
 author: codex-agent
-comments[2]{created_at,author,text}:
+comments[3]{created_at,author,text}:
   "2026-10-21T16:05:53.089Z",codex-agent,"Plan: verify public package manifests, command registrations and npm availability, add memory and RLM catalog entries and independent roster membership, then regenerate fleet snapshots through the existing pipeline. No package pins or hosted services change."
   "2026-10-21T16:16:24.836Z",codex-agent,"The existing full generator encountered an unrelated pm-github/newer-SDK import incompatibility. Added an explicit package-name refresh mode to the same pipeline; refreshed only pm-memory and pm-rlm through real SDK registration discovery and npm lookups. Both return npm 404, so installation is refused; optional RLM endpoint/key requirements remain visible. Other receipts are preserved byte-for-byte."
+  "2026-10-21T16:29:07.375Z",codex-agent,"Catalog behavioral revert proof: in an isolated non-git scratch copy, retained the new test and refreshed snapshot/roster but restored the original catalog entries. The targeted regression fails because pm-memory is absent. Candidate catalog/UI tests pass 26/26. The 24 preexisting extension receipts and native command snapshot remain unchanged."
 files[5]{path,scope}:
   scripts/generate-fleet-snapshot.ts,project
   src/services/package-catalog.ts,project
