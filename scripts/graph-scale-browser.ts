@@ -58,7 +58,7 @@ const app = express();
 app.get('/review', (_req, res) => res.type('html').send(`<!doctype html><html data-theme="light"><head><link rel="stylesheet" href="/styles.css"><style>body{margin:0}header{padding:16px 24px}#graph{height:810px;width:1440px}#packages{padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}</style></head><body><header><h1>Project graph</h1><p id="caption">Synthetic tracker · local browser review</p></header><div id="graph"></div><section id="packages"></section><script type="module">import {GraphCanvas} from '/src/views/graph-canvas.js';import {renderPackageCard} from '/src/views/packages.js';window.Canvas=GraphCanvas;window.renderCard=renderPackageCard;</script></body></html>`));
 app.use(express.static(staticRoot));
 const server = app.listen(0, '127.0.0.1');
-await new Promise<void>(resolve => server.once('listening', resolve));
+await new Promise<void>(resolve => { server.once('listening', resolve); });
 const address = server.address();
 assert.ok(address && typeof address !== 'string');
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] });
@@ -129,6 +129,6 @@ try {
   await page.screenshot({ path: path.join(output, `${phase}-packages.png`) });
   assert.deepEqual(errors, []);
 } finally {
-  await browser.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve()));
+  await browser.close(); server.closeAllConnections(); await new Promise<void>(resolve => { server.close(() => resolve()); });
   await rm(scratch, { recursive: true, force: true });
 }

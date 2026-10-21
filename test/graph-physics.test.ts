@@ -45,7 +45,7 @@ test('spatial forces preserve small layouts and approximate large forces within 
       error += (node.vx / .56 - exact[i].vx) ** 2 + (node.vy / .56 - exact[i].vy) ** 2;
       signal += exact[i].vx ** 2 + exact[i].vy ** 2;
     }
-    assert.ok(Math.sqrt(error / signal) < (count <= 64 ? 1e-12 : .05), `force quality at ${count} nodes: ${Math.sqrt(error / signal)}`);
+    assert.ok(Math.sqrt(error / signal) < (count <= 512 ? 1e-12 : .05), `force quality at ${count} nodes: ${Math.sqrt(error / signal)}`);
   }
 });
 
