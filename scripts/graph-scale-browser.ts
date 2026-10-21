@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir, cpus, loadavg } from 'node:os';
 import path from 'node:path';
+import type { Server } from 'node:http';
 import { transform } from 'esbuild';
 import { chromium } from 'playwright-core';
 import { create, init, listAllComplete } from '@unbrained/pm-cli/sdk';
@@ -57,8 +58,10 @@ if (phase === 'before') {
 const app = express();
 app.get('/review', (_req, res) => res.type('html').send(`<!doctype html><html data-theme="light"><head><link rel="stylesheet" href="/styles.css"><style>body{margin:0}header{padding:16px 24px}#graph{height:810px;width:1440px}#packages{padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}</style></head><body><header><h1>Project graph</h1><p id="caption">Synthetic tracker · local browser review</p></header><div id="graph"></div><section id="packages"></section><script type="module">import {GraphCanvas} from '/src/views/graph-canvas.js';import {renderPackageCard} from '/src/views/packages.js';window.Canvas=GraphCanvas;window.renderCard=renderPackageCard;</script></body></html>`));
 app.use(express.static(staticRoot));
-const server = app.listen(0, '127.0.0.1');
-await new Promise<void>(resolve => { server.once('listening', resolve); });
+const server = await new Promise<Server>((resolve, reject) => {
+  const listener = app.listen(0, '127.0.0.1', () => { resolve(listener); });
+  listener.once('error', reject);
+});
 const address = server.address();
 assert.ok(address && typeof address !== 'string');
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] });
