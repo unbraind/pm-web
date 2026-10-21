@@ -8,7 +8,7 @@ const TRUSTED_ACTION_OWNERS = new Set(["actions", "github", "oven-sh", "dependab
 
 /** Approved action names; updates may change pins without adding executable suppliers. */
 const TRUSTED_ACTIONS = new Set([
-  "actions/checkout", "actions/setup-node", "oven-sh/setup-bun",
+  "actions/checkout", "actions/setup-node", "actions/upload-artifact", "oven-sh/setup-bun",
   "github/codeql-action/init", "github/codeql-action/analyze",
   "dependabot/fetch-metadata",
 ]);

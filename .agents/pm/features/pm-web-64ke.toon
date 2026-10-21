@@ -6,15 +6,17 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-21T21:16:20.214Z"
-updated_at: "2026-10-21T21:32:03.515Z"
+updated_at: "2026-10-21T21:43:30.251Z"
 author: codex-agent
 acceptance_criteria: "Concurrent responses use revision checks; view-only users cannot apply; acknowledgment never counts as code review or task completion. Typed SDK and CLI, compact TOON/JSON, typed refusals with remedies, README and example, real public tracker validation and before/after screenshots."
-comments[4]{created_at,author,text}:
+comments[6]{created_at,author,text}:
   "2026-10-21T21:16:39.009Z",codex-agent,"Overlap checked against installed CLI 2026.10.21 and pinned SDK 2026.10.19: core plan decision stores decision text, rationale and evidence; no pending request workflow. Sibling pm-review owns typed review findings/verdicts and remote review completion. pm-jev owns model proposals. This feature adds a versioned web workflow within existing Plan decision logs, without another item type, review verdict, execution approval or completion model. Search inbox returned no existing package item. Tracker-reconciliation items are excluded. Plan: shared typed service, bounded CLI/HTTP, revision checks inside SDK cross-process lock, existing audited planDecision mutations, accessible comparison UI, real no-git/concurrency/refusal tests, public corpus read-only measurements, screenshots and CI npm/Bun release gates."
   "2026-10-21T21:25:34.442Z",codex-agent,"Implementation uses existing core planDecision mutations and a public SDK token-owned lock around revision check plus append. Independent processes sharing one non-git tracker: exactly one approval succeeded; the other received revision_conflict. Real HTTP owner/editor/viewer/stranger scenarios passed 2/2; view-only requests refused before mutation, and plan status/mode/steps stayed unchanged. Public main corpus validation: 172 items, 0 Plans, 2 Decision items, 0 pending requests; 85 JSON bytes, certified corpus plus inbox read 473 ms; 374 read-only source files retained identical aggregate SHA-256 43d589b8e5e7cd1ca0b51387518b56efb6aee7993d71540074ca76babe9595b4. Active workflow behavior uses separate real seeded fixtures because the public corpus has no Plans. Targeted service/command coverage: 99.49 percent lines, 88.96 branches, 100 functions before final native CLI additions. Full npm/Bun gates delegated to package CI per owner CPU constraint."
   "2026-10-21T21:30:55.366Z",codex-agent,"Behavioral revert proof: temporarily removed only the editor-capability refusal and respondToDecision revision refusal, rebuilt server output, then ran node --test --test-name-pattern \"refusals reject|requests preserve|independent processes\" test/decision-inbox.test.ts. All 3 selected tests failed (0 passed), proving permission and revision assertions detect the reverted behavior. Restored both guards and rebuilt successfully. Cross-process race also uses canonical versus uppercase plan aliases to prove a shared lock identity. PM-linked targeted run passed 21/21 with no skips. Browser acceptance produced 5 local seeded screenshots and verified 1440/390 layouts, view-only disabled controls, unsent reasoning preservation after real SSE activity, acknowledgment pending, and approval without step completion. Isolated package health passed; default local health only had an unrelated globally installed extension version skew. Pins and reconciliation items remain unchanged."
   "2026-10-21T21:32:02.542Z",codex-agent,"Final restored targeted verification passed 21/21, zero failures or skips. Server/frontend typecheck, test compilation, lint, docstrings and zero-duplication gates passed at unchanged policy. Executable SDK example is included in package files. Source public-corpus measurements and local browser assertions are documented in docs/decision-inbox.md. Implementation is ready for PR validation; CI must supply full npm and Bun release:check evidence and screenshot artifact. Item intentionally remains in progress for orchestrator review; no merge, release or hosted changes."
-files[10]{path,scope}:
+  "2026-10-21T21:41:37.727Z",codex-agent,"First CI run 39679691912 failed only the two workflow action-policy regressions: both Node 22 and 26 suites reported 770/772 passed, 2 failed. The new screenshot upload action had an immutable official pin but was absent from the explicit action-name allowlist. Add only actions/upload-artifact to the existing approved actions supplier policy; retain all immutable-pin, release-comment and adversarial supplier checks. This is required screenshot evidence plumbing, not a threshold change. Re-run the workflow-policy tests locally, then the full CI release gates."
+  "2026-10-21T21:43:26.365Z",codex-agent,"Added only actions/upload-artifact to the explicit workflow action-name allowlist. Official actions/upload-artifact v7.0.2 tag resolves to the already pinned cf430e030ddbb5b0abf93d22962f4752f3646cd9. No supplier owner, pin validation, release-version validation, adversarial assertion or coverage threshold changed. PM-linked restored feature tests passed 21/21 and workflow-policy tests passed 7/7; lint passed. First failed CI receipt is retained above. Ready to re-run the full npm/Bun CI gate and publish screenshot attachments."
+files[11]{path,scope}:
   .github/workflows/ci.yml,project
   public/src/views/decision-inbox.ts,project
   scripts/decision-inbox-browser.ts,project
@@ -25,8 +27,10 @@ files[10]{path,scope}:
   test/decision-inbox-routes.test.ts,project
   test/decision-inbox.test.ts,project
   test/helpers/inbox-child.ts,project
-tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  test/workflow-security.test.ts,project
+tests[2]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node scripts/with-test-db.ts node --test test/decision-inbox.test.ts test/decision-inbox-routes.test.ts test/extension.test.ts,project,codex-agent,"2026-10-21T21:25:38.077Z",local_mutation,feat/decision-inbox
+  node --test test/workflow-security.test.ts test/workflow-update-automation.test.ts,project,codex-agent,"2026-10-21T21:42:04.822Z",local_mutation,feat/decision-inbox
 docs[3]{path,scope}:
   docs/decision-inbox.md,project
   examples/decision-inbox.ts,project
