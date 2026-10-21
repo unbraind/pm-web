@@ -515,7 +515,7 @@ These values are read on every health request even when database/mount probes
 are cached. Counters reset on restart and are not cluster totals. Broadcasts
 count local delivery attempts (including zero-recipient project events), plus
 presence broadcasts; the recipient count is the number of targeted clients.
-Disconnects count once, with `client_closed`, `max_age`, `replaced`,
+Disconnects count once, with `client_closed`, `max_age`, `replaced`, `attach_failed`,
 `slow_or_unauthorized`, or `server_shutdown` as the reason.
 
 The filesystem watcher reports completion of each bounded timer tick, including

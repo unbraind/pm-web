@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { runInNewContext } from "node:vm";
 import type { Response } from "express";
+import { transformSync } from "esbuild";
 import { realtimeHealth } from "../src/services/realtime-observability.ts";
 
 import {
@@ -18,6 +22,36 @@ import {
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const otherProjectId = "33333333-3333-4333-8333-333333333333";
+
+test("failed initial SSE writes retain no detach handle after unsubscribe or shutdown", (t) => {
+  const source = readFileSync(new URL("../src/services/sse.ts", import.meta.url), "utf8");
+  const inspection = "\nexport function retainedDetachHandles() { return detachFanout.size; }";
+  const module = { exports: {} as { addSSEClient: typeof addSSEClient; closeAllSSEClients: typeof closeAllSSEClients; retainedDetachHandles: () => number } };
+  runInNewContext(transformSync(source + inspection, { loader: "ts", format: "cjs", target: "es2022" }).code, {
+    module, exports: module.exports, require: createRequire(new URL("../src/services/sse.ts", import.meta.url)), setTimeout, clearTimeout,
+  });
+  const service = module.exports;
+  t.after(service.closeAllSSEClients);
+  const before = realtimeHealth().counters.sse_clients;
+  const res = { write: () => { throw new Error("synthetic failed initial write"); }, destroy: () => {} } as unknown as Response;
+  for (let i = 0; i < 3; i++) {
+    const unsubscribe = service.addSSEClient({ id: `failed-attach-${i}`, projectId, userId: "user-a", displayName: "User A", currentView: "items", connectedAt: new Date(), res });
+    unsubscribe();
+  }
+  service.closeAllSSEClients();
+  assert.equal(realtimeHealth().counters.sse_clients, before);
+  assert.equal(service.retainedDetachHandles(), 0, "failed sockets must not stay reachable through detach closures");
+});
+
+test("a rejected SSE resume attachment rolls back connection indexes and gauge", (t) => {
+  t.after(closeAllSSEClients);
+  const before = realtimeHealth().counters.sse_clients;
+  const response = fakeResponse();
+  assert.throws(() => addSSEClient({ id: "rejected-resume", projectId, userId: "user-a", displayName: "User A", currentView: "items", connectedAt: new Date(), res: response.response }, "expired:1"), /expired/);
+  assert.equal(getSSEClientCount(), before);
+  assert.equal(realtimeHealth().counters.sse_clients, before);
+  assert.deepEqual(getProjectPresence(projectId), []);
+});
 
 /** Capture SSE writes for unit assertions without opening an HTTP connection. */
 function fakeResponse() {

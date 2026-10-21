@@ -209,10 +209,18 @@ export function addSSEClient(client: SSEClient, lastEventId?: string): () => voi
   }
   set.add(client);
 
-  detachFanout.set(client.id, attachFanout(client.projectId, client, () => {
-    removeClient(client, "slow_or_unauthorized");
+  try {
+    const detach = attachFanout(client.projectId, client, () => {
+      removeClient(client, "slow_or_unauthorized");
+      schedulePresence(client.projectId);
+    }, lastEventId);
+    // The initial write can synchronously remove this client through onClose.
+    if (byId.get(client.id) === client) detachFanout.set(client.id, detach);
+  } catch (error) {
+    removeClient(client, "attach_failed");
     schedulePresence(client.projectId);
-  }, lastEventId));
+    throw error;
+  }
 
   // Broadcast presence update to all project viewers
   schedulePresence(client.projectId);

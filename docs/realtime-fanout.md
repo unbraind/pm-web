@@ -31,6 +31,8 @@ queue. A heartbeat cannot flush queued private frames while a fresh permission
 read is pending. Catch-up is shared in batches of at most 64 KiB, allowing one larger
 frame when needed. It progresses after drain instead of buffering the entire
 journal per viewer. A single frame exceeding the queue byte budget disconnects.
+If the initial write fails synchronously, registration retains no detach handle.
+An attachment that throws also rolls back the client indexes and connection gauge.
 
 Every mutation frame and the initial `connected` frame carries an opaque
 project-epoch/sequence `id`. Native `EventSource` reconnects with `Last-Event-ID`;
@@ -121,6 +123,12 @@ inclusive server CPU microseconds and its full sampling window, covering later
 socket callbacks, membership-set construction, SDK request work and background
 watchers. It excludes writer-child, generator and database-process CPU and is
 reported separately from the scoped fan-out cost.
+
+Frame-count lookup uses weak buffer keys, so the probe does not keep written
+buffers alive. Baseline string keys are bounded to 1,024 entries and 1 MiB of
+UTF-16 text; oversized strings are counted without caching. Reset clears both
+caches and their accounting between runs. Functional retention tests inspect
+these references directly without relying on garbage-collection timing.
 
 Counters record actual UTF-8 JSON and complete wire-frame bytes once per prepared
 event, separately for the synthetic measured mutations and all control events.

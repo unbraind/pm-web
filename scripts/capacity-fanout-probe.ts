@@ -19,7 +19,11 @@ export interface FanoutMeasurement {
   delivered_events: number;
 }
 const totals: FanoutMeasurement = { cpu_us: 0, turn_cpu_us: 0, serialized_bytes: 0, json_bytes: 0, mutation_events: 0, mutation_frame_bytes: 0, mutation_json_bytes: 0, delivered_mutations: 0, prepared_events: 0, response_writes: 0, delivered_events: 0 };
-const frameCounts = new Map<string | Buffer, { frames: number; mutations: number }>();
+interface FrameCount { frames: number; mutations: number }
+const frameCounts = new Map<string, FrameCount>();
+let bufferCounts = new WeakMap<Buffer, FrameCount>();
+let stringBytes = 0;
+const STRING_CACHE_BYTES = 1024 * 1024;
 let depth = 0;
 let completion: NodeJS.Immediate | undefined;
 const observer = {
@@ -56,11 +60,19 @@ const observer = {
   write: (payload: string | Buffer) => {
     if (typeof payload === "string" ? !payload.startsWith("event: ") : payload[0] !== 101) return;
     totals.response_writes += 1;
-    let count = frameCounts.get(payload);
+    let count = typeof payload === "string" ? frameCounts.get(payload) : bufferCounts.get(payload);
     if (count === undefined) {
       const text = String(payload);
       count = { frames: text.match(/^event: /gm)?.length ?? 0, mutations: text.match(/"itemId":"capacity-write-\d+"/g)?.length ?? 0 };
-      frameCounts.set(payload, count);
+      if (typeof payload === "string") {
+        const bytes = payload.length * 2;
+        while (frameCounts.size && (frameCounts.size >= 1024 || stringBytes + bytes > STRING_CACHE_BYTES)) {
+          const oldest = frameCounts.keys().next().value!;
+          stringBytes -= oldest.length * 2;
+          frameCounts.delete(oldest);
+        }
+        if (bytes <= STRING_CACHE_BYTES) { frameCounts.set(payload, count); stringBytes += bytes; }
+      } else bufferCounts.set(payload, count);
     }
     totals.delivered_events += count.frames;
     totals.delivered_mutations += count.mutations;
@@ -119,4 +131,4 @@ registerHooks({
 /** Return a copy so IPC cannot observe later mutations. */
 export function fanoutMeasurement(): FanoutMeasurement { return { ...totals }; }
 /** Reset immediately before the experiment's writers start. */
-export function resetFanoutMeasurement(): void { clearImmediate(completion); completion = undefined; frameCounts.clear(); for (const key of Object.keys(totals) as (keyof FanoutMeasurement)[]) totals[key] = 0; }
+export function resetFanoutMeasurement(): void { clearImmediate(completion); completion = undefined; bufferCounts = new WeakMap(); frameCounts.clear(); stringBytes = 0; for (const key of Object.keys(totals) as (keyof FanoutMeasurement)[]) totals[key] = 0; }
