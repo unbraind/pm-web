@@ -17,18 +17,21 @@ export interface FanoutMeasurement {
   prepared_events: number;
   response_writes: number;
   delivered_events: number;
+  max_synchronous_writes: number;
 }
-const totals: FanoutMeasurement = { cpu_us: 0, turn_cpu_us: 0, serialized_bytes: 0, json_bytes: 0, mutation_events: 0, mutation_frame_bytes: 0, mutation_json_bytes: 0, delivered_mutations: 0, prepared_events: 0, response_writes: 0, delivered_events: 0 };
+const totals: FanoutMeasurement = { cpu_us: 0, turn_cpu_us: 0, serialized_bytes: 0, json_bytes: 0, mutation_events: 0, mutation_frame_bytes: 0, mutation_json_bytes: 0, delivered_mutations: 0, prepared_events: 0, response_writes: 0, delivered_events: 0, max_synchronous_writes: 0 };
 interface FrameCount { frames: number; mutations: number }
 const frameCounts = new Map<string, FrameCount>();
 let bufferCounts = new WeakMap<Buffer, FrameCount>();
 let stringBytes = 0;
 const STRING_CACHE_BYTES = 1024 * 1024;
 let depth = 0;
+let scopeWrites = 0;
 let completion: NodeJS.Immediate | undefined;
 const observer = {
   /** Nested drain calls belong to the enclosing batch, never counted twice. */
   enter: () => {
+    if (depth === 0) scopeWrites = 0;
     if (!completion) {
       const start = process.cpuUsage();
       completion = setImmediate(() => {
@@ -41,7 +44,7 @@ const observer = {
     return depth++ === 0 ? process.cpuUsage() : undefined;
   },
   /** Charge only synchronous CPU used inside service code. */
-  leave: (start?: NodeJS.CpuUsage) => { depth -= 1; if (start) { const used = process.cpuUsage(start); totals.cpu_us += used.user + used.system; } },
+  leave: (start?: NodeJS.CpuUsage) => { depth -= 1; if (start) { const used = process.cpuUsage(start); totals.cpu_us += used.user + used.system; totals.max_synchronous_writes = Math.max(totals.max_synchronous_writes, scopeWrites); } },
   /** Count actual UTF-8 frame bytes once, independently of recipient count. */
   serialized: (payload: string | Buffer) => {
     const text = String(payload);
@@ -58,6 +61,7 @@ const observer = {
   },
   /** Count response calls rather than pretending each callback means a network receipt. */
   write: (payload: string | Buffer) => {
+    if (depth > 0) scopeWrites += 1;
     if (typeof payload === "string" ? !payload.startsWith("event: ") : payload[0] !== 101) return;
     totals.response_writes += 1;
     let count = typeof payload === "string" ? frameCounts.get(payload) : bufferCounts.get(payload);

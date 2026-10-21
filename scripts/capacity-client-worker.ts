@@ -13,6 +13,7 @@ const observation: CapacityObservation = { open: false };
 const stop = new AbortController();
 const histogram = monitorEventLoopDelay({ resolution: 10 });
 histogram.enable();
+let nextSession = 0;
 
 /** Snapshot exact per-socket receipts; parser cache contents and credentials never leave the worker. */
 function snapshot(): CapacityClientSnapshot {
@@ -29,25 +30,27 @@ function failure(error: unknown): { name: string; code: string | null } {
 
 /** Refill the assigned share of global startup slots while keeping every accepted socket open. */
 async function connect(): Promise<void> {
-  let next = 0;
+  const end = config.manualJoin ? Math.min(nextSession + config.concurrency, config.sessions.length) : config.sessions.length;
   const indices = new Map(config.indices);
   /** One startup lane performs no parallel database or HTTP request of its own. */
   const lane = async (): Promise<void> => {
     while (!stop.signal.aborted) {
       if (streams.some((stream) => stream.state.disconnected)) throw Object.assign(new Error("A setup stream disconnected"), { code: "SSE_SETUP_DISCONNECTED" });
-      const index = next++;
-      if (index >= config.sessions.length) return;
+      if (nextSession >= end) return;
+      const index = nextSession++;
       streams.push(await capacitySubscriber(config.url, config.sessions[index], indices, config.writes, observation, config.startupMs));
       if (streams.length % 50 === 0 || streams.length === config.sessions.length) port.postMessage({ opened: streams.length });
     }
   };
   await Promise.all(Array.from({ length: config.concurrency }, lane));
-  if (!stop.signal.aborted) port.postMessage({ ready: true, opened: streams.length });
+  if (!stop.signal.aborted) port.postMessage({ ready: !config.manualJoin, opened: streams.length });
 }
 
 /** Start receipt recording only after the parent has observed the full project population. */
 async function command(message: CapacityClientCommand): Promise<void> {
-  if (message.action === "presence") {
+  if (message.action === "join") {
+    await connect();
+  } else if (message.action === "presence") {
     await waitUntil(() => stop.signal.aborted || streams.some((stream) => stream.state.disconnected) || streams.every((stream) => stream.state.presenceUsers === config.population), config.presenceMs ?? 45_000, "complete project presence snapshot");
     if (stop.signal.aborted || streams.some((stream) => stream.state.disconnected)) throw Object.assign(new Error("A setup stream disconnected"), { code: "SSE_SETUP_DISCONNECTED" });
   } else if (message.action === "begin") {
@@ -63,4 +66,5 @@ async function command(message: CapacityClientCommand): Promise<void> {
 }
 
 port.on("message", (message: CapacityClientCommand) => { void command(message).catch((error: unknown) => { port.postMessage({ id: message.id, error: failure(error) }); }); });
-void connect().catch((error: unknown) => { stop.abort(); port.postMessage({ error: failure(error), opened: streams.length }); });
+if (config.manualJoin) port.postMessage({ ready: true, opened: 0 });
+else void connect().catch((error: unknown) => { stop.abort(); port.postMessage({ error: failure(error), opened: streams.length }); });

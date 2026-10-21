@@ -1,0 +1,874 @@
+{
+  "schema_version": 1,
+  "baseline_revision": "87b1dc2337537f4a9c1b689739e8ccb1e2eee676",
+  "baseline_runtime_sha256": {
+    "dist/routes/pm.js": "2e25ddc5582049b2040fa8680582c1f50937224f1432372905e0db2a4daf10cf",
+    "dist/services/sse.js": "8f8eef71a8a220c10e5af5d7c266959419109d094c37b333b67ade2ccd9e97f4",
+    "dist/services/sse-fanout.js": "74be09f69e5e348625ef3aa94df9fd9aac9cf4a012e303d501edd935fe340c53"
+  },
+  "exploratory_excess_reader_workers": {
+    "date": "2026-10-21T04:47:02.274Z",
+    "runs": [
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 100,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_STARTUP_TIMEOUT",
+        "elapsed_ms": 81611.917723,
+        "populations": [
+          100,
+          200,
+          300,
+          400,
+          500,
+          600,
+          700,
+          800,
+          900,
+          1000,
+          1100,
+          1200,
+          1300
+        ],
+        "opened": 1397,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 326,
+          "failed": 41,
+          "latency_ms": {
+            "samples": 326,
+            "p50": 15.153533000000607,
+            "p95": 736.2419379999992,
+            "p99": 1858.4880809999959,
+            "max": 2148.215820000005
+          },
+          "statuses": {
+            "0": 2,
+            "200": 285,
+            "503": 39
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 292347904,
+          "event_loop_p99_ms": 257.032191,
+          "cpu_core_percent": {
+            "samples": 218,
+            "p50": 2.9042016695187316,
+            "p95": 25.584441792140858,
+            "p99": 37.88086555384288,
+            "max": 51.11687093047022
+          },
+          "fanout": {
+            "cpu_us": 252431,
+            "turn_cpu_us": 3427694,
+            "serialized_bytes": 6189348,
+            "json_bytes": 6187908,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 60,
+            "response_writes": 32090,
+            "delivered_events": 32090
+          },
+          "load_before": [
+            21.28,
+            17.5,
+            11.66
+          ],
+          "load_after": [
+            38.33,
+            23.28,
+            14.15
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      },
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 500,
+          "readinessMs": 2000
+        },
+        "failure": null,
+        "elapsed_ms": 110524.609525,
+        "populations": [
+          500,
+          1000,
+          1500,
+          2000,
+          2500,
+          3000
+        ],
+        "opened": 3000,
+        "disconnected": 0,
+        "complete_rosters": 3000,
+        "readiness": {
+          "samples": 497,
+          "failed": 108,
+          "latency_ms": {
+            "samples": 497,
+            "p50": 13.263235000020359,
+            "p95": 795.3633270000137,
+            "p99": 2004.7034759999951,
+            "max": 2016.6194470000046
+          },
+          "statuses": {
+            "0": 11,
+            "200": 389,
+            "503": 97
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 349941760,
+          "event_loop_p99_ms": 104.792063,
+          "cpu_core_percent": {
+            "samples": 294,
+            "p50": 5.2625819613200715,
+            "p95": 21.75418773211511,
+            "p99": 38.32624766120708,
+            "max": 42.32846794576363
+          },
+          "fanout": {
+            "cpu_us": 249650,
+            "turn_cpu_us": 3424302,
+            "serialized_bytes": 8079839,
+            "json_bytes": 8078951,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 37,
+            "response_writes": 21205,
+            "delivered_events": 21205
+          },
+          "load_before": [
+            33.52,
+            23.6,
+            14.55
+          ],
+          "load_after": [
+            40.69,
+            29.83,
+            17.85
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      },
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 1000,
+          "readinessMs": 2000
+        },
+        "failure": "SERVER_STARTUP_TIMEOUT",
+        "elapsed_ms": 20754.48821900005,
+        "populations": [],
+        "opened": 0,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 0,
+          "failed": 0,
+          "latency_ms": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "statuses": {}
+        },
+        "resources": {
+          "rss_peak_bytes": null,
+          "event_loop_p99_ms": null,
+          "cpu_core_percent": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "fanout": null,
+          "load_before": [
+            49.55,
+            34,
+            19.9
+          ],
+          "load_after": [
+            48.94,
+            34.92,
+            20.51
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      }
+    ]
+  },
+  "first_controlled_stdout_summary": {
+    "retention": "First result printed before a later fixture initialization timed out; full report was not written",
+    "burst": 100,
+    "target": 3000,
+    "opened": 552,
+    "completed_cohort": 500,
+    "failure": "SSE_STARTUP_TIMEOUT",
+    "readiness_samples": 74,
+    "readiness_failures": 5,
+    "readiness_p99_ms": 2127.472755,
+    "readiness_max_ms": 2127.472755,
+    "server_loop_p99_ms": 665.845759,
+    "server_rss_peak_bytes": 215388160,
+    "load_before": [
+      38.96,
+      35.89,
+      22.16
+    ],
+    "load_after": [
+      57.12,
+      40.41,
+      24.23
+    ]
+  },
+  "controlled_baseline": {
+    "date": "2026-10-21T04:57:32.531Z",
+    "runs": [
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 100,
+          "readinessMs": 2000
+        },
+        "failure": "setup or resource capture failed; inconclusive",
+        "passed": false
+      },
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 500,
+          "readinessMs": 2000
+        },
+        "failure": "SERVER_STARTUP_TIMEOUT",
+        "elapsed_ms": 20424.86117900003,
+        "populations": [],
+        "opened": 0,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 0,
+          "failed": 0,
+          "latency_ms": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "dependency_failures": {},
+          "statuses": {}
+        },
+        "resources": {
+          "rss_peak_bytes": null,
+          "event_loop_p99_ms": null,
+          "cpu_core_percent": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "fanout": null,
+          "load_before": [
+            53.02,
+            59.6,
+            41.32
+          ],
+          "load_after": [
+            52.27,
+            58.98,
+            41.51
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      },
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 1000,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_HTTP_500_VERIFY",
+        "elapsed_ms": 31436.638508000004,
+        "populations": [],
+        "opened": 1,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 42,
+          "failed": 3,
+          "latency_ms": {
+            "samples": 42,
+            "p50": 29.686309000011533,
+            "p95": 2000.4179700000095,
+            "p99": 2009.3631639999803,
+            "max": 2009.3631639999803
+          },
+          "dependency_failures": {},
+          "statuses": {
+            "0": 3,
+            "200": 39
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 185610240,
+          "event_loop_p99_ms": 214.040575,
+          "cpu_core_percent": {
+            "samples": 33,
+            "p50": 1.2730393594056406,
+            "p95": 9.057578032165901,
+            "p99": 14.831451764229419,
+            "max": 14.831451764229419
+          },
+          "fanout": {
+            "cpu_us": 710,
+            "turn_cpu_us": 5839,
+            "serialized_bytes": 179,
+            "json_bytes": 155,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 1,
+            "response_writes": 1,
+            "delivered_events": 1,
+            "max_synchronous_writes": 0
+          },
+          "load_before": [
+            51.35,
+            58.13,
+            41.78
+          ],
+          "load_after": [
+            51.13,
+            57.42,
+            42.07
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      }
+    ]
+  },
+  "intermediate_eight_slots": {
+    "runtime_sha256": {
+      "dist/routes/pm.js": "23d419bc9baaa86769bf6fb50a6e9f507a1d80667a1196584b2852e10cc572bd",
+      "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+      "dist/services/sse-fanout.js": "3dddf6495938fa4ce22ef3776261ee562677749ffb35b32293be642c0411838b",
+      "dist/services/sse-admission.js": "6e089a91c30b0a89658eac30d07cf3546ec093a2d38b3b03eff02bf0671533cd"
+    },
+    "date": "2026-10-21T05:06:09.668Z",
+    "runs": [
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 100,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_STARTUP_TIMEOUT",
+        "capture_failures": [],
+        "cleanup_failure": null,
+        "elapsed_ms": 94286.465858,
+        "populations": [
+          100,
+          200,
+          300,
+          400,
+          500,
+          600,
+          700,
+          800,
+          900,
+          1000,
+          1100,
+          1200,
+          1300,
+          1400,
+          1500,
+          1600,
+          1700,
+          1800,
+          1900,
+          2000
+        ],
+        "opened": 2075,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 515,
+          "failed": 1,
+          "latency_ms": {
+            "samples": 515,
+            "p50": 38.02538399999685,
+            "p95": 185.35323799999605,
+            "p99": 315.3833999999915,
+            "max": 2572.967438000007
+          },
+          "dependency_failures": {},
+          "statuses": {
+            "0": 1,
+            "200": 514
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 324235264,
+          "event_loop_p99_ms": 125.632511,
+          "cpu_core_percent": {
+            "samples": 314,
+            "p50": 12.342771992967325,
+            "p95": 26.005068758678142,
+            "p99": 31.47047796985316,
+            "max": 34.311706762275925
+          },
+          "fanout": {
+            "cpu_us": 285931,
+            "turn_cpu_us": 3683757,
+            "serialized_bytes": 8631888,
+            "json_bytes": 8630736,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 48,
+            "response_writes": 29283,
+            "delivered_events": 29283,
+            "max_synchronous_writes": 32
+          },
+          "load_before": [
+            50.25,
+            50.93,
+            42.85
+          ],
+          "load_after": [
+            53.15,
+            51.35,
+            43.77
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      },
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 500,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_STARTUP_TIMEOUT",
+        "capture_failures": [],
+        "cleanup_failure": null,
+        "elapsed_ms": 80295.771664,
+        "populations": [
+          500,
+          1000,
+          1500,
+          2000
+        ],
+        "opened": 2435,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 392,
+          "failed": 0,
+          "latency_ms": {
+            "samples": 392,
+            "p50": 55.70032400000491,
+            "p95": 222.77674999999,
+            "p99": 652.0266729999857,
+            "max": 1723.1009550000017
+          },
+          "dependency_failures": {},
+          "statuses": {
+            "200": 392
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 346165248,
+          "event_loop_p99_ms": 138.412031,
+          "cpu_core_percent": {
+            "samples": 262,
+            "p50": 12.179334563895866,
+            "p95": 25.13337480848188,
+            "p99": 35.40457338301136,
+            "max": 47.08007183630831
+          },
+          "fanout": {
+            "cpu_us": 273171,
+            "turn_cpu_us": 2915468,
+            "serialized_bytes": 9097366,
+            "json_bytes": 9096166,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 50,
+            "response_writes": 22705,
+            "delivered_events": 22705,
+            "max_synchronous_writes": 32
+          },
+          "load_before": [
+            51.53,
+            51.14,
+            43.94
+          ],
+          "load_after": [
+            49.42,
+            50.5,
+            44.31
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      },
+      {
+        "options": {
+          "subscribers": 3000,
+          "burst": 1000,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_STARTUP_TIMEOUT",
+        "capture_failures": [],
+        "cleanup_failure": null,
+        "elapsed_ms": 20064.831911000016,
+        "populations": [],
+        "opened": 945,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 100,
+          "failed": 0,
+          "latency_ms": {
+            "samples": 100,
+            "p50": 41.21628999998211,
+            "p95": 133.19919999997364,
+            "p99": 418.43792500000563,
+            "max": 699.9240359999822
+          },
+          "dependency_failures": {},
+          "statuses": {
+            "200": 100
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 315310080,
+          "event_loop_p99_ms": 85.917695,
+          "cpu_core_percent": {
+            "samples": 63,
+            "p50": 21.058284327550933,
+            "p95": 35.25522036876522,
+            "p99": 47.184949495197095,
+            "max": 47.184949495197095
+          },
+          "fanout": {
+            "cpu_us": 57365,
+            "turn_cpu_us": 581464,
+            "serialized_bytes": 1104503,
+            "json_bytes": 1104191,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 13,
+            "response_writes": 5617,
+            "delivered_events": 5617,
+            "max_synchronous_writes": 32
+          },
+          "load_before": [
+            48.53,
+            50.21,
+            44.41
+          ],
+          "load_after": [
+            47.63,
+            49.91,
+            44.44
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      }
+    ]
+  },
+  "final_sixteen_slots": {
+    "date": "2026-10-21T05:12:33.913Z",
+    "runs": [
+      {
+        "runtime_sha256": {
+          "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+          "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+          "dist/services/sse-fanout.js": "9fceed635b0b05e4347a305325e4bbec94b27450a9ecdeab0237aee4d7dd57b0",
+          "dist/services/sse-admission.js": "6e089a91c30b0a89658eac30d07cf3546ec093a2d38b3b03eff02bf0671533cd"
+        },
+        "options": {
+          "subscribers": 3000,
+          "burst": 100,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_STARTUP_TIMEOUT",
+        "capture_failures": [],
+        "cleanup_failure": null,
+        "elapsed_ms": 167012.636946,
+        "populations": [
+          100,
+          200,
+          300,
+          400,
+          500,
+          600,
+          700,
+          800,
+          900,
+          1000,
+          1100,
+          1200,
+          1300,
+          1400,
+          1500,
+          1600,
+          1700,
+          1800,
+          1900,
+          2000,
+          2100,
+          2200,
+          2300,
+          2400,
+          2500
+        ],
+        "opened": 2500,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 819,
+          "failed": 0,
+          "latency_ms": {
+            "samples": 819,
+            "p50": 50.60186299999987,
+            "p95": 233.71967200000654,
+            "p99": 349.51793499999985,
+            "max": 1766.097096999998
+          },
+          "dependency_failures": {},
+          "statuses": {
+            "200": 819
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 341733376,
+          "event_loop_p99_ms": 155.058175,
+          "cpu_core_percent": {
+            "samples": 577,
+            "p50": 9.80465482644639,
+            "p95": 19.884553576608667,
+            "p99": 29.802363156240165,
+            "max": 37.98086739938378
+          },
+          "fanout": {
+            "cpu_us": 466752,
+            "turn_cpu_us": 6070141,
+            "serialized_bytes": 14280556,
+            "json_bytes": 14278924,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 68,
+            "response_writes": 42148,
+            "delivered_events": 42148,
+            "max_synchronous_writes": 32
+          },
+          "load_before": [
+            45.53,
+            48.8,
+            44.39
+          ],
+          "load_after": [
+            58.77,
+            51.95,
+            46.2
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      },
+      {
+        "runtime_sha256": {
+          "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+          "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+          "dist/services/sse-fanout.js": "9fceed635b0b05e4347a305325e4bbec94b27450a9ecdeab0237aee4d7dd57b0",
+          "dist/services/sse-admission.js": "6e089a91c30b0a89658eac30d07cf3546ec093a2d38b3b03eff02bf0671533cd"
+        },
+        "options": {
+          "subscribers": 3000,
+          "burst": 500,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_STARTUP_TIMEOUT",
+        "capture_failures": [],
+        "cleanup_failure": null,
+        "elapsed_ms": 46226.625264,
+        "populations": [
+          500,
+          1000,
+          1500
+        ],
+        "opened": 1850,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 217,
+          "failed": 0,
+          "latency_ms": {
+            "samples": 217,
+            "p50": 36.102215000020806,
+            "p95": 230.56083699999726,
+            "p99": 345.7240180000081,
+            "max": 558.9986780000036
+          },
+          "dependency_failures": {},
+          "statuses": {
+            "200": 217
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 354537472,
+          "event_loop_p99_ms": 153.747455,
+          "cpu_core_percent": {
+            "samples": 145,
+            "p50": 12.551659755455384,
+            "p95": 41.93962812431116,
+            "p99": 62.58286291406941,
+            "max": 63.713826589111974
+          },
+          "fanout": {
+            "cpu_us": 168053,
+            "turn_cpu_us": 1194172,
+            "serialized_bytes": 5536048,
+            "json_bytes": 5535280,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 32,
+            "response_writes": 8459,
+            "delivered_events": 8459,
+            "max_synchronous_writes": 32
+          },
+          "load_before": [
+            62.39,
+            53.56,
+            46.98
+          ],
+          "load_after": [
+            70.98,
+            57.02,
+            48.46
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      },
+      {
+        "runtime_sha256": {
+          "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+          "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+          "dist/services/sse-fanout.js": "9fceed635b0b05e4347a305325e4bbec94b27450a9ecdeab0237aee4d7dd57b0",
+          "dist/services/sse-admission.js": "6e089a91c30b0a89658eac30d07cf3546ec093a2d38b3b03eff02bf0671533cd"
+        },
+        "options": {
+          "subscribers": 3000,
+          "burst": 1000,
+          "readinessMs": 2000
+        },
+        "failure": "SSE_STARTUP_TIMEOUT",
+        "capture_failures": [],
+        "cleanup_failure": null,
+        "elapsed_ms": 32444.754197000002,
+        "populations": [
+          1000
+        ],
+        "opened": 1813,
+        "disconnected": 0,
+        "complete_rosters": 0,
+        "readiness": {
+          "samples": 211,
+          "failed": 0,
+          "latency_ms": {
+            "samples": 211,
+            "p50": 12.39457099995343,
+            "p95": 157.02615300001344,
+            "p99": 309.6386899999925,
+            "max": 1023.9538729999913
+          },
+          "dependency_failures": {},
+          "statuses": {
+            "200": 211
+          }
+        },
+        "resources": {
+          "rss_peak_bytes": 327639040,
+          "event_loop_p99_ms": 109.379583,
+          "cpu_core_percent": {
+            "samples": 112,
+            "p50": 14.65840538548712,
+            "p95": 45.704131416392414,
+            "p99": 58.84718292396957,
+            "max": 60.848754542051445
+          },
+          "fanout": {
+            "cpu_us": 106213,
+            "turn_cpu_us": 838660,
+            "serialized_bytes": 3428075,
+            "json_bytes": 3427475,
+            "mutation_events": 0,
+            "mutation_frame_bytes": 0,
+            "mutation_json_bytes": 0,
+            "delivered_mutations": 0,
+            "prepared_events": 25,
+            "response_writes": 6148,
+            "delivered_events": 6148,
+            "max_synchronous_writes": 32
+          },
+          "load_before": [
+            66.37,
+            57.77,
+            49.08
+          ],
+          "load_after": [
+            67.3,
+            58.72,
+            49.67
+          ],
+          "logical_cpus": 4
+        },
+        "passed": false
+      }
+    ]
+  },
+  "release_verification_runtime": {
+    "source_revision": "0a15d7839d74b6efaf0ebee53fd2fd3858763516",
+    "modules_sha256": {
+      "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+      "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+      "dist/services/sse-fanout.js": "16d77402ba089b5d39c6d1b869911959426f1479841d6d149517a720cb4cec36",
+      "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+    },
+    "campaign_repeated": false,
+    "note": "Release gates use this committed build. Campaign hashes precede equivalent lint spelling changes in the admission loop and fan-out promise callback."
+  }
+}

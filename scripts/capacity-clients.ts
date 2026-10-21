@@ -13,6 +13,7 @@ export interface CapacityClientConfig {
   startupMs?: number;
   presenceMs?: number;
   perWorker?: number;
+  manualJoin?: boolean;
 }
 
 /** Only receipt state and aggregate parser resources cross the worker boundary. */
@@ -23,7 +24,7 @@ export interface CapacityClientSnapshot {
 }
 
 /** Commands cannot modify the server, tracker, identities or measured item mapping. */
-export interface CapacityClientCommand { id: number; action: "presence" | "begin" | "end" | "snapshot" | "close" }
+export interface CapacityClientCommand { id: number; action: "join" | "presence" | "begin" | "end" | "snapshot" | "close" }
 interface Reply { id?: number; ready?: boolean; opened?: number; snapshot?: CapacityClientSnapshot; error?: { name: string; code: string | null } }
 
 /** One group exposes the same receipt window to the unchanged mixed-writer harness. */
@@ -31,6 +32,7 @@ export interface CapacityClientGroup {
   ready: Promise<void>;
   workers: number;
   opened: () => number;
+  join: () => Promise<void>;
   presence: () => Promise<void>;
   begin: () => Promise<void>;
   end: () => Promise<CapacitySubscriber[]>;
@@ -95,6 +97,7 @@ export function createCapacityClients(config: CapacityClientConfig, progress?: (
   return {
     ready: Promise.all(channels.map((channel) => channel.ready)).then(() => {}), workers: count,
     opened: () => opened.reduce((sum, value) => sum + value, 0),
+    join: async () => { await collect("join"); },
     presence: async () => { await collect("presence"); },
     begin: async () => { await collect("begin"); },
     end: () => collect("end"), snapshot: () => collect("snapshot"),

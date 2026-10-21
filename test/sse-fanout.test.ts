@@ -6,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import type { Response } from "express";
 import { attachFanout, canResumeFanout, clearFanout, FANOUT_LIMITS, heartbeatFanout, prepareFanout, retainedFanoutProjects } from "../src/services/sse-fanout.ts";
+import { waitUntil } from "../scripts/capacity-wait.ts";
 
 /** A response with real drain events and controllable backpressure, retaining buffer identity. */
 function sink(block = false, fail = false) {
@@ -36,7 +37,7 @@ test("3000 viewers share one UTF-8 buffer per ordered burst, with one JSON seria
   let serializations = 0;
   const data = { toJSON: () => { serializations += 1; return { text: "é 🐘" }; } };
   for (let i = 0; i < 3; i++) prepareFanout(project, { type: `update-${i}`, data });
-  await delay(20);
+  await waitUntil(() => viewers.every((viewer) => viewer.writes.length === 2), 3000, "bounded fan-out completion");
   assert.equal(serializations, 3);
   const shared = viewers[0].writes[1];
   assert.ok(Buffer.isBuffer(shared));
@@ -163,15 +164,16 @@ test("empty drain callbacks read no permissions while the next private batch rec
   assert.equal(reads, 0, "draining a connected frame with no pending data needs no database query");
   viewers.forEach((viewer) => viewer.pause());
   prepareFanout(project, { type: "private-before-revoke", data: {} });
-  await delay(15);
-  assert.equal(reads, 1);
+  await waitUntil(() => viewers.every((viewer) => viewer.writes.length === 2), 3000, "authorized slices");
+  const firstReads = reads;
+  assert.ok(firstReads >= 2, "yielded slices need fresh permission reads");
   viewers.forEach((viewer) => viewer.unblock());
   await delay(15);
-  assert.equal(reads, 1, "completed response writes must not trigger empty permission reads");
+  assert.equal(reads, firstReads, "completed response writes must not trigger empty permission reads");
   members.delete(viewers[0].userId);
   prepareFanout(project, { type: "private-after-revoke", data: {} });
-  await delay(15);
-  assert.equal(reads, 2);
+  await waitUntil(() => viewers[0].destroyed() && viewers.slice(1).every((viewer) => frames(viewer.writes).at(-1)?.type === "private-after-revoke"), 3000, "revoked slices");
+  assert.ok(reads >= firstReads + 2);
   assert.equal(viewers[0].destroyed(), true);
   assert.equal(frames(viewers[0].writes).at(-1)?.type, "private-before-revoke");
   for (const viewer of viewers.slice(1)) assert.equal(frames(viewer.writes).at(-1)?.type, "private-after-revoke");
@@ -203,6 +205,58 @@ test("a heartbeat cannot flush queued private data while fresh permission is pen
   assert.deepEqual(frames(slow.writes).map((frame) => frame.type), ["connected"]);
   assert.equal(frames(healthy.writes).at(-1)?.type, "later-private");
 });
+
+test("yielded socket slices refresh membership before delivering to the next viewers", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), viewers = Array.from({ length: 96 }, () => sink());
+  const members = new Set(viewers.map((viewer) => viewer.userId));
+  const revoked = viewers.at(-1)!;
+  let reads = 0;
+  const authorizeProject = async () => {
+    if (++reads === 1) setImmediate(() => members.delete(revoked.userId));
+    return new Set(members);
+  };
+  for (const viewer of viewers) attachFanout(project, { ...viewer, authorizeProject }, () => {});
+  prepareFanout(project, { type: "private-sliced", data: { synthetic: true } });
+  await waitUntil(() => revoked.destroyed() && viewers.slice(0, -1).every((viewer) => viewer.writes.length === 2), 3000, "fresh authorization between slices");
+  assert.ok(reads >= 3);
+  assert.deepEqual(frames(revoked.writes).map((frame) => frame.type), ["connected"]);
+});
+
+for (const failedSlice of [2, 3]) {
+test(`an authorization failure in slice ${failedSlice} detaches only unprocessed snapshot viewers`, async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID(), viewers = Array.from({ length: 96 }, () => sink()), joined = sink();
+  const members = new Set([...viewers, joined].map((viewer) => viewer.userId));
+  const processed = viewers.slice(0, (failedSlice - 1) * 32);
+  const unprocessed = viewers.slice(processed.length);
+  let reads = 0, closed = 0;
+  const authorizeProject = async () => {
+    reads++;
+    if (reads === 1) attachFanout(project, { ...joined, authorizeProject }, () => { closed++; });
+    if (reads === failedSlice) throw new Error("Synthetic later-slice membership failure");
+    return new Set(members);
+  };
+  for (const viewer of viewers) attachFanout(project, { ...viewer, authorizeProject }, () => { closed++; });
+  prepareFanout(project, { type: "before-failure", data: {} });
+  await waitUntil(() => unprocessed.every((viewer) => viewer.destroyed()), 3000, "failed and remaining slice cleanup");
+  assert.equal(reads, failedSlice);
+  assert.equal(closed, unprocessed.length, "processed viewers and post-snapshot joins must survive");
+  for (const viewer of [...processed, joined]) {
+    assert.equal(viewer.destroyed(), false);
+    assert.equal(viewer.res.listenerCount("drain"), 1);
+  }
+  for (const viewer of unprocessed) {
+    assert.deepEqual(frames(viewer.writes).map((frame) => frame.type), ["connected"]);
+    assert.equal(viewer.res.listenerCount("drain"), 0);
+  }
+  assert.deepEqual(frames(joined.writes).map((frame) => frame.type), ["connected"]);
+  prepareFanout(project, { type: "after-recovery", data: {} });
+  await waitUntil(() => [...processed, joined].every((viewer) => frames(viewer.writes).at(-1)?.type === "after-recovery"), 3000, "surviving viewer recovery");
+  for (const viewer of processed) assert.deepEqual(frames(viewer.writes).map((frame) => frame.type), ["connected", "before-failure", "after-recovery"]);
+  assert.deepEqual(frames(joined.writes).map((frame) => frame.type), ["connected", "after-recovery"]);
+});
+}
 
 test("a membership read in flight keeps later events ordered and never overlaps another read", async (t) => {
   t.after(clearFanout);
