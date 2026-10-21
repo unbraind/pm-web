@@ -2,15 +2,26 @@ id: pm-web-7u2y
 title: Include pm-memory and pm-rlm in the package catalog and fleet snapshot
 description: "The 2026-10-19 capacity-documentation release gate at public revision 8e9cc9713778f9ff945eb28c57d827d20cf75995, with explicit read-only canonical fleet metadata, reports pm-memory and pm-rlm as missing from the package catalog. The exact-package-set, fleet-completeness and committed-snapshot tests fail. The documentation-only change does not modify catalog code. Add the packages and refresh evidence in a separate change after verifying package ownership and intended capabilities. Related pm-web-h4vh; measurements and release evidence are in docs/capacity/2026-10-19-ladder.md."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags[2]: catalog,follow-up
 created_at: "2026-10-19T17:58:26.126Z"
-updated_at: "2026-10-19T17:58:26.126Z"
+updated_at: "2026-10-21T16:22:16.090Z"
+assignee: codex-agent
+claim_principal: codex-agent
 author: codex-agent
-files[2]{path,scope}:
+comments[2]{created_at,author,text}:
+  "2026-10-21T16:05:53.089Z",codex-agent,"Plan: verify public package manifests, command registrations and npm availability, add memory and RLM catalog entries and independent roster membership, then regenerate fleet snapshots through the existing pipeline. No package pins or hosted services change."
+  "2026-10-21T16:16:24.836Z",codex-agent,"The existing full generator encountered an unrelated pm-github/newer-SDK import incompatibility. Added an explicit package-name refresh mode to the same pipeline; refreshed only pm-memory and pm-rlm through real SDK registration discovery and npm lookups. Both return npm 404, so installation is refused; optional RLM endpoint/key requirements remain visible. Other receipts are preserved byte-for-byte."
+files[5]{path,scope}:
+  scripts/generate-fleet-snapshot.ts,project
   src/services/package-catalog.ts,project
+  test/catalog.test.ts,project
   test/fleet-extensions.snapshot.json,project
-docs[1]{path,scope}:
+  test/fleet-package-repos.fixture.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/catalog.test.ts test/catalog-ui.test.ts,project,codex-agent,"2026-10-21T16:16:08.160Z",local_mutation,feat/graph-layout-scale
+docs[2]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
+  docs/fleet-package-catalog.md,project
 body: ""

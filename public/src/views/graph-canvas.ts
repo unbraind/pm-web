@@ -524,9 +524,9 @@ export class GraphCanvas {
       this.fitInitialView();
     } else {
       // Scatter nodes slightly and reheat force simulation
-      for (const n of this.nodes) {
-        n.x += (Math.random() - 0.5) * 40;
-        n.y += (Math.random() - 0.5) * 40;
+      for (const [index, n] of this.nodes.entries()) {
+        n.x += Math.cos(index * 2.399963) * 20;
+        n.y += Math.sin(index * 2.399963) * 20;
       }
       this.reheat();
     }
