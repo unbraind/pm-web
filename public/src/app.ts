@@ -1,3 +1,4 @@
+import { refreshDecisionInbox } from './views/decision-inbox.js';
 import { receiveLiveUpdate, rememberLiveAuthors, resetLiveCopies } from './live-copy.js';
 import { initInteractions } from './interactions.js';
 // ═══════════════════════════════════════════════════════════════
@@ -90,6 +91,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     commands: [
       { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
       { view: 'create', title: 'Create item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+      { view: 'decision-inbox', title: 'Decision inbox', desc: 'Compare evidence and respond to pending decisions.', icon: '⚖', requiresProject: true },
       { view: 'plan', title: 'Plans', desc: 'Create and manage structured agentic plans with steps.', icon: '◧', requiresProject: true },
       { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },
       { view: 'templates', title: 'Templates', desc: 'Create from saved pm templates.', icon: '⎘', requiresProject: true },
@@ -551,6 +553,8 @@ function connectSSE(projectId: string, attempt = 0): void {
         renderActivityView();
       } else if (view === 'stats') {
         renderStatsView();
+      } else if (view === 'decision-inbox') {
+        refreshDecisionInbox();
       } else if (view === 'plan') {
         initPlanView();
       }

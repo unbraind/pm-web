@@ -1,3 +1,4 @@
+import { renderDecisionInbox } from './decision-inbox.js';
 // ═══════════════════════════════════════════════════════════════
 // ROUTER — View switching with URL routing
 // ═══════════════════════════════════════════════════════════════
@@ -58,6 +59,7 @@ const VIEW_TO_PATH: Record<string, string> = {
   'guide': '/guide',
   'admin': '/admin',
   'plan': '/plan',
+  'decision-inbox': '/decision-inbox',
 };
 
 // Reverse: URL path → view name
@@ -176,6 +178,7 @@ export function showView(view: string, pushState = true): void {
     case 'guide': renderGuideView(); break;
     case 'admin': renderAdminView(); break;
     case 'plan': void initPlanView(); break;
+    case 'decision-inbox': void renderDecisionInbox(); break;
   }
   updateMobileNav(view);
 

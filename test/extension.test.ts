@@ -79,7 +79,7 @@ test("extension registers web, status, stop and doctor commands", async () => {
     capabilities: ["commands", "schema"],
   });
   assert.deepEqual(activation.failed, []);
-  assert.equal(activation.command_handler_count, 4);
+  assert.equal(activation.command_handler_count, 7);
   assertRegisteredCommandContract(activation.registrations, {
     command: "web",
     flags: ["--port", "--detach"],

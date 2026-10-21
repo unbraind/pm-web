@@ -2488,3 +2488,15 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 #item-detail-modal .modal-header { gap: 1rem; align-items: flex-start; }
 #item-detail-modal .modal-header .item-detail-id { padding: 0; margin-bottom: .5rem; }
 .item-sheet-heading { font-family: var(--pm-font-display); font-variation-settings: 'wdth' 125; font-weight: 800; font-size: var(--pm-step-1); line-height: 1.25; overflow-wrap: anywhere; margin: 0; height: 3rem; overflow: auto; scrollbar-gutter: stable; }
+
+/* Decision comparisons retain the application's brand and put evidence before action. */
+.decision-request { margin-block: 18px; max-width: 980px; }
+.decision-meta { color: var(--app-text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.decision-evidence { white-space: pre-wrap; overflow-wrap: anywhere; }
+.decision-boundary { border-inline-start: 3px solid var(--app-accent); padding-inline-start: 12px; }
+.decision-request fieldset { margin-block: 18px; border: 1px solid var(--app-border); }
+.decision-alternative { display: flex; align-items: baseline; gap: 10px; padding: 12px; border-bottom: 1px solid var(--app-border); }
+.decision-alternative:has(input:checked) { outline: 2px solid var(--app-accent); outline-offset: -2px; }
+.decision-reason { display: grid; gap: 6px; margin-block: 16px; }
+.decision-reason textarea { width: 100%; min-height: 80px; }
+.decision-result { overflow-wrap: anywhere; }

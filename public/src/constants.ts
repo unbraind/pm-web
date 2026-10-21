@@ -54,5 +54,5 @@ export const VIEW_NAMES = [
   'projects','items','create','activity','search','stats','calendar',
   'context','graph','sharing','groups','health','dedupe','validate','settings',
   'github','export','normalize','shared','templates','packages','comments-audit','config','guide',
-  'admin','plan'
+  'admin','plan','decision-inbox'
 ] as const;
