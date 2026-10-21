@@ -4,12 +4,12 @@ import type { Response } from "express";
 /** Bounds apply to shared replay, pending response bytes, and stalled sockets independently. */
 export const FANOUT_LIMITS = { windowMs: 4, queueBytes: 1024 * 1024, queueBatches: 64, stallMs: 15_000, replayBytes: 8 * 1024 * 1024, replayEvents: 10_000, replayMs: 60_000 } as const;
 
-/** All HTTP viewers supply a fresh project membership reader; internal sinks are already trusted. */
+/** HTTP sinks authorize the supplied distinct slice principals with a fresh read; internal sinks are trusted. */
 export interface FanoutSink {
   id: string;
   userId: string;
   res: Response;
-  authorizeProject?: () => Promise<ReadonlySet<string>>;
+  authorizeProject?: (userIds: readonly string[]) => Promise<ReadonlySet<string>>;
 }
 
 interface Frame { sequence: number; payload: Buffer; at: number }
@@ -173,7 +173,7 @@ async function flushFanout(state: Project): Promise<void> {
       const throughRegistration = state.registration;
       const throughPresence = state.presence;
       const authorization = slice.find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
-      const allowed = authorization ? await authorization() : undefined;
+      const allowed = authorization ? await authorization([...new Set(slice.map((viewer) => viewer.sink.userId))]) : undefined;
       writeFanoutBatch(state, allowed, throughSequence, throughRegistration, throughPresence, slice, batches);
       if (slice.length < 32) break;
       await new Promise<void>((resolve) => { setImmediate(resolve); });

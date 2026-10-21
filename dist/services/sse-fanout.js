@@ -181,7 +181,7 @@ async function flushFanout(state) {
             const throughRegistration = state.registration;
             const throughPresence = state.presence;
             const authorization = slice.find((viewer) => viewer.sink.authorizeProject)?.sink.authorizeProject;
-            const allowed = authorization ? await authorization() : undefined;
+            const allowed = authorization ? await authorization([...new Set(slice.map((viewer) => viewer.sink.userId))]) : undefined;
             writeFanoutBatch(state, allowed, throughSequence, throughRegistration, throughPresence, slice, batches);
             if (slice.length < 32)
                 break;

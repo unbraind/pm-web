@@ -9,12 +9,12 @@ export declare const FANOUT_LIMITS: {
     readonly replayEvents: 10000;
     readonly replayMs: 60000;
 };
-/** All HTTP viewers supply a fresh project membership reader; internal sinks are already trusted. */
+/** HTTP sinks authorize the supplied distinct slice principals with a fresh read; internal sinks are trusted. */
 export interface FanoutSink {
     id: string;
     userId: string;
     res: Response;
-    authorizeProject?: () => Promise<ReadonlySet<string>>;
+    authorizeProject?: (userIds: readonly string[]) => Promise<ReadonlySet<string>>;
 }
 /** Check resume before sending HTTP headers, after the route has authorized this viewer. */
 export declare function canResumeFanout(projectId: string, cursor: string): boolean;
