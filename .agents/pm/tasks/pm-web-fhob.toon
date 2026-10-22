@@ -1,21 +1,24 @@
 id: pm-web-fhob
-title: Make spawn-overlap regression independent of process startup scheduling
+title: Consolidate unresolved spawn-overlap scheduling work into pm-web-qdhx
 description: "The unchanged spawn-fallback regression in test/pm-runner.test.ts failed during PR #176 standalone validation with SDK 2026.10.10. It observed start first, end first, start independent, end independent, start second, end second. Same-workspace serialization held, but the independent child did not start within the first child 120 ms delay under heavy shared verification load. Use an explicit ready/release protocol to prove independent dispatch without depending on process startup order; preserve real subprocess assertions and timeout behavior. This is a test-reliability follow-up, not an established SDK dispatch defect. Do not relax coverage, duplication or graph timing gates."
 type: Task
 status: closed
 priority: 2
 tags: []
 created_at: "2026-10-11T05:41:15.955Z"
-updated_at: "2026-10-21T19:37:47.898Z"
+updated_at: "2026-10-22T11:47:01.800Z"
 closed_at: "2026-10-21T19:37:47.424Z"
 completed_at: "2026-10-21T19:37:47.424Z"
 author: codex-attestation
-resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #197](https://github.com/unbraind/pm-web/pull/197) repairs the process-order fixture with an explicit ready/release protocol. Other later shared-load startup failures are separately tracked by qdhx. Retained evidence: src/services/package-catalog.ts, test/catalog-install-e2e.test.ts, test/catalog.test.ts."
-comments[1]{created_at,author,text}:
+resolution: "Consolidated into the existing unresolved owner pm-web-qdhx. Main 874ef8f still uses a 120 ms delay in the first spawn-fallback overlap fixture; PR 197 repaired the different mixed SDK/spawn fixture, not this scheduling assumption. Evidence: test/pm-runner.test.ts, especially the first spawn-fallback test and the later independent-write release handshake. This resolution records ownership consolidation, not a delivered fix."
+dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
+  pm-web-qdhx,related,"2026-10-22T11:45:07.738Z",codex-agent,"cli:update:dep",detected
+comments[2]{created_at,author,text}:
   "2026-10-11T05:46:04.382Z",codex-attestation,The completed first standalone npm run preserves the startup-order failure receipt; the attempted local Bun gate was intentionally interrupted by the orchestrator to avoid further shared-host contention. No runner production code or assertion is changed in PR #176. Independent CI on the pushed head remains the next evidence source; keep this follow-up open.
+  "2026-10-22T11:45:21.994Z",codex-agent,"Corrective audit after checking main 874ef8f and the complete pm-web-qdhx record: qdhx already owns and links the exact first spawn-fallback overlap test. Its existing in_progress status retains an owner for the still-present 120 ms assumption. Replaced this records incorrect delivered-fix claim and unrelated catalog evidence with an explicit consolidation into qdhx; no new closure operation or implementation change was made."
 files[1]{path,scope}:
   test/pm-runner.test.ts,project
 docs[1]{path,scope}:
   docs/publish-attestation.md,project
-close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #197](https://github.com/unbraind/pm-web/pull/197) repairs the process-order fixture with an explicit ready/release protocol. Other later shared-load startup failures are separately tracked by qdhx. Retained evidence: src/services/package-catalog.ts, test/catalog-install-e2e.test.ts, test/catalog.test.ts."
+close_reason: "Consolidated into the existing unresolved owner pm-web-qdhx. Main 874ef8f still uses a 120 ms delay in the first spawn-fallback overlap fixture; PR 197 repaired the different mixed SDK/spawn fixture, not this scheduling assumption. Evidence: test/pm-runner.test.ts, especially the first spawn-fallback test and the later independent-write release handshake. This resolution records ownership consolidation, not a delivered fix."
 body: ""

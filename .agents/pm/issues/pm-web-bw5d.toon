@@ -6,12 +6,12 @@ status: closed
 priority: 2
 tags: []
 created_at: "2026-08-28T23:25:38.715Z"
-updated_at: "2026-10-21T19:37:24.507Z"
+updated_at: "2026-10-22T11:45:41.349Z"
 closed_at: "2026-10-21T19:37:23.241Z"
 completed_at: "2026-10-21T19:37:23.241Z"
 author: claude
-resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #175](https://github.com/unbraind/pm-web/pull/175) (8ddae23) completes catalog ownership/capability metadata; #196 renews it. pm-rl hooks are represented in the refreshed catalog. Retained evidence: public/src/api.ts, public/src/views/packages.ts, src/routes/extensions.ts."
-comments[9]:
+resolution: "Rechecked main 874ef8f: the committed pm-rl snapshot includes hooks, and catalog tests derive and compare package capabilities from that snapshot. Evidence: src/services/package-catalog.ts, test/catalog.test.ts and test/fleet-extensions.snapshot.json. Historical PR 175 and 196 delivery receipts remain retained."
+comments[10]:
   - created_at: "2026-10-02T22:28:15.925Z"
     author: codex-sol
     text: "Reusing existing catalog-drift item for PR #161 gate repair. PM_FLEET_ROOT full gate failed two existing assertions (407/409 pass): pm-ado description overclaims sync/revision reconciliation, and live snapshot has changed pm-ado / TS Starter descriptions. Preserve capabilities/publication constraints and all assertions; align catalog to real manifest and regenerate snapshot with own script. No canonical fleet source edits or hosted operations."
@@ -40,6 +40,9 @@ comments[9]:
   - created_at: "2026-10-14T13:19:27.102Z"
     author: codex-agent
     text: "PR #196 synchronization complete against main 06958bd. npm release first attempt: 580 tests, 578 pass/1 fail/1 cancelled; one unchanged retry green 580/580, 0 fail/cancel/skip/todo. Bun first attempt fully green 580/580, 0 fail/cancel/skip/todo. Each full green gate includes production audit 0, packed consumers 4/4 and all release metadata checks. npm coverage S/L 90.60, B 80.61, F 93.45; Bun S/L 90.58, B 80.55, F 93.45; all 34 configured source files. The original Presets aggregate 300-second deadline failure is load-sensitive: retry built/source 263.036/256.095 seconds, Bun 218.519/121.904; source ENOTDIR did not recur after normal completion. Repeated CLI ownership/state/execution startups consume the budget; no deterministic defect reproduced. Timing risk remains open. Prior behavioural revert proofs retained, no new implementation changes. Details and exact commands in docs/SDK_2026_10_14.md. Claims released for verification; no items closed."
+  - created_at: "2026-10-22T11:45:41.340Z"
+    author: codex-agent
+    text: "Whole-PR evidence correction: the prior retained paths described package command UI and extension execution, rather than the pm-rl capability metadata. The current resolution and close reason now point to the actual catalog projection, its committed hooks metadata and the catalog assertions on main 874ef8f. Existing delivered status is retained; this is no new closure or runtime certification."
 notes[3]{created_at,author,text}:
   "2026-08-28T23:25:39.165Z",claude,"pm-rl merged an extension mutation guard on 2026-08-28 (unbraind/pm-rl#18), which added a hooks capability to its manifest.json. The catalog entry in src/services/package-catalog.ts still declared capabilities [commands, schema], so test/catalog.test.ts failed with: pm-rl: catalog capabilities must match manifest capabilities, actual [commands, hooks, schema] against expected [commands, schema]. Updated the entry to [commands, hooks, schema]. Worth noting the test did its job: this is a hand-maintained mirror of another repository's manifest, so it goes stale whenever any of the 20 packages changes its declared capabilities, and only this repository's own test notices. The catalog test is therefore the fleet's only detector for capability drift, and it can only run here."
   "2026-09-29T12:33:09.583Z",codex,"The live canonical pm-ado manifest changed its description to a client-foundation statement and explicitly says full sync/revision-to-history work is planned. This made pm-web's existing catalog test and snapshot freshness gate fail. Refreshed the 20-extension snapshot with npm run fleet:snapshot and aligned the user-facing pm-ado catalog description to the manifest. Direct and PM-linked catalog tests now pass 12/12; package release gate rerun is pending."
@@ -74,5 +77,5 @@ docs[3]{path,scope}:
   docs/SDK_2026_10_14.md,project
   "https://github.com/unbraind/pm-web/pull/163",project
   README.md,project
-close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #175](https://github.com/unbraind/pm-web/pull/175) (8ddae23) completes catalog ownership/capability metadata; #196 renews it. pm-rl hooks are represented in the refreshed catalog. Retained evidence: public/src/api.ts, public/src/views/packages.ts, src/routes/extensions.ts."
+close_reason: "Rechecked main 874ef8f: the committed pm-rl snapshot includes hooks, and catalog tests derive and compare package capabilities from that snapshot. Evidence: src/services/package-catalog.ts, test/catalog.test.ts and test/fleet-extensions.snapshot.json. Historical PR 175 and 196 delivery receipts remain retained."
 body: ""

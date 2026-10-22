@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026.10.22 - 2026-10-22
 
 ### Added
 
@@ -15,7 +15,6 @@
 
 ### Fixed
 
-- Default catalog freshness tests interpret a partial sibling worktree farm as the complete fleet ([pm-web-4p94](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-4p94.toon))
 - pm-web plan routes pass plan-level flags to step subcommands, so adding or editing a plan step never reaches the step ([pm-web-i1mr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-i1mr.toon))
 - pm-web plan link and unlink routes omit the required step positional, so both always fail with a usage error ([pm-web-t0mu](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-t0mu.toon))
 - pm-web test-add route passes a token shape the CLI rejects, so linking a test from the UI always fails ([pm-web-957x](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-957x.toon))
@@ -23,8 +22,6 @@
 - Graph auto-sync provisions an extension before checking whether Neo4j is configured ([pm-web-4fgv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-4fgv.toon))
 - Spawn fallback inherits a foreign PM_PATH and writes outside the requested project ([pm-web-juk7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-juk7.toon))
 - Coverage configuration failures leave stale accepted reports ([pm-web-sblf](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-sblf.toon))
-- Isolate CommonJS test executables from ambient scratch-root package metadata ([pm-web-ummd](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-ummd.toon))
-- Make spawn-overlap regression independent of process startup scheduling ([pm-web-fhob](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fhob.toon))
 - Command ownership check misses colliding handlers after separate-value global flags ([pm-web-github-ec206b5ea075-189](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-189.toon))
 - The package catalog went stale when pm-rl gained a hooks capability ([pm-web-bw5d](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-bw5d.toon))
 - Surface optional package requirements for maintenance command routes ([pm-web-pep7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-pep7.toon))
@@ -49,7 +46,7 @@
 - Bring the pm-web HTTP route layer under real-Postgres integration coverage ([pm-web-9ulj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/epics/pm-web-9ulj.toon))
 - Enable GitHub CodeQL code scanning ([pm-web-auc2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-auc2.toon))
 - Make spawned test fixtures independent of ancestor package module type ([pm-web-jp0u](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-jp0u.toon))
-- Adopt canonical proofs for shell aliases and publisher argument forwarding ([pm-web-vyxu](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-vyxu.toon))
+- Consolidate unresolved spawn-overlap scheduling work into pm-web-qdhx ([pm-web-fhob](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fhob.toon))
 - Cover the routes/pm.ts command surface and the index/server bootstrap in pm-web ([pm-web-ulgy](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ulgy.toon))
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
 - Restore changelog gates with the SDK full-list projection ([pm-web-fmby](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fmby.toon))

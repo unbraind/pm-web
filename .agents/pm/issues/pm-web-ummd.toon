@@ -1,30 +1,29 @@
 id: pm-web-ummd
-title: Isolate CommonJS test executables from ambient scratch-root package metadata
-description: "Release fixtures depend on ambient scratch-root context: extensionless CommonJS fake CLI scripts inherit an ESM package scope, failing eight assertions across extension routes, spawn fallback and project routes. A scratch root nested inside the checkout instead leaks ancestor pm-ops into two omit-dev scenarios. A dedicated external root with explicit CommonJS scope and scratch Git isolation passes the suite. Harden fixture isolation in a separate test-infrastructure change."
+title: Isolate omit-dev fixtures from ancestor pm-ops installations
+description: "The inherited ESM fixture case is tracked by pm-web-sspv. This distinct follow-up concerns omit-dev fixtures nested below an installed checkout: test/prepare-merge-driver.test.ts creates consumers under tmpdir(), and scripts/prepare-merge-driver.ts resolves pm-ops using createRequire from the consumer package. Node can then find an ancestor node_modules/pm-ops even though that consumer omitted dev dependencies. Main 874ef8f retains this lookup shape. Isolate the fixture dependency search scope without weakening launcher behavior, assertions or production package lookup."
 type: Issue
-status: closed
+status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-07T21:55:33.919Z"
-updated_at: "2026-10-21T19:38:13.214Z"
-closed_at: "2026-10-21T19:38:11.451Z"
-completed_at: "2026-10-21T19:38:11.451Z"
+updated_at: "2026-10-22T11:49:26.019Z"
 author: codex-sol
-resolution: duplicate of pm-web-sspv
 dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
   pm-web-sspv,related,"2026-10-21T19:38:04.425Z",codex-agent,"cli:update:dep",detected
-comments[5]{created_at,author,text}:
+comments[6]{created_at,author,text}:
   "2026-10-07T21:59:42.443Z",codex-sol,"The first full release run failed eight assertions across extension routes, spawn fallback and project routes because extensionless CommonJS fixture scripts inherited an ambient ESM package scope. Focused extension-route validation passes 9/9 using an isolated scratch root with an explicit CommonJS package scope. Both full release runners use that isolation without changing fixtures or weakening assertions."
   "2026-10-07T22:02:46.842Z",codex-sol,"A full run with the scratch root nested inside the checkout resolves the ESM failures but exposes two omit-dev fixture failures: Node resolves pm-ops from the ancestor node_modules. Final gate isolation uses a dedicated external scratch root with explicit CommonJS scope and its own Git repository. The scratch Git repository also contains automatic merge-driver registration from tracker initialization. Generated package attributes from the nested attempt were restored; no upstream issue was filed."
   "2026-10-07T22:09:13.654Z",codex-sol,"External scratch-root validation passes all seven prepare-merge-driver tests, including omit-dev and malformed lookup cases. The final full coverage run passes 484/484 with the same isolation and no fixture edits. PM SDK catalog acceptance found no new defect; CLI tracker initialization's automatic ancestor Git attribute registration must be contained by scratch Git isolation."
   "2026-10-07T22:17:01.464Z",codex-sol,Both full release gates now pass 484/484 using external scratch-root CommonJS and Git isolation. Fixture hardening remains open and unclaimed as follow-up work; no assertions were weakened or fixtures changed in this catalog PR.
   "2026-10-21T19:37:58.097Z",codex-agent,"Duplicate of pm-web-sspv. Reverified main ca7e188bc91e (unchanged since audit): Canonical id: pm-web-sspv for the identical three-suite ambient ESM fixture failure. Its extra omit-dev ancestor-leak caution should remain a fixture-isolation acceptance note, not a third duplicate issue. Retained evidence: test/extensions-routes.test.ts, test/pm-runner.test.ts, test/projects-routes.test.ts."
-files[4]{path,scope}:
+  "2026-10-22T11:43:59.674Z",codex-agent,"PRRT_kwDOSZgR5c6vCaio is valid against main 874ef8f. pm-web-sspv covers require-based extensionless CLI fixtures and their explicit .cjs repair in test/extensions-routes.test.ts, test/pm-runner.test.ts and test/projects-routes.test.ts. It does not own omit-dev ancestor dependency leakage. Reopened this existing item, narrowed its title/description to that separate case, and removed the duplicate resolution and closure fields. Evidence: test/prepare-merge-driver.test.ts checkout/omit-dev fixtures and scripts/prepare-merge-driver.ts createRequire lookup. The related link to sspv is retained for context, not as a duplicate resolution."
+files[5]{path,scope}:
+  scripts/prepare-merge-driver.ts,project
   test/extensions-routes.test.ts,project
   test/pm-runner.test.ts,project
   test/prepare-merge-driver.test.ts,project
   test/projects-routes.test.ts,project
-docs[1]{path,scope}:
+docs[2]{path,scope}:
   docs/catalog-pm-jev.md,project
-close_reason: duplicate of pm-web-sspv
+  docs/sdk-update-automation.md,project
 body: ""
