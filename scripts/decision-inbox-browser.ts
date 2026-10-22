@@ -109,6 +109,42 @@ try {
   const editorContext = await browser.newContext({ serviceWorkers: 'block' });
   await editorContext.addCookies([{ name: 'pm_token', value: signToken({ userId: owner, email: 'editor@example.test' }), url: after.url('/') }]);
   const editorPage = await editorContext.newPage();
+  // Create and select through shipped UI state without reloading the project list.
+  await editorPage.goto(after.url('/'));
+  await editorPage.locator('#project-selector option[value="' + project + '"]').waitFor({ state: 'attached' });
+  await editorPage.evaluate(() => (window as unknown as { __app: AppBridge }).__app.showView('projects'));
+  await editorPage.getByRole('button', { name: '+ New project', exact: true }).click();
+  const newName = `Owner capability ${randomUUID()}`;
+  // Prepare genuine package state so project creation does not download a graph dependency.
+  const freshCwd = path.join(projects, owner, newName.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+  const freshRoot = path.join(freshCwd, '.agents', 'pm');
+  await mkdir(freshCwd, { recursive: true });
+  const freshClient = new PmClient({ pmRoot: freshRoot, cwd: freshCwd, noExtensions: true, author: 'fixture-agent' });
+  await freshClient.init('owner', { defaults: true, agentGuidance: 'skip' });
+  await mkdir(path.join(freshRoot, 'extensions'), { recursive: true });
+  const graphCopy = path.join(freshRoot, 'extensions', 'pm-graph');
+  await cp(path.resolve('node_modules/pm-graph'), graphCopy, { recursive: true, filter: source => path.basename(source) !== 'node_modules' });
+  await symlink(path.resolve('node_modules'), path.join(graphCopy, 'node_modules'), 'junction');
+  await freshClient.packageActivate('pm-graph', { project: true });
+  await editorPage.locator('#cp-name').fill(newName);
+  await editorPage.locator('#cp-prefix').fill('owner');
+  const createdResponse = editorPage.waitForResponse(response => response.url().endsWith('/api/projects') && response.request().method() === 'POST');
+  await editorPage.getByRole('button', { name: 'Create project', exact: true }).click();
+  const created = await createdResponse;
+  assert.equal(created.status(), 201);
+  const freshProject = (await created.json() as { project: { id: string; slug: string } }).project;
+  assert.equal(freshProject.slug, path.basename(freshCwd));
+  const freshPlan = await freshClient.planCreate({ title: 'Immediate owner decision' });
+  await requestDecision(freshRoot, { author: 'fixture-agent', permission: 'edit' }, { planId: freshPlan.plan.id, question: 'Can the new owner respond immediately?', alternatives: ['Proceed', 'Wait'], evidence: 'Synthetic project creation receipt' });
+  await editorPage.locator('#project-selector option[value="' + freshProject.id + '"]').waitFor({ state: 'attached' });
+  await editorPage.selectOption('#project-selector', freshProject.id);
+  await openView(editorPage, 'decision-inbox');
+  await assertInboxStatus(editorPage, '1 pending decision');
+  assert.equal(await editorPage.getByRole('button', { name: 'Approve alternative' }).isEnabled(), true, 'a new owner can approve without reloading projects');
+  assert.equal(await editorPage.getByRole('button', { name: 'Acknowledge only' }).isEnabled(), true);
+  await editorPage.locator('textarea[name="reason"]').fill('Owner capability available immediately.');
+  await editorPage.getByRole('button', { name: 'Acknowledge only' }).click();
+  await editorPage.getByText('Acknowledged. The request remains pending.', { exact: false }).waitFor();
   await selectWorkspace(editorPage, after.url('/'), project);
   let resume = (): void => {};
   const held = new Promise<void>(resolve => { resume = resolve; });
@@ -161,7 +197,7 @@ try {
   assert.equal(unchanged.plan.mode, 'draft'); assert.equal(unchanged.plan.steps_summary.completed, 0);
   await editorContext.close();
 
-  await writeFile(path.join(output, 'receipt.json'), JSON.stringify({ fixture: 'synthetic local tracker and throwaway PostgreSQL', screenshots: 5, widths: [1440, 390], viewerCannotApply: true, noHorizontalOverflow: true, unsentReasonPreserved: true, acknowledgmentRemainsPending: true, approvalRecordedWithoutCompletion: true }, null, 2) + '\n');
+  await writeFile(path.join(output, 'receipt.json'), JSON.stringify({ fixture: 'synthetic local tracker and throwaway PostgreSQL', screenshots: 5, widths: [1440, 390], newOwnerCanRespondWithoutReload: true, viewerCannotApply: true, noHorizontalOverflow: true, unsentReasonPreserved: true, acknowledgmentRemainsPending: true, approvalRecordedWithoutCompletion: true }, null, 2) + '\n');
   console.log('5 local seeded screenshots; desktop/mobile fit and view-only controls verified.');
 } finally {
   await browser?.close(); await before?.close(); await after?.close();
