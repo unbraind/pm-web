@@ -62,7 +62,8 @@ export async function renderDecisionInbox(offset = 0): Promise<void> {
   } catch (error) {
     if (generation === renderGeneration && state.currentProject?.id === project.id) {
       results.setAttribute('aria-busy', 'false');
-      status.textContent = `Could not load decisions. ${error instanceof Error ? error.message : 'Refresh to retry.'}`;
+      const payload = error instanceof ApiError ? error.response as { remedy?: string } : undefined;
+      status.textContent = `Could not load decisions. ${error instanceof Error ? error.message : 'Refresh to retry.'} ${payload?.remedy ?? ''}`.trim();
     }
   }
 }

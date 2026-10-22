@@ -13,7 +13,8 @@ with the request UUID, observed revision, reason, and approved zero-based
 alternative when applicable. Ordinary decisions and future envelope versions do
 not become pending requests. Malformed recognized envelopes fail closed with
 `invalid_record` (503), naming the affected Plan and asking an editor to inspect
-and repair its stored log. They are distinct from caller `invalid_input` (400).
+and repair its stored log. New requests validate that log before appending.
+They are distinct from caller `invalid_input` (400).
 
 A SHA-256 revision binds the exact request (including evidence and author) and
 all its responses. Unrelated plan edits do not invalidate a request. Each response
@@ -74,7 +75,8 @@ artifact. No screenshots or other binary evidence are committed to the package.
 The browser regression also checks loading, populated, SSE-refreshed, empty,
 failed and recovered inbox states. A small status announces loading, counts and
 errors; interactive requests remain outside live regions, and `aria-busy` clears
-after either a successful load or an error.
+after either a successful load or an error. Typed load errors preserve the server
+repair remedy and affected Plan in this status.
 
 Behavioral revert proof: removing only the revision refusal in
 `respondToDecision` and the editor-capability refusal made all three selected
@@ -95,3 +97,13 @@ records returned invalid_input rather than invalid_record, a real file-lock
 provider's cleanup failure masked its committed response, and a failed complete
 read escaped the dependency refusal contract. Restoring the implementations
 passed the non-git SDK, CLI and real PostgreSQL HTTP regressions.
+
+An additional request preflight validates existing records before appending.
+Reverting only that guard, rebuilding and keeping the malformed-log assertions
+failed at the unchanged-decision-count check: the refused call appended a third
+decision to a two-entry log. Restoring the guard passed without that write.
+
+The browser load-remedy proof restored only renderDecisionInbox to its prior
+implementation, retained the real malformed-log HTTP scenario, and rebuilt the
+frontend. Acceptance exited 1 because the affected Plan and repair remedy were
+missing from the load status. Restoring the handler and rebuilding passed.

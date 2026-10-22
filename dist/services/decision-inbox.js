@@ -151,7 +151,7 @@ export async function requestDecision(pmRoot, actor, input) {
     decode(PREFIX + JSON.stringify(record));
     if (Buffer.byteLength(JSON.stringify([record, input.evidence, actor.author, input.planId]), 'utf8') > 14000)
         invalid();
-    await readPlan(pmRoot, input.planId);
+    project((await readPlan(pmRoot, input.planId)).plan);
     await getPmClient(pmRoot).planDecision(input.planId, { decisionText: record.question, decisionRationale: PREFIX + JSON.stringify(record), decisionEvidence: input.evidence.trim(), author: actor.author, message: 'Request a human-agent decision' });
     return project((await readPlan(pmRoot, input.planId)).plan).find(request => request.id === record.id);
 }

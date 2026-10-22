@@ -229,6 +229,9 @@ test('malformed stored envelopes name the affected Plan without reporting caller
     await requestDecision(pmRoot, editor, input);
     await client.planDecision(input.planId, { decisionText: 'Malformed stored record', decisionRationale: prefix + rationale });
     await assert.rejects(listDecisionInbox(pmRoot), error => error instanceof DecisionInboxError && error.code === 'invalid_record' && error.status === 503 && error.remedy.includes(input.planId));
+    const before = (await client.planShow(input.planId, { depth: 'deep' })).plan.decisions?.length;
+    await assert.rejects(requestDecision(pmRoot, editor, input), refusal('invalid_record'));
+    assert.equal((await client.planShow(input.planId, { depth: 'deep' })).plan.decisions?.length, before, 'invalid stored logs must refuse before appending another request');
   }
   for (const defect of ['duplicate', 'evidence', 'author']) {
     const { pmRoot, client, input } = await fixture(t);

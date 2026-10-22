@@ -149,6 +149,14 @@ try {
   await editorPage.unroute(inboxUrl);
   await editorPage.getByRole('button', { name: 'Refresh', exact: true }).click();
   await assertInboxStatus(editorPage, '0 pending decisions');
+  await client.planDecision(plan.plan.id, { decisionText: 'Malformed synthetic envelope', decisionRationale: 'pm-web:decision-inbox:v1:{' });
+  const malformed = editorPage.waitForResponse(response => response.url().includes('/pm/decision-inbox?') && response.status() === 503);
+  await editorPage.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await malformed;
+  await editorPage.locator('[data-inbox-status]').filter({ hasText: 'Could not load decisions.' }).waitFor();
+  const repair = (await editorPage.locator('[data-inbox-status]').textContent())!;
+  assert.ok(repair.includes(`Inspect Plan ${plan.plan.id}`), 'load failures must preserve the server repair remedy and affected Plan');
+  await assertInboxStatus(editorPage, repair);
   const unchanged = await client.planShow(plan.plan.id);
   assert.equal(unchanged.plan.mode, 'draft'); assert.equal(unchanged.plan.steps_summary.completed, 0);
   await editorContext.close();
