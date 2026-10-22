@@ -67,9 +67,26 @@ Open http://localhost:4000 in your browser.
 
 ## Installation as pm Package
 
+For the public package, initialize a tracker in a plain project directory and
+activate the pinned registry release. npm installs runtime dependencies before
+activation; no git repository is required.
+
 ```bash
-pm install github.com/unbraind/pm-web --global
+npx -y @unbrained/pm-cli@2026.10.21 init --defaults --agent-guidance skip
+npx -y @unbrained/pm-cli@2026.10.21 install npm:@unbrained/pm-web@2026.10.21 --project
 ```
+
+With Bun, use `bunx` instead of `npx -y` for both commands.
+The explicit `npm:` source selects the scoped public registry package.
+PostgreSQL configuration is required to start the server; package activation alone
+does not establish database readiness.
+
+GitHub-source activation alone does not install runtime dependencies. It requires
+built `dist/` output and every `package.json` runtime dependency (including `pg`)
+resolvable from the activated module graph. A fresh source-only project lacks
+these dependencies and activation fails. Use the registry route above for fresh
+projects; source development needs the dependency installation and build described
+in the Node.js section before local activation.
 
 The package repository is at **github.com/unbraind/pm-web**.
 

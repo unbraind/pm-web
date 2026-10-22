@@ -63,3 +63,13 @@ test("detached log documentation states location, raw contents and unbounded ret
   ]) assert.match(retention, requirement);
   assert.match(readme, /docs\/startup-readiness\.md#detached-log-retention/);
 });
+
+test("README installs the pinned registry package in project scope", () => {
+  const installation = readFileSync(new URL("../README.md", import.meta.url), "utf8")
+    .split("## Installation as pm Package\n")[1]?.split("\n## ")[0];
+  assert.ok(installation, "installation instructions must be present");
+  assert.match(installation, /npx -y @unbrained\/pm-cli@2026\.10\.21 init --defaults --agent-guidance skip/);
+  assert.match(installation, /npx -y @unbrained\/pm-cli@2026\.10\.21 install npm:@unbrained\/pm-web@2026\.10\.21 --project/);
+  assert.doesNotMatch(installation, /pm install (?:github\.com\/)?unbraind\//);
+  assert.match(installation, /bunx/);
+});
