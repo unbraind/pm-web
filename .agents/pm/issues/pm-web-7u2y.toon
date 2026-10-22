@@ -2,15 +2,31 @@ id: pm-web-7u2y
 title: Include pm-memory and pm-rlm in the package catalog and fleet snapshot
 description: "The 2026-10-19 capacity-documentation release gate at public revision 8e9cc9713778f9ff945eb28c57d827d20cf75995, with explicit read-only canonical fleet metadata, reports pm-memory and pm-rlm as missing from the package catalog. The exact-package-set, fleet-completeness and committed-snapshot tests fail. The documentation-only change does not modify catalog code. Add the packages and refresh evidence in a separate change after verifying package ownership and intended capabilities. Related pm-web-h4vh; measurements and release evidence are in docs/capacity/2026-10-19-ladder.md."
 type: Issue
-status: open
+status: in_progress
 priority: 2
 tags[2]: catalog,follow-up
 created_at: "2026-10-19T17:58:26.126Z"
-updated_at: "2026-10-19T17:58:26.126Z"
+updated_at: "2026-10-21T18:32:11.363Z"
 author: codex-agent
-files[2]{path,scope}:
+comments[7]{created_at,author,text}:
+  "2026-10-21T16:05:53.089Z",codex-agent,"Plan: verify public package manifests, command registrations and npm availability, add memory and RLM catalog entries and independent roster membership, then regenerate fleet snapshots through the existing pipeline. No package pins or hosted services change."
+  "2026-10-21T16:16:24.836Z",codex-agent,"The existing full generator encountered an unrelated pm-github/newer-SDK import incompatibility. Added an explicit package-name refresh mode to the same pipeline; refreshed only pm-memory and pm-rlm through real SDK registration discovery and npm lookups. Both return npm 404, so installation is refused; optional RLM endpoint/key requirements remain visible. Other receipts are preserved byte-for-byte."
+  "2026-10-21T16:29:07.375Z",codex-agent,"Catalog behavioral revert proof: in an isolated non-git scratch copy, retained the new test and refreshed snapshot/roster but restored the original catalog entries. The targeted regression fails because pm-memory is absent. Candidate catalog/UI tests pass 26/26. The 24 preexisting extension receipts and native command snapshot remain unchanged."
+  "2026-10-21T16:36:25.847Z",codex-agent,"Built the committed server catalog output from the TypeScript source so packed and built consumers receive both entries. Generated only the catalog JavaScript and source map; no pins, unrelated fleet receipts or native snapshot changed."
+  "2026-10-21T16:54:57.406Z",codex-agent,Both new catalog repositories were verified public. Full fleet registration SDK incompatibility is tracked separately as pm-web-v6p4; scoped refresh is explicitly not a whole-fleet freshness claim.
+  "2026-10-21T17:22:41.914Z",codex-agent,"The same complete Node 22/26 npm/Bun CI gates pass 770/770 each at 67fd2de, including source/built full-fleet catalog acceptance and four packed consumers. Both new entries remain correctly unreleased. Local npm still reproduces the older catalog timeout/cleanup and server graph-read timing holds; no local aggregate pass is claimed."
+  "2026-10-21T18:31:45.080Z",codex-agent,"Catalog implementation, generated receipts, independent roster and built output are complete. Catalog/UI focused tests pass 26/26; the entry-only behavioral revert fails discovery/gating. Full code-head Node 22/26 npm/Bun CI passes 770/770 per gate, including source/built catalog and packed consumers. Local aggregate/consumer timing holds remain recorded rather than declared passes. Full snapshot SDK discovery follow-up is pm-web-v6p4. Releasing the claim; this item remains in_progress for orchestrator verification. Final checks and artifact links are maintained in https://github.com/unbraind/pm-web/pull/236"
+files[7]{path,scope}:
+  dist/services/package-catalog.js,project
+  dist/services/package-catalog.js.map,project
+  scripts/generate-fleet-snapshot.ts,project
   src/services/package-catalog.ts,project
+  test/catalog.test.ts,project
   test/fleet-extensions.snapshot.json,project
-docs[1]{path,scope}:
+  test/fleet-package-repos.fixture.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/catalog.test.ts test/catalog-ui.test.ts,project,codex-agent,"2026-10-21T16:16:08.160Z",local_mutation,feat/graph-layout-scale
+docs[2]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
+  docs/fleet-package-catalog.md,project
 body: ""

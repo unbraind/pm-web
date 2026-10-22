@@ -1,4 +1,5 @@
 import type { CanvasNode } from './graph-canvas.js';
+import { repelNodes } from './graph-repulsion.js';
 
 /** Mutable physics position, copied to a worker so the visible graph stays static. */
 export interface PhysicsNode extends CanvasNode { x: number; y: number; vx: number; vy: number; fx: number | null; fy: number | null }
@@ -9,25 +10,9 @@ export interface PhysicsParams { repulsion: number; facetDistance: number; linkD
 /** One self-contained request to compute the existing 180-step force layout. */
 export interface SettleRequest { nodes: PhysicsNode[]; edges: PhysicsEdge[]; params: PhysicsParams; tags: string[] }
 
-/** Advance the unchanged force calculation once, returning the cooled alpha. */
+/** Advance shared force physics with spatial repulsion, returning the cooled alpha. */
 export function tickPhysics(nodes: PhysicsNode[], edges: PhysicsEdge[], params: PhysicsParams, tagColors: Set<string>, a: number): number {
-    const n = nodes.length;
-    // Repulsion O(n²) — fine for ≤400 nodes
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const A = nodes[i], B = nodes[j];
-        const dx = B.x - A.x || 0.01;
-        const dy = B.y - A.y || 0.01;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < 0.01) continue;
-        const d  = Math.sqrt(d2);
-        const f  = (params.repulsion / d2) * a;
-        const fx = (dx / d) * f;
-        const fy = (dy / d) * f;
-        A.vx -= fx; A.vy -= fy;
-        B.vx += fx; B.vy += fy;
-      }
-    }
+    repelNodes(nodes, params.repulsion * a);
 
     // Spring forces
     for (const e of edges) {
