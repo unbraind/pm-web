@@ -1,0 +1,201 @@
+{
+  "recordedUtc": "2026-10-21T16:38:19.153050+00:00",
+  "environment": "Shared Linux CPU environment; heavy concurrent load; sampled CPU pressure 95-97 percent",
+  "node": "v24.19.0",
+  "beforeRevision": "ca7e188",
+  "candidatePhysicsRevision": "42d27108699b18348c94ac56ae473ebed2ccf621",
+  "seed": "sunflower-2.399963",
+  "steps": 180,
+  "shape": "chain",
+  "edges": "nodes minus one",
+  "theta": 0.75,
+  "exactThrough": 512,
+  "seededTrackerItems": 16,
+  "sourceSha256": {
+    "public/src/views/graph-canvas.ts": "1e878e7f25c9dab6206adc55c8e2cc29b7c7104052083cb3452e3a8a4e81a4e8",
+    "public/src/views/graph-physics.ts": "ac7c7916c5f46fb2af76354008d7c512b1c6d4d126e6332dc6fed1c32e6c5046",
+    "public/src/views/graph-repulsion.ts": "143643f4519cab234a73d6aab3b366fb8126a5c3f80a66976e2f8b5c249c2e26",
+    "public/src/views/graph-settle-worker.ts": "b5324449f4232dda232e667cc27ffe05ec03a6f408376c31a488cabe5f7f502b"
+  },
+  "observations": [
+    {
+      "nodes": 500,
+      "before": {
+        "count": 500,
+        "edges": 499,
+        "setDataMs": 33.200000047683716,
+        "settleMs": 2533.899999976158,
+        "frameP95Ms": 283.2999999999997,
+        "frameMaxMs": 416.60000000000014,
+        "framesOver16_7": 11,
+        "frames": 12,
+        "inputP95Ms": 342.59999990463257,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 161.9468655420862
+      },
+      "after": {
+        "count": 500,
+        "edges": 499,
+        "setDataMs": 62.5,
+        "settleMs": 7086,
+        "frameP95Ms": 716.6999999999998,
+        "frameMaxMs": 733.3000000000002,
+        "framesOver16_7": 14,
+        "frames": 15,
+        "inputP95Ms": 837.2999999523163,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 161.9468655420862
+      },
+      "settleSpeedup": 0.35759243578551486,
+      "radiusChangePercent": 0.0
+    },
+    {
+      "nodes": 2000,
+      "before": {
+        "count": 2000,
+        "edges": 1999,
+        "setDataMs": 34.700000047683716,
+        "settleMs": 36047.800000071526,
+        "frameP95Ms": 566.6000000000004,
+        "frameMaxMs": 1533.300000000003,
+        "framesOver16_7": 103,
+        "frames": 104,
+        "inputP95Ms": 741.3999999761581,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 240.02232613070848
+      },
+      "after": {
+        "count": 2000,
+        "edges": 1999,
+        "setDataMs": 243.09999990463257,
+        "settleMs": 22415.099999904633,
+        "frameP95Ms": 716.7000000000007,
+        "frameMaxMs": 3766.5,
+        "framesOver16_7": 49,
+        "frames": 50,
+        "inputP95Ms": 1127.8000000715256,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 237.5189649565981
+      },
+      "settleSpeedup": 1.6081926915438653,
+      "radiusChangePercent": -1.0429701330146757
+    },
+    {
+      "nodes": 5000,
+      "before": {
+        "count": 5000,
+        "edges": 4999,
+        "setDataMs": 243.5,
+        "settleMs": 283712.3000000715,
+        "frameP95Ms": 866.5999999999767,
+        "frameMaxMs": 2066.600000000006,
+        "framesOver16_7": 564,
+        "frames": 565,
+        "inputP95Ms": 1180.2000000476837,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 316.7765876646599
+      },
+      "after": {
+        "count": 5000,
+        "edges": 4999,
+        "setDataMs": 245.09999990463257,
+        "settleMs": 46668.699999928474,
+        "frameP95Ms": 733.3000000000029,
+        "frameMaxMs": 5783.199999999997,
+        "framesOver16_7": 92,
+        "frames": 93,
+        "inputP95Ms": 1232.3999999761581,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 313.6080925673994
+      },
+      "settleSpeedup": 6.079284402619022,
+      "radiusChangePercent": -1.000230200286989
+    },
+    {
+      "nodes": 10000,
+      "before": {
+        "count": 10000,
+        "edges": 9999,
+        "setDataMs": 438.60000002384186,
+        "settleMs": 920313.3999999762,
+        "frameP95Ms": 849.9000000000233,
+        "frameMaxMs": 7916.399999999965,
+        "framesOver16_7": 2085,
+        "frames": 2086,
+        "inputP95Ms": 1258.1999999284744,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 392.6794146540196
+      },
+      "after": {
+        "count": 10000,
+        "edges": 9999,
+        "setDataMs": 497,
+        "settleMs": 117876.89999997616,
+        "frameP95Ms": 1083.2999999999884,
+        "frameMaxMs": 12199.5,
+        "framesOver16_7": 159,
+        "frames": 160,
+        "inputP95Ms": 1567.1000000238419,
+        "staticUntilDone": true,
+        "finite": true,
+        "radius": 388.2869696308029
+      },
+      "settleSpeedup": 7.807410951595794,
+      "radiusChangePercent": -1.1185829608834408
+    }
+  ],
+  "laterAfterObservations": [
+    {
+      "count": 500,
+      "edges": 499,
+      "setDataMs": 47.60000002384186,
+      "settleMs": 2523,
+      "frameP95Ms": 233.29999999999973,
+      "frameMaxMs": 316.664,
+      "framesOver16_7": 14,
+      "frames": 15,
+      "inputP95Ms": 302.10000002384186,
+      "staticUntilDone": true,
+      "finite": true,
+      "radius": 161.9468655420862
+    },
+    {
+      "count": 2000,
+      "edges": 1999,
+      "setDataMs": 66.60000002384186,
+      "settleMs": 9203.700000047684,
+      "frameP95Ms": 300,
+      "frameMaxMs": 1500,
+      "framesOver16_7": 49,
+      "frames": 50,
+      "inputP95Ms": 546.5,
+      "staticUntilDone": true,
+      "finite": true,
+      "radius": 237.5189649565981
+    }
+  ],
+  "firstTickForceEvaluations": [
+    {
+      "nodes": 1000,
+      "candidate": 58299,
+      "pairwise": 499500
+    },
+    {
+      "nodes": 4000,
+      "candidate": 303203,
+      "pairwise": 7998000
+    },
+    {
+      "nodes": 10000,
+      "candidate": 859665,
+      "pairwise": 49995000
+    }
+  ]
+}

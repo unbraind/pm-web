@@ -542,3 +542,22 @@ test("an unreleased package that is already installed keeps its management actio
     );
   }
 });
+
+test('memory and RLM remain discoverable with truthful unpublished install gating', () => {
+  for (const [name, commands] of [
+    ['pm-memory', ['pm memory consolidate', 'pm memory export', 'pm memory get', 'pm memory import', 'pm memory index', 'pm memory recall', 'pm memory remember', 'pm memory verify']],
+    ['pm-rlm', ['pm rlm replay', 'pm rlm resume', 'pm rlm run', 'pm rlm tree']],
+  ] as const) {
+    const entry = findCatalogEntry(name);
+    assert.ok(entry, `${name} must appear in the package catalog`);
+    assert.equal(entry.availability, 'unreleased');
+    assert.equal(entry.category, 'extension');
+    assert.deepEqual(entry.capabilities, ['commands', 'schema']);
+    assert.deepEqual(entry.commands, commands);
+    assert.equal(resolveNpmSpec(name), null);
+    assert.ok(!entry.links?.npm, 'an unpublished package must not advertise an npm listing');
+  }
+  const rlm = findCatalogEntry('pm-rlm')!;
+  assert.equal(rlm.requiresService?.optional, true);
+  assert.equal(rlm.requiresCredentials?.[0].optional, true);
+});

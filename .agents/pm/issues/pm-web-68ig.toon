@@ -2,13 +2,121 @@ id: pm-web-68ig
 title: Reduce quadratic background force-layout cost for large browser graphs
 description: "Round 3 of PR 216 fixes the PR-introduced main-thread blocking loop with a coalesced module worker. The pairwise repulsion algorithm itself predates the restyle and remains quadratic. A real production GraphCanvas with 2,000 synthetic item nodes and 1,999 dependency edges blocked reheat for 24,256.8 ms before the worker change. Worker runs return reheat in 0.1-0.2 ms but background completion measured 35,285.9 ms and 59,488 ms under different concurrent test loads. Final positions remain static until publication. Algorithmic scaling is a separate heavy lift from the restyle. Design sketch: benchmark seeded graph families; compare a Barnes-Hut spatial tree or bounded neighbor approximation with exact pairwise forces on small graphs; define explicit convergence, completion-time and layout-quality budgets; retain worker cancellation, control debounce and one final position publication. Evidence is in scripts/brand-browser-round3.ts and docs/brand-review.md; parent work is pm-web-i0td and the review is graph-canvas.ts:490 on PR 216."
 type: Issue
-status: open
+pm_format_version: 2
+status: in_progress
 priority: 2
 tags[3]: browser,graph,performance
 created_at: "2026-10-17T10:32:17.790Z"
-updated_at: "2026-10-17T10:33:07.442Z"
+updated_at: "2026-10-21T20:22:12.396Z"
 author: codex-agent
 acceptance_criteria: "Record seeded 2,000-, 5,000- and 10,000-node browser measurements with graph shape, edge count, environment class, input responsiveness, completion time and layout-quality comparisons; preserve cancellation and static final publication; use behavioral regressions rather than loosening timing or coverage gates."
-docs[1]{path,scope}:
+comments[19]{created_at,author,text}:
+  "2026-10-21T16:05:48.489Z",codex-agent,"Plan: replace pairwise repulsion in the shared worker/frame physics with deterministic Barnes-Hut aggregation; preserve cooling, springs, pins, cancellation and final publication. Measure seeded 500/2000/5000/10000-node chains before and after, add force-quality and behavioral complexity regressions, and capture local synthetic tracker browser evidence. Public package only."
+  "2026-10-21T16:19:38.252Z",codex-agent,"Behavioral revert proof: restored only tickPhysics to its original pairwise body and rebuilt frontend output. The growth regression failed with 499500 to 7998000 distance evaluations (16.01x versus the 7x ceiling). Restored the candidate function and rebuilt. Four physics regressions pass; exact small forces, less than 5% RMS spatial force error, deterministic settling, pins/tags/facets and degenerate points are covered. Host CPU pressure exceeds 95%; browser frame budgets will be reported separately from algorithmic work."
+  "2026-10-21T16:22:25.556Z",codex-agent,Linked physics tests pass 4/4 and catalog tests pass 26/26 through pm test --run --progress. The initial complete release command exceeded the linked runner default of 120 seconds during lint; the retry grants the outer runner 3600 seconds without changing any package thresholds or internal test deadlines. Added an artifact-only screenshot workflow so review images can be attached to the PR without binary files in Git history.
+  "2026-10-21T16:25:43.483Z",codex-agent,"The full npm gate exposed two lint errors in the new browser evidence harness: promise executors returned server handles. Both callbacks now use explicit void bodies. No production calculation or gate threshold changed; retrying both complete runtime gates on the corrected source."
+  "2026-10-21T16:29:16.888Z",codex-agent,"Existing headless canvas cancellation regression passed: initial worker scheduling, delayed fit, replacement restart, stale-result rejection, empty data and early hierarchical cancellation. Added a real SDK-seeded non-git tracker regression with GIT_CEILING_DIRECTORIES and a PATH containing only Node; graph physics and memory catalog discovery/gating pass without a git executable."
+  "2026-10-21T16:31:21.603Z",codex-agent,"The zero-duplication gate found shared listener boilerplate between the new and existing browser harnesses. The new harness now awaits the listen callback and rejects listener errors, removing the clone without changing thresholds. CI artifact review also confirms the same 2000-node production layout result: 2090.2 ms before versus 793.3 ms after on the CI runner; those timings are separate from the loaded local host."
+  "2026-10-21T16:34:07.886Z",codex-agent,Visual inspection caught untranslated package keys in the standalone screenshot harness. It now awaits the production i18n initializer and asserts that no packages.* keys remain in the captured card text. Fresh local captures pass; production UI and physics are unchanged.
+  "2026-10-21T16:38:29.731Z",codex-agent,"Complete local browser chain ladder (500/2000/5000/10000 nodes, n-1 edges, 180 steps): settle before 2.534/36.048/283.712/920.313 s; after 7.086/22.415/46.669/117.877 s. The 10000-node run is 7.81x faster. Radius changes are 0/-1.04/-1.00/-1.12 percent, with finite static-until-final positions throughout. Shared CPU pressure was 95-97 percent; frame p95 remains over 16.7 ms in both phases. Later 500/2000 candidate observations were 2.523/9.204 s. Raw bounded evidence and source hashes are in docs/performance/graph-layout-measurements.json."
+  "2026-10-21T16:54:54.828Z",codex-agent,"CI at 4347a3d ran 769 tests: 767 passed, with two workflow-policy failures because the new official artifact uploader had not been explicitly approved. Added approval only for actions/upload-artifact in graph-scale-evidence.yml; owner checks, immutable SHA pins, release comments and all existing unsafe-workflow rejections remain enforced. A regression refuses the uploader from other workflow files and refuses a floating pin. No coverage or timing threshold changed."
+  "2026-10-21T17:11:14.857Z",codex-agent,"Complete isolated local npm release gate exits 1 after 2102.285 s: 770 tests, 767 pass, 2 fail, 1 canceled, zero skipped. All new graph physics, no-git, catalog and scoped workflow-policy cases pass. Existing built catalog acceptance hits 300000 ms, its following source listing reports spawn ENOTDIR (pm-web-qdhx), and the unchanged 2000-item server graph read takes 13922 ms against 10000 ms (pm-web-hqqp). Observed source coverage S/L 92.13%, B 82.49%, F 95.97% exceeds unchanged floors, but failed runs are not accepted coverage evidence. Later release stages were not reached; independent Bun gate is running."
+  "2026-10-21T17:22:36.813Z",codex-agent,"Exact-code-head CI 67fd2de55bd12cf7049e0382f5c4a1b1b9c1c351 is green on Node 22 and 26. Both runtimes pass complete npm and Bun release gates: 770/770 tests per gate, zero fail/canceled/skipped, capacity 2/2, packed npm/native-Bun consumers 4/4 (host 2026.10.19 and minimum 2026.10.4, standalone SDK 2026.10.19). Configured source coverage S/L 92.85%; Node 22 B 82.59%, F 95.45%; Node 26 npm B 82.58% and Bun B 82.59%, F 96.26%. Typecheck, lint, zero duplication, docstrings, audit, package and changelog/attestation checks pass. CodeQL and the before/after artifact pass. Local npm remains the separately recorded failed receipt; local Bun is still running. CI: https://github.com/unbraind/pm-web/actions/runs/39639377337"
+  "2026-10-21T18:10:25.238Z",codex-agent,"Independent local Bun release attempt ended at the 3600000 ms linked-runner bound (3600.411 s observed), SIGTERM, with no terminal aggregate test count. Partial output repeats built catalog 300000 ms cancellation, following source catalog failure, and large-corpus read failure, plus fatal-log/OIDC/observability/spawn timing or process failures before termination. No local Bun aggregate pass is claimed. Running unreached release stages separately; four complete CI gates at 67fd2de remain green, 770/770 each."
+  "2026-10-21T18:16:11.595Z",codex-agent,"Separate local accept:capacity attempt exits 1 after 121.573 s: 2 tests, 0 pass, 1 fail, 1 canceled, zero skipped. The 20-subscriber/five-writer smoke hits 60000 ms; the following two-subscriber trace case reports setup failure. The other remaining release stages are now running without the capacity short-circuit. No capacity bound, readiness claim or production code changed."
+  "2026-10-21T18:24:23.287Z",codex-agent,"Separate local post-coverage checks: production audit reports zero vulnerabilities and pack dry-run succeeds. Packed consumer acceptance fails during its first npm consumer install at the unchanged 300000 ms command bound; no local consumer receipt is accepted. This does not override complete same-code CI packed consumers 4/4 per gate. Capacity remains separately failed 0/2; changelog/date/attestation are being checked separately after these short-circuits."
+  "2026-10-21T18:31:33.153Z",codex-agent,"Final local static validation passes changelog freshness, version-derived date and publish attestation via linked test 8 (188.830 s). Audit zero vulnerabilities and pack dry-run pass; local capacity remains 0/2 (one failure, one cancellation), and packed acceptance times out during its first npm install with no accepted consumer receipts. Full local npm remains 767/770 (two fail, one canceled); local Bun reaches its outer bound without aggregate totals. Code head 67fd2de has four complete CI gates green, 770/770 each, capacity 2/2 and consumers 4/4. Independent automated reviewer responses supply no substantive approval. Releasing the implementation claim with this item in_progress for orchestrator verification. PR 236 contains final metadata-head checks and screenshot artifacts; no merge, release or hosted change."
+  "2026-10-21T19:46:24.309Z",codex-agent,"Review round for PR #236: fetched every review thread and all comments (one unresolved thread, PRRT_kwDOSZgR5c6u6q5s; no pagination remaining). Latest CodeRabbit review has no outside-diff or nitpick findings. Branch is current and contains main. Verify and repair the interrupted measurement table, add a behavioral regression and revert proof, inspect the entire PR diff for this defect class, run focused tests plus typecheck/lint, and use unchanged npm/Bun CI release gates for complete evidence."
+  "2026-10-21T19:52:36.815Z",codex-agent,"PRRT_kwDOSZgR5c6u6q5s is valid: the blank line after the delimiter ended the measurement table before all four rows. Removed only that blank line. Added test/graph-layout-docs.test.ts to require all recorded observations in a contiguous six-column table and compare displayed values with the raw JSON. Behavioral revert proof: restored only the blank line, ran node --test test/graph-layout-docs.test.ts, and observed 0/1 pass (actual rows empty versus four expected); restored the fix and observed 1/1 pass, zero skipped/canceled. Self-reviewed all PR changes and both changed Markdown documents for this defect class; no other interrupted tables found. Latest CodeRabbit review has no outside-diff or nitpick findings. Initial npm ci failed with EALLOWSCRIPTS from user npm configuration; removing environment overrides alone reproduced it. Installation passes with the user config excluded and allow-scripts environment overrides cleared, without repository changes."
+  "2026-10-21T19:53:18.183Z",codex-agent,"The focused regression passes 1/1 through pm test --run --only-last --progress, zero failures/cancellations/skips. Linked result persistence is disabled by project policy, so this comment retains the receipt. npm run typecheck and npm run build:test pass. Lint and server rebuild remain in progress; full npm/Bun gates will run in CI as requested for the saturated host."
+  "2026-10-21T20:22:10.933Z",codex-agent,"Review-round validation at a2805bec3268a025ccc8233285234ef146ac46bf: local npm run typecheck, npm run build:test, npm run lint and npm run build:server all pass; rebuilt committed dist has no drift. Focused linked node --test test/graph-layout-docs.test.ts passes 1/1; the blank-line-only revert fails 0/1, as recorded above. npm run changelog:full and npm run changelog:check pass. Complete CI run https://github.com/unbraind/pm-web/actions/runs/39665711907 is green: Node 22 and 26 each pass isolated-identity npm run release:check AND bun run release:check at unchanged thresholds, 771/771 tests per gate, zero failures/cancellations/skips; capacity 2/2 and packed consumers 4/4 per gate (pinned host 2026.10.19, minimum 2026.10.4, standalone SDK 2026.10.19). Configured coverage includes 47 source files: S/L 92.85-92.87%, branches 82.57-82.63%, functions 95.45-96.26%. CodeQL and synthetic browser evidence also pass. No local test timeout occurred this round; initial dependency installation EALLOWSCRIPTS was resolved by excluding user npm configuration. Prior loaded-host timing observations remain in docs/performance/graph-layout.md. No new PM CLI/SDK defect found; linked-test result persistence remains disabled by existing project policy and receipts are recorded in comments. Releasing the claim with item in_progress for orchestrator verification; review thread remains untouched. A tracker-only follow-up commit will retain this receipt and receive final-head CI verification."
+files[11]{path,scope}:
+  .github/workflows/graph-scale-evidence.yml,project
+  public/src/sw.ts,project
+  public/src/views/graph-canvas.ts,project
+  public/src/views/graph-physics.ts,project
+  public/src/views/graph-repulsion.ts,project
+  scripts/graph-scale-browser.ts,project
+  scripts/graph-scale-fixture.ts,project
+  test/graph-layout-docs.test.ts,project
+  test/graph-no-git.test.ts,project
+  test/graph-physics.test.ts,project
+  test/workflow-security.test.ts,project
+tests[9]:
+  - command: "npm run build:frontend && node --test test/graph-physics.test.ts"
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T16:15:29.584Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+  - command: "env HOME=$(mktemp -d) GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 npm run release:check"
+    scope: project
+    timeout_seconds: 3600
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T16:15:37.939Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+    updated_by: codex-agent
+    updated_at: "2026-10-21T16:19:52.112Z"
+  - command: "env HOME=$(mktemp -d) GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 bun run release:check"
+    scope: project
+    timeout_seconds: 3600
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T16:15:46.069Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+    updated_by: codex-agent
+    updated_at: "2026-10-21T16:20:02.371Z"
+  - command: node --test test/graph-no-git.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T16:28:36.297Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+  - command: node --test test/workflow-security.test.ts test/workflow-update-automation.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T16:54:35.988Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+  - command: "env HOME=$(mktemp -d) GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 sh -c \"npm run accept:capacity && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date && npm run verify:release-publish-attestation\""
+    scope: project
+    timeout_seconds: 1800
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T18:10:25.086Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+  - command: "env HOME=$(mktemp -d) GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 sh -c \"npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date && npm run verify:release-publish-attestation\""
+    scope: project
+    timeout_seconds: 1800
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T18:14:07.964Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+  - command: "npm run changelog:check && npm run verify:release-changelog-date && npm run verify:release-publish-attestation"
+    scope: project
+    timeout_seconds: 600
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T18:24:20.744Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+  - command: node --test test/graph-layout-docs.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-21T19:52:45.616Z"
+      source_kind: local_mutation
+      source_ref: feat/graph-layout-scale
+docs[3]{path,scope}:
   docs/brand-review.md,project
+  docs/performance/graph-layout-measurements.json,project
+  docs/performance/graph-layout.md,project
 body: ""

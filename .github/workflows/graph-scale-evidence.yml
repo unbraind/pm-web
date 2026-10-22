@@ -1,0 +1,48 @@
+name: Graph scale review evidence
+
+on:
+  pull_request:
+    paths:
+      - 'public/src/views/graph-*.ts'
+      - 'public/src/sw.ts'
+      - 'scripts/graph-scale-*.ts'
+      - 'src/services/package-catalog.ts'
+      - 'test/graph-physics.test.ts'
+      - '.github/workflows/graph-scale-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npm run build:frontend
+      - run: node node_modules/playwright-core/cli.js install --with-deps chromium
+      - name: Capture before and after from a synthetic non-git tracker
+        env:
+          GRAPH_EVIDENCE: ${{ runner.temp }}/graph-scale-evidence
+          GRAPH_COUNTS: 500,2000
+          GRAPH_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: |
+          GRAPH_PHASE=before node scripts/graph-scale-browser.ts
+          GRAPH_PHASE=after node scripts/graph-scale-browser.ts
+      - name: Attach screenshots and measurements
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: graph-scale-before-after-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/graph-scale-evidence
+          if-no-files-found: error
+          retention-days: 30
