@@ -247,4 +247,10 @@ test('malformed stored envelopes name the affected Plan without reporting caller
     await assert.rejects(listDecisionInbox(pmRoot), error => error instanceof DecisionInboxError && error.code === 'invalid_record' && error.remedy.includes(input.planId), defect);
     await assert.rejects(respondToDecision(pmRoot, editor, { planId: input.planId, requestId: request.id, revision: request.revision, action: 'acknowledge', reason: 'Read' }), refusal('invalid_record'));
   }
+  const { pmRoot, client, input } = await fixture(t);
+  const oversized = { kind: 'request', id: 'oversized', question: 'Q' + '\u0001'.repeat(999), alternatives: Array.from({ length: 8 }, (_, index) => String(index) + '\u0001'.repeat(239)) };
+  await client.planDecision(input.planId, { decisionText: 'Oversized stored envelope', decisionRationale: prefix + JSON.stringify(oversized), decisionEvidence: 'E' + '\u0001'.repeat(1999), author: editor.author });
+  await assert.rejects(listDecisionInbox(pmRoot), error => error instanceof DecisionInboxError && error.code === 'invalid_record' && error.status === 503 && error.remedy.includes(input.planId));
+  await assert.rejects(requestDecision(pmRoot, editor, input), refusal('invalid_record'));
+  assert.equal((await client.planShow(input.planId, { depth: 'deep' })).plan.decisions?.length, 1, 'oversized stored records must refuse before append');
 });

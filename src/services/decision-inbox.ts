@@ -119,10 +119,12 @@ function projectRecords(plan: Pick<PlanCommandResult['plan'], 'id' | 'decisions'
     if (requestIds.has(record.id)) invalid();
     requestIds.add(record.id);
     const responses = responsesById.get(record.id) ?? [];
-    return [{ planId: plan.id, id: record.id, question: record.question, alternatives: record.alternatives, evidence: entry.evidence ?? '', author: entry.author, createdAt: entry.ts,
+    const request: DecisionRequest = { planId: plan.id, id: record.id, question: record.question, alternatives: record.alternatives, evidence: entry.evidence ?? '', author: entry.author, createdAt: entry.ts,
       revision: createHash('sha256').update(JSON.stringify([entry, ...responses.map(row => row.entry)])).digest('hex'),
       status: responses.some(row => row.record?.kind === 'approve') ? 'answered' as const : 'pending' as const,
-      acknowledgments: responses.filter(row => row.record?.kind === 'acknowledge').length }];
+      acknowledgments: responses.filter(row => row.record?.kind === 'acknowledge').length };
+    if (Buffer.byteLength(JSON.stringify(request), 'utf8') + 1 > 16000) invalid();
+    return [request];
   });
 }
 
@@ -156,7 +158,6 @@ export async function listDecisionInbox(pmRoot: string, options: { limit?: numbe
   let bytes = 256;
   for (const request of requests.slice(offset, offset + limit)) {
     const size = Buffer.byteLength(JSON.stringify(request), 'utf8') + 1;
-    if (size > 16000) invalid();
     if (bytes + size > 16384) break;
     page.push(request); bytes += size;
   }

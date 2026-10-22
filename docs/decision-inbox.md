@@ -15,6 +15,9 @@ not become pending requests. Malformed recognized envelopes fail closed with
 `invalid_record` (503), naming the affected Plan and asking an editor to inspect
 and repair its stored log. New requests validate that log before appending.
 They are distinct from caller `invalid_input` (400).
+Projection also checks that each stored request fits the JSON row budget. A
+record with bounded field lengths can still exceed that budget after JSON
+escaping; it receives the same Plan-specific refusal before listing or append.
 
 A SHA-256 revision binds the exact request (including evidence and author) and
 all its responses. Unrelated plan edits do not invalidate a request. Each response
@@ -107,3 +110,9 @@ The browser load-remedy proof restored only renderDecisionInbox to its prior
 implementation, retained the real malformed-log HTTP scenario, and rebuilt the
 frontend. Acceptance exited 1 because the affected Plan and repair remedy were
 missing from the load status. Restoring the handler and rebuilding passed.
+
+The stored-byte-budget proof restored only `projectRecords` and
+`listDecisionInbox`, retained the real SDK-created oversized envelope, and
+rebuilt the server. The malformed-log regression failed with invalid_input/400
+and no affected Plan. Restoring projection-time validation passed and left the
+decision count unchanged when another request was refused.
