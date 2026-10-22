@@ -56,7 +56,9 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
         assert.equal(caller.jobs?.[canonical.job]?.with?.["pm-github-version"], release[1], "the workflow release and package version must match");
       } else {
         assert.ok(TRUSTED_ACTION_OWNERS.has(action.split("/")[0]!), `${file}: action owner is not allowed: ${action}`);
-        assert.ok(TRUSTED_ACTIONS.has(action), `${file}: action is not allowed: ${action}`);
+        // The official uploader is approved only for synthetic screenshot evidence.
+        const screenshotUpload = file === "graph-scale-evidence.yml" && action === "actions/upload-artifact";
+        assert.ok(TRUSTED_ACTIONS.has(action) || screenshotUpload, `${file}: action is not allowed: ${action}`);
         assert.match(version, /^v(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}$/, `${file}: ${action} must document a valid release version`);
       }
       const revision = match[2]!.toLowerCase();
@@ -91,6 +93,13 @@ test("CodeQL pins that differ between workflow files are refused", () => {
   const second = assertWorkflowActionPins(step("b".repeat(40), "v4.32.0"), "second.yml");
   assert.doesNotThrow(() => assertSingleCodeqlRelease(first));
   assert.throws(() => assertSingleCodeqlRelease([...first, ...second]), /one commit and version across all workflows/);
+});
+
+test("the pinned artifact uploader is approved only in the screenshot workflow", () => {
+  const upload = "steps:\n  - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4\n";
+  assert.doesNotThrow(() => assertWorkflowActionPins(upload, "graph-scale-evidence.yml"));
+  assert.throws(() => assertWorkflowActionPins(upload, "ci.yml"), /action is not allowed/);
+  assert.throws(() => assertWorkflowActionPins(upload.replace(/@[a-f0-9]{40}/, "@v4"), "graph-scale-evidence.yml"), /full 40-character/);
 });
 
 test("the canonical gated sync caller requires an immutable pin and matching package release", () => {

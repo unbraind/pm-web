@@ -21,7 +21,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FLEET_SNAPSHOT_PATH, FLEET_NATIVE_COMMANDS_PATH, readFleetExtensions } from "../src/services/fleet-snapshot.ts";
+import { FLEET_SNAPSHOT_PATH, FLEET_NATIVE_COMMANDS_PATH, readFleetExtensions, type FleetExtension } from "../src/services/fleet-snapshot.ts";
 import { readFleetCommandMetadata, readNativeFleetCommands } from "./read-fleet-commands.ts";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -72,9 +72,15 @@ function npmServes(name: string): boolean | null {
   }
 }
 
-const commands = await readFleetCommandMetadata(fleetRoot, extensions.map((extension) => extension.name));
-const nativeCommands = { "pm-rust": readNativeFleetCommands(fleetRoot) };
-const withRegistry = extensions.map((extension) => ({
+// Explicit names refresh only those receipts; other packages can require a newer
+// SDK than this host pins. The default still regenerates the complete snapshot.
+const requested = process.argv.slice(2);
+for (const name of requested) {
+  if (!extensions.some((extension) => extension.name === name)) throw new Error(`Unknown fleet extension: ${name}`);
+}
+const selected = requested.length ? extensions.filter((extension) => requested.includes(extension.name)) : extensions;
+const commands = await readFleetCommandMetadata(fleetRoot, selected.map((extension) => extension.name));
+const withRegistry = selected.map((extension) => ({
   ...extension,
   commands: commands.get(extension.name)!,
   npmPublished: npmServes(extension.name),
@@ -92,6 +98,12 @@ if (unreachable.length > 0) {
 }
 
 const target = path.join(packageRoot, FLEET_SNAPSHOT_PATH);
-writeFileSync(target, `${JSON.stringify(withRegistry, null, 2)}\n`, "utf8");
-writeFileSync(path.join(packageRoot, FLEET_NATIVE_COMMANDS_PATH), `${JSON.stringify(nativeCommands, null, 2)}\n`, "utf8");
-console.log(`Wrote ${withRegistry.length} fleet extensions to ${target}`);
+const previous = requested.length ? JSON.parse(readFileSync(target, "utf8")) as FleetExtension[] : [];
+const merged = [...previous.filter((extension) => !requested.includes(extension.name)), ...withRegistry]
+  .sort((a, b) => a.name.localeCompare(b.name));
+const nativeCommands = requested.length ? undefined : { "pm-rust": readNativeFleetCommands(fleetRoot) };
+writeFileSync(target, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
+if (nativeCommands) {
+  writeFileSync(path.join(packageRoot, FLEET_NATIVE_COMMANDS_PATH), `${JSON.stringify(nativeCommands, null, 2)}\n`, "utf8");
+}
+console.log(`Refreshed ${withRegistry.length} fleet extensions (${merged.length} total)`);
