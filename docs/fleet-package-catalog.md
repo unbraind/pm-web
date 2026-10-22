@@ -205,3 +205,16 @@ between 2026.10.10 and 2026.10.11. Tracked integrity/history remains clean and
 reviewed reconciliation leaves no drift or pending receipts. Fresh independent
 CI's pinned managed-extension setup passes strict PM health. This does not
 establish health of inherited local extension state or a hosted deployment.
+
+### Scoped refresh
+
+`npm run fleet:snapshot -- pm-memory pm-rlm` refreshes those package receipts
+through the same manifest, real SDK command-discovery and npm-availability
+pipeline. Set `PM_FLEET_ROOT` to the fleet metadata directory as for a complete
+refresh. This mode preserves all other extension receipts and the native
+command snapshot. The no-argument command still refreshes the whole fleet;
+scoped refresh does not certify freshness for packages it did not inspect.
+Both additions currently have no npm release, so the catalog lists their
+commands and documentation but offers no install action. RLM's optional model
+endpoint and configurable credential requirement are visible; local memory,
+inspection and replay do not require provider credentials.
