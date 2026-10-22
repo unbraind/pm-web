@@ -2,12 +2,15 @@ id: pm-web-gated-issue-sync
 title: Enable the gated pm-github issue sync and remove the braces chain
 description: "Adopt the pinned reusable gated issue-sync caller; consume latest published fleet dependencies and exact PM CLI 2026.10.15 in runtime and development; remove the glob advisory chain. Related: pm-github-aiok (pm-github adoption task). Leave pm-web-8pml in_progress with full-audit evidence. No hosted deployment work."
 type: Chore
-status: in_progress
+status: closed
 priority: 2
 tags[1]: changed
 created_at: "2026-10-15T07:04:57.239Z"
-updated_at: "2026-10-15T12:26:48.267Z"
+updated_at: "2026-10-21T19:37:01.198Z"
+closed_at: "2026-10-21T19:36:58.765Z"
+completed_at: "2026-10-21T19:36:58.765Z"
 author: codex-agent
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): The SHA-pinned .github/workflows/pm-github-sync.yml caller is present on main. Toolchain manifests record adopted canonical tooling; later scheduled-job failures are separate from caller adoption. Retained evidence: .github/workflows/pm-github-sync.yml, package.json."
 comments[6]{created_at,author,text}:
   "2026-10-15T07:05:09.819Z",codex-agent,"Baseline: direct fast-glob 3.3.3 and pm-ops 2026.10.6 carry micromatch 4.0.8/braces 3.0.3; dev audit has 4 high findings. CI already supports workflow_dispatch. Update runtime and explicit development PM CLI pins to 2026.10.15, and pm-ops/pm-changelog/pm-graph to latest published 2026.10.14. No code imports fast-glob. The workflow supplier test currently allows only third-party actions, so extend it narrowly for the exact canonical reusable workflow with an immutable SHA and matching release/package version, retaining all negative action checks and adding red/revert evidence."
   "2026-10-15T07:06:51.690Z",codex-agent,"Workflow policy red/green/revert proof: the new canonical caller regression failed 0/1 with the original validator (unapproved owner); the narrow updated validator passes workflow-security 6/6. Restoring only assertWorkflowActionPins from origin/main makes the new regression fail 0/1 again; fixed policy restored. Negative cases retain immutable SHA, exact supplier/path, dedicated caller/job, valid release comment and matching package input requirements. Both glob-chain trees are empty and the full dev-included audit is clean. Disposable local PostgreSQL is ready for release gates; no Docker or hosted data access."
@@ -27,4 +30,5 @@ tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
   node scripts/with-test-db.ts node --test test/graph-export-fidelity.test.ts test/prepare-merge-driver.test.ts,project,600,codex-agent,"2026-10-15T07:27:00.957Z",local_mutation,chore/gated-issue-sync-and-braces-free-gates
 docs[1]{path,scope}:
   docs/dependency-update-policy.md,project
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): The SHA-pinned .github/workflows/pm-github-sync.yml caller is present on main. Toolchain manifests record adopted canonical tooling; later scheduled-job failures are separate from caller adoption. Retained evidence: .github/workflows/pm-github-sync.yml, package.json."
 body: ""

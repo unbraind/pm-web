@@ -1,14 +1,14 @@
 id: pm-web-4p94
-title: Default catalog freshness tests interpret a partial sibling worktree farm as the complete fleet
-description: "Fixed in PR #226: catalog freshness reads a sibling farm only when PM_FLEET_ROOT is explicitly configured. Default committed roster, snapshot, native-command and synthetic discovery checks remain enabled; an explicit incomplete farm still fails. The ambient partial-farm regression fails with the default-selection fix reverted and passes when restored. Child node:test contexts are cleared so subprocess assertions execute. Focused tests pass 38/38; actual CI with PM_FLEET_ROOT unset passes both npm and Bun full gates on Node 22 and 26, each 677/677. No catalog snapshots, pins or thresholds changed."
+title: Normalize relative PM_FLEET_ROOT in command snapshot discovery
+description: "The default partial-sibling-farm selection was delivered in PR 226. Main 874ef8f retains a separate unresolved relative PM_FLEET_ROOT case: test/fleet-commands.test.ts passes the configured string directly to readFleetCommandMetadata, which joins relative package directories; readFleetCommands then uses that relative directory as a symlink target inside a disposable copy. The snapshot generator normalizes its own root, but that does not normalize the optional command-snapshot test path. Keep this residual dependency-link case owned here. Relevant evidence is test/catalog.test.ts, test/fleet-snapshot.test.ts, test/fleet-commands.test.ts and scripts/read-fleet-commands.ts."
 type: Issue
 status: in_progress
 priority: 3
 tags[2]: catalog,testing
 created_at: "2026-10-15T23:07:53.640Z"
-updated_at: "2026-10-19T19:52:02.036Z"
+updated_at: "2026-10-22T11:49:21.819Z"
 author: codex-agent
-comments[8]{created_at,author,text}:
+comments[10]{created_at,author,text}:
   "2026-10-16T11:26:38.059Z",codex-agent,"Related fleet-root workaround caveat reproduced during pm-web-pep7: a relative PM_FLEET_ROOT reaches scripts/read-fleet-commands.ts without normalization, so the dependency symlink created inside a disposable package copy points relative to that copy instead of the source checkout. The optional command-snapshot test then reports a missing @typesafe-ai/sdk dependency for Jev despite the canonical checkout dependency being present. Resolving the same fleet root at invocation time made the complete command-snapshot check pass. Follow-up: normalize the configured fleet root before constructing disposable dependency symlinks, alongside the existing partial-sibling root-selection work. No implementation or threshold changes for this follow-up."
   "2026-10-17T11:01:31.050Z",codex-agent,"Round 3 release attempts provide a controlled topology comparison: the package worktree fails catalog membership and live-fleet snapshot equality, while an isolated standalone copy passes those same checks. All 258 TypeScript/CSS source files were verified byte-identical between the two copies, and both use fresh HOME with global/system Git config disabled. The standalone profile matches CI and uses independent test storage. No catalog source, fixture roster, snapshot or test condition changed."
   "2026-10-19T18:20:53.351Z",codex-agent,"Checking whether catalog freshness reads ambient sibling packages. Will make external fleet validation explicit, retain committed snapshot invariants and synthetic farm coverage, and run both release gates with PM_FLEET_ROOT unset."
@@ -17,13 +17,31 @@ comments[8]{created_at,author,text}:
   "2026-10-19T18:36:09.447Z",codex-agent,"Linked catalog/fleet command completed with PM_FLEET_ROOT unset: 38/38 pass, zero failures/cancelled/skipped/todo. Explicit synthetic-farm checks execute in a fresh node:test context; no ambient fleet snapshots or dependency pins were changed."
   "2026-10-19T18:54:54.053Z",codex-agent,"The first full isolated-home npm run with PM_FLEET_ROOT unset passed every catalog/fleet test; all five original freshness failures are resolved. Its one unrelated-to-catalog failure is the new HTTP event payload field, being removed while preserving internal receipts."
   "2026-10-19T19:51:45.123Z",codex-agent,"Actual CI proof with PM_FLEET_ROOT unset is green at ad380c7 on both Node 22 and 26: npm run release:check and bun run release:check each pass 677/677 tests, 2/2 capacity scenarios and 4/4 packed consumers with zero production vulnerabilities. Both CI jobs pass strict tracker health, fresh-build parity, changelog and release-attestation checks. Local host timing failures are separately retained in pm-web-qdhx."
+  "2026-10-22T11:40:34.907Z",codex-agent,"PR 237 review round after pulling the branch and merging main 874ef8f: all three unresolved review threads and all comments fetched, with no pagination or Outside diff range findings. PRRT_kwDOSZgR5c6vCaig and PRRT_kwDOSZgR5c6vCaik are valid. The capacity-script closure paths were unrelated; the delivered sibling-farm fix is verified in test/catalog.test.ts and test/fleet-snapshot.test.ts. Its proof does not close the distinct relative-root path in test/fleet-commands.test.ts and scripts/read-fleet-commands.ts. Reopened this owner and corrected its current scope and evidence; earlier audit statements are retained as history. Whole-PR review covered 37 reconciled records, checked 17 local closure commit anchors are ancestors of main, and checked 43 evidence paths exist on main. Existence alone is not a behavioral proof: unrelated mappings and still-unresolved scopes are being corrected separately. Tracker-only review uses main evidence in place of new product regression tests."
+  "2026-10-22T11:49:18.688Z",codex-agent,"Review correction results: all three unresolved threads are valid and addressed in tracker state. Catalog evidence is now test/catalog.test.ts, test/fleet-snapshot.test.ts, test/fleet-commands.test.ts and scripts/read-fleet-commands.ts; relative-root scope remains in progress here. pm-web-ummd now owns the distinct omit-dev fixture case, and pm-web-vyxu remains in progress for canonical convergence. The still-present 120 ms spawn assumption is explicitly consolidated from pm-web-fhob into its existing open owner pm-web-qdhx; the consolidation title avoids a false delivered-fix changelog entry. Unrelated retained paths were corrected for pm-web-bw5d, pm-web-xucb and pm-web-jp0u. No closure commands were used and no source files changed. npm ci passed: 295 packages added, 338 audited, zero vulnerabilities. PM-linked node_modules/.bin/pm --pm-path .agents/pm health --strict-exit passed 1/1 command using tracker context with isolated identity. Final changelog regeneration/check and strict health follow after claim release. Item/history prefixes will be verified append-only before commit."
 files[4]{path,scope}:
   scripts/read-fleet-commands.ts,project
   test/catalog.test.ts,project
   test/fleet-commands.test.ts,project
   test/fleet-snapshot.test.ts,project
-tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
-  node --test test/catalog.test.ts test/fleet-snapshot.test.ts test/fleet-commands.test.ts,project,codex-agent,"2026-10-19T18:31:27.427Z",local_mutation,fix/realtime-duplicate-and-delivery-latency
-docs[1]{path,scope}:
+tests[2]:
+  - command: node --test test/catalog.test.ts test/fleet-snapshot.test.ts test/fleet-commands.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-19T18:31:27.427Z"
+      source_kind: local_mutation
+      source_ref: fix/realtime-duplicate-and-delivery-latency
+  - command: node_modules/.bin/pm --pm-path .agents/pm health --strict-exit
+    scope: project
+    timeout_seconds: 600
+    pm_context_mode: tracker
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-22T11:47:40.149Z"
+      source_kind: local_mutation
+      source_ref: chore/reconcile-tracker-1021
+docs[2]{path,scope}:
   docs/capacity/2026-10-19-ladder.md,project
+  docs/fleet-package-catalog.md,project
 body: ""

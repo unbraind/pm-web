@@ -2,11 +2,13 @@ id: pm-web-8jjr
 title: jscpd 5.3.2 exposes pm-web zero-duplication failures
 description: "Dependabot PR #163 upgrades jscpd from 4.3.0 to 5.3.2. The unchanged zero-threshold gate reports ten clone pairs and 71 duplicated lines across graph rendering, PM routes, script entry guard, and HTTP/event tests."
 type: Issue
-status: in_progress
+status: closed
 priority: 1
 tags: []
 created_at: "2026-09-29T12:21:34.777Z"
-updated_at: "2026-10-04T13:42:19.707Z"
+updated_at: "2026-10-21T19:34:11.576Z"
+closed_at: "2026-10-21T19:34:09.589Z"
+completed_at: "2026-10-21T19:34:09.589Z"
 author: codex
 estimated_minutes: 240
 acceptance_criteria: "Remove the detected duplication without relaxing the zero threshold; preserve graph, route, and realtime behavior; pass release and packed npm/Bun gates."
@@ -14,6 +16,7 @@ reporter: codex
 severity: medium
 environment: "canonical pm-web checkout, PR #163 head dcb96dd, npm ci branch lockfile, Node 24.19"
 repro_steps: gh pr checkout 163; npm ci --ignore-scripts; npm run duplication
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #163](https://github.com/unbraind/pm-web/pull/163) (86c31b1) repairs duplication while retaining the zero threshold; subsequent source gates retain the canonical scanner. Retained evidence: public/src/views/graph.ts, scripts/accept-packed.ts, scripts/docstring-gate.ts."
 expected_result: The unchanged zero-threshold duplication gate passes with zero clone pairs and the package release gate remains green.
 actual_result: "Rebased prerequisite: 409/409 tests, zero skips; duplication0; configured coverage84.41/80.54/77.82 over32 files, statements unmeasured. Strict PM history/reconciliation/health pass; packed npm/Bun host10.4 acceptance passes. Remote exact-head CI/reviews pending; no hosted deployment or whole-source/private-data certification."
 comments[11]{created_at,author,text}:
@@ -123,4 +126,5 @@ docs[4]:
   - path: test/identity-audit.test.ts
     scope: project
     note: Direct and full CI audit requires complete Git history; the bounded PM snapshot intentionally excludes .git.
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #163](https://github.com/unbraind/pm-web/pull/163) (86c31b1) repairs duplication while retaining the zero threshold; subsequent source gates retain the canonical scanner. Retained evidence: public/src/views/graph.ts, scripts/accept-packed.ts, scripts/docstring-gate.ts."
 body: ""
