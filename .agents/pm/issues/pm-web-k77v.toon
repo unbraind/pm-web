@@ -6,9 +6,7 @@ status: in_progress
 priority: 1
 tags: []
 created_at: "2026-09-29T12:27:14.956Z"
-updated_at: "2026-10-22T19:10:50.441Z"
-assignee: codex-agent
-claim_principal: codex-agent
+updated_at: "2026-10-22T19:40:08.814Z"
 author: codex
 estimated_minutes: 45
 acceptance_criteria: Lockfile resolves ip-address at a patched version; production and full npm audit report zero vulnerabilities; package release gates pass.
@@ -18,9 +16,10 @@ environment: pm-web PR #163 package-lock.json; express-rate-limit 8.7.0 transiti
 repro_steps: npm ci --ignore-scripts; npm ls ip-address; npm audit --omit=dev --json
 expected_result: Production dependency tree resolves a patched ip-address version; npm audit --omit=dev reports zero findings.
 actual_result: ip-address 10.5.0 resolved and npm audit reports one package with two moderate advisories.
-comments[2]{created_at,author,text}:
+comments[3]{created_at,author,text}:
   "2026-10-22T19:08:51.141Z",codex-agent,"Reusing this existing production dependency audit item for GHSA-rxp7-6hxx-x8q5, added to the advisory database on October 22. PR 238 CI passed 787/787 suite and 2/2 capacity tests on both Node 22 and 26, then npm audit refused locked ip-address 10.7.3 (one moderate finding). express-rate-limit accepts ^10.2.0; update only the transitive lock entry to patched 10.7.4, leaving manifest ranges, SDK/devDependency pins and release thresholds unchanged. Earlier 10.7.2 and 10.7.3 audit receipts remain historical evidence, not current safety claims. Retain item in progress for orchestrator verification."
   "2026-10-22T19:10:50.441Z",codex-agent,"Dependency-only revert proof: retained the existing npm run audit:prod gate and reverted only package-lock.json node_modules/ip-address to its previous 10.7.3 version, tarball and integrity. The gate failed exit 1 on GHSA-rxp7-6hxx-x8q5 (one moderate vulnerability). Restoring the 10.7.4 lock entry passed exit 0 with zero vulnerabilities. Clean npm ci then installed 295 packages and audited 338 with zero vulnerabilities. No manifest range, SDK/devDependency pin or audit threshold changed. The installed patch is the compatible fix documented by the upstream advisory; the full npm/Bun CI matrix must be repeated on this dependency tree."
+  "2026-10-22T19:39:52.705Z",codex-agent,"Patched dependency verification completed: installed ip-address is 10.7.4; the existing npm run audit:prod linked command passed 1/1 after separately acknowledging its reviewed legacy branch provenance. The old-lock-only revert failed audit (one moderate finding); restored lock and clean npm ci passed with zero vulnerabilities across 338 audited packages. CI https://github.com/unbraind/pm-web/actions/runs/39838114802 passed all four npm/Bun release gates on Node 22 and 26, each with 787/787 suite, 2/2 capacity and 4/4 packed scenarios; production audits report zero findings. The final PR 238 checks provide combined-head verification. This item remains in progress for orchestrator verification, with its claim released when implementation work stops."
 notes[2]{created_at,author,text}:
   "2026-09-29T12:33:08.873Z",codex,"Official GitHub advisories GHSA-rpw4-54j3-4h4q and GHSA-2vr4-cq9g-pvrc affected transitive production ip-address 10.5.0 from express-rate-limit 8.7.0. npm audit fix --package-lock-only resolved ip-address 10.7.2; clean npm ci, full npm audit, and the PM-linked npm run audit:prod now each report zero vulnerabilities. Full package release gate is still being rerun before candidate PR push."
   "2026-09-29T12:45:00.583Z",codex,"The exact candidate's PM-linked release:check now passes after clean npm ci on lockfile ip-address 10.7.2. It includes production audit with zero findings and packed acceptance. GitHub CI, bot review, and historical publication clearance remain unverified; this item stays in progress on PR #163."

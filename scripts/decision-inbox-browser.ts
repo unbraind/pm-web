@@ -26,6 +26,7 @@ async function openView(page: Page, view: 'plan' | 'decision-inbox'): Promise<vo
 /** Select the seeded workspace through the shipped project selector on either local server. */
 async function selectWorkspace(page: Page, url: string, project: string): Promise<void> {
   page.on('pageerror', error => { console.error('Browser error:', error.message); });
+  page.on('console', message => { if (message.type() === 'error') console.error('Browser console:', message.text()); });
   await page.goto(url);
 
   await page.waitForSelector('#project-selector option[value="' + project + '"]', { state: 'attached' });
@@ -172,6 +173,10 @@ try {
   await editorPage.getByRole('button', { name: 'Refresh', exact: true }).click();
   await editorPage.getByText('1 acknowledged', { exact: false }).waitFor();
   await editorPage.locator('input[name="alternative"][value="1"]').check();
+  broadcastProjectEvent(project, { type: 'workspace-changed', data: { userId: owner } });
+  await editorPage.waitForFunction(() => !document.querySelector<HTMLInputElement>('#content-decision-inbox input[name="alternative"][value="1"]')?.checked || document.querySelector('#content-decision-inbox .page-subtitle')?.textContent?.includes('New activity is available.'));
+  assert.equal(await editorPage.locator('input[name="alternative"][value="1"]').isChecked(), true, 'SSE must preserve a selected alternative before a reason is typed');
+  await editorPage.getByText('New activity is available.', { exact: false }).waitFor();
   await editorPage.locator('textarea[name="reason"]').fill('Remote collaborators require shared access.');
   await editorPage.getByRole('button', { name: 'Approve alternative' }).click();
   await editorPage.getByText('Alternative approved and recorded in the plan.', { exact: false }).waitFor();
@@ -197,7 +202,7 @@ try {
   assert.equal(unchanged.plan.mode, 'draft'); assert.equal(unchanged.plan.steps_summary.completed, 0);
   await editorContext.close();
 
-  await writeFile(path.join(output, 'receipt.json'), JSON.stringify({ fixture: 'synthetic local tracker and throwaway PostgreSQL', screenshots: 5, widths: [1440, 390], newOwnerCanRespondWithoutReload: true, viewerCannotApply: true, noHorizontalOverflow: true, unsentReasonPreserved: true, acknowledgmentRemainsPending: true, approvalRecordedWithoutCompletion: true }, null, 2) + '\n');
+  await writeFile(path.join(output, 'receipt.json'), JSON.stringify({ fixture: 'synthetic local tracker and throwaway PostgreSQL', screenshots: 5, widths: [1440, 390], newOwnerCanRespondWithoutReload: true, viewerCannotApply: true, noHorizontalOverflow: true, unsentAlternativePreserved: true, unsentReasonPreserved: true, acknowledgmentRemainsPending: true, approvalRecordedWithoutCompletion: true }, null, 2) + '\n');
   console.log('5 local seeded screenshots; desktop/mobile fit and view-only controls verified.');
 } finally {
   await browser?.close(); await before?.close(); await after?.close();

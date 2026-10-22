@@ -87,12 +87,12 @@ async function respond(form: HTMLFormElement, request: InboxRequest, projectId: 
   }
 }
 
-/** Preserve unsent reasoning when collaboration events arrive; invite an explicit refresh instead. */
+/** Preserve unsent choices and reasoning when collaboration events arrive; invite an explicit refresh instead. */
 export function refreshDecisionInbox(): void {
   const el = document.getElementById('content-decision-inbox');
-  if (el && [...el.querySelectorAll('textarea')].some(input => input.value.trim())) {
+  if (el && ([...el.querySelectorAll('textarea')].some(input => input.value.trim()) || el.querySelector('input[name="alternative"]:checked'))) {
     const subtitle = el.querySelector('.page-subtitle');
-    if (subtitle) subtitle.textContent = 'New activity is available. Refresh to inspect it; copy your unsent reason first.';
+    if (subtitle) subtitle.textContent = 'New activity is available. Note your choice and copy any unsent reason before refreshing.';
     return;
   }
   void renderDecisionInbox();
