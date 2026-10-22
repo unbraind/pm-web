@@ -45,10 +45,10 @@ export interface DecisionInboxPage {
 /** Stable refusals with a concrete next action for human and agent clients. */
 export class DecisionInboxError extends Error {
   /** Build a transport-neutral refusal without exposing storage details. */
-  readonly code: 'invalid_input' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable';
+  readonly code: 'invalid_input' | 'invalid_record' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable';
   readonly remedy: string;
   readonly status: number;
-  constructor(code: 'invalid_input' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable', remedy: string, status: number) {
+  constructor(code: DecisionInboxError['code'], remedy: string, status: number) {
     super(code.replaceAll('_', ' '));
     this.name = 'DecisionInboxError';
     this.code = code; this.remedy = remedy; this.status = status;
@@ -70,6 +70,13 @@ function invalid(): never {
   throw new DecisionInboxError('invalid_input', 'Supply a plan id, bounded text, 2–8 distinct alternatives and evidence; responses need the current revision, action, reason and a zero-based choice for approval.', 400);
 }
 
+/** Preserve absent pagination defaults while refusing blank or structured transport values. */
+export function decisionInboxNumber(raw: unknown, fallback: number): number {
+  if (raw === undefined) return fallback;
+  if (typeof raw === 'number') return raw;
+  return typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : Number.NaN;
+}
+
 /** Decode only explicit versioned entries; unrelated core decisions remain outside this workflow. */
 function decode(rationale: string | undefined): InboxRecord | undefined {
   if (!rationale?.startsWith(PREFIX)) return;
@@ -88,6 +95,15 @@ function decode(rationale: string | undefined): InboxRecord | undefined {
 
 /** Project the existing core log without inventing an item type or changing plan lifecycle. */
 function project(plan: Pick<PlanCommandResult['plan'], 'id' | 'decisions'>): DecisionRequest[] {
+  try { return projectRecords(plan); }
+  catch (error) {
+    if (!(error instanceof DecisionInboxError) || error.code !== 'invalid_input') throw error;
+    throw new DecisionInboxError('invalid_record', `Inspect Plan ${plan.id} with pm plan show and repair malformed or duplicate decision-inbox records before retrying.`, 503);
+  }
+}
+
+/** Validate the stored envelopes as one log so ambiguous requests cannot receive responses. */
+function projectRecords(plan: Pick<PlanCommandResult['plan'], 'id' | 'decisions'>): DecisionRequest[] {
   const decisions = plan.decisions ?? [];
   const records = decisions.map(entry => ({ entry, record: decode(entry.rationale) }));
   const responsesById = new Map<string, typeof records>();
@@ -131,7 +147,9 @@ async function readPlan(pmRoot: string, id: string): Promise<PlanCommandResult> 
 export async function listDecisionInbox(pmRoot: string, options: { limit?: number; offset?: number } = {}): Promise<DecisionInboxPage> {
   const limit = options.limit ?? 20, offset = options.offset ?? 0;
   if (!Number.isInteger(limit) || limit < 1 || limit > 50 || !Number.isSafeInteger(offset) || offset < 0) invalid();
-  const corpus = await listAllComplete({}, { pmRoot, noExtensions: true });
+  const corpus = await listAllComplete({}, { pmRoot, noExtensions: true }).catch(() => {
+    throw new DecisionInboxError('unavailable', 'Inspect tracker health and availability before refreshing the inbox.', 503);
+  });
   const requests = corpus.items.filter(item => item.type === 'Plan').flatMap(item => project({ id: item.id, decisions: item.plan_decisions ?? [] }))
     .filter(request => request.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
   const page: DecisionRequest[] = [];
@@ -174,5 +192,5 @@ export async function respondToDecision(pmRoot: string, actor: DecisionActor, in
     const record: ResponseRecord = { kind: input.action, id: input.requestId, revision: input.revision, reason: input.reason.trim(), ...(input.action === 'approve' ? { alternative: input.alternative } : {}) };
     await getPmClient(pmRoot).planDecision(planId, { decisionText: input.action === 'approve' ? `Approved: ${request.alternatives[input.alternative!]}` : `Acknowledged: ${request.question}`, decisionRationale: PREFIX + JSON.stringify(record), author: actor.author, message: 'Respond to a human-agent decision; no review or completion' });
     return { request: project((await readPlan(pmRoot, planId)).plan).find(row => row.id === input.requestId)!, codeReview: false, taskCompletion: false };
-  } finally { await release(); }
+  } finally { await release().catch(() => undefined); }
 }

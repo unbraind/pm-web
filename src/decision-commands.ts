@@ -1,18 +1,18 @@
 import { createPmCliExpectedError, EXIT_CODE, type CommandHandlerContext, type ExtensionApi } from '@unbrained/pm-cli/sdk';
-import { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
+import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
 
 /** Dispatch the same typed operations used by HTTP without requiring a server, database or git. */
 export async function runInboxCommand(ctx: CommandHandlerContext, action: 'list' | 'request' | 'respond'): Promise<unknown> {
   const actor = { author: String(ctx.options.actor ?? process.env.PM_AUTHOR ?? 'local-user'), permission: 'edit' as const };
   try {
-    if (action === 'list') return await listDecisionInbox(ctx.pm_root, { limit: Number(ctx.options.limit ?? 20), offset: Number(ctx.options.offset ?? 0) });
+    if (action === 'list') return await listDecisionInbox(ctx.pm_root, { limit: decisionInboxNumber(ctx.options.limit, 20), offset: decisionInboxNumber(ctx.options.offset, 0) });
     let input: unknown;
     try { input = JSON.parse(String(ctx.options.input ?? '')); } catch { throw new DecisionInboxError('invalid_input', 'Pass --input containing the documented request or response JSON object.', 400); }
     if (action === 'request') return await requestDecision(ctx.pm_root, actor, input as DecisionRequestInput);
     return await respondToDecision(ctx.pm_root, actor, input as DecisionResponseInput);
   } catch (error) {
     if (!(error instanceof DecisionInboxError)) throw error;
-    throw createPmCliExpectedError(`${error.code}: ${error.remedy}`, { exitCode: error.status === 409 ? EXIT_CODE.CONFLICT : error.status === 404 ? EXIT_CODE.NOT_FOUND : EXIT_CODE.USAGE, context: { code: error.code, nextSteps: [error.remedy] } });
+    throw createPmCliExpectedError(`${error.code}: ${error.remedy}`, { exitCode: error.status === 409 ? EXIT_CODE.CONFLICT : error.status === 404 ? EXIT_CODE.NOT_FOUND : error.status === 503 ? EXIT_CODE.DEPENDENCY_FAILED : EXIT_CODE.USAGE, context: { code: error.code, nextSteps: [error.remedy] } });
   }
 }
 

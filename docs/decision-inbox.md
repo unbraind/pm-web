@@ -11,7 +11,9 @@ Each request is an ordinary core `plan_decisions` entry: readable question in
 and 2–8 distinct alternatives. Replies append `approve` or `acknowledge` envelopes
 with the request UUID, observed revision, reason, and approved zero-based
 alternative when applicable. Ordinary decisions and future envelope versions do
-not become pending requests. Malformed recognized envelopes fail closed.
+not become pending requests. Malformed recognized envelopes fail closed with
+`invalid_record` (503), naming the affected Plan and asking an editor to inspect
+and repair its stored log. They are distinct from caller `invalid_input` (400).
 
 A SHA-256 revision binds the exact request (including evidence and author) and
 all its responses. Unrelated plan edits do not invalidate a request. Each response
@@ -22,6 +24,8 @@ The additional response lock coordinates independent inbox processes sharing the
 same tracker, with a 5-second wait and 120-second lease. A stale or duplicate
 submission fails instead of silently approving newer evidence. A lost HTTP reply
 is resolved by refreshing; automatic retry never adds a second approval.
+Lock cleanup is best-effort after a response: a provider's release failure cannot
+replace a committed result or mask an earlier refusal.
 
 This is a cooperative inbox protocol. A tracker owner can directly edit core
 state with other SDK operations; raw filesystem edits or direct fabrication of
@@ -35,6 +39,10 @@ and a JSON byte budget. Offset pagination reflects current pending work: after
 another writer resolves requests, refresh from offset zero to obtain a new view.
 It is not an immutable snapshot cursor. No asynchronous background reader claims
 that a partial source list is complete.
+HTTP and CLI pagination defaults apply only to absent values; blank or structured
+values are invalid input. CLI unavailability, including a failed complete read,
+uses `DEPENDENCY_FAILED`; missing Plans use `NOT_FOUND`, stale revisions use
+`CONFLICT`, and invalid caller input uses `USAGE`.
 
 ## Validation
 
@@ -77,3 +85,13 @@ The accessibility revert proof restored only the previous `renderDecisionInbox`
 implementation, retained the new browser assertions and rebuilt the frontend.
 Browser acceptance exited 1 at the separate-live-status assertion (0 elements
 instead of 1); restoring the rendering function and rebuilding passed again.
+
+The second review round retained new assertions while separately reverting only
+the CLI dispatch, HTTP route, stored-record projection, response cleanup, and
+complete-list error handling. All five variants built successfully and failed
+their behavioral regressions. The old CLI returned USAGE (2) rather than
+DEPENDENCY_FAILED (5), blank HTTP offsets returned 200 rather than 400, stored
+records returned invalid_input rather than invalid_record, a real file-lock
+provider's cleanup failure masked its committed response, and a failed complete
+read escaped the dependency refusal contract. Restoring the implementations
+passed the non-git SDK, CLI and real PostgreSQL HTTP regressions.

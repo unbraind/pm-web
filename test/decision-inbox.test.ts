@@ -6,7 +6,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import test, { type TestContext } from 'node:test';
-import { PmClient } from '@unbrained/pm-cli/sdk';
+import { PmClient, EXIT_CODE, isPmCliExpectedError, runWithActiveExtensions } from '@unbrained/pm-cli/sdk';
 import { createExtensionTestHarness } from '@unbrained/pm-cli/sdk/testing';
 import extension from '../src/index.ts';
 import { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionRequestInput } from '../src/services/decision-inbox.ts';
@@ -29,6 +29,22 @@ async function fixture(t: TestContext) {
 /** Match the stable typed refusal and its actionable remedy. */
 function refusal(code: DecisionInboxError['code']) {
   return (error: unknown) => error instanceof DecisionInboxError && error.code === code && error.remedy.length > 10;
+}
+
+/** Install a local extension through the real package activation path in a plain tracker. */
+async function installExtension(pmRoot: string, client: PmClient, name: string, entry: string, capabilities: string[]): Promise<void> {
+  const installed = path.join(pmRoot, 'extensions', name);
+  await mkdir(installed, { recursive: true });
+  await writeFile(path.join(installed, 'manifest.json'), JSON.stringify({ name, version: '1.0.0', entry: './index.js', capabilities }));
+  await writeFile(path.join(installed, 'index.js'), `export { default } from ${JSON.stringify(pathToFileURL(path.resolve(entry)).href)};`);
+  await client.packageActivate(name, { project: true });
+}
+
+/** Activate the real inbox command host and register teardown for every CLI regression. */
+async function inboxHost(t: TestContext) {
+  const host = await createExtensionTestHarness(extension, { name: 'pm-web', capabilities: ['commands', 'schema'] });
+  t.after(() => host.deactivate());
+  return host;
 }
 
 test('requests preserve core plan state; acknowledgment is pending and invalidates the old revision', async t => {
@@ -120,8 +136,7 @@ test('independent processes race on one revision without git; exactly one respon
 
 test('real extension host dispatches inbox commands and structured refusals', async t => {
   const { pmRoot, input } = await fixture(t);
-  const host = await createExtensionTestHarness(extension, { name: 'pm-web', capabilities: ['commands', 'schema'] });
-  t.after(() => host.deactivate());
+  const host = await inboxHost(t);
   const created = await host.runCommand({ command: 'web inbox request', pmRoot, options: { input: JSON.stringify(input), actor: editor.author } });
   assert.ok(created);
   const page = await host.runCommand({ command: 'web inbox', pmRoot, options: { limit: '1' } });
@@ -142,11 +157,7 @@ test('byte budget paginates large evidence without truncating a request', async 
 test('native CLI emits bounded JSON and TOON in a non-git tracker with no git executable', { timeout: 60000 }, async t => {
   const { cwd, pmRoot, input, client } = await fixture(t);
   if (process.platform === 'win32') return;
-  const extensions = path.join(pmRoot, 'extensions'); await mkdir(extensions, { recursive: true });
-  const installed = path.join(extensions, 'pm-web'); await mkdir(installed);
-  await writeFile(path.join(installed, 'manifest.json'), JSON.stringify({ name: 'pm-web', version: '1.0.0', entry: './index.js', capabilities: ['commands', 'schema'] }));
-  await writeFile(path.join(installed, 'index.js'), `export { default } from ${JSON.stringify(pathToFileURL(path.resolve('dist/index.js')).href)};`);
-  await client.packageActivate('pm-web', { project: true });
+  await installExtension(pmRoot, client, 'pm-web', 'dist/index.js', ['commands', 'schema']);
   const bin = path.join(cwd, 'bin'); await mkdir(bin); await symlink(process.execPath, path.join(bin, 'node'));
   const env = { ...process.env, PATH: bin, GIT_CEILING_DIRECTORIES: path.dirname(cwd), PM_AUTHOR: editor.author };
   const cli = path.resolve('node_modules/@unbrained/pm-cli/dist/cli.js');
@@ -163,4 +174,74 @@ test('native CLI emits bounded JSON and TOON in a non-git tracker with no git ex
     const result = error as { stdout: string; stderr: string; code: number };
     assert.notEqual(result.code, 0); assert.match(result.stdout + result.stderr, /invalid_input/); return true;
   });
+});
+
+test('committed response survives a real lock provider cleanup failure', { timeout: 60000 }, async t => {
+  const { cwd, pmRoot, input, client } = await fixture(t);
+  const request = await requestDecision(pmRoot, editor, input);
+  await installExtension(pmRoot, client, 'pm-web', 'dist/index.js', ['commands', 'schema']);
+  await installExtension(pmRoot, client, 'inbox-lock-fault', 'test/helpers/inbox-lock-extension.ts', ['services']);
+  const response = { planId: input.planId, requestId: request.id, revision: request.revision, action: 'approve' as const, alternative: 0, reason: 'Selected explicitly' };
+  const body = await runWithActiveExtensions({ cwd, path: pmRoot }, () => respondToDecision(pmRoot, editor, response));
+  assert.equal(body.request.status, 'answered'); assert.equal(body.codeReview, false); assert.equal(body.taskCompletion, false);
+  assert.match(await readFile(path.join(pmRoot, 'release-fault-observed'), 'utf8'), /cleanup failed/);
+  await assert.rejects(runWithActiveExtensions({ cwd, path: pmRoot }, () => respondToDecision(pmRoot, editor, response)), refusal('revision_conflict'));
+  assert.equal((await client.planShow(input.planId, { depth: 'deep' })).plan.decisions?.length, 2);
+  assert.equal((await listDecisionInbox(pmRoot)).total, 0);
+});
+
+
+test('CLI inbox refusals distinguish unavailable trackers from invalid input and missing plans', async t => {
+  const { pmRoot, input } = await fixture(t);
+  const host = await inboxHost(t);
+  for (const [options, code] of [
+    [{ input: '{}' }, EXIT_CODE.USAGE],
+    [{ input: JSON.stringify({ ...input, planId: 'inbox-missing' }) }, EXIT_CODE.NOT_FOUND],
+  ] as const) {
+    await assert.rejects(host.runCommand({ command: 'web inbox request', pmRoot, options }), error => isPmCliExpectedError(error) && error.exitCode === code);
+  }
+  await writeFile(path.join(pmRoot, 'plans', `${input.planId}.toon`), 'malformed tracker item');
+  await assert.rejects(host.runCommand({ command: 'web inbox request', pmRoot, options: { input: JSON.stringify(input) } }), error => {
+    assert.ok(isPmCliExpectedError(error)); assert.equal(error.exitCode, EXIT_CODE.DEPENDENCY_FAILED);
+    assert.match(error.message, /unavailable/); return true;
+  });
+  await rm(pmRoot, { recursive: true, force: true });
+  await assert.rejects(host.runCommand({ command: 'web inbox', pmRoot }), error => isPmCliExpectedError(error) && error.exitCode === EXIT_CODE.DEPENDENCY_FAILED);
+});
+
+test('CLI inbox pagination refuses blank and structured values before coercion', async t => {
+  const { pmRoot } = await fixture(t);
+  const host = await inboxHost(t);
+  for (const options of [{ offset: '' }, { offset: '  ' }, { limit: '' }, { offset: ['0'] }, { offset: null }, { offset: false }]) {
+    await assert.rejects(host.runCommand({ command: 'web inbox', pmRoot, options }), error => isPmCliExpectedError(error) && error.exitCode === EXIT_CODE.USAGE);
+  }
+  for (const options of [{}, { limit: '1', offset: '0' }]) {
+    const page = await host.runCommand({ command: 'web inbox', pmRoot, options });
+    assert.equal((page.result as { total: number }).total, 0);
+  }
+});
+
+test('malformed stored envelopes name the affected Plan without reporting caller input errors', async t => {
+  const prefix = 'pm-web:decision-inbox:v1:';
+  const badRows = ['{', 'null', JSON.stringify({ kind: 'request', id: '' }), JSON.stringify({ kind: 'request', id: 'bad', question: 'Q', alternatives: ['one'] })];
+  for (const rationale of badRows) {
+    const { pmRoot, client, input } = await fixture(t);
+    await requestDecision(pmRoot, editor, input);
+    await client.planDecision(input.planId, { decisionText: 'Malformed stored record', decisionRationale: prefix + rationale });
+    await assert.rejects(listDecisionInbox(pmRoot), error => error instanceof DecisionInboxError && error.code === 'invalid_record' && error.status === 503 && error.remedy.includes(input.planId));
+  }
+  for (const defect of ['duplicate', 'evidence', 'author']) {
+    const { pmRoot, client, input } = await fixture(t);
+    const request = await requestDecision(pmRoot, editor, input);
+    if (defect === 'duplicate') {
+      const plan = await client.planShow(input.planId, { depth: 'deep' });
+      await client.planDecision(input.planId, { decisionText: 'Duplicate', decisionRationale: plan.plan.decisions![0].rationale, decisionEvidence: input.evidence, author: editor.author });
+    } else {
+      const itemFile = path.join(pmRoot, 'plans', `${input.planId}.toon`);
+      const source = await readFile(itemFile, 'utf8');
+      await writeFile(itemFile, source.replace(defect === 'evidence' ? input.evidence : `,${editor.author},`, defect === 'evidence' ? '' : `,${'A'.repeat(161)},`));
+    }
+    await assert.rejects(listDecisionInbox(pmRoot), error => error instanceof DecisionInboxError && error.code === 'invalid_record' && error.remedy.includes(input.planId), defect);
+    await assert.rejects(respondToDecision(pmRoot, editor, { planId: input.planId, requestId: request.id, revision: request.revision, action: 'acknowledge', reason: 'Read' }), refusal('invalid_record'));
+  }
 });

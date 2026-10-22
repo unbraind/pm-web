@@ -1,4 +1,4 @@
-import { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision } from '../services/decision-inbox.js';
+import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision } from '../services/decision-inbox.js';
 import { readMaintenanceCapabilities } from "../services/maintenance-providers.js";
 import { logError } from "../observability.js";
 import { Router } from "express";
@@ -2092,7 +2092,7 @@ async function decisionRoute(req, res, action) {
     const actor = { author: req.user.userId, permission: project.permission === 'edit' ? 'edit' : 'view' };
     try {
         const result = action === 'list'
-            ? await listDecisionInbox(pmRoot, { limit: Number(req.query.limit ?? 20), offset: Number(req.query.offset ?? 0) })
+            ? await listDecisionInbox(pmRoot, { limit: decisionInboxNumber(req.query.limit, 20), offset: decisionInboxNumber(req.query.offset, 0) })
             : action === 'request'
                 ? await requestDecision(pmRoot, actor, req.body)
                 : await respondToDecision(pmRoot, actor, req.body);

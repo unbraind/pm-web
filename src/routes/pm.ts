@@ -1,4 +1,4 @@
-import { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionRequestInput, type DecisionResponseInput } from '../services/decision-inbox.ts';
+import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionRequestInput, type DecisionResponseInput } from '../services/decision-inbox.ts';
 import { readMaintenanceCapabilities, type MaintenanceAction } from "../services/maintenance-providers.ts";
 import { logError } from "../observability.ts";
 import { Router } from "express";
@@ -2165,7 +2165,7 @@ async function decisionRoute(req: AuthRequest, res: Response, action: 'list' | '
   const actor: DecisionActor = { author: req.user!.userId, permission: project.permission === 'edit' ? 'edit' : 'view' };
   try {
     const result = action === 'list'
-      ? await listDecisionInbox(pmRoot, { limit: Number(req.query.limit ?? 20), offset: Number(req.query.offset ?? 0) })
+      ? await listDecisionInbox(pmRoot, { limit: decisionInboxNumber(req.query.limit, 20), offset: decisionInboxNumber(req.query.offset, 0) })
       : action === 'request'
         ? await requestDecision(pmRoot, actor, req.body as DecisionRequestInput)
         : await respondToDecision(pmRoot, actor, req.body as DecisionResponseInput);

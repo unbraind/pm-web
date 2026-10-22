@@ -628,7 +628,11 @@ HTTP endpoints live under `/api/projects/:projectId/pm/decision-inbox`:
 `GET ?limit=20&offset=0`, `POST /requests`, and `POST /responses`. Mutations require
 the normal session, CSRF token and edit permission. Typed refusal payloads carry
 `code` and `remedy`: `invalid_input` (400), `view_only` (403), `not_found` (404),
-`revision_conflict` or `already_answered` (409), and `unavailable` (503).
+`revision_conflict` or `already_answered` (409), and `unavailable` or
+`invalid_record` (503). Stored-record failures identify the Plan to inspect;
+blank or repeated pagination values are invalid input. The CLI maps unavailable
+dependencies and invalid stored records to `DEPENDENCY_FAILED`, preserving
+`USAGE`, `NOT_FOUND` and `CONFLICT` for caller-input and revision refusals.
 
 ### Without git
 

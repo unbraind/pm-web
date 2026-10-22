@@ -1,11 +1,11 @@
 import { createPmCliExpectedError, EXIT_CODE } from '@unbrained/pm-cli/sdk';
-import { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision } from './services/decision-inbox.js';
+import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision } from './services/decision-inbox.js';
 /** Dispatch the same typed operations used by HTTP without requiring a server, database or git. */
 export async function runInboxCommand(ctx, action) {
     const actor = { author: String(ctx.options.actor ?? process.env.PM_AUTHOR ?? 'local-user'), permission: 'edit' };
     try {
         if (action === 'list')
-            return await listDecisionInbox(ctx.pm_root, { limit: Number(ctx.options.limit ?? 20), offset: Number(ctx.options.offset ?? 0) });
+            return await listDecisionInbox(ctx.pm_root, { limit: decisionInboxNumber(ctx.options.limit, 20), offset: decisionInboxNumber(ctx.options.offset, 0) });
         let input;
         try {
             input = JSON.parse(String(ctx.options.input ?? ''));
@@ -20,7 +20,7 @@ export async function runInboxCommand(ctx, action) {
     catch (error) {
         if (!(error instanceof DecisionInboxError))
             throw error;
-        throw createPmCliExpectedError(`${error.code}: ${error.remedy}`, { exitCode: error.status === 409 ? EXIT_CODE.CONFLICT : error.status === 404 ? EXIT_CODE.NOT_FOUND : EXIT_CODE.USAGE, context: { code: error.code, nextSteps: [error.remedy] } });
+        throw createPmCliExpectedError(`${error.code}: ${error.remedy}`, { exitCode: error.status === 409 ? EXIT_CODE.CONFLICT : error.status === 404 ? EXIT_CODE.NOT_FOUND : error.status === 503 ? EXIT_CODE.DEPENDENCY_FAILED : EXIT_CODE.USAGE, context: { code: error.code, nextSteps: [error.remedy] } });
     }
 }
 /** Register compact host-rendered TOON/JSON commands using the established extension API. */

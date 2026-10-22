@@ -79,3 +79,30 @@ test('HTTP reports actionable validation, missing project/request and unavailabl
   const unavailable = await authedFetch(f.server, f.owner, f.base);
   assert.equal(unavailable.status, 503); assert.match(await unavailable.text(), /unavailable.*remedy/);
 });
+
+
+test('HTTP inbox pagination rejects blank and repeated values and keeps absent defaults', async t => {
+  const f = await setup(t);
+  await authedFetch(f.server, f.owner, `${f.base}/requests`, post(f.input));
+  for (const query of ['offset=', 'offset=%20%20', 'limit=', 'limit=%20', 'offset=0&offset=1', 'limit=1&limit=2', 'offset=no', 'limit=1.5', 'offset=-1']) {
+    const result = await authedFetch(f.server, f.owner, `${f.base}?${query}`);
+    assert.equal(result.status, 400, query);
+    const body = await result.json() as { code: string; remedy: string };
+    assert.equal(body.code, 'invalid_input'); assert.ok(body.remedy);
+  }
+  for (const query of ['', '?limit=1&offset=0', '?offset=1']) {
+    const result = await authedFetch(f.server, f.owner, `${f.base}${query}`);
+    assert.equal(result.status, 200, query);
+    const page = await result.json() as { requests: DecisionRequest[]; total: number };
+    assert.equal(page.total, 1); assert.equal(page.requests.length, query === '?offset=1' ? 0 : 1);
+  }
+});
+
+test('HTTP distinguishes malformed stored decisions from invalid caller input', async t => {
+  const f = await setup(t);
+  await f.client.planDecision(f.input.planId, { decisionText: 'Malformed stored envelope', decisionRationale: 'pm-web:decision-inbox:v1:{' });
+  const result = await authedFetch(f.server, f.owner, f.base);
+  assert.equal(result.status, 503);
+  const body = await result.json() as { code: string; remedy: string };
+  assert.equal(body.code, 'invalid_record'); assert.match(body.remedy, /repair/); assert.ok(body.remedy.includes(f.input.planId));
+});

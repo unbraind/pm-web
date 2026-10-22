@@ -39,11 +39,13 @@ export interface DecisionInboxPage {
 /** Stable refusals with a concrete next action for human and agent clients. */
 export declare class DecisionInboxError extends Error {
     /** Build a transport-neutral refusal without exposing storage details. */
-    readonly code: 'invalid_input' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable';
+    readonly code: 'invalid_input' | 'invalid_record' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable';
     readonly remedy: string;
     readonly status: number;
-    constructor(code: 'invalid_input' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable', remedy: string, status: number);
+    constructor(code: DecisionInboxError['code'], remedy: string, status: number);
 }
+/** Preserve absent pagination defaults while refusing blank or structured transport values. */
+export declare function decisionInboxNumber(raw: unknown, fallback: number): number;
 /** List pending requests using a certified complete source read and bounded output pagination. */
 export declare function listDecisionInbox(pmRoot: string, options?: {
     limit?: number;
