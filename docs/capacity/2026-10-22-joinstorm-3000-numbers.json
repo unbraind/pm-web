@@ -1,0 +1,2719 @@
+{
+  "schema_version": 1,
+  "status": "measurements_and_code_ci_complete",
+  "date": "2026-10-22",
+  "environment": {
+    "logical_cpus": 4,
+    "observed_inherited_nice": 15,
+    "node": "v24.19.0"
+  },
+  "baseline_commit": "ca7e188bc91ebec838e6791afcbc38f6d057463b",
+  "baseline_module_sha256": {
+    "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+    "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+    "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+    "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+    "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+  },
+  "runs": [
+    {
+      "repeat": 1,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 100,
+        "readinessMs": 2000
+      },
+      "failure": null,
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 100946.679985,
+      "populations": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+        1300,
+        1400,
+        1500,
+        1600,
+        1700,
+        1800,
+        1900,
+        2000,
+        2100,
+        2200,
+        2300,
+        2400,
+        2500,
+        2600,
+        2700,
+        2800,
+        2900,
+        3000
+      ],
+      "opened": 3000,
+      "disconnected": 0,
+      "complete_rosters": 3000,
+      "readiness": {
+        "samples": 692,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 692,
+          "p50": 18.13342299999931,
+          "p95": 145.3791290000081,
+          "p99": 263.0593050000025,
+          "max": 1274.5895429999982
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 692
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 350519296,
+        "event_loop_p99_ms": 96.862207,
+        "cpu_core_percent": {
+          "samples": 373,
+          "p50": 12.821988437679481,
+          "p95": 39.67036209630685,
+          "p99": 49.15147179380915,
+          "max": 63.10723214956934
+        },
+        "fanout": {
+          "cpu_us": 321333,
+          "turn_cpu_us": 4923393,
+          "serialized_bytes": 9392792,
+          "json_bytes": 9391832,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 40,
+          "response_writes": 35105,
+          "delivered_events": 35105,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          23.41,
+          18,
+          17.18
+        ],
+        "load_after": [
+          29.69,
+          22.39,
+          18.88
+        ],
+        "logical_cpus": 4
+      },
+      "passed": true
+    },
+    {
+      "repeat": 1,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 500,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 76305.64821500001,
+      "populations": [
+        500,
+        1000,
+        1500,
+        2000,
+        2500
+      ],
+      "opened": 2875,
+      "disconnected": 0,
+      "complete_rosters": 2568,
+      "readiness": {
+        "samples": 450,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 450,
+          "p50": 28.016757999983383,
+          "p95": 182.99964600001113,
+          "p99": 474.89192699998966,
+          "max": 736.6684789999854
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 450
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 347246592,
+        "event_loop_p99_ms": 137.756671,
+        "cpu_core_percent": {
+          "samples": 270,
+          "p50": 14.136079623161486,
+          "p95": 38.88184547849837,
+          "p99": 50.15638131890051,
+          "max": 72.01932858770934
+        },
+        "fanout": {
+          "cpu_us": 299854,
+          "turn_cpu_us": 3674737,
+          "serialized_bytes": 10167185,
+          "json_bytes": 10166153,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 43,
+          "response_writes": 21682,
+          "delivered_events": 21682,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          27.87,
+          22.24,
+          18.87
+        ],
+        "load_after": [
+          38.74,
+          27.36,
+          20.95
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 1,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": null,
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 63791.88559099997,
+      "populations": [
+        1000,
+        2000,
+        3000
+      ],
+      "opened": 3000,
+      "disconnected": 0,
+      "complete_rosters": 3000,
+      "readiness": {
+        "samples": 425,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 425,
+          "p50": 16.63217299999087,
+          "p95": 159.97466199999326,
+          "p99": 394.26137500000186,
+          "max": 860.8362450000132
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 425
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 527540224,
+        "event_loop_p99_ms": 100.925439,
+        "cpu_core_percent": {
+          "samples": 231,
+          "p50": 17.124873391156918,
+          "p95": 45.08906884482168,
+          "p99": 61.744461643128474,
+          "max": 65.06752015425919
+        },
+        "fanout": {
+          "cpu_us": 241871,
+          "turn_cpu_us": 3308715,
+          "serialized_bytes": 7154285,
+          "json_bytes": 7153541,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 31,
+          "response_writes": 22433,
+          "delivered_events": 22433,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          35.21,
+          27.3,
+          21.07
+        ],
+        "load_after": [
+          29.19,
+          27.19,
+          21.46
+        ],
+        "logical_cpus": 4
+      },
+      "passed": true
+    },
+    {
+      "repeat": 2,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 100,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 89770.12093100001,
+      "populations": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+        1300,
+        1400,
+        1500,
+        1600,
+        1700,
+        1800,
+        1900,
+        2000,
+        2100,
+        2200,
+        2300,
+        2400
+      ],
+      "opened": 2400,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 451,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 451,
+          "p50": 31.824689999999464,
+          "p95": 188.09335400000055,
+          "p99": 466.9281489999994,
+          "max": 1511.3017000000036
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 451
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 337850368,
+        "event_loop_p99_ms": 154.664959,
+        "cpu_core_percent": {
+          "samples": 312,
+          "p50": 12.709583441154091,
+          "p95": 36.384350817851875,
+          "p99": 46.17577454557557,
+          "max": 61.41393610465319
+        },
+        "fanout": {
+          "cpu_us": 299887,
+          "turn_cpu_us": 4462557,
+          "serialized_bytes": 9054318,
+          "json_bytes": 9053310,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 42,
+          "response_writes": 30591,
+          "delivered_events": 30591,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          30.5,
+          28.08,
+          22.28
+        ],
+        "load_after": [
+          41.62,
+          32.26,
+          24.29
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 2,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 500,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 31721.96038100001,
+      "populations": [
+        500
+      ],
+      "opened": 912,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 141,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 141,
+          "p50": 69.62411899998551,
+          "p95": 208.84810699999798,
+          "p99": 432.15714399999706,
+          "max": 548.3015319999831
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 141
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 230825984,
+        "event_loop_p99_ms": 141.426687,
+        "cpu_core_percent": {
+          "samples": 100,
+          "p50": 11.49964909857938,
+          "p95": 24.941522527381956,
+          "p99": 30.94265990498952,
+          "max": 32.54550051449595
+        },
+        "fanout": {
+          "cpu_us": 71885,
+          "turn_cpu_us": 767047,
+          "serialized_bytes": 1926805,
+          "json_bytes": 1926253,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 23,
+          "response_writes": 7435,
+          "delivered_events": 7435,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          42.22,
+          33.56,
+          25.03
+        ],
+        "load_after": [
+          43.84,
+          34.76,
+          25.7
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 2,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 28989.96193399999,
+      "populations": [],
+      "opened": 487,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 68,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 68,
+          "p50": 63.82812200000626,
+          "p95": 455.6797230000084,
+          "p99": 1553.6449549999961,
+          "max": 1553.6449549999961
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 68
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 214892544,
+        "event_loop_p99_ms": 217.710591,
+        "cpu_core_percent": {
+          "samples": 60,
+          "p50": 10.26740490580183,
+          "p95": 16.414160609948187,
+          "p99": 48.193777159362654,
+          "max": 48.193777159362654
+        },
+        "fanout": {
+          "cpu_us": 30149,
+          "turn_cpu_us": 299074,
+          "serialized_bytes": 438721,
+          "json_bytes": 438457,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 11,
+          "response_writes": 2787,
+          "delivered_events": 2787,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          46.86,
+          36.57,
+          26.64
+        ],
+        "load_after": [
+          48.64,
+          37.98,
+          27.43
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 3,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 100,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 228270.905299,
+      "populations": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+        1300,
+        1400,
+        1500,
+        1600,
+        1700,
+        1800,
+        1900,
+        2000,
+        2100,
+        2200
+      ],
+      "opened": 2275,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 683,
+        "failed": 61,
+        "latency_ms": {
+          "samples": 683,
+          "p50": 129.63234299999021,
+          "p95": 596.1187370000043,
+          "p99": 1222.1392999999807,
+          "max": 2065.5796960000007
+        },
+        "dependency_failures": {
+          "postgres:timed out": 1,
+          "postgres:probe cooling down after timeout": 57
+        },
+        "statuses": {
+          "0": 3,
+          "200": 622,
+          "503": 58
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 304697344,
+        "event_loop_p99_ms": 363.069439,
+        "cpu_core_percent": {
+          "samples": 664,
+          "p50": 6.458014571113375,
+          "p95": 12.670421064306671,
+          "p99": 17.924982655873748,
+          "max": 47.16514101834372
+        },
+        "fanout": {
+          "cpu_us": 704151,
+          "turn_cpu_us": 5719982,
+          "serialized_bytes": 24322511,
+          "json_bytes": 24319319,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 133,
+          "response_writes": 37110,
+          "delivered_events": 37110,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          47.86,
+          38.97,
+          28.15
+        ],
+        "load_after": [
+          79.17,
+          60.86,
+          39.33
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 3,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 500,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 31709.95496100001,
+      "populations": [],
+      "opened": 268,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 60,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 60,
+          "p50": 101.06498999998439,
+          "p95": 425.3070689999731,
+          "p99": 1181.7066439999617,
+          "max": 1181.7066439999617
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 60
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 204652544,
+        "event_loop_p99_ms": 270.794751,
+        "cpu_core_percent": {
+          "samples": 56,
+          "p50": 7.470837978662081,
+          "p95": 14.766012095616475,
+          "p99": 15.46225179524765,
+          "max": 15.46225179524765
+        },
+        "fanout": {
+          "cpu_us": 17102,
+          "turn_cpu_us": 180135,
+          "serialized_bytes": 223982,
+          "json_bytes": 223742,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 10,
+          "response_writes": 1620,
+          "delivered_events": 1620,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          85.47,
+          64.44,
+          41.32
+        ],
+        "load_after": [
+          80.97,
+          65.41,
+          42.39
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 3,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-access.js": "bf423d0a6bc22ff5b86b65961b60582f26c1e433be3cbc49bce2ac1f774428d5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 29047.005310999986,
+      "populations": [],
+      "opened": 398,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 62,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 62,
+          "p50": 77.06059300003108,
+          "p95": 434.7717699999921,
+          "p99": 1818.2342960000387,
+          "max": 1818.2342960000387
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 62
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 211599360,
+        "event_loop_p99_ms": 272.891903,
+        "cpu_core_percent": {
+          "samples": 55,
+          "p50": 9.300093454651634,
+          "p95": 18.799806647369504,
+          "p99": 20.04581944280355,
+          "max": 20.04581944280355
+        },
+        "fanout": {
+          "cpu_us": 27074,
+          "turn_cpu_us": 241730,
+          "serialized_bytes": 329966,
+          "json_bytes": 329726,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 10,
+          "response_writes": 2481,
+          "delivered_events": 2481,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          70.12,
+          64.62,
+          43.09
+        ],
+        "load_after": [
+          64.35,
+          63.72,
+          43.48
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    }
+  ],
+  "candidate_module_sha256": {
+    "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+    "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+    "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+    "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+    "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+  },
+  "candidate_runs": [
+    {
+      "repeat": 1,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 100,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 182661.921482,
+      "populations": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+        1300,
+        1400,
+        1500,
+        1600,
+        1700,
+        1800
+      ],
+      "opened": 1825,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 645,
+        "failed": 1,
+        "latency_ms": {
+          "samples": 645,
+          "p50": 94.33532699999341,
+          "p95": 420.06524699999136,
+          "p99": 784.0717539999896,
+          "max": 2005.2950710000005
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "0": 1,
+          "200": 644
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 303595520,
+        "event_loop_p99_ms": 269.484031,
+        "cpu_core_percent": {
+          "samples": 545,
+          "p50": 5.428098225203469,
+          "p95": 10.530070440498411,
+          "p99": 16.087904427598666,
+          "max": 20.15961570902561
+        },
+        "fanout": {
+          "cpu_us": 399793,
+          "turn_cpu_us": 4809012,
+          "serialized_bytes": 11965631,
+          "json_bytes": 11963591,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 85,
+          "response_writes": 38211,
+          "delivered_events": 38211,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          57.57,
+          58.34,
+          47.56
+        ],
+        "load_after": [
+          60.03,
+          59.19,
+          49.82
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 1,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 500,
+        "readinessMs": 2000
+      },
+      "failure": "SERVER_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 20357.81276,
+      "populations": [],
+      "opened": 0,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 0,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        },
+        "dependency_failures": {},
+        "statuses": {}
+      },
+      "resources": {
+        "rss_peak_bytes": null,
+        "event_loop_p99_ms": null,
+        "cpu_core_percent": {
+          "samples": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        },
+        "fanout": null,
+        "load_before": [
+          59.39,
+          59.06,
+          50.17
+        ],
+        "load_after": [
+          62.72,
+          59.9,
+          50.64
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 1,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_HTTP_500_VERIFY",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 21870.731815999956,
+      "populations": [],
+      "opened": 3,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 28,
+        "failed": 3,
+        "latency_ms": {
+          "samples": 28,
+          "p50": 18.66505099995993,
+          "p95": 2001.6143769999617,
+          "p99": 2002.188130000024,
+          "max": 2002.188130000024
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "0": 3,
+          "200": 25
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 175370240,
+        "event_loop_p99_ms": 215.875583,
+        "cpu_core_percent": {
+          "samples": 22,
+          "p50": 5.144869198692963,
+          "p95": 16.509486565112518,
+          "p99": 17.071145289156632,
+          "max": 17.071145289156632
+        },
+        "fanout": {
+          "cpu_us": 1132,
+          "turn_cpu_us": 24368,
+          "serialized_bytes": 179,
+          "json_bytes": 155,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 1,
+          "response_writes": 4,
+          "delivered_events": 4,
+          "max_synchronous_writes": 1
+        },
+        "load_before": [
+          61.55,
+          59.88,
+          50.88
+        ],
+        "load_after": [
+          62.82,
+          60.24,
+          51.19
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 2,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 100,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 205266.88928899998,
+      "populations": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+        1300,
+        1400,
+        1500,
+        1600,
+        1700,
+        1800
+      ],
+      "opened": 1825,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 676,
+        "failed": 3,
+        "latency_ms": {
+          "samples": 676,
+          "p50": 117.11481400000048,
+          "p95": 543.0597249999992,
+          "p99": 1470.4024489999865,
+          "max": 2025.3044240000017
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "0": 3,
+          "200": 673
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 247480320,
+        "event_loop_p99_ms": 342.622207,
+        "cpu_core_percent": {
+          "samples": 605,
+          "p50": 4.183907954217473,
+          "p95": 9.562561036073705,
+          "p99": 15.23111924155045,
+          "max": 23.559167398515193
+        },
+        "fanout": {
+          "cpu_us": 431056,
+          "turn_cpu_us": 4869197,
+          "serialized_bytes": 13874771,
+          "json_bytes": 13872443,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 97,
+          "response_writes": 36257,
+          "delivered_events": 36257,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          58.76,
+          59.69,
+          51.4
+        ],
+        "load_after": [
+          68.69,
+          63.75,
+          54.61
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 2,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 500,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 37182.64639400004,
+      "populations": [],
+      "opened": 306,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 39,
+        "failed": 6,
+        "latency_ms": {
+          "samples": 39,
+          "p50": 31.675150999973994,
+          "p95": 2002.4799190000049,
+          "p99": 2002.9287509999704,
+          "max": 2002.9287509999704
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "0": 6,
+          "200": 33
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 187883520,
+        "event_loop_p99_ms": 215.089151,
+        "cpu_core_percent": {
+          "samples": 60,
+          "p50": 6.292015118326985,
+          "p95": 9.511117197668549,
+          "p99": 18.951007501412438,
+          "max": 18.951007501412438
+        },
+        "fanout": {
+          "cpu_us": 21962,
+          "turn_cpu_us": 279586,
+          "serialized_bytes": 239713,
+          "json_bytes": 239449,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 11,
+          "response_writes": 1863,
+          "delivered_events": 1863,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          62.6,
+          62.83,
+          54.64
+        ],
+        "load_after": [
+          62.33,
+          62.64,
+          54.92
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 2,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 35875.60196499998,
+      "populations": [],
+      "opened": 412,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 42,
+        "failed": 7,
+        "latency_ms": {
+          "samples": 42,
+          "p50": 25.09228800004348,
+          "p95": 2001.5585119999596,
+          "p99": 2014.8894350000191,
+          "max": 2014.8894350000191
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "0": 7,
+          "200": 35
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 201089024,
+        "event_loop_p99_ms": 228.851711,
+        "cpu_core_percent": {
+          "samples": 71,
+          "p50": 6.272034324663138,
+          "p95": 15.211181668883007,
+          "p99": 20.58678379560358,
+          "max": 20.58678379560358
+        },
+        "fanout": {
+          "cpu_us": 29999,
+          "turn_cpu_us": 265093,
+          "serialized_bytes": 416148,
+          "json_bytes": 415860,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 12,
+          "response_writes": 2605,
+          "delivered_events": 2605,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          61.92,
+          62.54,
+          55.09
+        ],
+        "load_after": [
+          62.8,
+          62.62,
+          55.39
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 3,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 100,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 197640.738889,
+      "populations": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+        1100,
+        1200,
+        1300,
+        1400,
+        1500,
+        1600,
+        1700,
+        1800,
+        1900,
+        2000,
+        2100,
+        2200
+      ],
+      "opened": 2225,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 1012,
+        "failed": 185,
+        "latency_ms": {
+          "samples": 1012,
+          "p50": 28.04721900000004,
+          "p95": 277.27525700000115,
+          "p99": 603.276969999999,
+          "max": 2040.9768380000023
+        },
+        "dependency_failures": {
+          "postgres:timed out": 7,
+          "postgres:probe cooling down after timeout": 176
+        },
+        "statuses": {
+          "0": 2,
+          "200": 827,
+          "503": 183
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 295063552,
+        "event_loop_p99_ms": 183.107583,
+        "cpu_core_percent": {
+          "samples": 650,
+          "p50": 6.073566023724864,
+          "p95": 14.565309025554622,
+          "p99": 21.003572240161176,
+          "max": 23.632670145655567
+        },
+        "fanout": {
+          "cpu_us": 462143,
+          "turn_cpu_us": 6211095,
+          "serialized_bytes": 11587573,
+          "json_bytes": 11585869,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 71,
+          "response_writes": 45994,
+          "delivered_events": 45994,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          61.06,
+          62.07,
+          55.5
+        ],
+        "load_after": [
+          51.83,
+          58.08,
+          55.26
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 3,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 500,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 83767.62268999999,
+      "populations": [
+        500,
+        1000,
+        1500,
+        2000
+      ],
+      "opened": 2125,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 256,
+        "failed": 4,
+        "latency_ms": {
+          "samples": 256,
+          "p50": 44.66357099998277,
+          "p95": 400.8565119999985,
+          "p99": 2007.9349100000109,
+          "max": 2012.0745360000292
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "0": 4,
+          "200": 252
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 324349952,
+        "event_loop_p99_ms": 188.743679,
+        "cpu_core_percent": {
+          "samples": 265,
+          "p50": 9.721876170162226,
+          "p95": 23.41626262751871,
+          "p99": 29.874811939835226,
+          "max": 36.51351370622418
+        },
+        "fanout": {
+          "cpu_us": 240531,
+          "turn_cpu_us": 3462854,
+          "serialized_bytes": 6491270,
+          "json_bytes": 6490454,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 34,
+          "response_writes": 23788,
+          "delivered_events": 23788,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          49.9,
+          57.24,
+          55.05
+        ],
+        "load_after": [
+          47.33,
+          54.37,
+          54.21
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    {
+      "repeat": 3,
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 53091.60138800001,
+      "populations": [
+        1000
+      ],
+      "opened": 1916,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 202,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 202,
+          "p50": 36.27094000001671,
+          "p95": 167.91028000001097,
+          "p99": 612.9810170000419,
+          "max": 1278.799972000008
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 202
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 305954816,
+        "event_loop_p99_ms": 100.859903,
+        "cpu_core_percent": {
+          "samples": 178,
+          "p50": 11.266051919672265,
+          "p95": 33.99255853509876,
+          "p99": 42.54273844381609,
+          "max": 42.647897729422276
+        },
+        "fanout": {
+          "cpu_us": 191591,
+          "turn_cpu_us": 2583699,
+          "serialized_bytes": 5013873,
+          "json_bytes": 5013225,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 27,
+          "response_writes": 22617,
+          "delivered_events": 22617,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          48.41,
+          54.06,
+          54.11
+        ],
+        "load_after": [
+          46.6,
+          52.57,
+          53.59
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    }
+  ],
+  "profile_before": {
+    "report": {
+      "runtime_sha256": {
+        "dist/routes/pm.js": "0613b3ae28db7507c945ce935eae6def3ec072123357d164cf44640f3e289f46",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "be7117d9932559246604ce18f8d5e9f34dae7dc84a51eb1fd05f1631401720f5",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 31304.616819,
+      "populations": [
+        1000
+      ],
+      "opened": 1953,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 132,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 132,
+          "p50": 49.46976799999902,
+          "p95": 308.9436549999991,
+          "p99": 535.9122259999995,
+          "max": 1438.8378080000002
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 132
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 388902912,
+        "event_loop_p99_ms": 188.350463,
+        "cpu_core_percent": {
+          "samples": 103,
+          "p50": 27.225773275315436,
+          "p95": 54.671668546779316,
+          "p99": 72.57813656677816,
+          "max": 77.41250684086631
+        },
+        "fanout": {
+          "cpu_us": 183264,
+          "turn_cpu_us": 1956724,
+          "serialized_bytes": 3960338,
+          "json_bytes": 3959810,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 22,
+          "response_writes": 12587,
+          "delivered_events": 12587,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          28.42,
+          27.15,
+          21.58
+        ],
+        "load_after": [
+          28.43,
+          27.28,
+          21.8
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    "summary": {
+      "profile_wall_ms": 35203.944,
+      "cpu_samples": 12837,
+      "sampled_allocation_bytes": 896774416,
+      "cpu_stack_sample_ms": {
+        "other": 8371.85200000002,
+        "garbage_collection": 1226.758,
+        "postgres": 8729.636000000002,
+        "session_verification": 70.296,
+        "fanout_service": 876.4010000000001,
+        "idle": 2377.446000000003,
+        "logging": 5861.4050000000025,
+        "http_output_callbacks": 6432.478000000003,
+        "frame_preparation": 312.58900000000006,
+        "authorization_service": 944.217
+      },
+      "allocation_stack_sampled_bytes": {
+        "other": 187606952,
+        "postgres": 485680544,
+        "fanout_service": 23120096,
+        "http_output_callbacks": 28638048,
+        "logging": 82138288,
+        "frame_preparation": 14189952,
+        "session_verification": 2733672,
+        "authorization_service": 72666864
+      },
+      "cpu_top": [
+        {
+          "site": "runtime:writev",
+          "sample_ms": 9212.105
+        },
+        {
+          "site": "runtime:(idle)",
+          "sample_ms": 2377.446
+        },
+        {
+          "site": "runtime:(garbage collector)",
+          "sample_ms": 1226.758
+        },
+        {
+          "site": "runtime:init",
+          "sample_ms": 1102.02
+        },
+        {
+          "site": "runtime:writeUtf8String",
+          "sample_ms": 1049.932
+        },
+        {
+          "site": "runtime:stat",
+          "sample_ms": 949.733
+        },
+        {
+          "site": "dist/services/sse-access.js:projectEventViewers",
+          "sample_ms": 857.257
+        },
+        {
+          "site": "runtime:(program)",
+          "sample_ms": 641.817
+        },
+        {
+          "site": "runtime:utf8Slice",
+          "sample_ms": 619.83
+        },
+        {
+          "site": "node:events:emit",
+          "sample_ms": 523.129
+        },
+        {
+          "site": "dist/observability.js:logEvent",
+          "sample_ms": 473.98
+        },
+        {
+          "site": "runtime:anonymous",
+          "sample_ms": 465.386
+        },
+        {
+          "site": "node:internal/modules/esm/utils:compileSourceTextModule",
+          "sample_ms": 441.49
+        },
+        {
+          "site": "node:internal/crypto/keys:createPublicKey",
+          "sample_ms": 436.091
+        },
+        {
+          "site": "node_modules/pg/lib/result.js:parseRow",
+          "sample_ms": 360.272
+        },
+        {
+          "site": "runtime:cpuUsage",
+          "sample_ms": 344.367
+        },
+        {
+          "site": "node_modules/pg-protocol/dist/parser.js:parseDataRowMessage",
+          "sample_ms": 327.602
+        },
+        {
+          "site": "node:buffer:toString",
+          "sample_ms": 321.132
+        },
+        {
+          "site": "node_modules/pg/lib/result.js:addFields",
+          "sample_ms": 315.786
+        },
+        {
+          "site": "node:internal/modules/cjs/loader:wrapSafe",
+          "sample_ms": 258.529
+        },
+        {
+          "site": "node_modules/pg/lib/connection.js:anonymous",
+          "sample_ms": 251.139
+        },
+        {
+          "site": "node:internal/errors:defaultPrepareStackTrace",
+          "sample_ms": 248.853
+        },
+        {
+          "site": "node_modules/pg/lib/client.js:_handleDataRow",
+          "sample_ms": 225.111
+        },
+        {
+          "site": "node_modules/router/index.js:next",
+          "sample_ms": 224.901
+        },
+        {
+          "site": "runtime:close",
+          "sample_ms": 211.293
+        },
+        {
+          "site": "dist/services/sse.js:anonymous",
+          "sample_ms": 206.467
+        },
+        {
+          "site": "node_modules/pg-protocol/dist/parser.js:parse",
+          "sample_ms": 194
+        },
+        {
+          "site": "node:internal/process/task_queues:nextTick",
+          "sample_ms": 159.032
+        },
+        {
+          "site": "node:_http_outgoing:setHeader",
+          "sample_ms": 157.095
+        },
+        {
+          "site": "node:internal/stream_base_commons:writevGeneric",
+          "sample_ms": 150.916
+        },
+        {
+          "site": "node:internal/errors:ConnResetException",
+          "sample_ms": 141.009
+        },
+        {
+          "site": "runtime:digest",
+          "sample_ms": 135.651
+        },
+        {
+          "site": "scripts/capacity-join-profile.ts:pg.Client.query",
+          "sample_ms": 133.988
+        },
+        {
+          "site": "node:internal/crypto/hash:Hmac",
+          "sample_ms": 128.637
+        },
+        {
+          "site": "dist/services/sse-fanout.js:prepareFanout",
+          "sample_ms": 128.28
+        },
+        {
+          "site": "node:internal/modules/cjs/loader:anonymous",
+          "sample_ms": 125.79
+        },
+        {
+          "site": "node_modules/express-rate-limit/dist/index.mjs:anonymous",
+          "sample_ms": 117.774
+        },
+        {
+          "site": "node_modules/router/index.js:mergeParams",
+          "sample_ms": 116.767
+        },
+        {
+          "site": "node_modules/pg-protocol/dist/parser.js:handlePacket",
+          "sample_ms": 111.896
+        },
+        {
+          "site": "runtime:runMicrotasks",
+          "sample_ms": 109.763
+        }
+      ],
+      "allocation_top": [
+        {
+          "site": "node_modules/pg-protocol/dist/parser.js:parseDataRowMessage",
+          "sampled_bytes": 197404400
+        },
+        {
+          "site": "node_modules/pg/lib/client.js:_handleDataRow",
+          "sampled_bytes": 154287880
+        },
+        {
+          "site": "node:events:emit",
+          "sampled_bytes": 70384560
+        },
+        {
+          "site": "runtime:add",
+          "sampled_bytes": 64449400
+        },
+        {
+          "site": "node_modules/router/index.js:next",
+          "sampled_bytes": 18147856
+        },
+        {
+          "site": "node:path:normalizeString",
+          "sampled_bytes": 12657448
+        },
+        {
+          "site": "node:buffer:toString",
+          "sampled_bytes": 11222000
+        },
+        {
+          "site": "runtime:map",
+          "sampled_bytes": 9863488
+        },
+        {
+          "site": "node:internal/process/task_queues:nextTick",
+          "sampled_bytes": 9582256
+        },
+        {
+          "site": "runtime:split",
+          "sampled_bytes": 8589800
+        },
+        {
+          "site": "node_modules/debug/src/common.js:debug",
+          "sampled_bytes": 8557904
+        },
+        {
+          "site": "node_modules/pg/lib/result.js:addFields",
+          "sampled_bytes": 7901632
+        },
+        {
+          "site": "node:internal/stream_base_commons:writevGeneric",
+          "sampled_bytes": 7815920
+        },
+        {
+          "site": "node:internal/encoding:decode",
+          "sampled_bytes": 7335320
+        },
+        {
+          "site": "node_modules/express-rate-limit/dist/index.mjs:anonymous",
+          "sampled_bytes": 7197584
+        },
+        {
+          "site": "node_modules/router/index.js:trimPrefix",
+          "sampled_bytes": 6926784
+        },
+        {
+          "site": "node:_http_outgoing:setHeader",
+          "sampled_bytes": 6914952
+        },
+        {
+          "site": "node:internal/modules/esm/utils:compileSourceTextModule",
+          "sampled_bytes": 6541488
+        },
+        {
+          "site": "runtime:next",
+          "sampled_bytes": 6525064
+        },
+        {
+          "site": "runtime:join",
+          "sampled_bytes": 6474624
+        },
+        {
+          "site": "node:internal/streams/writable:writeOrBuffer",
+          "sampled_bytes": 6397904
+        },
+        {
+          "site": "runtime:Uint8Array",
+          "sampled_bytes": 5481808
+        },
+        {
+          "site": "node:internal/crypto/keys:createPublicKey",
+          "sampled_bytes": 5280592
+        },
+        {
+          "site": "runtime:slice",
+          "sampled_bytes": 4729512
+        },
+        {
+          "site": "runtime:exec",
+          "sampled_bytes": 4470512
+        },
+        {
+          "site": "runtime:(V8 API)",
+          "sampled_bytes": 4398120
+        },
+        {
+          "site": "dist/services/sse-fanout.js:prepareFanout",
+          "sampled_bytes": 4397528
+        },
+        {
+          "site": "node_modules/pg-pool/index.js:connect",
+          "sampled_bytes": 4330728
+        },
+        {
+          "site": "node:buffer:createFromString",
+          "sampled_bytes": 4292200
+        },
+        {
+          "site": "node:_http_outgoing:processHeader",
+          "sampled_bytes": 4261936
+        },
+        {
+          "site": "node:internal/streams/writable:clearBuffer",
+          "sampled_bytes": 3968824
+        },
+        {
+          "site": "runtime:set",
+          "sampled_bytes": 3548088
+        },
+        {
+          "site": "node:events:removeListener",
+          "sampled_bytes": 3282336
+        },
+        {
+          "site": "dist/services/sse.js:anonymous",
+          "sampled_bytes": 3279456
+        },
+        {
+          "site": "node:internal/errors:wrappedFn",
+          "sampled_bytes": 3115312
+        },
+        {
+          "site": "node:fs:readFileSync",
+          "sampled_bytes": 3101520
+        },
+        {
+          "site": "runtime:push",
+          "sampled_bytes": 3012280
+        },
+        {
+          "site": "node:internal/modules/cjs/loader:anonymous",
+          "sampled_bytes": 2986288
+        },
+        {
+          "site": "node:internal/modules/cjs/loader:wrapSafe",
+          "sampled_bytes": 2958032
+        },
+        {
+          "site": "dist/observability.js:logEvent",
+          "sampled_bytes": 2957448
+        }
+      ],
+      "sql": {
+        "other": {
+          "calls": 23,
+          "rows": 7,
+          "elapsed_ms": 1153.358182999998,
+          "failures": 0
+        },
+        "join_ownership": {
+          "calls": 2000,
+          "rows": 0,
+          "elapsed_ms": 84627.20196499991,
+          "failures": 0
+        },
+        "shared_access": {
+          "calls": 2000,
+          "rows": 2000,
+          "elapsed_ms": 110502.56051199985,
+          "failures": 0
+        },
+        "join_profile": {
+          "calls": 2000,
+          "rows": 2000,
+          "elapsed_ms": 82360.50040400014,
+          "failures": 0
+        },
+        "fanout_authorization": {
+          "calls": 389,
+          "rows": 1167389,
+          "elapsed_ms": 19482.62538299997,
+          "failures": 0
+        }
+      }
+    },
+    "raw_artifact_sha256": {
+      "cpu.cpuprofile": "86f88f9780f6d46bbbf8e017fadc0b179589487fb50317e4ac3ab627bd6ec1b0",
+      "allocation.heapprofile": "b8948ae9e4ca99979699c621093ebb1ecc3f58a4d15554611e79c28c993dbaaa",
+      "sql.json": "875a4d78622e10fc1a78ff6a632c2cb3e1c917cdca384c76944e36566380e1d7"
+    }
+  },
+  "profile_after": {
+    "report": {
+      "runtime_sha256": {
+        "dist/routes/pm.js": "a1827bc2b56fcfd4acc7e4f4f1b368da1b4aee513956b583d926760c0fa932c0",
+        "dist/services/sse.js": "d312925cbd832925b873e1564e65e02568131a7446fc51d2b25105a87d89b19a",
+        "dist/services/sse-fanout.js": "34bfb84bf1303cf4ba73061dde4fe052682c2f42526d98191af4b9b8d2b51252",
+        "dist/services/sse-access.js": "ef74e23aca8a0e4a5f349d3e509ae3897602299212d63f6ff1b64664e3f81afb",
+        "dist/services/sse-admission.js": "9550895ede883c5181ed7449024345f0864cfaf41234ed1b5ab3eccdce023119"
+      },
+      "options": {
+        "subscribers": 3000,
+        "burst": 1000,
+        "readinessMs": 2000
+      },
+      "failure": "SSE_STARTUP_TIMEOUT",
+      "capture_failures": [],
+      "cleanup_failure": null,
+      "elapsed_ms": 59504.967770999996,
+      "populations": [
+        1000,
+        2000
+      ],
+      "opened": 2715,
+      "disconnected": 0,
+      "complete_rosters": 0,
+      "readiness": {
+        "samples": 245,
+        "failed": 0,
+        "latency_ms": {
+          "samples": 245,
+          "p50": 43.385073000001285,
+          "p95": 151.34850399999414,
+          "p99": 660.3386439999995,
+          "max": 1128.0782630000012
+        },
+        "dependency_failures": {},
+        "statuses": {
+          "200": 245
+        }
+      },
+      "resources": {
+        "rss_peak_bytes": 344002560,
+        "event_loop_p99_ms": 117.178367,
+        "cpu_core_percent": {
+          "samples": 205,
+          "p50": 19.219514452746257,
+          "p95": 35.33422172342288,
+          "p99": 53.604746660574556,
+          "max": 60.7598445483913
+        },
+        "fanout": {
+          "cpu_us": 357693,
+          "turn_cpu_us": 3906309,
+          "serialized_bytes": 9824469,
+          "json_bytes": 9823533,
+          "mutation_events": 0,
+          "mutation_frame_bytes": 0,
+          "mutation_json_bytes": 0,
+          "delivered_mutations": 0,
+          "prepared_events": 39,
+          "response_writes": 20207,
+          "delivered_events": 20207,
+          "max_synchronous_writes": 32
+        },
+        "load_before": [
+          46.38,
+          52.14,
+          53.43
+        ],
+        "load_after": [
+          50.69,
+          52.5,
+          53.48
+        ],
+        "logical_cpus": 4
+      },
+      "passed": false
+    },
+    "summary": {
+      "profile_wall_ms": 63895.771,
+      "cpu_samples": 23309,
+      "sampled_allocation_bytes": 537735824,
+      "cpu_stack_sample_ms": {
+        "other": 13065.329999999978,
+        "garbage_collection": 986.7990000000001,
+        "session_verification": 96.22500000000001,
+        "postgres": 6632.372000000007,
+        "idle": 11465.203000000003,
+        "logging": 13612.492999999988,
+        "http_output_callbacks": 15849.224000000015,
+        "fanout_service": 1371.9509999999998,
+        "frame_preparation": 753.178,
+        "authorization_service": 62.144000000000005
+      },
+      "allocation_stack_sampled_bytes": {
+        "other": 241720504,
+        "postgres": 49920216,
+        "authorization_service": 2729400,
+        "fanout_service": 42923480,
+        "http_output_callbacks": 44117088,
+        "logging": 120894168,
+        "frame_preparation": 33011600,
+        "session_verification": 2419368
+      },
+      "cpu_top": [
+        {
+          "site": "runtime:writev",
+          "sample_ms": 18324.196
+        },
+        {
+          "site": "runtime:(idle)",
+          "sample_ms": 11465.203
+        },
+        {
+          "site": "runtime:stat",
+          "sample_ms": 3005.693
+        },
+        {
+          "site": "runtime:init",
+          "sample_ms": 2534.168
+        },
+        {
+          "site": "runtime:writeUtf8String",
+          "sample_ms": 1360.019
+        },
+        {
+          "site": "node:internal/crypto/keys:createPublicKey",
+          "sample_ms": 1330.744
+        },
+        {
+          "site": "runtime:(program)",
+          "sample_ms": 1170.028
+        },
+        {
+          "site": "runtime:(garbage collector)",
+          "sample_ms": 986.799
+        },
+        {
+          "site": "runtime:anonymous",
+          "sample_ms": 909.754
+        },
+        {
+          "site": "node_modules/router/index.js:next",
+          "sample_ms": 777.228
+        },
+        {
+          "site": "runtime:cpuUsage",
+          "sample_ms": 572.123
+        },
+        {
+          "site": "dist/observability.js:logEvent",
+          "sample_ms": 397.05
+        },
+        {
+          "site": "node:internal/modules/esm/utils:compileSourceTextModule",
+          "sample_ms": 390.608
+        },
+        {
+          "site": "dist/services/sse-fanout.js:prepareFanout",
+          "sample_ms": 384.594
+        },
+        {
+          "site": "dist/services/sse.js:anonymous",
+          "sample_ms": 367
+        },
+        {
+          "site": "node:_http_outgoing:setHeader",
+          "sample_ms": 290.884
+        },
+        {
+          "site": "node_modules/jsonwebtoken/verify.js:anonymous",
+          "sample_ms": 273.252
+        },
+        {
+          "site": "node_modules/router/index.js:mergeParams",
+          "sample_ms": 267.855
+        },
+        {
+          "site": "runtime:readdir",
+          "sample_ms": 264.735
+        },
+        {
+          "site": "node:internal/stream_base_commons:writevGeneric",
+          "sample_ms": 256.922
+        },
+        {
+          "site": "node:internal/process/task_queues:nextTick",
+          "sample_ms": 249.796
+        },
+        {
+          "site": "node_modules/jws/lib/verify-stream.js:jwsDecode",
+          "sample_ms": 244.72
+        },
+        {
+          "site": "node:internal/modules/cjs/loader:wrapSafe",
+          "sample_ms": 243.842
+        },
+        {
+          "site": "node_modules/router/lib/layer.js:handleRequest",
+          "sample_ms": 220.253
+        },
+        {
+          "site": "dist/services/sse.js:presenceUsers",
+          "sample_ms": 219.115
+        },
+        {
+          "site": "dist/services/sse.js:addSSEClient",
+          "sample_ms": 206.037
+        },
+        {
+          "site": "node_modules/express-rate-limit/dist/index.mjs:anonymous",
+          "sample_ms": 200.135
+        },
+        {
+          "site": "node:buffer:toString",
+          "sample_ms": 193.413
+        },
+        {
+          "site": "node_modules/express/lib/application.js:handle",
+          "sample_ms": 182.922
+        },
+        {
+          "site": "node_modules/path-to-regexp/dist/index.js:match",
+          "sample_ms": 177.737
+        },
+        {
+          "site": "node:events:emit",
+          "sample_ms": 177.181
+        },
+        {
+          "site": "runtime:digest",
+          "sample_ms": 175.951
+        },
+        {
+          "site": "node:internal/crypto/hash:Hmac",
+          "sample_ms": 175.833
+        },
+        {
+          "site": "node_modules/router/index.js:anonymous",
+          "sample_ms": 175.563
+        },
+        {
+          "site": "node_modules/pg/lib/result.js:addFields",
+          "sample_ms": 173.462
+        },
+        {
+          "site": "node:path:normalizeString",
+          "sample_ms": 172.968
+        },
+        {
+          "site": "node:_http_server:connectionListenerInternal",
+          "sample_ms": 170.813
+        },
+        {
+          "site": "node:internal/process/task_queues:processTicksAndRejections",
+          "sample_ms": 165.878
+        },
+        {
+          "site": "node:_http_outgoing:get",
+          "sample_ms": 160.403
+        },
+        {
+          "site": "node:net:Socket._writeGeneric",
+          "sample_ms": 154.061
+        }
+      ],
+      "allocation_top": [
+        {
+          "site": "node_modules/router/index.js:next",
+          "sampled_bytes": 26734744
+        },
+        {
+          "site": "node:buffer:toString",
+          "sampled_bytes": 23340280
+        },
+        {
+          "site": "node:internal/process/task_queues:nextTick",
+          "sampled_bytes": 15358304
+        },
+        {
+          "site": "node:path:normalizeString",
+          "sampled_bytes": 14295896
+        },
+        {
+          "site": "runtime:split",
+          "sampled_bytes": 12479640
+        },
+        {
+          "site": "node_modules/router/index.js:trimPrefix",
+          "sampled_bytes": 11951184
+        },
+        {
+          "site": "node_modules/express-rate-limit/dist/index.mjs:anonymous",
+          "sampled_bytes": 10581320
+        },
+        {
+          "site": "node:_http_outgoing:setHeader",
+          "sampled_bytes": 10568680
+        },
+        {
+          "site": "node:net:Socket._writeGeneric",
+          "sampled_bytes": 10373048
+        },
+        {
+          "site": "node:buffer:createFromString",
+          "sampled_bytes": 10176936
+        },
+        {
+          "site": "dist/services/sse-fanout.js:prepareFanout",
+          "sampled_bytes": 10133048
+        },
+        {
+          "site": "runtime:join",
+          "sampled_bytes": 8872648
+        },
+        {
+          "site": "node_modules/debug/src/common.js:debug",
+          "sampled_bytes": 8624392
+        },
+        {
+          "site": "node:internal/streams/writable:_write",
+          "sampled_bytes": 8531456
+        },
+        {
+          "site": "runtime:next",
+          "sampled_bytes": 7967872
+        },
+        {
+          "site": "runtime:set",
+          "sampled_bytes": 7336224
+        },
+        {
+          "site": "node:internal/encoding:decode",
+          "sampled_bytes": 7226440
+        },
+        {
+          "site": "node:internal/crypto/keys:createPublicKey",
+          "sampled_bytes": 7149912
+        },
+        {
+          "site": "runtime:slice",
+          "sampled_bytes": 6816600
+        },
+        {
+          "site": "node:internal/modules/esm/utils:compileSourceTextModule",
+          "sampled_bytes": 6553296
+        },
+        {
+          "site": "node:events:emit",
+          "sampled_bytes": 6491576
+        },
+        {
+          "site": "runtime:(V8 API)",
+          "sampled_bytes": 6170296
+        },
+        {
+          "site": "runtime:exec",
+          "sampled_bytes": 5887048
+        },
+        {
+          "site": "node:_http_outgoing:processHeader",
+          "sampled_bytes": 5835608
+        },
+        {
+          "site": "node_modules/pg/lib/utils.js:arrayString",
+          "sampled_bytes": 4984144
+        },
+        {
+          "site": "node:buffer:fromStringFast",
+          "sampled_bytes": 4824664
+        },
+        {
+          "site": "node:internal/streams/writable:clearBuffer",
+          "sampled_bytes": 4656488
+        },
+        {
+          "site": "dist/services/sse.js:anonymous",
+          "sampled_bytes": 4624008
+        },
+        {
+          "site": "dist/observability.js:logEvent",
+          "sampled_bytes": 4139424
+        },
+        {
+          "site": "runtime:match",
+          "sampled_bytes": 4054832
+        },
+        {
+          "site": "runtime:Uint8Array",
+          "sampled_bytes": 3807600
+        },
+        {
+          "site": "dist/services/sse.js:presenceUsers",
+          "sampled_bytes": 3719176
+        },
+        {
+          "site": "runtime:assign",
+          "sampled_bytes": 3690248
+        },
+        {
+          "site": "runtime:push",
+          "sampled_bytes": 3649136
+        },
+        {
+          "site": "node:fs:readFileSync",
+          "sampled_bytes": 3593584
+        },
+        {
+          "site": "node:timers:setTimeout",
+          "sampled_bytes": 3577120
+        },
+        {
+          "site": "node:internal/stream_base_commons:writevGeneric",
+          "sampled_bytes": 3549608
+        },
+        {
+          "site": "runtime:bind",
+          "sampled_bytes": 3344712
+        },
+        {
+          "site": "node_modules/jsonwebtoken/verify.js:module.exports",
+          "sampled_bytes": 3149256
+        },
+        {
+          "site": "node_modules/@unbrained/pm-cli/dist/cli-bundle/chunks/chunk-QG4LMU7A.js:anonymous",
+          "sampled_bytes": 2985640
+        }
+      ],
+      "sql": {
+        "other": {
+          "calls": 26,
+          "rows": 10,
+          "elapsed_ms": 753.3976059999927,
+          "failures": 0
+        },
+        "join_access_profile": {
+          "calls": 2981,
+          "rows": 2981,
+          "elapsed_ms": 207271.02603099903,
+          "failures": 0
+        },
+        "fanout_authorization": {
+          "calls": 615,
+          "rows": 19463,
+          "elapsed_ms": 30349.486220000068,
+          "failures": 0
+        }
+      }
+    },
+    "raw_artifact_sha256": {
+      "cpu.cpuprofile": "26ffbb97179b579946316596c0535eb71ff657f6a0a3f9ccdcf5d07256ed5a91",
+      "allocation.heapprofile": "4a8cfe94756d1e75ecb733c3c5d7969c51c5afe54163aff925eb6105b150d63f",
+      "sql.json": "1562c90730944e35450e8506d1f68ab899554de30da521fc6ba91976b13a2cda"
+    }
+  },
+  "behavioral_reverts": [
+    {
+      "function": "connectProjectEvents",
+      "command": "node scripts/with-test-db.ts node --test --test-name-pattern=\"each owner/direct/group join\" test/sse-fanout-access.test.ts",
+      "exit_code": 1
+    },
+    {
+      "function": "projectEventViewers",
+      "command": "node scripts/with-test-db.ts node --test --test-name-pattern=\"slice authorization returns only\" test/sse-fanout-access.test.ts",
+      "exit_code": 1
+    },
+    {
+      "function": "flushFanout",
+      "command": "node scripts/with-test-db.ts node --test --test-name-pattern=\"each yielded slice authorizes only\" test/sse-fanout.test.ts",
+      "exit_code": 1
+    }
+  ],
+  "validation": {
+    "focused": {
+      "tests": 57,
+      "passed": 57,
+      "failed": 0,
+      "canceled": 0,
+      "skipped": 0
+    },
+    "restored_regressions": {
+      "tests": 25,
+      "passed": 25
+    },
+    "ci_release_gates": {
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/unbraind/pm-web/actions/runs/39691398814",
+      "head": "aaca466361accd71f4bcfe9520dc5064968d6e8a",
+      "gates": [
+        {
+          "job": "test (22)",
+          "command": "npm run release:check",
+          "test_summaries": [
+            {
+              "tests": 766,
+              "pass": 766,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            {
+              "tests": 2,
+              "pass": 2,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            }
+          ],
+          "packed_receipts": [
+            {
+              "ok": true,
+              "count": 4
+            }
+          ],
+          "coverage_percent": {
+            "statements": 92.88,
+            "branches": 82.66,
+            "functions": 95.46,
+            "lines": 92.88
+          },
+          "audit_vulnerabilities": 0
+        },
+        {
+          "job": "test (22)",
+          "command": "bun run release:check",
+          "test_summaries": [
+            {
+              "tests": 766,
+              "pass": 766,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            {
+              "tests": 2,
+              "pass": 2,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            }
+          ],
+          "packed_receipts": [
+            {
+              "ok": true,
+              "count": 4
+            }
+          ],
+          "coverage_percent": {
+            "statements": 92.88,
+            "branches": 82.66,
+            "functions": 95.46,
+            "lines": 92.88
+          },
+          "audit_vulnerabilities": 0
+        },
+        {
+          "job": "test (26)",
+          "command": "npm run release:check",
+          "test_summaries": [
+            {
+              "tests": 766,
+              "pass": 766,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            {
+              "tests": 2,
+              "pass": 2,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            }
+          ],
+          "packed_receipts": [
+            {
+              "ok": true,
+              "count": 4
+            }
+          ],
+          "coverage_percent": {
+            "statements": 92.9,
+            "branches": 82.71,
+            "functions": 96.27,
+            "lines": 92.9
+          },
+          "audit_vulnerabilities": 0
+        },
+        {
+          "job": "test (26)",
+          "command": "bun run release:check",
+          "test_summaries": [
+            {
+              "tests": 766,
+              "pass": 766,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            {
+              "tests": 2,
+              "pass": 2,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            }
+          ],
+          "packed_receipts": [
+            {
+              "ok": true,
+              "count": 4
+            }
+          ],
+          "coverage_percent": {
+            "statements": 92.9,
+            "branches": 82.71,
+            "functions": 96.27,
+            "lines": 92.9
+          },
+          "audit_vulnerabilities": 0
+        }
+      ]
+    }
+  },
+  "candidate_code_commit": "aaca466361accd71f4bcfe9520dc5064968d6e8a",
+  "medians": [
+    {
+      "variant": "before",
+      "burst": 100,
+      "attempts": 3,
+      "full_passes": 1,
+      "median_opened": 2400,
+      "median_completed_cohort": 2400,
+      "largest_completed_cohort": 3000,
+      "readiness_failed": 61,
+      "readiness_samples": 1826,
+      "ready_p99_ms": 466.9281489999994,
+      "loop_p99_ms": 154.664959,
+      "peak_rss_bytes": 337850368,
+      "telemetry_attempts": 3
+    },
+    {
+      "variant": "after",
+      "burst": 100,
+      "attempts": 3,
+      "full_passes": 0,
+      "median_opened": 1825,
+      "median_completed_cohort": 1800,
+      "largest_completed_cohort": 2200,
+      "readiness_failed": 189,
+      "readiness_samples": 2333,
+      "ready_p99_ms": 784.0717539999896,
+      "loop_p99_ms": 269.484031,
+      "peak_rss_bytes": 295063552,
+      "telemetry_attempts": 3
+    },
+    {
+      "variant": "before",
+      "burst": 500,
+      "attempts": 3,
+      "full_passes": 0,
+      "median_opened": 912,
+      "median_completed_cohort": 500,
+      "largest_completed_cohort": 2500,
+      "readiness_failed": 0,
+      "readiness_samples": 651,
+      "ready_p99_ms": 474.89192699998966,
+      "loop_p99_ms": 141.426687,
+      "peak_rss_bytes": 230825984,
+      "telemetry_attempts": 3
+    },
+    {
+      "variant": "after",
+      "burst": 500,
+      "attempts": 3,
+      "full_passes": 0,
+      "median_opened": 306,
+      "median_completed_cohort": 0,
+      "largest_completed_cohort": 2000,
+      "readiness_failed": 10,
+      "readiness_samples": 295,
+      "ready_p99_ms": null,
+      "loop_p99_ms": null,
+      "peak_rss_bytes": null,
+      "telemetry_attempts": 2
+    },
+    {
+      "variant": "before",
+      "burst": 1000,
+      "attempts": 3,
+      "full_passes": 1,
+      "median_opened": 487,
+      "median_completed_cohort": 0,
+      "largest_completed_cohort": 3000,
+      "readiness_failed": 0,
+      "readiness_samples": 555,
+      "ready_p99_ms": 1553.6449549999961,
+      "loop_p99_ms": 217.710591,
+      "peak_rss_bytes": 214892544,
+      "telemetry_attempts": 3
+    },
+    {
+      "variant": "after",
+      "burst": 1000,
+      "attempts": 3,
+      "full_passes": 0,
+      "median_opened": 412,
+      "median_completed_cohort": 0,
+      "largest_completed_cohort": 1000,
+      "readiness_failed": 10,
+      "readiness_samples": 272,
+      "ready_p99_ms": 2002.188130000024,
+      "loop_p99_ms": 215.875583,
+      "peak_rss_bytes": 201089024,
+      "telemetry_attempts": 3
+    }
+  ]
+}

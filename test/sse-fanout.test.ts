@@ -459,3 +459,21 @@ test("a presence snapshot arriving during authorization requires a later decisio
   assert.equal(reads, 2);
   assert.equal(frames(viewer.writes).some((frame) => frame.type === "presence"), false);
 });
+
+test("each yielded slice authorizes only its distinct principals before private delivery", async (t) => {
+  t.after(clearFanout);
+  const project = randomUUID();
+  const viewers = Array.from({ length: 67 }, () => sink());
+  viewers[1].userId = viewers[0].userId;
+  const requests: string[][] = [];
+  const authorizeProject = async (userIds: readonly string[] = []) => {
+    requests.push([...userIds]);
+    return new Set(userIds);
+  };
+  for (const viewer of viewers) attachFanout(project, { ...viewer, authorizeProject }, () => {});
+  prepareFanout(project, { type: "private-bounded-membership", data: {} });
+  await waitUntil(() => requests.length >= 3 || viewers.some((viewer) => viewer.destroyed()), 3000, "bounded membership requests");
+  assert.deepEqual(requests, [viewers.slice(0, 32), viewers.slice(32, 64), viewers.slice(64)].map((slice) => [...new Set(slice.map((viewer) => viewer.userId))]));
+  await waitUntil(() => viewers.every((viewer) => viewer.writes.length === 2), 3000, "bounded authorized delivery");
+  assert.ok(viewers.every((viewer) => !viewer.destroyed()));
+});

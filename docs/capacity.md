@@ -32,6 +32,25 @@ This workload measures ordinary joining and readiness; mixed-writer delivery
 remains a separate capacity run and release acceptance requirement. See the
 [join-storm report](capacity/2026-10-21-joinstorm.md) for measured limits.
 
+Optional CPU, sampled-allocation and SQL attribution uses the same join harness:
+
+```sh
+mkdir "$CAPACITY_PROFILE_DIR"
+PM_WEB_CAPACITY_PROFILE_DIR="$CAPACITY_PROFILE_DIR" node scripts/with-test-db.ts node scripts/capacity-joinstorm.ts "$CAPACITY_OUTPUT" 1000
+node scripts/capacity-join-summary.ts "$CAPACITY_PROFILE_DIR" "$CAPACITY_SUMMARY"
+```
+
+Use a fresh external directory for each profiled run and select one burst per
+capture. Raw inspector profiles include source locations and stay outside the
+repository. The summary retains relative module/function names and SQL category
+counts, returned rows, failures and cumulative callback latency; it excludes SQL
+parameters and payloads. Callback latency excludes pool checkout and overlaps
+across concurrent requests. Allocation sampling includes collected objects but
+excludes external Buffer backing memory. CPU sample time includes scheduling
+noise and startup; use RSS, event-loop delay and query counts alongside it.
+Run each unprofiled burst three times and report medians separately: profiler
+overhead can change admission outcomes. See the [follow-up measurements](capacity/2026-10-22-joinstorm-3000.md).
+
 Use a package checkout and the **existing disposable real-Postgres test service** used by `scripts/with-test-db.ts`. The harness never provisions a database service. Do not point it at a live deployment or a database containing real projects. It seeds unique synthetic rows in the selected test database and deletes only those rows after stopping its server. Project directories and child configuration homes are temporary. No hosted URL or existing project directory is accepted.
 
 Install dependencies with `npm ci --ignore-scripts`. Pick an external output prefix in `CAPACITY_OUTPUT`; the two files must not exist. The normal test wrapper supplies the same `DATABASE_URL`, schema initialization and disposable database preflight used by the integration suite. For another isolated test service, export `DATABASE_URL` first.

@@ -9,9 +9,11 @@ events and their order are retained. A viewer joining during a pending burst sta
 at its connection cursor and receives only subsequent events.
 
 The HTTP route checks each subscriber's project access before connecting or
-examining a resume token. Before each slice of at most 32 viewers, one SQL statement reads the project's
-owner, direct shares, and group memberships. Each viewer must occur in that
-result. Read and edit roles have the same existing event visibility. A revoked
+examining a resume token. One SQL snapshot reads that principal's owner/direct/group
+access and display name together. Before each slice of at most 32 viewers, one
+fresh SQL statement reads owner, direct-share and group-share decisions restricted
+to that slice's distinct principals. At most 32 membership rows are returned,
+independently of project population. Each viewer must occur in that result. Read and edit roles have the same existing event visibility. A revoked
 viewer is disconnected before receiving the next batch; a failed membership read
 disconnects only the current and remaining viewers in that pass's snapshot.
 Earlier authorized slices and viewers joining after the snapshot stay connected.
@@ -28,7 +30,9 @@ for smaller configured database pools. Waiting joins occupy a bounded FIFO of
 queries ahead of readiness. A disconnected waiting socket is removed; overload
 returns HTTP 503 with `Retry-After: 1`. Admission ends after initialization, so
 established streams consume no admission slot. Every admitted subscriber still
-performs its original project access, display-name and resume checks.
+performs project access, display-name and resume checks. Access/profile reads
+share one database round trip rather than separate ownership, share and profile
+round trips. There is no authorization cache or cross-slice permission snapshot.
 
 Fan-out yields between these slices so roster transport cannot submit every
 project socket in one event-loop turn. Common replay positions still share the

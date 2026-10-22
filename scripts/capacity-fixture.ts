@@ -119,8 +119,10 @@ export async function capacityServer(root: string, secret: string, traceDirector
     // measuring the single-IP abuse limit as if it were thousands of independent clients.
     PM_WEB_RATE_LIMIT_READ: "100000", PM_WEB_RATE_LIMIT_WRITE: "100000" };
   const preload = traceDirectory ? ["--import", path.join(repo, "scripts/capacity-trace-preload.ts")] : [];
-  const child = spawn(process.execPath, ["--import", path.join(repo, "scripts/capacity-probe.ts"), ...preload, "dist/server.js"], {
-    cwd: repo, env: { ...env, ...(process.env.PM_WEB_CAPACITY_BASELINE_DIR ? { PM_WEB_CAPACITY_BASELINE_DIR: process.env.PM_WEB_CAPACITY_BASELINE_DIR } : {}), ...(traceDirectory ? { PM_WEB_CAPACITY_TRACE_DIR: traceDirectory } : {}) }, stdio: ["ignore", "pipe", "pipe", "ipc"],
+  const profileDirectory = process.env.PM_WEB_CAPACITY_PROFILE_DIR;
+  const profiling = profileDirectory ? ["--import", path.join(repo, "scripts/capacity-join-profile.ts")] : [];
+  const child = spawn(process.execPath, ["--import", path.join(repo, "scripts/capacity-probe.ts"), ...preload, ...profiling, "dist/server.js"], {
+    cwd: repo, env: { ...env, ...(profileDirectory ? { PM_WEB_CAPACITY_PROFILE_DIR: profileDirectory } : {}), ...(process.env.PM_WEB_CAPACITY_BASELINE_DIR ? { PM_WEB_CAPACITY_BASELINE_DIR: process.env.PM_WEB_CAPACITY_BASELINE_DIR } : {}), ...(traceDirectory ? { PM_WEB_CAPACITY_TRACE_DIR: traceDirectory } : {}) }, stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
   let port = 0;
   let pending = "";
@@ -128,6 +130,7 @@ export async function capacityServer(root: string, secret: string, traceDirector
   let failed = false;
   let traceFlushed = false;
   let setupReleased = false;
+  let profileCaptured: boolean | undefined;
   let lockSnapshot: { count: number; at: number } | undefined;
   const samples: CapacityProbe[] = [];
   const errors: Record<string, number> = {};
@@ -150,7 +153,8 @@ export async function capacityServer(root: string, secret: string, traceDirector
   });
   child.stderr!.resume();
   child.on("message", (message: unknown) => {
-    const record = message as Partial<CapacityProbe> & { capacity_probe?: boolean; capacity_reset?: boolean; capacity_trace_flushed?: boolean; capacity_setup_released?: boolean; capacity_lock_count?: number; at?: number };
+    const record = message as Partial<CapacityProbe> & { capacity_join_profile?: boolean; capacity_probe?: boolean; capacity_reset?: boolean; capacity_trace_flushed?: boolean; capacity_setup_released?: boolean; capacity_lock_count?: number; at?: number };
+    if (record.capacity_join_profile !== undefined) profileCaptured = record.capacity_join_profile;
     if (record.capacity_setup_released) setupReleased = true;
     if (typeof record.capacity_lock_count === "number" && typeof record.at === "number") lockSnapshot = { count: record.capacity_lock_count, at: record.at };
     if (record.capacity_trace_flushed) traceFlushed = true;
@@ -178,6 +182,14 @@ export async function capacityServer(root: string, secret: string, traceDirector
       sample: async () => { const count = samples.length; child.send("capacity-sample"); await waitUntil(() => samples.length > count, 5000, "final process sample"); },
       /** Expose only this owned child's exit state for public-safe setup diagnostics. */
       exitState: () => ({ code: child.exitCode, signal: child.signalCode }),
-      close: () => stopServer(child) };
+      close: async () => {
+        try {
+          if (profileDirectory && child.exitCode === null && child.signalCode === null) {
+            child.send("capacity-join-profile-stop");
+            await waitUntil(() => profileCaptured !== undefined, 15_000, "join profile capture");
+            if (!profileCaptured) throw new Error("Join profile capture failed");
+          }
+        } finally { await stopServer(child); }
+      } };
   } catch (error) { await stopServer(child); throw error; }
 }

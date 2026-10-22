@@ -98,9 +98,11 @@ async function main(): Promise<void> {
   const output = process.argv[2] ?? path.join(await mkdtemp(path.join(tmpdir(), "pm-web-joinstorm-")), "report");
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(`${output}.jsonl`, "", { flag: "wx" });
-  const runtimeHashes = Object.fromEntries(await Promise.all(["dist/routes/pm.js", "dist/services/sse.js", "dist/services/sse-fanout.js", "dist/services/sse-admission.js"].map(async (file) => [file, await readFile(file).then((contents) => createHash("sha256").update(contents).digest("hex")).catch(() => null)])));
+  const runtimeHashes = Object.fromEntries(await Promise.all(["dist/routes/pm.js", "dist/services/sse.js", "dist/services/sse-fanout.js", "dist/services/sse-access.js", "dist/services/sse-admission.js"].map(async (file) => [file, await readFile(file).then((contents) => createHash("sha256").update(contents).digest("hex")).catch(() => null)])));
+  const bursts = (process.argv[3] ?? "100,500,1000").split(",").map(Number);
+  if (process.env.PM_WEB_CAPACITY_PROFILE_DIR && bursts.length !== 1) throw new Error("Select one burst for each fresh profiling directory");
   const runs = [];
-  for (const burst of (process.argv[3] ?? "100,500,1000").split(",").map(Number)) {
+  for (const burst of bursts) {
     const options = { subscribers: 3000, burst, readinessMs: 2000 };
     const run = { runtime_sha256: runtimeHashes, ...await runJoinStorm(options).catch(() => ({ options, failure: "setup or resource capture failed; inconclusive", passed: false })) };
     runs.push(run);

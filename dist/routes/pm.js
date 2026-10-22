@@ -14,7 +14,7 @@ import { buildIcsCalendar } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, canResumeFanout, heartbeatFanout, mutationEventIdentity } from "../services/sse.js";
 import { singleFlightMutationPage } from "../services/history-read-gate.js";
-import { projectEventViewers } from "../services/sse-access.js";
+import { projectEventViewers, projectPresenceMember } from "../services/sse-access.js";
 import { createSSEAdmission } from "../services/sse-admission.js";
 import { signalMutationRead } from "../services/mutation-read-signals.js";
 import path from "node:path";
@@ -2337,12 +2337,18 @@ router.patch("/presence/:clientId", async (req, res) => {
 // ─── SSE endpoint ───
 // GET /api/projects/:projectId/pm/events
 const admitEvents = createSSEAdmission(Math.max(1, Math.min(16, (pool.options.max ?? 20) - 4)), 4096);
-/** Perform each subscriber's original access, profile and cursor checks after bounded admission. */
+/** Read each subscriber's access and profile together after bounded admission; cursor checks remain per request. */
 async function connectProjectEvents(req, res) {
+    const projectId = routeParam(req, "projectId");
+    const userId = req.user.userId;
+    let displayName;
     try {
-        const project = await requireProject(req, res);
-        if (!project)
+        const member = await projectPresenceMember(projectId, userId);
+        if (!member) {
+            res.status(404).json({ error: "Project not found" });
             return;
+        }
+        displayName = member.displayName;
     }
     catch (err) {
         logError("sse_project_verification_failed", err);
@@ -2350,18 +2356,6 @@ async function connectProjectEvents(req, res) {
         return;
     }
     const clientId = uuidv4();
-    const projectId = routeParam(req, "projectId");
-    const userId = req.user.userId;
-    let displayName;
-    try {
-        const userResult = await pool.query("SELECT display_name FROM pm_users WHERE id = $1", [userId]);
-        displayName = userResult.rows[0]?.display_name?.trim() || "Project member";
-    }
-    catch (error) {
-        logError("sse_presence_error", error);
-        res.status(500).json({ error: "Failed to initialize real-time presence" });
-        return;
-    }
     const currentView = String(req.query["view"] ?? "items");
     const lastEventId = req.get("Last-Event-ID");
     if (lastEventId && !canResumeFanout(projectId, lastEventId)) {
@@ -2379,7 +2373,7 @@ async function connectProjectEvents(req, res) {
         currentView,
         res,
         connectedAt: new Date(),
-        authorizeProject: () => projectEventViewers(projectId),
+        authorizeProject: (userIds) => projectEventViewers(projectId, userIds),
     }, lastEventId);
     // Heartbeat every 30s to keep connection alive and refresh presence
     const heartbeat = setInterval(() => {
