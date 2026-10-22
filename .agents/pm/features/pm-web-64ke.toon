@@ -6,10 +6,10 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-21T21:16:20.214Z"
-updated_at: "2026-10-22T14:20:25.085Z"
+updated_at: "2026-10-22T14:52:12.866Z"
 author: codex-agent
 acceptance_criteria: "Concurrent responses use revision checks; view-only users cannot apply; acknowledgment never counts as code review or task completion. Typed SDK and CLI, compact TOON/JSON, typed refusals with remedies, README and example, real public tracker validation and before/after screenshots."
-comments[23]{created_at,author,text}:
+comments[26]{created_at,author,text}:
   "2026-10-21T21:16:39.009Z",codex-agent,"Overlap checked against installed CLI 2026.10.21 and pinned SDK 2026.10.19: core plan decision stores decision text, rationale and evidence; no pending request workflow. Sibling pm-review owns typed review findings/verdicts and remote review completion. pm-jev owns model proposals. This feature adds a versioned web workflow within existing Plan decision logs, without another item type, review verdict, execution approval or completion model. Search inbox returned no existing package item. Tracker-reconciliation items are excluded. Plan: shared typed service, bounded CLI/HTTP, revision checks inside SDK cross-process lock, existing audited planDecision mutations, accessible comparison UI, real no-git/concurrency/refusal tests, public corpus read-only measurements, screenshots and CI npm/Bun release gates."
   "2026-10-21T21:25:34.442Z",codex-agent,"Implementation uses existing core planDecision mutations and a public SDK token-owned lock around revision check plus append. Independent processes sharing one non-git tracker: exactly one approval succeeded; the other received revision_conflict. Real HTTP owner/editor/viewer/stranger scenarios passed 2/2; view-only requests refused before mutation, and plan status/mode/steps stayed unchanged. Public main corpus validation: 172 items, 0 Plans, 2 Decision items, 0 pending requests; 85 JSON bytes, certified corpus plus inbox read 473 ms; 374 read-only source files retained identical aggregate SHA-256 43d589b8e5e7cd1ca0b51387518b56efb6aee7993d71540074ca76babe9595b4. Active workflow behavior uses separate real seeded fixtures because the public corpus has no Plans. Targeted service/command coverage: 99.49 percent lines, 88.96 branches, 100 functions before final native CLI additions. Full npm/Bun gates delegated to package CI per owner CPU constraint."
   "2026-10-21T21:30:55.366Z",codex-agent,"Behavioral revert proof: temporarily removed only the editor-capability refusal and respondToDecision revision refusal, rebuilt server output, then ran node --test --test-name-pattern \"refusals reject|requests preserve|independent processes\" test/decision-inbox.test.ts. All 3 selected tests failed (0 passed), proving permission and revision assertions detect the reverted behavior. Restored both guards and rebuilt successfully. Cross-process race also uses canonical versus uppercase plan aliases to prove a shared lock identity. PM-linked targeted run passed 21/21 with no skips. Browser acceptance produced 5 local seeded screenshots and verified 1440/390 layouts, view-only disabled controls, unsent reasoning preservation after real SSE activity, acknowledgment pending, and approval without step completion. Isolated package health passed; default local health only had an unrelated globally installed extension version skew. Pins and reconciliation items remain unchanged."
@@ -33,6 +33,9 @@ comments[23]{created_at,author,text}:
   "2026-10-22T14:02:02.479Z",codex-agent,"Final whole-diff service check found one more committed-result ambiguity: requestDecision previously appended into a malformed Plan, then failed while projecting it. It now validates the existing log before the audited append. A sixth isolated behavioral revert removed only this request preflight, rebuilt the server, and ran node scripts/with-test-db.ts node --test --test-name-pattern \"malformed stored\" test/decision-inbox.test.ts: 0/1 pass, exit 1, actual decision count 3 versus expected unchanged count 2. Restoring the guard and rebuilding passed the existing linked SDK/CLI/HTTP command again: 27/27 tests, 1/1 linked command, zero failures/skips/cancellations. This extends the same malformed-record and committed-result defect classes; no additional feature scope."
   "2026-10-22T14:08:49.782Z",codex-agent,"Whole-diff review also found that the browser dropped typed load-error remedies. The existing separate live status now includes the server repair instruction and affected Plan as text. A seventh isolated behavioral revert restored only renderDecisionInbox from the previous pushed head, retained the real HTTP malformed-log scenario, rebuilt the frontend, and ran node scripts/with-test-db.ts node scripts/decision-inbox-browser.ts: exit 1 at the missing repair-remedy/affected-Plan assertion. Restored rendering rebuilt and passed the existing linked browser command via pm test --run --progress --only-index 3 --pm-context tracker --override-linked-pm-context: 1/1 command, five synthetic screenshots, loading/populated/SSE/empty/network-error/recovery states, malformed-record repair status, editor/viewer capabilities, and unchanged lifecycle. Evidence directories are external; no binary artifacts are tracked. Build:test, lint, zero duplication and all 821 documented declarations pass after the final guard and browser changes."
   "2026-10-22T14:20:24.439Z",codex-agent,"CI receipt at pushed code head 6300d17cd3fc9c9b0612b25cc1766202f3b12601: all four full release-gate steps report success, npm run release:check and bun run release:check on both Node 22 and Node 26, with isolated HOME and Git configuration. No thresholds or pins changed. Node 22 is finishing job cleanup and Node 26 is installing its browser at this receipt; exact log tallies and the final pushed-head CI will be verified before handoff. Both additional whole-diff fixes (request preflight and browser repair remedy) independently pass their recorded revert proofs, restored 27/27 linked SDK/CLI/HTTP tests and 1/1 linked browser command with five screenshots. Their final committed head will run the complete matrix again. CI: https://github.com/unbraind/pm-web/actions/runs/39791261197"
+  "2026-10-22T14:27:19.514Z",codex-agent,"Final-head CI is queued for runners while the host has recovered from its earlier load. Run the complete unchanged npm and Bun release gates locally with isolated HOME and Git identity as an additional exact-source verification path, using linked PM tests. Code remains at 3c323064e9b3c0aa95e7e0a9b3a248a34a869703; any follow-up commit will contain only tracker receipts and generated changelog evidence. Existing CI receipt already confirms all four full gate steps at the preceding code head; final-head CI remains queued, not claimed as successful."
+  "2026-10-22T14:43:59.683Z",codex-agent,"Complete local npm release gate passed at unchanged source head 3c323064e9b3c0aa95e7e0a9b3a248a34a869703 through linked test 4, with isolated HOME, GIT_CONFIG_GLOBAL=/dev/null and GIT_CONFIG_NOSYSTEM=1: 1/1 linked command; 787/787 suite tests and 2/2 capacity tests, zero failures/skips/cancellations/todo; packed acceptance ok with all four npm/Bun current/minimum-host scenarios. All 49 server sources reconciled; coverage statements/lines 93.01 percent, branches 83.27, functions 96.43, meeting unchanged thresholds. Type checks, lint, duplication zero, 821 documented declarations, production audit, package contents, changelog/date and publish-attestation verification all passed. The complete linked Bun gate is next; final-source CI is also running both Bun gates."
+  "2026-10-22T14:52:09.602Z",codex-agent,"Final source verification at 3c323064e9b3c0aa95e7e0a9b3a248a34a869703: CI 39794938895 reports success for all four complete release-gate steps, npm and Bun on Node 22 and 26, plus Node 26 real browser capture/upload including the malformed-record repair remedy. Node 22 job completed successfully: both full gates each passed 787/787 suite tests, 2/2 capacity tests and 4/4 packed scenarios, zero failures/skips/cancellations/todo, with all 49 sources and unchanged thresholds. Node 26 is finishing post-job cleanup at this receipt; final logs/status will be checked before handoff. The complete local npm gate also passed 787/787 plus 2/2 and 4/4 through linked test 4. The additional local Bun attempt was deliberately stopped after those full CI Bun gates passed: its linked-run receipt reports SIGTERM and is excluded from pass counts, not described as a passing local run. Only its verified detached test process group was stopped; no service or unrelated process was touched. Follow-up commit contains only this item and its append-only history; code, tests, dist and configuration remain identical to the gated source head. Final strict health and changelog checks validate that tracker receipt."
 files[12]{path,scope}:
   .github/workflows/ci.yml,project
   public/src/views/decision-inbox.ts,project
@@ -46,7 +49,7 @@ files[12]{path,scope}:
   test/helpers/inbox-child.ts,project
   test/helpers/inbox-lock-extension.ts,project
   test/workflow-security.test.ts,project
-tests[3]:
+tests[5]:
   - command: node scripts/with-test-db.ts node --test test/decision-inbox.test.ts test/decision-inbox-routes.test.ts test/extension.test.ts
     scope: project
     provenance:
@@ -67,6 +70,24 @@ tests[3]:
     provenance:
       author: codex-agent
       created_at: "2026-10-22T09:40:58.047Z"
+      source_kind: local_mutation
+      source_ref: feat/decision-inbox
+  - command: "npm run release:check"
+    scope: project
+    timeout_seconds: 3600
+    pm_context_mode: tracker
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-22T14:27:20.643Z"
+      source_kind: local_mutation
+      source_ref: feat/decision-inbox
+  - command: "bun run release:check"
+    scope: project
+    timeout_seconds: 3600
+    pm_context_mode: tracker
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-22T14:27:21.852Z"
       source_kind: local_mutation
       source_ref: feat/decision-inbox
 docs[3]{path,scope}:
