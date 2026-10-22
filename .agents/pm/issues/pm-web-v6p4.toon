@@ -1,0 +1,15 @@
+id: pm-web-v6p4
+title: Diagnose SDK incompatibility before full fleet command discovery
+description: "The complete fleet snapshot generator fails during pm-github command registration because the resolved @unbrained/pm-cli/sdk does not export previewItemMutations. The package host pin is 2026.10.19; the current registry CLI is 2026.10.21. The pm-memory and pm-rlm receipts were refreshed successfully through the scoped mode for pm-web-7u2y, preserving all other receipts. Determine the exact resolved SDK/extension version requirement, report incompatibility before activation with a useful bounded diagnostic, and verify complete generation after the separately owned toolchain update. Preserve previous snapshots on failure; scoped generation is not certification of whole-fleet freshness. Related metadata history: pm-web-5hdb. No dependency pin change is part of the current graph/catalog work."
+type: Issue
+status: open
+priority: 3
+tags[2]: catalog,metadata
+created_at: "2026-10-21T16:49:30.419Z"
+updated_at: "2026-10-21T16:56:27.564Z"
+author: codex-agent
+files[1]{path,scope}:
+  scripts/read-fleet-commands.ts,project
+docs[1]{path,scope}:
+  docs/fleet-package-catalog.md,project
+body: ""

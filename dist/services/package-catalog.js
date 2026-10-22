@@ -39,6 +39,26 @@
  */
 export const PACKAGE_CATALOG = [
     {
+        name: "pm-memory", npmName: "pm-memory", npmSpec: "npm:pm-memory",
+        title: "Memory",
+        description: "Typed long-term agent memory with bounded recall and cross-harness round trips",
+        capabilities: ["commands", "schema"],
+        commands: ["pm memory consolidate", "pm memory export", "pm memory get", "pm memory import", "pm memory index", "pm memory recall", "pm memory remember", "pm memory verify"],
+        category: "extension", availability: "unreleased",
+        links: { docs: "https://github.com/unbraind/pm-memory#readme", repository: "https://github.com/unbraind/pm-memory", report: "https://github.com/unbraind/pm-memory/issues" },
+    },
+    {
+        name: "pm-rlm", npmName: "pm-rlm", npmSpec: "npm:pm-rlm",
+        title: "Recursive language models",
+        description: "Recursive language models with a typed pm environment and durable call ledger",
+        capabilities: ["commands", "schema"],
+        commands: ["pm rlm replay", "pm rlm resume", "pm rlm run", "pm rlm tree"],
+        category: "extension", availability: "unreleased",
+        links: { docs: "https://github.com/unbraind/pm-rlm#readme", repository: "https://github.com/unbraind/pm-rlm", report: "https://github.com/unbraind/pm-rlm/issues" },
+        requiresService: { name: "Configured Ollama or OpenAI-compatible model endpoint (for live calls)", optional: true },
+        requiresCredentials: [{ label: "Optional key for the configured endpoint (credential variable is configurable); Ollama and local replay need no key", envVars: ["OPENAI_API_KEY"], optional: true }],
+    },
+    {
         name: "pm-governance-audit", extensionName: "builtin-governance-audit",
         npmName: null, npmSpec: "pm-governance-audit", availability: "bundled", category: "extension",
         title: "Governance Audit", description: "Run dedupe audits, comments audits, and normalize sweeps as package-owned workflows.",

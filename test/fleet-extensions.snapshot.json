@@ -270,6 +270,27 @@
     "npmPublished": false
   },
   {
+    "name": "pm-memory",
+    "description": "Typed long-term agent memory with bounded recall and cross-harness round trips",
+    "packageDescription": "Typed long-term agent memory with bounded recall and cross-harness round trips",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": true,
+    "commands": [
+      "pm memory consolidate",
+      "pm memory export",
+      "pm memory get",
+      "pm memory import",
+      "pm memory index",
+      "pm memory recall",
+      "pm memory remember",
+      "pm memory verify"
+    ],
+    "npmPublished": false
+  },
+  {
     "name": "pm-ops",
     "description": "Multi-repo fleet operations for pm-cli",
     "packageDescription": "Multi-repo fleet operations for pm-cli",
@@ -386,6 +407,23 @@
       "pm rl sweep status",
       "pm rl transfer gap",
       "pm rl transfer record"
+    ],
+    "npmPublished": false
+  },
+  {
+    "name": "pm-rlm",
+    "description": "Recursive language models with a typed pm environment and durable call ledger",
+    "packageDescription": "Recursive language models with a typed pm environment and durable call ledger",
+    "capabilities": [
+      "commands",
+      "schema"
+    ],
+    "publishable": true,
+    "commands": [
+      "pm rlm replay",
+      "pm rlm resume",
+      "pm rlm run",
+      "pm rlm tree"
     ],
     "npmPublished": false
   },
