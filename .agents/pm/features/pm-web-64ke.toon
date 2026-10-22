@@ -6,10 +6,10 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-10-21T21:16:20.214Z"
-updated_at: "2026-10-22T20:28:42.353Z"
+updated_at: "2026-10-22T22:25:32.637Z"
 author: codex-agent
 acceptance_criteria: "Concurrent responses use revision checks; view-only users cannot apply; acknowledgment never counts as code review or task completion. Typed SDK and CLI, compact TOON/JSON, typed refusals with remedies, README and example, real public tracker validation and before/after screenshots."
-comments[38]{created_at,author,text}:
+comments[44]{created_at,author,text}:
   "2026-10-21T21:16:39.009Z",codex-agent,"Overlap checked against installed CLI 2026.10.21 and pinned SDK 2026.10.19: core plan decision stores decision text, rationale and evidence; no pending request workflow. Sibling pm-review owns typed review findings/verdicts and remote review completion. pm-jev owns model proposals. This feature adds a versioned web workflow within existing Plan decision logs, without another item type, review verdict, execution approval or completion model. Search inbox returned no existing package item. Tracker-reconciliation items are excluded. Plan: shared typed service, bounded CLI/HTTP, revision checks inside SDK cross-process lock, existing audited planDecision mutations, accessible comparison UI, real no-git/concurrency/refusal tests, public corpus read-only measurements, screenshots and CI npm/Bun release gates."
   "2026-10-21T21:25:34.442Z",codex-agent,"Implementation uses existing core planDecision mutations and a public SDK token-owned lock around revision check plus append. Independent processes sharing one non-git tracker: exactly one approval succeeded; the other received revision_conflict. Real HTTP owner/editor/viewer/stranger scenarios passed 2/2; view-only requests refused before mutation, and plan status/mode/steps stayed unchanged. Public main corpus validation: 172 items, 0 Plans, 2 Decision items, 0 pending requests; 85 JSON bytes, certified corpus plus inbox read 473 ms; 374 read-only source files retained identical aggregate SHA-256 43d589b8e5e7cd1ca0b51387518b56efb6aee7993d71540074ca76babe9595b4. Active workflow behavior uses separate real seeded fixtures because the public corpus has no Plans. Targeted service/command coverage: 99.49 percent lines, 88.96 branches, 100 functions before final native CLI additions. Full npm/Bun gates delegated to package CI per owner CPU constraint."
   "2026-10-21T21:30:55.366Z",codex-agent,"Behavioral revert proof: temporarily removed only the editor-capability refusal and respondToDecision revision refusal, rebuilt server output, then ran node --test --test-name-pattern \"refusals reject|requests preserve|independent processes\" test/decision-inbox.test.ts. All 3 selected tests failed (0 passed), proving permission and revision assertions detect the reverted behavior. Restored both guards and rebuilt successfully. Cross-process race also uses canonical versus uppercase plan aliases to prove a shared lock identity. PM-linked targeted run passed 21/21 with no skips. Browser acceptance produced 5 local seeded screenshots and verified 1440/390 layouts, view-only disabled controls, unsent reasoning preservation after real SSE activity, acknowledgment pending, and approval without step completion. Isolated package health passed; default local health only had an unrelated globally installed extension version skew. Pins and reconciliation items remain unchanged."
@@ -48,21 +48,47 @@ comments[38]{created_at,author,text}:
   "2026-10-22T19:39:40.791Z",codex-agent,"Full patched-lock baseline CI passed at 51b39a725bddf8e073075652b102d60583d470c2: https://github.com/unbraind/pm-web/actions/runs/39838114802. All four unchanged full release gates passed: npm run release:check and bun run release:check on each of Node 22 and 26. Every gate passed 787/787 suite tests, 2/2 capacity tests and all four packed installation scenarios, with zero failures, cancellations, skips or todo. Both production audits report zero vulnerabilities; coverage includes all 49 server sources. Node 26 browser acceptance passed five screenshots. The final combined source also includes the independently reverted/restored selected-choice draft guard. Its exact-head CI receipts are linked from PR 238 checks; final verification must pass there before completion. SDK pins and thresholds remain unchanged; no items are closed."
   "2026-10-22T20:20:49.362Z",codex-agent,"Post-verification integration blocker: PR 237 was merged externally at 2026-10-22T20:11:22Z, advancing main to 55faf88 after head 09e64b32e92084474a5f3746b409a0575817f401 passed all four exact-head npm/Bun release gates and browser acceptance. Fetched and attempted origin/main integration. The pinned PM history merge driver refused pm-web-k77v: History union cannot rebase a scalar patch onto the merged replay position. Main contains an older claim/close/release stream, while this branch contains the new advisory work and claim/release stream; scalar replacements encounter fields removed by the other stream. The item driver also selected old closed status/closure fields. Aborted the merge and verified both original history blobs byte-identical to their commits. No existing history records were rewritten or dropped. The append-only history rule prevents forcing a rewritten union; this is a PM CLI merge-driver blocker, not a failing review fix. Source and tests remain exactly those verified at 09e64b3; record the current main conflict explicitly rather than claiming merge readiness."
   "2026-10-22T20:28:39.834Z",codex-agent,"Aborted-operation cleanup: reconciliation refused to write any audit history without validated indexed counterparts. Its guarded staging retry also wrote no audit history. Followed the CLI recovery instruction to preserve the stale aborted-operation receipt outside the active store; archived only this attempt receipt, without marking it reconciled or changing any history record. Strict PM health is clean again (10 checks, zero blocking findings). No merge operation remains active. Main integration remains blocked by the unsupported scalar history union; neither source stream was rewritten, dropped, repaired or re-anchored. The published application code and regression tests are unchanged from fully passing head 09e64b3."
-files[14]{path,scope}:
-  .github/workflows/ci.yml,project
-  public/src/views/decision-inbox.ts,project
-  scripts/decision-inbox-browser.ts,project
-  scripts/decision-inbox-public-data.ts,project
-  src/decision-commands.ts,project
-  src/routes/pm.ts,project
-  src/routes/projects.ts,project
-  src/services/decision-inbox.ts,project
-  test/decision-inbox-routes.test.ts,project
-  test/decision-inbox.test.ts,project
-  test/helpers/inbox-child.ts,project
-  test/helpers/inbox-lock-extension.ts,project
-  test/projects-routes.test.ts,project
-  test/workflow-security.test.ts,project
+  "2026-10-22T21:22:53.745Z",codex-agent,"Main integration resumed under explicit append-only union instructions. Captured pinned PM 2026.10.19 driver invocation and exact merge output. Item driver combined the newer document with five main-side closure fields; history driver refused scalar replay rebasing. A raw union preserves all 16 original records but strict health rejects the forked linear hash chain. Resolve with explicit, newly sealed branch-snapshot transition audit events between intact streams, then restore the combined item snapshot; no original record, patch, hash, attribution or ordering will be rewritten. Verify both original streams as unchanged subsequences and require strict health plus complete npm and Bun release gates before pushing."
+  "2026-10-22T21:25:03.115Z",codex-agent,"Main 55faf88 integration evidence: the union contains all 13 branch records and all 8 main records, deduplicating the 5 common records to 16 originals. Every original line remains byte-for-byte unchanged and in its original per-side order. Two newly sealed SDK audit transitions retain the branch fork replay and restore the combined newer item, followed by the normal trusted receipt audit: 19 total records. Pinned pm merge reconcile succeeded, reconciled 1/1 receipt, and reported zero entries rehashed, zero patches repaired, no snapshot reconciliation and no forced disposition. Evidence regression: the raw 16-record union failed strict health with chain/hash drift; the audited union passes all 10 checks with zero blocking findings (five unrelated stale items are advisory). Main closure fields remain imported historical state; newer dependency comments and the October 22 advisory documentation are all retained. No original attribution or hash was rewritten."
+  "2026-10-22T21:27:34.512Z",codex-agent,"Union regression evidence additionally verified with the pinned SDK: all non-closure fields equal the newer branch revision; all five imported closure fields equal main; the newer updated_at remains. The complete history chain verifies, and removing either newly added snapshot transition makes verification fail. Original lines remain unchanged. Direct node_modules/.bin/pm health --full --strict-exit passes all 10 checks. PM linked-test tracker copies omit durable merge-receipt files and therefore falsely report missing receipt references; removed the temporary health linkage rather than weakening health or discarding receipts. Existing linked npm and Bun full release checks remain the release evidence commands."
+  "2026-10-22T21:55:43.566Z",codex-agent,"Merged-tree npm release gate passed through the pinned PM linked command (npm run release:check) with an isolated HOME and Git configuration: 787/787 suite tests, 2/2 capacity tests, 4/4 packed scenarios; zero failures, cancellations, skips or todo. All intended 49 server sources reconcile at unchanged coverage thresholds; production audit found zero vulnerabilities. Type, lint, duplication, docstring, committed build output, changelog/date and publish attestation checks passed. The shared host was heavily loaded, but this complete run did not time out. The Bun release gate is now running sequentially on the same resolved merge tree."
+  "2026-10-22T22:03:05.181Z",codex-agent,"Whole-merge self-review for the same history-loss defect class passed: every original line from all 182 branch history streams (3025 original lines) and all 181 main history streams (3099 original lines) occurs byte-for-byte in the resolved tracker and retains its original per-stream ordering. Zero lost, rewritten or reordered original lines across either parent. The conflicting item retains its exact 16-record union plus the two explicit snapshot-transition audits and one normal trusted-receipt audit. Only the expected main tracker changes, changelog, merge receipt and this task evidence differ from the prior branch; application code and committed distribution remain unchanged."
+  "2026-10-22T22:25:31.776Z",codex-agent,"Main integration complete on the resolved merge tree: both pinned PM-linked full release commands passed 1/1 each, npm run release:check and bun run release:check, with separate fresh HOME directories and isolated Git configuration. EACH gate passed 787/787 suite tests, 2/2 capacity tests and 4/4 packed scenarios, with zero failures, cancellations, skips or todo; 49 server sources met unchanged thresholds and production audits found zero vulnerabilities. Both completed under shared-host load without timeouts. Type, lint, duplication, docstring, rebuilt committed output, changelog/date and publish-attestation gates all passed. Application code, tests, lockfile and distribution remain identical to application head 09e64b3. All original history lines from both parents remain unchanged/in order; the conflicting item has the 16-original-record union plus three explicit merge audits and a fully authenticated, reconciled receipt. Direct strict health passed 10 checks with no blocking findings. Release the claim for orchestrator verification, retaining the feature in progress; the dependency item keeps its imported main-side historical closure. No review replies or resolution actions were performed."
+files[16]:
+  - path: .agents/pm/history/pm-web-k77v.jsonl
+    scope: project
+    note: Append-only main integration and original branch records
+  - path: .agents/pm/merge-receipts/39ce81b3-7c1a-4d07-a1c2-6ce0332c5620.json
+    scope: project
+    note: Authenticated main item merge receipt
+  - path: .github/workflows/ci.yml
+    scope: project
+  - path: public/src/views/decision-inbox.ts
+    scope: project
+  - path: scripts/decision-inbox-browser.ts
+    scope: project
+  - path: scripts/decision-inbox-public-data.ts
+    scope: project
+  - path: src/decision-commands.ts
+    scope: project
+  - path: src/routes/pm.ts
+    scope: project
+  - path: src/routes/projects.ts
+    scope: project
+  - path: src/services/decision-inbox.ts
+    scope: project
+  - path: test/decision-inbox-routes.test.ts
+    scope: project
+  - path: test/decision-inbox.test.ts
+    scope: project
+  - path: test/helpers/inbox-child.ts
+    scope: project
+  - path: test/helpers/inbox-lock-extension.ts
+    scope: project
+  - path: test/projects-routes.test.ts
+    scope: project
+  - path: test/workflow-security.test.ts
+    scope: project
 tests[6]:
   - command: node scripts/with-test-db.ts node --test test/decision-inbox.test.ts test/decision-inbox-routes.test.ts test/extension.test.ts
     scope: project

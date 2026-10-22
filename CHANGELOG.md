@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026.10.22 - 2026-10-22
+
+### Added
+
+- List pm-swarm in the package catalog as an unreleased fleet package ([pm-web-t2oi](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-t2oi.toon))
+- Measure real-time collaboration capacity with mixed writers ([pm-web-lh4b](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-lh4b.toon))
+- Skip unchanged history reads in real-time project watchers ([pm-web-bazs](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-bazs.toon))
+
+### Changed
+
+- Enable the gated pm-github issue sync and remove the braces chain ([pm-web-gated-issue-sync](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-gated-issue-sync.toon))
+- Adopt pm-github 2026.10.16: default-branch-safe gated sync and daily gated closeout PRs ([pm-web-e6s4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-e6s4.toon))
+
+### Fixed
+
+- pm-web plan routes pass plan-level flags to step subcommands, so adding or editing a plan step never reaches the step ([pm-web-i1mr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-i1mr.toon))
+- pm-web plan link and unlink routes omit the required step positional, so both always fail with a usage error ([pm-web-t0mu](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-t0mu.toon))
+- pm-web test-add route passes a token shape the CLI rejects, so linking a test from the UI always fails ([pm-web-957x](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-957x.toon))
+- pm-web close-many previews and closes the whole project instead of only open items ([pm-web-culw](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-culw.toon))
+- Graph auto-sync provisions an extension before checking whether Neo4j is configured ([pm-web-4fgv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-4fgv.toon))
+- Spawn fallback inherits a foreign PM_PATH and writes outside the requested project ([pm-web-juk7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-juk7.toon))
+- Coverage configuration failures leave stale accepted reports ([pm-web-sblf](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-sblf.toon))
+- Command ownership check misses colliding handlers after separate-value global flags ([pm-web-github-ec206b5ea075-189](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-189.toon))
+- The package catalog went stale when pm-rl gained a hooks capability ([pm-web-bw5d](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-bw5d.toon))
+- Surface optional package requirements for maintenance command routes ([pm-web-pep7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-pep7.toon))
+- Deduplicate committed realtime facts across HTTP, watcher and peer delivery ([pm-web-4f52](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-4f52.toon))
+- Detached startup reports started after its child dies ([pm-web-xo0i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-xo0i.toon))
+- Await asynchronous ledger settlement in the concurrent writer regression ([pm-web-gy4k](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-gy4k.toon))
+- Update pm-web production ip-address dependency past 10.5.0 advisories ([pm-web-k77v](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-k77v.toon))
+- jscpd 5.3.2 exposes pm-web zero-duplication failures ([pm-web-8jjr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8jjr.toon))
+- Refresh proxy-addr lockfile to clear the critical production audit advisory ([pm-web-6ama](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-6ama.toon))
+- Resolve pm-web full development audit through unpatched braces and fast-glob ([pm-web-xucb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-xucb.toon))
+- Update the production proxy-addr dependency past GHSA-jqcg-44mw-7w3h ([pm-web-mep7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-mep7.toon))
+- Server hangs/cryptic error when DATABASE_URL is unset ([pm-web-onv4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-onv4.toon))
+- The release job authenticated with a stored npm token that expired, so publishing stopped while every other gate stayed green ([pm-web-dtdp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-dtdp.toon))
+- A release run bumped and committed a new version every night while publishing was impossible, because the only externally-failable step runs last ([pm-web-jvsx](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-jvsx.toon))
+
+### Security
+
+- GET graph installs or activates pm-graph and bypasses edit permission ([pm-web-jpa6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-jpa6.toon))
+
+### Other
+
+- Bring the pm-web HTTP route layer under real-Postgres integration coverage ([pm-web-9ulj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/epics/pm-web-9ulj.toon))
+- Enable GitHub CodeQL code scanning ([pm-web-auc2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-auc2.toon))
+- Make spawned test fixtures independent of ancestor package module type ([pm-web-jp0u](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-jp0u.toon))
+- Consolidate unresolved spawn-overlap scheduling work into pm-web-qdhx ([pm-web-fhob](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fhob.toon))
+- Cover the routes/pm.ts command surface and the index/server bootstrap in pm-web ([pm-web-ulgy](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ulgy.toon))
+- Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
+- Restore changelog gates with the SDK full-list projection ([pm-web-fmby](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fmby.toon))
+
 ## 2026.10.15 - 2026-10-15
 
 ### Added

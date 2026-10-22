@@ -2,12 +2,15 @@ id: pm-web-lh4b
 title: Measure real-time collaboration capacity with mixed writers
 description: "Companion pm-cli-website-ghe1. Add a reproducible production-entry SSE capacity ladder with authenticated HTTP and separate pinned CLI writers, per-write delivery evidence, resource telemetry, a real-Postgres smoke test, and a measured local report."
 type: Feature
-status: in_progress
+status: closed
 priority: 1
 tags[3]: acceptance,capacity,realtime
 created_at: "2026-10-15T08:43:30.988Z"
-updated_at: "2026-10-15T12:24:33.125Z"
+updated_at: "2026-10-21T19:32:51.662Z"
+closed_at: "2026-10-21T19:32:50.419Z"
+completed_at: "2026-10-21T19:32:50.419Z"
 author: codex-agent
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): [PR #205](https://github.com/unbraind/pm-web/pull/205) (d9a8525) delivers the mixed-writer SSE ladder/harness and measured report. Achieving 3000 normal-startup subscribers is a separate requirement, pm-web-jstr. Retained evidence: scripts/capacity-fixture.ts, scripts/capacity-metrics.ts, scripts/capacity-probe.ts."
 comments[12]{created_at,author,text}:
   "2026-10-15T08:44:06.809Z",codex-agent,"Companion pm-cli-website-ghe1. Duplicate search found no capacity harness item. Plan: run the built production entry on the existing disposable PostgreSQL test service with temporary project roots; measure item-specific SSE receipts for unique mixed-writer mutations, history timestamps, process resources, live health counters and bounded loss deadlines. Keep every production watcher and the realtime bus enabled. Limit the local ladder to 3000 and stop on loss or SLO breach. Hosted systems are outside this task."
   "2026-10-15T08:54:34.103Z",codex-agent,Implemented production-entry mixed writers and per-subscriber receipt accounting. Initial smoke passed 3/3 in 24.1 seconds overall (22.7 second live scenario). A repeat observed one missing mutation at all 20 subscribers; retained it as delivery evidence and started a diagnostic rerun rather than loosening loss accounting. Diagnostic run delivered 5/5 writes to all 20 with zero loss/duplicates; to-all p99 618.4 ms. A bounded default ladder trial is now running on the disposable test database. No production functions changed.
@@ -41,4 +44,5 @@ tests[4]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
 docs[2]{path,scope}:
   docs/capacity.md,project
   docs/capacity/2026-10-15-local.md,project
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): [PR #205](https://github.com/unbraind/pm-web/pull/205) (d9a8525) delivers the mixed-writer SSE ladder/harness and measured report. Achieving 3000 normal-startup subscribers is a separate requirement, pm-web-jstr. Retained evidence: scripts/capacity-fixture.ts, scripts/capacity-metrics.ts, scripts/capacity-probe.ts."
 body: ""

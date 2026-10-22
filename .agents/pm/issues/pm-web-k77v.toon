@@ -2,11 +2,13 @@ id: pm-web-k77v
 title: Update pm-web production ip-address dependency past 10.5.0 advisories
 description: npm ci on pm-web PR #163 resolved express-rate-limit to ip-address 10.5.0. npm audit reported two moderate SSRF classifier advisories (GHSA-rpw4-54j3-4h4q and GHSA-2vr4-cq9g-pvrc); GitHub advisory confirms 10.5.1 is patched for the link-local finding.
 type: Issue
-status: in_progress
+status: closed
 priority: 1
 tags: []
 created_at: "2026-09-29T12:27:14.956Z"
 updated_at: "2026-10-22T20:28:45.034Z"
+closed_at: "2026-10-21T19:34:28.073Z"
+completed_at: "2026-10-21T19:34:28.073Z"
 author: codex
 estimated_minutes: 45
 acceptance_criteria: Lockfile resolves ip-address at a patched version; production and full npm audit report zero vulnerabilities; package release gates pass.
@@ -14,6 +16,7 @@ reporter: codex
 severity: medium
 environment: pm-web PR #163 package-lock.json; express-rate-limit 8.7.0 transitive production dependency
 repro_steps: npm ci --ignore-scripts; npm ls ip-address; npm audit --omit=dev --json
+resolution: "Reverified main ca7e188bc91e (unchanged since audit): Current package-lock.json resolves ip-address 10.7.3; fresh full npm audit exits 0 with zero findings. The <=10.5.0 dependency exposure is gone. Retained evidence: package-lock.json."
 expected_result: Production dependency tree resolves a patched ip-address version; npm audit --omit=dev reports zero findings.
 actual_result: ip-address 10.5.0 resolved and npm audit reports one package with two moderate advisories.
 comments[3]{created_at,author,text}:
@@ -36,4 +39,5 @@ docs[3]:
     note: GitHub reviewed advisory; patched at 10.5.1
   - path: "https://github.com/advisories/GHSA-rxp7-6hxx-x8q5"
     scope: project
+close_reason: "Reverified main ca7e188bc91e (unchanged since audit): Current package-lock.json resolves ip-address 10.7.3; fresh full npm audit exits 0 with zero findings. The <=10.5.0 dependency exposure is gone. Retained evidence: package-lock.json."
 body: ""
