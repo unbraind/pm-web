@@ -32,6 +32,20 @@ async function selectWorkspace(page: Page, url: string, project: string): Promis
   await page.selectOption('#project-selector', project);
 }
 
+/** Assert the live status stays separate from interactive results in every load state. */
+async function assertInboxStatus(page: Page, message: string, busy = false): Promise<void> {
+  const status = page.locator('[data-inbox-status]');
+  await page.getByText(message, { exact: true }).waitFor();
+  assert.equal(await status.count(), 1, 'loading and count feedback need a separate live status');
+  assert.equal(await status.textContent(), message);
+  assert.equal(await status.getAttribute('role'), 'status');
+  assert.equal(await status.locator('input, textarea, button, form').count(), 0);
+  const results = page.locator('[data-inbox-results]');
+  assert.equal(await results.getAttribute('aria-busy'), String(busy));
+  assert.equal(await results.evaluate(el => el.closest('[role="status"], [role="alert"], [aria-live]:not([aria-live="off"])') !== null), false);
+  assert.equal(await results.locator('form').evaluateAll(forms => forms.some(form => form.closest('[role="status"], [role="alert"], [aria-live]:not([aria-live="off"])') !== null)), false);
+}
+
 const output = process.env.INBOX_SCREENSHOTS;
 assert.ok(output, 'Set INBOX_SCREENSHOTS to an external evidence directory.');
 const root = await mkdtemp(path.join(os.tmpdir(), 'decision-browser-'));
@@ -96,7 +110,20 @@ try {
   await editorContext.addCookies([{ name: 'pm_token', value: signToken({ userId: owner, email: 'editor@example.test' }), url: after.url('/') }]);
   const editorPage = await editorContext.newPage();
   await selectWorkspace(editorPage, after.url('/'), project);
+  let resume = (): void => {};
+  const held = new Promise<void>(resolve => { resume = resolve; });
+  const inboxUrl = '**/pm/decision-inbox?*';
+  await editorPage.route(inboxUrl, async route => { await held; await route.continue(); });
   await openView(editorPage, 'decision-inbox');
+  try { await assertInboxStatus(editorPage, 'Loading decisions…', true); }
+  finally { resume(); }
+  await assertInboxStatus(editorPage, '1 pending decision');
+  await editorPage.unroute(inboxUrl);
+  // An SSE refresh must preserve the same boundary when no draft is present.
+  const refreshed = editorPage.waitForResponse(response => response.url().includes('/pm/decision-inbox?'));
+  broadcastProjectEvent(project, { type: 'workspace-changed', data: { userId: owner } });
+  await refreshed;
+  await assertInboxStatus(editorPage, '1 pending decision');
   const acknowledge = editorPage.getByRole('button', { name: 'Acknowledge only' });
   await acknowledge.click();
   await editorPage.getByText('Add a reason before responding.', { exact: true }).waitFor();
@@ -114,6 +141,14 @@ try {
   await editorPage.getByText('Alternative approved and recorded in the plan.', { exact: false }).waitFor();
   await editorPage.getByRole('button', { name: 'Refresh', exact: true }).click();
   await editorPage.getByText('No pending decisions.', { exact: false }).waitFor();
+  await assertInboxStatus(editorPage, '0 pending decisions');
+  await editorPage.route(inboxUrl, route => route.abort());
+  await editorPage.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await editorPage.locator('[data-inbox-status]').filter({ hasText: 'Could not load decisions.' }).waitFor();
+  await assertInboxStatus(editorPage, (await editorPage.locator('[data-inbox-status]').textContent())!);
+  await editorPage.unroute(inboxUrl);
+  await editorPage.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await assertInboxStatus(editorPage, '0 pending decisions');
   const unchanged = await client.planShow(plan.plan.id);
   assert.equal(unchanged.plan.mode, 'draft'); assert.equal(unchanged.plan.steps_summary.completed, 0);
   await editorContext.close();

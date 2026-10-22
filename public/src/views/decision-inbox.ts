@@ -40,13 +40,15 @@ export async function renderDecisionInbox(offset = 0): Promise<void> {
   el.innerHTML = `<div class="page-header"><div><h1 class="page-title">Decision inbox</h1><p class="page-subtitle">Compare evidence, choose an alternative, and return a decision to the plan.</p></div><button class="btn btn-secondary" data-refresh>Refresh</button></div>
     <p class="decision-boundary">Acknowledgment keeps the request pending. Decisions do not count as code review or task completion.</p>
     ${editable ? '' : '<p class="decision-boundary">View-only access. Ask a project editor to respond or request edit access.</p>'}
-    <div data-inbox-results role="status">Loading decisions…</div>`;
+    <p data-inbox-status role="status">Loading decisions…</p>
+    <div data-inbox-results aria-busy="true"></div>`;
   el.querySelector('[data-refresh]')?.addEventListener('click', () => { void renderDecisionInbox(); });
   const results = el.querySelector<HTMLElement>('[data-inbox-results]')!;
+  const status = el.querySelector<HTMLElement>('[data-inbox-status]')!;
   try {
     const page = await api<InboxPage>('GET', `/projects/${project.id}/pm/decision-inbox?limit=20&offset=${offset}`);
     if (generation !== renderGeneration || state.currentProject?.id !== project.id) return;
-    results.innerHTML = `<p>${page.total} pending decision${page.total === 1 ? '' : 's'}</p>${page.requests.length ? page.requests.map((request, index) => requestCard(request, index, editable)).join('') : '<div class="empty-state"><div class="empty-state-text">No pending decisions. Agents can request a decision on an existing plan with pm web inbox request.</div></div>'}
+    results.innerHTML = `${page.requests.length ? page.requests.map((request, index) => requestCard(request, index, editable)).join('') : '<div class="empty-state"><div class="empty-state-text">No pending decisions. Agents can request a decision on an existing plan with pm web inbox request.</div></div>'}
       ${offset > 0 ? '<button class="btn btn-secondary" data-first>First page</button>' : ''}${page.nextOffset !== null ? '<button class="btn btn-secondary" data-next>Next decisions</button>' : ''}`;
     results.querySelector('[data-first]')?.addEventListener('click', () => { void renderDecisionInbox(); });
     results.querySelector('[data-next]')?.addEventListener('click', () => { void renderDecisionInbox(page.nextOffset!); });
@@ -55,8 +57,13 @@ export async function renderDecisionInbox(offset = 0): Promise<void> {
       form.addEventListener('submit', event => { event.preventDefault(); void respond(form, request, project.id, 'approve'); });
       form.querySelector('[data-ack]')?.addEventListener('click', () => { void respond(form, request, project.id, 'acknowledge'); });
     }
+    results.setAttribute('aria-busy', 'false');
+    status.textContent = `${page.total} pending decision${page.total === 1 ? '' : 's'}`;
   } catch (error) {
-    if (generation === renderGeneration && state.currentProject?.id === project.id) results.textContent = `Could not load decisions. ${error instanceof Error ? error.message : 'Refresh to retry.'}`;
+    if (generation === renderGeneration && state.currentProject?.id === project.id) {
+      results.setAttribute('aria-busy', 'false');
+      status.textContent = `Could not load decisions. ${error instanceof Error ? error.message : 'Refresh to retry.'}`;
+    }
   }
 }
 

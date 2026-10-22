@@ -63,9 +63,17 @@ and HTTP membership checks backed by the throwaway PostgreSQL database.
 new inbox from local servers backed by the same seeded tracker and test database.
 Desktop (1440 px), mobile (390 px), and view-only frames are uploaded as a CI
 artifact. No screenshots or other binary evidence are committed to the package.
+The browser regression also checks loading, populated, SSE-refreshed, empty,
+failed and recovered inbox states. A small status announces loading, counts and
+errors; interactive requests remain outside live regions, and `aria-busy` clears
+after either a successful load or an error.
 
 Behavioral revert proof: removing only the revision refusal in
 `respondToDecision` and the editor-capability refusal made all three selected
 regressions fail (acknowledgment revision, view-only mutation, independent-process
 race); restoring those guards made the targeted suite pass. This changes runtime
 behavior and rebuilds the public entrypoint used by subprocess tests.
+The accessibility revert proof restored only the previous `renderDecisionInbox`
+implementation, retained the new browser assertions and rebuilt the frontend.
+Browser acceptance exited 1 at the separate-live-status assertion (0 elements
+instead of 1); restoring the rendering function and rebuilding passed again.
