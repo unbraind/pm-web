@@ -69,7 +69,7 @@ export async function renderDecisionInbox(offset = 0): Promise<void> {
 }
 
 /** Send one response with the displayed revision; retain reasoning on conflicts and require a fresh explicit choice. */
-async function respond(form: HTMLFormElement, request: InboxRequest, projectId: string, action: 'approve' | 'acknowledge'): Promise<void> {
+export async function respond(form: HTMLFormElement, request: InboxRequest, projectId: string, action: 'approve' | 'acknowledge'): Promise<void> {
   if (state.currentProject?.id !== projectId || state.currentProject.permission !== 'edit') return;
   const data = new FormData(form);
   const reason = String(data.get('reason') ?? '').trim();
@@ -78,7 +78,11 @@ async function respond(form: HTMLFormElement, request: InboxRequest, projectId: 
   const buttons = [...form.querySelectorAll('button')];
   buttons.forEach(button => { button.disabled = true; });
   try {
-    await api('POST', `/projects/${projectId}/pm/decision-inbox/responses`, { planId: request.planId, requestId: request.id, revision: request.revision, action, reason, ...(action === 'approve' ? { alternative: Number(data.get('alternative')) } : {}) });
+    const response = await api<{ queued?: boolean }>('POST', `/projects/${projectId}/pm/decision-inbox/responses`, { planId: request.planId, requestId: request.id, revision: request.revision, action, reason, ...(action === 'approve' ? { alternative: Number(data.get('alternative')) } : {}) });
+    if (response?.queued === true) {
+      result.textContent = action === 'approve' ? 'Alternative queued. It has not been recorded in the plan yet.' : 'Acknowledgment queued. It has not been recorded yet.';
+      return;
+    }
     result.textContent = action === 'approve' ? 'Alternative approved and recorded in the plan. Review and task completion remain separate.' : 'Acknowledged. The request remains pending. Refresh before responding again.';
   } catch (error) {
     const payload = error instanceof ApiError ? error.response as { remedy?: string } : undefined;

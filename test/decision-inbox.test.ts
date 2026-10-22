@@ -10,6 +10,8 @@ import { PmClient, EXIT_CODE, isPmCliExpectedError, runWithActiveExtensions } fr
 import { createExtensionTestHarness } from '@unbrained/pm-cli/sdk/testing';
 import extension from '../src/index.ts';
 import { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionRequestInput } from '../src/services/decision-inbox.ts';
+import { respond } from '../public/src/views/decision-inbox.ts';
+import { state } from '../public/src/state.js';
 
 const exec = promisify(execFile);
 const editor = { author: 'synthetic-agent', permission: 'edit' as const };
@@ -253,4 +255,25 @@ test('malformed stored envelopes name the affected Plan without reporting caller
   await assert.rejects(listDecisionInbox(pmRoot), error => error instanceof DecisionInboxError && error.code === 'invalid_record' && error.status === 503 && error.remedy.includes(input.planId));
   await assert.rejects(requestDecision(pmRoot, editor, input), refusal('invalid_record'));
   assert.equal((await client.planShow(input.planId, { depth: 'deep' })).plan.decisions?.length, 1, 'oversized stored records must refuse before append');
+});
+
+test('offline-queued decision responses are reported as not yet recorded', async t => {
+  const globals = globalThis as unknown as Record<string, unknown>;
+  const previous = { fetch: globalThis.fetch, document: globals.document, FormData: globals.FormData, project: state.currentProject };
+  t.after(() => { globalThis.fetch = previous.fetch; globals.document = previous.document; globals.FormData = previous.FormData; state.currentProject = previous.project; });
+  globals.document = { cookie: '' };
+  globals.FormData = class { get(name: string) { return name === 'reason' ? 'Because' : '1'; } };
+  state.currentProject = { id: 'fixture', permission: 'edit' } as NonNullable<typeof state.currentProject>;
+  const request = { planId: 'p', id: 'r', revision: 'rev', question: 'q', alternatives: ['a', 'b'], evidence: 'e', author: 'x', createdAt: 'now', acknowledgments: 0 };
+  const run = async (body: unknown, status: number, action: 'approve' | 'acknowledge') => {
+    globalThis.fetch = async () => new Response(JSON.stringify(body), { status });
+    const result = { textContent: '' };
+    const form = { querySelector: (selector: string) => selector === '.decision-result' ? result : null, querySelectorAll: () => [] } as unknown as HTMLFormElement;
+    await respond(form, request, 'fixture', action);
+    return result.textContent;
+  };
+  assert.equal(await run({ queued: true }, 202, 'approve'), 'Alternative queued. It has not been recorded in the plan yet.');
+  assert.equal(await run({ queued: true }, 202, 'acknowledge'), 'Acknowledgment queued. It has not been recorded yet.');
+  assert.match(await run({ ok: true }, 200, 'approve'), /^Alternative approved and recorded in the plan/);
+  assert.match(await run({ ok: true }, 200, 'acknowledge'), /^Acknowledged\. The request remains pending/);
 });
