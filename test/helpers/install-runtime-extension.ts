@@ -11,4 +11,3 @@ export async function installExtension(pmRoot: string, client: PmClient, name: s
   await writeFile(path.join(installed, 'index.js'), `export { default } from ${JSON.stringify(pathToFileURL(path.resolve(entry)).href)};`);
   await client.packageActivate(name, { project: true });
 }
-

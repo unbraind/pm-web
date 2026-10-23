@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { PmClient, type ContractsResult } from '@unbrained/pm-cli/sdk';
+import type { ContractsResult } from '@unbrained/pm-cli/sdk';
+import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 import { authedFetch, ensureSchema, seedUser, seedProject, seedUserShare, startApp } from './helpers/pg-harness.ts';
 import { signToken } from '../src/auth.ts';
 import { pool } from '../src/db.ts';
@@ -19,9 +20,7 @@ test('selected-project explorer and previews enforce scope, current availability
   const owner = await seedUser(), viewer = await seedUser(), outsider = await seedUser(), project = await seedProject(owner.id);
   await seedUserShare(project.id, viewer.id, 'view');
   const cwd = path.join(root, owner.id, project.slug), pmRoot = path.join(cwd, '.agents', 'pm');
-  await mkdir(cwd, { recursive: true });
-  const pm = new PmClient({ cwd, pmRoot, noExtensions: true, author: 'contract-test' });
-  await pm.init('contract', { defaults: true, agentGuidance: 'skip' }); const { item } = await pm.create({ type: 'Task', title: 'Do not delete', description: 'A synthetic preservation fixture.' });
+  const { client: pm } = await createPlainContractTracker(cwd); const { item } = await pm.create({ type: 'Task', title: 'Do not delete', description: 'A synthetic preservation fixture.' });
   const server = await startApp();
   t.after(async () => { await server.close(); await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [[owner.id, viewer.id, outsider.id]]); await rm(root, { recursive: true, force: true }); if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot; });
   const sdk = (user: typeof owner) => new ContractExplorerClient(server.url('/'), signToken({ userId: user.id, email: user.email }));
@@ -49,7 +48,7 @@ test('selected-project explorer and previews enforce scope, current availability
 test('synthetic Postgres adapter renders the same capabilities as a directory provider', async t => {
   await ensureSchema();
   const cwd = await mkdtemp(path.join(os.tmpdir(), 'contract-adapters-')); t.after(() => rm(cwd, { recursive: true, force: true }));
-  const pmRoot = path.join(cwd, '.agents', 'pm'); await new PmClient({ cwd, pmRoot, noExtensions: true }).init('parity', { defaults: true, agentGuidance: 'skip' });
+  const { pmRoot } = await createPlainContractTracker(cwd);
   const directory = directoryContractAdapter({ cwd, pmRoot, noExtensions: true });
   const snapshot = await directory.describe({ availabilityOnly: true });
   const db = await pool.query<{ snapshot: ContractsResult }>('SELECT $1::jsonb AS snapshot', [JSON.stringify(snapshot)]);

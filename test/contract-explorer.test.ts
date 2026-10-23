@@ -7,9 +7,10 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import express from 'express';
 import { startEphemeralServer } from './helpers/ephemeral-server.ts';
-import { PmClient, isPmCliExpectedError, type ContractsResult } from '@unbrained/pm-cli/sdk';
+import { isPmCliExpectedError, type ContractsResult } from '@unbrained/pm-cli/sdk';
 import { createExtensionTestHarness } from '@unbrained/pm-cli/sdk/testing';
 import extension from '../src/index.ts';
+import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 import { ContractExplorerError, contractPageNumber, directoryContractAdapter, exploreContracts, reviewContract, type ContractAdapter } from '../src/contract-explorer.ts';
 import { ContractExplorerClient } from '../src/contract-explorer-client.ts';
 import { contractExplorerMarkup } from '../public/src/views/contract-explorer.ts';
@@ -18,8 +19,7 @@ const exec = promisify(execFile);
 /** Initialize a genuine tracker outside Git; inspect through the same SDK used in production. */
 async function fixture(t: TestContext) {
   const cwd = await mkdtemp(path.join(os.tmpdir(), 'contract-plain-')); t.after(() => rm(cwd, { recursive: true, force: true }));
-  const pmRoot = path.join(cwd, '.agents', 'pm'), client = new PmClient({ cwd, pmRoot, noExtensions: true, author: 'contract-test' });
-  await client.init('contract', { defaults: true, agentGuidance: 'skip' });
+  const { pmRoot, client } = await createPlainContractTracker(cwd);
   const { item } = await client.create({ type: 'Task', title: 'Preserve this item', description: 'A synthetic preservation fixture.' });
   const adapter = directoryContractAdapter({ cwd, pmRoot, noExtensions: true });
   return { cwd, pmRoot, client, item, adapter };
@@ -100,7 +100,7 @@ test('native CLI supports JSON and TOON with no Git executable and exposes typed
   const bin = path.join(f.cwd, 'bin'); await mkdir(bin); await symlink(process.execPath, path.join(bin, 'node'));
   const env = { ...process.env, PATH: bin, GIT_CEILING_DIRECTORIES: path.dirname(f.cwd), PM_AUTHOR: 'contract-test' };
   const cli = path.resolve('node_modules/@unbrained/pm-cli/dist/cli.js');
-  const invoke = (args: string[]) => exec(process.execPath, [cli, '--pm-path', f.pmRoot, 'web', 'contracts', ...args], { cwd: f.cwd, env, timeout: 15000 });
+  const invoke = (args: string[]) => exec(process.execPath, [cli, '--pm-path', f.pmRoot, 'web', 'contracts', ...args], { cwd: f.cwd, env });
   const json = await invoke(['--limit', '2', '--json']); assert.equal(JSON.parse(json.stdout).operations.length, 2); assert.ok(Buffer.byteLength(json.stdout) < 2500);
   const toon = await invoke(['--limit', '2']); assert.match(toon.stdout, /review_only/); assert.match(toon.stdout, /nextOffset: 2/);
   const preview = await invoke(['--action', 'delete', '--input', JSON.stringify({ id: f.item.id }), '--json']); assert.equal(JSON.parse(preview.stdout).executed, false);
