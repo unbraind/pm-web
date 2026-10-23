@@ -116,6 +116,11 @@ function writeFanoutBatch(state, allowed, throughSequence, throughRegistration, 
         if (viewer.registration > throughRegistration)
             continue;
         if (viewer.sink.authorizeProject && !allowed?.has(viewer.sink.userId)) {
+            // A content-free terminal control frame may reach a revoked subscriber; journaled project data may not.
+            try {
+                viewer.sink.res.write('event: access-revoked\ndata: {"reason":"project_access_revoked"}\n\n');
+            }
+            catch { /* Disconnected sockets rely on the bounded client lease. */ }
             detach(state, viewer, true);
             continue;
         }

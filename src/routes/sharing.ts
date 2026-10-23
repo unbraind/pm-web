@@ -1,3 +1,4 @@
+import { invalidateProjectAccess } from '../services/access-invalidation.ts';
 import { logError } from "../observability.ts";
 import { Router, type Response } from "express";
 import { pool } from "../db.ts";
@@ -129,6 +130,7 @@ sharesRouter.post("/", async (req: AuthRequest, res) => {
         [projectId, targetUser.id, perm]
       );
 
+      invalidateProjectAccess(projectId);
       res.status(201).json({
         share: {
           ...shareResult.rows[0],
@@ -159,6 +161,7 @@ sharesRouter.post("/", async (req: AuthRequest, res) => {
         [projectId, groupId, perm]
       );
 
+      invalidateProjectAccess(projectId);
       res.status(201).json({
         share: {
           ...shareResult.rows[0],
@@ -187,6 +190,7 @@ sharesRouter.delete("/:shareId", async (req: AuthRequest, res) => {
       res.status(404).json({ error: "Share not found" });
       return;
     }
+    invalidateProjectAccess(projectId);
     res.json({ ok: true });
   } catch (err) {
     logError("delete_share_error", err);

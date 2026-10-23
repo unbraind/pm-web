@@ -1,3 +1,4 @@
+import { invalidateAgentContext, revokeAgentContextView } from './views/agent-context.js';
 import { refreshDecisionInbox } from './views/decision-inbox.js';
 import { receiveLiveUpdate, rememberLiveAuthors, resetLiveCopies } from './live-copy.js';
 import { initInteractions } from './interactions.js';
@@ -646,6 +647,9 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('graph_sync_failed', graphSyncFailed);
     source.addEventListener('update', refreshGraphData);
     source.addEventListener('workspace-changed', refreshGraphData);
+    source.addEventListener('agent-context-changed', () => invalidateAgentContext(projectId));
+    source.addEventListener('project-access-changed', () => invalidateAgentContext(projectId));
+    source.addEventListener('access-revoked', () => { revokeAgentContextView(projectId); disconnectSSE(); });
 
     // Extensions catalog mutations (installs/activates/deactivates/uninstalls)
     // refresh the Packages view live for every collaborator.
@@ -655,6 +659,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.onerror = () => {
       if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('reconnecting');
+      invalidateAgentContext(projectId);
       // Keeping this object preserves its native Last-Event-ID on transient errors.
       if (source.readyState !== EventSource.CLOSED) return;
       source.close();

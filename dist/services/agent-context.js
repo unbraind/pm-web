@@ -1,3 +1,4 @@
+import { broadcastProjectEvent } from './sse.js';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../db.js';
 import { AgentContextError } from '../agent-context.js';
@@ -45,6 +46,7 @@ export async function publishAgentContext(project, principal, input, binding) {
     else {
         await pool.query('INSERT INTO pm_agent_context(id,project_id,publisher,viewers,packet) VALUES($1,$2,$3,$4,$5)', [packet.id, project, principal, data.viewers, packet]);
     }
+    broadcastProjectEvent(project, { type: 'agent-context-changed', data: {} });
     return packet;
 }
 /** Delete an owned snapshot with revision fencing; removed audiences cannot retrieve or discover it again. */
@@ -52,6 +54,7 @@ export async function revokeAgentContext(project, principal, id, revision) {
     const result = await pool.query('DELETE FROM pm_agent_context WHERE project_id=$1 AND id=$2 AND publisher=$3 AND revision=$4 RETURNING id', [project, id, principal, revision]);
     if (!result.rowCount)
         throw new AgentContextError('revision_conflict', 'Refresh an owned packet and revoke its current revision.', 409);
+    broadcastProjectEvent(project, { type: 'agent-context-changed', data: {} });
     return { revoked: true };
 }
 //# sourceMappingURL=agent-context.js.map

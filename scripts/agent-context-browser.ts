@@ -9,7 +9,7 @@ import { PmClient } from '@unbrained/pm-cli/sdk';
 import { createApp } from '../src/app.ts';
 import { pool } from '../src/db.ts';
 import { signToken } from '../src/auth.ts';
-import { AgentContextClient, type AgentContextPacket } from '../src/agent-context.ts';
+import { AgentContextClient, type AgentContextInput, type AgentContextPacket } from '../src/agent-context.ts';
 import { startEphemeralServer } from '../test/helpers/ephemeral-server.ts';
 import type { AppBridge } from '../public/src/app.ts';
 
@@ -31,7 +31,8 @@ try {
   const pm = new PmClient({ pmRoot: path.join(cwd, '.agents', 'pm'), cwd, noExtensions: true });
   await pm.init('demo', { defaults: true, agentGuidance: 'skip' });
   const sdk = new AgentContextClient(server.url('/'), signToken({ userId: owner, email: 'publisher@example.test' }));
-  const packet = await sdk.publish(project, { agent: 'release-agent', question: 'Do we have enough evidence to approve the release?', consent: true, viewers: [viewer], receipts: [{ source: 'core-output-session', receiptId: 'release-read-session', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:00:00Z', omission: [{ reason: '3 repeated items represented by references', remedy: 'Restore with pm get <item-id> --brief.' }] }, { source: 'pm-context-pack', receiptId: 'review-pack-7', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:02:00Z', omission: [{ reason: 'Full test logs were outside the context budget', remedy: 'Read the linked CI run before approving.' }] }], gaps: [{ reason: 'Independent review is pending', remedy: 'Wait for a reviewer to inspect the exact revision.' }] });
+  const input: AgentContextInput = { agent: 'release-agent', question: 'Do we have enough evidence to approve the release?', consent: true, viewers: [viewer], receipts: [{ source: 'core-output-session', receiptId: 'release-read-session', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:00:00Z', omission: [{ reason: '3 repeated items represented by references', remedy: 'Restore with pm get <item-id> --brief.' }] }, { source: 'pm-context-pack', receiptId: 'review-pack-7', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:02:00Z', omission: [{ reason: 'Full test logs were outside the context budget', remedy: 'Read the linked CI run before approving.' }] }], gaps: [{ reason: 'Independent review is pending', remedy: 'Wait for a reviewer to inspect the exact revision.' }] };
+  const packet = await sdk.publish(project, input);
   await mkdir(output, { recursive: true });
   for (const viewport of [{ width: 1440, height: 1200 }, { width: 390, height: 1900 }]) {
     const width = viewport.width;
@@ -69,13 +70,44 @@ try {
       assert.equal((await sdk.get(project, packet.id, packet.revision)).id, packet.id);
       await publisher.close();
       await sdk.revoke(project, packet.id, packet.revision);
-      await page.getByRole('button', { name: 'Refresh access' }).click();
-      await page.getByText('This scope is no longer available.', { exact: false }).waitFor();
+      await page.getByText('Access revoked.', { exact: false }).waitFor({ timeout: 3000 });
       assert.equal(await page.getByText(packet.question, { exact: true }).count(), 0);
     }
     await context.close();
   }
-  console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, queuedRevocation: true, horizontalOverflow: false }));
+  const revocationCases: string[] = [];
+  for (const mode of ['realtime', 'fallback'] as const) {
+    for (const kind of ['audience', 'sharing', 'deletion'] as const) {
+      const share = (await pool.query<{ id: string }>("INSERT INTO pm_project_shares(project_id,shared_with_user_id,permission) VALUES($1,$2,'view') ON CONFLICT(project_id,shared_with_user_id) DO UPDATE SET permission='view' RETURNING id", [project, viewer])).rows[0].id;
+      const snapshot = await sdk.publish(project, { ...input, question: `Revocation proof: ${mode} ${kind}` });
+      const session = await browser.newContext({ serviceWorkers: 'block' });
+      await session.addCookies([{ name: 'pm_token', value: signToken({ userId: viewer, email: 'viewer@example.test' }), url: server.url('/') }]);
+      const tab = await session.newPage();
+      if (mode === 'fallback') await tab.clock.install();
+      await tab.goto(server.url('/agent-context'));
+      await tab.locator(`#project-selector option[value="${project}"]`).waitFor({ state: 'attached' });
+      await tab.selectOption('#project-selector', project);
+      await tab.evaluate(() => (window as unknown as { __app: AppBridge }).__app.showView('agent-context'));
+      await tab.locator(`[data-scope] option[value="${snapshot.id}"]`).waitFor({ state: 'attached' });
+      await tab.selectOption('[data-scope]', snapshot.id);
+      await tab.getByText(snapshot.question, { exact: true }).waitFor();
+      if (mode === 'realtime') await tab.waitForFunction(() => document.getElementById('sse-indicator')?.classList.contains('connected'));
+      else await tab.evaluate(() => (window as unknown as { __app: AppBridge }).__app.disconnectSSE());
+      if (kind === 'audience') await sdk.publish(project, { ...input, question: snapshot.question, viewers: [] }, snapshot);
+      else if (kind === 'deletion') await sdk.revoke(project, snapshot.id, snapshot.revision);
+      else {
+        const removed = await fetch(server.url(`/api/projects/${project}/shares/${share}`), { method: 'DELETE', headers: { Authorization: `Bearer ${signToken({ userId: owner, email: 'publisher@example.test' })}` } });
+        assert.equal(removed.status, 200);
+      }
+      if (mode === 'fallback') await tab.clock.fastForward(10_100);
+      await tab.getByText('Access revoked.', { exact: false }).waitFor({ timeout: 3000 });
+      assert.equal(await tab.getByText(snapshot.question, { exact: true }).count(), 0);
+      assert.equal(await tab.locator('.agent-context-sheet').count(), 0);
+      revocationCases.push(`${mode}:${kind}`);
+      await session.close();
+    }
+  }
+  console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, queuedRevocation: true, automaticRevocations: revocationCases, horizontalOverflow: false }));
 } finally {
   await browser.close(); await server.close();
   for (const id of users) await pool.query('DELETE FROM pm_users WHERE id=$1', [id]);

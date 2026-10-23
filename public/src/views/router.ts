@@ -1,4 +1,4 @@
-import { renderAgentContext } from './agent-context.js';
+import { renderAgentContext, stopAgentContextValidation } from './agent-context.js';
 import { renderDecisionInbox } from './decision-inbox.js';
 // ═══════════════════════════════════════════════════════════════
 // ROUTER — View switching with URL routing
@@ -128,6 +128,7 @@ export function showView(view: string, pushState = true): void {
     history.replaceState({ view: 'projects' }, '', '/');
     view = 'projects';
   }
+  if (view !== 'agent-context') stopAgentContextValidation();
   state.currentView = view;
 
   // Update URL via pushState

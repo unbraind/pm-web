@@ -1,3 +1,4 @@
+import { ReplayAccessError, type ReplayAuthorization } from './idempotency-access.ts';
 import { logError } from "./observability.ts";
 import crypto from "node:crypto";
 import type { Request, RequestHandler, Response } from "express";
@@ -252,13 +253,22 @@ function replayStored(record: IdempotencyRecord, res: Response): void {
  * @param fingerprint - The fingerprint of the request being answered.
  * @param res - The response to answer on.
  */
-function finishSettled(record: IdempotencyRecord, fingerprint: string, res: Response): void {
+async function finishSettled(record: IdempotencyRecord, fingerprint: string, req: Request, res: Response, principal: string, authorizeReplay: ReplayAuthorization): Promise<void> {
   if (record.request_fingerprint !== fingerprint) {
     res.status(422).json({
       error: "Idempotency-Key was already used for a different request",
     });
     return;
   }
+  try {
+    await authorizeReplay({ request: req, principal, status: record.status_code ?? 500, body: record.response_body });
+  } catch (error) {
+    const refusal = error instanceof ReplayAccessError ? error : new ReplayAccessError(503, 'PM_IDEMPOTENCY_REPLAY_UNAVAILABLE', 'Current authorization could not be verified. Retry after checking access; the original mutation will not be repeated.');
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.status(refusal.status).json({ code: refusal.code, error: refusal.message, remedy: refusal.remedy });
+    return;
+  }
+  res.setHeader('Cache-Control', 'no-store, private');
   replayStored(record, res);
 }
 
@@ -336,7 +346,7 @@ function captureOutcome(rowId: string, res: Response): void {
  *
  * @returns An Express middleware enforcing the contract on its mount.
  */
-export function idempotencyGuard(): RequestHandler {
+export function idempotencyGuard(authorizeReplay: ReplayAuthorization = async () => { throw new ReplayAccessError(403, 'PM_IDEMPOTENCY_REPLAY_POLICY_REQUIRED', 'Configure a current resource authorization policy before replaying stored responses.'); }): RequestHandler {
   let nextSweepAt = 0;
   return async (req: Request, res: Response, next) => {
     const authRoute = /^\/api\/auth(?:\/|$)/i.test(req.originalUrl.split("?")[0]);
@@ -391,7 +401,7 @@ export function idempotencyGuard(): RequestHandler {
       const record = await selectKey(userId, key);
       if (record && record.status_code !== null) {
         // The original settled before this duplicate arrived: replay it.
-        finishSettled(record, fingerprint, res);
+        await finishSettled(record, fingerprint, req, res, userId, authorizeReplay);
         return;
       }
       if (record && record.request_fingerprint !== fingerprint) {

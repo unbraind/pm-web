@@ -1,3 +1,4 @@
+import { groupAccessProjects, invalidateProjectAccess } from '../services/access-invalidation.js';
 import { logError } from "../observability.js";
 import { Router } from "express";
 import { pool } from "../db.js";
@@ -110,9 +111,11 @@ router.patch("/:id", async (req, res) => {
 // DELETE /api/groups/:id - delete group (owner only)
 router.delete("/:id", async (req, res) => {
     try {
+        const affectedProjects = await groupAccessProjects(routeParam(req, "id"));
         const result = await pool.query(`DELETE FROM pm_groups WHERE id = $1 AND owner_id = $2 RETURNING id`, [routeParam(req, "id"), req.user.userId]);
         if (notFoundWhenEmpty(res, result.rows, "Group not found or you are not the owner"))
             return;
+        affectedProjects.forEach(invalidateProjectAccess);
         res.json({ ok: true });
     }
     catch (err) {
@@ -145,6 +148,7 @@ router.post("/:id/members", async (req, res) => {
        VALUES ($1, $2, $3)
        ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role
        RETURNING id, user_id, role, invited_at`, [routeParam(req, "id"), invitedUser.id, memberRole]);
+        (await groupAccessProjects(routeParam(req, "id"))).forEach(invalidateProjectAccess);
         res.status(201).json({
             member: {
                 ...memberResult.rows[0],
@@ -179,6 +183,7 @@ router.delete("/:id/members/:userId", async (req, res) => {
             res.status(404).json({ error: "Member not found" });
             return;
         }
+        (await groupAccessProjects(routeParam(req, "id"))).forEach(invalidateProjectAccess);
         res.json({ ok: true });
     }
     catch (err) {

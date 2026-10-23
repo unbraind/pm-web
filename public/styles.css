@@ -2515,3 +2515,10 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 .agent-context-issues { padding-left: 20px; }
 .agent-context-issues li { margin-bottom: 12px; }
 @media (max-width: 480px) { .agent-context-sheet h2 { font-size: 20px; } }
+
+/* Native sidebar buttons follow the same Triplicate navigation rules as links. */
+button.sidebar-item { width: 100%; appearance: none; background: transparent; border: 0; border-left: 2px solid transparent; text-align: left; font-family: inherit; }
+button.sidebar-item:hover { background: var(--app-bg-sidebar-hover); }
+button.sidebar-item.active { background: var(--pm-stamp-wash); color: var(--pm-stamp); border-left-color: var(--pm-stamp); }
+.sidebar-badge:empty { display: none; }
+#content-agent-context [data-status] { margin: 12px 0 16px; }

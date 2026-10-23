@@ -40,7 +40,7 @@ export function csrfTokenFromCookie(cookie = document.cookie): string | undefine
  * Fetch wrapper for the `/api` endpoints. Generic in `T` so each call site is
  * typed against the response interface declared in `api-types.ts`.
  */
-export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+export async function api<T = unknown>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const clearOwnItemEdit = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase()) ? noteOwnItemEdit(path) : undefined;
   try {
     const csrfToken = csrfTokenFromCookie();
@@ -49,6 +49,7 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
     const expectedAccount = session?.userId;
     const opts: RequestInit = {
       method,
+      ...(signal ? { signal } : {}),
       headers: {
         'Content-Type': 'application/json',
         ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),

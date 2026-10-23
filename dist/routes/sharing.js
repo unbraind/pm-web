@@ -1,3 +1,4 @@
+import { invalidateProjectAccess } from '../services/access-invalidation.js';
 import { logError } from "../observability.js";
 import { Router } from "express";
 import { pool } from "../db.js";
@@ -98,6 +99,7 @@ sharesRouter.post("/", async (req, res) => {
          VALUES ($1, $2, $3)
          ON CONFLICT (project_id, shared_with_user_id) DO UPDATE SET permission = EXCLUDED.permission
          RETURNING id, permission, shared_at`, [projectId, targetUser.id, perm]);
+            invalidateProjectAccess(projectId);
             res.status(201).json({
                 share: {
                     ...shareResult.rows[0],
@@ -121,6 +123,7 @@ sharesRouter.post("/", async (req, res) => {
          VALUES ($1, $2, $3)
          ON CONFLICT (project_id, shared_with_group_id) DO UPDATE SET permission = EXCLUDED.permission
          RETURNING id, permission, shared_at`, [projectId, groupId, perm]);
+            invalidateProjectAccess(projectId);
             res.status(201).json({
                 share: {
                     ...shareResult.rows[0],
@@ -146,6 +149,7 @@ sharesRouter.delete("/:shareId", async (req, res) => {
             res.status(404).json({ error: "Share not found" });
             return;
         }
+        invalidateProjectAccess(projectId);
         res.json({ ok: true });
     }
     catch (err) {

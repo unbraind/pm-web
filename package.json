@@ -14,7 +14,8 @@
     "docs/decision-inbox.md",
     "examples/decision-inbox.ts",
     "docs/agent-context.md",
-    "examples/agent-context.ts"
+    "examples/agent-context.ts",
+    "docs/idempotency-replay.md"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -140,7 +141,8 @@
       "README.md",
       "CHANGELOG.md",
       "docs/decision-inbox.md",
-      "docs/agent-context.md"
+      "docs/agent-context.md",
+      "docs/idempotency-replay.md"
     ],
     "examples": [
       "README.md",
