@@ -10,6 +10,7 @@ import { startEphemeralServer } from "./helpers/ephemeral-server.ts";
 import { createTierLimiters } from "../src/rate-limit.ts";
 import { signToken } from "../src/auth.ts";
 import { pool } from "../src/db.ts";
+import { ReplayAccessError } from "../src/idempotency-access.ts";
 import { idempotencyGuard } from "../src/idempotency.ts";
 import { csrfProtection } from "../src/csrf.ts";
 import { groupsRouter } from "../src/routes/groups.ts";
@@ -238,7 +239,12 @@ async function setupWorkspaceRecovery(t: test.TestContext): Promise<{
   // through the same request path as the hosted app.
   app.use(csrfProtection());
   app.use(createTierLimiters(process.env).write);
-  app.use(idempotencyGuard());
+  // These synthetic workspace labels partition queue ordering; the fixture's
+  // mutations belong only to this account. Reauthorize that account on replay.
+  app.use(idempotencyGuard(async ({ principal }) => {
+    const account = await pool.query('SELECT id FROM pm_users WHERE id=$1', [principal]);
+    if (principal !== owner.id || !account.rowCount) throw new ReplayAccessError();
+  }));
   app.get("/api/auth/me", (_req, res) => {
     res.setHeader("x-csrf-token", "pm-web-test-csrf");
     res.json({ user: { id: owner.id } });
