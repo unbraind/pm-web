@@ -190,3 +190,18 @@ jobs:
           path: ${{ runner.temp }}/decision-inbox-screenshots
           if-no-files-found: error
           retention-days: 30
+
+      - name: Verify authorized agent context views
+        if: matrix.node-version == 26
+        env:
+          CONTEXT_SCREENSHOTS: ${{ runner.temp }}/agent-context-screenshots
+        run: node scripts/with-test-db.ts node scripts/agent-context-browser.ts
+
+      - name: Attach agent context screenshots
+        if: matrix.node-version == 26
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: agent-context-screenshots
+          path: ${{ runner.temp }}/agent-context-screenshots
+          if-no-files-found: error
+          retention-days: 30

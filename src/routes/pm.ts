@@ -1,3 +1,4 @@
+import { registerAgentContextRoutes } from './agent-context.ts';
 import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionRequestInput, type DecisionResponseInput } from '../services/decision-inbox.ts';
 import { readMaintenanceCapabilities, type MaintenanceAction } from "../services/maintenance-providers.ts";
 import { logError } from "../observability.ts";
@@ -74,6 +75,7 @@ function getNeo4jDriver(): ReturnType<typeof neo4j.driver> {
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+registerAgentContextRoutes(router);
 const BASE64URL_CURSOR_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 /**

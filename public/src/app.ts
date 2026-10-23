@@ -91,6 +91,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     commands: [
       { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
       { view: 'create', title: 'Create item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+      { view: 'agent-context', title: 'Agent context', desc: 'Inspect authorized questions, receipts and evidence gaps.', icon: '◈', requiresProject: true },
       { view: 'decision-inbox', title: 'Decision inbox', desc: 'Compare evidence and respond to pending decisions.', icon: '⚖', requiresProject: true },
       { view: 'plan', title: 'Plans', desc: 'Create and manage structured agentic plans with steps.', icon: '◧', requiresProject: true },
       { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },

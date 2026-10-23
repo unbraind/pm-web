@@ -1,0 +1,35 @@
+id: pm-web-7ppe
+title: "View consented agent questions, context receipts and evidence gaps"
+description: "Acceptance: a viewer cannot read another scope packet; revoked access invalidates future retrieval; UI and API show identical omission receipts. Provide typed SDK and CLI, bounded TOON/JSON, revision-bound explicit consent, remedies, Triplicate UI, docs and example, synthetic desktop/mobile evidence, public tracker read-only no-git validation, and npm/Bun CI gates. No inference, memory or new backend."
+type: Feature
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-23T08:14:19.939Z"
+updated_at: "2026-10-23T08:27:08.989Z"
+author: codex-agent
+comments[5]{created_at,author,text}:
+  "2026-10-23T08:14:44.443Z",codex-agent,"Overlap check: core SDK owns PmReadOutputSessionReceipt and PmReadOutputReceipt, cross-call accounting, suppression and output rendering. pm-context owns pack assembly and pm-context-usage/v1 receipts. Decision inbox covers Plan decisions, not scoped context. This feature adapts existing receipt metadata and uses the existing pm-web PostgreSQL store, with no inference, memory, or second backend. Scope authorization must be separate from generic tracker reads. Preserve pinned CLI 2026.10.19; no new core lease behavior is needed. Acceptance: deny other-scope packets, invalidate retrieval after revocation, and render identical API omission reasons/remedies in the UI."
+  "2026-10-23T08:24:34.564Z",codex-agent,"Implemented scoped receipt metadata in the existing PostgreSQL store, with explicit audience consent, server-derived publisher identity, atomic revision replacement and deletion, and current project access checks. Native commands use authenticated HTTP and core TOON/JSON rendering; SDK adapters consume core output-session and pm-context public receipts. Six targeted real HTTP/SDK/native CLI regressions passed, including a no-git tracker with no git executable. Targeted new-server coverage: 100 percent statements, lines and functions; 89.74 percent branches. Synthetic browser acceptance passed at 1440 and 390 pixels: two receipt omissions and one gap match API text exactly, no horizontal overflow, and refreshing after revocation removes the question. Public validation: public main a11f58c, 176 certified items, 383 immutable source files, 11 returned bounded rows, 3 suppressed repeats, 1541 estimated source tokens within 1600, two receipt omissions, one gap, 660 packet JSON bytes, source hashes unchanged. Full npm and Bun release gates will run in CI to avoid saturating the shared host."
+  "2026-10-23T08:24:58.426Z",codex-agent,"Behavioral revert proof: changing only AgentContextClient.publish back to the unfiltered binding spread made the audience-removal regression fail (one selected test failed). Changing only getAgentContext to omit its audience predicate made the cross-scope regression fail (one selected test failed). Each control restored the exact original source bytes; these are semantic guard regressions, with no fixture or assertion edits. Receipt assertion boundaries and revocation limitations are documented in docs/agent-context.md."
+  "2026-10-23T08:25:56.553Z",codex-agent,"Final public-copy rerun after sharing the read-only extraction helper: 176 items, 383 source files unchanged, 11 output rows, 3 suppressed repeats, 1542 source estimated tokens within the 1600 ceiling, 660 packet JSON bytes and 2182 ms measured. Source hash b9804cb4006952199fb8b26b4d98a0804b9cfd4e013bcdbda73ee5f8e6ce7ae9. Core receipt token estimates include clock-bearing metadata and can vary slightly between reads. The decision-inbox public-data validator also passed after reuse of the helper."
+  "2026-10-23T08:27:06.564Z",codex-agent,The linked pm test command passed all six regressions (zero failures/skips). Both behavioral negative controls failed the intended selected test and restored exact source bytes. Targeted schema compatibility checks passed two source/built doctor journeys; schema revision 2 adds only the context metadata table and index in the existing database. CI also replays synthetic browser acceptance on Node 26. Claims will be released with the review-ready PR; the item remains in progress for orchestrator verification.
+files[11]{path,scope}:
+  public/src/views/agent-context.ts,project
+  scripts/agent-context-browser.ts,project
+  scripts/agent-context-public-data.ts,project
+  scripts/public-tracker-copy.ts,project
+  sql/schema.sql,project
+  src/agent-context-commands.ts,project
+  src/agent-context.ts,project
+  src/db.ts,project
+  src/routes/agent-context.ts,project
+  src/services/agent-context.ts,project
+  test/agent-context.test.ts,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test test/agent-context.test.ts,project,240,codex-agent,"2026-10-23T08:24:27.271Z",local_mutation,feat/agent-context-views
+docs[3]{path,scope}:
+  docs/agent-context.md,project
+  examples/agent-context.ts,project
+  README.md,project
+body: ""

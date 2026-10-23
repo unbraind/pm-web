@@ -643,3 +643,9 @@ accounts and project sharing. GitHub synchronization and repository provenance
 still need their own repository/provider prerequisites. The public-data and
 screenshot evidence scripts use Git only to extract committed baseline fixtures;
 it is not on the inbox runtime path.
+
+## Agent context workspace views
+
+Open **Agent context** to inspect an authorized agent question, served context receipts and unresolved evidence gaps. Each packet requires explicit audience consent and an exact revision. Project sharing alone grants no packet access; revocation blocks future retrieval. The UI preserves the API's omission reasons and remedies. Use the typed `AgentContextClient` or `pm web agent-context` for compact TOON/JSON access. See [the contract and CLI examples](docs/agent-context.md) and [typed SDK example](examples/agent-context.ts).
+
+Agent context commands work from a plain tracker without git, contacting an explicitly selected authenticated pm-web server. The server uses its existing PostgreSQL database. Source receipts remain owned by core output sessions and pm-context; this view stores metadata rather than raw context, inference, or memory.

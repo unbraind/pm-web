@@ -1,3 +1,4 @@
+export * from './agent-context.ts';
 export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
 import { type ExtensionApi, type SuppressedHostOutput } from "@unbrained/pm-cli/sdk";
 /** Resolve the port from flag → PORT env → default 4000. */

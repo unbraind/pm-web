@@ -616,3 +616,10 @@ export interface HistoryRepairResponse {
   generated_at?: string;
   error?: string;
 }
+/** Receipt-only context snapshot returned after scope, consent and revision checks. */
+export interface AgentContextPacket {
+  id: string; revision: string; agent: string; question: string; publisher: string; updatedAt: string;
+  consent: true; viewers: string[];
+  receipts: { source: string; receiptId: string; revision: string; servedAt: string; omission: { reason: string; remedy: string }[] }[];
+  gaps: { reason: string; remedy: string }[];
+}

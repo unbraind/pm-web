@@ -1,3 +1,4 @@
+import { renderAgentContext } from './agent-context.js';
 import { renderDecisionInbox } from './decision-inbox.js';
 // ═══════════════════════════════════════════════════════════════
 // ROUTER — View switching with URL routing
@@ -60,6 +61,7 @@ const VIEW_TO_PATH: Record<string, string> = {
   'admin': '/admin',
   'plan': '/plan',
   'decision-inbox': '/decision-inbox',
+  'agent-context': '/agent-context',
 };
 
 // Reverse: URL path → view name
@@ -178,6 +180,7 @@ export function showView(view: string, pushState = true): void {
     case 'guide': renderGuideView(); break;
     case 'admin': renderAdminView(); break;
     case 'plan': void initPlanView(); break;
+    case 'agent-context': void renderAgentContext(); break;
     case 'decision-inbox': void renderDecisionInbox(); break;
   }
   updateMobileNav(view);

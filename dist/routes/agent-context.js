@@ -1,0 +1,41 @@
+import { verifyProjectAccess } from './projects.js';
+import { routeParam } from './route-params.js';
+import { AgentContextError } from '../agent-context.js';
+import { getAgentContext, hiddenContext, listAgentContexts, publishAgentContext, revokeAgentContext } from '../services/agent-context.js';
+/** Validate opaque UUID bindings before PostgreSQL can produce a storage diagnostic. */
+function uuid(value) {
+    if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value))
+        throw new AgentContextError('invalid_input', 'Supply the packet id and exact revision from the authorized packet list.', 400);
+    return value;
+}
+/** Recheck project access and packet consent on every request; generic pm reads never see the packet store. */
+async function contextRoute(req, res, action) {
+    res.setHeader('Cache-Control', 'no-store, private');
+    try {
+        const principal = req.user.userId;
+        const project = uuid(routeParam(req, 'projectId'));
+        const access = await verifyProjectAccess(principal, project);
+        if (!access)
+            hiddenContext();
+        if (action === 'publish' && access.permission !== 'edit')
+            throw new AgentContextError('view_only', 'Ask a project editor to publish a consented packet.', 403);
+        const body = req.body;
+        const result = action === 'list' ? await listAgentContexts(project, principal, req.query.offset === undefined ? 0 : typeof req.query.offset === 'string' && /^\d+$/.test(req.query.offset) ? Number(req.query.offset) : Number.NaN)
+            : action === 'get' ? await getAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(req.query.revision))
+                : action === 'revoke' ? await revokeAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(body?.revision))
+                    : await publishAgentContext(project, principal, body, body?.id === undefined && body?.revision === undefined ? undefined : { id: uuid(body?.id), revision: uuid(body?.revision) });
+        res.status(action === 'publish' ? 201 : 200).json(result);
+    }
+    catch (error) {
+        const refusal = error instanceof AgentContextError ? error : new AgentContextError('unavailable', 'Check project storage availability and retry.', 503);
+        res.status(refusal.status).json({ error: refusal.message, code: refusal.code, remedy: refusal.remedy });
+    }
+}
+/** Install authenticated scope routes before the general tracker command dispatcher. */
+export function registerAgentContextRoutes(router) {
+    router.get('/agent-context', (req, res) => contextRoute(req, res, 'list'));
+    router.get('/agent-context/:packetId', (req, res) => contextRoute(req, res, 'get'));
+    router.post('/agent-context', (req, res) => contextRoute(req, res, 'publish'));
+    router.delete('/agent-context/:packetId', (req, res) => contextRoute(req, res, 'revoke'));
+}
+//# sourceMappingURL=agent-context.js.map

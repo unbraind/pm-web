@@ -269,9 +269,9 @@ test("doctor process checks database configuration, reachability and schema vers
   await client.query("RESET search_path");
   const packagedSchema = await f.command("web doctor", {}, { DATABASE_URL: url.href });
   assert.match(packagedSchema.output, /"name":\s*"database",\s*"ok":\s*true/);
-  await client.query(`UPDATE ${schema}.pm_web_schema_version SET version = 2`);
+  await client.query(`UPDATE ${schema}.pm_web_schema_version SET version = 3`);
   const mismatch = await f.command("web doctor", {}, { DATABASE_URL: url.href });
-  assert.match(mismatch.output, /schema version: 2 \(expected 1\)/);
+  assert.match(mismatch.output, /schema version: 3 \(expected 2\)/);
   assert.match(mismatch.output, /"name":\s*"database",\s*"ok":\s*false/);
   assert.match(mismatch.output, /schema is newer than this binary; use a compatible pm-web release/);
   assert.doesNotMatch(mismatch.output, /apply the packaged schema migrations/);
@@ -279,23 +279,23 @@ test("doctor process checks database configuration, reachability and schema vers
   assert.equal(sourceMismatch.code, 0, sourceMismatch.output);
   assert.match(sourceMismatch.output, /"ok":false/);
   assert.match(sourceMismatch.output, /schema is newer than this binary; use a compatible pm-web release/);
-  assert.equal((await client.query(`SELECT version FROM ${schema}.pm_web_schema_version`)).rows[0].version, 2);
+  assert.equal((await client.query(`SELECT version FROM ${schema}.pm_web_schema_version`)).rows[0].version, 3);
   await client.query(`UPDATE ${schema}.pm_web_schema_version SET version = 0`);
   const older = await f.command("web doctor", {}, { DATABASE_URL: url.href });
-  assert.match(older.output, /schema version: 0 \(expected 1\)/);
+  assert.match(older.output, /schema version: 0 \(expected 2\)/);
   assert.match(older.output, /"name":\s*"database",\s*"ok":\s*false/);
   assert.match(older.output, /Run pm web to apply the packaged schema migrations/);
   assert.equal((await client.query(`SELECT version FROM ${schema}.pm_web_schema_version`)).rows[0].version, 0);
   const healthy = await f.command("web doctor");
   assert.match(healthy.output, /"name":\s*"database",\s*"ok":\s*true/);
-  assert.match(healthy.output, /schema version: 1 \(expected 1\)/);
+  assert.match(healthy.output, /schema version: 2 \(expected 2\)/);
   const discrete = await f.command("web doctor", {}, {
     DATABASE_URL: undefined, POSTGRES_HOST: url.hostname, POSTGRES_PORT: url.port,
     POSTGRES_DB: decodeURIComponent(url.pathname.slice(1)), POSTGRES_USER: decodeURIComponent(url.username), POSTGRES_PASSWORD: decodeURIComponent(url.password),
   });
   assert.match(discrete.output, /"name":\s*"database",\s*"ok":\s*true/);
   const human = await run(["test/helpers/startup-doctor-human.ts"], f.env);
-  assert.match(human.output, /\[ok\] database: configured: yes; reachable: yes; schema version: 1/);
+  assert.match(human.output, /\[ok\] database: configured: yes; reachable: yes; schema version: 2/);
 });
 
 test("configuration validation and log redaction never echo supplied values", () => {
@@ -379,7 +379,7 @@ test("source database diagnostic checks real discrete credentials and redacts co
   };
   const healthy = await probe();
   assert.equal(healthy.result.ok, true);
-  assert.match(healthy.result.detail, /schema version: 1/);
+  assert.match(healthy.result.detail, /schema version: 2/);
   const parameterized = await probe({ DATABASE_URL: queryHostDatabaseUrl(f.env.DATABASE_URL!) });
   assert.equal(parameterized.result.ok, true);
   const url = new URL(f.env.DATABASE_URL!);
