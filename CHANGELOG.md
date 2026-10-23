@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Restyle every pm-web screen in the Triplicate brand and show live collaborator copies ([pm-web-i0td](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-i0td.toon))
+- Resolve human-agent decisions in a shared inbox ([pm-web-64ke](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-64ke.toon))
+- View consented agent questions, context receipts and evidence gaps ([pm-web-7ppe](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7ppe.toon))
+
+### Fixed
+
+- Make temporary CLI fixtures independent of inherited ESM package scope ([pm-web-sspv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-sspv.toon))
+- Include pm-memory and pm-rlm in the package catalog and fleet snapshot ([pm-web-7u2y](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-7u2y.toon))
+- Reduce quadratic background force-layout cost for large browser graphs ([pm-web-68ig](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-68ig.toon))
+- Document verified public registry activation and source prerequisites ([pm-web-install-routes-1022](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-install-routes-1022.toon))
+
 ## 2026.10.23 - 2026-10-23
 
 ### Added
