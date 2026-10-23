@@ -10,6 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import express from 'express';
 import { PmClient } from '@unbrained/pm-cli/sdk';
 import { pool } from '../src/db.ts';
+import { createTierLimiters } from '../src/rate-limit.ts';
 import { idempotencyGuard, requestFingerprint } from '../src/idempotency.ts';
 import { signToken } from '../src/auth.ts';
 import { authedFetch, ensureSchema, seedUser, seedProject, seedUserShare, seedGroup, startApp, type SeedUser } from './helpers/pg-harness.ts';
@@ -150,7 +151,7 @@ test('opaque provider output and unregistered replay policies fail closed withou
 });
 
 test('an embedding without a replay authorizer refuses duplicates and preserves at-most-once execution', async t => {
-  const f = await fixture(t); const app = express(); app.use(express.json()); app.use(idempotencyGuard());
+  const f = await fixture(t); const app = express(); app.use(express.json()); app.use(createTierLimiters(process.env).write); app.use(idempotencyGuard());
   let calls = 0; app.post('/probe', (_req, res) => { calls++; res.json({ secret: 'Protected probe' }); });
   const server = await startEphemeralServer(app); t.after(() => server.close()); const key = randomUUID();
   const options = { method: 'POST', headers: { authorization: `Bearer ${signToken({ userId: f.owner.id, email: f.owner.email })}`, 'idempotency-key': key } };
