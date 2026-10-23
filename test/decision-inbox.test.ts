@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, rm, symlink, readFile, writeFile } from 'node:fs/promis
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { pathToFileURL } from 'node:url';
+import { installExtension } from './helpers/install-runtime-extension.ts';
 import test, { type TestContext } from 'node:test';
 import { PmClient, EXIT_CODE, isPmCliExpectedError, runWithActiveExtensions } from '@unbrained/pm-cli/sdk';
 import { createExtensionTestHarness } from '@unbrained/pm-cli/sdk/testing';
@@ -31,15 +31,6 @@ async function fixture(t: TestContext) {
 /** Match the stable typed refusal and its actionable remedy. */
 function refusal(code: DecisionInboxError['code']) {
   return (error: unknown) => error instanceof DecisionInboxError && error.code === code && error.remedy.length > 10;
-}
-
-/** Install a local extension through the real package activation path in a plain tracker. */
-async function installExtension(pmRoot: string, client: PmClient, name: string, entry: string, capabilities: string[]): Promise<void> {
-  const installed = path.join(pmRoot, 'extensions', name);
-  await mkdir(installed, { recursive: true });
-  await writeFile(path.join(installed, 'manifest.json'), JSON.stringify({ name, version: '1.0.0', entry: './index.js', capabilities }));
-  await writeFile(path.join(installed, 'index.js'), `export { default } from ${JSON.stringify(pathToFileURL(path.resolve(entry)).href)};`);
-  await client.packageActivate(name, { project: true });
 }
 
 /** Activate the real inbox command host and register teardown for every CLI regression. */

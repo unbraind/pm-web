@@ -2522,3 +2522,12 @@ button.sidebar-item:hover { background: var(--app-bg-sidebar-hover); }
 button.sidebar-item.active { background: var(--pm-stamp-wash); color: var(--pm-stamp); border-left-color: var(--pm-stamp); }
 .sidebar-badge:empty { display: none; }
 #content-agent-context [data-status] { margin: 12px 0 16px; }
+
+/* Contract inspection uses the existing brand; columns encode the provider decision. */
+.contract-table { overflow-x: auto; margin: 16px 0; }
+.contract-table table { width: 100%; border-collapse: collapse; text-align: left; }
+.contract-table caption { text-align: left; font-family: var(--pm-font-mono); padding: 8px 0; }
+.contract-table th, .contract-table td { border-bottom: 1px solid var(--app-border-light); padding: 12px; vertical-align: top; }
+.contract-table small { display: block; font-weight: normal; color: var(--app-text-secondary); max-width: 48ch; margin-top: 4px; }
+#content-contract-explorer pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
+#content-contract-explorer textarea { width: 100%; font-family: var(--pm-font-mono); }

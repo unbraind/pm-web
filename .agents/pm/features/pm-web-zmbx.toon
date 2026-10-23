@@ -1,0 +1,45 @@
+id: pm-web-zmbx
+title: Inspect backend operations and review inputs without executing changes
+description: "Backend contract explorer extending inspection from maintenance providers to all advertised project operations. Overlap rechecked: core getContracts owns command availability, schemas and runtime fields; pm-ops backend-capabilities verifies list/get/schema assurance; existing maintenance UI covers three actions. Reuse core metadata rather than implementing dispatch or assurance."
+type: Feature
+status: in_progress
+priority: 2
+tags[1]: "gh:unbraind/pm-web#247"
+created_at: "2026-10-23T14:34:25.958Z"
+updated_at: "2026-10-23T19:20:31.986Z"
+author: codex-agent
+acceptance_criteria: "Synthetic directory, Postgres and remote adapters render consistent capabilities; unavailable providers never enable a destructive control. Typed SDK and native CLI expose bounded TOON/JSON discovery and typed refusals with remedies. Review-only forms never dispatch operations. Validate a public fleet tracker copy without git and report measured evidence; npm and Bun CI release gates pass at unchanged thresholds."
+comments[8]{created_at,author,text}:
+  "2026-10-23T14:36:16.105Z",codex-agent,"Overlap check: core getContracts exposes live action_availability, runtime schema and SDK input schemas; pm-ops backend-capabilities audits list/get/schema only; pm-web maintenance-provider UI gates three operations. Explorer reuses core contract reads and mutation classification. Plan: paginated SDK/native CLI and authenticated project UI, fresh fail-closed availability checks, review-only envelopes with no operation dispatch, no-git regressions, synthetic adapter parity, public tracker-copy measurements, CI npm/Bun release gates. Installed host CLI is 2026.10.23; all tracker writes use the unchanged repo pin 2026.10.20. Local npm required isolated user configuration because host allow-scripts broke Git dependency preparation."
+  "2026-10-23T14:50:50.408Z",codex-agent,"Targeted linked test run passed 6/6 (zero skips). Behavioral revert proof: removing only the availability refusal in reviewContract makes the synthetic provider regression fail with Missing expected rejection; restored implementation passes. Public origin/main tracker copy: 177 certified items, 84 operations, five 20-row pages, first-page JSON 4357 bytes, 21158 ms on the loaded host; durable source hash unchanged and deletion preview executed=false. Validation ran with Git absent from PATH and a discovery ceiling above the scratch project. Database server binaries are absent locally; real SQL/HTTP route acceptance and desktop/mobile evidence run in CI. No hosted service or data was accessed."
+  "2026-10-23T14:55:45.452Z",codex-agent,"PR 247 is open for review. Initial CI stopped at the unchanged zero-duplication gate: browser fixture initialization duplicated an existing test. Consolidated explorer SDK, HTTP and browser tracker setup into one shared helper; no threshold changes. Local database acceptance remains delegated to CI. Automated independent reviews are currently unavailable or skipped; no reviewer approval is claimed."
+  "2026-10-23T15:08:33.473Z",codex-agent,"Full npm CI suite on Node 22 ran 821 tests: 820 passed, one existing command-inventory assertion expected 11 handlers instead of the new 12. All new SDK and real SQL/HTTP tests passed; measured coverage was 93.30% statements/lines, 83.97% branches and 96.27% functions, above unchanged thresholds. Updated the existing inventory regression to require the web contracts command and all four flags. Full gates will rerun on the corrected head."
+  "2026-10-23T15:13:05.738Z",codex-agent,"Implementation and local verification complete: linked explorer suite 6/6 and registered-command suite 12/12, zero skips; typecheck, test typecheck, lint, docstrings, zero-duplication and generated changelog checks passed. Real SQL/HTTP acceptance passed on both CI Node versions; only the now-corrected existing command count blocked those prior full runs. Releasing the implementation claim without closing the item; final unchanged-threshold npm/Bun gate counts, run URL and browser artifacts will be recorded on PR 247 before handoff. The PR remains unmerged and no package or hosted release is authorized."
+  "2026-10-23T19:10:51.081Z",codex-agent,"Review round: fetched all review threads and review bodies for PR 247; there are zero threads and CodeRabbit skipped review, with no outside-diff findings. Confirmed supplied blocker: contracts/review is the only new POST route and is missing from the keyed replay registry and route-audit module list. Merge origin/main first with regenerated changelog, then add real keyed replay and current-access regressions, behavioral revert proofs, rebuilt dist, and full unchanged-threshold npm/Bun gates. Viewer read-only previews also need matching replay authorization; mutation previews retain edit requirements."
+  "2026-10-23T19:14:25.202Z",codex-agent,"Behavioral revert proofs for review round: node scripts/with-test-db.ts node --test --test-name-pattern=\"keyed contract previews\" test/idempotency-access.test.ts failed 0/1 with only the preview registry entry removed (403 !== 200); restoring it and reverting only the read-preview permission exemption failed 0/1 because the viewer received an outcome-only receipt instead of the stored envelope (true !== null for idempotency-outcome-only). Restored both fixes. The targeted keyed preview plus exhaustive route audit passed 2/2, zero skips. HTTP tests import source directly, so these proofs change only the behavior under test. Whole-PR route review found one new POST and no other new mutating routes; the explorer module is now part of the registry equality audit. An isolated local PostgreSQL server supports real HTTP/SQL regressions without hosted data."
+  "2026-10-23T19:20:27.532Z",codex-agent,"Review implementation complete at 086e04d after merging origin/main in 2659917 and regenerating CHANGELOG.md inside that merge. Linked pm test run passed all three commands: explorer 6/6, command registration 12/12, real HTTP/SQL explorer and replay tests 14/14; 32 total, zero failures/skips/cancellations. Both behavioral revert proofs are recorded above. Clean tracker health has zero warnings after using the existing pinned-extension installer. Type checks, lint, unchanged zero-duplication and docstrings passed in the full local npm gate; remaining full npm/Bun checks are still running locally/in CI and are not yet claimed as passed. Final measured results will be recorded in PR 247 validation and its checks: https://github.com/unbraind/pm-web/pull/247/checks . Releasing the implementation claim for final gate verification; item remains in_progress for orchestrator review. No thread replies/resolutions, hosted changes, merge or release."
+files[13]{path,scope}:
+  .github/workflows/ci.yml,project
+  public/src/views/contract-explorer.ts,project
+  scripts/validate-contract-explorer.ts,project
+  src/contract-explorer-client.ts,project
+  src/contract-explorer-commands.ts,project
+  src/contract-explorer.ts,project
+  src/idempotency-access.ts,project
+  src/idempotency-routes.ts,project
+  src/routes/contract-explorer.ts,project
+  test/contract-explorer-browser.acceptance.ts,project
+  test/contract-explorer-routes.test.ts,project
+  test/contract-explorer.test.ts,project
+  test/idempotency-access.test.ts,project
+tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/contract-explorer.test.ts,project,codex-agent,"2026-10-23T14:46:50.351Z",local_mutation,feat/contract-explorer
+  node --test test/extension.test.ts,project,codex-agent,"2026-10-23T15:08:15.913Z",local_mutation,feat/contract-explorer
+  node scripts/with-test-db.ts node --test test/idempotency-access.test.ts test/contract-explorer-routes.test.ts,project,codex-agent,"2026-10-23T19:14:02.738Z",local_mutation,feat/contract-explorer
+docs[5]{path,scope}:
+  docs/contract-explorer.md,project
+  docs/idempotency-replay.md,project
+  examples/contract-explorer.ts,project
+  "https://github.com/unbraind/pm-web/pull/247",project
+  README.md,project
+body: ""

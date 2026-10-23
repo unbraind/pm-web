@@ -1,3 +1,6 @@
+export { ContractExplorerClient } from './contract-explorer-client.js';
+import { registerContractExplorerCommand } from './contract-explorer-commands.js';
+export * from './contract-explorer.js';
 import { registerAgentContextCommands } from './agent-context-commands.js';
 export * from './agent-context.js';
 import { registerInboxCommands } from './decision-commands.js';
@@ -273,6 +276,7 @@ export default defineExtension({
     activate(api) {
         registerInboxCommands(api);
         registerAgentContextCommands(api);
+        registerContractExplorerCommand(api);
         // -----------------------------------------------------------------------
         // Command: pm web [--port <port>] [--detach]
         // -----------------------------------------------------------------------

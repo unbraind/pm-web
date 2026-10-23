@@ -15,7 +15,9 @@
     "examples/decision-inbox.ts",
     "docs/agent-context.md",
     "examples/agent-context.ts",
-    "docs/idempotency-replay.md"
+    "docs/idempotency-replay.md",
+    "docs/contract-explorer.md",
+    "examples/contract-explorer.ts"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -142,12 +144,14 @@
       "CHANGELOG.md",
       "docs/decision-inbox.md",
       "docs/agent-context.md",
-      "docs/idempotency-replay.md"
+      "docs/idempotency-replay.md",
+      "docs/contract-explorer.md"
     ],
     "examples": [
       "README.md",
       "examples/decision-inbox.ts",
-      "examples/agent-context.ts"
+      "examples/agent-context.ts",
+      "examples/contract-explorer.ts"
     ]
   },
   "private": false,

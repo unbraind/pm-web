@@ -37,6 +37,9 @@ export declare const IDEMPOTENT_MUTATION_ROUTES: readonly [{
     readonly path: '/api/projects/:projectId/pm/search';
 }, {
     readonly method: 'POST';
+    readonly path: '/api/projects/:projectId/pm/contracts/review';
+}, {
+    readonly method: 'POST';
     readonly path: '/api/projects/:projectId/pm/append/:itemId';
 }, {
     readonly method: 'POST';

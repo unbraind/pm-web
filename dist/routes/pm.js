@@ -1,3 +1,4 @@
+import { registerContractExplorerRoutes } from './contract-explorer.js';
 import { registerAgentContextRoutes } from './agent-context.js';
 import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision } from '../services/decision-inbox.js';
 import { readMaintenanceCapabilities } from "../services/maintenance-providers.js";
@@ -68,6 +69,7 @@ function getNeo4jDriver() {
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
 registerAgentContextRoutes(router);
+registerContractExplorerRoutes(router);
 const BASE64URL_CURSOR_PATTERN = /^[A-Za-z0-9_-]+$/;
 /**
  * Validate an incoming opaque pagination cursor. Returns the original cursor or
