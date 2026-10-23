@@ -1,0 +1,34 @@
+id: pm-web-zmbx
+title: Inspect backend operations and review inputs without executing changes
+description: "Backend contract explorer extending inspection from maintenance providers to all advertised project operations. Overlap rechecked: core getContracts owns command availability, schemas and runtime fields; pm-ops backend-capabilities verifies list/get/schema assurance; existing maintenance UI covers three actions. Reuse core metadata rather than implementing dispatch or assurance."
+type: Feature
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-23T14:34:25.958Z"
+updated_at: "2026-10-23T14:51:07.083Z"
+assignee: codex-agent
+claim_principal: codex-agent
+author: codex-agent
+acceptance_criteria: "Synthetic directory, Postgres and remote adapters render consistent capabilities; unavailable providers never enable a destructive control. Typed SDK and native CLI expose bounded TOON/JSON discovery and typed refusals with remedies. Review-only forms never dispatch operations. Validate a public fleet tracker copy without git and report measured evidence; npm and Bun CI release gates pass at unchanged thresholds."
+comments[2]{created_at,author,text}:
+  "2026-10-23T14:36:16.105Z",codex-agent,"Overlap check: core getContracts exposes live action_availability, runtime schema and SDK input schemas; pm-ops backend-capabilities audits list/get/schema only; pm-web maintenance-provider UI gates three operations. Explorer reuses core contract reads and mutation classification. Plan: paginated SDK/native CLI and authenticated project UI, fresh fail-closed availability checks, review-only envelopes with no operation dispatch, no-git regressions, synthetic adapter parity, public tracker-copy measurements, CI npm/Bun release gates. Installed host CLI is 2026.10.23; all tracker writes use the unchanged repo pin 2026.10.20. Local npm required isolated user configuration because host allow-scripts broke Git dependency preparation."
+  "2026-10-23T14:50:50.408Z",codex-agent,"Targeted linked test run passed 6/6 (zero skips). Behavioral revert proof: removing only the availability refusal in reviewContract makes the synthetic provider regression fail with Missing expected rejection; restored implementation passes. Public origin/main tracker copy: 177 certified items, 84 operations, five 20-row pages, first-page JSON 4357 bytes, 21158 ms on the loaded host; durable source hash unchanged and deletion preview executed=false. Validation ran with Git absent from PATH and a discovery ceiling above the scratch project. Database server binaries are absent locally; real SQL/HTTP route acceptance and desktop/mobile evidence run in CI. No hosted service or data was accessed."
+files[10]{path,scope}:
+  .github/workflows/ci.yml,project
+  public/src/views/contract-explorer.ts,project
+  scripts/validate-contract-explorer.ts,project
+  src/contract-explorer-client.ts,project
+  src/contract-explorer-commands.ts,project
+  src/contract-explorer.ts,project
+  src/routes/contract-explorer.ts,project
+  test/contract-explorer-browser.acceptance.ts,project
+  test/contract-explorer-routes.test.ts,project
+  test/contract-explorer.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/contract-explorer.test.ts,project,codex-agent,"2026-10-23T14:46:50.351Z",local_mutation,feat/contract-explorer
+docs[3]{path,scope}:
+  docs/contract-explorer.md,project
+  examples/contract-explorer.ts,project
+  README.md,project
+body: ""

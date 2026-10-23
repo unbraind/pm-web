@@ -1,3 +1,4 @@
+import { renderContractExplorer } from './contract-explorer.js';
 import { renderAgentContext, stopAgentContextValidation } from './agent-context.js';
 import { renderDecisionInbox } from './decision-inbox.js';
 // ═══════════════════════════════════════════════════════════════
@@ -62,6 +63,7 @@ const VIEW_TO_PATH: Record<string, string> = {
   'plan': '/plan',
   'decision-inbox': '/decision-inbox',
   'agent-context': '/agent-context',
+  'contract-explorer': '/contracts',
 };
 
 // Reverse: URL path → view name
@@ -181,6 +183,7 @@ export function showView(view: string, pushState = true): void {
     case 'guide': renderGuideView(); break;
     case 'admin': renderAdminView(); break;
     case 'plan': void initPlanView(); break;
+    case 'contract-explorer': void renderContractExplorer(); break;
     case 'agent-context': void renderAgentContext(); break;
     case 'decision-inbox': void renderDecisionInbox(); break;
   }

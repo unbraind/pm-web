@@ -651,3 +651,26 @@ Open **Agent context** to inspect an authorized agent question, served context r
 Agent context commands work from a plain tracker without git, contacting an explicitly selected authenticated pm-web server. The server uses its existing PostgreSQL database. Source receipts remain owned by core output sessions and pm-context; this view stores metadata rather than raw context, inference, or memory.
 
 Content-bearing keyed responses recheck current permissions and resource visibility. Successful deletes and other previously successful mutations whose content is no longer readable return only status and identifiers to the original principal, so lost responses cannot wedge offline work. Own queued deletes also settle on terminal 404/410 with a visible notice. Every SSE connection immediately revalidates the displayed packet, including reconnections after backoff. See the [78-route replay authorization audit](docs/idempotency-replay.md).
+
+## Backend contract explorer
+
+Select **Backend contracts** to inspect the selected project's live SDK operations,
+provider availability and input schemas. Missing providers keep review controls
+disabled. The review form produces an unexecuted input preview; it never applies
+changes. SDK adapters normalize directory, Postgres and remote contract readers.
+
+```sh
+pm web contracts --limit 10 --json
+pm web contracts --action delete --input '{"id":"demo-1"}' --json
+```
+
+Use `exploreContracts`, `reviewContract` and `ContractExplorerClient` from the public
+SDK. Pagination defaults to 20 operations (maximum 50), with explicit continuation.
+See [availability, typed refusals and HTTP routes](docs/contract-explorer.md) and the
+[SDK example](examples/contract-explorer.ts).
+
+### Without git
+
+Backend inspection and input previews work in plain initialized trackers with no
+Git executable. An operation advertised by a package may still need Git when
+executed separately; the explorer only reads its contract.

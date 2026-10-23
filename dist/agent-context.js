@@ -1,3 +1,4 @@
+import { requestProjectJson } from './project-http.js';
 /** Stable transport-neutral refusal with an actionable recovery instruction. */
 export class AgentContextError extends Error {
     code;
@@ -55,8 +56,7 @@ export class AgentContextClient {
     /** Send a bounded authenticated request; redirects cannot forward a credential to a second endpoint. */
     async request(project, suffix, method, body) {
         try {
-            const response = await fetch(`${this.base}/api/projects/${encodeURIComponent(project)}/pm/agent-context${suffix}`, { method, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000), headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-            const data = await response.json();
+            const { response, data } = await requestProjectJson(`${this.base}/api/projects/${encodeURIComponent(project)}/pm/agent-context${suffix}`, this.token, method, body);
             if (!response.ok)
                 throw new AgentContextError(data.code ?? 'unavailable', data.remedy ?? 'Check authentication and project access, then retry.', response.status);
             return data;

@@ -1,3 +1,6 @@
+export { ContractExplorerClient } from './contract-explorer-client.ts';
+import { registerContractExplorerCommand } from './contract-explorer-commands.ts';
+export * from './contract-explorer.ts';
 import { registerAgentContextCommands } from './agent-context-commands.ts';
 export * from './agent-context.ts';
 import { registerInboxCommands } from './decision-commands.ts';
@@ -332,6 +335,7 @@ export default defineExtension({
   activate(api: ExtensionApi) {
     registerInboxCommands(api);
     registerAgentContextCommands(api);
+    registerContractExplorerCommand(api);
     // -----------------------------------------------------------------------
     // Command: pm web [--port <port>] [--detach]
     // -----------------------------------------------------------------------
