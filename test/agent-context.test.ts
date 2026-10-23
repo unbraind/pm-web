@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { PmClient, type PmReadOutputReceipt, type PmReadOutputSessionReceipt } from '@unbrained/pm-cli/sdk';
+import { PmClient, EXIT_CODE, isPmCliExpectedError, type PmReadOutputReceipt, type PmReadOutputSessionReceipt } from '@unbrained/pm-cli/sdk';
 import { createExtensionTestHarness } from '@unbrained/pm-cli/sdk/testing';
 import extension from '../src/index.ts';
 import { AgentContextClient, AgentContextError, coreContextEvidence, packContextEvidence, type AgentContextInput, type AgentContextPacket } from '../src/agent-context.ts';
@@ -165,4 +165,8 @@ test('SDK transport failures and CLI setup refusals retain typed remedies', asyn
   const host = await createExtensionTestHarness(extension, { name: 'pm-web', capabilities: ['commands', 'schema'] });
   t.after(() => host.deactivate());
   await assert.rejects(host.runCommand({ command: 'web agent-context', pmRoot, options: {} }), /invalid_input/);
+  const saved = process.env.PM_WEB_TOKEN; process.env.PM_WEB_TOKEN = 'synthetic';
+  try {
+    await assert.rejects(host.runCommand({ command: 'web agent-context', pmRoot, options: { url: 'http://127.0.0.1:1', project: 'synthetic-project' } }), error => isPmCliExpectedError(error) && error.exitCode === EXIT_CODE.DEPENDENCY_FAILED);
+  } finally { if (saved === undefined) delete process.env.PM_WEB_TOKEN; else process.env.PM_WEB_TOKEN = saved; }
 });

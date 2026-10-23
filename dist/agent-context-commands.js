@@ -24,7 +24,7 @@ export async function runAgentContextCommand(ctx, action) {
     }
     catch (error) {
         const refusal = error instanceof AgentContextError ? error : new AgentContextError('unavailable', 'Check the server URL, authentication and network availability.', 503);
-        throw createPmCliExpectedError(`${refusal.code}: ${refusal.remedy}`, { exitCode: refusal.status === 409 ? EXIT_CODE.CONFLICT : refusal.status === 404 ? EXIT_CODE.NOT_FOUND : EXIT_CODE.USAGE, context: { code: refusal.code, nextSteps: [refusal.remedy] } });
+        throw createPmCliExpectedError(`${refusal.code}: ${refusal.remedy}`, { exitCode: refusal.status === 409 ? EXIT_CODE.CONFLICT : refusal.status === 404 ? EXIT_CODE.NOT_FOUND : refusal.status === 503 ? EXIT_CODE.DEPENDENCY_FAILED : EXIT_CODE.USAGE, context: { code: refusal.code, nextSteps: [refusal.remedy] } });
     }
 }
 /** Register bounded native TOON/JSON operations through the core extension output renderer. */
