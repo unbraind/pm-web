@@ -170,3 +170,23 @@ jobs:
 
       - name: Full Bun release gate with isolated Git identity
         run: env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 bun run release:check
+
+      - name: Install browser for decision inbox evidence
+        if: matrix.node-version == 26
+        run: node node_modules/playwright-core/cli.js install --with-deps chromium
+
+      - name: Capture seeded decision inbox before and after
+        if: matrix.node-version == 26
+        env:
+          INBOX_SCREENSHOTS: ${{ runner.temp }}/decision-inbox-screenshots
+          INBOX_BASE_REF: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: node scripts/with-test-db.ts node scripts/decision-inbox-browser.ts
+
+      - name: Attach decision inbox screenshots
+        if: matrix.node-version == 26
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: decision-inbox-screenshots
+          path: ${{ runner.temp }}/decision-inbox-screenshots
+          if-no-files-found: error
+          retention-days: 30

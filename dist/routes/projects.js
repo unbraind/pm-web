@@ -99,7 +99,7 @@ router.post("/", async (req, res) => {
             await pool.query("DELETE FROM pm_projects WHERE id = $1", [project.id]);
             throw err;
         }
-        res.status(201).json({ project });
+        res.status(201).json({ project: { ...project, permission: "edit" } });
     }
     catch (err) {
         if (isUniqueViolation(err)) {

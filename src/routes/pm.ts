@@ -1,3 +1,4 @@
+import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionRequestInput, type DecisionResponseInput } from '../services/decision-inbox.ts';
 import { readMaintenanceCapabilities, type MaintenanceAction } from "../services/maintenance-providers.ts";
 import { logError } from "../observability.ts";
 import { Router } from "express";
@@ -172,7 +173,7 @@ router.use(async (req: AuthRequest, res, next) => {
       return;
     }
     if (access.permission !== "edit") {
-      res.status(403).json({ error: "This project is shared as view-only." });
+      res.status(403).json({ error: "This project is shared as view-only.", ...(req.path.startsWith("/decision-inbox") ? { code: "view_only", remedy: "Ask a project editor to respond or request edit access." } : {}) });
       return;
     }
     next();
@@ -2155,6 +2156,32 @@ router.get("/list-canceled", buildListShortcutRoute("list-canceled"));
 // ─────────────────────────────────────────────────────────
 // Plan routes
 // ─────────────────────────────────────────────────────────
+
+/** Read or mutate the inbox after resolving the caller's current project capability. */
+async function decisionRoute(req: AuthRequest, res: Response, action: 'list' | 'request' | 'respond'): Promise<void> {
+  const project = await requireProject(req, res);
+  if (!project) return;
+  const pmRoot = path.join(getProjectDir(project.ownerUserId, project.slug), '.agents', 'pm');
+  const actor: DecisionActor = { author: req.user!.userId, permission: project.permission === 'edit' ? 'edit' : 'view' };
+  try {
+    const result = action === 'list'
+      ? await listDecisionInbox(pmRoot, { limit: decisionInboxNumber(req.query.limit, 20), offset: decisionInboxNumber(req.query.offset, 0) })
+      : action === 'request'
+        ? await requestDecision(pmRoot, actor, req.body as DecisionRequestInput)
+        : await respondToDecision(pmRoot, actor, req.body as DecisionResponseInput);
+    if (action !== 'list') broadcastProjectEvent(routeParam(req, 'projectId'), { type: 'workspace-changed', data: { userId: actor.author } });
+    res.status(action === 'request' ? 201 : 200).json(result);
+  } catch (error) {
+    if (error instanceof DecisionInboxError) { res.status(error.status).json({ error: error.message, code: error.code, remedy: error.remedy }); return; }
+    logError('decision_inbox_failed', error);
+    res.status(503).json({ code: 'unavailable', error: 'Decision inbox unavailable', remedy: 'Retry after checking tracker availability and writer locks.' });
+  }
+}
+
+router.get('/decision-inbox', (req: AuthRequest, res) => decisionRoute(req, res, 'list'));
+router.post('/decision-inbox/requests', (req: AuthRequest, res) => decisionRoute(req, res, 'request'));
+router.post('/decision-inbox/responses', (req: AuthRequest, res) => decisionRoute(req, res, 'respond'));
+
 
 // POST /api/projects/:projectId/pm/plan
 router.post("/plan", async (req: AuthRequest, res) => {

@@ -57,7 +57,7 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
       } else {
         assert.ok(TRUSTED_ACTION_OWNERS.has(action.split("/")[0]!), `${file}: action owner is not allowed: ${action}`);
         // The official uploader is approved only for synthetic screenshot evidence.
-        const screenshotUpload = file === "graph-scale-evidence.yml" && action === "actions/upload-artifact";
+        const screenshotUpload = (file === "graph-scale-evidence.yml" || file === "ci.yml") && action === "actions/upload-artifact";
         assert.ok(TRUSTED_ACTIONS.has(action) || screenshotUpload, `${file}: action is not allowed: ${action}`);
         assert.match(version, /^v(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}$/, `${file}: ${action} must document a valid release version`);
       }
@@ -95,10 +95,13 @@ test("CodeQL pins that differ between workflow files are refused", () => {
   assert.throws(() => assertSingleCodeqlRelease([...first, ...second]), /one commit and version across all workflows/);
 });
 
-test("the pinned artifact uploader is approved only in the screenshot workflow", () => {
+test("the pinned artifact uploader is approved only in the screenshot workflows", () => {
   const upload = "steps:\n  - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4\n";
   assert.doesNotThrow(() => assertWorkflowActionPins(upload, "graph-scale-evidence.yml"));
-  assert.throws(() => assertWorkflowActionPins(upload, "ci.yml"), /action is not allowed/);
+  assert.doesNotThrow(() => assertWorkflowActionPins(upload, "ci.yml"));
+  for (const file of ["release.yml", "unrelated.yml", "ci-copy.yml"]) {
+    assert.throws(() => assertWorkflowActionPins(upload, file), /action is not allowed/);
+  }
   assert.throws(() => assertWorkflowActionPins(upload.replace(/@[a-f0-9]{40}/, "@v4"), "graph-scale-evidence.yml"), /full 40-character/);
 });
 

@@ -1,3 +1,5 @@
+import { registerInboxCommands } from './decision-commands.js';
+export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision } from './services/decision-inbox.js';
 // pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 import { startDetached } from "./detached-start.js";
@@ -267,6 +269,7 @@ export default defineExtension({
     name: "pm-web",
     version: "2026.10.22",
     activate(api) {
+        registerInboxCommands(api);
         // -----------------------------------------------------------------------
         // Command: pm web [--port <port>] [--detach]
         // -----------------------------------------------------------------------

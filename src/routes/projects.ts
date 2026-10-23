@@ -127,7 +127,7 @@ router.post("/", async (req: AuthRequest, res) => {
       throw err;
     }
 
-    res.status(201).json({ project });
+    res.status(201).json({ project: { ...project, permission: "edit" } });
   } catch (err: unknown) {
     if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A project with this name already exists" });

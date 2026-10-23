@@ -580,3 +580,66 @@ resolution for the active theme. There is no application-owned palette or font C
 
 See [brand review evidence](docs/brand-review.md) for the screenshot matrix,
 pixel comparison, accessibility checks and behavioral revert proof.
+
+## Human-agent decision inbox
+
+Open **Decision inbox** in a selected project to compare pending requests, their
+alternatives and evidence. Editors can approve an alternative or acknowledge
+that they have read the evidence. View-only collaborators can read requests;
+server-side permission checks reject their writes. A reason is required for
+every response. Refresh after a conflict and inspect the new evidence before
+submitting again. The browser preserves unsent reasoning when live activity
+arrives.
+
+An approval records the selected alternative in the plan's audited decision log.
+It does not run code, approve plan execution, review code, resolve review findings,
+complete plan steps or close tasks. An acknowledgment leaves the request pending.
+Both response and listing receipts explicitly report `codeReview: false` and
+`taskCompletion: false`. Independent review evidence still belongs to `pm-review`.
+
+The extension exposes three commands. JSON and the default compact TOON use the
+same typed result. List pages default to 20 rows, allow 1–50, and emit at most
+16 KiB of JSON; `nextOffset` resumes pages shortened by either bound. `total`
+counts pending requests across a certified complete tracker read. No raw tracker
+items or audit histories are emitted in the inbox projection.
+
+```sh
+pm web inbox --limit 10 --json
+pm web inbox --offset 10
+pm web inbox request --input '{"planId":"demo-plan","question":"Which storage?","alternatives":["Local files","Shared database"],"evidence":"See docs/storage-comparison.md"}' --json
+pm web inbox respond --input '{"planId":"demo-plan","requestId":"REQUEST_ID","revision":"REVISION_FROM_INBOX","action":"approve","alternative":1,"reason":"Remote collaborators need coordinated access."}' --json
+```
+
+Use an existing Plan id and the request id/revision returned by the inbox.
+Alternatives use zero-based indexes. `action: "acknowledge"` omits `alternative`
+and requires a reason. `PM_AUTHOR` or `--actor` identifies local CLI mutations;
+local filesystem access grants CLI editing capability. HTTP derives the author
+and capability from the authenticated session and current project membership,
+never from request-body attribution.
+
+The package exports `listDecisionInbox`, `requestDecision`, `respondToDecision`,
+`DecisionInboxError` and their input/result types from its main entrypoint. See
+[the executable SDK example](examples/decision-inbox.ts) and
+[the inbox contract and validation report](docs/decision-inbox.md).
+Embedding applications must provide an authenticated `DecisionActor`; the SDK's
+capability parameter is an integration boundary, not an authentication service.
+
+HTTP endpoints live under `/api/projects/:projectId/pm/decision-inbox`:
+`GET ?limit=20&offset=0`, `POST /requests`, and `POST /responses`. Mutations require
+the normal session, CSRF token and edit permission. Typed refusal payloads carry
+`code` and `remedy`: `invalid_input` (400), `view_only` (403), `not_found` (404),
+`revision_conflict` or `already_answered` (409), and `unavailable` or
+`invalid_record` (503). Stored-record failures identify the Plan to inspect;
+blank or repeated pagination values are invalid input. The CLI maps unavailable
+dependencies and invalid stored records to `DEPENDENCY_FAILED`, preserving
+`USAGE`, `NOT_FOUND` and `CONFLICT` for caller-input and revision refusals.
+
+### Without git
+
+Inbox reads, requests, acknowledgments and approvals work in ordinary initialized
+tracker directories, without a Git executable or a repository. The inbox needs
+no database when used through its SDK or CLI; the web server uses PostgreSQL for
+accounts and project sharing. GitHub synchronization and repository provenance
+still need their own repository/provider prerequisites. The public-data and
+screenshot evidence scripts use Git only to extract committed baseline fixtures;
+it is not on the inbox runtime path.

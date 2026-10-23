@@ -1,3 +1,5 @@
+import { registerInboxCommands } from './decision-commands.ts';
+export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
 // pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 
@@ -326,6 +328,7 @@ export default defineExtension({
   version: "2026.10.22",
 
   activate(api: ExtensionApi) {
+    registerInboxCommands(api);
     // -----------------------------------------------------------------------
     // Command: pm web [--port <port>] [--detach]
     // -----------------------------------------------------------------------

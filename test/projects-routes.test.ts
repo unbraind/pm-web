@@ -147,7 +147,8 @@ test("projects: create, list, get, update, and delete as owner", async (t) => {
     body: JSON.stringify({ name: "My Project", prefix: "mp" }),
   });
   assert.equal(created.status, 201);
-  const project = (await created.json() as { project: { id: string; name: string; slug: string; prefix: string } }).project;
+  const project = (await created.json() as { project: { id: string; name: string; slug: string; prefix: string; permission: string } }).project;
+  assert.equal(project.permission, "edit", "the creation response must let the owner edit immediately, before reloading projects");
   assert.equal(project.name, "My Project");
   assert.equal(project.prefix, "mp");
   assert.ok(project.slug);

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "39ce81b3-7c1a-4d07-a1c2-6ce0332c5620",
+  "item_path": ".agents/pm/issues/pm-web-k77v.toon",
+  "item_id": "pm-web-k77v",
+  "requested_preference": "ours",
+  "requested_preference_applied": false,
+  "conflict_resolution": "latest_document_update",
+  "fields_from_theirs": [
+    "close_reason",
+    "closed_at",
+    "completed_at",
+    "resolution",
+    "status"
+  ],
+  "union_fields": [],
+  "merged_field_hashes": {
+    "close_reason": "78e11ad80fd79eb3d26266de79242f34fa5e0ba597fdf15ff4fa9e5040c5f35d",
+    "closed_at": "905eba7a3a37807338d936dbad3a94ca72f4ec339d15b7b5e1ed45238de67277",
+    "completed_at": "905eba7a3a37807338d936dbad3a94ca72f4ec339d15b7b5e1ed45238de67277",
+    "resolution": "78e11ad80fd79eb3d26266de79242f34fa5e0ba597fdf15ff4fa9e5040c5f35d",
+    "status": "e5e67a803409586c54cee3f18f070017df2159c846604afbe3c7a7b600a341d9"
+  },
+  "decisions": [],
+  "operation": {
+    "kind": "merge",
+    "original_head": "6f39c76b83be6550301d97d359f8ae27e7accc40",
+    "original_blob": "bc7b21dd7dbbfa7053e406b40b66251f1967f327"
+  },
+  "state": "reconciled",
+  "created_at": "2026-10-22T21:20:27.043Z",
+  "value_availability": "hash_only",
+  "value_policy": "bounded_non_sensitive_scalars_v1",
+  "reconciled_at": "2026-10-22T21:24:22.616Z"
+}

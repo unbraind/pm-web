@@ -13,6 +13,8 @@ export interface User {
 }
 
 export interface Project {
+  /** Current project capability returned by the project API. */
+  permission?: string;
   id: string;
   name: string;
   slug: string;
@@ -266,4 +268,4 @@ export type ViewName =
   | 'stats' | 'calendar' | 'context' | 'graph' | 'sharing' | 'groups'
   | 'health' | 'dedupe' | 'validate' | 'settings' | 'github'
   | 'export' | 'normalize' | 'shared' | 'templates' | 'comments-audit'
-  | 'config' | 'guide' | 'plan';
+  | 'config' | 'guide' | 'plan' | 'decision-inbox';
