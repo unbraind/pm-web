@@ -157,3 +157,12 @@ test('authorized discovery is bounded and paginated, including invalid offsets a
   const duplicate = await authedFetch(server, f.owner, `/api/projects/${f.project.id}/pm/agent-context?offset=0&offset=1`);
   assert.equal(duplicate.status, 400);
 });
+
+
+test('SDK transport failures and CLI setup refusals retain typed remedies', async t => {
+  await assert.rejects(new AgentContextClient('http://127.0.0.1:1', 'synthetic').list('synthetic-project'), refusal('unavailable'));
+  const { pmRoot } = await plainTracker(t);
+  const host = await createExtensionTestHarness(extension, { name: 'pm-web', capabilities: ['commands', 'schema'] });
+  t.after(() => host.deactivate());
+  await assert.rejects(host.runCommand({ command: 'web agent-context', pmRoot, options: {} }), /invalid_input/);
+});

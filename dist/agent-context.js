@@ -54,11 +54,18 @@ export class AgentContextClient {
     revoke(project, id, revision) { return this.request(project, `/${encodeURIComponent(id)}`, 'DELETE', { revision }); }
     /** Send a bounded authenticated request; redirects cannot forward a credential to a second endpoint. */
     async request(project, suffix, method, body) {
-        const response = await fetch(`${this.base}/api/projects/${encodeURIComponent(project)}/pm/agent-context${suffix}`, { method, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000), headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-        const data = await response.json();
-        if (!response.ok)
-            throw new AgentContextError(data.code ?? 'unavailable', data.remedy ?? 'Check authentication and project access, then retry.', response.status);
-        return data;
+        try {
+            const response = await fetch(`${this.base}/api/projects/${encodeURIComponent(project)}/pm/agent-context${suffix}`, { method, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000), headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+            const data = await response.json();
+            if (!response.ok)
+                throw new AgentContextError(data.code ?? 'unavailable', data.remedy ?? 'Check authentication and project access, then retry.', response.status);
+            return data;
+        }
+        catch (error) {
+            if (error instanceof AgentContextError)
+                throw error;
+            throw new AgentContextError('unavailable', 'Check server reachability and response format, then retry the authenticated request.', 503);
+        }
     }
 }
 //# sourceMappingURL=agent-context.js.map

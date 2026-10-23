@@ -57,7 +57,12 @@ export async function renderAgentContext(selected?: string, offset = 0): Promise
       const button = document.createElement('button'); button.className = 'btn btn-secondary'; button.textContent = 'Revoke this packet'; content.append(button);
       button.addEventListener('click', async () => {
         button.disabled = true;
-        try { await api('DELETE', `/projects/${project.id}/pm/agent-context/${packet.id}`, { revision: packet.revision }); if (active()) await renderAgentContext(packet.id); }
+        try {
+          const response = await api<{ queued?: boolean }>('DELETE', `/projects/${project.id}/pm/agent-context/${packet.id}`, { revision: packet.revision });
+          if (!active()) return;
+          if (response?.queued === true) { status.textContent = 'Revocation queued. Access remains until the server confirms it; reconnect and refresh to check.'; return; }
+          await renderAgentContext(packet.id);
+        }
         catch (error) { if (active()) { status.textContent = `Revocation failed. ${error instanceof Error ? error.message : 'Refresh and retry.'}`; button.disabled = false; } }
       });
     }

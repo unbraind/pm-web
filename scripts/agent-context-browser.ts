@@ -50,6 +50,24 @@ try {
     await page.screenshot({ path: path.join(output, `agent-context-${width}.png`), fullPage: true });
     assert.equal(await page.getByRole('button', { name: 'Revoke this packet' }).count(), 0);
     if (width === 390) {
+      const publisher = await browser.newContext({ serviceWorkers: 'block' });
+      await publisher.addCookies([{ name: 'pm_token', value: signToken({ userId: owner, email: 'publisher@example.test' }), url: server.url('/') }]);
+      const publisherPage = await publisher.newPage();
+      await publisherPage.goto(server.url('/agent-context'));
+      await publisherPage.locator(`#project-selector option[value="${project}"]`).waitFor({ state: 'attached' });
+      await publisherPage.selectOption('#project-selector', project);
+      await publisherPage.evaluate(() => (window as unknown as { __app: AppBridge }).__app.showView('agent-context'));
+      await publisherPage.getByText(packet.question, { exact: true }).waitFor();
+      // Model the service worker's explicit queue acknowledgment at the browser transport boundary.
+      await publisherPage.route('**/pm/agent-context/*', async route => {
+        if (route.request().method() === 'DELETE') await route.fulfill({ status: 200, contentType: 'application/json', body: '{"queued":true}' });
+        else await route.continue();
+      });
+      await publisherPage.getByRole('button', { name: 'Revoke this packet' }).click();
+      await publisherPage.getByText('Revocation queued. Access remains until the server confirms it;', { exact: false }).waitFor();
+      assert.equal(await publisherPage.getByText(packet.question, { exact: true }).count(), 1);
+      assert.equal((await sdk.get(project, packet.id, packet.revision)).id, packet.id);
+      await publisher.close();
       await sdk.revoke(project, packet.id, packet.revision);
       await page.getByRole('button', { name: 'Refresh access' }).click();
       await page.getByText('This scope is no longer available.', { exact: false }).waitFor();
@@ -57,7 +75,7 @@ try {
     }
     await context.close();
   }
-  console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, horizontalOverflow: false }));
+  console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, queuedRevocation: true, horizontalOverflow: false }));
 } finally {
   await browser.close(); await server.close();
   for (const id of users) await pool.query('DELETE FROM pm_users WHERE id=$1', [id]);
