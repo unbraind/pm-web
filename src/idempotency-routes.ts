@@ -12,6 +12,7 @@ export const IDEMPOTENT_MUTATION_ROUTES = [
   { method: 'POST', path: '/api/projects/:projectId/pm/comments/:itemId' },
   { method: 'POST', path: '/api/projects/:projectId/pm/notes/:itemId' },
   { method: 'POST', path: '/api/projects/:projectId/pm/search' },
+  { method: 'POST', path: '/api/projects/:projectId/pm/contracts/review' },
   { method: 'POST', path: '/api/projects/:projectId/pm/append/:itemId' },
   { method: 'POST', path: '/api/projects/:projectId/pm/deps/:itemId' },
   { method: 'DELETE', path: '/api/projects/:projectId/pm/deps/:itemId' },

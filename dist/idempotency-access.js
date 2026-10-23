@@ -129,7 +129,8 @@ async function projectReplay(parts, input, stored) {
     }
     const contextRevoke = family === 'pm' && parts[4] === 'agent-context' && request.method === 'DELETE';
     const presence = family === 'pm' && parts[4] === 'presence';
-    if (!contextRevoke && !presence && project.permission !== 'edit')
+    const readPreview = family === 'pm' && parts[4] === 'contracts' && parts[5] === 'review' && object(stored.operation).mutation === false;
+    if (!contextRevoke && !presence && !readPreview && project.permission !== 'edit')
         throw new ReplayAccessError(403);
     if (family === 'pm' && parts[4] === 'agent-context') {
         const packetId = request.method === 'POST' ? id(stored.id) : id(parts[5]);

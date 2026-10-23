@@ -15,6 +15,7 @@ Only the 78 canonical mutation routes in `src/idempotency-routes.ts` can use the
 | --- | --- |
 | Projects create/update/delete | Existing account; currently owned, existing result/target project. Successful deletions use settlement receipts. |
 | PM item, annotation, relationship, bulk, schema, configuration, Plan and inbox mutations | Fresh `verifyProjectAccess` with edit capability; known item/Plan identities are checked through the existing SDK loader. Large batches require a fresh read for content. |
+| Contract input previews | Fresh project access; mutation previews require edit capability, while read-only previews permit viewers. Replays return the stored unexecuted envelope; revoked access settles without its input content. |
 | Agent context publish/revoke | Current project capability, existing packet, publisher identity, audience and exact revision before returning any packet content. Removed/replaced packets never replay old questions or evidence. Successful revocations settle independently of content. |
 | Project sharing | Current project ownership, existing share association, and current group membership when granting a group share. |
 | Groups and members | Current ownership or the original self-removal rule, plus existing result/member associations. |
@@ -42,6 +43,7 @@ All routes below sit behind the common production callback. No changes were made
 | POST | `/api/projects/:projectId/pm/comments/:itemId` |
 | POST | `/api/projects/:projectId/pm/notes/:itemId` |
 | POST | `/api/projects/:projectId/pm/search` |
+| POST | `/api/projects/:projectId/pm/contracts/review` |
 | POST | `/api/projects/:projectId/pm/append/:itemId` |
 | POST | `/api/projects/:projectId/pm/deps/:itemId` |
 | DELETE | `/api/projects/:projectId/pm/deps/:itemId` |

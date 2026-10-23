@@ -78,6 +78,31 @@ async function acknowledged(response: Response, status: number, secret: string):
   return body;
 }
 
+test('keyed contract previews replay the stored envelope for editors and read-only viewers', async t => {
+  const f = await fixture(t), route = `${f.base}/pm/contracts/review`;
+  await seedUserShare(f.project.id, f.viewer.id, 'view');
+  const { item } = await f.pm.create({ type: 'Task', title: 'Preserve the preview target' });
+  for (const [user, action] of [[f.editor, 'delete'], [f.viewer, 'list']] as const) {
+    const key = randomUUID(), body = { action, input: { id: item.id, description: 'Private preview input' } };
+    const first = await f.request(user, route, body, key);
+    assert.equal(first.status, 200);
+    const original = await first.text();
+    assert.equal(JSON.parse(original).executed, false);
+    await settled(user.id, key);
+    const replay = await f.request(user, route, body, key);
+    assert.equal(replay.status, 200);
+    assert.equal(replay.headers.get('idempotency-replayed'), 'true');
+    assert.equal(replay.headers.get('idempotency-outcome-only'), null);
+    assert.match(replay.headers.get('cache-control') ?? '', /no-store/);
+    assert.equal(await replay.text(), original, 'recovery returns the exact stored preview');
+    assert.equal((await f.pm.get(item.id)).item.id, item.id, 'the reviewed deletion never executes');
+    await pool.query("UPDATE pm_project_shares SET permission='view' WHERE project_id=$1 AND shared_with_user_id=$2", [f.project.id, user.id]);
+    if (action === 'delete') await acknowledged(await f.request(user, route, body, key), 200, body.input.description);
+    await pool.query('DELETE FROM pm_project_shares WHERE project_id=$1 AND shared_with_user_id=$2', [f.project.id, user.id]);
+    await acknowledged(await f.request(user, route, body, key), 200, body.input.description);
+  }
+});
+
 test('keyed context publish cannot resurrect a deleted packet or replay its private question', async t => {
   const f = await fixture(t); const key = randomUUID(); const route = `${f.base}/pm/agent-context`;
   const first = await f.request(f.editor, route, f.input, key); assert.equal(first.status, 201);
@@ -177,7 +202,7 @@ test('an embedding without a replay authorizer refuses duplicates and preserves 
 
 
 test('every canonical keyed mutation is covered by the explicit replay route audit', async () => {
-  const prefixes: Record<string, string> = { projects: '/api/projects', pm: '/api/projects/:projectId/pm', 'agent-context': '/api/projects/:projectId/pm', extensions: '/api/projects/:projectId/extensions', sharing: '/api/projects/:id/shares', github: '/api/projects/:id/github', groups: '/api/groups', admin: '/api/admin' };
+  const prefixes: Record<string, string> = { projects: '/api/projects', pm: '/api/projects/:projectId/pm', 'agent-context': '/api/projects/:projectId/pm', 'contract-explorer': '/api/projects/:projectId/pm', extensions: '/api/projects/:projectId/extensions', sharing: '/api/projects/:id/shares', github: '/api/projects/:id/github', groups: '/api/groups', admin: '/api/admin' };
   const discovered: string[] = [];
   for (const [module, prefix] of Object.entries(prefixes)) {
     const source = await readFile(`src/routes/${module}.ts`, 'utf8');
