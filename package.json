@@ -53,7 +53,7 @@
     "build:brand": "node scripts/build-brand.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.10.19",
+    "@unbrained/pm-cli": "2026.10.20",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -62,7 +62,7 @@
     "neo4j-driver": "^6.2.0",
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
-    "pm-graph": "2026.10.16",
+    "pm-graph": "2026.10.20",
     "uuid": "^14.0.2"
   },
   "devDependencies": {
@@ -82,8 +82,8 @@
     "jscpd": "5.4.1",
     "playwright-core": "1.64.1",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
-    "pm-changelog": "2026.10.19-1",
-    "pm-ops": "2026.10.16",
+    "pm-changelog": "2026.10.20",
+    "pm-ops": "2026.10.20",
     "pngjs": "7.0.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
