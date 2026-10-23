@@ -2,17 +2,18 @@ id: pm-web-vyxu
 title: Adopt canonical proofs for shell aliases and publisher argument forwarding
 description: "Move the supplemental public-package attestation rejection rules and adversarial corpus into pm-ops, publish the canonical auditor, then update the exact consumer pin and remove the boundary only when the corpus passes through the canonical export. Scope includes aliases, partially expanded executable names, forwarded publisher subcommands, executable arrays, quoted executable word boundaries, unknown flags and independent workflow run scopes. This follow-up does not authorize changes to another repository during the current package task."
 type: Task
-status: in_progress
+status: open
 priority: 2
 tags: []
 created_at: "2026-10-07T21:01:47.193Z"
-updated_at: "2026-10-22T11:49:30.473Z"
+updated_at: "2026-10-23T15:23:52.285Z"
 author: codex-sol
-comments[4]{created_at,author,text}:
+comments[5]{created_at,author,text}:
   "2026-10-07T21:02:35.506Z",codex-sol,"Canonical work required: pm-ops 2026.10.4 silently accepts an enabled npm-publish alias, npm \"$@\" function forwarding, a partially expanded executable such as n$(printf pm), and provenance scalar evidence shared across separate workflow run steps. The consumer guard adds failures using the canonical scanner, with actual run bodies parsed independently. Known additional canonical noise: a workflow step name containing eval \"$UNKNOWN\" is scanned as shell and can cause a false rejection; the consumer preserves canonical failures rather than overriding them. Carry the adversarial corpus upstream and address workflow executable-data boundaries before removing this guard."
   "2026-10-07T21:27:16.727Z",codex-sol,"Expanded canonical corpus includes combined variable/function indirection: ship() { NPM=npm; $NPM \"$@\"; } hides publishing from the pinned auditor. Variables resolving to alias, eval and builtin eval also hide alias-created publishing. The consumer rejects unknown arguments on variable-routed commands and variable-routed aliases/evaluators using canonical tokenization of literal leading bindings as rejection evidence only. A literal npm dist-tag named eval and a literal array-looking argument remain accepted controls."
   "2026-10-07T21:58:14.507Z",codex-sol,Canonical convergence also needs spawning-wrapper input rejection. The auditor resolves xargs $NPM --provenance through NPM=npm but drops the wrapper from its reported invocation; stdin can append publish --no-provenance. Preserve unresolved-input evidence through scalar resolution and require rejection despite literal attestation flags. The consumer checks original commands with the canonical spawnedAsCommand helper; npx literal publishes remain supported.
   "2026-10-22T11:44:33.781Z",codex-agent,"Whole-PR self-review found another premature convergence closure. At main 874ef8f, scripts/verify-release-publish-attestation.ts still defines auditPublishAttestation as a local wrapper over canonicalAudit and adds supplemental rejection rules. test/publish-indirection.test.ts imports that local wrapper and verify, so its passing corpus does not establish direct canonical-export parity or removal of the supplemental boundary. Reopened this existing canonical-convergence owner and removed its closure/resolution fields. This is a pending migration/acceptance requirement, not a claim that the pinned upstream auditor has a newly reproduced defect. No source or dependency changes are authorized by this tracker correction."
+  "2026-10-23T15:23:35.148Z",codex-agent,"STALE-CLAIM: audited main 33a5a2f7ce34d889e66bd5d4cea1e458d5dbea3a; no open PR or recently pushed live branch references this record. Inspected: scripts/verify-release-publish-attestation.ts, test/publish-indirection.test.ts. Remaining: The local supplemental audit wrapper and adversarial boundary remain. Canonical-export parity, upstream migration and boundary removal still need proof; local passing corpus alone does not deliver convergence. Release historical contention and retain real work as open; no delivery/cancellation is claimed."
 files[2]{path,scope}:
   scripts/verify-release-publish-attestation.ts,project
   test/publish-indirection.test.ts,project

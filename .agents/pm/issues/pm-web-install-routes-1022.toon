@@ -2,22 +2,26 @@ id: pm-web-install-routes-1022
 title: Document verified public registry activation and source prerequisites
 description: "Fresh README GitHub-source activation fails because pg is not resolvable. Lead public package installation with pinned registry activation, explain source build and runtime dependency requirements, and verify both npx and bunx in plain trackers."
 type: Issue
-status: in_progress
+status: closed
 priority: 2
 tags: []
 created_at: "2026-10-21T23:25:25.036Z"
-updated_at: "2026-10-21T23:49:04.098Z"
+updated_at: "2026-10-23T15:21:05.913Z"
+closed_at: "2026-10-23T15:21:05.525Z"
+completed_at: "2026-10-23T15:21:05.525Z"
 author: codex-agent
-comments[5]{created_at,author,text}:
+comments[6]{created_at,author,text}:
   "2026-10-21T23:25:30.635Z",codex-agent,Scope is public package documentation and its regression only. Verify fresh plain-directory npx and bunx activation; retain database readiness as a separate requirement. Existing feature and reconciliation items are untouched.
   "2026-10-21T23:26:52.688Z",codex-agent,"Targeted documentation suite: 5 passed, 0 failed. Typecheck and lint passed. Revert proof: restoring only the original README makes the new README regression exit 1; restoring the corrected README passes. Fresh npx and bunx registry acceptance is being recorded separately."
   "2026-10-21T23:29:15.885Z",codex-agent,"Fresh plain-directory README verification with CLI 2026.10.21: npx init exit 0; npx registry install exit 0; bunx init exit 0; bunx registry install exit 0. Each runner used its own empty project and home/config directories, with no Git repository. Public package activation only; database/server readiness remains separate."
   "2026-10-21T23:46:33.609Z",codex-agent,"Full npm coverage stage passed 764/764 tests, zero failures or skips, across 47 measured source files at unchanged thresholds. Capacity smoke passed with 20 authenticated SSE subscribers and 5 mixed writer lanes. Remaining release checks and the full Bun gate are pending; final full-gate and exact-head CI receipts will be recorded in the installation-route PR body. Public package scope only."
   "2026-10-21T23:49:03.178Z",codex-agent,"Full npm run release:check completed with exit 0: 764 passed / 0 failed / 0 skipped; measured coverage over 47 source files is 92.86% statements and lines, 82.59% branches, 96.26% functions, meeting unchanged thresholds. Capacity smoke and packed acceptance passed. README npx/bunx init/install commands all exit 0; targeted and linked docs suites pass 5/5 and README-only revert fails. Full Bun gate is running; final Bun and exact-head CI receipts will be recorded in the PR body. No source runtime, dependency pin or deployment change."
+  "2026-10-23T15:20:56.852Z",codex-agent,"DELIVERED: merged PR #240 (874ef8facb4c4b536f61d82bd809a18c29618557) is an ancestor of audited main 33a5a2f7ce34d889e66bd5d4cea1e458d5dbea3a. Inspected on main: README.md, test/startup-docs.test.ts. README leads with explicit pinned registry npx/bunx activation, explains source build/runtime prerequisites and has a dedicated installation-route regression; merged PR retains full gate and plain-tracker command receipts. This tracker audit inspected existing tests/files; it does not claim a new full product test run."
 files[1]{path,scope}:
   test/startup-docs.test.ts,project
 tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   node --test test/startup-docs.test.ts,project,codex-agent,"2026-10-21T23:26:43.610Z",local_mutation,fix/install-routes-1022
 docs[1]{path,scope}:
   README.md,project
+close_reason: "DELIVERED: merged PR #240 (874ef8facb4c4b536f61d82bd809a18c29618557) is an ancestor of audited main 33a5a2f7ce34d889e66bd5d4cea1e458d5dbea3a. Inspected on main: README.md, test/startup-docs.test.ts. README leads with explicit pinned registry npx/bunx activation, explains source build/runtime prerequisites and has a dedicated installation-route regression; merged PR retains full gate and plain-tracker command receipts. This tracker audit inspected existing tests/files; it does not claim a new full product test run."
 body: ""
