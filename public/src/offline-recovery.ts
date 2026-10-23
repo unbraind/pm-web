@@ -66,3 +66,18 @@ export function showOfflineRecovery(
   document.body.append(notice);
   return notice;
 }
+
+/** Explain terminal queued-delete settlement without claiming the server deleted an unavailable resource. */
+export function showSettledDeleteNotice(count: number): HTMLElement {
+  const notice = document.createElement('div');
+  notice.className = 'toast toast-info';
+  notice.setAttribute('role', 'status');
+  notice.textContent = `${count} queued deletion${count === 1 ? '' : 's'} removed: the target is no longer available. Other queued changes can continue syncing.`;
+  const dismiss = document.createElement('button');
+  dismiss.className = 'btn btn-ghost'; dismiss.type = 'button'; dismiss.textContent = 'Dismiss';
+  dismiss.setAttribute('aria-label', 'Dismiss settled deletion notice');
+  dismiss.onclick = () => notice.remove();
+  notice.append(dismiss);
+  (document.getElementById('toast-container') ?? document.body).append(notice);
+  return notice;
+}

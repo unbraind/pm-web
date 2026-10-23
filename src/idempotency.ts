@@ -1,4 +1,4 @@
-import { ReplayAccessError, type ReplayAuthorization } from './idempotency-access.ts';
+import { ReplayAccessError, type ReplayAuthorization, type IdempotencySuccessReceipt } from './idempotency-access.ts';
 import { logError } from "./observability.ts";
 import crypto from "node:crypto";
 import type { Request, RequestHandler, Response } from "express";
@@ -260,8 +260,9 @@ async function finishSettled(record: IdempotencyRecord, fingerprint: string, req
     });
     return;
   }
+  let receipt: IdempotencySuccessReceipt | void;
   try {
-    await authorizeReplay({ request: req, principal, status: record.status_code ?? 500, body: record.response_body });
+    receipt = await authorizeReplay({ request: req, principal, status: record.status_code ?? 500, body: record.response_body });
   } catch (error) {
     const refusal = error instanceof ReplayAccessError ? error : new ReplayAccessError(503, 'PM_IDEMPOTENCY_REPLAY_UNAVAILABLE', 'Current authorization could not be verified. Retry after checking access; the original mutation will not be repeated.');
     res.setHeader('Cache-Control', 'no-store, private');
@@ -269,6 +270,13 @@ async function finishSettled(record: IdempotencyRecord, fingerprint: string, req
     return;
   }
   res.setHeader('Cache-Control', 'no-store, private');
+  if (receipt) {
+    res.setHeader('Idempotency-Replayed', 'true');
+    res.setHeader('Idempotency-Outcome-Only', 'true');
+    if (record.status_code === 204 || record.status_code === 205) res.status(record.status_code).end();
+    else res.status(record.status_code ?? 500).json({ status: record.status_code, ids: receipt.ids });
+    return;
+  }
   replayStored(record, res);
 }
 

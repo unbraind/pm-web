@@ -64,19 +64,34 @@ async function denied(response: Response, status: number, secret: string): Promi
   assert.equal(body.includes(secret), false);
 }
 
+/** Settlement returns only the original status and bounded identifiers, never a formerly readable body. */
+async function acknowledged(response: Response, status: number, secret: string): Promise<{ status: number; ids: string[] }> {
+  assert.equal(response.status, status);
+  assert.equal(response.headers.get('idempotency-replayed'), 'true');
+  assert.equal(response.headers.get('idempotency-outcome-only'), 'true');
+  assert.match(response.headers.get('cache-control') ?? '', /no-store/);
+  const text = await response.text(); assert.equal(text.includes(secret), false);
+  const body = JSON.parse(text) as { status: number; ids: string[] };
+  assert.deepEqual(Object.keys(body).sort(), ['ids', 'status']);
+  assert.equal(body.status, status); assert.ok(Array.isArray(body.ids)); assert.ok(body.ids.length <= 50);
+  assert.ok(body.ids.every(value => typeof value === 'string'));
+  return body;
+}
+
 test('keyed context publish cannot resurrect a deleted packet or replay its private question', async t => {
   const f = await fixture(t); const key = randomUUID(); const route = `${f.base}/pm/agent-context`;
   const first = await f.request(f.editor, route, f.input, key); assert.equal(first.status, 201);
   const packet = await first.json() as { id: string; revision: string }; await settled(f.editor.id, key);
   const replay = await f.request(f.editor, route, f.input, key);
   assert.equal(replay.status, 201); assert.equal(replay.headers.get('idempotency-replayed'), 'true');
+  assert.equal((await replay.json() as { question: string }).question, f.input.question, 'currently authorized content replay remains intact');
   const replacement = await authedFetch(f.server, f.editor, route, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...f.input, id: packet.id, revision: packet.revision, question: 'Replacement consent revision' }) });
   assert.equal(replacement.status, 201);
   const current = await replacement.json() as { revision: string };
-  await denied(await f.request(f.editor, route, f.input, key), 404, f.input.question);
+  await acknowledged(await f.request(f.editor, route, f.input, key), 201, f.input.question);
   const remove = await authedFetch(f.server, f.editor, `${route}/${packet.id}`, { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ revision: current.revision }) });
   assert.equal(remove.status, 200);
-  await denied(await f.request(f.editor, route, f.input, key), 404, f.input.question);
+  await acknowledged(await f.request(f.editor, route, f.input, key), 201, f.input.question);
   assert.equal((await pool.query('SELECT id FROM pm_agent_context WHERE id=$1', [packet.id])).rowCount, 0);
 });
 
@@ -84,37 +99,37 @@ test('keyed context publish rechecks the publisher project grant on every replay
   const f = await fixture(t); const key = randomUUID(); const route = `${f.base}/pm/agent-context`;
   assert.equal((await f.request(f.editor, route, f.input, key)).status, 201); await settled(f.editor.id, key);
   assert.equal((await authedFetch(f.server, f.owner, `${f.base}/shares/${f.share}`, { method: 'DELETE' })).status, 200);
-  await denied(await f.request(f.editor, route, f.input, key), 404, f.input.question);
+  await acknowledged(await f.request(f.editor, route, f.input, key), 201, f.input.question);
   assert.equal((await pool.query('SELECT id FROM pm_agent_context WHERE project_id=$1', [f.project.id])).rowCount, 1, 'the original is retained, never reexecuted');
 });
 
-test('another idempotent PM route refuses replay after editor capability is downgraded', async t => {
+test('another idempotent PM route settles without content after editor capability is downgraded', async t => {
   const f = await fixture(t); const key = randomUUID(); const route = `${f.base}/pm/create`;
   const body = { type: 'Task', title: 'Confidential cached task' };
   assert.equal((await f.request(f.editor, route, body, key)).status, 201); await settled(f.editor.id, key);
   await pool.query("UPDATE pm_project_shares SET permission='view' WHERE id=$1", [f.share]);
-  await denied(await f.request(f.editor, route, body, key), 403, body.title);
+  await acknowledged(await f.request(f.editor, route, body, key), 201, body.title);
   assert.equal((await f.pm.listAllComplete({})).items.length, 1);
 });
 
-test('cached item creation refuses an unreadable deleted item without executing it again', async t => {
+test('cached item creation settles without deleted item content or another execution', async t => {
   const f = await fixture(t); const key = randomUUID(); const route = `${f.base}/pm/create`;
   const body = { type: 'Task', title: 'Deleted cached task' };
   const first = await f.request(f.editor, route, body, key);
   const result = await first.json() as { id: string }; await settled(f.editor.id, key);
   assert.equal((await f.request(f.editor, route, body, key)).status, 201);
   assert.equal((await authedFetch(f.server, f.editor, `${f.base}/pm/delete/${result.id}`, { method: 'DELETE' })).status, 200);
-  await denied(await f.request(f.editor, route, body, key), 404, body.title);
+  await acknowledged(await f.request(f.editor, route, body, key), 201, body.title);
 });
 
-test('group creation replay checks current ownership and refuses a deleted result resource', async t => {
+test('group creation replay withholds content after ownership transfer and deletion', async t => {
   const f = await fixture(t); const key = randomUUID(); const body = { name: 'Private cached group' };
   const first = await f.request(f.owner, '/api/groups', body, key); assert.equal(first.status, 201);
   const result = await first.json() as { group: { id: string } }; await settled(f.owner.id, key);
   await pool.query('UPDATE pm_groups SET owner_id=$1 WHERE id=$2', [f.editor.id, result.group.id]);
-  await denied(await f.request(f.owner, '/api/groups', body, key), 404, body.name);
+  await acknowledged(await f.request(f.owner, '/api/groups', body, key), 201, body.name);
   await pool.query('DELETE FROM pm_groups WHERE id=$1', [result.group.id]);
-  await denied(await f.request(f.owner, '/api/groups', body, key), 404, body.name);
+  await acknowledged(await f.request(f.owner, '/api/groups', body, key), 201, body.name);
 });
 
 test('share and group-member cached bodies cannot reveal withdrawn associations', async t => {
@@ -123,13 +138,13 @@ test('share and group-member cached bodies cannot reveal withdrawn associations'
   const share = await (await f.request(f.owner, shareRoute, shareBody, shareKey)).json() as { share: { id: string } }; await settled(f.owner.id, shareKey);
   assert.equal((await f.request(f.owner, shareRoute, shareBody, shareKey)).status, 201);
   await authedFetch(f.server, f.owner, `${shareRoute}/${share.share.id}`, { method: 'DELETE' });
-  await denied(await f.request(f.owner, shareRoute, shareBody, shareKey), 404, f.viewer.email);
+  await acknowledged(await f.request(f.owner, shareRoute, shareBody, shareKey), 201, f.viewer.email);
   const group = await seedGroup(f.owner.id); const memberKey = randomUUID(); const memberRoute = `/api/groups/${group.id}/members`;
   const memberBody = { email: f.viewer.email };
   assert.equal((await f.request(f.owner, memberRoute, memberBody, memberKey)).status, 201); await settled(f.owner.id, memberKey);
   assert.equal((await f.request(f.owner, memberRoute, memberBody, memberKey)).status, 201);
   await pool.query('DELETE FROM pm_group_members WHERE group_id=$1 AND user_id=$2', [group.id, f.viewer.id]);
-  await denied(await f.request(f.owner, memberRoute, memberBody, memberKey), 404, f.viewer.email);
+  await acknowledged(await f.request(f.owner, memberRoute, memberBody, memberKey), 201, f.viewer.email);
 });
 
 test('admin replay checks the live admin role instead of trusting the signed token', async t => {
@@ -138,15 +153,16 @@ test('admin replay checks the live admin role instead of trusting the signed tok
   assert.equal((await f.request(f.owner, route, body, key, 'PATCH')).status, 200); await settled(f.owner.id, key);
   assert.equal((await f.request(f.owner, route, body, key, 'PATCH')).status, 200);
   await pool.query('UPDATE pm_users SET is_admin=FALSE WHERE id=$1', [f.owner.id]);
-  await denied(await f.request(f.owner, route, body, key, 'PATCH'), 403, f.editor.email);
+  await acknowledged(await f.request(f.owner, route, body, key, 'PATCH'), 200, f.editor.email);
 });
 
-test('opaque provider output and unregistered replay policies fail closed without invoking providers', async t => {
+test('opaque provider successes settle without content while unregistered policies fail closed', async t => {
   const f = await fixture(t);
-  for (const route of [`${f.base}/github/push`, `${f.base}/extensions/pm-context/run`, `${f.base}/pm/graph/query`, `${f.base}/unregistered`]) {
+  for (const route of [`${f.base}/github/push`, `${f.base}/github/import`, `${f.base}/extensions/pm-context/run`, `${f.base}/pm/graph/query`, `${f.base}/unregistered`]) {
     const key = randomUUID(); const body = {}; const secret = 'Opaque private provider output';
-    await pool.query(`INSERT INTO pm_idempotency_keys(user_id,idempotency_key,method,path,request_fingerprint,status_code,response_body,response_content_type,outcome_state) VALUES($1,$2,'POST',$3,$4,200,$5,'application/json','completed')`, [f.editor.id, key, route, requestFingerprint('POST', route, body), JSON.stringify({ secret })]);
-    await denied(await f.request(f.editor, route, body, key), route.endsWith('/unregistered') ? 403 : 409, secret);
+    await pool.query(`INSERT INTO pm_idempotency_keys(user_id,idempotency_key,method,path,request_fingerprint,status_code,response_body,response_content_type,outcome_state) VALUES($1,$2,'POST',$3,$4,200,$5,'application/json','completed')`, [f.editor.id, key, route, requestFingerprint('POST', route, body), route.endsWith('/import') ? secret : JSON.stringify({ id: 'SensitiveProviderToken', results: [{ id: 'OtherOpaqueContent' }], secret })]);
+    if (route.endsWith('/unregistered')) await denied(await f.request(f.editor, route, body, key), 403, secret);
+    else assert.deepEqual((await acknowledged(await f.request(f.editor, route, body, key), 200, secret)).ids, [f.project.id]);
   }
 });
 
@@ -171,4 +187,22 @@ test('every canonical keyed mutation is covered by the explicit replay route aud
     for (const match of literals) discovered.push(`${match[1].toUpperCase()} ${prefix}${match[3] === '/' ? '' : match[3]}`);
   }
   assert.deepEqual(discovered.sort(), IDEMPOTENT_MUTATION_ROUTES.map(route => `${route.method} ${route.path}`).sort());
+});
+
+
+test('successful packet DELETE settles after resource and access removal only for its original principal', async t => {
+  const f = await fixture(t); const route = `${f.base}/pm/agent-context`;
+  const packet = await (await f.request(f.editor, route, f.input, randomUUID())).json() as { id: string; revision: string };
+  const key = randomUUID(), remove = `/API/PROJECTS/${f.project.id}/PM/AGENT-CONTEXT/${packet.id}/`, body = { revision: packet.revision };
+  assert.equal((await f.request(f.editor, remove, body, key, 'DELETE')).status, 200); await settled(f.editor.id, key);
+  await authedFetch(f.server, f.owner, `${f.base}/shares/${f.share}`, { method: 'DELETE' });
+  const receipt = await acknowledged(await f.request(f.editor, remove, body, key, 'DELETE'), 200, f.input.question);
+  assert.deepEqual(new Set(receipt.ids), new Set([f.project.id, packet.id]));
+  for (const [principal, status] of [[f.owner, 409], [f.viewer, 404]] as const) {
+    const other = await f.request(principal, remove, body, key, 'DELETE');
+    assert.equal(other.status, status); assert.equal(other.headers.get('idempotency-replayed'), null);
+    assert.equal(other.headers.get('idempotency-outcome-only'), null, 'another principal has no original success receipt');
+  }
+  assert.equal((await f.request(f.editor, remove, { revision: randomUUID() }, key, 'DELETE')).status, 422, 'a success receipt cannot be rebound to another request');
+  assert.equal((await pool.query('SELECT id FROM pm_agent_context WHERE id=$1', [packet.id])).rowCount, 0);
 });

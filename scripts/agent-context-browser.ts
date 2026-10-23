@@ -76,14 +76,16 @@ try {
     await context.close();
   }
   const revocationCases: string[] = [];
-  for (const mode of ['realtime', 'fallback'] as const) {
+  for (const mode of ['realtime', 'fallback', 'backoff'] as const) {
     for (const kind of ['audience', 'sharing', 'deletion'] as const) {
+      if (mode === 'backoff' && kind === 'sharing') continue;
       const share = (await pool.query<{ id: string }>("INSERT INTO pm_project_shares(project_id,shared_with_user_id,permission) VALUES($1,$2,'view') ON CONFLICT(project_id,shared_with_user_id) DO UPDATE SET permission='view' RETURNING id", [project, viewer])).rows[0].id;
       const snapshot = await sdk.publish(project, { ...input, question: `Revocation proof: ${mode} ${kind}` });
       const session = await browser.newContext({ serviceWorkers: 'block' });
       await session.addCookies([{ name: 'pm_token', value: signToken({ userId: viewer, email: 'viewer@example.test' }), url: server.url('/') }]);
       const tab = await session.newPage();
-      if (mode === 'fallback') await tab.clock.install();
+      if (mode !== 'realtime') await tab.clock.install({ time: new Date('2026-10-23T00:00:00Z') });
+      if (mode === 'backoff') await tab.clock.pauseAt(new Date('2026-10-23T01:00:00Z'));
       await tab.goto(server.url('/agent-context'));
       await tab.locator(`#project-selector option[value="${project}"]`).waitFor({ state: 'attached' });
       await tab.selectOption('#project-selector', project);
@@ -92,7 +94,18 @@ try {
       await tab.selectOption('[data-scope]', snapshot.id);
       await tab.getByText(snapshot.question, { exact: true }).waitFor();
       if (mode === 'realtime') await tab.waitForFunction(() => document.getElementById('sse-indicator')?.classList.contains('connected'));
-      else await tab.evaluate(() => (window as unknown as { __app: AppBridge }).__app.disconnectSSE());
+      else if (mode === 'fallback') await tab.evaluate(() => (window as unknown as { __app: AppBridge }).__app.disconnectSSE());
+      else {
+        let terminal = true;
+        await tab.route('**/pm/events?*', async route => {
+          if (terminal) { terminal = false; await route.fulfill({ status: 204 }); }
+          else await route.continue();
+        });
+        await tab.evaluate(id => { const app = (window as unknown as { __app: AppBridge }).__app; app.disconnectSSE(); app.connectSSE(id); }, project);
+        await tab.waitForFunction(() => document.getElementById('sse-indicator')?.classList.contains('reconnecting'));
+        await tab.getByText(snapshot.question, { exact: true }).waitFor();
+        await tab.getByText('Current consent and revision verified.', { exact: true }).waitFor();
+      }
       if (kind === 'audience') await sdk.publish(project, { ...input, question: snapshot.question, viewers: [] }, snapshot);
       else if (kind === 'deletion') await sdk.revoke(project, snapshot.id, snapshot.revision);
       else {
@@ -100,6 +113,11 @@ try {
         assert.equal(removed.status, 200);
       }
       if (mode === 'fallback') await tab.clock.fastForward(10_100);
+      if (mode === 'backoff') {
+        assert.equal(await tab.getByText(snapshot.question, { exact: true }).count(), 1, 'revocation during backoff misses the closed stream');
+        await tab.clock.fastForward(1100);
+        await tab.waitForFunction(() => document.getElementById('sse-indicator')?.classList.contains('connected'));
+      }
       await tab.getByText('Access revoked.', { exact: false }).waitFor({ timeout: 3000 });
       assert.equal(await tab.getByText(snapshot.question, { exact: true }).count(), 0);
       assert.equal(await tab.locator('.agent-context-sheet').count(), 0);

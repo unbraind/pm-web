@@ -41,3 +41,7 @@ Use `--offset` with the returned `nextOffset`. Omit `--json` for the host's comp
 `CONTEXT_SCREENSHOTS=docs/screenshots node scripts/with-test-db.ts node scripts/agent-context-browser.ts` serves synthetic data locally, checks exact API/UI omission parity at 1440px and 390px, checks overflow, and verifies that refreshing after revocation clears the displayed question. The committed screenshots contain synthetic data only.
 
 Keyed mutations also use [current replay authorization](idempotency-replay.md): an Idempotency-Key cannot retrieve a deleted packet or bypass a revoked project grant.
+
+Every successful SSE connection revalidates the displayed packet immediately, including native reconnections and fresh streams after terminal backoff. A revocation event missed while disconnected is therefore checked before waiting for the periodic fallback. The reconnect check clears the previous display before its fresh authorized read.
+
+Lost-response revocation retries receive only a success settlement receipt for the original authenticated principal and exact request. A deleted packet's question and evidence remain unavailable. The offline queue also settles its own terminal 404/410 deletes with a visible notice, allowing later workspace writes to continue. See [idempotent replay](idempotency-replay.md) for the distinction between settlement and permission to read content.

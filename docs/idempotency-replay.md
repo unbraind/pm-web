@@ -1,21 +1,28 @@
 # Current authorization for idempotent replay
 
-A retained Idempotency-Key prevents another execution; it does not grant continuing access to the first response. Before returning a settled response, the common idempotency middleware invokes the application's current replay authorizer for the same verified account, request fingerprint and resource. This also runs after waiting for an in-flight original. Access checks never invoke mutation handlers.
+A retained Idempotency-Key prevents another execution; it does not grant continuing access to the original response content. The middleware binds every replay to the same verified account and exact request fingerprint. Authentication, expected-account checks, rate limits and retained keys remain in effect, including while waiting for an original request to settle.
 
-Only the 78 canonical mutation routes in `src/idempotency-routes.ts` can replay through the production policy. A regression compares this inventory with every protected router registration. A new or unregistered route fails closed until its permission and response-resource requirements are audited. Embedders of `idempotencyGuard` must supply a current authorization callback; the default refuses replay. Authentication endpoints remain live and are excluded from keying. Shared-project listing and other GET/HEAD/OPTIONS reads are never cached by this mechanism.
+Successful mutations have two replay forms:
 
-| Family | Current authorization and body visibility |
+- A successful DELETE always returns a content-free settlement receipt, even when its target or the caller's later access has gone. The original HTTP success status is preserved. JSON receipts contain only `status` and a bounded `ids` array; 204/205 keep their empty-body semantics.
+- Other successful mutations return their original body only after current read/capability checks pass. If content can no longer be authorized, they return the same content-free success receipt. Opaque provider output and legacy plain-text success bodies also settle without returning that content.
+
+Outcome-only responses carry `Idempotency-Replayed: true`, `Idempotency-Outcome-Only: true` and `Cache-Control: no-store, private`. The receipt is evidence of the original operation, not permission to retrieve a deleted packet or read a formerly shared resource. Clients needing content must issue a fresh authorized read. Receipts include only validated route/result identifiers, with at most 50 identifiers; questions, receipts, names, email addresses, revisions, provider output and tokens are excluded. No mutation handler is called again, and the original key/outcome is neither overwritten nor deleted.
+
+Only the 78 canonical mutation routes in `src/idempotency-routes.ts` can use the production replay policy. A regression compares this inventory with every protected router registration. Unregistered policies and unconfigured embedders fail closed. Authentication endpoints remain live and are excluded from keying. GET/HEAD/OPTIONS reads are not memoized. Non-success outcomes still require current authorization before returning any stored content; refusal responses carry `code`, `error` and `remedy` without the old body. Retention, unknown-outcome reconciliation and fingerprint-conflict rules are unchanged.
+
+| Content-bearing replay family | Current authorization and body visibility |
 | --- | --- |
-| Projects create/update/delete | Existing account; currently owned, existing result/target project. |
-| PM item, annotation, relationship, bulk, schema, configuration, Plan and inbox mutations | Fresh `verifyProjectAccess` with edit capability. Singular and created item/Plan identities, explicit relationship endpoints and bounded response/batch IDs are read through the existing SDK loader. Missing items refuse replay; batches exceeding 50 identities require a live reconciliation read. |
-| Agent context publish/revoke | Fresh project capability, current packet existence, publisher identity, consent audience and exact revision. Removing access, replacing a revision or deleting a packet prevents returning its stored snapshot. |
+| Projects create/update/delete | Existing account; currently owned, existing result/target project. Successful deletions use settlement receipts. |
+| PM item, annotation, relationship, bulk, schema, configuration, Plan and inbox mutations | Fresh `verifyProjectAccess` with edit capability; known item/Plan identities are checked through the existing SDK loader. Large batches require a fresh read for content. |
+| Agent context publish/revoke | Current project capability, existing packet, publisher identity, audience and exact revision before returning any packet content. Removed/replaced packets never replay old questions or evidence. Successful revocations settle independently of content. |
 | Project sharing | Current project ownership, existing share association, and current group membership when granting a group share. |
-| Group creation/update/deletion and invitations/removals | Current ownership, or the original self-removal rule plus existing membership; created groups and invited-member associations must still exist. |
-| Admin mutations | Current database admin flag, plus existence of the affected user/project/group. A signed token does not retain an old admin role. |
-| Package install/activation/deactivation/removal | Current project edit capability and catalog identity. |
-| GitHub writes, extension command execution, graph query and presence sessions | Current project capability is checked, then cached opaque output is refused with `PM_IDEMPOTENCY_REPLAY_REQUIRES_LIVE_READ`. These surfaces have provider/command/session capabilities that project membership alone cannot certify. Reconcile with a fresh authorized read instead of repeating the mutation. |
+| Groups and members | Current ownership or the original self-removal rule, plus existing result/member associations. |
+| Admin mutations | Current database admin flag and existence of the affected resource. |
+| Package lifecycle | Current project edit capability and catalog identity. |
+| GitHub writes, extension commands, graph query and presence sessions | Their independent provider/session capabilities cannot certify cached opaque content. Successful operations return settlement receipts; non-success replay requires a live reconciliation read. |
 
-Refusals carry `code`, `error` and `remedy`, never the old body, and use `Cache-Control: no-store, private`. They do not delete or overwrite the original key or outcome. Regranting an actually readable resource can permit replay again; revocation never silently retries a committed mutation. Missing result resources (including completed deletions) return a typed refusal rather than the old data or acknowledgment. Unknown outcomes retain their existing reconciliation behavior. Retention and fingerprint-conflict rules are unchanged.
+The service worker drains an owned queued DELETE on success, or on terminal HTTP 404/410. A successful IndexedDB removal precedes the settlement notification. An unavailable target is not described as proof of deletion: the current account sees a dismissible notice that the queued deletion was removed because its target is no longer available. Other accounts, unknown-owner records, non-delete 404s, forbidden responses, network failures and failed queue storage remain preserved. Typed non-success replay refusals enter the existing needs-attention flow with explicit owner recovery instead of silently blocking later workspace work. Later owned work in the same workspace can proceed after the delete settles.
 
 ## Audited routes
 

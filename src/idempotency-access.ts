@@ -24,8 +24,10 @@ export class ReplayAccessError extends Error {
 
 /** The middleware supplies verified identity and the immutable recorded response, never caller-selected identity. */
 export interface ReplayAccessInput { request: Request; principal: string; status: number; body: string | null }
-/** Embedders must provide a current authorization policy before any body can be replayed. */
-export type ReplayAuthorization = (input: ReplayAccessInput) => Promise<void>;
+/** Content-free settlement receipt for the same account and exact original request. */
+export interface IdempotencySuccessReceipt { readonly status: number; readonly ids: readonly string[] }
+/** Return a receipt for settlement only, or authorize the original body with a current read check. */
+export type ReplayAuthorization = (input: ReplayAccessInput) => Promise<void | IdempotencySuccessReceipt>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Decode only object-shaped response fields; legacy malformed success records fail closed. */
@@ -83,6 +85,12 @@ async function itemReplay(parts: string[], input: ReplayAccessInput, stored: Rec
   }
 }
 
+/** Provider output and session state have independent capabilities and cannot supply trusted receipt fields. */
+function opaqueReplay(parts: string[]): boolean {
+  return parts[3] === 'github' || (parts[3] === 'extensions' && parts[5] === 'run')
+    || (parts[3] === 'pm' && (parts[4] === 'presence' || (parts[4] === 'graph' && parts[5] === 'query')));
+}
+
 /** Recheck project operation capability and the visibility of cached scope-specific resources. */
 async function projectReplay(parts: string[], input: ReplayAccessInput, stored: Record<string, unknown>): Promise<void> {
   const { request, principal, status } = input;
@@ -113,24 +121,53 @@ async function projectReplay(parts: string[], input: ReplayAccessInput, stored: 
   }
   // Provider commands and presence sessions have independent, mutable capabilities.
   // Retain their keys but never replay opaque output under a project-only decision.
-  if (family === 'github' || presence || (family === 'pm' && parts[4] === 'graph' && parts[5] === 'query') || (family === 'extensions' && parts[5] === 'run')) throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_REQUIRES_LIVE_READ', 'Reconcile the original provider command or presence session through a live authorized read; its mutation will not be repeated.');
+  if (opaqueReplay(parts)) throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_REQUIRES_LIVE_READ', 'Reconcile the original provider command or presence session through a live authorized read; its mutation will not be repeated.');
   if (family === 'extensions') { if (!findCatalogEntry(parts[4] ?? '')) throw new ReplayAccessError(404); return; }
   if (family !== 'pm') throw new ReplayAccessError();
   await itemReplay(parts, input, stored, project);
 }
 
-/** Reauthorize every production replay family; unknown routes and unreadable resources fail closed without executing handlers. */
-export async function authorizeStoredReplay(input: ReplayAccessInput): Promise<void> {
-  let parts: string[], stored: Record<string, unknown>;
-  try {
-    parts = new URL(input.request.originalUrl, 'http://localhost').pathname.split('/').filter(Boolean).map(decodeURIComponent);
-    stored = object(input.body === null ? {} : JSON.parse(input.body));
-  } catch { throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_RESOURCE_CHANGED'); }
-  const known = IDEMPOTENT_MUTATION_ROUTES.some(route => {
-    const segments = route.path.split('/').filter(Boolean);
-    return route.method === input.request.method && segments.length === parts.length && segments.every((segment, index) => segment.startsWith(':') || segment === parts[index]);
+/** Bound settlement metadata to canonical route/result identifiers; never copy names, revisions, tokens or evidence. */
+function successReceipt(input: ReplayAccessInput, parts: string[], routePath: string, stored: Record<string, unknown>): IdempotencySuccessReceipt {
+  const ids = new Set<string>();
+  const add = (value: unknown): void => { if (ids.size < 50 && typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{0,127}$/i.test(value)) ids.add(value); };
+  routePath.split('/').filter(Boolean).forEach((segment, index) => { if (/^:(?:id|\w+Id|stepRef)$/.test(segment)) add(parts[index]); });
+  if (opaqueReplay(parts)) return { status: input.status, ids: [...ids] };
+  const pending = [stored];
+  for (let visited = 0; pending.length && visited < 100 && ids.size < 50; visited++) {
+    const row = pending.shift()!;
+    add(row.id); add(row.user_id);
+    for (const field of ['project', 'group', 'item', 'plan', 'share', 'member', 'deleted', 'items', 'results']) {
+      const value = row[field];
+      if (Array.isArray(value)) for (const entry of value.slice(0, 50)) { if (typeof entry === 'string') add(entry); else pending.push(object(entry)); }
+      else if (value !== null && typeof value === 'object') pending.push(object(value));
+    }
+  }
+  return { status: input.status, ids: [...ids] };
+}
+
+/** Successful mutations may settle without content; only replaying content requires current read authorization. */
+export async function authorizeStoredReplay(input: ReplayAccessInput): Promise<void | IdempotencySuccessReceipt> {
+  let parts: string[];
+  try { parts = new URL(input.request.originalUrl, 'http://localhost').pathname.split('/').filter(Boolean).map(decodeURIComponent); }
+  catch { throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_RESOURCE_CHANGED'); }
+  const route = IDEMPOTENT_MUTATION_ROUTES.find(candidate => {
+    const segments = candidate.path.split('/').filter(Boolean);
+    return candidate.method === input.request.method && segments.length === parts.length && segments.every((segment, index) => segment.startsWith(':') || segment.toLowerCase() === parts[index]?.toLowerCase());
   });
-  if (parts[0] !== 'api' || !known) throw new ReplayAccessError();
+  if (!route) throw new ReplayAccessError();
+  route.path.split('/').filter(Boolean).forEach((segment, index) => { if (!segment.startsWith(':')) parts[index] = segment; });
+  const success = input.status >= 200 && input.status < 300;
+  let stored: Record<string, unknown>;
+  try { stored = object(input.body === null ? {} : JSON.parse(input.body)); }
+  catch { if (success) return successReceipt(input, parts, route.path, {}); throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_RESOURCE_CHANGED'); }
+  if (success && input.request.method === 'DELETE') return successReceipt(input, parts, route.path, stored);
+  try { await authorizeReplayContent(parts, input, stored); }
+  catch (error) { if (success) return successReceipt(input, parts, route.path, stored); throw error; }
+}
+
+/** Recheck current resource capabilities before returning any original content. */
+async function authorizeReplayContent(parts: string[], input: ReplayAccessInput, stored: Record<string, unknown>): Promise<void> {
   if (parts[1] === 'projects') { await projectReplay(parts, input, stored); return; }
   if (parts[1] === 'groups') { await groupReplay(parts, input, stored); return; }
   if (parts[1] === 'admin') {

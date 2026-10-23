@@ -100,6 +100,11 @@ async function itemReplay(parts, input, stored, project) {
         }
     }
 }
+/** Provider output and session state have independent capabilities and cannot supply trusted receipt fields. */
+function opaqueReplay(parts) {
+    return parts[3] === 'github' || (parts[3] === 'extensions' && parts[5] === 'run')
+        || (parts[3] === 'pm' && (parts[4] === 'presence' || (parts[4] === 'graph' && parts[5] === 'query')));
+}
 /** Recheck project operation capability and the visibility of cached scope-specific resources. */
 async function projectReplay(parts, input, stored) {
     const { request, principal, status } = input;
@@ -142,7 +147,7 @@ async function projectReplay(parts, input, stored) {
     }
     // Provider commands and presence sessions have independent, mutable capabilities.
     // Retain their keys but never replay opaque output under a project-only decision.
-    if (family === 'github' || presence || (family === 'pm' && parts[4] === 'graph' && parts[5] === 'query') || (family === 'extensions' && parts[5] === 'run'))
+    if (opaqueReplay(parts))
         throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_REQUIRES_LIVE_READ', 'Reconcile the original provider command or presence session through a live authorized read; its mutation will not be repeated.');
     if (family === 'extensions') {
         if (!findCatalogEntry(parts[4] ?? ''))
@@ -153,22 +158,75 @@ async function projectReplay(parts, input, stored) {
         throw new ReplayAccessError();
     await itemReplay(parts, input, stored, project);
 }
-/** Reauthorize every production replay family; unknown routes and unreadable resources fail closed without executing handlers. */
+/** Bound settlement metadata to canonical route/result identifiers; never copy names, revisions, tokens or evidence. */
+function successReceipt(input, parts, routePath, stored) {
+    const ids = new Set();
+    const add = (value) => { if (ids.size < 50 && typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{0,127}$/i.test(value))
+        ids.add(value); };
+    routePath.split('/').filter(Boolean).forEach((segment, index) => { if (/^:(?:id|\w+Id|stepRef)$/.test(segment))
+        add(parts[index]); });
+    if (opaqueReplay(parts))
+        return { status: input.status, ids: [...ids] };
+    const pending = [stored];
+    for (let visited = 0; pending.length && visited < 100 && ids.size < 50; visited++) {
+        const row = pending.shift();
+        add(row.id);
+        add(row.user_id);
+        for (const field of ['project', 'group', 'item', 'plan', 'share', 'member', 'deleted', 'items', 'results']) {
+            const value = row[field];
+            if (Array.isArray(value))
+                for (const entry of value.slice(0, 50)) {
+                    if (typeof entry === 'string')
+                        add(entry);
+                    else
+                        pending.push(object(entry));
+                }
+            else if (value !== null && typeof value === 'object')
+                pending.push(object(value));
+        }
+    }
+    return { status: input.status, ids: [...ids] };
+}
+/** Successful mutations may settle without content; only replaying content requires current read authorization. */
 export async function authorizeStoredReplay(input) {
-    let parts, stored;
+    let parts;
     try {
         parts = new URL(input.request.originalUrl, 'http://localhost').pathname.split('/').filter(Boolean).map(decodeURIComponent);
-        stored = object(input.body === null ? {} : JSON.parse(input.body));
     }
     catch {
         throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_RESOURCE_CHANGED');
     }
-    const known = IDEMPOTENT_MUTATION_ROUTES.some(route => {
-        const segments = route.path.split('/').filter(Boolean);
-        return route.method === input.request.method && segments.length === parts.length && segments.every((segment, index) => segment.startsWith(':') || segment === parts[index]);
+    const route = IDEMPOTENT_MUTATION_ROUTES.find(candidate => {
+        const segments = candidate.path.split('/').filter(Boolean);
+        return candidate.method === input.request.method && segments.length === parts.length && segments.every((segment, index) => segment.startsWith(':') || segment.toLowerCase() === parts[index]?.toLowerCase());
     });
-    if (parts[0] !== 'api' || !known)
+    if (!route)
         throw new ReplayAccessError();
+    route.path.split('/').filter(Boolean).forEach((segment, index) => { if (!segment.startsWith(':'))
+        parts[index] = segment; });
+    const success = input.status >= 200 && input.status < 300;
+    let stored;
+    try {
+        stored = object(input.body === null ? {} : JSON.parse(input.body));
+    }
+    catch {
+        if (success)
+            return successReceipt(input, parts, route.path, {});
+        throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_RESOURCE_CHANGED');
+    }
+    if (success && input.request.method === 'DELETE')
+        return successReceipt(input, parts, route.path, stored);
+    try {
+        await authorizeReplayContent(parts, input, stored);
+    }
+    catch (error) {
+        if (success)
+            return successReceipt(input, parts, route.path, stored);
+        throw error;
+    }
+}
+/** Recheck current resource capabilities before returning any original content. */
+async function authorizeReplayContent(parts, input, stored) {
     if (parts[1] === 'projects') {
         await projectReplay(parts, input, stored);
         return;

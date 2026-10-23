@@ -17,7 +17,12 @@ export interface ReplayAccessInput {
     status: number;
     body: string | null;
 }
-/** Embedders must provide a current authorization policy before any body can be replayed. */
-export type ReplayAuthorization = (input: ReplayAccessInput) => Promise<void>;
-/** Reauthorize every production replay family; unknown routes and unreadable resources fail closed without executing handlers. */
-export declare function authorizeStoredReplay(input: ReplayAccessInput): Promise<void>;
+/** Content-free settlement receipt for the same account and exact original request. */
+export interface IdempotencySuccessReceipt {
+    readonly status: number;
+    readonly ids: readonly string[];
+}
+/** Return a receipt for settlement only, or authorize the original body with a current read check. */
+export type ReplayAuthorization = (input: ReplayAccessInput) => Promise<void | IdempotencySuccessReceipt>;
+/** Successful mutations may settle without content; only replaying content requires current read authorization. */
+export declare function authorizeStoredReplay(input: ReplayAccessInput): Promise<void | IdempotencySuccessReceipt>;

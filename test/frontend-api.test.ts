@@ -120,7 +120,7 @@ interface RecoveryNode {
 
 /** Install a browser event/DOM boundary while executing the real session bridge and notice code. */
 function recoveryPage(t: test.TestContext): {
-  nodes: RecoveryNode[]; messages: unknown[]; report: (blocked: unknown[]) => void; confirm: (answer: boolean) => void;
+  nodes: RecoveryNode[]; messages: unknown[]; settled: (ownerId: string, count: unknown) => void; report: (blocked: unknown[]) => void; confirm: (answer: boolean) => void;
 } {
   const globals = globalThis as unknown as Record<string, unknown>;
   const originalDocument = globals.document;
@@ -130,6 +130,7 @@ function recoveryPage(t: test.TestContext): {
   const messages: unknown[] = [];
   const workers = Object.assign(new EventTarget(), { controller: { postMessage: (message: unknown) => { messages.push(message); } } });
   globals.document = {
+    getElementById: () => null,
     /** Model native buttons as keyboard focusable without changing application behavior. */
     createElement: (tagName: string): RecoveryNode => {
       const node = { tagName, textContent: "", type: "", tabIndex: tagName === "button" ? 0 : -1,
@@ -155,6 +156,8 @@ function recoveryPage(t: test.TestContext): {
   });
   syncServiceWorkerSession({ id: "account-a" });
   return { nodes, messages,
+    /** Deliver terminal-delete notices through the real current-account bridge. */
+    settled: (ownerId, count) => { workers.dispatchEvent(new MessageEvent('message', { data: { type: 'DELETIONS_SETTLED', ownerId, count } })); },
     /** Dispatch worker reports through the real browser listener. */
     report: (blocked) => { workers.dispatchEvent(new MessageEvent("message", { data: { type: "MUTATIONS_BLOCKED", blocked } })); },
     /** Supply the user's answer to the browser confirmation dialog. */
@@ -291,4 +294,21 @@ test("failed item requests clear only their own echo marker across HTTP, network
   rejectOlder(new Error("Older failed"));
   await older;
   assert.equal(isRecentOwnItemEdit(project, item), true, "an older failure must retain the newer successful write's marker");
+});
+
+
+test('terminal-delete settlement has a visible dismissible notice only for the current account', t => {
+  const page = recoveryPage(t);
+  page.settled('other-account', 1); page.settled('account-a', -1); page.settled('account-a', '1');
+  assert.equal(page.nodes.length, 0);
+  page.settled('account-a', 1);
+  assert.equal(page.nodes.length, 1); assert.equal(page.nodes[0].attributes.role, 'status');
+  assert.match(page.nodes[0].textContent, /1 queued deletion removed.*target is no longer available/);
+  const dismiss = page.nodes[0].children[0]; assert.equal(dismiss.attributes['aria-label'], 'Dismiss settled deletion notice');
+  dismiss.onclick?.(); assert.equal(page.nodes.length, 0);
+  page.settled('account-a', 2); assert.equal(page.nodes.length, 1);
+  syncServiceWorkerSession({ id: 'account-b' }); assert.equal(page.nodes.length, 0);
+  page.settled('account-a', 1); assert.equal(page.nodes.length, 0, 'late notices cannot cross accounts');
+  page.settled('account-b', 1); assert.equal(page.nodes.length, 1);
+  syncServiceWorkerSession(null); assert.equal(page.nodes.length, 0);
 });

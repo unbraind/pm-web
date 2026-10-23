@@ -525,6 +525,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('connected', (evt: MessageEvent) => {
       if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('connected');
+      invalidateAgentContext(projectId);
       try {
         const data = JSON.parse(evt.data) as { clientId?: string };
         if (data.clientId) sseClientId = data.clientId;

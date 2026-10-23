@@ -673,3 +673,37 @@ test("sw queue: overlapping adoptions read and write in one transaction and keep
   assert.ok(swQueue.transactions.some((transaction) => transaction.mode === "readwrite"
     && transaction.operations.join(",") === "getAll,put,put"));
 });
+
+
+for (const status of [404, 410]) {
+  test(`own queued DELETE settles on ${status}, reports a notice and unblocks only its workspace`, async () => {
+    swQueue.getAllResult = [queuedRecord({ id: 1, path: '/projects/a/packet/one', ownerId: 'owner', method: 'DELETE' }), queuedRecord({ id: 2, path: '/projects/a/update', ownerId: 'owner' }), queuedRecord({ id: 3, path: '/projects/a/packet/foreign', ownerId: 'other', method: 'DELETE' })];
+    postedMessages.length = 0; await internals.saveSession?.('owner'); const writes: string[] = [];
+    await withMockedFetch(async (url, init) => {
+      if (String(url) === '/api/auth/me') return meResponse('owner', 'csrf');
+      writes.push(String(url)); return new Response('{}', { status: init?.method === 'DELETE' ? status : 200 });
+    });
+    assert.deepEqual(writes, ['/api/projects/a/packet/one', '/api/projects/a/update']);
+    assert.deepEqual(swQueue.getAllResult.map(row => (row as { id: number }).id), [3]);
+    assert.ok(postedMessages.some(message => message.type === 'DELETIONS_SETTLED' && message.ownerId === 'owner' && message.count === 1));
+  });
+}
+
+test('non-delete 404 and forbidden DELETE preserve queued intent instead of claiming settlement', async () => {
+  for (const [method, status] of [['PATCH', 404], ['DELETE', 403]] as const) {
+    swQueue.getAllResult = [queuedRecord({ id: 1, path: '/projects/a/update', ownerId: 'owner', method }), queuedRecord({ id: 2, path: '/projects/a/later', ownerId: 'owner' })];
+    postedMessages.length = 0; await internals.saveSession?.('owner'); let writes = 0;
+    await withMockedFetch(async url => { if (String(url) === '/api/auth/me') return meResponse('owner', 'csrf'); writes++; return new Response('{}', { status }); });
+    assert.equal(writes, 1); assert.equal(swQueue.getAllResult.length, 2); assert.equal(postedMessages.some(message => message.type === 'DELETIONS_SETTLED'), false);
+  }
+});
+
+
+test('typed content-replay refusals retain an explicit recovery action instead of wedging workspace work', async () => {
+  swQueue.getAllResult = [queuedRecord({ id: 1, path: '/projects/a/create', ownerId: 'owner', method: 'POST' }), queuedRecord({ id: 2, path: '/projects/a/later', ownerId: 'owner' })];
+  postedMessages.length = 0; await internals.saveSession?.('owner');
+  await withMockedFetch(async url => String(url) === '/api/auth/me' ? meResponse('owner', 'csrf') : new Response(JSON.stringify({ code: 'PM_IDEMPOTENCY_REPLAY_RESOURCE_CHANGED', remedy: 'Inspect current state.' }), { status: 404 }));
+  assert.equal((swQueue.getAllResult[0] as { state: string }).state, 'needs-attention');
+  const report = postedMessages.find(message => message.type === 'MUTATIONS_BLOCKED')?.blocked as Array<{ id: number; reason: string }>;
+  assert.deepEqual(report.map(row => ({ id: row.id, reason: row.reason })), [{ id: 1, reason: 'outcome-unknown' }, { id: 2, reason: 'workspace-order' }]);
+});

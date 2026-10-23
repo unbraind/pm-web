@@ -87,10 +87,14 @@ for (const attempt of [0, 1]) {
     runInNewContext(callback("connected"), client.realm);
     (client.realm.callback as (event: { data: string }) => void)({ data: '{"clientId":"new-session"}' });
     assert.equal(client.realm.sseClientId, "new-session");
-    assert.deepEqual(client.refreshes, attempt ? ["view", "graph", "packages"] : []);
+    assert.deepEqual(client.invalidations, ["project"]);
+    (client.realm.callback as (event: { data: string }) => void)({ data: '{"clientId":"native-reconnect"}' });
+    assert.deepEqual(client.invalidations, ["project", "project"], "every connection revalidates, including native reconnects");
+    assert.deepEqual(client.refreshes, attempt ? ["view", "graph", "packages", "view", "graph", "packages"] : []);
     client.realm.sseCurrentProjectId = "other-project";
     client.realm.sseClientId = "other-session";
     (client.realm.callback as (event: { data: string }) => void)({ data: '{"clientId":"stale"}' });
     assert.equal(client.realm.sseClientId, "other-session");
+    assert.equal(client.invalidations.length, 2, "a stale connection cannot invalidate another project");
   });
 }

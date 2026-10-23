@@ -650,4 +650,4 @@ Open **Agent context** to inspect an authorized agent question, served context r
 
 Agent context commands work from a plain tracker without git, contacting an explicitly selected authenticated pm-web server. The server uses its existing PostgreSQL database. Source receipts remain owned by core output sessions and pm-context; this view stores metadata rather than raw context, inference, or memory.
 
-Keyed mutation responses recheck current permissions and resource visibility before replay. See the [78-route replay authorization audit](docs/idempotency-replay.md).
+Content-bearing keyed responses recheck current permissions and resource visibility. Successful deletes and other previously successful mutations whose content is no longer readable return only status and identifiers to the original principal, so lost responses cannot wedge offline work. Own queued deletes also settle on terminal 404/410 with a visible notice. Every SSE connection immediately revalidates the displayed packet, including reconnections after backoff. See the [78-route replay authorization audit](docs/idempotency-replay.md).
