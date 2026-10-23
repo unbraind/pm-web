@@ -545,7 +545,7 @@ async function replayQueuedMutations(): Promise<void> {
         console.warn('Offline mutation failed:', mut.method, mut.path, res.status);
         const body = await res.json().catch(() => null) as { code?: unknown } | null;
         let attention: QueuedMutation['attentionReason'];
-        if (body?.code === 'PM_IDEMPOTENCY_OUTCOME_UNKNOWN' || (typeof body?.code === 'string' && body.code.startsWith('PM_IDEMPOTENCY_REPLAY_'))) attention = 'outcome-unknown';
+        if (body?.code === 'PM_IDEMPOTENCY_OUTCOME_UNKNOWN' || (typeof body?.code === 'string' && body.code.startsWith('PM_IDEMPOTENCY_REPLAY_')) || (mut.method === 'DELETE' && res.status === 409 && body?.code === 'revision_conflict')) attention = 'outcome-unknown';
         if (res.status >= 500) {
           mut.serverFailures = (mut.serverFailures ?? 0) + 1;
           if (mut.serverFailures >= 3) attention = 'repeated-5xx';

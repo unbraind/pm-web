@@ -405,7 +405,8 @@ test("account-level records cannot overtake unresolved workspace work or let lat
 });
 
 
-test("a lost packet DELETE response replays a content-free success and drains later workspace writes", async t => {
+/** Exercise retained and expired settlement records through real response loss and owner recovery. */
+async function packetDeleteRecovery(t: test.TestContext, retainOutcome: boolean): Promise<void> {
   const { server, owner } = await setupOwnerAppTest(t);
   const project = await seedProject(owner.id);
   const input = { agent: 'delete-recovery-agent', question: 'Private deleted question', consent: true, viewers: [], receipts: [], gaps: [] };
@@ -418,17 +419,31 @@ test("a lost packet DELETE response replays a content-free success and drains la
   swQueue.listeners.fetch({ request: new Request(transport.url(`${path}/${packet.id}`), { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ revision: packet.revision }) }), respondWith: (reply: Promise<Response>) => { initial = reply; } });
   assert.equal((await initial)?.status, 202);
   const queued = swQueue.lastAdded as Record<string, unknown>; swQueue.getAllResult = [{ ...queued, id: 1 }];
+  if (!retainOutcome) await pool.query('DELETE FROM pm_idempotency_keys WHERE user_id=$1 AND idempotency_key=$2', [owner.id, queued.idempotencyKey]);
   await worker.queueMutation('POST', path.replace('/api', ''), { ...input, question: 'Later workspace write' });
   swQueue.getAllResult.push({ ...(swQueue.lastAdded as object), id: 2 });
   globalThis.fetch = (url, init) => networkFetch(transport.url(String(url)), init);
-  try { await worker.flushMutationQueue(); await worker.flushMutationQueue(); }
+  try {
+    await worker.flushMutationQueue();
+    if (!retainOutcome) {
+      assert.deepEqual(swQueue.getAllResult.map(row => (row as { id: number }).id), [1, 2]);
+      assert.equal((swQueue.getAllResult[0] as { state: string }).state, 'needs-attention', 'expired outcomes retain explicit owner recovery');
+      await recoverRecord(owner.id, 'discard');
+    }
+    await worker.flushMutationQueue();
+  }
   finally { globalThis.fetch = networkFetch; }
   assert.deepEqual(swQueue.getAllResult, [], 'the successful delete cannot wedge later writes');
   assert.deepEqual(keys, [queued.idempotencyKey, queued.idempotencyKey]);
-  assert.deepEqual(outcomes.map(reply => reply.status), [200, 200]);
-  assert.equal(outcomes[1].replayed, 'true'); assert.equal(outcomes[1].outcomeOnly, 'true');
-  assert.deepEqual(JSON.parse(outcomes[1].body), { status: 200, ids: [project.id, packet.id] });
+  assert.deepEqual(outcomes.map(reply => reply.status), [200, retainOutcome ? 200 : 409]);
+  if (retainOutcome) {
+    assert.equal(outcomes[1].replayed, 'true'); assert.equal(outcomes[1].outcomeOnly, 'true');
+    assert.deepEqual(JSON.parse(outcomes[1].body), { status: 200, ids: [project.id, packet.id] });
+  }
   assert.equal(outcomes[1].body.includes(input.question), false);
   const rows = await pool.query<{ id: string; question: string }>("SELECT id, packet->>'question' AS question FROM pm_agent_context WHERE project_id=$1", [project.id]);
   assert.equal(rows.rowCount, 1); assert.equal(rows.rows[0].question, 'Later workspace write'); assert.notEqual(rows.rows[0].id, packet.id);
-});
+}
+
+test("a lost packet DELETE response replays a content-free success and drains later workspace writes", async t => { await packetDeleteRecovery(t, true); });
+test("an expired packet DELETE outcome offers owner recovery and unblocks later workspace writes", async t => { await packetDeleteRecovery(t, false); });
