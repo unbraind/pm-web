@@ -1,4 +1,4 @@
-import { showOfflineRecovery } from './offline-recovery.js';
+import { showOfflineRecovery, showSettledDeleteNotice } from './offline-recovery.js';
 import { noteOwnItemEdit } from './edit-origin.js';
 
 /** HTTP failure retaining its parsed response for command output displays. */
@@ -40,7 +40,7 @@ export function csrfTokenFromCookie(cookie = document.cookie): string | undefine
  * Fetch wrapper for the `/api` endpoints. Generic in `T` so each call site is
  * typed against the response interface declared in `api-types.ts`.
  */
-export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+export async function api<T = unknown>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const clearOwnItemEdit = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase()) ? noteOwnItemEdit(path) : undefined;
   try {
     const csrfToken = csrfTokenFromCookie();
@@ -49,6 +49,7 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
     const expectedAccount = session?.userId;
     const opts: RequestInit = {
       method,
+      ...(signal ? { signal } : {}),
       headers: {
         'Content-Type': 'application/json',
         ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
@@ -72,7 +73,7 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
 
 /** Session bridge state belongs to one worker container and its current page. */
 const workerSessions = new WeakMap<ServiceWorkerContainer, {
-  userId: string | null; recovery: HTMLElement | null; dismissedSet: string | null;
+  userId: string | null; recovery: HTMLElement | null; dismissedSet: string | null; settledNotice: HTMLElement | null;
 }>();
 
 /**
@@ -94,14 +95,20 @@ export function syncServiceWorkerSession(user: { id: string } | null): void {
   const workers = navigator.serviceWorker;
   let session = workerSessions.get(workers);
   if (!session) {
-    session = { userId: null, recovery: null, dismissedSet: null };
+    session = { userId: null, recovery: null, dismissedSet: null, settledNotice: null };
     workerSessions.set(workers, session);
     const current = session;
     workers.addEventListener('controllerchange', () => {
       workers.controller?.postMessage({ type: 'AUTH_SESSION', userId: current.userId });
     });
     workers.addEventListener('message', (event: MessageEvent<unknown>) => {
-      const data = event.data as { type?: string; blocked?: unknown } | null;
+      const data = event.data as { type?: string; blocked?: unknown; ownerId?: unknown; count?: unknown } | null;
+      if (data?.type === 'DELETIONS_SETTLED') {
+        if (current.userId !== null && data.ownerId === current.userId && typeof data.count === 'number' && Number.isSafeInteger(data.count) && data.count > 0) {
+          current.settledNotice?.remove(); current.settledNotice = showSettledDeleteNotice(data.count);
+        }
+        return;
+      }
       if (data?.type !== 'MUTATIONS_BLOCKED' || !Array.isArray(data.blocked)) return;
       current.recovery?.remove();
       current.recovery = null;
@@ -136,6 +143,7 @@ export function syncServiceWorkerSession(user: { id: string } | null): void {
   }
   session.recovery?.remove();
   session.recovery = null;
+  if (session.userId !== (user?.id ?? null)) { session.settledNotice?.remove(); session.settledNotice = null; }
   session.userId = user?.id ?? null;
   workers.controller?.postMessage({ type: 'AUTH_SESSION', userId: session.userId });
 }

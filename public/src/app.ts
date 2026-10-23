@@ -1,3 +1,4 @@
+import { invalidateAgentContext, revokeAgentContextView } from './views/agent-context.js';
 import { refreshDecisionInbox } from './views/decision-inbox.js';
 import { receiveLiveUpdate, rememberLiveAuthors, resetLiveCopies } from './live-copy.js';
 import { initInteractions } from './interactions.js';
@@ -91,6 +92,7 @@ const mobileCommandGroups: Array<{ title: string; commands: MobileCommand[] }> =
     commands: [
       { view: 'items', title: 'Items', desc: 'Browse, filter, edit, and close work.', icon: '≡', requiresProject: true },
       { view: 'create', title: 'Create item', desc: 'Add tasks, features, bugs, reminders, and more.', icon: '+', requiresProject: true },
+      { view: 'agent-context', title: 'Agent context', desc: 'Inspect authorized questions, receipts and evidence gaps.', icon: '◈', requiresProject: true },
       { view: 'decision-inbox', title: 'Decision inbox', desc: 'Compare evidence and respond to pending decisions.', icon: '⚖', requiresProject: true },
       { view: 'plan', title: 'Plans', desc: 'Create and manage structured agentic plans with steps.', icon: '◧', requiresProject: true },
       { view: 'calendar', title: 'Calendar', desc: 'Review deadlines, reminders, and scheduled work.', icon: '◷', requiresProject: true },
@@ -523,6 +525,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('connected', (evt: MessageEvent) => {
       if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('connected');
+      invalidateAgentContext(projectId);
       try {
         const data = JSON.parse(evt.data) as { clientId?: string };
         if (data.clientId) sseClientId = data.clientId;
@@ -645,6 +648,9 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('graph_sync_failed', graphSyncFailed);
     source.addEventListener('update', refreshGraphData);
     source.addEventListener('workspace-changed', refreshGraphData);
+    source.addEventListener('agent-context-changed', () => invalidateAgentContext(projectId));
+    source.addEventListener('project-access-changed', () => invalidateAgentContext(projectId));
+    source.addEventListener('access-revoked', () => { revokeAgentContextView(projectId); disconnectSSE(); });
 
     // Extensions catalog mutations (installs/activates/deactivates/uninstalls)
     // refresh the Packages view live for every collaborator.
@@ -654,6 +660,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.onerror = () => {
       if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('reconnecting');
+      invalidateAgentContext(projectId);
       // Keeping this object preserves its native Last-Event-ID on transient errors.
       if (source.readyState !== EventSource.CLOSED) return;
       source.close();

@@ -1,3 +1,4 @@
+import { authorizeStoredReplay } from './idempotency-access.ts';
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import path from "node:path";
@@ -264,7 +265,7 @@ export function createApp(deps?: CreateAppDeps): Express {
   // nested mount. Each shared prefix therefore carries its limiters once, and
   // the routers mount behind them.
   // Charge every attempt (including replays) before touching the idempotency store.
-  const keyedWrites = idempotencyGuard();
+  const keyedWrites = idempotencyGuard(authorizeStoredReplay);
   app.use("/api/auth", limiters.auth, keyedWrites);
   app.use("/api/auth", logRoutePrefix("/api/auth"), oidcRouter);
   app.use("/api/auth", logRoutePrefix("/api/auth"), authRouter);

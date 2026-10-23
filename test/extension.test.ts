@@ -79,7 +79,10 @@ test("extension registers web, status, stop and doctor commands", async () => {
     capabilities: ["commands", "schema"],
   });
   assert.deepEqual(activation.failed, []);
-  assert.equal(activation.command_handler_count, 7);
+  assert.equal(activation.command_handler_count, 11);
+  for (const suffix of ['', ' get', ' publish', ' revoke']) {
+    assertRegisteredCommandContract(activation.registrations, { command: `web agent-context${suffix}`, flags: ['--url', '--project', '--id', '--revision', '--input', '--offset'] });
+  }
   assertRegisteredCommandContract(activation.registrations, {
     command: "web",
     flags: ["--port", "--detach"],

@@ -1,3 +1,4 @@
+import { invalidateProjectAccess } from '../services/access-invalidation.ts';
 import { logError } from "../observability.ts";
 import { Router } from "express";
 import { pool } from "../db.ts";
@@ -186,6 +187,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
       return;
     }
     const { slug } = result.rows[0] as { slug: string };
+    invalidateProjectAccess(routeParam(req, "id"));
     deleteProjectDir(req.user!.userId, slug);
     res.json({ ok: true });
   } catch (err) {

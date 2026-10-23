@@ -1,3 +1,4 @@
+import { groupAccessProjects, invalidateProjectAccess, userAccessProjects } from '../services/access-invalidation.js';
 import { logError } from "../observability.js";
 import { Router } from "express";
 import { pool } from "../db.js";
@@ -126,11 +127,13 @@ router.delete("/users/:id", async (req, res) => {
                 return;
             }
         }
+        const affectedProjects = await userAccessProjects(routeParam(req, "id"));
         const result = await pool.query(`DELETE FROM pm_users WHERE id = $1 RETURNING id, email`, [routeParam(req, "id")]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "User not found" });
             return;
         }
+        affectedProjects.forEach(invalidateProjectAccess);
         await logAudit(req.user.userId, "user.delete", `Deleted user ${result.rows[0].email} (${routeParam(req, "id")})`);
         res.json({ ok: true, deleted: result.rows[0] });
     }
@@ -147,6 +150,7 @@ router.delete("/projects/:id", async (req, res) => {
             res.status(404).json({ error: "Project not found" });
             return;
         }
+        invalidateProjectAccess(routeParam(req, "id"));
         await logAudit(req.user.userId, "project.delete", `Deleted project ${result.rows[0].name} (${routeParam(req, "id")})`);
         res.json({ ok: true, deleted: result.rows[0] });
     }
@@ -175,11 +179,13 @@ router.post("/groups", async (req, res) => {
 // DELETE /admin/groups/:id — Delete a group
 router.delete("/groups/:id", async (req, res) => {
     try {
+        const affectedProjects = await groupAccessProjects(routeParam(req, "id"));
         const result = await pool.query(`DELETE FROM pm_groups WHERE id = $1 RETURNING id, name`, [routeParam(req, "id")]);
         if (result.rows.length === 0) {
             res.status(404).json({ error: "Group not found" });
             return;
         }
+        affectedProjects.forEach(invalidateProjectAccess);
         await logAudit(req.user.userId, "group.delete", `Deleted group "${result.rows[0].name}" (${routeParam(req, "id")})`);
         res.json({ ok: true, deleted: result.rows[0] });
     }

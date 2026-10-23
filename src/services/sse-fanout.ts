@@ -122,7 +122,11 @@ function writeFanoutBatch(state: Project, allowed: ReadonlySet<string> | undefin
   for (const viewer of viewers) {
     if (state.viewers.get(viewer.sink.id) !== viewer) continue;
     if (viewer.registration > throughRegistration) continue;
-    if (viewer.sink.authorizeProject && !allowed?.has(viewer.sink.userId)) { detach(state, viewer, true); continue; }
+    if (viewer.sink.authorizeProject && !allowed?.has(viewer.sink.userId)) {
+      // A content-free terminal control frame may reach a revoked subscriber; journaled project data may not.
+      try { viewer.sink.res.write('event: access-revoked\ndata: {"reason":"project_access_revoked"}\n\n'); } catch { /* Disconnected sockets rely on the bounded client lease. */ }
+      detach(state, viewer, true); continue;
+    }
     drainViewer(state, viewer, presence);
     if (viewer.cursor >= throughSequence) continue;
     if (viewer.cursor < (state.frames[0]?.sequence ?? state.sequence + 1) - 1) { detach(state, viewer, true); continue; }

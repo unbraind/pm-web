@@ -55,7 +55,7 @@ async function keyedProbe(): Promise<{ app: Express; owner: SeedUser }> {
   const app = express();
   app.use(express.json());
   app.use(createTierLimiters(process.env).write);
-  app.use(idempotencyGuard());
+  app.use(idempotencyGuard(async () => { /* This isolated transport fixture has no protected resource beyond its verified account. */ }));
   return { app, owner };
 }
 
@@ -346,6 +346,7 @@ test("a duplicate of an in-flight request waits and replays the stored outcome",
   // Another execution holds the key right now (pending, fresh).
   await seedPendingKey({ userId: owner.id, key, fingerprint: groupsFingerprint(name) });
 
+  const storedGroup = (await pool.query<{ id: string }>('INSERT INTO pm_groups(name,owner_id) VALUES($1,$2) RETURNING id', [name, owner.id])).rows[0];
   const pending = keyedGroupPost(server, owner, key, name);
   // The holder finishes while the duplicate is waiting.
   await sleep(200);
@@ -353,18 +354,18 @@ test("a duplicate of an in-flight request waits and replays the stored outcome",
     `UPDATE pm_idempotency_keys
      SET status_code = 201, response_body = $3, updated_at = NOW()
      WHERE user_id = $1 AND idempotency_key = $2`,
-    [owner.id, key, JSON.stringify({ group: { id: "stored", name } })],
+    [owner.id, key, JSON.stringify({ group: { id: storedGroup.id, name } })],
   );
   const response = await pending;
 
   assert.equal(response.status, 201);
   assert.deepEqual(
     await response.json(),
-    { group: { id: "stored", name } },
+    { group: { id: storedGroup.id, name } },
     "the waiting duplicate replays the holder's stored outcome",
   );
   assert.equal(response.headers.get("idempotency-replayed"), "true");
-  assert.equal(await groupCount(owner.id), 0, "the waiting duplicate executed nothing");
+  assert.equal(await groupCount(owner.id), 1, "the waiting duplicate executed nothing beyond the seeded committed group");
 });
 
 test("a key recycled to a different request while a duplicate waits is rejected", async (t) => {

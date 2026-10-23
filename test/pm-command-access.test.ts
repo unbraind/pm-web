@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 import { pool } from "../src/db.ts";
 import { connectLiveSSE } from "./helpers/live-sse.ts";
 import {
@@ -220,9 +221,16 @@ test("concurrent users commit distinct fields, ledger outcomes and matching SSE 
     const item = await persistedItem(f);
     assert.equal(item.title, "Owner concurrent title");
     assert.equal(item.description, "Collaborator concurrent description");
-    const ledger = await pool.query<{ user_id: string; status_code: number; outcome_state: string }>(
+    /** HTTP finish and SSE delivery precede asynchronous ledger settlement; observe the durable state directly. */
+    const readLedger = () => pool.query<{ user_id: string; status_code: number | null; outcome_state: string }>(
       "SELECT user_id, status_code, outcome_state FROM pm_idempotency_keys WHERE idempotency_key = ANY($1::text[])", [keys],
     );
+    let ledger = await readLedger();
+    const settlementDeadline = Date.now() + 3000;
+    while (ledger.rows.some(row => row.status_code === null) && Date.now() < settlementDeadline) {
+      await delay(10);
+      ledger = await readLedger();
+    }
     assert.equal(ledger.rows.length, 2);
     assert.deepEqual(new Set(ledger.rows.map((row) => row.user_id)), new Set([f.owner.id, f.collaborator.id]));
     assert.ok(ledger.rows.every((row) => row.status_code === 200 && row.outcome_state === "completed"), JSON.stringify(ledger.rows));

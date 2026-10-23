@@ -35,16 +35,17 @@ function callback(kind: "error" | "connected"): string {
 
 /** Retain source identity and native cursor, and observe scheduled replacement and view recovery. */
 function browser(readyState: number, attempt = 0) {
-  const scheduled: (() => void)[] = [], reconnects: unknown[][] = [], refreshes: string[] = [], statuses: string[] = [];
+  const scheduled: (() => void)[] = [], reconnects: unknown[][] = [], refreshes: string[] = [], statuses: string[] = [], invalidations: string[] = [];
   let closed = 0;
   const source = { readyState, nativeCursor: "synthetic-cursor-7", close: () => { closed++; source.nativeCursor = ""; } };
   const realm: Record<string, unknown> = { source, sseSource: source, sseCurrentProjectId: "project", projectId: "project", attempt,
     EventSource: { CLOSED: 2 }, state: { currentProject: { id: "project" } }, sseClientId: null, sseReconnectTimer: null,
     setSseStatus: (value: string) => statuses.push(value),
+    invalidateAgentContext: (project: string) => invalidations.push(project),
     setTimeout: (next: () => void) => { scheduled.push(next); return 1; },
     connectSSE: (...args: unknown[]) => reconnects.push(args),
     refreshView: () => refreshes.push("view"), refreshGraph: () => refreshes.push("graph"), refreshPackagesOnSSE: () => refreshes.push("packages") };
-  return { realm, source, scheduled, reconnects, refreshes, statuses, closed: () => closed };
+  return { realm, source, scheduled, reconnects, refreshes, statuses, invalidations, closed: () => closed };
 }
 
 for (const readyState of [0, 1]) {
@@ -57,6 +58,7 @@ for (const readyState of [0, 1]) {
     assert.equal(client.source.nativeCursor, "synthetic-cursor-7");
     assert.equal(client.scheduled.length, 0);
     assert.deepEqual(client.statuses, ["reconnecting"]);
+    assert.deepEqual(client.invalidations, ["project"]);
   });
 }
 
@@ -65,6 +67,7 @@ test("a terminal stream schedules a fresh connection while a stale source cannot
   runInNewContext(callback("error"), client.realm);
   (client.realm.callback as () => void)();
   assert.equal(client.closed(), 1);
+  assert.deepEqual(client.invalidations, ["project"]);
   assert.equal(client.realm.sseSource, null);
   assert.equal(client.scheduled.length, 1);
   client.scheduled[0]();
@@ -75,6 +78,7 @@ test("a terminal stream schedules a fresh connection while a stale source cannot
   (stale.realm.callback as () => void)();
   assert.equal(stale.closed(), 0);
   assert.equal(stale.scheduled.length, 0);
+  assert.deepEqual(stale.invalidations, []);
 });
 
 for (const attempt of [0, 1]) {
@@ -83,10 +87,14 @@ for (const attempt of [0, 1]) {
     runInNewContext(callback("connected"), client.realm);
     (client.realm.callback as (event: { data: string }) => void)({ data: '{"clientId":"new-session"}' });
     assert.equal(client.realm.sseClientId, "new-session");
-    assert.deepEqual(client.refreshes, attempt ? ["view", "graph", "packages"] : []);
+    assert.deepEqual(client.invalidations, ["project"]);
+    (client.realm.callback as (event: { data: string }) => void)({ data: '{"clientId":"native-reconnect"}' });
+    assert.deepEqual(client.invalidations, ["project", "project"], "every connection revalidates, including native reconnects");
+    assert.deepEqual(client.refreshes, attempt ? ["view", "graph", "packages", "view", "graph", "packages"] : []);
     client.realm.sseCurrentProjectId = "other-project";
     client.realm.sseClientId = "other-session";
     (client.realm.callback as (event: { data: string }) => void)({ data: '{"clientId":"stale"}' });
     assert.equal(client.realm.sseClientId, "other-session");
+    assert.equal(client.invalidations.length, 2, "a stale connection cannot invalidate another project");
   });
 }

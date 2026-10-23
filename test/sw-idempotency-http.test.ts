@@ -5,45 +5,47 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import { swQueue, swQueueInternals } from "./helpers/sw-queue-preload.ts";
 import "../public/src/sw.ts";
-import { authCookie, configureIdempotencyWait, ensureSchema, RUN_ID, seedPasswordUser, seedUser, setupOwnerAppTest, type AppServer, type SeedUser } from "./helpers/pg-harness.ts";
+import { authCookie, configureIdempotencyWait, ensureSchema, RUN_ID, seedPasswordUser, seedProject, seedUser, authedFetch, setupOwnerAppTest, type AppServer, type SeedUser } from "./helpers/pg-harness.ts";
 import { startEphemeralServer } from "./helpers/ephemeral-server.ts";
 import { createTierLimiters } from "../src/rate-limit.ts";
 import { signToken } from "../src/auth.ts";
 import { pool } from "../src/db.ts";
+import { ReplayAccessError } from "../src/idempotency-access.ts";
 import { idempotencyGuard } from "../src/idempotency.ts";
 import { csrfProtection } from "../src/csrf.ts";
 import { groupsRouter } from "../src/routes/groups.ts";
 
-test("a real HTTP response lost after commit replays the queued write exactly once", async (t) => {
-  const { server, owner } = await setupOwnerAppTest(t);
+/** Lose one committed HTTP response while retaining the real application's authentication and keyed outcomes. */
+async function lostReplyTransport(t: test.TestContext, server: AppServer, owner: SeedUser, method: string) {
   const networkFetch = globalThis.fetch;
   const auth = `Bearer ${signToken({ userId: owner.id, email: owner.email })}`;
   const keys: Array<string | undefined> = [];
+  const outcomes: Array<{ status: number; body: string; replayed: string | null; outcomeOnly: string | null }> = [];
   let loseResponse = true;
-  const proxy = express();
-  proxy.use(express.json());
-  const limits = createTierLimiters(process.env);
-  proxy.use(limits.read, limits.write);
+  const proxy = express(); proxy.use(express.json());
+  const limits = createTierLimiters(process.env); proxy.use(limits.read, limits.write);
   proxy.all("/api/{*path}", async (req, res) => {
     const key = req.get("idempotency-key");
-    if (req.method === "POST") keys.push(key);
+    if (req.method === method) keys.push(key);
     const upstream = await networkFetch(server.url(req.originalUrl), {
       method: req.method,
       headers: { authorization: auth, "content-type": "application/json", ...(key ? { "idempotency-key": key } : {}),
         ...(req.get("x-pm-expected-account") ? { "x-pm-expected-account": req.get("x-pm-expected-account")! } : {}) },
-      ...(req.method === "POST" ? { body: JSON.stringify(req.body as unknown) } : {}),
+      ...(!['GET', 'HEAD'].includes(req.method) ? { body: JSON.stringify(req.body as unknown) } : {}),
     });
-    const body = await upstream.text(); // the real app has committed and finished its response
-    if (req.method === "POST" && loseResponse) {
-      loseResponse = false;
-      req.socket.destroy(); // caller gets a network failure, not the committed response
-      return;
-    }
+    const body = await upstream.text();
+    if (req.method === method) outcomes.push({ status: upstream.status, body, replayed: upstream.headers.get('idempotency-replayed'), outcomeOnly: upstream.headers.get('idempotency-outcome-only') });
+    if (req.method === method && loseResponse) { loseResponse = false; req.socket.destroy(); return; }
     upstream.headers.forEach((value, name) => { res.setHeader(name, value); });
     res.status(upstream.status).send(body);
   });
-  const transport = await startEphemeralServer(proxy);
-  t.after(() => transport.close());
+  const transport = await startEphemeralServer(proxy); t.after(() => transport.close());
+  return { transport, keys, outcomes, networkFetch };
+}
+
+test("a real HTTP response lost after commit replays the queued write exactly once", async (t) => {
+  const { server, owner } = await setupOwnerAppTest(t);
+  const { transport, keys, networkFetch } = await lostReplyTransport(t, server, owner, 'POST');
   const worker = swQueueInternals();
   await worker.saveSession?.(owner.id);
   let response: Promise<Response> | undefined;
@@ -238,7 +240,12 @@ async function setupWorkspaceRecovery(t: test.TestContext): Promise<{
   // through the same request path as the hosted app.
   app.use(csrfProtection());
   app.use(createTierLimiters(process.env).write);
-  app.use(idempotencyGuard());
+  // These synthetic workspace labels partition queue ordering; the fixture's
+  // mutations belong only to this account. Reauthorize that account on replay.
+  app.use(idempotencyGuard(async ({ principal }) => {
+    const account = await pool.query('SELECT id FROM pm_users WHERE id=$1', [principal]);
+    if (principal !== owner.id || !account.rowCount) throw new ReplayAccessError();
+  }));
   app.get("/api/auth/me", (_req, res) => {
     res.setHeader("x-csrf-token", "pm-web-test-csrf");
     res.json({ user: { id: owner.id } });
@@ -396,3 +403,47 @@ test("account-level records cannot overtake unresolved workspace work or let lat
   // The probe intentionally has no account-level route: its 404 is a normal failure and keeps the barrier.
   assert.ok(!browser.requests.some((request) => request.path.includes("/b/") && request.method === "POST"));
 });
+
+
+/** Exercise retained and expired settlement records through real response loss and owner recovery. */
+async function packetDeleteRecovery(t: test.TestContext, retainOutcome: boolean): Promise<void> {
+  const { server, owner } = await setupOwnerAppTest(t);
+  const project = await seedProject(owner.id);
+  const input = { agent: 'delete-recovery-agent', question: 'Private deleted question', consent: true, viewers: [], receipts: [], gaps: [] };
+  const path = `/api/projects/${project.id}/pm/agent-context`;
+  const created = await authedFetch(server, owner, path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+  assert.equal(created.status, 201); const packet = await created.json() as { id: string; revision: string };
+  const { transport, keys, outcomes, networkFetch } = await lostReplyTransport(t, server, owner, 'DELETE');
+  const worker = swQueueInternals(); await worker.saveSession?.(owner.id);
+  let initial: Promise<Response> | undefined;
+  swQueue.listeners.fetch({ request: new Request(transport.url(`${path}/${packet.id}`), { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ revision: packet.revision }) }), respondWith: (reply: Promise<Response>) => { initial = reply; } });
+  assert.equal((await initial)?.status, 202);
+  const queued = swQueue.lastAdded as Record<string, unknown>; swQueue.getAllResult = [{ ...queued, id: 1 }];
+  if (!retainOutcome) await pool.query('DELETE FROM pm_idempotency_keys WHERE user_id=$1 AND idempotency_key=$2', [owner.id, queued.idempotencyKey]);
+  await worker.queueMutation('POST', path.replace('/api', ''), { ...input, question: 'Later workspace write' });
+  swQueue.getAllResult.push({ ...(swQueue.lastAdded as object), id: 2 });
+  globalThis.fetch = (url, init) => networkFetch(transport.url(String(url)), init);
+  try {
+    await worker.flushMutationQueue();
+    if (!retainOutcome) {
+      assert.deepEqual(swQueue.getAllResult.map(row => (row as { id: number }).id), [1, 2]);
+      assert.equal((swQueue.getAllResult[0] as { state: string }).state, 'needs-attention', 'expired outcomes retain explicit owner recovery');
+      await recoverRecord(owner.id, 'discard');
+    }
+    await worker.flushMutationQueue();
+  }
+  finally { globalThis.fetch = networkFetch; }
+  assert.deepEqual(swQueue.getAllResult, [], 'the successful delete cannot wedge later writes');
+  assert.deepEqual(keys, [queued.idempotencyKey, queued.idempotencyKey]);
+  assert.deepEqual(outcomes.map(reply => reply.status), [200, retainOutcome ? 200 : 409]);
+  if (retainOutcome) {
+    assert.equal(outcomes[1].replayed, 'true'); assert.equal(outcomes[1].outcomeOnly, 'true');
+    assert.deepEqual(JSON.parse(outcomes[1].body), { status: 200, ids: [project.id, packet.id] });
+  }
+  assert.equal(outcomes[1].body.includes(input.question), false);
+  const rows = await pool.query<{ id: string; question: string }>("SELECT id, packet->>'question' AS question FROM pm_agent_context WHERE project_id=$1", [project.id]);
+  assert.equal(rows.rowCount, 1); assert.equal(rows.rows[0].question, 'Later workspace write'); assert.notEqual(rows.rows[0].id, packet.id);
+}
+
+test("a lost packet DELETE response replays a content-free success and drains later workspace writes", async t => { await packetDeleteRecovery(t, true); });
+test("an expired packet DELETE outcome offers owner recovery and unblocks later workspace writes", async t => { await packetDeleteRecovery(t, false); });

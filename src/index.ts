@@ -1,3 +1,5 @@
+import { registerAgentContextCommands } from './agent-context-commands.ts';
+export * from './agent-context.ts';
 import { registerInboxCommands } from './decision-commands.ts';
 export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
 // pm-web — Extension wrapper for the pm-web server
@@ -329,6 +331,7 @@ export default defineExtension({
 
   activate(api: ExtensionApi) {
     registerInboxCommands(api);
+    registerAgentContextCommands(api);
     // -----------------------------------------------------------------------
     // Command: pm web [--port <port>] [--detach]
     // -----------------------------------------------------------------------

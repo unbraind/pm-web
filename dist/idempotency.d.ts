@@ -1,3 +1,4 @@
+import { type ReplayAuthorization } from './idempotency-access.ts';
 import type { RequestHandler, Response } from "express";
 /**
  * Minimum length an `Idempotency-Key` header value may have.
@@ -56,4 +57,4 @@ export declare function requestFingerprint(method: string, path: string, body: u
  *
  * @returns An Express middleware enforcing the contract on its mount.
  */
-export declare function idempotencyGuard(): RequestHandler;
+export declare function idempotencyGuard(authorizeReplay?: ReplayAuthorization): RequestHandler;

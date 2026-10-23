@@ -1,3 +1,5 @@
+import { registerAgentContextCommands } from './agent-context-commands.js';
+export * from './agent-context.js';
 import { registerInboxCommands } from './decision-commands.js';
 export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision } from './services/decision-inbox.js';
 // pm-web — Extension wrapper for the pm-web server
@@ -270,6 +272,7 @@ export default defineExtension({
     version: "2026.10.23",
     activate(api) {
         registerInboxCommands(api);
+        registerAgentContextCommands(api);
         // -----------------------------------------------------------------------
         // Command: pm web [--port <port>] [--detach]
         // -----------------------------------------------------------------------

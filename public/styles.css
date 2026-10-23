@@ -2500,3 +2500,25 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 .decision-reason { display: grid; gap: 6px; margin-block: 16px; }
 .decision-reason textarea { width: 100%; min-height: 80px; }
 .decision-result { overflow-wrap: anywhere; }
+
+/* Agent context: one question followed by a receipt ledger, using Triplicate tokens. */
+.agent-context-picker { display: grid; gap: 8px; max-width: 520px; }
+.agent-context-sheet { max-width: 940px; margin-bottom: 16px; }
+.agent-context-sheet h2 { font-size: 24px; line-height: 1.35; margin: 12px 0 16px; }
+.agent-context-sheet h3 { margin: 24px 0 12px; }
+.agent-context-sheet h4, .agent-context-sheet h5 { margin: 0 0 8px; }
+.agent-context-sheet p { margin-bottom: 12px; }
+.agent-context-sheet, .agent-context-picker { overflow-wrap: anywhere; min-width: 0; }
+.agent-context-label, .agent-context-binding { font-family: var(--pm-font-mono); color: var(--app-text-muted); font-size: 12px; }
+.agent-context-consent { border-left: 3px solid var(--app-accent); padding: 8px 12px; background: var(--pm-stamp-wash); }
+.agent-context-receipt { padding: 16px 0; border-bottom: 1px solid var(--app-border); }
+.agent-context-issues { padding-left: 20px; }
+.agent-context-issues li { margin-bottom: 12px; }
+@media (max-width: 480px) { .agent-context-sheet h2 { font-size: 20px; } }
+
+/* Native sidebar buttons follow the same Triplicate navigation rules as links. */
+button.sidebar-item { width: 100%; appearance: none; background: transparent; border: 0; border-left: 2px solid transparent; text-align: left; font-family: inherit; }
+button.sidebar-item:hover { background: var(--app-bg-sidebar-hover); }
+button.sidebar-item.active { background: var(--pm-stamp-wash); color: var(--pm-stamp); border-left-color: var(--pm-stamp); }
+.sidebar-badge:empty { display: none; }
+#content-agent-context [data-status] { margin: 12px 0 16px; }

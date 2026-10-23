@@ -29,6 +29,13 @@ function frames(writes: Buffer[]) {
   }));
 }
 
+/** Revoked sinks receive only a terminal public control frame after previously authorized data. */
+function assertRevoked(writes: Buffer[], authorized: string[]): void {
+  const received = frames(writes);
+  assert.deepEqual(received.map(frame => frame.type), [...authorized, "access-revoked"]);
+  assert.deepEqual(received.at(-1), { type: "access-revoked", id: "", data: '{"reason":"project_access_revoked"}' });
+}
+
 test("3000 viewers share one UTF-8 buffer per ordered burst, with one JSON serialization per event", async (t) => {
   t.after(clearFanout);
   const project = randomUUID();
@@ -138,12 +145,12 @@ test("one membership read applies to each viewer and fails closed on revocation 
   await delay(15);
   assert.equal(reads, 1);
   assert.equal(frames(allowed.writes).at(-1)?.type, "private");
-  assert.equal(frames(denied.writes).length, 1);
+  assertRevoked(denied.writes, ["connected"]);
   members.clear();
   prepareFanout(project, { type: "revoked", data: {} });
   await delay(15);
   assert.equal(closed, 2);
-  assert.equal(frames(allowed.writes).at(-1)?.type, "private");
+  assertRevoked(allowed.writes, ["connected", "private"]);
   const failure = sink();
   attachFanout(project, { ...failure, authorizeProject: async () => { throw new Error("Synthetic database outage"); } }, () => { closed++; });
   prepareFanout(project, { type: "outage", data: {} });
@@ -175,7 +182,7 @@ test("empty drain callbacks read no permissions while the next private batch rec
   await waitUntil(() => viewers[0].destroyed() && viewers.slice(1).every((viewer) => frames(viewer.writes).at(-1)?.type === "private-after-revoke"), 3000, "revoked slices");
   assert.ok(reads >= firstReads + 2);
   assert.equal(viewers[0].destroyed(), true);
-  assert.equal(frames(viewers[0].writes).at(-1)?.type, "private-before-revoke");
+  assertRevoked(viewers[0].writes, ["connected", "private-before-revoke"]);
   for (const viewer of viewers.slice(1)) assert.equal(frames(viewer.writes).at(-1)?.type, "private-after-revoke");
 });
 
@@ -202,7 +209,7 @@ test("a heartbeat cannot flush queued private data while fresh permission is pen
   release!();
   await delay(25);
   assert.equal(slow.destroyed(), true);
-  assert.deepEqual(frames(slow.writes).map((frame) => frame.type), ["connected"]);
+  assertRevoked(slow.writes, ["connected"]);
   assert.equal(frames(healthy.writes).at(-1)?.type, "later-private");
 });
 
@@ -220,7 +227,7 @@ test("yielded socket slices refresh membership before delivering to the next vie
   prepareFanout(project, { type: "private-sliced", data: { synthetic: true } });
   await waitUntil(() => revoked.destroyed() && viewers.slice(0, -1).every((viewer) => viewer.writes.length === 2), 3000, "fresh authorization between slices");
   assert.ok(reads >= 3);
-  assert.deepEqual(frames(revoked.writes).map((frame) => frame.type), ["connected"]);
+  assertRevoked(revoked.writes, ["connected"]);
 });
 
 for (const failedSlice of [2, 3]) {

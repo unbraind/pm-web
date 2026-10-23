@@ -87,6 +87,7 @@ const STATIC_ASSETS: readonly string[] = [
   '/src/views/packages.js',
   '/src/views/plan.js',
   '/src/views/decision-inbox.js',
+  '/src/views/agent-context.js',
   '/src/views/plan-execution.js',
   '/src/views/projects.js',
   '/src/views/router.js',
@@ -494,6 +495,7 @@ async function replayQueuedMutations(): Promise<void> {
   const blocked: BlockedMutation[] = [];
   const blockedWorkspaces = new Set<string | null>();
   let replayed = 0;
+  let unavailableDeletes = 0;
   for (const mut of mutations) {
     // Derive legacy scope from the path rather than assuming it is independent.
     const workspace = workspaceFromPath(mut.path);
@@ -529,7 +531,8 @@ async function replayQueuedMutations(): Promise<void> {
       };
       if (mut.body !== null) opts.body = mut.body;
       const res = await fetch('/api' + mut.path, opts);
-      if (res.ok) {
+      const unavailableDelete = mut.method === 'DELETE' && (res.status === 404 || res.status === 410);
+      if (res.ok || unavailableDelete) {
         const cleared = await clearMutation(mut.id);
         if (!cleared) {
           // Could not remove the replayed mutation from the queue — stop to
@@ -537,11 +540,12 @@ async function replayQueuedMutations(): Promise<void> {
           break;
         }
         replayed++;
+        if (unavailableDelete) unavailableDeletes++;
       } else {
         console.warn('Offline mutation failed:', mut.method, mut.path, res.status);
         const body = await res.json().catch(() => null) as { code?: unknown } | null;
         let attention: QueuedMutation['attentionReason'];
-        if (body?.code === 'PM_IDEMPOTENCY_OUTCOME_UNKNOWN') attention = 'outcome-unknown';
+        if (body?.code === 'PM_IDEMPOTENCY_OUTCOME_UNKNOWN' || (typeof body?.code === 'string' && body.code.startsWith('PM_IDEMPOTENCY_REPLAY_')) || (mut.method === 'DELETE' && res.status === 409 && body?.code === 'revision_conflict')) attention = 'outcome-unknown';
         if (res.status >= 500) {
           mut.serverFailures = (mut.serverFailures ?? 0) + 1;
           if (mut.serverFailures >= 3) attention = 'repeated-5xx';
@@ -570,6 +574,7 @@ async function replayQueuedMutations(): Promise<void> {
   // Notify clients about replayed mutations
   const remainingRead = await getQueuedMutations();
   const clients = await sw.clients.matchAll();
+  if (unavailableDeletes > 0) clients.forEach(client => { client.postMessage({ type: 'DELETIONS_SETTLED', ownerId: currentUserId, count: unavailableDeletes }); });
   // Empty reports remove a previously rendered or dismissed recovery set.
   clients.forEach((client) => {
     client.postMessage({ type: 'MUTATIONS_BLOCKED', blocked });

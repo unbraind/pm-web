@@ -102,6 +102,18 @@ export async function initSchema(): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS pm_projects_user_id ON pm_projects(user_id);
 
+
+CREATE TABLE IF NOT EXISTS pm_agent_context (
+  id UUID PRIMARY KEY,
+  project_id UUID NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+  publisher UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+  viewers UUID[] NOT NULL,
+  packet JSONB NOT NULL,
+  revision TEXT GENERATED ALWAYS AS (packet->>'revision') STORED,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS pm_agent_context_project ON pm_agent_context(project_id, updated_at DESC);
+
     CREATE TABLE IF NOT EXISTS pm_groups (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       owner_id UUID NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
