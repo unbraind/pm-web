@@ -1,0 +1,21 @@
+id: pm-web-puwn
+title: Babel parser pin test hardcodes 8.0.6 and fails every Dependabot bump
+description: "test/capacity-cli.test.ts asserted the exact string 8.0.6 for the @babel/parser devDependency, so Dependabot PR #233 (8.0.6 to 8.0.7) failed test (22) and test (26). The test now requires an exact pin of any version and keeps the manifest/lockfile equality checks."
+type: Chore
+status: closed
+priority: 2
+tags: []
+created_at: "2026-10-23T06:53:57.746Z"
+updated_at: "2026-10-23T06:56:29.173Z"
+closed_at: "2026-10-23T06:55:06.563Z"
+completed_at: "2026-10-23T06:55:06.563Z"
+author: claude-orchestrator
+resolution: Assert an exact pin of any version instead of the literal 8.0.6; keep the manifest and lockfile equality checks.
+expected_result: A Dependabot @babel/parser patch bump passes the test without editing it.
+actual_result: With the literal 8.0.6 the test failed on PR #233 (8.0.7); with the regex it passes on main (8.0.6) and accepts 8.0.7.
+files[1]{path,scope}:
+  test/capacity-cli.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  "node --test --test-name-pattern \"Babel parser\" test/capacity-cli.test.ts",project,claude-orchestrator,"2026-10-23T06:54:51.972Z",local_mutation,test/babel-exact-pin-any-version
+close_reason: "The test now asserts an exact pin of any @babel/parser version (regex ^\\d+.\\d+.\\d+$) plus the manifest/lockfile equality; node --test --test-name-pattern 'Babel parser' passes on main with 8.0.6 and will pass on Dependabot PR #233 with 8.0.7."
+body: ""

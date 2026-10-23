@@ -43,6 +43,7 @@
 
 ### Other
 
+- Babel parser pin test hardcodes 8.0.6 and fails every Dependabot bump ([pm-web-puwn](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-puwn.toon))
 - Bring the pm-web HTTP route layer under real-Postgres integration coverage ([pm-web-9ulj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/epics/pm-web-9ulj.toon))
 - Enable GitHub CodeQL code scanning ([pm-web-auc2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-auc2.toon))
 - Make spawned test fixtures independent of ancestor package module type ([pm-web-jp0u](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-jp0u.toon))
