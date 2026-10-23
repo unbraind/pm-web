@@ -47,7 +47,7 @@ test("every Babel parser consumer has an explicit manifest and lockfile developm
   const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
   // An exact pin of any version: Dependabot moves it, and this test must not need an edit per release.
-  assert.match(manifest.devDependencies["@babel/parser"], /^\d+\.\d+\.\d+$/);
+  assert.match(manifest.devDependencies["@babel/parser"], /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/);
   assert.equal(lock.packages[""].devDependencies["@babel/parser"], manifest.devDependencies["@babel/parser"]);
   assert.equal(lock.packages["node_modules/@babel/parser"].version, manifest.devDependencies["@babel/parser"]);
 });
