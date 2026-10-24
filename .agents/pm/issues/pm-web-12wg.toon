@@ -6,9 +6,9 @@ status: closed
 priority: 2
 tags[4]: browser,ci,"gh:unbraind/pm-web#249",regression
 created_at: "2026-10-24T05:13:21.194Z"
-updated_at: "2026-10-24T21:45:43.479Z"
+updated_at: "2026-10-24T23:16:18.889Z"
 closed_at: "2026-10-24T21:45:43.471Z"
-completed_at: "2026-10-24T21:45:43.471Z"
+completed_at: "2026-10-24T06:14:11.000Z"
 author: codex-agent
 acceptance_criteria: Complete baseline compiles on the feature-containing main tree; targeted regression fails when only the fix is reverted; screenshots and both later browser steps pass in PR CI; npm and Bun release gates pass without threshold changes.
 resolution: Compiles browser baselines with complete dependency trees and restores screenshots/later browser acceptance on the feature main tree with a failing fix-only revert and unchanged npm/Bun CI.

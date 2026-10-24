@@ -6,9 +6,9 @@ status: closed
 priority: 2
 tags[1]: "gh:unbraind/pm-web#247"
 created_at: "2026-10-23T14:34:25.958Z"
-updated_at: "2026-10-24T21:45:43.625Z"
+updated_at: "2026-10-24T23:16:22.079Z"
 closed_at: "2026-10-24T21:45:43.598Z"
-completed_at: "2026-10-24T21:45:43.598Z"
+completed_at: "2026-10-23T19:43:57.000Z"
 author: codex-agent
 acceptance_criteria: "Synthetic directory, Postgres and remote adapters render consistent capabilities; unavailable providers never enable a destructive control. Typed SDK and native CLI expose bounded TOON/JSON discovery and typed refusals with remedies. Review-only forms never dispatch operations. Validate a public fleet tracker copy without git and report measured evidence; npm and Bun CI release gates pass at unchanged thresholds."
 resolution: "Read-only capability and input-review surfaces agree across directory/Postgres/remote adapters, unavailable providers cannot enable destructive controls and review-only forms never dispatch operations."
