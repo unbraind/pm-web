@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Inspect backend operations and review inputs without executing changes ([pm-web-zmbx](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-zmbx.toon))
+
+### Fixed
+
+- Compile browser evidence baselines with complete dependency trees ([pm-web-12wg](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-12wg.toon))
+
+### Security
+
+- Restore production audit after the body-parser compressed-request advisory ([pm-web-5ll5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-5ll5.toon))
+
+### Other
+
+- Reconcile stale in-progress tracker records (2026-10-23) ([pm-web-reconcile-1023](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-reconcile-1023.toon))
+
 ## 2026.10.24 - 2026-10-24
 
 ### Added
