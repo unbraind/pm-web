@@ -6,8 +6,7 @@ status: open
 priority: 1
 tags: []
 created_at: "2026-08-21T11:07:29.247Z"
-updated_at: "2026-08-21T11:57:19.780Z"
-assignee: codex
+updated_at: "2026-10-24T21:45:43.374Z"
 author: codex
 estimated_minutes: 720
 acceptance_criteria: "Inventory every reachable ref and tag; classify absolute paths, identities, secrets, hosted data and personal domains; obtain explicit maintainer authorization before any rewrite; preserve an offline recovery bundle; rewrite atomically across every affected ref when authorized; publish coordinated clone invalidation guidance; rescan current files, package contents and full reachable history to zero approved-scope findings before merge or publication"

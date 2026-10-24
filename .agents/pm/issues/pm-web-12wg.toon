@@ -2,13 +2,18 @@ id: pm-web-12wg
 title: Compile browser evidence baselines with complete dependency trees
 description: "Track GitHub issue 249: public-only browser fixtures omit frontend declaration dependencies. Preserve complete same-ref baseline inputs, apply the same checked-out baseline selection to push and pull_request, and cover all isolated browser build harnesses."
 type: Issue
-status: in_progress
+status: closed
 priority: 2
 tags[4]: browser,ci,"gh:unbraind/pm-web#249",regression
 created_at: "2026-10-24T05:13:21.194Z"
-updated_at: "2026-10-24T05:43:34.030Z"
+updated_at: "2026-10-24T21:45:43.479Z"
+closed_at: "2026-10-24T21:45:43.471Z"
+completed_at: "2026-10-24T21:45:43.471Z"
 author: codex-agent
 acceptance_criteria: Complete baseline compiles on the feature-containing main tree; targeted regression fails when only the fix is reverted; screenshots and both later browser steps pass in PR CI; npm and Bun release gates pass without threshold changes.
+resolution: Compiles browser baselines with complete dependency trees and restores screenshots/later browser acceptance on the feature main tree with a failing fix-only revert and unchanged npm/Bun CI.
+expected_result: Complete baseline compiles on the feature-containing main tree; targeted regression fails when only the fix is reverted; screenshots and both later browser steps pass in PR CI; npm and Bun release gates pass without threshold changes.
+actual_result: "https://github.com/unbraind/pm-web/pull/250, merged 2026-10-24T06:14:11Z, merge 3a1293018e279e7482a05b04b1b020c2928882a6: Compiles browser baselines with complete dependency trees and restores screenshots/later browser acceptance on the feature main tree with a failing fix-only revert and unchanged npm/Bun CI."
 comments[9]{created_at,author,text}:
   "2026-10-24T05:13:44.040Z",codex-agent,"Confirmed issue 249 on current main 2fb9d2b: decision-inbox fixture archives public only; contract-explorer frontend imports dist declarations. Audited every browser script: brand round 3/4/5/6 revert builders also stage incomplete trees; graph-scale uses emitted JS and deliberately transforms individual historical modules, while brand/context/contract acceptance runners use existing built output. Plan: common complete-tree staging for archive and working-copy fixtures, checked-out commit baseline for both CI events, actual compiler regressions including transitive declarations, then isolated fix-only revert proof. Use focused local checks and hosted npm/Bun full release gates because shared-host CPU is saturated. Registry CLI is 2026.10.24; all tracker writes use repo-pinned 2026.10.20. Initial dependency installation required clearing inherited user npm allow-scripts configuration; package pins are unchanged."
   "2026-10-24T05:16:12.309Z",codex-agent,"Implemented complete committed-tree extraction and current-tree copying in scripts/browser-build-tree.ts. Decision-inbox and all four brand revert builders use them. CI INBOX_BASE_REF now uses github.sha for both events. Initial targeted regression passes 6/6: selected-ref transitive declarations, compiler output, no-git copy with a real initialized tracker and no Git executable, explicit extraction prerequisite, real checked-out baseline compilation, and caller/workflow wiring. Next: fix-only revert proof and local typecheck/lint; full gates remain assigned to CI."
@@ -34,4 +39,5 @@ tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
 docs[2]{path,scope}:
   docs/browser-baselines.md,project
   README.md,project
+close_reason: "https://github.com/unbraind/pm-web/pull/250, merged 2026-10-24T06:14:11Z, merge 3a1293018e279e7482a05b04b1b020c2928882a6: Compiles browser baselines with complete dependency trees and restores screenshots/later browser acceptance on the feature main tree with a failing fix-only revert and unchanged npm/Bun CI."
 body: ""
