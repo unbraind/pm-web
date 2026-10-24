@@ -334,6 +334,10 @@ pm-changelog validation. The daily release
 workflow publishes at most once when commits exist after the latest release tag
 and uses pm-changelog for both `CHANGELOG.md` and GitHub release notes.
 
+Browser evidence builds use complete dependency trees and the checked-out commit
+for both push and pull-request baselines. See [browser baseline fixtures](docs/browser-baselines.md)
+for local checks, isolated revert builds and Git prerequisites.
+
 The current package is **not** approved for a new release: exact all-source
 100/100/100/100 coverage remains open in
 [`pm-web-9ulj`](.agents/pm/epics/pm-web-9ulj.toon) and

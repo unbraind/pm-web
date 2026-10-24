@@ -179,7 +179,8 @@ jobs:
         if: matrix.node-version == 26
         env:
           INBOX_SCREENSHOTS: ${{ runner.temp }}/decision-inbox-screenshots
-          INBOX_BASE_REF: ${{ github.event.pull_request.base.sha || github.sha }}
+          # Exercise the checked-out tree for both pushes and PR merge commits.
+          INBOX_BASE_REF: ${{ github.sha }}
         run: node scripts/with-test-db.ts node scripts/decision-inbox-browser.ts
 
       - name: Attach decision inbox screenshots

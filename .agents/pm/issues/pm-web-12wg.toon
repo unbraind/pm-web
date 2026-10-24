@@ -1,0 +1,33 @@
+id: pm-web-12wg
+title: Compile browser evidence baselines with complete dependency trees
+description: "Track GitHub issue 249: public-only browser fixtures omit frontend declaration dependencies. Preserve complete same-ref baseline inputs, apply the same checked-out baseline selection to push and pull_request, and cover all isolated browser build harnesses."
+type: Issue
+status: in_progress
+priority: 2
+tags[4]: browser,ci,"gh:unbraind/pm-web#249",regression
+created_at: "2026-10-24T05:13:21.194Z"
+updated_at: "2026-10-24T05:18:21.592Z"
+assignee: codex-agent
+claim_principal: codex-agent
+author: codex-agent
+acceptance_criteria: Complete baseline compiles on the feature-containing main tree; targeted regression fails when only the fix is reverted; screenshots and both later browser steps pass in PR CI; npm and Bun release gates pass without threshold changes.
+comments[3]{created_at,author,text}:
+  "2026-10-24T05:13:44.040Z",codex-agent,"Confirmed issue 249 on current main 2fb9d2b: decision-inbox fixture archives public only; contract-explorer frontend imports dist declarations. Audited every browser script: brand round 3/4/5/6 revert builders also stage incomplete trees; graph-scale uses emitted JS and deliberately transforms individual historical modules, while brand/context/contract acceptance runners use existing built output. Plan: common complete-tree staging for archive and working-copy fixtures, checked-out commit baseline for both CI events, actual compiler regressions including transitive declarations, then isolated fix-only revert proof. Use focused local checks and hosted npm/Bun full release gates because shared-host CPU is saturated. Registry CLI is 2026.10.24; all tracker writes use repo-pinned 2026.10.20. Initial dependency installation required clearing inherited user npm allow-scripts configuration; package pins are unchanged."
+  "2026-10-24T05:16:12.309Z",codex-agent,"Implemented complete committed-tree extraction and current-tree copying in scripts/browser-build-tree.ts. Decision-inbox and all four brand revert builders use them. CI INBOX_BASE_REF now uses github.sha for both events. Initial targeted regression passes 6/6: selected-ref transitive declarations, compiler output, no-git copy with a real initialized tracker and no Git executable, explicit extraction prerequisite, real checked-out baseline compilation, and caller/workflow wiring. Next: fix-only revert proof and local typecheck/lint; full gates remain assigned to CI."
+  "2026-10-24T05:18:00.636Z",codex-agent,"Revert proof (regression source unchanged): reverted only archiveBrowserTree/copyBrowserTree to public-only staging, then node --test test/browser-build-tree.test.ts exited 1 with 3/6 failing. Real checked-out baseline reproduced TS2307 for ../../../dist/contract-explorer.js and TS7006 for row; both synthetic compiler tests reproduced missing ../dist/reply.js. Restored functions byte-for-byte. Also restricted only the archive fix to public plus dist: the selected-ref regression failed with TS2307 for ../shared/state.js, proving the fix covers transitive dependencies beyond the reported declaration. Restoring only the old pull_request base selection made the event-parity regression fail. Restored everything byte-for-byte and ran linked tests via pm test --run --progress: browser-build-tree 6/6 and workflow-security 7/7, zero skips/failures. Local npm run typecheck, npm run build:test, npm run lint, npm run duplication (0% clones) and npm run docstring all passed at unchanged policy. Full npm/Bun release checks and real browser evidence will be verified on the PR."
+files[8]{path,scope}:
+  .github/workflows/ci.yml,project
+  scripts/brand-browser-reverts.ts,project
+  scripts/brand-browser-round4-reverts.ts,project
+  scripts/brand-browser-round5-reverts.ts,project
+  scripts/brand-browser-round6-reverts.ts,project
+  scripts/browser-build-tree.ts,project
+  scripts/decision-inbox-browser.ts,project
+  test/browser-build-tree.test.ts,project
+tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/browser-build-tree.test.ts,project,300,codex-agent,"2026-10-24T05:15:40.460Z",local_mutation,fix/browser-baseline-dist-declarations
+  node --test test/workflow-security.test.ts,project,120,codex-agent,"2026-10-24T05:17:31.836Z",local_mutation,fix/browser-baseline-dist-declarations
+docs[2]{path,scope}:
+  docs/browser-baselines.md,project
+  README.md,project
+body: ""

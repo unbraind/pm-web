@@ -1,12 +1,13 @@
-/** Rebuild one behavioral revert at a time in an isolated copy of the public sources. */
+/** Rebuild one behavioral revert at a time in an isolated copy of the complete build tree. */
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { parseForESLint } from '@babel/eslint-parser';
 import { build } from 'esbuild';
+import { copyBrowserTree } from './browser-build-tree.ts';
 
 const cases = [
   ['active-view', 'app.ts', 'refreshGraphData'],
@@ -26,7 +27,7 @@ const output = process.env.BRAND_REVERT_EVIDENCE;
 assert.ok(output, 'Set BRAND_REVERT_EVIDENCE to an external evidence directory');
 await mkdir(output, { recursive: true });
 const scratch = await mkdtemp(path.join(tmpdir(), 'pm-web-review-reverts-'));
-await symlink(path.join(root, 'node_modules'), path.join(scratch, 'node_modules'), 'dir');
+await copyBrowserTree(root, scratch);
 
 interface SyntaxNode { type: string; range?: [number, number]; id?: { name?: string }; key?: { name?: string }; [key: string]: unknown }
 

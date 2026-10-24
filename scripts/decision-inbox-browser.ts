@@ -16,6 +16,7 @@ import { signToken } from '../src/auth.ts';
 import { broadcastProjectEvent } from '../src/services/sse.ts';
 import { requestDecision } from '../src/services/decision-inbox.ts';
 import { startEphemeralServer } from '../test/helpers/ephemeral-server.ts';
+import { archiveBrowserTree } from './browser-build-tree.ts';
 
 
 /** Open a view through the same application router used by desktop and mobile navigation. */
@@ -53,13 +54,11 @@ const root = await mkdtemp(path.join(os.tmpdir(), 'decision-browser-'));
 const projects = path.join(root, 'projects');
 process.env.PROJECTS_ROOT = projects;
 const baseline = path.join(root, 'baseline');
-await mkdir(baseline);
-await symlink(path.resolve('node_modules'), path.join(baseline, 'node_modules'), 'junction');
-const archive = execFileSync('git', ['archive', process.env.INBOX_BASE_REF ?? 'origin/main', 'public'], { maxBuffer: 64 * 1024 * 1024 });
-execFileSync('tar', ['-x', '-C', baseline], { input: archive });
+await archiveBrowserTree(process.cwd(), baseline, process.env.INBOX_BASE_REF ?? 'HEAD');
 await cp('public/brand', path.join(baseline, 'public/brand'), { recursive: true });
-execFileSync(process.execPath, [path.resolve('node_modules/typescript/bin/tsc'), '-p', path.join(baseline, 'public/tsconfig.json')], { stdio: 'pipe' });
-execFileSync(process.execPath, [path.resolve('node_modules/typescript/bin/tsc'), '-p', path.join(baseline, 'public/tsconfig.scripts.json')], { stdio: 'pipe' });
+for (const config of ['tsconfig.json', 'tsconfig.sw.json', 'tsconfig.scripts.json']) {
+  execFileSync(process.execPath, [path.resolve('node_modules/typescript/bin/tsc'), '-p', path.join(baseline, 'public', config)], { stdio: 'inherit' });
+}
 await build({ entryPoints: [path.join(baseline, 'public/src/brand.ts')], outfile: path.join(baseline, 'public/src/brand.js'), bundle: true, format: 'esm', platform: 'browser', target: 'es2022' });
 const users: string[] = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
