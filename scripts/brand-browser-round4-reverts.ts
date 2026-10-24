@@ -1,10 +1,11 @@
 /** Run independent fourth-round behavioral reverts in an isolated source copy. */
 import assert from 'node:assert/strict';
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import { copyBrowserTree } from './browser-build-tree.ts';
 
 const output = process.env.BRAND_REVERT_EVIDENCE;
 if (!output) throw new Error('BRAND_REVERT_EVIDENCE must name an external evidence directory');
@@ -42,8 +43,7 @@ function revert(name: string, source: string): string {
 }
 
 try {
-  await symlink(path.join(root, 'node_modules'), path.join(scratch, 'node_modules'), 'dir');
-  for (const entry of ['public', 'scripts', 'src', 'test', 'sql', 'package.json', 'tsconfig.json', 'tsconfig.test.json', 'manifest.json']) await cp(path.join(root, entry), path.join(scratch, entry), { recursive: true });
+  await copyBrowserTree(root, scratch);
   for (const [name, file] of cases) {
     if (process.env.BRAND_REVERT_CASES && !process.env.BRAND_REVERT_CASES.split(',').includes(name)) continue;
     const source = originals.get(file)!;

@@ -1,9 +1,10 @@
 /** Independently restore each reviewed defect and require a behavioral failure. */
 import assert from 'node:assert/strict';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { copyBrowserTree } from './browser-build-tree.ts';
 
 const evidenceRoot = process.env.BRAND_REVERT_EVIDENCE;
 assert.ok(evidenceRoot, 'Set BRAND_REVERT_EVIDENCE');
@@ -17,10 +18,7 @@ const cases = [
 const originals = new Map<string, string>();
 const receipts: { name: string; file: string; exit: number; failure: string }[] = [];
 try {
-  for (const entry of ['public', 'scripts', 'package.json']) await cp(entry, path.join(scratch, entry), { recursive: true });
-  await mkdir(path.join(scratch, 'test'));
-  await cp('test/brand-pixel-diff.test.ts', path.join(scratch, 'test/brand-pixel-diff.test.ts'));
-  await symlink(path.resolve('node_modules'), path.join(scratch, 'node_modules'), 'dir');
+  await copyBrowserTree(process.cwd(), scratch);
   for (const [name, file] of cases.filter(([name]) => !process.env.BRAND_REVERT_CASES || process.env.BRAND_REVERT_CASES.split(',').includes(name))) {
     const current = await readFile(file, 'utf8'); originals.set(file, current);
     const baseline = spawnSync('git', ['show', `fc0447c:${file}`], { encoding: 'utf8' });

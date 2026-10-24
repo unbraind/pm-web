@@ -1,9 +1,10 @@
 /** Prove each fifth-round regression fails with only its reviewed behavior restored. */
 import assert from 'node:assert/strict';
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import { copyBrowserTree } from './browser-build-tree.ts';
 
 const output = process.env.BRAND_REVERT_EVIDENCE;
 assert.ok(output, 'Set BRAND_REVERT_EVIDENCE to an external evidence directory');
@@ -31,9 +32,7 @@ function restoreBehavior(name: string, file: string, source: string): string {
   return old.stdout;
 }
 try {
-  const content = ['public', 'scripts', 'src', 'test', 'sql', 'package.json', 'tsconfig.json', 'tsconfig.test.json', 'manifest.json'];
-  for (const entry of content) await cp(path.join(root, entry), path.join(scratch, entry), { recursive: true });
-  await symlink(path.resolve('node_modules'), path.join(scratch, 'node_modules'), 'dir');
+  await copyBrowserTree(root, scratch);
   const selectedCases = cases.filter(([name]) => !process.env.BRAND_REVERT_CASES || process.env.BRAND_REVERT_CASES.split(',').includes(name));
   for (const [name, file] of selectedCases) {
     const source = originals.get(file);

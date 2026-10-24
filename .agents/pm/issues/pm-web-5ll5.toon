@@ -1,0 +1,21 @@
+id: pm-web-5ll5
+title: Restore production audit after the body-parser compressed-request advisory
+description: "Full browser-baseline release gate passed 830 tests and 2 capacity checks, then failed the production audit on locked body-parser 2.3.0 (GHSA-27r3-jxmh-p828). Refresh body-parser and its required transitive minimum versions within the declared dependency ranges. Companion to pm-web-12wg; this does not claim hosted remediation or deployment."
+type: Issue
+status: in_progress
+priority: 2
+tags[3]: ci,dependencies,security
+created_at: "2026-10-24T05:41:14.727Z"
+updated_at: "2026-10-24T05:43:33.311Z"
+author: codex-agent
+acceptance_criteria: Production audit reports no vulnerabilities; lockfile change is limited to the compatible body-parser update; final PR CI passes npm and Bun release gates.
+comments[2]{created_at,author,text}:
+  "2026-10-24T05:42:11.114Z",codex-agent,"CI https://github.com/unbraind/pm-web/actions/runs/40066509482 failed only at the production audit after Node 26 passed 830/830 tests and 2/2 capacity checks. Advisory https://github.com/advisories/GHSA-27r3-jxmh-p828 names body-parser 2.4.0 as patched. Express 5.3.0 declares body-parser ^2.3.0, so npm update body-parser selects 2.4.0 compatibly. Its required minimum versions also update iconv-lite 0.7.2 to 0.7.3 and qs 6.16.0 to 6.16.1; those are the only three changed lock entries. Direct manifests and SDK pins are unchanged. Next: lock-only audit revert proof, linked audit and targeted baseline tests, then final CI."
+  "2026-10-24T05:43:31.923Z",codex-agent,"Lock-only revert proof: restored the prior package-lock.json while leaving the installed packages and audit script/policy unchanged, then npm run audit:prod exited 1 and reported GHSA-27r3-jxmh-p828. Restored the updated lock byte-for-byte and ran the linked pm test --run --progress: npm run audit:prod passed with found 0 vulnerabilities. Browser-build-tree remains 8/8 and workflow-security 7/7 through the linked pm runner. The earlier CI npm gate ran 830/830 tests on both Node 22 and 26 but failed the audit; it does not satisfy the full-gate or browser acceptance requirements. Final exact-head npm/Bun and browser outcomes will be linked from PR 250 before handoff."
+files[1]{path,scope}:
+  package-lock.json,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run audit:prod",project,120,codex-agent,"2026-10-24T05:42:10.384Z",local_mutation,fix/browser-baseline-dist-declarations
+docs[1]{path,scope}:
+  README.md,project
+body: ""
