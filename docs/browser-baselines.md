@@ -8,10 +8,12 @@ transitive imports. Copying a declaration for one view does not cover that contr
 
 - `archiveBrowserTree` extracts the whole selected Git commit, including its
   declarations. It links the installed dependencies, without borrowing declarations
-  from the current working tree.
+  from the current working tree. Extraction streams through Git and tar with both
+  exit statuses checked, so the complete tree has no fixed output-buffer ceiling.
 - `copyBrowserTree` copies current sources and generated output for behavioral
   reverts, excluding repository metadata and installed dependencies, then links
-  the installed dependencies. Use an external scratch destination.
+  the installed dependencies. Use an external scratch destination; nested destinations
+  are rejected with a reminder to configure an external temporary directory.
 
 The decision-inbox screenshot script archives the selected ref, compiles all three
 frontend TypeScript projects, and bundles the browser brand module. Its before
@@ -30,7 +32,8 @@ required on Node 26 for push and pull-request runs.
 
 Run `node --test test/browser-build-tree.test.ts` for actual TypeScript compilation
 of an archived tree, same-ref transitive declarations, a plain working copy and
-the checked-out application's browser entrypoints, plus workflow/caller wiring.
+the checked-out application's browser entrypoints, plus workflow/caller wiring,
+an archive larger than 64 MiB, failed extraction and nested scratch diagnostics.
 Full npm and Bun release gates and the three browser checks run in PR CI.
 
 ## Without git

@@ -1,7 +1,7 @@
 /** Compile real baseline trees and transitive declaration fixtures with the shipped TypeScript compiler. */
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -78,8 +78,43 @@ test('working browser copies compile external imports without a git repository o
 
 test('committed baseline extraction explains its git prerequisite in a plain directory', async () => {
   const scratch = await mkdtemp(path.join(tmpdir(), 'browser-no-git-test-'));
+  const previousCeiling = process.env.GIT_CEILING_DIRECTORIES;
   try {
+    process.env.GIT_CEILING_DIRECTORIES = path.dirname(scratch);
     await assert.rejects(archiveBrowserTree(scratch, path.join(scratch, 'baseline'), 'HEAD'), /needs a git repository; ordinary tracker and browser runtime operations still work without git/);
+  } finally {
+    if (previousCeiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES;
+    else process.env.GIT_CEILING_DIRECTORIES = previousCeiling;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('committed browser baselines stream trees larger than 64 MiB and report invalid refs', async () => {
+  const scratch = await mkdtemp(path.join(tmpdir(), 'browser-large-archive-test-'));
+  try {
+    const source = path.join(scratch, 'source');
+    const destination = path.join(scratch, 'baseline');
+    await mkdir(source);
+    const large = await open(path.join(source, 'large-input.txt'), 'w');
+    try { await large.truncate(65 * 1024 * 1024); }
+    finally { await large.close(); }
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+    execFileSync('git', ['init', '--quiet'], { cwd: source, env });
+    execFileSync('git', ['add', 'large-input.txt'], { cwd: source, env });
+    execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'Seed large browser input'], { cwd: source, env });
+    await symlink(path.join(packageRoot, 'node_modules'), path.join(source, 'node_modules'), 'junction');
+    await archiveBrowserTree(source, destination, 'HEAD');
+    assert.equal((await stat(path.join(destination, 'large-input.txt'))).size, 65 * 1024 * 1024);
+    await assert.rejects(archiveBrowserTree(source, path.join(scratch, 'invalid-ref'), 'refs/heads/missing-fixture'), /git archive failed|tar extraction failed/);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('working browser copies reject nested scratch destinations before copying', async () => {
+  const scratch = await mkdtemp(path.join(tmpdir(), 'browser-nested-copy-test-'));
+  try {
+    for (const destination of [scratch, path.join(scratch, 'nested', 'baseline')]) {
+      await assert.rejects(copyBrowserTree(scratch, destination), /destination must be outside the source tree/);
+    }
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 
