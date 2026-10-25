@@ -272,7 +272,7 @@ function processAlive(pid) {
 }
 export default defineExtension({
     name: "pm-web",
-    version: "2026.10.24",
+    version: "2026.10.25",
     activate(api) {
         registerInboxCommands(api);
         registerAgentContextCommands(api);
