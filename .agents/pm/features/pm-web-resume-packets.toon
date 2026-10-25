@@ -2,11 +2,13 @@ id: pm-web-resume-packets
 title: Resume authorized question changes from an admitted cursor
 description: "Compose the existing consented agent context scope with SDK history cursors and pm-context prefix-validated delta semantics, without another context store. The overlap check found core mutation events/cursors, pm-context since and freshness, and pm-web context snapshots/realtime replay; none provides project-authorized question-scoped resume packets."
 type: Feature
-status: in_progress
+status: closed
 priority: 2
 tags[3]: authorization,context,resume
 created_at: "2026-10-25T05:59:37.169Z"
-updated_at: "2026-10-25T06:31:53.527Z"
+updated_at: "2026-10-25T11:27:40.529Z"
+closed_at: "2026-10-25T11:27:40.510Z"
+completed_at: "2026-10-25T07:06:44.000Z"
 author: codex-agent
 acceptance_criteria: "Offline agents receive every admitted selected-item change once after advancing the returned cursor; access revocation blocks future source reads and purges managed cached packet contents; missing or rewritten cursor history requires reorientation rather than an empty delta; typed SDK and CLI, bounded TOON/JSON, UI, docs, non-git public-tracker measurements, seeded model and interleaving proofs, npm and Bun CI release gates."
 comments[7]{created_at,author,text}:
@@ -37,4 +39,5 @@ docs[4]{path,scope}:
   docs/resume-packets.md,project
   examples/resume-packets.ts,project
   README.md,project
+close_reason: "https://github.com/unbraind/pm-web/pull/257 merged 2026-10-25T07:06:44Z, merge 78a3fca2c29c7ba52abb3ee7d431e66e7d672ee7: Agents resume authorized question changes with completeness receipts. Reviewed (read-only codex/Claude review, MERGE verdict) with green CI release gates."
 body: ""
