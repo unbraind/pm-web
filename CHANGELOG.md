@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Resume authorized question changes from an admitted cursor ([pm-web-resume-packets](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-resume-packets.toon))
+
 ## 2026.10.25 - 2026-10-25
 
 ### Added
