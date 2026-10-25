@@ -74,3 +74,44 @@ makes all seven SDK-adoption tests pass.
 Exact commands and release-gate receipts are recorded on `pm-web-ireq`, related
 to existing SDK-adoption items `pm-web-8pml` and `pm-web-cvny`. Coverage thresholds
 are unchanged: statements/lines 92.07%, branches 80.5%, functions 94.59%.
+
+## Verification receipts
+
+Implementation commit `81c89aa` passed the complete CI matrix:
+[CI run](https://github.com/unbraind/pm-web/actions/runs/40225837893).
+
+| CI runtime | Functional tests | Statements / lines | Branches | Functions |
+| --- | --- | --- | --- | --- |
+| Node 22, npm release gate | 843/843 | 93.38% | 84.40% | 96.61% |
+| Node 22, Bun release gate | 843/843 | 93.38% | 84.37% | 96.61% |
+| Node 26, npm release gate | 843/843 | 93.38% | 84.37% | 97.26% |
+| Node 26, Bun release gate | 843/843 | 93.39% | 84.41% | 97.26% |
+
+All four gates retain the configured thresholds and include packed current and
+minimum-host npm/Bun consumers (4/4 per gate), capacity checks (2/2 per gate),
+production audit and release metadata checks. All 63 configured server source
+files are measured; `src/tracker-preflight.ts` is 100% in every dimension.
+CodeQL also passed. The pm-linked targeted suite passed 32/32.
+
+The first local isolated npm gate is preserved as failed evidence: 843 total,
+841 passed, one failed and one canceled. Built Presets acceptance exhausted its
+unchanged 300-second budget; the following source acceptance returned
+`spawn ENOTDIR`. This is the previously tracked `pm-web-qdhx` timing/cancellation
+class. No catalog implementation, timeout or threshold was changed. Both
+catalog scenarios pass in the unchanged retry and in the corrected local Bun
+run. An initial isolated Bun checkout lacked its trusted base reference; that
+setup-only run was invalidated, the base reference was restored, and all four
+identity audits passed before restarting the full gate.
+
+The corrected local isolated Bun release gate completed successfully: 843/843
+functional tests, capacity 2/2, packed consumers 4/4, zero production audit
+vulnerabilities, and all release metadata checks. Coverage was 93.39%
+statements/lines, 84.41% branches and 97.26% functions.
+
+The unchanged local isolated npm retry also completed successfully: 843/843
+functional tests, capacity 2/2, packed consumers 4/4, zero production audit
+vulnerabilities, and all release metadata checks. Coverage was 93.39%
+statements/lines, 84.38% branches and 97.26% functions. Local commands were
+`env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 npm run release:check`
+and the equivalent `bun run release:check` in an isolated checkout with its own
+test database. The earlier failure remains evidence of the open timing risk.
