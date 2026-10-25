@@ -17,7 +17,10 @@
     "examples/agent-context.ts",
     "docs/idempotency-replay.md",
     "docs/contract-explorer.md",
-    "examples/contract-explorer.ts"
+    "examples/contract-explorer.ts",
+    "docs/resume-packets.md",
+    "docs/resume-packets-validation.md",
+    "examples/resume-packets.ts"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -145,13 +148,16 @@
       "docs/decision-inbox.md",
       "docs/agent-context.md",
       "docs/idempotency-replay.md",
-      "docs/contract-explorer.md"
+      "docs/contract-explorer.md",
+      "docs/resume-packets.md",
+      "docs/resume-packets-validation.md"
     ],
     "examples": [
       "README.md",
       "examples/decision-inbox.ts",
       "examples/agent-context.ts",
-      "examples/contract-explorer.ts"
+      "examples/contract-explorer.ts",
+      "examples/resume-packets.ts"
     ]
   },
   "private": false,

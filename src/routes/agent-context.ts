@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { getProjectDir } from '../services/pm-runner.ts';
+import { buildResumePacket } from '../services/resume-packets.ts';
 import type { Router, Response } from 'express';
 import type { AuthRequest } from '../middleware/auth.ts';
 import { verifyProjectAccess } from './projects.ts';
@@ -12,7 +15,7 @@ function uuid(value: unknown): string {
 }
 
 /** Recheck project access and packet consent on every request; generic pm reads never see the packet store. */
-async function contextRoute(req: AuthRequest, res: Response, action: 'list' | 'get' | 'publish' | 'revoke'): Promise<void> {
+async function contextRoute(req: AuthRequest, res: Response, action: 'list' | 'get' | 'publish' | 'revoke' | 'resume'): Promise<void> {
   res.setHeader('Cache-Control', 'no-store, private');
   try {
     const principal = req.user!.userId;
@@ -21,7 +24,10 @@ async function contextRoute(req: AuthRequest, res: Response, action: 'list' | 'g
     if (!access) hiddenContext();
     if (action === 'publish' && access.permission !== 'edit') throw new AgentContextError('view_only', 'Ask a project editor to publish a consented packet.', 403);
     const body = req.body as Record<string, unknown> | undefined;
-    const result = action === 'list' ? await listAgentContexts(project, principal, req.query.offset === undefined ? 0 : typeof req.query.offset === 'string' && /^\d+$/.test(req.query.offset) ? Number(req.query.offset) : Number.NaN)
+    const result = action === 'resume' ? await buildResumePacket(path.join(getProjectDir(access.ownerUserId, access.slug), '.agents', 'pm'), { project, principal, id: uuid(routeParam(req, 'packetId')), revision: uuid(req.query.revision) }, { ...(req.query.cursor === undefined ? {} : { cursor: typeof req.query.cursor === 'string' ? req.query.cursor : '' }), budget: req.query.budget === undefined ? 12288 : Number(req.query.budget) }, async () => {
+      if (!await verifyProjectAccess(principal, project)) hiddenContext();
+      return getAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(req.query.revision));
+    }) : action === 'list' ? await listAgentContexts(project, principal, req.query.offset === undefined ? 0 : typeof req.query.offset === 'string' && /^\d+$/.test(req.query.offset) ? Number(req.query.offset) : Number.NaN)
       : action === 'get' ? await getAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(req.query.revision))
       : action === 'revoke' ? await revokeAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(body?.revision))
       : await publishAgentContext(project, principal, body, body?.id === undefined && body?.revision === undefined ? undefined : { id: uuid(body?.id), revision: uuid(body?.revision) });
@@ -35,6 +41,7 @@ async function contextRoute(req: AuthRequest, res: Response, action: 'list' | 'g
 /** Install authenticated scope routes before the general tracker command dispatcher. */
 export function registerAgentContextRoutes(router: Router): void {
   router.get('/agent-context', (req: AuthRequest, res) => contextRoute(req, res, 'list'));
+  router.get('/agent-context/:packetId/resume', (req: AuthRequest, res) => contextRoute(req, res, 'resume'));
   router.get('/agent-context/:packetId', (req: AuthRequest, res) => contextRoute(req, res, 'get'));
   router.post('/agent-context', (req: AuthRequest, res) => contextRoute(req, res, 'publish'));
   router.delete('/agent-context/:packetId', (req: AuthRequest, res) => contextRoute(req, res, 'revoke'));

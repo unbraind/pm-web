@@ -9,6 +9,8 @@ export async function runAgentContextCommand(ctx, action) {
         const project = String(ctx.options.project);
         if (action === 'list')
             return await client.list(project, ctx.options.offset === undefined ? 0 : Number(ctx.options.offset));
+        if (action === 'resume')
+            return await client.resume(project, String(ctx.options.id ?? ''), String(ctx.options.revision ?? ''), ctx.options.cursor === undefined ? undefined : String(ctx.options.cursor), ctx.options.budget === undefined ? 12288 : Number(ctx.options.budget));
         if (action === 'get')
             return await client.get(project, String(ctx.options.id ?? ''), String(ctx.options.revision ?? ''));
         if (action === 'revoke')
@@ -29,9 +31,9 @@ export async function runAgentContextCommand(ctx, action) {
 }
 /** Register bounded native TOON/JSON operations through the core extension output renderer. */
 export function registerAgentContextCommands(api) {
-    for (const action of ['list', 'get', 'publish', 'revoke']) {
-        api.registerCommand({ name: action === 'list' ? 'web agent-context' : `web agent-context ${action}`, description: `${action} explicitly consented agent context snapshots.`, intent: 'Inspect current questions, served receipts and unresolved gaps in an authorized scope.', examples: [`pm web agent-context${action === 'list' ? '' : ` ${action}`} --url https://pm.example.test --project <uuid> --json`],
-            flags: ['url', 'project', 'id', 'revision', 'input', 'offset'].map(name => ({ long: `--${name}`, value_name: name, description: name === 'input' ? 'Explicitly consented packet JSON (publish)' : `${name} binding; use the authorized list for packet id and revision` })), run: ctx => runAgentContextCommand(ctx, action) });
+    for (const action of ['list', 'get', 'publish', 'revoke', 'resume']) {
+        api.registerCommand({ ...(action === 'resume' ? { read_output: { row_keys: ['changes'] } } : {}), name: action === 'list' ? 'web agent-context' : `web agent-context ${action}`, description: `${action} explicitly consented agent context snapshots.`, intent: 'Inspect current questions, served receipts and unresolved gaps in an authorized scope.', examples: [`pm web agent-context${action === 'list' ? '' : ` ${action}`} --url https://pm.example.test --project <uuid> --json`],
+            flags: ['url', 'project', 'id', 'revision', 'input', 'offset', 'cursor', 'budget'].map(name => ({ long: `--${name}`, value_name: name, description: name === 'input' ? 'Explicitly consented packet JSON (publish)' : `${name} binding; use the authorized list for packet id and revision` })), run: ctx => runAgentContextCommand(ctx, action) });
     }
 }
 //# sourceMappingURL=agent-context-commands.js.map

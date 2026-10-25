@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { getProjectDir } from '../services/pm-runner.js';
+import { buildResumePacket } from '../services/resume-packets.js';
 import { verifyProjectAccess } from './projects.js';
 import { routeParam } from './route-params.js';
 import { AgentContextError } from '../agent-context.js';
@@ -20,7 +23,11 @@ async function contextRoute(req, res, action) {
         if (action === 'publish' && access.permission !== 'edit')
             throw new AgentContextError('view_only', 'Ask a project editor to publish a consented packet.', 403);
         const body = req.body;
-        const result = action === 'list' ? await listAgentContexts(project, principal, req.query.offset === undefined ? 0 : typeof req.query.offset === 'string' && /^\d+$/.test(req.query.offset) ? Number(req.query.offset) : Number.NaN)
+        const result = action === 'resume' ? await buildResumePacket(path.join(getProjectDir(access.ownerUserId, access.slug), '.agents', 'pm'), { project, principal, id: uuid(routeParam(req, 'packetId')), revision: uuid(req.query.revision) }, { ...(req.query.cursor === undefined ? {} : { cursor: typeof req.query.cursor === 'string' ? req.query.cursor : '' }), budget: req.query.budget === undefined ? 12288 : Number(req.query.budget) }, async () => {
+            if (!await verifyProjectAccess(principal, project))
+                hiddenContext();
+            return getAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(req.query.revision));
+        }) : action === 'list' ? await listAgentContexts(project, principal, req.query.offset === undefined ? 0 : typeof req.query.offset === 'string' && /^\d+$/.test(req.query.offset) ? Number(req.query.offset) : Number.NaN)
             : action === 'get' ? await getAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(req.query.revision))
                 : action === 'revoke' ? await revokeAgentContext(project, principal, uuid(routeParam(req, 'packetId')), uuid(body?.revision))
                     : await publishAgentContext(project, principal, body, body?.id === undefined && body?.revision === undefined ? undefined : { id: uuid(body?.id), revision: uuid(body?.revision) });
@@ -34,6 +41,7 @@ async function contextRoute(req, res, action) {
 /** Install authenticated scope routes before the general tracker command dispatcher. */
 export function registerAgentContextRoutes(router) {
     router.get('/agent-context', (req, res) => contextRoute(req, res, 'list'));
+    router.get('/agent-context/:packetId/resume', (req, res) => contextRoute(req, res, 'resume'));
     router.get('/agent-context/:packetId', (req, res) => contextRoute(req, res, 'get'));
     router.post('/agent-context', (req, res) => contextRoute(req, res, 'publish'));
     router.delete('/agent-context/:packetId', (req, res) => contextRoute(req, res, 'revoke'));

@@ -2,12 +2,13 @@ import { createPmCliExpectedError, EXIT_CODE, type CommandHandlerContext, type E
 import { AgentContextClient, AgentContextError, type AgentContextInput } from './agent-context.ts';
 
 /** Dispatch an authenticated remote operation; the local tracker needs no git or database. */
-export async function runAgentContextCommand(ctx: CommandHandlerContext, action: 'list' | 'get' | 'publish' | 'revoke'): Promise<unknown> {
+export async function runAgentContextCommand(ctx: CommandHandlerContext, action: 'list' | 'get' | 'publish' | 'revoke' | 'resume'): Promise<unknown> {
   try {
     if (!process.env.PM_WEB_TOKEN || !ctx.options.url || !ctx.options.project) throw new AgentContextError('invalid_input', 'Set PM_WEB_TOKEN and pass --url and --project for an authorized pm-web project.', 400);
     const client = new AgentContextClient(String(ctx.options.url), process.env.PM_WEB_TOKEN);
     const project = String(ctx.options.project);
     if (action === 'list') return await client.list(project, ctx.options.offset === undefined ? 0 : Number(ctx.options.offset));
+    if (action === 'resume') return await client.resume(project, String(ctx.options.id ?? ''), String(ctx.options.revision ?? ''), ctx.options.cursor === undefined ? undefined : String(ctx.options.cursor), ctx.options.budget === undefined ? 12288 : Number(ctx.options.budget));
     if (action === 'get') return await client.get(project, String(ctx.options.id ?? ''), String(ctx.options.revision ?? ''));
     if (action === 'revoke') return await client.revoke(project, String(ctx.options.id ?? ''), String(ctx.options.revision ?? ''));
     let input: AgentContextInput;
@@ -21,8 +22,8 @@ export async function runAgentContextCommand(ctx: CommandHandlerContext, action:
 
 /** Register bounded native TOON/JSON operations through the core extension output renderer. */
 export function registerAgentContextCommands(api: ExtensionApi): void {
-  for (const action of ['list', 'get', 'publish', 'revoke'] as const) {
-    api.registerCommand({ name: action === 'list' ? 'web agent-context' : `web agent-context ${action}`, description: `${action} explicitly consented agent context snapshots.`, intent: 'Inspect current questions, served receipts and unresolved gaps in an authorized scope.', examples: [`pm web agent-context${action === 'list' ? '' : ` ${action}`} --url https://pm.example.test --project <uuid> --json`],
-      flags: ['url', 'project', 'id', 'revision', 'input', 'offset'].map(name => ({ long: `--${name}`, value_name: name, description: name === 'input' ? 'Explicitly consented packet JSON (publish)' : `${name} binding; use the authorized list for packet id and revision` })), run: ctx => runAgentContextCommand(ctx, action) });
+  for (const action of ['list', 'get', 'publish', 'revoke', 'resume'] as const) {
+    api.registerCommand({ ...(action === 'resume' ? { read_output: { row_keys: ['changes'] } } : {}), name: action === 'list' ? 'web agent-context' : `web agent-context ${action}`, description: `${action} explicitly consented agent context snapshots.`, intent: 'Inspect current questions, served receipts and unresolved gaps in an authorized scope.', examples: [`pm web agent-context${action === 'list' ? '' : ` ${action}`} --url https://pm.example.test --project <uuid> --json`],
+      flags: ['url', 'project', 'id', 'revision', 'input', 'offset', 'cursor', 'budget'].map(name => ({ long: `--${name}`, value_name: name, description: name === 'input' ? 'Explicitly consented packet JSON (publish)' : `${name} binding; use the authorized list for packet id and revision` })), run: ctx => runAgentContextCommand(ctx, action) });
   }
 }
