@@ -97,7 +97,7 @@ test('revocation and revision replacement win at every asynchronous transition b
   const f = await fixture(t);
   const steps: string[] = [];
   await f.resume(undefined, undefined, async name => { steps.push(name); });
-  for (const boundary of [...new Set(steps)]) {
+  for (const [position, boundary] of steps.entries()) {
     for (const competing of ['audience', 'membership', 'revision', 'peer'] as const) {
       const scope = await publishAgentContext(f.project.id, f.owner.id, { ...f.scope, viewers: [f.viewer.id] });
       const binding = { ...f.binding, id: scope.id, revision: scope.revision };
@@ -106,10 +106,11 @@ test('revocation and revision replacement win at every asynchronous transition b
         return getAgentContext(f.project.id, f.viewer.id, scope.id, binding.revision);
       };
       const initial = await buildResumePacket(f.pmRoot, binding, {}, authorize);
-      await f.pm.update(f.a, { title: `${boundary}-${competing}` });
-      let injected = false;
+      await f.pm.update(f.a, { title: `${position}-${boundary}-${competing}` });
+      let injected = false, observed = 0;
       const run = buildResumePacket(f.pmRoot, binding, { cursor: initial.cursor }, authorize, async name => {
-        if (injected || name !== boundary) return; injected = true;
+        if (observed++ !== position) return;
+        assert.equal(name, boundary); injected = true;
         if (competing === 'membership') await pool.query('DELETE FROM pm_project_shares WHERE project_id=$1 AND shared_with_user_id=$2', [f.project.id, f.viewer.id]);
         else if (competing === 'audience') await revokeAgentContext(f.project.id, f.owner.id, scope.id, scope.revision);
         else if (competing === 'revision') await publishAgentContext(f.project.id, f.owner.id, { ...scope, question: 'Replacement question' }, scope);

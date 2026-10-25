@@ -38,7 +38,8 @@ import, export or sync writer.
 
 Deterministic interleavings inject audience revocation, project-share removal,
 question replacement and a successful peer resume at every asynchronous service
-boundary on one non-git tracker. The service owns no claim, lease, checkpoint or
+boundary occurrence on one non-git tracker, including the second selected-stream
+read (nine boundary occurrences and 36 competing schedules). The service owns no claim, lease, checkpoint or
 outbox record: concurrent readers cannot delete, overwrite or falsely claim a
 peer's state. Existing context publication retains its database compare-and-swap.
 
