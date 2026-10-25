@@ -678,3 +678,21 @@ See [availability, typed refusals and HTTP routes](docs/contract-explorer.md) an
 Backend inspection and input previews work in plain initialized trackers with no
 Git executable. An operation advertised by a package may still need Git when
 executed separately; the explorer only reads its contract.
+
+## Authorized resume change packets
+
+After reviewing an authorized question and its publisher-selected items, admit a
+baseline with `pm web agent-context resume`. On reconnect, pass the last accepted
+`--cursor` to retrieve only selected changes with explicit missed-event,
+completeness and byte-budget receipts. The typed `AgentContextClient.resume`
+and Agent context UI use the same endpoint. Revoked access blocks future reads
+and clears managed packet views; changed or missing history requires
+reorientation. No second context store is created. See
+[the resume contract and CLI examples](docs/resume-packets.md) and
+[typed SDK example](examples/resume-packets.ts).
+
+### Without git
+
+Resume admission, catch-up and native TOON/JSON commands work in plain trackers
+without a Git executable. The HTTP server requires its normal PostgreSQL
+configuration and current project authorization.
