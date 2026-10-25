@@ -1,0 +1,31 @@
+id: pm-web-ireq
+title: Use the pm SDK for workspace settings and initialization checks
+description: "Replace the two 2026-10-25 audit findings with SDK read-snapshot settings writes and explicit-root tracker preflight. Preserve opaque settings, concurrent changes, privacy and integrity; prove behavior against public tracker copies and record per-replacement revert evidence. Related SDK adoption: pm-web-8pml and pm-web-cvny."
+type: Chore
+status: in_progress
+priority: 2
+tags[2]: refactor,sdk
+created_at: "2026-10-25T19:08:00.435Z"
+updated_at: "2026-10-25T19:19:07.242Z"
+assignee: codex-agent
+claim_principal: codex-agent
+author: codex-agent
+dependencies[2]{id,kind,created_at,author,source_kind,author_source}:
+  pm-web-8pml,related,"2026-10-25T19:19:06.103Z",codex-agent,"cli:update:dep",detected
+  pm-web-cvny,related,"2026-10-25T19:19:06.103Z",codex-agent,"cli:update:dep",detected
+comments[3]{created_at,author,text}:
+  "2026-10-25T19:08:18.893Z",codex-agent,"Audit scope: configureLocalOllamaSearch -> SDK readSettings/writeSettings snapshot delta protocol; doctor and projectExists -> SDK assertInitializedTracker with explicit tracker roots. Related SDK-adoption items: pm-web-8pml and pm-web-cvny. Keep pinned SDK 2026.10.20; no telemetry edits. Neither replaced path previously verified item history; retain existing verified item reads and add a cache-primed corruption regression. Differential and behavioral revert proofs will use disposable non-git trackers."
+  "2026-10-25T19:16:09.482Z",codex-agent,"Revert proofs: settings body alone restored from baseline: node --test --test-name-pattern=^Ollama test/sdk-adoption.test.ts fails 4/4 (audit, SDK lock wait, primed-cache corruption detection, invalid settings refusal). projectExists alone restored: node --test --test-name-pattern=\"^SDK preflight\" test/sdk-adoption.test.ts fails 1/1 on a searchable but unreadable root. Baseline doctor restored and rebuilt: node --test --test-name-pattern=\"^web doctor\" test/sdk-adoption.test.ts fails 1/1 on a tasks-only root. Candidate restored and rebuilt; seven adoption regressions pass. Test-only fixture seeding uses audited SDK writes; no production history is rewritten. Intentional stricter behavior and reproducible differential runner are in docs/sdk-adoption-2026-10-25.md."
+  "2026-10-25T19:17:51.265Z",codex-agent,"Differential proof passed on three real public tracker snapshots: pm-web, pm-slack and pm-vcs. Baseline build 74ee868 versus candidate: parsed settings values and initialized/present/missing project outputs identical. Assertions enumerate four intended SDK differences: tasks-only roots refused; searchable but unreadable roots refused; schema-invalid settings refused; one verified settings audit entry appended. No source tracker was written. Typecheck (server/frontend/tests), lint, duplication (0 percent), and docstring gates pass. Removed local settings persistence/merge and marker algorithms; SDK pin and coverage thresholds unchanged."
+files[6]{path,scope}:
+  scripts/sdk-adoption-differential.ts,project
+  src/index.ts,project
+  src/services/pm-runner.ts,project
+  src/tracker-preflight.ts,project
+  test/helpers/sdk-adoption-no-git.ts,project
+  test/sdk-adoption.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/sdk-adoption.test.ts test/pm-runner.test.ts test/item-history-at.test.ts test/extension.test.ts,project,codex-agent,"2026-10-25T19:15:53.566Z",local_mutation,refactor/sdk-adoption-1025
+docs[1]{path,scope}:
+  docs/sdk-adoption-2026-10-25.md,project
+body: ""
