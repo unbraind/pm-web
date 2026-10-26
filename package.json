@@ -1,6 +1,6 @@
 {
   "name": "@unbrained/pm-web",
-  "version": "2026.10.25",
+  "version": "2026.10.26",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
@@ -104,13 +104,16 @@
   "bugs": {
     "url": "https://github.com/unbraind/pm-web/issues"
   },
-  "homepage": "https://github.com/unbraind/pm-web#readme",
+  "homepage": "https://pm-cli.unbrained.dev/packages/pm-web",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "engines": {
     "node": ">=22.18.0"
   },
-  "author": "@unbraind",
+  "author": {
+    "name": "unbrained",
+    "url": "https://unbrained.dev/about"
+  },
   "license": "MIT",
   "keywords": [
     "pm-cli",
