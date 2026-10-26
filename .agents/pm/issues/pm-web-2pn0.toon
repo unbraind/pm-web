@@ -1,0 +1,21 @@
+id: pm-web-2pn0
+title: Main CI fails the changelog gate after the 2026-10-26 closeout merge (PR #266 merged after the release commit)
+description: "The closure PR #266 (2d0c1a1) merged after release commit 1899a5b 'Release pm-web v2026.10.26', so the full npm release gate reports 'Changelog is out of date: CHANGELOG.md' on both test (22) and test (26). Regenerate CHANGELOG.md with the repo's changelog:full script and land it via PR."
+type: Issue
+status: in_progress
+priority: 1
+tags: []
+created_at: "2026-10-26T17:15:46.927Z"
+updated_at: "2026-10-26T17:16:45.063Z"
+assignee: pi-agent
+claim_principal: pi-agent
+author: pi-agent
+comments[1]{created_at,author,text}:
+  "2026-10-26T17:15:55.931Z",pi-agent,"Plan: fetch all tags, regenerate CHANGELOG.md via npm run changelog:full, prove changelog:check passes, commit only CHANGELOG.md as SteveBot, push fix/changelog-after-closeout-1026, open PR linking the failing checks."
+files[1]{path,scope}:
+  CHANGELOG.md,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run changelog:check",project,pi-agent,"2026-10-26T17:16:44.989Z",local_mutation,fix/changelog-after-closeout-1026
+docs[1]{path,scope}:
+  "https://github.com/unbraind/pm-web/actions",project
+body: ""
