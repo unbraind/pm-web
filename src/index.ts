@@ -306,7 +306,7 @@ function processAlive(pid: number): boolean {
 
 export default defineExtension({
   name: "pm-web",
-  version: "2026.10.25",
+  version: "2026.10.26",
 
   activate(api: ExtensionApi) {
     registerInboxCommands(api);
