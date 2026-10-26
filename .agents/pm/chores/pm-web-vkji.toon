@@ -6,19 +6,24 @@ status: in_progress
 priority: 2
 tags[1]: "gh:unbraind/pm-web#262"
 created_at: "2026-10-26T06:52:14.532Z"
-updated_at: "2026-10-26T06:53:58.595Z"
+updated_at: "2026-10-26T07:33:51.488Z"
 author: codex-agent
-acceptance_criteria: Package homepage matches the hosted pm-web website explicitly requested in issue #262; author links to the about page; repository and bugs remain unchanged; GitHub website matches; local manifest checks pass.
-comments[3]{created_at,author,text}:
+acceptance_criteria: Package homepage points to the pm-web catalog page as required by the regression-test follow-up; author links to the about page; repository and bugs remain unchanged; GitHub website matches; four metadata assertions pass and homepage/author reverts fail.
+comments[6]{created_at,author,text}:
   "2026-10-26T06:52:19.452Z",codex-agent,"Plan: update homepage and author in package.json, preserve repository and bugs, set and verify the GitHub website, run local manifest checks, and regenerate the changelog. CI provides the full gate; npm metadata changes on the next release."
   "2026-10-26T06:52:55.292Z",codex-agent,"Verified GitHub website: https://pm-web.unbrained.dev. Local linked checks passed: npm run lint; npm run typecheck; npm run pack:dry-run. Package metadata now matches the owner request and repository/bugs are unchanged. Metadata-only change: no runtime behavior changes, so behavioral revert proof is not applicable. Full release gates are delegated to CI as requested; no release or merge performed."
   "2026-10-26T06:53:57.300Z",codex-agent,"Issue #262 explicitly requests https://pm-web.unbrained.dev for both npm homepage and GitHub website. This package-specific hosted-site URL takes precedence over the fleet catalog default. All four local checks passed; the tracker acceptance criteria now describe this exception accurately."
-files[1]{path,scope}:
+  "2026-10-26T07:33:27.485Z",codex-agent,"Review follow-up: the previous typecheck and pack checks did not guard metadata values. Add four node:test assertions for the exact homepage, linked author, repository, and bugs fields; prove independent homepage and author reverts fail; restore metadata; push and wait for CI on the final commit."
+  "2026-10-26T07:33:31.114Z",codex-agent,"The follow-up explicitly requires the catalog URL for all listed packages. Align pm-web package metadata, GitHub website, and the regression assertion to https://pm-cli.unbrained.dev/packages/pm-web; this supersedes the earlier issue-specific hosted-site exception."
+  "2026-10-26T07:33:50.540Z",codex-agent,"Revert-sensitive proof: node --test test/package-metadata.test.ts passes 4/4 assertions. Reverting only homepage to its original README URL fails exactly the homepage assertion (3 pass, 1 fail, exit 1). Reverting only author to its original string fails exactly the author assertion (3 pass, 1 fail, exit 1). Restored package.json byte-for-byte and reran: 4 pass, 0 fail. The existing test and coverage globs include test/package-metadata.test.ts, and release:check invokes coverage. Test compilation and lint passed. Full npm/Bun release gates will be checked in CI."
+files[2]{path,scope}:
   package.json,project
-tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  test/package-metadata.test.ts,project
+tests[4]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   npm run lint,project,codex-agent,"2026-10-26T06:52:26.982Z",local_mutation,chore/npm-homepage-author
   npm run typecheck,project,codex-agent,"2026-10-26T06:52:28.845Z",local_mutation,chore/npm-homepage-author
   "npm run pack:dry-run",project,codex-agent,"2026-10-26T06:52:30.727Z",local_mutation,chore/npm-homepage-author
+  node --test test/package-metadata.test.ts,project,codex-agent,"2026-10-26T07:33:33.613Z",local_mutation,chore/npm-homepage-author
 docs[1]{path,scope}:
   CHANGELOG.md,project
 body: ""

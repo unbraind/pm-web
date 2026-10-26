@@ -104,7 +104,7 @@
   "bugs": {
     "url": "https://github.com/unbraind/pm-web/issues"
   },
-  "homepage": "https://pm-web.unbrained.dev",
+  "homepage": "https://pm-cli.unbrained.dev/packages/pm-web",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "engines": {
