@@ -6,6 +6,10 @@
 
 - Resume authorized question changes from an admitted cursor ([pm-web-resume-packets](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-resume-packets.toon))
 
+### Changed
+
+- Use the pm SDK for workspace settings and initialization checks ([pm-web-ireq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-ireq.toon))
+
 ## 2026.10.25 - 2026-10-25
 
 ### Added
