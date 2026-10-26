@@ -104,13 +104,16 @@
   "bugs": {
     "url": "https://github.com/unbraind/pm-web/issues"
   },
-  "homepage": "https://github.com/unbraind/pm-web#readme",
+  "homepage": "https://pm-web.unbrained.dev",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "engines": {
     "node": ">=22.18.0"
   },
-  "author": "@unbraind",
+  "author": {
+    "name": "unbrained",
+    "url": "https://unbrained.dev/about"
+  },
   "license": "MIT",
   "keywords": [
     "pm-cli",
