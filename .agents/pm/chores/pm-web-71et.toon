@@ -1,0 +1,22 @@
+id: pm-web-71et
+title: "Make the pm-github 2026.10.19 workflow ref bump pass: the Dependabot pin update left the pm-github-version input behind"
+description: "Dependabot bumped the canonical pm-github reusable workflow callers to release 2026.10.19 (sha pin and '# pm-github 2026.10.19' release comment) but left the 'pm-github-version' workflow input at 2026.10.16, so the workflow pin policy test fails with 'the workflow release and package version must match'. Move the input to 2026.10.19 so the sha pin, release comment and package input stay consistent as one reviewed pin update."
+type: Chore
+status: in_progress
+priority: 2
+tags[2]: "gh:unbraind/pm-web#254","gh:unbraind/pm-web#255"
+created_at: "2026-10-26T15:10:49.216Z"
+updated_at: "2026-10-26T15:12:25.451Z"
+assignee: pi-glm
+claim_principal: pi-glm
+author: pi-glm
+comments[2]{created_at,author,text}:
+  "2026-10-26T15:11:02.870Z",pi-glm,"Cause: the Dependabot workflow ref bump (2026.10.16 -> 2026.10.19) updated the sha pin and the release comment on both canonical pm-github callers but did not update the 'pm-github-version' reusable workflow input, so the pin policy test fails on 'the workflow release and package version must match' (expected 2026.10.19, actual 2026.10.16). The pinned commit is the pm-github v2026.10.19 release commit, so the bump is a valid reviewed release. Fix: move the 'pm-github-version' input to 2026.10.19 on each bumped caller so pin, comment and package input match. The pin policy itself is unchanged and still enforced."
+  "2026-10-26T15:12:25.450Z",pi-glm,"The closeout caller PR got the same fix: the Dependabot bump moved the pm-github-closeout sha pin and release comment to 2026.10.19 while leaving its 'pm-github-version' input at 2026.10.16; the input now matches the pinned 2026.10.19 release. Verified with the same workflow pin policy tests: 8 tests, 8 pass."
+files[3]{path,scope}:
+  .github/workflows/pm-github-closeout.yml,project
+  .github/workflows/pm-github-sync.yml,project
+  test/workflow-security.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind}}:
+  node --test test/workflow-security.test.ts test/workflow-update-automation.test.ts,project,pi-glm,"2026-10-26T15:11:04.995Z",local_mutation
+body: ""
