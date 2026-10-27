@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { agentSessionEnvironment, certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadataLight, stripGlobalBootstrapTokens, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { agentSessionEnvironment, getSettingsPath, pathExists, readSettingsWithMetadata, writeSettings, certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadataLight, stripGlobalBootstrapTokens, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { workspaceInitialized } from "../tracker-preflight.js";
 import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
 // shape and the typed error class without reaching into the SDK package map.
@@ -274,58 +275,44 @@ export async function initProject(userId, slug, prefix) {
     ], { timeoutMs: 15_000 }));
     if (!result.ok)
         throw new Error(result.stderr || "pm init failed");
-    configureLocalOllamaSearch(dir);
+    await configureLocalOllamaSearch(dir);
     await ensureGraphExtension(userId, slug);
 }
 /**
  * Write local Ollama search settings into a project's `settings.json`.
  *
- * A no-op when the settings file does not yet exist. Otherwise merges in the
- * configured embedding model (`PM_OLLAMA_MODEL`), Ollama base URL, and the
- * LanceDB vector-store path, preserving any existing keys, and writes the file
- * back pretty-printed.
+ * A no-op when settings do not exist. Applies only the Ollama/LanceDB delta to
+ * an SDK read snapshot; the SDK preserves opaque keys, serializes concurrent
+ * writes and appends verified workspace history under its workspace lock.
  *
  * @param projectDir - The project workspace directory.
  */
-function configureLocalOllamaSearch(projectDir) {
-    const settingsPath = path.join(projectDir, ".agents", "pm", "settings.json");
-    if (!fs.existsSync(settingsPath))
+export async function configureLocalOllamaSearch(projectDir) {
+    const pmRoot = path.join(projectDir, ".agents", "pm");
+    if (!await pathExists(getSettingsPath(pmRoot)))
         return;
-    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-    settings.search = {
-        ...(settings.search ?? {}),
-        embedding_model: OLLAMA_EMBEDDING_MODEL,
-    };
-    settings.providers = {
-        ...(settings.providers ?? {}),
-        ollama: {
-            ...(settings.providers?.ollama ?? {}),
-            base_url: OLLAMA_BASE_URL,
-            model: OLLAMA_EMBEDDING_MODEL,
-        },
-    };
-    settings.vector_store = {
-        ...(settings.vector_store ?? {}),
-        lancedb: {
-            ...(settings.vector_store?.lancedb ?? {}),
-            path: ".agents/pm/search/lancedb/",
-        },
-    };
-    fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+    const { settings, warnings } = await readSettingsWithMetadata(pmRoot);
+    if (warnings.some(warning => /^settings_read_(invalid_json|invalid_schema|merge_failed)(?::|$)/.test(warning))) {
+        throw new PmCliError("Cannot configure Ollama search: repair invalid tracker settings first.", EXIT_CODE.USAGE);
+    }
+    settings.search.embedding_model = OLLAMA_EMBEDDING_MODEL;
+    settings.providers.ollama.base_url = OLLAMA_BASE_URL;
+    settings.providers.ollama.model = OLLAMA_EMBEDDING_MODEL;
+    settings.vector_store.lancedb.path = ".agents/pm/search/lancedb/";
+    await writeSettings(pmRoot, settings, "web.configure-local-ollama-search");
 }
 /**
  * Report whether a project workspace is already initialized on disk.
  *
- * True when the workspace's `.agents/pm/settings.json` exists, the marker `pm
- * init` writes. Used to decide whether to init before use.
+ * Uses the SDK preflight against this project's explicit tracker root. Missing,
+ * non-directory and unreadable roots return false without exposing their paths.
  *
  * @param userId - The owning user's id.
  * @param slug - The project slug.
- * @returns True when the workspace appears initialized.
+ * @returns True when the SDK admits the workspace as initialized and readable.
  */
 export function projectExists(userId, slug) {
-    const dir = getProjectDir(userId, slug);
-    return fs.existsSync(path.join(dir, ".agents", "pm", "settings.json"));
+    return workspaceInitialized(path.join(getProjectDir(userId, slug), ".agents", "pm"));
 }
 /** Stable pm-web checks that supplement the pm CLI SDK complete-list certificate. */
 export const PM_WEB_COMPLETE_LIST_RECEIPT_FINDINGS = [

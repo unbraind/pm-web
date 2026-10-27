@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Changed
+
+- Use the pm SDK for workspace settings and initialization checks ([pm-web-ireq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-ireq.toon))
+
+## 2026.10.26 - 2026-10-26
+
+### Added
+
+- Resume authorized question changes from an admitted cursor ([pm-web-resume-packets](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-resume-packets.toon))
+
+## 2026.10.25 - 2026-10-25
+
 ### Added
 
 - Inspect backend operations and review inputs without executing changes ([pm-web-zmbx](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-zmbx.toon))

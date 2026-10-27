@@ -47,6 +47,11 @@ export class AgentContextClient {
     }
     /** Retrieve one exact snapshot after current scope and consent checks. */
     get(project, id, revision) { return this.request(project, `/${encodeURIComponent(id)}?revision=${encodeURIComponent(revision)}`, 'GET'); }
+    /** Admit a baseline or resume from the last accepted cursor; no response contents are cached. */
+    resume(project, id, revision, cursor, budget = 12288) {
+        const query = new URLSearchParams({ revision, budget: String(budget), ...(cursor === undefined ? {} : { cursor }) });
+        return this.request(project, `/${encodeURIComponent(id)}/resume?${query}`, 'GET');
+    }
     /** Discover only packets whose explicit audience includes the authenticated principal. */
     list(project, offset = 0) { return this.request(project, `?offset=${offset}`, 'GET'); }
     /** Publish a new snapshot, or replace an owned snapshot against its exact revision. */

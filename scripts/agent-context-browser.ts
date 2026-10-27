@@ -31,7 +31,8 @@ try {
   const pm = new PmClient({ pmRoot: path.join(cwd, '.agents', 'pm'), cwd, noExtensions: true });
   await pm.init('demo', { defaults: true, agentGuidance: 'skip' });
   const sdk = new AgentContextClient(server.url('/'), signToken({ userId: owner, email: 'publisher@example.test' }));
-  const input: AgentContextInput = { agent: 'release-agent', question: 'Do we have enough evidence to approve the release?', consent: true, viewers: [viewer], receipts: [{ source: 'core-output-session', receiptId: 'release-read-session', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:00:00Z', omission: [{ reason: '3 repeated items represented by references', remedy: 'Restore with pm get <item-id> --brief.' }] }, { source: 'pm-context-pack', receiptId: 'review-pack-7', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:02:00Z', omission: [{ reason: 'Full test logs were outside the context budget', remedy: 'Read the linked CI run before approving.' }] }], gaps: [{ reason: 'Independent review is pending', remedy: 'Wait for a reviewer to inspect the exact revision.' }] };
+  const selected = await pm.create({ type: 'Task', title: 'Selected delivery evidence', description: 'Synthetic resume proof', id: 'demo-resume' });
+  const input: AgentContextInput = { items: [selected.item.id], agent: 'release-agent', question: 'Do we have enough evidence to approve the release?', consent: true, viewers: [viewer], receipts: [{ source: 'core-output-session', receiptId: 'release-read-session', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:00:00Z', omission: [{ reason: '3 repeated items represented by references', remedy: 'Restore with pm get <item-id> --brief.' }] }, { source: 'pm-context-pack', receiptId: 'review-pack-7', revision: 'public-snapshot-42', servedAt: '2026-10-23T08:02:00Z', omission: [{ reason: 'Full test logs were outside the context budget', remedy: 'Read the linked CI run before approving.' }] }], gaps: [{ reason: 'Independent review is pending', remedy: 'Wait for a reviewer to inspect the exact revision.' }] };
   const packet = await sdk.publish(project, input);
   await mkdir(output, { recursive: true });
   for (const viewport of [{ width: 1440, height: 1200 }, { width: 390, height: 1900 }]) {
@@ -47,6 +48,16 @@ try {
     const response = await page.request.get(server.url(`/api/projects/${project}/pm/agent-context/${packet.id}?revision=${packet.revision}`));
     assert.equal(response.status(), 200); const api = await response.json() as AgentContextPacket;
     for (const row of [...api.receipts.flatMap(receipt => receipt.omission), ...api.gaps]) { await page.getByText(row.reason, { exact: true }).waitFor(); await page.getByText(row.remedy, { exact: true }).waitFor(); }
+    const resume = page.getByRole('button', { name: 'Admit baseline or resume', exact: true });
+    await resume.click();
+    await page.locator('[data-resume-status]').filter({ hasText: 'Baseline admitted:' }).waitFor();
+    const admitted = await page.locator('[data-cursor]').inputValue(); assert.ok(admitted.length > 40);
+    await pm.update(selected.item.id, { title: `Delivery evidence ${width}` });
+    await resume.click();
+    await page.locator('[data-resume-status]').filter({ hasText: '1 changes; 0 deferred.' }).waitFor();
+    const delta = JSON.parse(await page.locator('[data-changes]').innerText()) as { item: string; operation: string }[];
+    assert.equal(delta.length, 1); assert.equal(delta[0].item, selected.item.id); assert.equal(delta[0].operation, 'update');
+    assert.notEqual(await page.locator('[data-cursor]').inputValue(), admitted);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: path.join(output, `agent-context-${width}.png`), fullPage: true });
     assert.equal(await page.getByRole('button', { name: 'Revoke this packet' }).count(), 0);
@@ -72,6 +83,7 @@ try {
       await sdk.revoke(project, packet.id, packet.revision);
       await page.getByText('Access revoked.', { exact: false }).waitFor({ timeout: 3000 });
       assert.equal(await page.getByText(packet.question, { exact: true }).count(), 0);
+      assert.equal(await page.locator('[data-changes]').count(), 0);
     }
     await context.close();
   }
@@ -125,7 +137,7 @@ try {
       await session.close();
     }
   }
-  console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, queuedRevocation: true, automaticRevocations: revocationCases, horizontalOverflow: false }));
+  console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, queuedRevocation: true, automaticRevocations: revocationCases, horizontalOverflow: false, resumeApiUiParity: true, resumeRevocationPurge: true }));
 } finally {
   await browser.close(); await server.close();
   for (const id of users) await pool.query('DELETE FROM pm_users WHERE id=$1', [id]);

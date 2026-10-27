@@ -1,6 +1,6 @@
 {
   "name": "@unbrained/pm-web",
-  "version": "2026.10.24",
+  "version": "2026.10.26",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
@@ -17,7 +17,10 @@
     "examples/agent-context.ts",
     "docs/idempotency-replay.md",
     "docs/contract-explorer.md",
-    "examples/contract-explorer.ts"
+    "examples/contract-explorer.ts",
+    "docs/resume-packets.md",
+    "docs/resume-packets-validation.md",
+    "examples/resume-packets.ts"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -84,7 +87,7 @@
     "c8": "12.0.0",
     "esbuild": "0.28.2",
     "eslint": "10.13.0",
-    "jscpd": "5.4.1",
+    "jscpd": "5.4.2",
     "playwright-core": "1.64.1",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
     "pm-changelog": "2026.10.20",
@@ -101,13 +104,16 @@
   "bugs": {
     "url": "https://github.com/unbraind/pm-web/issues"
   },
-  "homepage": "https://github.com/unbraind/pm-web#readme",
+  "homepage": "https://pm-cli.unbrained.dev/packages/pm-web",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "engines": {
     "node": ">=22.18.0"
   },
-  "author": "@unbraind",
+  "author": {
+    "name": "unbrained",
+    "url": "https://unbrained.dev/about"
+  },
   "license": "MIT",
   "keywords": [
     "pm-cli",
@@ -145,13 +151,16 @@
       "docs/decision-inbox.md",
       "docs/agent-context.md",
       "docs/idempotency-replay.md",
-      "docs/contract-explorer.md"
+      "docs/contract-explorer.md",
+      "docs/resume-packets.md",
+      "docs/resume-packets-validation.md"
     ],
     "examples": [
       "README.md",
       "examples/decision-inbox.ts",
       "examples/agent-context.ts",
-      "examples/contract-explorer.ts"
+      "examples/contract-explorer.ts",
+      "examples/resume-packets.ts"
     ]
   },
   "private": false,

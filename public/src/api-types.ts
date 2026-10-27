@@ -618,8 +618,17 @@ export interface HistoryRepairResponse {
 }
 /** Receipt-only context snapshot returned after scope, consent and revision checks. */
 export interface AgentContextPacket {
+  items?: string[];
   id: string; revision: string; agent: string; question: string; publisher: string; updatedAt: string;
   consent: true; viewers: string[];
   receipts: { source: string; receiptId: string; revision: string; servedAt: string; omission: { reason: string; remedy: string }[] }[];
   gaps: { reason: string; remedy: string }[];
+}
+
+/** Server-authorized resume references; native contents are fetched separately. */
+export interface ResumePacket {
+  protocol: 'pm-web-resume/v1'; phase: 'admitted' | 'delta'; revision: string; cursor: string;
+  changes: { key: string; item: string; version: number; operation: string; fields: string[]; omittedFields: number }[];
+  receipt: { complete: boolean; missed: number; returned: number; deferred: number; baselineEvents: number; source: string; remedy: string };
+  budget: { bytes: number; ceiling: number };
 }

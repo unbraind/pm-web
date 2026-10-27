@@ -13,6 +13,8 @@ export interface AgentContextEvidence {
 /** A consented snapshot contains receipt metadata only, never raw context or a model conversation. */
 export interface AgentContextInput {
     agent: string;
+    /** Publisher-selected item streams relevant to this question; omission disables resume. */
+    items?: string[];
     question: string;
     consent: true;
     viewers: string[];
@@ -31,7 +33,7 @@ export interface AgentContextPacket extends AgentContextInput {
 }
 /** Stable transport-neutral refusal with an actionable recovery instruction. */
 export declare class AgentContextError extends Error {
-    readonly code: 'invalid_input' | 'view_only' | 'not_found' | 'revision_conflict' | 'unavailable';
+    readonly code: 'invalid_input' | 'view_only' | 'not_found' | 'revision_conflict' | 'unavailable' | 'reorientation_required' | 'budget_too_small';
     readonly remedy: string;
     readonly status: number;
     /** Build a public-safe refusal; storage and credential details never enter the response. */
@@ -53,6 +55,8 @@ export declare class AgentContextClient {
     constructor(baseUrl: string, token: string);
     /** Retrieve one exact snapshot after current scope and consent checks. */
     get(project: string, id: string, revision: string): Promise<AgentContextPacket>;
+    /** Admit a baseline or resume from the last accepted cursor; no response contents are cached. */
+    resume(project: string, id: string, revision: string, cursor?: string, budget?: number): Promise<ResumePacket>;
     /** Discover only packets whose explicit audience includes the authenticated principal. */
     list(project: string, offset?: number): Promise<{
         packets: Pick<AgentContextPacket, 'id' | 'revision' | 'agent' | 'updatedAt'>[];
@@ -70,4 +74,34 @@ export declare class AgentContextClient {
     }>;
     /** Send a bounded authenticated request; redirects cannot forward a credential to a second endpoint. */
     private request;
+}
+/** A bounded change reference; retrieve native state through the authorized project SDK when needed. */
+export interface ResumeChange {
+    key: string;
+    item: string;
+    version: number;
+    operation: string;
+    fields: string[];
+    omittedFields: number;
+}
+/** Explicit admission, missed-event and completeness receipts; cursor metadata contains no item content. */
+export interface ResumePacket {
+    protocol: 'pm-web-resume/v1';
+    phase: 'admitted' | 'delta';
+    revision: string;
+    cursor: string;
+    changes: ResumeChange[];
+    receipt: {
+        complete: boolean;
+        missed: number;
+        returned: number;
+        deferred: number;
+        baselineEvents: number;
+        source: 'sdk-history';
+        remedy: string;
+    };
+    budget: {
+        bytes: number;
+        ceiling: number;
+    };
 }
