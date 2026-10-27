@@ -5,6 +5,11 @@
 ### Changed
 
 - Use the pm SDK for workspace settings and initialization checks ([pm-web-ireq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-ireq.toon))
+- Make the pm-github 2026.10.19 workflow ref bump pass: the Dependabot pin update left the pm-github-version input behind ([pm-web-71et](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-71et.toon))
+
+### Fixed
+
+- Main CI fails the changelog gate after the 2026-10-26 closeout merge (PR \#266 merged after the release commit) ([pm-web-2pn0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-2pn0.toon))
 
 ## 2026.10.26 - 2026-10-26
 
