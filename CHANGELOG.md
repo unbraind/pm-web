@@ -5,6 +5,7 @@
 ### Changed
 
 - Use the pm SDK for workspace settings and initialization checks ([pm-web-ireq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-ireq.toon))
+- Make the pm-github 2026.10.19 workflow ref bump pass: the Dependabot pin update left the pm-github-version input behind ([pm-web-71et](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-71et.toon))
 
 ### Fixed
 

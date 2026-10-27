@@ -6,7 +6,7 @@ status: closed
 priority: 1
 tags: []
 created_at: "2026-10-26T17:15:46.927Z"
-updated_at: "2026-10-27T11:06:18.446Z"
+updated_at: "2026-10-27T11:48:25.163Z"
 closed_at: "2026-10-27T11:03:53.109Z"
 completed_at: "2026-10-26T18:53:45.000Z"
 author: pi-agent
@@ -14,13 +14,14 @@ repro_steps: "On the stale changelog following closeout PR #266 and the 2026.10.
 resolution: Regenerate the release-aware full changelog after the closeout merge so entries occupy the correct release window and release checks pass.
 expected_result: The committed changelog matches generation from fetched release tags and tracker state after the closeout merge.
 actual_result: "Current-main npm run changelog:check passes through pinned pm. The inspected generated changelog and original source-only drift revert prove the corrected placement; final npm/Bun CI on PR #269 passed."
-comments[6]{created_at,author,text}:
+comments[7]{created_at,author,text}:
   "2026-10-26T17:15:55.931Z",pi-agent,"Plan: fetch all tags, regenerate CHANGELOG.md via npm run changelog:full, prove changelog:check passes, commit only CHANGELOG.md as SteveBot, push fix/changelog-after-closeout-1026, open PR linking the failing checks."
   "2026-10-26T18:09:54.616Z",codex-agent,"Resumed the interrupted handoff. Existing commit b63565a and PR #269 are preserved. Verified both Node 22 and Node 26 jobs passed the isolated npm and Bun release gates in CI run 40367202382. Next: reproduce the changelog failure against main, verify regeneration and linked tests, then release this claim without closing or merging."
   "2026-10-26T18:10:56.536Z",codex-agent,"Verification: restoring only main CHANGELOG.md makes npm run changelog:check fail with exit 1 and the expected stale-changelog message; restoring the regenerated file passes. npm run changelog:full completed after fetching all tags. Linked npm run changelog:check passed 1/1 via pm test --run --progress. Existing CI run 40367202382 at b63565a passed npm run release:check and bun run release:check under isolated Git identity on Node 22 and 26: each gate reported 847/847 coverage tests and 2/2 capacity tests, with no failures, cancellations or skips in those suites. CodeQL passed. Automated review skips provide no review approval. The final tracker-only handoff commit will receive a fresh CI run; final results will be reported on the existing PR. No source change, new item, duplicate PR, closure or merge."
   "2026-10-27T11:01:55.385Z",codex-agent,"Closure audit of current main: The merged PR regenerated the full changelog after the closeout/release ordering change, moving pm-web-ireq into the correct Unreleased window. Current-main CHANGELOG.md was inspected against fetched tags. The original PR records drift failure when only the stale changelog is restored and final Node 22/26 npm/Bun CI success with 847/847 source tests and 2/2 capacity tests in each gate. Current-main changelog checking is repeated before closure, then regenerated again after all tracker mutations. Delivered by PR #269, merge commit 18fb18ff541f60588c301bd51400028ba3460a53, merged_at 2026-10-26T18:53:45Z. Focused verification follows; full npm and Bun release gates are delegated to PR CI for this tracker-only change."
   "2026-10-27T11:03:31.698Z",codex-agent,"Verified current main with `npm run changelog:check` via the pinned pm linked runner: PASS. The focused command exited successfully. Current-main npm run changelog:check passes through pinned pm. The inspected generated changelog and original source-only drift revert prove the corrected placement; final npm/Bun CI on PR #269 passed."
   "2026-10-27T11:06:18.439Z",codex-agent,"Closure validation: project tracker health passes strictly with extensions disabled. Default health reports only the existing global extension version skew (extension_host_pm_cli_version_skew:2026.10.20:2026.10.27:pm-github). This local extension warning is separate from delivered acceptance and is not represented as a passing default health result. Dependency pins and global extensions are unchanged."
+  "2026-10-27T11:48:25.163Z",codex-agent,"Closure validation: project tracker health passes strictly with extensions disabled. Default health reports only the existing global extension version skew (extension_host_pm_cli_version_skew:2026.10.20:2026.10.27:pm-github). This local extension warning is separate from delivered acceptance and is not represented as a passing default health result. Dependency pins and global extensions are unchanged."
 files[1]{path,scope}:
   CHANGELOG.md,project
 tests[2]:
