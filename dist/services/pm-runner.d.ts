@@ -70,16 +70,26 @@ export declare function resolveProjectDir(projectId: string): Promise<string | n
  */
 export declare function initProject(userId: string, slug: string, prefix: string): Promise<void>;
 /**
+ * Write local Ollama search settings into a project's `settings.json`.
+ *
+ * A no-op when settings do not exist. Applies only the Ollama/LanceDB delta to
+ * an SDK read snapshot; the SDK preserves opaque keys, serializes concurrent
+ * writes and appends verified workspace history under its workspace lock.
+ *
+ * @param projectDir - The project workspace directory.
+ */
+export declare function configureLocalOllamaSearch(projectDir: string): Promise<void>;
+/**
  * Report whether a project workspace is already initialized on disk.
  *
- * True when the workspace's `.agents/pm/settings.json` exists, the marker `pm
- * init` writes. Used to decide whether to init before use.
+ * Uses the SDK preflight against this project's explicit tracker root. Missing,
+ * non-directory and unreadable roots return false without exposing their paths.
  *
  * @param userId - The owning user's id.
  * @param slug - The project slug.
- * @returns True when the workspace appears initialized.
+ * @returns True when the SDK admits the workspace as initialized and readable.
  */
-export declare function projectExists(userId: string, slug: string): boolean;
+export declare function projectExists(userId: string, slug: string): Promise<boolean>;
 /**
  * Options for {@link runPm}: the pm arguments to run, the project owner/slug
  * that locate the workspace, optional stdin, a JSON-output request, and an

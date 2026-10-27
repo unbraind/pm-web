@@ -1,3 +1,4 @@
+import { workspaceInitialized } from "./tracker-preflight.ts";
 export { ContractExplorerClient } from './contract-explorer-client.ts';
 import { registerContractExplorerCommand } from './contract-explorer-commands.ts';
 export * from './contract-explorer.ts';
@@ -264,31 +265,6 @@ function pmOnPath(): boolean {
 }
 
 /**
- * Heuristic for whether a directory is an initialized pm workspace.
- *
- * An empty path, or one that does not exist on disk, returns `false`.
- * Otherwise the directory is treated as a workspace when it contains a
- * `settings.json`, a `schema` directory, or a `tasks` directory — matching the
- * markers pm writes across versions, so `pm web doctor` reports readiness
- * robustly.
- *
- * @param pmRoot - The candidate workspace root.
- * @returns True when the directory looks like an initialized pm workspace.
- */
-function workspaceInitialized(pmRoot: string): boolean {
-  if (!pmRoot) return false;
-  // A pm workspace has a settings.json plus item-type directories under the
-  // pm root (e.g. tasks/, features/). Match on the settings file or a known
-  // item-type dir so detection is robust across pm versions.
-  if (!fs.existsSync(pmRoot)) return false;
-  return (
-    fs.existsSync(path.join(pmRoot, "settings.json")) ||
-    fs.existsSync(path.join(pmRoot, "schema")) ||
-    fs.existsSync(path.join(pmRoot, "tasks"))
-  );
-}
-
-/**
  * Read this package's version from its `package.json`.
  *
  * Returns the `version` field, or `"unknown"` if the file is missing or fails
@@ -330,7 +306,7 @@ function processAlive(pid: number): boolean {
 
 export default defineExtension({
   name: "pm-web",
-  version: "2026.10.24",
+  version: "2026.10.26",
 
   activate(api: ExtensionApi) {
     registerInboxCommands(api);
@@ -535,7 +511,7 @@ export default defineExtension({
         const depsInstalled = runtimeDependenciesInstalled();
         const portFree = await isPortFree(Number(port));
         const pmAvailable = pmOnPath();
-        const wsInit = workspaceInitialized(ctx.pm_root);
+        const wsInit = await workspaceInitialized(ctx.pm_root);
 
         const database = await checkDatabase();
         const checks = [

@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { api, ApiError } from '../api.js';
 import { escHtml } from '../utils.js';
-import type { AgentContextPacket } from '../api-types.js';
+import type { AgentContextPacket, ResumePacket } from '../api-types.js';
 let generation = 0;
 /** Maximum active-view interval between fresh authorization reads, even when SSE is disconnected. */
 export const AGENT_CONTEXT_REVALIDATE_MS = 10_000;
@@ -139,6 +139,7 @@ export async function renderAgentContext(selected?: string, offset = 0): Promise
     if (!active()) return;
     content.innerHTML = agentContextMarkup(packet);
     status.textContent = 'Current consent and revision verified.';
+    if (packet.items?.length) mountResumeControls(content, project.id, packet, active);
     binding = { projectId: project.id, id: packet.id, revision: packet.revision, offset, generation: current };
     scheduleValidation(binding);
     if (packet.publisher === state.user?.id) {
@@ -163,3 +164,35 @@ export async function renderAgentContext(selected?: string, offset = 0): Promise
     status.textContent = `${error instanceof Error ? error.message : 'Context unavailable.'} ${payload?.remedy ?? 'Refresh access and retry.'}`;
   }
 }
+
+/** Keep only a copyable cursor between reads; packet references live only in the access-validated DOM. */
+function mountResumeControls(content: HTMLElement, projectId: string, packet: AgentContextPacket, active: () => boolean): void {
+  const section = document.createElement('section'); section.className = 'card card-body';
+  section.innerHTML = `<h3>Resume selected changes</h3><p>Selected items: ${packet.items!.map(escHtml).join(', ')}</p><p>Review the current question and items before admitting a baseline. Save the returned cursor after accepting each packet.</p><label>Last accepted cursor<input class="form-input" data-cursor autocomplete="off" spellcheck="false"></label><button class="btn btn-secondary" data-resume>Admit baseline or resume</button><p role="status" data-resume-status></p><pre data-changes style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>`;
+  content.append(section);
+  const input = section.querySelector<HTMLInputElement>('[data-cursor]')!;
+  const button = section.querySelector<HTMLButtonElement>('[data-resume]')!;
+  const status = section.querySelector<HTMLElement>('[data-resume-status]')!;
+  const changes = section.querySelector<HTMLElement>('[data-changes]')!;
+  button.addEventListener('click', async () => {
+    button.disabled = true; changes.replaceChildren(); status.textContent = 'Checking access and selected history…';
+    try {
+      const query = new URLSearchParams({ revision: packet.revision, ...(input.value ? { cursor: input.value } : {}) });
+      const result = await api<ResumePacket>('GET', `/projects/${projectId}/pm/agent-context/${packet.id}/resume?${query}`);
+      if (!active() || !section.isConnected || document.hidden) return;
+      setResumeCursor(input, result.cursor);
+      status.textContent = result.phase === 'admitted' ? `Baseline admitted: ${result.receipt.baselineEvents} prior events. ${result.receipt.remedy}` : `${result.receipt.returned} changes; ${result.receipt.deferred} deferred. ${result.receipt.remedy}`;
+      changes.replaceChildren(document.createTextNode(JSON.stringify(result.changes, null, 2)));
+    } catch (error) {
+      if (!active() || !section.isConnected) return;
+      changes.replaceChildren();
+      const response = error instanceof ApiError ? error.response as { code?: string; remedy?: string } : undefined;
+      if (response?.code === 'not_found' || response?.code === 'view_only') { revokeAgentContextView(projectId); return; }
+      if (response?.code === 'reorientation_required' || response?.code === 'revision_conflict') setResumeCursor(input, '');
+      status.textContent = response?.remedy ?? 'Access could not be verified. Reconnect before resuming.';
+    } finally { button.disabled = false; }
+  });
+}
+
+/** Assign a validated response cursor after the active-view generation check. */
+function setResumeCursor(input: HTMLInputElement, value: string): void { input.value = value; }
