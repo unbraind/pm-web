@@ -75,7 +75,7 @@
   },
   "devDependencies": {
     "@babel/eslint-parser": "8.0.7",
-    "@babel/parser": "8.0.7",
+    "@babel/parser": "8.0.8",
     "@babel/plugin-syntax-typescript": "8.0.3",
     "@types/cookie-parser": "1.4.10",
     "@types/express": "5.0.6",
