@@ -81,7 +81,7 @@ export function liveCollectionMarkup(kind: 'comments' | 'history', rows: LiveEnt
   return rows.map(row => `<div class="live-collection-entry" data-live-entry="${escHtml(entryKey(row))}" data-entry-value="${escHtml(JSON.stringify(row))}">${entryMarkup(row)}</div>`).join('');
 }
 
-/** History timestamps identify existing rows so new entries append without displacing them. */
+/** Physical indices distinguish history entries even when mutations share a timestamp. */
 function entryKey(row: LiveEntry): string {
   return row.index === undefined ? row.timestamp || row.created_at || row.text || row.content || row.body || row.message || row.action || '' : `history:${row.index}`;
 }

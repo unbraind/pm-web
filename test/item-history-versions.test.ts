@@ -15,7 +15,8 @@ test('real npm history outputs normalize consistently on 2026.10.20, 2026.10.27 
   const h = await itemHistoryHarness();
   const installs = await mkdtemp(path.join(os.tmpdir(), 'history-npm-versions-'));
   // Public package operations receive no inherited credential variables or credential files.
-  const childEnv = { PATH: process.env.PATH, NPM_CONFIG_USERCONFIG: os.devNull, npm_config_userconfig: os.devNull, GIT_CEILING_DIRECTORIES: os.tmpdir() };
+  const childEnv: NodeJS.ProcessEnv = { ...process.env, NPM_CONFIG_USERCONFIG: os.devNull, npm_config_userconfig: os.devNull, NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org', GIT_CEILING_DIRECTORIES: os.tmpdir() };
+  for (const key of Object.keys(childEnv)) if (/token|secret|password|api_?key|credential|^(?:GH_|GITHUB_|CODEX_|OPENAI_|ANTHROPIC_|OLLAMA_)|^NPM_MEDIA_SERVER$/i.test(key)) delete childEnv[key];
   try {
     for (const version of ['2026.10.20', '2026.10.27', '2026.10.28']) {
       let packageRoot = path.resolve('node_modules/@unbrained/pm-cli');
