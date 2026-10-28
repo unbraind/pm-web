@@ -60,7 +60,7 @@ try {
     const latest = await page.request.get(server.url(`/api/projects/${h.project}/pm/history/${h.itemId}`));
     const api = await latest.json() as HistoryResponse;
     assert.equal(latest.status(), 200); assert.equal(api.order, 'oldest_first'); assert.equal(api.history.at(-1)?.action, width === 1440 ? 'close' : 'update');
-    assert.equal(await entries.first().locator('p').innerText(), api.history.at(-1)?.action);
+    assert.equal(await entries.first().locator('p').innerText(), api.history.at(-1)?.message || api.history.at(-1)?.action);
     assert.ok(await entries.first().locator('time').innerText());
     await page.getByRole('button', { name: 'Load older history', exact: true }).click();
     await page.waitForFunction(() => document.querySelectorAll('#tab-history [data-live-entry]').length > 50);

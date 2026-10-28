@@ -1,4 +1,4 @@
-/** Bounded browser history summaries over the host's explicit compact projection. */
+/** Bounded browser history summaries over the host's explicit full projection. */
 import { createHash } from 'node:crypto';
 import { EXIT_CODE, type PmRunResult } from './pm-runner.ts';
 
@@ -8,6 +8,7 @@ export interface ItemHistoryRow {
   timestamp: string;
   action: string;
   author: string;
+  message?: string;
 }
 
 /** Latest or older page, always chronological within the page. */
@@ -47,12 +48,14 @@ export function normalizeItemHistory(value: unknown): ItemHistoryRow[] {
   const rows = data.compact === true ? data.compact_history : data.history;
   if (!Array.isArray(rows) || (data.order !== undefined && data.order !== 'oldest_first' && data.order !== 'newest_first')) return invalidProjection();
   const ordered = data.order === 'newest_first' ? [...rows].reverse() : rows;
+  const indices = Array.isArray(data.diff) ? (data.order === 'newest_first' ? [...data.diff].reverse() : data.diff) : [];
   return ordered.map((value: unknown, offset) => {
     if (!value || typeof value !== 'object') return invalidProjection();
     const row = value as Record<string, unknown>;
-    const index = row.index ?? offset + 1;
+    const diff: unknown = indices[offset];
+    const index = row.index ?? (diff && typeof diff === 'object' && 'index' in diff ? diff.index : offset + 1);
     if (!Number.isSafeInteger(index) || Number(index) < 1 || typeof row.ts !== 'string' || typeof row.op !== 'string' || typeof row.author !== 'string') return invalidProjection();
-    return { index: Number(index), timestamp: row.ts.slice(0, 64), action: row.op.slice(0, 128), author: row.author.slice(0, 128) };
+    return { index: Number(index), timestamp: row.ts.slice(0, 64), action: row.op.slice(0, 128), author: row.author.slice(0, 128), ...(typeof row.message === 'string' && row.message ? { message: row.message.slice(0, 512) } : {}) };
   });
 }
 
@@ -87,12 +90,14 @@ function decodeCursor(value: unknown, scope: string): HistoryCursor | undefined 
 
 /** Translate host failures to typed safe refusals rather than silently returning no history. */
 async function readRows(run: (args: string[]) => Promise<PmRunResult>, itemId: string, limit: number): Promise<ItemHistoryRow[]> {
-  const result = await run(['history', itemId, '--compact', '--limit', String(limit)]);
+  const result = await run(['history', itemId, '--full', '--diff', '--limit', String(limit)]);
   if (!result.ok) {
     if (result.exitCode === EXIT_CODE.NOT_FOUND) throw new ItemHistoryError(404, 'history_not_found', 'The item history was not found.', 'Refresh the item list and select an existing item.');
     throw new ItemHistoryError(503, 'history_unavailable', 'Item history is temporarily unavailable.', 'Retry after checking tracker availability and history integrity.');
   }
-  if (!result.parsed || typeof result.parsed !== 'object' || !('compact' in result.parsed) || result.parsed.compact !== true) return invalidProjection();
+  if (!result.parsed || typeof result.parsed !== 'object') return invalidProjection();
+  const data = result.parsed as Record<string, unknown>;
+  if (data.compact !== false || !Array.isArray(data.history) || !Array.isArray(data.diff) || data.diff.length !== data.history.length) return invalidProjection();
   return normalizeItemHistory(result.parsed);
 }
 

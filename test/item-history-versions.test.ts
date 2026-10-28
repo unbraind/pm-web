@@ -18,21 +18,25 @@ test('real npm history outputs normalize consistently on 2026.10.20, 2026.10.27 
   const childEnv: NodeJS.ProcessEnv = { ...process.env, NPM_CONFIG_USERCONFIG: os.devNull, npm_config_userconfig: os.devNull, NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org', GIT_CEILING_DIRECTORIES: os.tmpdir() };
   for (const key of Object.keys(childEnv)) if (/token|secret|password|api_?key|credential|^(?:GH_|GITHUB_|CODEX_|OPENAI_|ANTHROPIC_|OLLAMA_)|^NPM_MEDIA_SERVER$/i.test(key)) delete childEnv[key];
   try {
+    const localRoot = path.resolve('node_modules/@unbrained/pm-cli');
+    const localVersion = (JSON.parse(await readFile(path.join(localRoot, 'package.json'), 'utf8')) as { version: string }).version;
     for (const version of ['2026.10.20', '2026.10.27', '2026.10.28']) {
-      let packageRoot = path.resolve('node_modules/@unbrained/pm-cli');
-      if (version !== '2026.10.20') {
+      let packageRoot = localRoot;
+      if (version !== localVersion) {
         const prefix = path.join(process.env.PM_HISTORY_COMPAT_ROOT || installs, version);
         packageRoot = path.join(prefix, 'node_modules/@unbrained/pm-cli');
         if (!process.env.PM_HISTORY_COMPAT_ROOT) execFileSync('npm', ['install', '--prefix', prefix, '--ignore-scripts', '--no-audit', '--no-fund', `@unbrained/pm-cli@${version}`], { env: childEnv, encoding: 'utf8', timeout: 180_000 });
       }
       assert.equal((JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8')) as { version: string }).version, version);
-      for (const flags of [[], ['--full'], ['--compact', '--limit', '3']]) {
+      for (const flags of [[], ['--full'], ['--compact', '--limit', '3'], ['--full', '--diff', '--limit', '3']]) {
         const text = execFileSync(process.execPath, [path.join(packageRoot, 'dist/cli.js'), 'history', h.itemId, '--json', '--pm-path', h.pmRoot, ...flags], { cwd: h.cwd, env: childEnv, encoding: 'utf8', timeout: 60_000 });
         const raw = JSON.parse(text) as Record<string, unknown>;
         const rows = normalizeItemHistory(raw);
         const expected = flags.includes('--limit') ? ['update', 'update', 'close'] : ['create', 'update', 'update', 'close'];
         assert.deepEqual(rows.map(row => row.action), expected, `${version}: ${flags.join(' ') || 'default'}`);
         assert.ok(rows.every(row => row.timestamp && row.author));
+        if (flags.includes('--full')) assert.ok(rows.some(row => row.message === 'exercise update flags'));
+        if (flags.includes('--diff')) assert.deepEqual(rows.map(row => row.index), [2, 3, 4]);
         if (!flags.length) {
           assert.equal(raw.history, undefined); assert.equal(raw.compact, true);
           assert.equal(raw.order, version === '2026.10.28' ? 'newest_first' : undefined);

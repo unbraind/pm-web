@@ -24,7 +24,7 @@ export async function itemHistoryHarness() {
   const client = new PmClient({ pmRoot, cwd, noExtensions: true, author: 'history-test' });
   await client.init('demo', { defaults: true, agentGuidance: 'skip' });
   const { item } = await client.create({ type: 'Task', title: 'Item history projection proof' });
-  await client.update(item.id, { title: 'Updated item history proof' });
+  await client.update(item.id, { title: 'Updated item history proof', message: 'exercise update flags' });
   await client.update(item.id, { priority: 1 });
   await client.close(item.id, 'Synthetic verification complete');
   const original = pool.query;

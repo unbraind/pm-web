@@ -5,6 +5,7 @@ export interface ItemHistoryRow {
     timestamp: string;
     action: string;
     author: string;
+    message?: string;
 }
 /** Latest or older page, always chronological within the page. */
 export interface ItemHistoryPage {

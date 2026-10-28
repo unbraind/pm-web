@@ -23,6 +23,7 @@ test('authorized real non-git route returns chronological panel data ending in c
     assert.equal(page.history.length, 4);
     assert.deepEqual(page.history.map(row => row.action), ['create', 'update', 'update', 'close']);
     assert.equal(page.order, 'oldest_first');
+    assert.equal(page.history[1].message, 'exercise update flags');
     assert.ok(page.history.every(row => row.timestamp && row.author && row.index));
     assert.equal(page.history.at(-1)?.action, 'close');
     assert.equal(page.has_more, false); assert.equal(page.next_cursor, null);
@@ -75,7 +76,9 @@ test('normalizer validates refusals and retains older full and compact data, inc
     const newest = { ...compact, compact_history: [...compact.compact_history].reverse(), order: 'newest_first' };
     assert.deepEqual(normalizeItemHistory(newest), expected);
     const full = (await run(['history', h.itemId, '--full'])).parsed;
-    assert.deepEqual(normalizeItemHistory(full), expected);
+    const fullRows = normalizeItemHistory(full);
+    assert.deepEqual(fullRows.map(({ index, timestamp, action, author }) => ({ index, timestamp, action, author })), expected);
+    assert.equal(fullRows[1].message, 'exercise update flags');
     const tied = { ...compact, compact_history: compact.compact_history.map(row => ({ ...row, ts: '2026-10-28T00:00:00Z' })) };
     assert.deepEqual(normalizeItemHistory(tied).map(row => row.action), ['create', 'update', 'update', 'close']);
     for (const bad of [null, 5, {}, { history: [] , order: 'unknown' }, { history: [null] }, { history: [{}] }, { history: [{ ts: 'x', op: 'x', author: 5 }] }, { compact: true, compact_history: [{ ts: 'x', op: 'x', author: 'x', index: 0 }] }]) {

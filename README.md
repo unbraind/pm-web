@@ -321,7 +321,7 @@ the server refuses partial overlays. See [the legal deployment boundary](docs/LE
 
 `GET /api/projects/:projectId/pm/history/:itemId?limit=50` returns
 `{ history, order: "oldest_first", has_more, next_cursor }`. Each history row
-contains `index`, `timestamp`, `action` and `author`. Pages contain the latest
+contains `index`, `timestamp`, `action`, `author` and an optional recorded `message`. Pages contain the latest
 matching entries in chronological stream order, ending with the latest operation
 (including close). The History panel displays each page newest first. Select
 **Load older history** to append earlier entries. A live update resets the panel
@@ -330,9 +330,11 @@ and its cursor to the latest page.
 `limit` defaults to 50 and accepts integers from 1 to 100. Pass the opaque
 `next_cursor` back as `cursor` to read an older page; stop when `has_more` is
 false. Each response has at most `limit` patch-free rows, with timestamp strings
-bounded to 64 characters and operation/author strings to 128 characters each.
-The route requests `history --compact --limit N` explicitly through the existing
-authorized project runner, then converts it to the browser row shape. Upstream
+bounded to 64 characters, operation/author strings to 128 characters each and
+messages to 512 characters. The route requests `history --full --diff --limit N`
+explicitly through the existing authorized project runner, then converts it to
+the browser row shape without patches or diff values. The same-snapshot diff
+supplies physical indices on older hosts while full entries preserve messages. Upstream
 `order` is honored; older hosts without it are treated as oldest first. No
 projection or display order depends on pm defaults.
 
