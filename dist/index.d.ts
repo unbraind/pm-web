@@ -1,3 +1,5 @@
+export * from './permission-impact.ts';
+export { PermissionImpactClient } from './permission-impact-client.ts';
 export { ContractExplorerClient } from './contract-explorer-client.ts';
 export * from './contract-explorer.ts';
 export * from './agent-context.ts';

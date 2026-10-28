@@ -1,5 +1,6 @@
+import { invalidateContractExplorer } from './views/contract-explorer.js';
 import { invalidateAgentContext, revokeAgentContextView } from './views/agent-context.js';
-import { refreshDecisionInbox } from './views/decision-inbox.js';
+import { refreshDecisionInbox, invalidateDecisionInbox } from './views/decision-inbox.js';
 import { receiveLiveUpdate, rememberLiveAuthors, resetLiveCopies } from './live-copy.js';
 import { initInteractions } from './interactions.js';
 // ═══════════════════════════════════════════════════════════════
@@ -397,6 +398,7 @@ browserWindow().__app = __app;
 // SSE REAL-TIME SYNC
 // ═══════════════════════════════════════════════════════════════
 let sseSource: EventSource | null = null;
+let sseAccessGeneration = 0;
 let sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let sseCurrentProjectId: string | null = null;
 let sseClientId: string | null = null;
@@ -480,6 +482,7 @@ function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): vo
  * timers, close the event source, clear the tracked project/client ids, and
  * mark sync as disconnected. */
 function disconnectSSE(): void {
+  sseAccessGeneration++;
   resetLiveCopies();
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null; }
   if (sseRefreshTimer) { clearTimeout(sseRefreshTimer); sseRefreshTimer = null; }
@@ -649,8 +652,19 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('update', refreshGraphData);
     source.addEventListener('workspace-changed', refreshGraphData);
     source.addEventListener('agent-context-changed', () => invalidateAgentContext(projectId));
-    source.addEventListener('project-access-changed', () => invalidateAgentContext(projectId));
-    source.addEventListener('access-revoked', () => { revokeAgentContextView(projectId); disconnectSSE(); });
+    source.addEventListener('project-access-changed', () => {
+      const accessGeneration = ++sseAccessGeneration;
+      invalidateAgentContext(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId);
+      if (state.currentProject?.id === projectId) {
+        state.currentProject.permission = 'view';
+        void api<{ project: { permission: string } }>('GET', `/projects/${projectId}`).then(result => {
+          if (sseSource === source && sseAccessGeneration === accessGeneration && state.currentProject?.id === projectId) state.currentProject.permission = result.project.permission === 'edit' ? 'edit' : 'view';
+        }).catch(() => { /* Cleared controls stay disabled until access can be read. */ });
+      }
+    });
+    source.addEventListener('access-revoked', () => {
+      revokeAgentContextView(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId); disconnectSSE();
+    });
 
     // Extensions catalog mutations (installs/activates/deactivates/uninstalls)
     // refresh the Packages view live for every collaborator.
@@ -660,7 +674,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.onerror = () => {
       if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('reconnecting');
-      invalidateAgentContext(projectId);
+      invalidateAgentContext(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId);
       // Keeping this object preserves its native Last-Event-ID on transient errors.
       if (source.readyState !== EventSource.CLOSED) return;
       source.close();

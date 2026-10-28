@@ -1,3 +1,4 @@
+import { authenticatedBrowserPage } from './helpers/browser-page.ts';
 /** Browser evidence against genuine project permissions and SDK contract routes. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -22,9 +23,7 @@ test('desktop and mobile review forms never dispatch destructive operations and 
   await mkdir(output, { recursive: true });
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 1000 }]) {
     const session = await browser.newContext({ viewport, serviceWorkers: 'block' });
-    await session.addCookies([{ name: 'pm_token', value: signToken({ userId: owner.id, email: owner.email }), url: server.url('/') }]);
-    const page = await session.newPage(); await page.goto(server.url('/'));
-    await page.getByRole('button', { name: 'Necessary only', exact: true }).click();
+    const page = await authenticatedBrowserPage(session, server.url('/'), signToken({ userId: owner.id, email: owner.email }));
     await page.locator(`#project-selector option[value="${project.id}"]`).waitFor({ state: 'attached' });
     await page.selectOption('#project-selector', project.id);
     await page.evaluate(() => (window as unknown as { __app: AppBridge }).__app.showView('contract-explorer'));

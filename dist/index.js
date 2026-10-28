@@ -1,3 +1,6 @@
+export * from './permission-impact.js';
+export { PermissionImpactClient } from './permission-impact-client.js';
+import { registerPermissionImpactCommand } from './permission-impact-commands.js';
 import { workspaceInitialized } from "./tracker-preflight.js";
 export { ContractExplorerClient } from './contract-explorer-client.js';
 import { registerContractExplorerCommand } from './contract-explorer-commands.js';
@@ -251,6 +254,7 @@ export default defineExtension({
     name: "pm-web",
     version: "2026.10.28",
     activate(api) {
+        registerPermissionImpactCommand(api);
         registerInboxCommands(api);
         registerAgentContextCommands(api);
         registerContractExplorerCommand(api);

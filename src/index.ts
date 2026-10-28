@@ -1,3 +1,6 @@
+export * from './permission-impact.ts';
+export { PermissionImpactClient } from './permission-impact-client.ts';
+import { registerPermissionImpactCommand } from './permission-impact-commands.ts';
 import { workspaceInitialized } from "./tracker-preflight.ts";
 export { ContractExplorerClient } from './contract-explorer-client.ts';
 import { registerContractExplorerCommand } from './contract-explorer-commands.ts';
@@ -309,6 +312,7 @@ export default defineExtension({
   version: "2026.10.28",
 
   activate(api: ExtensionApi) {
+    registerPermissionImpactCommand(api);
     registerInboxCommands(api);
     registerAgentContextCommands(api);
     registerContractExplorerCommand(api);

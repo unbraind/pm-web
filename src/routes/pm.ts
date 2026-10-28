@@ -1,3 +1,4 @@
+import { registerPermissionImpactRoutes } from './permission-impact.ts';
 import { registerContractExplorerRoutes } from './contract-explorer.ts';
 import { registerAgentContextRoutes } from './agent-context.ts';
 import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionRequestInput, type DecisionResponseInput } from '../services/decision-inbox.ts';
@@ -77,6 +78,7 @@ function getNeo4jDriver(): ReturnType<typeof neo4j.driver> {
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+registerPermissionImpactRoutes(router);
 registerAgentContextRoutes(router);
 registerContractExplorerRoutes(router);
 const BASE64URL_CURSOR_PATTERN = /^[A-Za-z0-9_-]+$/;
