@@ -28,6 +28,7 @@ interface AcceptanceReceipt {
   readonly command_port: number;
   readonly deprecated_diagnostic: false;
   readonly unpublished_npm_link_omitted: true;
+  readonly inbox_snapshot: true;
 }
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -239,6 +240,23 @@ try {
     // runtime, after installation; local build imports cannot prove tarball contents.
     run(scenario.manager === "bun" ? bunCommand : process.execPath, ["--input-type=module", "-e", `
       import assert from "node:assert/strict";
+      import { join } from "node:path";
+      import { PmClient } from "@unbrained/pm-cli/sdk";
+      import { readDecisionInboxSnapshot, listDecisionInbox, requestDecision, respondToDecision } from "@unbrained/pm-web";
+      const pmRoot = join(process.cwd(), ".agents", "pm");
+      const author = "packed-agent";
+      const client = new PmClient({ cwd: process.cwd(), pmRoot, noExtensions: true, author });
+      const plan = await client.create({ type: "Plan", title: "Packed snapshot", unset: ["parent", "goal", "objective", "sprint", "release"] });
+      const actor = { author, permission: "edit" };
+      const request = await requestDecision(pmRoot, actor, { planId: plan.item.id, question: "Which path?", alternatives: ["A", "B"], evidence: "Synthetic packed evidence" });
+      const captured = await readDecisionInboxSnapshot(pmRoot);
+      assert.equal(captured.length, 1);
+      assert.ok(Object.isFrozen(captured) && Object.isFrozen(captured[0]) && Object.isFrozen(captured[0].alternatives));
+      await respondToDecision(pmRoot, actor, { planId: request.planId, requestId: request.id, revision: request.revision, action: "approve", alternative: 0, reason: "Selected A" });
+      assert.equal(captured[0].id, request.id);
+      assert.equal(captured[0].status, "pending");
+      assert.deepEqual(await readDecisionInboxSnapshot(pmRoot), []);
+      assert.equal((await listDecisionInbox(pmRoot)).total, 0);
       import { findCatalogEntry } from "@unbrained/pm-web/dist/services/package-catalog.js";
       import { renderPackageCard } from "@unbrained/pm-web/public/src/views/packages.js";
       const jev = findCatalogEntry("pm-jev");
@@ -256,6 +274,7 @@ try {
       command_port: scenario.port,
       deprecated_diagnostic: false,
       unpublished_npm_link_omitted: true,
+      inbox_snapshot: true,
     });
   }
 

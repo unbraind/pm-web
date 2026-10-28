@@ -3,7 +3,7 @@ export { PermissionImpactClient } from './permission-impact-client.ts';
 export { ContractExplorerClient } from './contract-explorer-client.ts';
 export * from './contract-explorer.ts';
 export * from './agent-context.ts';
-export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
+export { DecisionInboxError, listDecisionInbox, readDecisionInboxSnapshot, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionInboxSnapshot, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
 import { type ExtensionApi, type SuppressedHostOutput } from "@unbrained/pm-cli/sdk";
 /** Resolve the port from flag → PORT env → default 4000. */
 export declare function resolvePort(options: Record<string, unknown>, env?: NodeJS.ProcessEnv): string;

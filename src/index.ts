@@ -8,7 +8,7 @@ export * from './contract-explorer.ts';
 import { registerAgentContextCommands } from './agent-context-commands.ts';
 export * from './agent-context.ts';
 import { registerInboxCommands } from './decision-commands.ts';
-export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
+export { DecisionInboxError, listDecisionInbox, readDecisionInboxSnapshot, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionInboxSnapshot, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
 // pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 

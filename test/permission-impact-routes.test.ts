@@ -1,18 +1,19 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import os from 'node:os';
 import type { PoolClient } from 'pg';
 import { pool } from '../src/db.ts';
 import { PermissionImpactClient } from '../src/permission-impact-client.ts';
-import { PermissionImpactError, parsePermissionImpactPage } from '../src/permission-impact.ts';
+import { PermissionImpactError, parsePermissionImpactPage, type PermissionImpactPage } from '../src/permission-impact.ts';
 import { AgentContextClient, type AgentContextInput } from '../src/agent-context.ts';
 import { signToken } from '../src/auth.ts';
-import { requestDecision, listDecisionInbox } from '../src/services/decision-inbox.ts';
+import { requestDecision, listDecisionInbox, readDecisionInboxSnapshot } from '../src/services/decision-inbox.ts';
 import { directoryContractAdapter, exploreContracts } from '../src/contract-explorer.ts';
 import { readProjectAccess } from '../src/services/project-access.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
@@ -63,6 +64,17 @@ async function documents(root: string): Promise<Map<string, string>> {
 }
 /** Require typed, useful refusals from the actual authenticated client. */
 function refusal(code: PermissionImpactError['code']) { return (error: unknown) => error instanceof PermissionImpactError && error.code === code && error.remedy.length > 10; }
+
+/** Prepare an authenticated native consumer with no Git executable for both serialization regressions. */
+async function nativeConsumer(f: Awaited<ReturnType<typeof fixture>>) {
+  await installExtension(f.pmRoot, f.pm, 'pm-web', 'dist/index.js', ['commands', 'schema']);
+  const bin = path.join(f.root, 'bin'); await mkdir(bin); await symlink(process.execPath, path.join(bin, 'node'));
+  const env = { ...process.env, PATH: bin, GIT_CEILING_DIRECTORIES: os.tmpdir(), PM_WEB_TOKEN: signToken({ userId: f.owner.id, email: f.owner.email }) };
+  const args = [path.resolve('node_modules/@unbrained/pm-cli/dist/cli.js'), '--pm-path', f.pmRoot, 'web', 'permission-impact', '--url', f.server.url('/'), '--project', f.project.id, '--share', f.share, '--permission', 'none', '--limit', '2'];
+  const json = await exec(process.execPath, [...args, '--json'], { cwd: f.cwd, env });
+  const toon = await exec(process.execPath, args, { cwd: f.cwd, env });
+  return { json, toon };
+}
 
 test('preview counts only visible consented packets, pending decisions and supported core operations without mutation', async t => {
   const f = await fixture(t), before = await documents(f.pmRoot), native = await f.pm.get(f.packet.items![0]);
@@ -157,12 +169,9 @@ test('500 seeded model sequences match preview to actual authorization, includin
 
 test('native CLI emits bounded TOON/JSON with no git executable, with real authenticated HTTP', async t => {
   const f = await fixture(t);
-  await installExtension(f.pmRoot, f.pm, 'pm-web', 'dist/index.js', ['commands', 'schema']);
-  const bin = path.join(f.root, 'bin'); await mkdir(bin); await symlink(process.execPath, path.join(bin, 'node'));
-  const env = { ...process.env, PATH: bin, GIT_CEILING_DIRECTORIES: os.tmpdir(), PM_WEB_TOKEN: signToken({ userId: f.owner.id, email: f.owner.email }) };
-  const args = [path.resolve('node_modules/@unbrained/pm-cli/dist/cli.js'), '--pm-path', f.pmRoot, 'web', 'permission-impact', '--url', f.server.url('/'), '--project', f.project.id, '--share', f.share, '--permission', 'none', '--limit', '2'];
-  const json = await exec(process.execPath, [...args, '--json'], { cwd: f.cwd, env }); assert.equal(JSON.parse(json.stdout).losses.length, 2); assert.ok(Buffer.byteLength(json.stdout) < 3500);
-  const toon = await exec(process.execPath, args, { cwd: f.cwd, env }); assert.match(toon.stdout, /applied: false/); assert.match(toon.stdout, /unknownCapabilities: "disabled"/);
+  const { json, toon } = await nativeConsumer(f);
+  assert.equal(JSON.parse(json.stdout).losses.length, 2); assert.ok(Buffer.byteLength(json.stdout) < 3500);
+  assert.match(toon.stdout, /applied: false/); assert.match(toon.stdout, /unknownCapabilities: "disabled"/);
 });
 
 test('a peer grant transition at every SQL boundary preserves the read-only snapshot and is seen on refresh', async t => {
@@ -211,4 +220,40 @@ test('random custom status registries cannot hide a still-pending decision or ch
     assert.deepEqual((await f.pm.get(f.decision.planId)).item, before);
     assert.equal(before.parent, undefined);
   }
+});
+
+/** Reproduce filtered-offset drift with real SDK writes at the producer's post-capture boundary. */
+test('one 51-request snapshot survives a peer answer during projection across SDK, JSON and TOON consumers', async t => {
+  const f = await fixture(t);
+  const captured = [f.decision];
+  for (let i = 1; i < 51; i++) captured.push(await requestDecision(f.pmRoot, { author: f.owner.id, permission: 'edit' }, { planId: f.decision.planId, question: `Choice ${i}`, alternatives: ['A', 'B'], evidence: 'Public synthetic evidence' }));
+  const last = captured.at(-1)!;
+  const response = { planId: f.decision.planId, requestId: f.decision.id, revision: f.decision.revision, action: 'approve', alternative: 0, reason: 'Independent peer answer after SDK corpus capture' };
+  const script = `import { respondToDecision } from ${JSON.stringify(pathToFileURL(path.resolve('src/services/decision-inbox.ts')).href)}; await respondToDecision(${JSON.stringify(f.pmRoot)}, ${JSON.stringify({ author: f.owner.id, permission: 'edit' })}, ${JSON.stringify(response)});`;
+  const original = Buffer.byteLength;
+  let answered = false;
+  // Instrument only serialization of an actual projected record, after the real SDK read.
+  // The SDK itself is never replaced, and the peer commits through its real mutation path.
+  Buffer.byteLength = (value, encoding) => {
+    const bytes = original(value, encoding);
+    if (!answered && typeof value === 'string' && value.includes(`"planId":${JSON.stringify(f.decision.planId)}`) && value.includes(`"id":${JSON.stringify(last.id)}`) && value.includes('"status":"pending"')) {
+      answered = true;
+      const peer = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: f.cwd, env: process.env, encoding: 'utf8', timeout: 60000 });
+      assert.equal(peer.status, 0, peer.stderr);
+    }
+    return bytes;
+  };
+  let preview: PermissionImpactPage;
+  try {
+    const offset = captured.map(row => row.id).sort((a, b) => a.localeCompare(b)).indexOf(last.id) === 50 ? 1 : 0;
+    preview = await f.impact().preview(f.project.id, { shareId: f.share, permission: 'none', offset, limit: 50 });
+  } finally { Buffer.byteLength = original; }
+  assert.equal(answered, true, 'the peer must commit at the real post-read projection boundary');
+  assert.equal(preview.counts.decisions, 51, 'one captured corpus must not silently omit a pending request');
+  assert.ok(preview.losses.some(row => row.kind === 'decision' && row.id === last.id));
+  assert.deepEqual((await readDecisionInboxSnapshot(f.pmRoot)).map(row => row.id).sort(), captured.slice(1).map(row => row.id).sort());
+  assert.equal((await f.impact().preview(f.project.id, { shareId: f.share, permission: 'none' })).counts.decisions, 50, 'a new proposal must read fresh state');
+  const { json, toon } = await nativeConsumer(f);
+  assert.equal(JSON.parse(json.stdout).counts.decisions, 50);
+  assert.match(toon.stdout, /decisions: 50/);
 });

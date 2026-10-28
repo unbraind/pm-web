@@ -1,10 +1,10 @@
 import path from 'node:path';
 import { pool } from '../db.js';
-import { directoryContractAdapter, exploreContracts } from '../contract-explorer.js';
+import { captureContractAvailability, directoryContractAdapter, exploreContracts } from '../contract-explorer.js';
 import { PermissionImpactError, permissionUuid, parsePermissionImpact, parsePermissionImpactPage } from '../permission-impact.js';
 import { readProjectAccess, readProjectAccesses } from './project-access.js';
 import { getProjectDir } from './pm-runner.js';
-import { listDecisionInbox } from './decision-inbox.js';
+import { readDecisionInboxSnapshot } from './decision-inbox.js';
 import { contextAudience } from './agent-context.js';
 /** Evaluate a grant replacement in a read-only SQL snapshot using live authorization's exact resolver. */
 export async function previewPermissionImpact(project, principal, raw) {
@@ -47,16 +47,12 @@ export async function previewPermissionImpact(project, principal, raw) {
         }
         const cwd = getProjectDir(access.ownerUserId, access.slug), pmRoot = path.join(cwd, '.agents', 'pm');
         if (lostRead.length || lostWrite) {
-            let offset = 0;
-            do {
-                const page = await listDecisionInbox(pmRoot, { offset, limit: 50 });
-                losses.push(...page.requests.map(row => ({ kind: 'decision', id: row.id, loss: lostRead.length ? 'read' : 'respond' })));
-                offset = page.nextOffset;
-            } while (offset !== null && losses.length <= 1000000);
+            const decisions = await readDecisionInboxSnapshot(pmRoot);
+            for (const row of decisions)
+                losses.push({ kind: 'decision', id: row.id, loss: lostRead.length ? 'read' : 'respond' });
             const directory = directoryContractAdapter({ cwd, pmRoot, noExtensions: true });
-            const snapshot = await directory.describe({ availabilityOnly: true });
-            const adapter = { kind: directory.kind, describe: async () => snapshot };
-            offset = 0;
+            const adapter = await captureContractAvailability(directory);
+            let offset = 0;
             do {
                 const page = await exploreContracts(adapter, { offset, limit: 50 });
                 for (const operation of page.operations) {

@@ -48,6 +48,8 @@ export interface ContractReview {
 }
 /** Bind the existing SDK resolver to a directory tracker without invoking Git or any reviewed action. */
 export declare function directoryContractAdapter(options: Pick<GetContractsOptions, 'pmRoot' | 'cwd' | 'noExtensions'>): ContractAdapter;
+/** Own one provider availability read for internal aggregates; schema inspection still requires a live adapter. */
+export declare function captureContractAvailability(adapter: ContractAdapter): Promise<ContractAdapter>;
 /** Parse transport pagination strictly so blank, structured and boolean values cannot silently select a page. */
 export declare function contractPageNumber(value: unknown): number | undefined;
 /** Inspect fresh provider declarations and project only public operation metadata. */

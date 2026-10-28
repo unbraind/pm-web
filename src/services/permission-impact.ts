@@ -1,10 +1,10 @@
 import path from 'node:path';
 import { pool } from '../db.ts';
-import { directoryContractAdapter, exploreContracts } from '../contract-explorer.ts';
+import { captureContractAvailability, directoryContractAdapter, exploreContracts } from '../contract-explorer.ts';
 import { PermissionImpactError, permissionUuid, parsePermissionImpact, parsePermissionImpactPage, type PermissionImpactPage, type PermissionLoss } from '../permission-impact.ts';
 import { readProjectAccess, readProjectAccesses } from './project-access.ts';
 import { getProjectDir } from './pm-runner.ts';
-import { listDecisionInbox } from './decision-inbox.ts';
+import { readDecisionInboxSnapshot } from './decision-inbox.ts';
 import { contextAudience } from './agent-context.ts';
 
 /** Evaluate a grant replacement in a read-only SQL snapshot using live authorization's exact resolver. */
@@ -38,16 +38,11 @@ export async function previewPermissionImpact(project: string, principal: string
     }
     const cwd = getProjectDir(access.ownerUserId, access.slug), pmRoot = path.join(cwd, '.agents', 'pm');
     if (lostRead.length || lostWrite) {
-      let offset: number | null = 0;
-      do {
-        const page = await listDecisionInbox(pmRoot, { offset, limit: 50 });
-        losses.push(...page.requests.map(row => ({ kind: 'decision' as const, id: row.id, loss: lostRead.length ? 'read' as const : 'respond' as const })));
-        offset = page.nextOffset;
-      } while (offset !== null && losses.length <= 1000000);
+      const decisions = await readDecisionInboxSnapshot(pmRoot);
+      for (const row of decisions) losses.push({ kind: 'decision', id: row.id, loss: lostRead.length ? 'read' : 'respond' });
       const directory = directoryContractAdapter({ cwd, pmRoot, noExtensions: true });
-      const snapshot = await directory.describe({ availabilityOnly: true });
-      const adapter = { kind: directory.kind, describe: async () => snapshot };
-      offset = 0;
+      const adapter = await captureContractAvailability(directory);
+      let offset: number | null = 0;
       do {
         const page = await exploreContracts(adapter, { offset, limit: 50 });
         for (const operation of page.operations) {
