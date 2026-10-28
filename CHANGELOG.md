@@ -82,7 +82,6 @@
 - jscpd 5.3.2 exposes pm-web zero-duplication failures ([pm-web-8jjr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8jjr.toon))
 - Refresh proxy-addr lockfile to clear the critical production audit advisory ([pm-web-6ama](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-6ama.toon))
 - Resolve pm-web full development audit through unpatched braces and fast-glob ([pm-web-xucb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-xucb.toon))
-- Update the production proxy-addr dependency past GHSA-jqcg-44mw-7w3h ([pm-web-mep7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-mep7.toon))
 - Server hangs/cryptic error when DATABASE_URL is unset ([pm-web-onv4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-onv4.toon))
 - The release job authenticated with a stored npm token that expired, so publishing stopped while every other gate stayed green ([pm-web-dtdp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-dtdp.toon))
 - A release run bumped and committed a new version every night while publishing was impossible, because the only externally-failable step runs last ([pm-web-jvsx](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-jvsx.toon))
@@ -96,7 +95,6 @@
 - Babel parser pin test hardcodes 8.0.6 and fails every Dependabot bump ([pm-web-puwn](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-puwn.toon))
 - Bring the pm-web HTTP route layer under real-Postgres integration coverage ([pm-web-9ulj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/epics/pm-web-9ulj.toon))
 - Enable GitHub CodeQL code scanning ([pm-web-auc2](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-auc2.toon))
-- Make spawned test fixtures independent of ancestor package module type ([pm-web-jp0u](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-jp0u.toon))
 - Consolidate unresolved spawn-overlap scheduling work into pm-web-qdhx ([pm-web-fhob](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fhob.toon))
 - Cover the routes/pm.ts command surface and the index/server bootstrap in pm-web ([pm-web-ulgy](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ulgy.toon))
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
@@ -210,12 +208,15 @@
 
 - GitHub issue imports accepted path traversal values that steered the project owner's token ([pm-web-po1s](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-po1s.toon))
 - CodeQL action updates split into mutually blocking pull requests ([pm-web-lx5w](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-lx5w.toon))
-- Pin pm-changelog 2026.8.30 before the next release ([pm-web-5ucr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-5ucr.toon))
 - Regenerate the changelog after the release tag exists ([pm-web-a401](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-a401.toon))
 
 ### Security
 
 - Same-site sibling origins bypass the cookie-authenticated CSRF guard ([pm-web-413z](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-413z.toon))
+
+### Closed
+
+- Closed: Pin pm-changelog 2026.8.30 before the next release ([pm-web-5ucr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-5ucr.toon))
 
 ## 2026.8.29 - 2026-08-29
 
@@ -223,7 +224,10 @@
 
 - A failed provenance publish silently falls back to an unattested one ([pm-web-f8hk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-f8hk.toon))
 - Harden workflow publish scanning against YAML and reassignment bypasses ([pm-web-yafj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-yafj.toon))
-- Every public API route lacked rate limiting, leaving auth and write endpoints open to abuse and denial of service ([pm-web-8dk0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8dk0.toon))
+
+### Closed
+
+- Closed: Every public API route lacked rate limiting, leaving auth and write endpoints open to abuse and denial of service ([pm-web-8dk0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8dk0.toon))
 
 ## 2026.8.28 - 2026-08-28
 
@@ -236,9 +240,9 @@
 - Docstring corrections: filters, graph-canvas, crypto, board, pm routes, project-watcher, sse, mutation-event-watcher ([pm-web-oehb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-oehb.toon))
 - Fix release publish-before-protected-main-push ordering ([pm-web-8l6j](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-8l6j.toon))
 
-### Security
+### Closed
 
-- The identity gate deadlocks the one remediation its own failure message prescribes ([pm-web-1ggj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-1ggj.toon))
+- Closed: The identity gate deadlocks the one remediation its own failure message prescribes ([pm-web-1ggj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-1ggj.toon))
 
 ## 2026.8.17 - 2026-08-17
 
@@ -368,13 +372,13 @@
 
 ## 2026.7.23 - 2026-07-23
 
-### Fixed
-
-- Recommend pm merge reconcile (2026.7.22) over raw history-repair in Multi-agent merge safety docs ([pm-web-n1pm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-n1pm.toon))
-
 ### Other
 
 - Adopt pm field-aware merge driver for multi-agent branch-merge safety ([pm-web-94so](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-94so.toon))
+
+### Closed
+
+- Closed: Recommend pm merge reconcile (2026.7.22) over raw history-repair in Multi-agent merge safety docs ([pm-web-n1pm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-n1pm.toon))
 
 ## 2026.7.18 - 2026-07-18
 
@@ -502,13 +506,13 @@
 
 ## 2026.5.30 - 2026-05-30
 
-### Fixed
-
-- Daily Release fails at changelog:check — version-format mismatch (padded tag vs npm version) ([pm-web-ysd5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-ysd5.toon))
-
 ### Other
 
 - Keep pm-web published scoped as @unbrained/pm-web (not unscoped pm-web) ([pm-web-1qq4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-1qq4.toon))
+
+### Closed
+
+- Closed: Daily Release fails at changelog:check — version-format mismatch (padded tag vs npm version) ([pm-web-ysd5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-ysd5.toon))
 
 ## 2026.5.29-1 - 2026-05-29
 
