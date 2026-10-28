@@ -90,6 +90,15 @@ test('normalizer validates refusals and retains older full and compact data, inc
     for (const changed of [{ ...cursor, anchor: 'f'.repeat(64) }, { ...cursor, before: 100 }]) {
       await assert.rejects(readItemHistoryPage(run, h.itemId, h.project, { cursor: Buffer.from(JSON.stringify(changed)).toString('base64url') }), (error: unknown) => error instanceof ItemHistoryError && error.code === 'history_cursor_stale');
     }
+    let cursorReads = 0;
+    const racingRun = async (args: string[]) => {
+      const result = await run(args);
+      if (++cursorReads === 1) {
+        for (let index = 0; index < 5; index++) await h.client.update(h.itemId, { title: `Concurrent append ${index}` });
+      }
+      return result;
+    };
+    await assert.rejects(readItemHistoryPage(racingRun, h.itemId, h.project, { limit: '2', cursor: limited.next_cursor }), (error: unknown) => error instanceof ItemHistoryError && error.code === 'history_cursor_stale');
     // These are transport failures, never SDK mocks: the real runner above supplies all successful history reads.
     for (const result of [{ ok: false, stdout: '', stderr: 'private detail', exitCode: EXIT_CODE.NOT_FOUND }, { ok: false, stdout: '', stderr: 'private detail' }]) {
       await assert.rejects(readItemHistoryPage(async () => result, h.itemId, h.project, {}), (error: unknown) => error instanceof ItemHistoryError && !error.message.includes('private detail') && Boolean(error.remedy));

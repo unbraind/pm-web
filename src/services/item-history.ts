@@ -119,7 +119,8 @@ export async function readItemHistoryPage(run: (args: string[]) => Promise<PmRun
   }
   let rows = await readRows(run, itemId, readLimit);
   if (cursor) {
-    if (digest(rows.find(row => row.index === cursor.before)) !== cursor.anchor) return staleCursor();
+    const boundary = rows.find(row => row.index === cursor.before);
+    if (!boundary || digest(boundary) !== cursor.anchor) return staleCursor();
     rows = rows.filter(row => row.index < cursor.before);
   }
   const history = rows.slice(-limit);

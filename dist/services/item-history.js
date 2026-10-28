@@ -104,7 +104,8 @@ export async function readItemHistoryPage(run, itemId, projectId, query) {
     }
     let rows = await readRows(run, itemId, readLimit);
     if (cursor) {
-        if (digest(rows.find(row => row.index === cursor.before)) !== cursor.anchor)
+        const boundary = rows.find(row => row.index === cursor.before);
+        if (!boundary || digest(boundary) !== cursor.anchor)
             return staleCursor();
         rows = rows.filter(row => row.index < cursor.before);
     }
