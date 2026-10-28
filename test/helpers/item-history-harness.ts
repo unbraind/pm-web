@@ -1,3 +1,4 @@
+import { projectAccessRows } from './project-access-rows.ts';
 /** Real non-git history tracker behind the production application; only account/project SQL is stubbed. */
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -29,6 +30,8 @@ export async function itemHistoryHarness() {
   const projectRow = { id: project, name: 'Item history', slug, description: '', prefix: 'demo', owner_user_id: owner, is_owner: true, permission: 'edit', created_at: '2026-10-01T00:00:00Z' };
   Object.defineProperty(pool, 'query', { configurable: true, writable: true, value: async (sql: string, params: unknown[] = []) => {
     let rows: unknown[] = [];
+    const projected = projectAccessRows(sql, params, projectRow);
+    if (projected) return { rows: projected, rowCount: projected.length };
     if (sql.includes('user_id = $2') && params[0] === project && params[1] === owner) rows = [projectRow];
     else if (sql.includes('FROM pm_projects p') && sql.includes('p.user_id = $1') && params[0] === owner) rows = [projectRow];
     else if (/FROM pm_users\s+WHERE id\s*=\s*\$1/.test(sql) && params[0] === owner) rows = [{ id: owner, email: 'history@example.test', display_name: 'History reviewer', is_admin: false, has_github_token: false, created_at: '2026-10-01T00:00:00Z' }];
