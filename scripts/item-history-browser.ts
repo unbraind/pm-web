@@ -1,12 +1,10 @@
 /** Verify the real item detail and live-copy paths using the existing Playwright/ephemeral-server harness. */
 import assert from 'node:assert/strict';
-import express from 'express';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { itemHistoryHarness } from '../test/helpers/item-history-harness.ts';
 import { startEphemeralServer } from '../test/helpers/ephemeral-server.ts';
-import { fixtureResponse, fixtureUser } from './brand-fixtures.ts';
 import { signToken } from '../src/auth.ts';
 import { pool } from '../src/db.ts';
 import type { AppBridge } from '../public/src/app.ts';
@@ -19,13 +17,6 @@ const h = await itemHistoryHarness();
 await h.client.reopen(h.itemId, 'Exercise browser pagination');
 for (let index = 0; index < 48; index++) await h.client.update(h.itemId, { title: `Item history verification ${index}` });
 await h.client.close(h.itemId, 'Browser verification ready');
-h.app.use('/api', (req, res) => {
-  if (req.originalUrl === '/api/auth/me') { res.json({ user: { ...fixtureUser, id: h.owner } }); return; }
-  if (req.originalUrl === '/api/projects') { res.json({ projects: [{ id: h.project, name: 'Item history verification', slug: 'history-proof', prefix: 'demo' }] }); return; }
-  res.json(fixtureResponse(req.originalUrl));
-});
-h.app.use(express.static(path.resolve('public')));
-h.app.use((_req, res) => res.sendFile(path.resolve('public/index.html')));
 const server = await startEphemeralServer(h.app);
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] });
 try {

@@ -7,8 +7,41 @@ import { ItemHistoryError, itemHistoryLimit, normalizeItemHistory, readItemHisto
 import { authedRequest, startEphemeralServer } from './helpers/ephemeral-server.ts';
 import { itemHistoryHarness } from './helpers/item-history-harness.ts';
 import { runPm, EXIT_CODE } from '../src/services/pm-runner.ts';
+import { signToken } from '../src/auth.ts';
 
 after(() => pool.end());
+
+test('production history harness blocks cookie CSRF and accepts a token bootstrapped by the real client path', async () => {
+  const h = await itemHistoryHarness();
+  const server = await startEphemeralServer(h.app);
+  try {
+    const session = `pm_token=${signToken({ userId: h.owner, email: 'history@example.test' })}`;
+    const before = await readFile(path.join(h.pmRoot, 'history', `${h.itemId}.jsonl`), 'utf8');
+    const missing = await fetch(server.url(`/api/projects/${h.project}/pm/comments/${h.itemId}`), { method: 'POST', headers: { cookie: session, 'content-type': 'application/json' }, body: JSON.stringify({ text: 'Must not be written' }) });
+    assert.equal(missing.status, 403);
+    assert.equal(await readFile(path.join(h.pmRoot, 'history', `${h.itemId}.jsonl`), 'utf8'), before);
+    const bootstrap = await fetch(server.url('/api/auth/me'), { headers: { cookie: session } });
+    assert.equal(bootstrap.status, 200);
+    const csrfCookie = bootstrap.headers.getSetCookie().find(cookie => cookie.startsWith('csrf_token='))?.split(';')[0];
+    const token = bootstrap.headers.get('x-csrf-token');
+    assert.ok(csrfCookie && token); assert.equal(csrfCookie, `csrf_token=${token}`);
+    const cookie = `${session}; ${csrfCookie}`;
+    const refusals: Record<string, string>[] = [
+      { cookie, 'x-csrf-token': 'wrong-token' },
+      { cookie, 'x-csrf-token': token, 'sec-fetch-site': 'cross-site', origin: 'https://foreign.example.test' },
+      { cookie, 'x-csrf-token': token, 'sec-fetch-site': 'same-site', origin: 'https://sibling.example.test' },
+    ];
+    for (const headers of refusals) {
+      const refused = await fetch(server.url(`/api/projects/${h.project}/pm/comments/${h.itemId}`), { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ text: 'Must not be written' }) });
+      assert.equal(refused.status, 403);
+      assert.equal(await readFile(path.join(h.pmRoot, 'history', `${h.itemId}.jsonl`), 'utf8'), before);
+    }
+    const accepted = await fetch(server.url(`/api/projects/${h.project}/pm/comments/${h.itemId}`), { method: 'POST', headers: { cookie, 'x-csrf-token': token, 'content-type': 'application/json', origin: server.url('/') }, body: JSON.stringify({ text: 'Comment through production CSRF protection' }) });
+    assert.equal(accepted.status, 201, await accepted.text());
+    const comments = await fetch(server.url(`/api/projects/${h.project}/pm/comments/${h.itemId}`), { headers: { cookie } });
+    assert.equal(comments.status, 200); assert.match(await comments.text(), /Comment through production CSRF protection/);
+  } finally { await server.close(); await h.cleanup(); }
+});
 
 test('authorized real non-git route returns chronological panel data ending in close without git on PATH', async () => {
   const h = await itemHistoryHarness();

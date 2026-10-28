@@ -1,11 +1,9 @@
-/** Real non-git history tracker and authenticated HTTP route; only project lookup is stubbed. */
-import express from 'express';
-import cookieParser from 'cookie-parser';
+/** Real non-git history tracker behind the production application; only account/project SQL is stubbed. */
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PmClient } from '@unbrained/pm-cli/sdk';
-import { pmRouter } from '../../src/routes/pm.ts';
+import { createApp } from '../../src/app.ts';
 import { pool } from '../../src/db.ts';
 
 /** Set up isolated state without requiring a running PostgreSQL service. */
@@ -28,14 +26,15 @@ export async function itemHistoryHarness() {
   await client.update(item.id, { priority: 1 });
   await client.close(item.id, 'Synthetic verification complete');
   const original = pool.query;
-  Object.defineProperty(pool, 'query', { configurable: true, writable: true, value: async (sql: string, params: unknown[] = []) => ({
-    rows: sql.includes('user_id = $2') && params[0] === project && params[1] === owner
-      ? [{ id: project, name: 'Item history', slug, description: '', prefix: 'demo', owner_user_id: owner }] : [], rowCount: 1,
-  }) });
-  const app = express();
-  app.use(express.json());
-  app.use(cookieParser());
-  app.use('/api/projects/:projectId/pm', pmRouter);
+  const projectRow = { id: project, name: 'Item history', slug, description: '', prefix: 'demo', owner_user_id: owner, is_owner: true, permission: 'edit', created_at: '2026-10-01T00:00:00Z' };
+  Object.defineProperty(pool, 'query', { configurable: true, writable: true, value: async (sql: string, params: unknown[] = []) => {
+    let rows: unknown[] = [];
+    if (sql.includes('user_id = $2') && params[0] === project && params[1] === owner) rows = [projectRow];
+    else if (sql.includes('FROM pm_projects p') && sql.includes('p.user_id = $1') && params[0] === owner) rows = [projectRow];
+    else if (/FROM pm_users\s+WHERE id\s*=\s*\$1/.test(sql) && params[0] === owner) rows = [{ id: owner, email: 'history@example.test', display_name: 'History reviewer', is_admin: false, has_github_token: false, created_at: '2026-10-01T00:00:00Z' }];
+    return { rows, rowCount: rows.length };
+  } });
+  const app = createApp();
   return { root, cwd, pmRoot, client, itemId: item.id, owner, project, app,
     cleanup: async () => {
       Object.defineProperty(pool, 'query', { configurable: true, writable: true, value: original });
