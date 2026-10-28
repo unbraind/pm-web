@@ -17,6 +17,7 @@ import { buildIcsCalendar } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, canResumeFanout, heartbeatFanout, mutationEventIdentity } from "../services/sse.js";
 import { singleFlightMutationPage } from "../services/history-read-gate.js";
+import { ItemHistoryError, readItemHistoryPage } from '../services/item-history.js';
 import { projectEventViewers } from "../services/sse-access.js";
 import { createSSEAdmission } from "../services/sse-admission.js";
 import { signalMutationRead } from "../services/mutation-read-signals.js";
@@ -1189,8 +1190,16 @@ router.get("/history/:itemId", async (req, res) => {
     const project = await requireProject(req, res);
     if (!project)
         return;
-    const result = await projectPm(project, ["history", routeParam(req, "itemId")], true);
-    res.json(result.ok ? (result.parsed || {}) : { history: [] });
+    try {
+        res.json(await readItemHistoryPage(args => projectPm(project, args, true), routeParam(req, 'itemId'), routeParam(req, 'projectId'), req.query));
+    }
+    catch (error) {
+        if (error instanceof ItemHistoryError) {
+            res.status(error.status).json({ error: error.message, code: error.code, remedy: error.remedy });
+            return;
+        }
+        res.status(503).json({ error: 'Item history is temporarily unavailable.', code: 'history_unavailable', remedy: 'Retry after checking tracker availability and history integrity.' });
+    }
 });
 // GET /api/projects/:projectId/pm/deps/:itemId
 router.get("/deps/:itemId", async (req, res) => {

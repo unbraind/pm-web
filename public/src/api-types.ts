@@ -171,9 +171,12 @@ export interface NotesResponse {
   error?: string;
 }
 
-/** Response from `GET /api/projects/:id/pm/history/:itemId` — see src/routes/pm.ts. */
+/** Bounded history page, oldest first within each page; the panel reverses it for display. */
 export interface HistoryResponse {
-  history?: HistoryEntry[];
+  history: HistoryEntry[];
+  order: 'oldest_first';
+  has_more: boolean;
+  next_cursor: string | null;
   error?: string;
 }
 

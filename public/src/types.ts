@@ -69,6 +69,8 @@ export interface Comment {
 }
 
 export interface HistoryEntry {
+  index?: number;
+  author?: string;
   message?: string;
   action?: string;
   timestamp?: string;

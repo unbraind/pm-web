@@ -83,7 +83,50 @@ export function liveCollectionMarkup(kind: 'comments' | 'history', rows: LiveEnt
 
 /** History timestamps identify existing rows so new entries append without displacing them. */
 function entryKey(row: LiveEntry): string {
-  return row.timestamp || row.created_at || row.text || row.content || row.body || row.message || row.action || '';
+  return row.index === undefined ? row.timestamp || row.created_at || row.text || row.content || row.body || row.message || row.action || '' : `history:${row.index}`;
+}
+
+/** Display actionable history errors instead of an empty-history success state. */
+export function historyFailure(error: unknown): string {
+  const response = error && typeof error === 'object' && 'response' in error ? error.response : undefined;
+  const remedy = response && typeof response === 'object' && 'remedy' in response ? String(response.remedy) : 'Refresh this view to try again.';
+  return `${error instanceof Error ? error.message : 'History could not be loaded.'} ${remedy}`;
+}
+
+/** Reset to the newest page on open/live refresh; older-page responses cannot overwrite a newer read. */
+export function setHistoryPage(root: HTMLElement, page: HistoryResponse, projectId: string, itemId: string, render = true): void {
+  const collection = root.querySelector<HTMLElement>('[data-live-field="history"]');
+  const button = root.querySelector<HTMLButtonElement>('[data-history-older]');
+  if (!collection || !button) return;
+  const rows = [...page.history].reverse();
+  const revision = String(Number(button.dataset.revision || 0) + 1);
+  button.dataset.revision = revision;
+  if (render) {
+    collection.innerHTML = liveCollectionMarkup('history', rows);
+    collection.dataset.liveValue = JSON.stringify(rows);
+  }
+  button.hidden = !page.has_more;
+  button.disabled = false;
+  button.textContent = 'Load older history';
+  const status = root.querySelector<HTMLElement>('[data-history-status]');
+  if (status) status.textContent = '';
+  button.onclick = async () => {
+    if (!page.next_cursor || button.disabled) return;
+    button.disabled = true;
+    try {
+      const older = await api<HistoryResponse>('GET', `/projects/${projectId}/pm/history/${encodeURIComponent(itemId)}?cursor=${encodeURIComponent(page.next_cursor)}`);
+      if (!root.isConnected || state.currentProject?.id !== projectId || button.dataset.revision !== revision) return;
+      collection.insertAdjacentHTML('beforeend', liveCollectionMarkup('history', [...older.history].reverse()));
+      // Retain loaded rows while continuing backwards from the older page.
+      page = { ...older, history: [...older.history, ...page.history] };
+      collection.dataset.liveValue = JSON.stringify([...page.history].reverse());
+      button.hidden = !older.has_more;
+    } catch (error) {
+      if (button.dataset.revision === revision && status) status.textContent = historyFailure(error);
+    } finally {
+      if (button.dataset.revision === revision) button.disabled = false;
+    }
+  };
 }
 
 /** Escape readable activity content while retaining the data typography. */
@@ -95,6 +138,8 @@ function entryMarkup(row: LiveEntry): string {
 function reconcileCollection(field: HTMLElement, rows: LiveEntry[]): void {
   field.querySelector('.live-empty')?.remove();
   const existing = new Map([...field.querySelectorAll<HTMLElement>('[data-live-entry]')].map(row => [row.dataset.liveEntry!, row]));
+  const history = field.dataset.liveField === 'history';
+  let previous: Element | null = null;
   for (const entry of rows) {
     const key = entryKey(entry);
     const row = existing.get(key);
@@ -104,8 +149,13 @@ function reconcileCollection(field: HTMLElement, rows: LiveEntry[]): void {
     } else {
       field.insertAdjacentHTML('beforeend', liveCollectionMarkup('comments', [entry]));
     }
+    if (history) {
+      const current = row || field.lastElementChild!;
+      field.insertBefore(current, previous ? previous.nextSibling : field.firstChild);
+      previous = current;
+    }
   }
-  existing.forEach(row => { row.textContent = 'Entry removed'; row.dataset.entryValue = ''; });
+  existing.forEach(row => { if (history) row.remove(); else { row.textContent = 'Entry removed'; row.dataset.entryValue = ''; } });
 }
 
 /** Store canonical field values separately from their readable labels. */
@@ -237,7 +287,8 @@ export async function receiveLiveUpdate(raw: string, projectId: string, sessionI
         api<HistoryResponse>('GET', `/projects/${projectId}/pm/history/${encodeURIComponent(detailItem.id)}`),
       ]);
       (detailItem as LiveRecord).comments = comments.comments || [];
-      (detailItem as LiveRecord).history = history.history || [];
+      (detailItem as LiveRecord).history = [...history.history].reverse();
+      if (state.currentProject?.id === projectId && state.user?.id === user.id && pending.get(key) === revision && detail) setHistoryPage(detail, history, projectId, detailItem.id, false);
     }
     if (state.currentProject?.id !== projectId || state.user?.id !== user.id || pending.get(key) !== revision) return true;
     for (const item of list) {

@@ -314,9 +314,47 @@ the server refuses partial overlays. See [the legal deployment boundary](docs/LE
 | `/api/auth` | Authentication (login, register) |
 | `/api/projects` | Project CRUD |
 | `/api/projects/:id/pm` | PM item operations |
+| `/api/projects/:id/pm/history/:itemId` | Paginated item activity summaries |
 | `/api/groups` | Group management |
 | `/api/projects/:id/shares` | Sharing |
 | `/api/projects/:id/github` | GitHub integration |
+
+`GET /api/projects/:projectId/pm/history/:itemId?limit=50` returns
+`{ history, order: "oldest_first", has_more, next_cursor }`. Each history row
+contains `index`, `timestamp`, `action` and `author`. Pages contain the latest
+matching entries in chronological stream order, ending with the latest operation
+(including close). The History panel displays each page newest first. Select
+**Load older history** to append earlier entries. A live update resets the panel
+and its cursor to the latest page.
+
+`limit` defaults to 50 and accepts integers from 1 to 100. Pass the opaque
+`next_cursor` back as `cursor` to read an older page; stop when `has_more` is
+false. Each response has at most `limit` patch-free rows, with timestamp strings
+bounded to 64 characters and operation/author strings to 128 characters each.
+The route requests `history --compact --limit N` explicitly through the existing
+authorized project runner, then converts it to the browser row shape. Upstream
+`order` is honored; older hosts without it are treated as oldest first. No
+projection or display order depends on pm defaults.
+
+Supported pm versions do not expose a backwards cursor on the item-history
+query. Older API pages therefore re-read the necessary latest suffix with pm's
+limit before returning only the selected bounded page. Appends preserve the
+cursor boundary. Compaction or a changed boundary returns 409 and asks the
+caller to restart. This bounds the HTTP payload; it does not promise constant
+tracker read cost for deep pages. Existing project membership checks apply to
+every page, and these reads work in a plain tracker without git.
+
+History refusals include `error`, `code` and `remedy`: invalid limits/cursors
+return 400, missing history returns 404, a stale cursor returns 409, unsupported
+host output returns 502, and unavailable history returns 503. Existing missing
+project/access responses retain their authorization behavior. The panel shows
+read failures with recovery guidance rather than an empty-history success.
+
+Run `JWT_SECRET=synthetic-history-verification-secret node scripts/item-history-browser.ts`
+after `npm run build` to verify desktop/mobile detail, pagination and live-copy
+behavior. Set `CHROMIUM_PATH` when Chromium is installed separately. Screenshots
+are written to the ignored `artifacts/item-history/item-history-1440.png` and
+`artifacts/item-history/item-history-390.png` (or `HISTORY_SCREENSHOTS`).
 
 ---
 

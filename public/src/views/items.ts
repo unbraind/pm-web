@@ -1,4 +1,4 @@
-import { liveFieldValue, changedDraftFields, liveCollectionMarkup, refreshActionState } from '../live-copy.js';
+import { liveFieldValue, changedDraftFields, liveCollectionMarkup, refreshActionState, setHistoryPage, historyFailure } from '../live-copy.js';
 // ═══════════════════════════════════════════════════════════════
 // ITEMS VIEW
 // ═══════════════════════════════════════════════════════════════
@@ -838,10 +838,11 @@ export async function openItemDetail(itemId: string): Promise<void> {
   showModal('item-detail-modal');
 
   try {
+    let historyError = '';
     const [itemData, commentsData, historyData, depsData, learningsData, notesData, testsData, filesData] = await Promise.all([
       api<ItemResponse>('GET',`/projects/${pid}/pm/get/${itemId}`),
       api<CommentsResponse>('GET',`/projects/${pid}/pm/comments/${itemId}`).catch(()=>({comments:[]})),
-      api<HistoryResponse>('GET',`/projects/${pid}/pm/history/${itemId}`).catch(()=>({history:[]})),
+      api<HistoryResponse>('GET',`/projects/${pid}/pm/history/${itemId}`).catch((error: unknown): HistoryResponse => { historyError = historyFailure(error); return { history: [], order: 'oldest_first', has_more: false, next_cursor: null }; }),
       api<DepsResponse>('GET',`/projects/${pid}/pm/deps/${itemId}`).catch(()=>({deps:[]} as DepsResponse)),
       api<LearningsResponse>('GET',`/projects/${pid}/pm/learnings/${itemId}`).catch(()=>({learnings:[]})),
       api<NotesResponse>('GET',`/projects/${pid}/pm/notes/${itemId}`).catch(()=>({notes:[]})),
@@ -851,7 +852,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
 
     const item: Item = itemData.item || (itemData as Item);
     const comments = commentsData.comments || [];
-    const history = historyData.history || [];
+    const history = [...historyData.history].reverse();
     const deps = depsData.deps || depsData.dependencies || [];
     const learnings = learningsData.learnings || [];
     const notes = notesData.notes || [];
@@ -1097,7 +1098,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <button class="btn btn-primary btn-sm" onclick="window.__app.addTest('${escHtml(itemId)}')">Add test</button>
       </div>
 
-      <div id="tab-history" style="display:none"><div class="live-collection live-field" ${liveAttrs('history', JSON.stringify(history))}>${historyHtml}</div></div>
+      <div id="tab-history" style="display:none"><div class="live-collection live-field" ${liveAttrs('history', JSON.stringify(history))}>${historyHtml}</div><p data-history-status role="status"></p><button type="button" class="btn btn-secondary btn-sm" data-history-older hidden>Load older history</button></div>
 
       <!-- Local graph tab -->
       <div id="tab-graph" style="display:none">
@@ -1143,6 +1144,12 @@ export async function openItemDetail(itemId: string): Promise<void> {
       </div>
     `;
       refreshActionState(bodyEl, item);
+      setHistoryPage(bodyEl, historyData, pid, item.id);
+      if (historyError) {
+        const historyStatus = bodyEl.querySelector<HTMLElement>('[data-history-status]');
+        if (historyStatus) historyStatus.textContent = historyError;
+        bodyEl.querySelector('[data-live-field="history"]')?.replaceChildren();
+      }
       if (modal) editBaselines.set(modal, readEditValues());
     }
   } catch(err: unknown) {

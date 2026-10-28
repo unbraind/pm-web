@@ -44,6 +44,6 @@ export function fixtureResponse(pathname: string): unknown {
   if (pathname.endsWith('/shares')) return { shares: [{ id: 'fixture-share', user_display_name: 'Alex', user_email: 'reviewer@example.test', permission: 'edit', shared_at: '2026-10-16T10:00:00Z' }] };
   if (pathname === '/api/admin/overview') return { users: [fixtureUser], projects: [{ ...fixtureProject, owner_email: fixtureUser.email }], groups: [], stats: { users: 1, admins: 1, projects: 1, sharedProjects: 1, groups: 0 }, serverVersion: 'fixture' };
   if (pathname.includes('/comments/')) return { comments: fixtureComments };
-  if (pathname.includes('/history/')) return { history: fixtureHistory };
+  if (pathname.includes('/history/')) return { history: fixtureHistory, order: 'oldest_first', has_more: false, next_cursor: null };
   return { notes: [], deps: [], learnings: [], tests: [], files: [], entries: [], groups: [], items: [] };
 }
