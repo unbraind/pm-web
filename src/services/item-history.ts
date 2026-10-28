@@ -110,7 +110,8 @@ function staleCursor(): never {
  * Read latest entries with a limit and page backwards by physical stream index.
  * Supported hosts have no backwards history cursor: older pages re-read only
  * the required latest suffix. The HTTP response always has at most limit rows
- * with bounded strings and no patches. New appends do not shift the boundary.
+ * with bounded strings and no patches. A head probe only sizes the suffix:
+ * the suffix itself must prove complete coverage of the requested interval.
  */
 export async function readItemHistoryPage(run: (args: string[]) => Promise<PmRunResult>, itemId: string, projectId: string, query: { limit?: unknown; cursor?: unknown }): Promise<ItemHistoryPage> {
   const limit = itemHistoryLimit(query.limit);
@@ -127,6 +128,11 @@ export async function readItemHistoryPage(run: (args: string[]) => Promise<PmRun
     const boundary = rows.find(row => row.index === cursor.before);
     if (!boundary || digest(boundary) !== cursor.anchor) return staleCursor();
     rows = rows.filter(row => row.index < cursor.before);
+    const start = Math.max(1, cursor.before - limit);
+    const page = rows.slice(-limit);
+    // Appends can leave the boundary present while pushing some or all older
+    // rows out of the suffix. Never certify that partial snapshot as a page.
+    if (page.length !== cursor.before - start || page.some((row, offset) => row.index !== start + offset)) return staleCursor();
   }
   const history = rows.slice(-limit);
   const first = history[0];

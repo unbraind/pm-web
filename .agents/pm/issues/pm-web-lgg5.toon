@@ -6,10 +6,10 @@ status: in_progress
 priority: 1
 tags[1]: "gh:unbraind/pm-cli#1617"
 created_at: "2026-10-28T15:59:19.401Z"
-updated_at: "2026-10-28T19:15:10.726Z"
+updated_at: "2026-10-28T20:20:52.341Z"
 author: codex-agent
 acceptance_criteria: Explicit supported history projection through authorized project runner; oldest_first API ordering honors upstream order or absent-as-oldest; bounded pages with has_more and cursor; newest-first detail panel and live refresh; SDK-created non-git HTTP regression with three mutations plus close and behavioral revert proof; actual npm output from 2026.10.20 2026.10.27 and 2026.10.28 normalized in tests; real browser screenshot and live-copy proof; typed refusals with remedies; README API docs and generated changelog; targeted local tests typecheck lint and full npm plus Bun CI gate evidence
-comments[17]{created_at,author,text}:
+comments[20]{created_at,author,text}:
   "2026-10-28T16:00:16.203Z",codex-agent,"Verification found an important distinction: projectPm dispatches native history in-process through PmClient.run, rather than the CLI default-selection layer. On the pinned SDK 2026.10.20, an SDK-created non-git tracker with create and two updates returned history with three entries by default; explicit compact returned compact_history. Continuing with the actual HTTP route and requested npm releases before deciding whether the suspected empty-panel defect reproduces. No application code changed."
   "2026-10-28T16:05:55.123Z",codex-agent,"REPRODUCED with npm pm 2026.10.28 injected only into module resolution for the unchanged HTTP route: HTTP 200, compact_history=4, history absent, order=newest_first, operations close/update/update/create, and UI fallback history length=0. The fixture was SDK-created outside git with create, two updates and close. npm 2026.10.20 and 2026.10.27 SDK dispatch returned 4 full rows, while their CLI defaults returned compact rows. Pinned dependency remains unchanged. The test database is unavailable, so route verification uses the repository authorization-query stub pattern with real authenticated HTTP and real SDK trackers; no hosted services or Docker are accessed. Design: explicit compact summary projection (the panel uses operation/time, never patches), normalized oldest-first API rows, fixed page size and opaque backwards cursor, newest-first panel plus load older, and live refresh resets to the latest page. The native history query supports latest-entry limit but no backwards cursor, so older API pages will request only the needed bounded latest suffix and trim it before responding."
   "2026-10-28T16:17:51.083Z",codex-agent,"Targeted verification passed 5/5 tests (0 skipped), including nine actual npm CLI output cases: default, full and compact with limit 3 on each of 2026.10.20, 2026.10.27 and 2026.10.28. Current default was newest_first and lacked history; all normalized timelines ended in close. A 56-entry real timeline returned exactly 50 patch-free API rows below 25000 response characters; authenticated non-member reads stayed 404 and anonymous reads 401. Revert proof in a disposable source copy: restoring only src/routes/pm.ts to origin/main made the focused route regression fail (exit 1); fixed worktree unchanged. Read-cost limitation: the supported HistoryCommandOptions declaration has limit but no reverse cursor, and open upstream search found no exact reverse-history cursor issue. Backwards API pages use physical-index boundaries and bounded response projection, re-reading the needed native suffix. No upstream issue was filed."
@@ -27,17 +27,42 @@ comments[17]{created_at,author,text}:
   "2026-10-28T17:05:11.040Z",codex-agent,"CI cutoff handoff: corrected source commit 39258af is queued in https://github.com/unbraind/pm-web/actions/runs/40731985115 . Verified full release-gate count for the corrected implementation is 0/4; npm and Bun on Node 22 and 26 are pending, not passed. The previous run 40728719161 failed 850/852 tests on each Node version with the two now-corrected regressions; Bun was skipped. Local corrected evidence remains 5/5 linked tests, 12 real CLI cases, 6/6 live-copy tests, 2 browser widths, passing build/typecheck/lint/docstrings/duplication/changelog checks, and behavioral revert failures. This final tracker-only handoff will trigger another exact-head CI run; PR 274 checks and the PR body identify that latest run. No further CI waiting after the established cutoff. Canonical changelog entry awaits orchestrator closure; generated pending entry is preserved. Item and follow-up stay unclosed; agent claim is released."
   "2026-10-28T19:01:57.080Z",codex-agent,"Resumed per orchestrator: previous final-head npm/Bun CI passed, but CodeQL reported a new high CSRF finding in test/helpers/item-history-harness.ts. Replace the bare Express/cookie harness with createApp so the production session and CSRF boundary applies. Audit sibling test helpers for this pattern, add cookie-authenticated rejection and legitimate token-bootstrap controls, merge current origin/main with a two-parent merge, run focused history/live-copy/browser and typecheck/lint, then wait up to 45 minutes for fresh CI and CodeQL. No alert dismissal or suppression. Sub-agent delegation is prohibited by the task rules, so security-boundary investigation and candidate review are separate local passes."
   "2026-10-28T19:14:07.718Z",codex-agent,"Security-boundary and candidate-review passes completed without delegation. The affected path was the bare cookie parser in itemHistoryHarness feeding real mutating pm routes without the production CSRF guard. The helper now creates the production app; browser callers no longer add replacement API/static handlers. All sibling test helpers were checked: pg-harness already uses createApp; the cookie-based unit fixtures in sw-idempotency-http, rate-limit and pure-units already mount csrfProtection before handlers, so no second instance in this PR scope remained. Local ordered verification passed build:test, 11/11 focused history/CSRF/live-copy tests, typecheck, lint, docstrings (885 documented declarations), duplication (0 clones), and browser checks at 1440/390 with real account bootstrap and unchanged screenshot paths. Four malicious cookie request classes return 403 without changing tracker history; a cookie/header token obtained from GET /api/auth/me permits the real comment with 201. Behavioral revert in a disposable source copy: restoring only the old helper made the new test fail on 201 versus expected 403 (exit 1); fixed focused control passed 1/1 afterward. No production security middleware, alert metadata, suppression or authentication rule was weakened. Main merged cleanly with its dependency/changelog changes; merge commit will have both parents. Fresh npm/Bun and CodeQL evidence will be required on the resulting head; wait budget is now 45 minutes per orchestrator."
-files[10]{path,scope,note}:
-  public/src/api-types.ts,project,Documented oldest-first API contract and paging fields
-  public/src/live-copy.ts,project,Newest-first live history and older-page control
-  public/src/types.ts,project,Stable physical history indices and author metadata
-  public/src/views/items.ts,project,Detail history and error remedies
-  scripts/item-history-browser.ts,project,Real production app session bootstrap and browser history paths
-  src/routes/pm.ts,project,Existing membership guard and project runner
-  src/services/item-history.ts,project,Explicit full and diff projection with bounded normalized API pages
-  test/helpers/item-history-harness.ts,project,Production createApp middleware and scoped account/project SQL fixtures
-  test/item-history-projection.test.ts,project,Cookie CSRF refusal corpus and real token bootstrap plus unchanged history acceptance
-  test/item-history-versions.test.ts,project,Twelve real CLI outputs across exact requested npm versions; existing completed evidence
+  "2026-10-28T20:13:15.238Z",codex-agent,"Re-review resumed. Rule: pagination success must prove complete coverage from the same read snapshot; a head probe is only a sizing hint, never evidence of suffix completeness. Main is already an ancestor after fetch, so no new merge is needed. Investigating every package history reader, runner output path, cursor consumer and packed consumer. Add adversarial real non-git append schedules, reject incomplete suffixes with typed restart guidance, and preserve existing tests. The instruction names one blocker; non-blocking findings were requested because no additional review findings are published on GitHub."
+  "2026-10-28T20:17:37.232Z",codex-agent,"Class audit completed: src/services/item-history.ts is the sole head-probe/latest-suffix paginator. Its success path now verifies the entire expected contiguous physical interval in the same suffix that validates the anchor, so partial and empty older pages cannot certify exhaustion. Audit covered routes, the PmClient dispatcher and subprocess JSON parser in pm-runner, SDK resume packets and mutation replay, CLI command registration and its JSON/human output, and npm/Bun packed acceptance. Sibling readers use SDK forward cursors or authoritative complete reads rather than separately sized suffixes; there is no separate pm-web history CLI/TOON paginator. The common service protects all hosts/backends and compiled dist bytes were regenerated. Adversarial source and compiled-module tests passed 60 real non-git schedules (three limits, five append counts, two read interleavings), checking exact coverage and restart traversal to entry one. Source-only behavioral revert in a disposable copy failed on the first six-entry, limit-two, two-append case: missing expected typed refusal (exit 1). No existing test was removed or weakened. README now documents the concurrent-suffix restart case."
+  "2026-10-28T20:20:50.973Z",codex-agent,"Final local re-review evidence: 13/13 focused tests passed (history, live-copy and twelve real npm CLI output shapes on 2026.10.20, 2026.10.27 and 2026.10.28), zero failures/skips. The PM-linked history/live-copy command then passed 12/12 after both disposable behavioral revert checks. Compiled-only revert also failed with missing expected rejection; source fixed control and compiled fixed control both pass. Browser passed at 1440/390 with two regenerated screenshots at artifacts/item-history/item-history-1440.png and artifacts/item-history/item-history-390.png, 50 newest rows, older traversal, live refresh, zero duplicate rows and no horizontal overflow. Build:test, server/frontend typecheck, lint, 885 documented declarations and zero duplication passed. Sequential isolated-home npm run release:check and bun run release:check each passed static/build stages then refused at PostgreSQL preflight because the local test database is unavailable; no tests were skipped and these are not full-gate passes. Fresh CI supplies the required full npm/Bun counts on the new head. Current main is already merged; no rebase, force push or new dependency bump. PR is draft until fresh gates and CodeQL pass. Only the one concrete finding supplied in this re-review is available; no further non-blocking findings are published on GitHub. Claim will be released before push; final CI receipts will be in PR 274 and its checks so the tested commit stays unchanged."
+files[11]:
+  - path: dist/services/item-history.js
+    scope: project
+  - path: public/src/api-types.ts
+    scope: project
+    note: Documented oldest-first API contract and paging fields
+  - path: public/src/live-copy.ts
+    scope: project
+    note: Newest-first live history and older-page control
+  - path: public/src/types.ts
+    scope: project
+    note: Stable physical history indices and author metadata
+  - path: public/src/views/items.ts
+    scope: project
+    note: Detail history and error remedies
+  - path: scripts/item-history-browser.ts
+    scope: project
+    note: Real production app session bootstrap and browser history paths
+  - path: src/routes/pm.ts
+    scope: project
+    note: Existing membership guard and project runner
+  - path: src/services/item-history.ts
+    scope: project
+    note: Explicit full and diff projection with bounded normalized API pages
+  - path: test/helpers/item-history-harness.ts
+    scope: project
+    note: Production createApp middleware and scoped account/project SQL fixtures
+  - path: test/item-history-projection.test.ts
+    scope: project
+    note: Cookie CSRF refusal corpus and real token bootstrap plus unchanged history acceptance
+  - path: test/item-history-versions.test.ts
+    scope: project
+    note: Twelve real CLI outputs across exact requested npm versions; existing completed evidence
 tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
   JWT_SECRET=synthetic-history-verification-secret node --test --test-concurrency=2 test/item-history-projection.test.ts test/item-history-versions.test.ts,project,600,codex-agent,"2026-10-28T16:19:37.173Z",local_mutation,fix/item-history-projection
   JWT_SECRET=synthetic-history-verification-secret node --test --test-concurrency=2 test/item-history-projection.test.ts test/live-copy.test.ts,project,600,codex-agent,"2026-10-28T19:12:20.282Z",local_mutation,fix/item-history-projection

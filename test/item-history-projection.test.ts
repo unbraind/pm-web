@@ -4,6 +4,7 @@ import { access, mkdir, readFile, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import { pool } from '../src/db.ts';
 import { ItemHistoryError, itemHistoryLimit, normalizeItemHistory, readItemHistoryPage, type ItemHistoryPage } from '../src/services/item-history.ts';
+import { ItemHistoryError as BuiltHistoryError, readItemHistoryPage as readBuiltHistoryPage } from '../dist/services/item-history.js';
 import { authedRequest, startEphemeralServer } from './helpers/ephemeral-server.ts';
 import { itemHistoryHarness } from './helpers/item-history-harness.ts';
 import { runPm, EXIT_CODE } from '../src/services/pm-runner.ts';
@@ -140,5 +141,59 @@ test('normalizer validates refusals and retains older full and compact data, inc
       await assert.rejects(readItemHistoryPage(async () => result, h.itemId, h.project, {}), (error: unknown) => error instanceof ItemHistoryError && !error.message.includes('private detail') && Boolean(error.remedy));
     }
     assert.ok((await readFile(path.join(h.pmRoot, 'history', `${h.itemId}.jsonl`), 'utf8')).split('\n').length >= 4);
+  } finally { await h.cleanup(); }
+});
+
+test('every older page proves complete coverage despite adversarial appends between history reads', async t => {
+  const h = await itemHistoryHarness();
+  try {
+    // Six entries, limit=2 and two inter-read appends is the original false-end case.
+    await h.client.update(h.itemId, { title: 'Fifth entry' });
+    await h.client.update(h.itemId, { title: 'Sixth entry' });
+    const run = (args: string[]) => runPm({ userId: h.owner, slug: 'history-proof', args, jsonOutput: true });
+    let schedules = 0;
+    for (const readPage of [readItemHistoryPage, readBuiltHistoryPage]) {
+      for (const limit of [2, 1, 3]) {
+        for (const appends of [2, 1, 3, 4, 0]) {
+          for (const afterRead of [1, 2]) {
+            const latest = await readPage(run, h.itemId, h.project, { limit: String(limit) });
+            assert.ok(latest.next_cursor);
+            const before = latest.history[0].index;
+            // Independent oracle: physical JSONL positions, never the paginator's output.
+            const lines = (await readFile(path.join(h.pmRoot, 'history', `${h.itemId}.jsonl`), 'utf8')).trim().split('\n');
+            const expected = lines.map((_, offset) => offset + 1).filter(index => index < before).slice(-limit);
+            let reads = 0;
+            const scheduledRun = async (args: string[]) => {
+              const result = await run(args);
+              if (++reads === afterRead) {
+                for (let append = 0; append < appends; append++) await h.client.update(h.itemId, { title: `Schedule ${schedules}, append ${append}` });
+              }
+              return result;
+            };
+            const request = readPage(scheduledRun, h.itemId, h.project, { limit: String(limit), cursor: latest.next_cursor });
+            if (afterRead === 1 && appends > 0) {
+              await assert.rejects(request, (error: unknown) => (error instanceof ItemHistoryError || error instanceof BuiltHistoryError) && error.status === 409 && error.code === 'history_cursor_stale' && Boolean(error.remedy));
+            } else {
+              const page = await request;
+              assert.deepEqual(page.history.map(row => row.index), expected);
+              assert.equal(page.has_more, expected[0] > 1);
+              assert.equal(Boolean(page.next_cursor), page.has_more);
+            }
+            assert.equal(reads, 2);
+            // Restarting always permits complete, duplicate-free traversal to entry one.
+            const seen: number[] = [];
+            let page = await readPage(run, h.itemId, h.project, { limit: '100' });
+            seen.unshift(...page.history.map(row => row.index));
+            while (page.has_more) {
+              page = await readPage(run, h.itemId, h.project, { limit: '100', cursor: page.next_cursor });
+              seen.unshift(...page.history.map(row => row.index));
+            }
+            assert.deepEqual(seen, Array.from({ length: seen.at(-1)! }, (_, index) => index + 1));
+            schedules++;
+          }
+        }
+      }
+    }
+    t.diagnostic(`${schedules} real non-git schedules: source and packed build, 3 page sizes, 5 append counts, 2 interleavings; every successful page complete`);
   } finally { await h.cleanup(); }
 });

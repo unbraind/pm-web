@@ -33,7 +33,8 @@ export declare function itemHistoryLimit(value: unknown): number;
  * Read latest entries with a limit and page backwards by physical stream index.
  * Supported hosts have no backwards history cursor: older pages re-read only
  * the required latest suffix. The HTTP response always has at most limit rows
- * with bounded strings and no patches. New appends do not shift the boundary.
+ * with bounded strings and no patches. A head probe only sizes the suffix:
+ * the suffix itself must prove complete coverage of the requested interval.
  */
 export declare function readItemHistoryPage(run: (args: string[]) => Promise<PmRunResult>, itemId: string, projectId: string, query: {
     limit?: unknown;

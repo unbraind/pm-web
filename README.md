@@ -341,9 +341,12 @@ projection or display order depends on pm defaults.
 Supported pm versions do not expose a backwards cursor on the item-history
 query. Older API pages therefore re-read the necessary latest suffix with pm's
 limit before returning only the selected bounded page. Appends preserve the
-cursor boundary. Compaction or a changed boundary returns 409 and asks the
-caller to restart. This bounds the HTTP payload; it does not promise constant
-tracker read cost for deep pages. Existing project membership checks apply to
+cursor boundary. Every older page proves the complete physical interval from
+the same suffix response, rather than trusting a separate head probe.
+Compaction, a changed boundary, or concurrent appends that push required rows
+out of that suffix return 409 and ask the caller to restart. An incomplete
+read never reports the end of history. This bounds the HTTP payload; it does
+not promise constant tracker read cost for deep pages. Existing project membership checks apply to
 every page, and these reads work in a plain tracker without git.
 
 History refusals include `error`, `code` and `remedy`: invalid limits/cursors
