@@ -44,6 +44,7 @@ function browser(readyState: number, attempt = 0) {
     invalidateAgentContext: (project: string) => invalidations.push(project),
     invalidateDecisionInbox: (project: string) => invalidations.push(`decisions:${project}`),
     invalidateContractExplorer: (project: string) => invalidations.push(`operations:${project}`),
+    invalidateEvidenceInspection: () => invalidations.push("evidence"),
     setTimeout: (next: () => void) => { scheduled.push(next); return 1; },
     connectSSE: (...args: unknown[]) => reconnects.push(args),
     refreshView: () => refreshes.push("view"), refreshGraph: () => refreshes.push("graph"), refreshPackagesOnSSE: () => refreshes.push("packages") };
@@ -60,7 +61,7 @@ for (const readyState of [0, 1]) {
     assert.equal(client.source.nativeCursor, "synthetic-cursor-7");
     assert.equal(client.scheduled.length, 0);
     assert.deepEqual(client.statuses, ["reconnecting"]);
-    assert.deepEqual(client.invalidations, ['project', 'decisions:project', 'operations:project']);
+    assert.deepEqual(client.invalidations, ['project', 'decisions:project', 'operations:project', 'evidence']);
   });
 }
 
@@ -69,7 +70,7 @@ test("a terminal stream schedules a fresh connection while a stale source cannot
   runInNewContext(callback("error"), client.realm);
   (client.realm.callback as () => void)();
   assert.equal(client.closed(), 1);
-  assert.deepEqual(client.invalidations, ['project', 'decisions:project', 'operations:project']);
+  assert.deepEqual(client.invalidations, ['project', 'decisions:project', 'operations:project', 'evidence']);
   assert.equal(client.realm.sseSource, null);
   assert.equal(client.scheduled.length, 1);
   client.scheduled[0]();
