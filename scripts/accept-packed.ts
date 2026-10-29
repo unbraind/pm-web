@@ -116,8 +116,13 @@ function runPm(
 
 /** Exercise the packed command's typed boundary under a real launcher, without contacting a server. */
 function permissionCommandProbe(command: string, prefix: string[], cwd: string, env: NodeJS.ProcessEnv): void {
-  const result = spawnSync(command, [...prefix, '--pm-path', join(cwd, '.agents', 'pm'), 'web', 'permission-impact', '--url', 'https://example.test', '--project', '12345678-1234-1234-1234-123456789abc', '--share', '12345678-1234-1234-1234-123456789abc', '--permission', 'view', '--json'], { cwd, env, encoding: 'utf8', timeout: commandTimeoutMs });
-  if (result.status === 0 || !/invalid_input/.test(result.stdout + result.stderr) || !/PM_WEB_TOKEN/.test(result.stdout + result.stderr)) throw new Error('Packed permission-impact command did not reach its typed credential boundary');
+  for (const probe of [
+    ['permission-impact', '--share', '12345678-1234-1234-1234-123456789abc', '--permission', 'view'],
+    ['evidence', '--item', 'example-task'],
+  ]) {
+    const result = spawnSync(command, [...prefix, '--pm-path', join(cwd, '.agents', 'pm'), 'web', ...probe, '--url', 'https://example.test', '--project', '12345678-1234-1234-1234-123456789abc', '--json'], { cwd, env, encoding: 'utf8', timeout: commandTimeoutMs });
+    if (result.status === 0 || !/invalid_input/.test(result.stdout + result.stderr) || !/PM_WEB_TOKEN/.test(result.stdout + result.stderr)) throw new Error('Packed inspection command did not reach its typed credential boundary');
+  }
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));

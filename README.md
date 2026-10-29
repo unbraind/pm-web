@@ -745,3 +745,28 @@ configuration and current project authorization.
 Before changing an existing user or group share, project owners can inspect which caller-visible context packets, pending decisions and known core agent operations would lose access. The sharing screen previews removal before confirmation. `pm web permission-impact --url https://pm.example.test --project <uuid> --share <uuid> --permission view --json` returns bounded counts and identities; omit `--json` for TOON. Set `PM_WEB_TOKEN` from your authenticated session. Preview changes no roles, packets or hosted configuration; unknown capabilities stay disabled.
 
 Use the typed `PermissionImpactClient.preview` SDK, [example](examples/permission-impact.ts), and [contract and refusals](docs/permission-impact.md). These previews work without Git, including when no Git executable is installed. Each preview captures one complete inbox projection and one provider availability result before internal pagination; later previews read fresh state.
+
+### Inspect evidence freshness
+
+Expand **Evidence freshness** in an item to inspect cited fragments, exact
+source freshness, ambiguous anchors and criterion bindings from pm-evidence.
+The panel, typed `EvidenceInspectionClient.inspect`, and agent command share
+one bounded response; freshness does not prove completion.
+
+```sh
+pm web evidence --url https://pm.example.test --project PROJECT_UUID \
+  --item example-task --limit 5 --budget 2400 --json
+```
+
+Set `PM_WEB_TOKEN` through your secret mechanism. Omit `--json` for compact TOON.
+Follow `nextOffset` using `--offset`; receipts disclose omitted rows and fragment
+characters. Viewers can inspect only allowed project sources. Inspection never
+registers schemas or records observations, and mutation requests return typed
+`unsupported` remedies. [Contract and limitations](docs/evidence-inspection.md) ·
+[SDK example](examples/evidence-inspection.ts).
+
+#### Without git
+
+Evidence inspection works in a plain tracker without a Git executable. Source
+resolution uses pm-evidence's guarded local readers; no hosted configuration or
+source files are changed.

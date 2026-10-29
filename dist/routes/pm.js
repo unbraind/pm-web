@@ -1,3 +1,4 @@
+import { registerEvidenceInspectionRoutes } from './evidence-inspection.js';
 import { registerPermissionImpactRoutes } from './permission-impact.js';
 import { registerContractExplorerRoutes } from './contract-explorer.js';
 import { registerAgentContextRoutes } from './agent-context.js';
@@ -70,6 +71,7 @@ function getNeo4jDriver() {
 }
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+registerEvidenceInspectionRoutes(router);
 registerPermissionImpactRoutes(router);
 registerAgentContextRoutes(router);
 registerContractExplorerRoutes(router);

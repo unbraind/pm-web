@@ -1,4 +1,5 @@
-import { createPmCliExpectedError, EXIT_CODE, type CommandHandlerContext, type ExtensionApi } from '@unbrained/pm-cli/sdk';
+import { refuseProjectCommand } from './project-command-refusal.ts';
+import { type CommandHandlerContext, type ExtensionApi } from '@unbrained/pm-cli/sdk';
 import { PermissionImpactError, parsePermissionImpact } from './permission-impact.ts';
 import { PermissionImpactClient } from './permission-impact-client.ts';
 
@@ -12,7 +13,7 @@ export async function runPermissionImpactCommand(ctx: CommandHandlerContext): Pr
     return await new PermissionImpactClient(ctx.options.url, process.env.PM_WEB_TOKEN).preview(ctx.options.project, input);
   } catch (error) {
     const refusal = error instanceof PermissionImpactError ? error : new PermissionImpactError('unavailable', 'Check the explicit server URL, authentication and backend availability.', 503);
-    throw createPmCliExpectedError(`${refusal.code}: ${refusal.remedy}`, { exitCode: refusal.status === 404 ? EXIT_CODE.NOT_FOUND : refusal.status === 503 ? EXIT_CODE.DEPENDENCY_FAILED : EXIT_CODE.USAGE, context: { code: refusal.code, nextSteps: [refusal.remedy] } });
+    return refuseProjectCommand(refusal);
   }
 }
 /** Register one read-only command supporting native compact TOON and JSON output. */
