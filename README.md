@@ -767,6 +767,8 @@ registers schemas or records observations, and mutation requests return typed
 
 #### Without git
 
-Evidence inspection works in a plain tracker without a Git executable. Source
-resolution uses pm-evidence's guarded local readers; no hosted configuration or
-source files are changed.
+Evidence inspection works in a plain tracker without a Git executable. The host
+authorizes opened source objects before supplying bounded snapshots to
+pm-evidence's exact resolver. Safe public symlinks work; private, external and
+hardlink aliases refuse with remedies. No hosted configuration or source files
+are changed.

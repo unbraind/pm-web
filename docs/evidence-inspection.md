@@ -40,8 +40,13 @@ Foreign envelopes are preserved and reported with `schema`.
 The server derives the source root from the authorized project's storage mapping.
 Only that item's native `files` links with `scope: project` are eligible. Hidden
 configuration, credential files, unlinked paths and unsupported providers are
-excluded. pm-evidence performs path containment, descriptor verification, exact
-selection and freshness checks. Its local sources require Linux procfs; other
+excluded. The host adapter authorizes both the linked name and the actual opened
+file descriptor before reading bytes and revalidates its identity before returning
+the immutable snapshot to pm-evidence. Safe public symlinks, including directory
+and chained aliases, work; aliases into reserved paths and multiply linked files
+are refused. The latter cannot establish which inode alias supplies its authority.
+pm-evidence owns exact selection and freshness checks. Opened-source verification
+requires Linux procfs; other
 platforms get explicit unsupported facts. Each source snapshot is bounded to
 256 KiB with a three-second read timeout and an eight-second inspection signal. One invocation shares immutable
 snapshots between freshness and criterion checks, then discards them.

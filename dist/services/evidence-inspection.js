@@ -1,13 +1,7 @@
+import { evidenceSourceKey as sourceKey, publicEvidenceSource as publicSource, readApprovedEvidence } from './evidence-source.js';
 import { createHash } from 'node:crypto';
-import { check, criterionFacts, EvidenceError, fileAdapter, jsonAdapter, parseCitation, replay, tokens } from 'pm-evidence';
+import { check, criterionFacts, EvidenceError, parseCitation, replay, tokens } from 'pm-evidence';
 import { EvidenceInspectionError, parseEvidenceInspection, parseEvidenceInspectionPage } from '../evidence-inspection.js';
-/** Keep source identity normalization identical to the producer's root-relative operand. */
-function sourceKey(value) { return value.replace(/^\.\//, ''); }
-/** Exclude hidden configuration and credentials even if a native file link names them. */
-function publicSource(source) {
-    source = sourceKey(source);
-    return !source.split('/').some(part => part.startsWith('.') || ['node_modules', 'auth.json'].includes(part)) && !/(?:^|\/)(?:credentials|secrets?)(?:[./]|$)/i.test(source);
-}
 /** Bounded fragment display reports every omitted character instead of silently shortening evidence. */
 function fragment(text, reason = 'unavailable') {
     return { text: text === undefined ? null : text.slice(0, 512), omittedCharacters: text === undefined ? 0 : Math.max(0, text.length - 512), reason: text === undefined ? reason : null };
@@ -33,16 +27,24 @@ export async function inspectEvidence(host, raw) {
         const allowed = new Set((before.files ?? []).filter(link => link.scope === 'project' && publicSource(link.path)).map(link => sourceKey(link.path)));
         // Share one immutable snapshot across freshness and criterion checks, then discard it.
         const reads = new Map();
-        const adapters = [fileAdapter, jsonAdapter].map(adapter => ({ provider: adapter.provider, async read(source, context) {
+        const denied = new Set();
+        const adapters = ['file', 'json'].map(provider => ({ provider, async read(source, context) {
                 if (!allowed.has(sourceKey(source)) || !publicSource(source))
                     throw new EvidenceError('boundary', 'Source is not allowed', 'Link an allowed project source on this item before inspecting it.');
                 const key = sourceKey(source);
                 let pending = reads.get(key);
                 if (!pending) {
-                    pending = adapter.read(source, context);
+                    pending = readApprovedEvidence(source, context);
                     reads.set(key, pending);
                 }
-                return pending;
+                try {
+                    return await pending;
+                }
+                catch (error) {
+                    if (error instanceof EvidenceError && ['boundary', 'unsupported'].includes(error.code))
+                        denied.add(key);
+                    throw error;
+                }
             } }));
         const options = { client: host.client, workspace: host.workspace, root: host.root, adapters, record: false, diff: true, budget: 1_000_000, maxBytes: 262144, timeoutMs: 3000, signal: AbortSignal.timeout(8000) };
         const checked = await check([before.id], options);
@@ -68,7 +70,7 @@ export async function inspectEvidence(host, raw) {
         catch { /* check reports a foreign or malformed envelope */ }
         const selected = checked.rows.slice(input.offset, input.offset + input.limit).map(row => {
             const citation = row.code === 'schema' ? undefined : citations.get(row.citation);
-            const permitted = citation !== undefined && allowed.has(sourceKey(citation.descriptor.source)) && publicSource(citation.descriptor.source) && ['file', 'json'].includes(citation.descriptor.provider);
+            const permitted = citation !== undefined && !denied.has(sourceKey(citation.descriptor.source)) && allowed.has(sourceKey(citation.descriptor.source)) && publicSource(citation.descriptor.source) && ['file', 'json'].includes(citation.descriptor.provider);
             const original = permitted ? citedText(citation) : undefined;
             return {
                 citation: row.citation, source: permitted ? citation.descriptor.source : null, selector: permitted ? citation.descriptor.selector : null,
@@ -76,7 +78,7 @@ export async function inspectEvidence(host, raw) {
                 cited: fragment(original, permitted ? 'not-retained' : 'not-allowed'),
                 current: fragment(permitted ? row.freshness === 'current' ? original : row.diff?.current.join('\n') : undefined, permitted ? 'unavailable' : 'not-allowed'),
                 bindings: permitted ? facts.rows.filter(fact => fact.citation === row.citation) : [], code: row.code ?? null,
-                remedy: row.code === 'boundary' ? 'Link an allowed project source on this item before inspecting it.' : row.remedy ?? null,
+                remedy: row.remedy ?? null,
             };
         });
         const after = (await host.client.get(before.id, { full: true })).item;

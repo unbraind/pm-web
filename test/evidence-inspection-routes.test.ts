@@ -3,9 +3,10 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { installExtension } from './helpers/install-runtime-extension.ts';
 import test from 'node:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { cite } from 'pm-evidence';
 import { EvidenceInspectionClient } from '../src/evidence-inspection-client.ts';
 import { EvidenceInspectionError } from '../src/evidence-inspection.ts';
 import { inspectEvidence } from '../src/services/evidence-inspection.ts';
@@ -24,6 +25,11 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
   const host = await evidenceTracker(path.join(root, owner.id, project.slug));
   const foreign = await evidenceTracker(path.join(root, outsider.id, other.slug));
   await writeFile(path.join(foreign.root, 'source-0.txt'), 'Other project private source');
+  const { item: protectedItem } = await host.client.create({ type: 'Task', title: 'Synthetic protected-source probe', unset: ['parent', 'assignee', 'sprint', 'release', 'goal', 'objective'] });
+  const privateMarker = 'SYNTHETIC_VIEWER_PRIVATE_BYTES';
+  await writeFile(path.join(host.root, '.private-evidence.txt'), privateMarker);
+  await symlink('.private-evidence.txt', path.join(host.root, 'allowed-alias.txt'));
+  await cite(protectedItem.id, 'allowed-alias.txt', { ...host, author: 'synthetic-policy', selector: { kind: 'lines', start: 1, end: 1 }, retain: true });
   const server = await startApp();
   t.after(async () => { await server.close(); await pool.query('DELETE FROM pm_users WHERE id IN ($1,$2,$3)', [owner.id, viewer.id, outsider.id]); await rm(root, { recursive: true, force: true }); if (previous === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previous; });
   const url = `/api/projects/${project.id}/pm/evidence/${host.id}`;
@@ -32,6 +38,10 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
   const history = await readFile(path.join(host.workspace, 'history', `${host.id}.jsonl`));
   const response = await authedFetch(server, viewer, url);
   assert.equal(response.status, 200); assert.match(response.headers.get('cache-control')!, /no-store/);
+  const protectedPage = await sdk.inspect(project.id, { item: protectedItem.id });
+  assert.equal(protectedPage.rows[0].code, 'boundary');
+  assert.equal(protectedPage.rows[0].cited.text, null); assert.equal(protectedPage.rows[0].current.text, null);
+  assert.ok(!JSON.stringify(protectedPage).includes(privateMarker));
   const local = await inspectEvidence(host, { item: host.id });
   assert.deepEqual(await response.json(), local); assert.deepEqual(await sdk.inspect(project.id, { item: host.id }), local);
   for (const method of ['POST', 'PATCH', 'DELETE', 'PUT']) {
@@ -49,12 +59,15 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
   for (const [relative, expected] of [['settings.json', settings], [`history/${host.id}.jsonl`, history]] as const) assert.deepEqual(await readFile(path.join(host.workspace, relative)), expected);
   // Use the real host dispatcher and both agent formats while the HTTP server stays live.
   await installExtension(host.workspace, host.client, 'pm-web', 'dist/index.js', ['commands', 'schema']);
-  const args = [path.resolve('node_modules/@unbrained/pm-cli/dist/cli.js'), '--pm-path', host.workspace, 'web', 'evidence', '--url', server.url('/'), '--project', project.id, '--item', host.id];
+  const args = [path.resolve('node_modules/@unbrained/pm-cli/dist/cli.js'), '--pm-path', host.workspace, 'web', 'evidence', '--url', server.url('/'), '--project', project.id, '--item'];
   const childEnv = { ...process.env, PM_WEB_TOKEN: signToken({ userId: viewer.id, email: viewer.email }), GIT_CEILING_DIRECTORIES: tmpdir() };
-  const json = await promisify(execFile)(process.execPath, [...args, '--json'], { env: childEnv, timeout: 30000 });
-  assert.deepEqual(JSON.parse(json.stdout), refreshed);
-  const toon = await promisify(execFile)(process.execPath, args, { env: childEnv, timeout: 30000 });
-  assert.match(toon.stdout, /pm-web-evidence\/v1/); assert.match(toon.stdout, /truthAssessed: false/);
+  for (const [selected, expected] of [[host.id, refreshed], [protectedItem.id, protectedPage]] as const) {
+    const json = await promisify(execFile)(process.execPath, [...args, selected, '--json'], { env: childEnv, timeout: 30000 });
+    assert.deepEqual(JSON.parse(json.stdout), expected); assert.ok(!json.stdout.includes(privateMarker));
+    const toon = await promisify(execFile)(process.execPath, [...args, selected], { env: childEnv, timeout: 30000 });
+    assert.match(toon.stdout, /pm-web-evidence\/v1/); assert.match(toon.stdout, /truthAssessed: false/);
+    assert.ok(!toon.stdout.includes(privateMarker));
+  }
   await pool.query('DELETE FROM pm_project_shares WHERE project_id=$1 AND shared_with_user_id=$2', [project.id, viewer.id]);
   await assert.rejects(sdk.inspect(project.id, { item: host.id }), error => error instanceof EvidenceInspectionError && error.code === 'not_found');
   // An empty legacy item has no evidence schema requirement and causes no schema bootstrap.

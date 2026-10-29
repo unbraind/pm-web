@@ -12,7 +12,7 @@ function fragmentMarkup(label: string, value: EvidenceInspectionRow['cited']): s
 }
 /** Render exactly the machine page facts, without inferring completion from source freshness. */
 export function evidenceInspectionMarkup(page: EvidenceInspectionPage): string {
-  return `<p>${page.total} evidence records · ${page.omitted} outside this page · ${page.sourceReads} sources read</p>
+  return `<p>${page.total} evidence records · ${page.omitted} outside this page · ${page.sourceReads} source read attempts</p>
     <p>Source freshness does not prove completion. Evidence changes require a separately authorized editor.</p>
     ${page.criterionGaps.map(gap => `<p role="note">Criterion facts: ${escHtml(gap.support)}. ${escHtml(gap.remedy || 'Review the current criterion declarations.')}</p>`).join('')}${page.omittedCriterionGaps ? `<p>${page.omittedCriterionGaps} additional criterion gaps omitted.</p>` : ''}
     ${page.rows.map(row => `<article class="evidence-row"><h3>${escHtml(row.source || 'Source unavailable')}</h3>

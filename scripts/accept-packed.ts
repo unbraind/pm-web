@@ -29,6 +29,7 @@ interface AcceptanceReceipt {
   readonly deprecated_diagnostic: false;
   readonly unpublished_npm_link_omitted: true;
   readonly inbox_snapshot: true;
+  readonly evidence_object_policy: true;
 }
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -246,8 +247,10 @@ try {
     run(scenario.manager === "bun" ? bunCommand : process.execPath, ["--input-type=module", "-e", `
       import assert from "node:assert/strict";
       import { join } from "node:path";
+      import { createRequire } from "node:module";
+      import { writeFile, symlink } from "node:fs/promises";
       import { PmClient } from "@unbrained/pm-cli/sdk";
-      import { readDecisionInboxSnapshot, listDecisionInbox, requestDecision, respondToDecision } from "@unbrained/pm-web";
+      import { inspectEvidence, readDecisionInboxSnapshot, listDecisionInbox, requestDecision, respondToDecision } from "@unbrained/pm-web";
       const pmRoot = join(process.cwd(), ".agents", "pm");
       const author = "packed-agent";
       const client = new PmClient({ cwd: process.cwd(), pmRoot, noExtensions: true, author });
@@ -262,6 +265,24 @@ try {
       assert.equal(captured[0].status, "pending");
       assert.deepEqual(await readDecisionInboxSnapshot(pmRoot), []);
       assert.equal((await listDecisionInbox(pmRoot)).total, 0);
+      // Exercise the installed server's supported dependency surface even when
+      // the consumer intentionally carries an older extension host.
+      const consumerRequire = createRequire(import.meta.url);
+      const serverRequire = createRequire(consumerRequire.resolve("@unbrained/pm-web/package.json"));
+      const { PmClient: EvidenceClient } = serverRequire("@unbrained/pm-cli/sdk");
+      const { cite } = serverRequire("pm-evidence");
+      const evidenceClient = new EvidenceClient({ cwd: process.cwd(), pmRoot, noExtensions: true, author });
+      const evidenceItem = await evidenceClient.create({ type: "Task", title: "Packed source authorization", unset: ["parent", "assignee", "goal", "objective", "sprint", "release"] });
+      const privateMarker = "SYNTHETIC_PACKED_PRIVATE_BYTES";
+      await writeFile(join(process.cwd(), ".private-evidence.json"), JSON.stringify({ value: privateMarker }));
+      await symlink(".private-evidence.json", join(process.cwd(), "public-evidence.json"));
+      const evidenceHost = { client: evidenceClient, workspace: pmRoot, root: process.cwd() };
+      await cite(evidenceItem.item.id, "public-evidence.json", { ...evidenceHost, author, selector: { kind: "pointer", pointer: "/value" }, retain: true });
+      const evidencePage = await inspectEvidence(evidenceHost, { item: evidenceItem.item.id });
+      assert.equal(evidencePage.rows[0].code, process.platform === "linux" ? "boundary" : "unsupported");
+      assert.equal(evidencePage.rows[0].cited.text, null);
+      assert.equal(evidencePage.rows[0].current.text, null);
+      assert.ok(!JSON.stringify(evidencePage).includes(privateMarker));
       import { findCatalogEntry } from "@unbrained/pm-web/dist/services/package-catalog.js";
       import { renderPackageCard } from "@unbrained/pm-web/public/src/views/packages.js";
       const jev = findCatalogEntry("pm-jev");
@@ -280,6 +301,7 @@ try {
       deprecated_diagnostic: false,
       unpublished_npm_link_omitted: true,
       inbox_snapshot: true,
+      evidence_object_policy: true,
     });
   }
 
