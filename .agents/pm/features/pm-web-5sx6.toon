@@ -2,13 +2,16 @@ id: pm-web-5sx6
 title: Inspect cited evidence freshness and affected criteria
 description: "Present pm-evidence facts for one authorized item in an item panel and the same compact SDK, CLI and HTTP response. Source roots and allowed file identities are selected by the server. No source resolution or review judgment is reimplemented."
 type: Feature
-status: in_progress
+status: closed
 priority: 2
 tags[1]: "gh:unbraind/pm-web#278"
 created_at: "2026-10-29T04:15:12.821Z"
-updated_at: "2026-10-29T11:57:15.557Z"
+updated_at: "2026-10-29T18:57:07.074Z"
+closed_at: "2026-10-29T18:57:06.801Z"
+completed_at: "2026-10-29T18:57:06.801Z"
 author: codex-agent
 acceptance_criteria: Editing one allowed source updates only affected displayed evidence; A viewer cannot trigger schema writes or access another project sources; Unsupported backend mutation support is clearly refused; UI and compact machine endpoint have identical meaning; source freshness never claims completion
+release: 2026.10.29
 unblock_note: Implemented the public SDK resolver in pm-evidence PR 19 and pinned its compiled commit archive; full CI verification pending.
 comments[20]{created_at,author,text}:
   "2026-10-29T04:15:55.586Z",codex-agent,"Overlap checked against the installed CLI public SDK declarations and current pm-evidence, pm-review and pm-web agent context/contract/permission features. Core owns item reads, history, schemas and output shaping; pm-evidence owns exact fragment resolution, freshness and criterionFacts; pm-review owns judgments; existing web views carry receipts. This feature only presents authorized pm-evidence facts. Acceptance: changing one allowed source changes only its evidence rows; viewer inspection performs no schema writes and cannot select other project sources; mutation attempts return typed remedies; UI, SDK, CLI and compact endpoint share one response. No import/export/sync, journal, status interpretation, idempotency key or mutable coordination state is introduced. Read-only observations re-read SDK state before returning; no transaction isolation is claimed (upstream #1620)."
@@ -54,4 +57,5 @@ docs[4]{path,scope}:
   docs/evidence-inspection.md,project
   examples/evidence-inspection.ts,project
   README.md,project
+close_reason: Delivered by merged PR 278; successful CI verified; authorized prepared-release notes recovery.
 body: ""

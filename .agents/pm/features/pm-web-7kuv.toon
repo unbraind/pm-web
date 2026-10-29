@@ -2,13 +2,16 @@ id: pm-web-7kuv
 title: Preview access losses before changing project shares
 description: "Show caller-visible active context packets, pending decisions and agent operations that lose access under an explicitly proposed existing user or group share role/scope change. Overlap recheck: CLI public contracts and authorization/governance exports describe support/policy, not ACL consequences; pm-web Contract Explorer is operation support, Agent Context owns consented packets, Decision Inbox owns pending decisions, and swarm owns execution. Reuse these SDK and web authorization paths. No hosted configuration changes."
 type: Feature
-status: in_progress
+status: closed
 priority: 2
 tags[1]: "gh:unbraind/pm-web#276"
 created_at: "2026-10-28T21:58:56.592Z"
-updated_at: "2026-10-28T23:55:40.711Z"
+updated_at: "2026-10-29T18:56:49.942Z"
+closed_at: "2026-10-29T18:56:49.459Z"
+completed_at: "2026-10-29T18:56:49.459Z"
 author: codex-agent
 acceptance_criteria: View-only users cannot inspect broader scopes; preview changes no roles or packets; separately authorized changes invalidate exact affected views; unknown capabilities stay disabled. Typed SDK and CLI with bounded TOON/JSON and typed remedies; docs/example; no-git real-data evidence; seeded property and boundary validation; unchanged npm and Bun CI release gates.
+release: 2026.10.29
 comments[17]{created_at,author,text}:
   "2026-10-28T21:59:47.520Z",codex-agent,"Overlap checked against current CLI public SDK declarations, fleet sources, open upstream permission-preview search (related identity/authority issue 1360), web Contract Explorer, Agent Context and Decision Inbox. No duplicate consequence preview found. Plan: read-only existing-share proposals for view/edit/none; evaluate effective direct/group access through the same query as live authorization; intersect packet audience with caller consent; reuse SDK inbox and contracts; do not execute unknown provider operations. Existing sharing remains separately authorized. No import, export, sync, durable plan, checkpoint or outbox is introduced. Test with non-git trackers, seeded ACL sequences, packet revisions, replay, extreme boundary inputs and actual share changes."
   "2026-10-28T22:17:03.472Z",codex-agent,"Implemented owner-only observational share replacement previews with the same effective owner/direct/group resolver as live access. Packet counts intersect caller consent before projection; decisions reuse the SDK-backed inbox; known core operation support reuses SDK contracts with extensions disabled. No role, packet, item, journal or configuration mutation exists. Initial boundary suite 3/3 and service-worker suite combined 31/31 pass; 500 seeded ACL/replay/audience sequences passed, plus no-git real HTTP native CLI acceptance. Three focused HTTP tests pass after excluding preview POSTs from idempotency persistence. Public immutable main copy measured 189 items, 409 unchanged source files, zero packets/requests, 31 mutation capabilities lost on downgrade and 84 total on removal; first 20 identities occupy 1513 JSON bytes. Browser desktop 1440/mobile 390 preview parity and cancel preservation pass, and real downgrade clears stale decision controls. Full gates delegated to CI as requested."
@@ -97,4 +100,5 @@ docs[3]{path,scope}:
   docs/permission-impact-validation.json,project
   docs/permission-impact.md,project
   examples/permission-impact.ts,project
+close_reason: Delivered by merged PR 276; successful CI verified; authorized prepared-release notes recovery.
 body: ""
