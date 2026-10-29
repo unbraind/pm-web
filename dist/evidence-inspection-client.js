@@ -21,6 +21,11 @@ export class EvidenceInspectionClient {
         const input = parseEvidenceInspection(raw);
         try {
             project = permissionUuid(project);
+        }
+        catch {
+            throw new EvidenceInspectionError('invalid_input', 'Supply the UUID of an explicitly authorized project.');
+        }
+        try {
             const query = new URLSearchParams({ offset: String(input.offset), limit: String(input.limit), budget: String(input.budget) });
             const { response, data } = await requestProjectJson(`${this.origin}/api/projects/${project}/pm/evidence/${encodeURIComponent(input.item)}?${query}`, this.token, 'GET');
             if (!response.ok) {

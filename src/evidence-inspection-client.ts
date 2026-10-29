@@ -16,8 +16,9 @@ export class EvidenceInspectionClient {
   /** Inspect the same authorized page the item panel consumes. */
   async inspect(project: string, raw: EvidenceInspectionInput): Promise<EvidenceInspectionPage> {
     const input = parseEvidenceInspection(raw);
+    try { project = permissionUuid(project); }
+    catch { throw new EvidenceInspectionError('invalid_input', 'Supply the UUID of an explicitly authorized project.'); }
     try {
-      project = permissionUuid(project);
       const query = new URLSearchParams({ offset: String(input.offset), limit: String(input.limit), budget: String(input.budget) });
       const { response, data } = await requestProjectJson<unknown>(`${this.origin}/api/projects/${project}/pm/evidence/${encodeURIComponent(input.item)}?${query}`, this.token, 'GET');
       if (!response.ok) {

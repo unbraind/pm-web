@@ -145,6 +145,7 @@ test('SDK/CLI reject unsupported input before network and packed command registr
   t.after(() => harness.deactivate());
   for (const options of [{}, { item: host.id, budget: 'Infinity' }, { item: host.id, limit: '' }, { item: host.id }]) await assert.rejects(harness.runCommand({ command: 'web evidence', pmRoot: host.workspace, options }), isPmCliExpectedError);
   for (const origin of ['invalid', 'http://example.test', 'https://user@example.test', 'https://example.test/path']) assert.throws(() => new EvidenceInspectionClient(origin, 'synthetic'), invalid);
+  await assert.rejects(new EvidenceInspectionClient('https://example.test', 'synthetic').inspect('invalid-project', { item: host.id }), invalid);
   await assert.rejects(new EvidenceInspectionClient('http://127.0.0.1:1', 'synthetic').inspect('12345678-1234-1234-1234-123456789abc', { item: host.id }), error => error instanceof EvidenceInspectionError && error.code === 'unavailable');
   const markup = evidenceInspectionMarkup({ ...await inspectEvidence(host, { item: host.id }), rows: [] });
   assert.match(markup, /No citations/);
