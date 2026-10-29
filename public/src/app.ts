@@ -1,3 +1,4 @@
+import { invalidateEvidenceInspection } from './views/evidence-inspection.js';
 import { invalidateContractExplorer } from './views/contract-explorer.js';
 import { invalidateAgentContext, revokeAgentContextView } from './views/agent-context.js';
 import { refreshDecisionInbox, invalidateDecisionInbox } from './views/decision-inbox.js';
@@ -482,6 +483,7 @@ function setSseStatus(status: 'connected' | 'disconnected' | 'reconnecting'): vo
  * timers, close the event source, clear the tracked project/client ids, and
  * mark sync as disconnected. */
 function disconnectSSE(): void {
+  invalidateEvidenceInspection();
   sseAccessGeneration++;
   resetLiveCopies();
   if (sseReconnectTimer) { clearTimeout(sseReconnectTimer); sseReconnectTimer = null; }
@@ -654,7 +656,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.addEventListener('agent-context-changed', () => invalidateAgentContext(projectId));
     source.addEventListener('project-access-changed', () => {
       const accessGeneration = ++sseAccessGeneration;
-      invalidateAgentContext(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId);
+      invalidateAgentContext(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId); invalidateEvidenceInspection();
       if (state.currentProject?.id === projectId) {
         state.currentProject.permission = 'view';
         void api<{ project: { permission: string } }>('GET', `/projects/${projectId}`).then(result => {
@@ -663,7 +665,7 @@ function connectSSE(projectId: string, attempt = 0): void {
       }
     });
     source.addEventListener('access-revoked', () => {
-      revokeAgentContextView(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId); disconnectSSE();
+      revokeAgentContextView(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId); invalidateEvidenceInspection(); disconnectSSE();
     });
 
     // Extensions catalog mutations (installs/activates/deactivates/uninstalls)
@@ -674,7 +676,7 @@ function connectSSE(projectId: string, attempt = 0): void {
     source.onerror = () => {
       if (sseSource !== source || sseCurrentProjectId !== projectId) return;
       setSseStatus('reconnecting');
-      invalidateAgentContext(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId);
+      invalidateAgentContext(projectId); invalidateDecisionInbox(projectId); invalidateContractExplorer(projectId); invalidateEvidenceInspection();
       // Keeping this object preserves its native Last-Event-ID on transient errors.
       if (source.readyState !== EventSource.CLOSED) return;
       source.close();

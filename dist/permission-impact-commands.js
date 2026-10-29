@@ -1,4 +1,4 @@
-import { createPmCliExpectedError, EXIT_CODE } from '@unbrained/pm-cli/sdk';
+import { refuseProjectCommand } from './project-command-refusal.js';
 import { PermissionImpactError, parsePermissionImpact } from './permission-impact.js';
 import { PermissionImpactClient } from './permission-impact-client.js';
 /** Delegate rendering and output budgets to the host; no local tracker or database is acquired. */
@@ -13,7 +13,7 @@ export async function runPermissionImpactCommand(ctx) {
     }
     catch (error) {
         const refusal = error instanceof PermissionImpactError ? error : new PermissionImpactError('unavailable', 'Check the explicit server URL, authentication and backend availability.', 503);
-        throw createPmCliExpectedError(`${refusal.code}: ${refusal.remedy}`, { exitCode: refusal.status === 404 ? EXIT_CODE.NOT_FOUND : refusal.status === 503 ? EXIT_CODE.DEPENDENCY_FAILED : EXIT_CODE.USAGE, context: { code: refusal.code, nextSteps: [refusal.remedy] } });
+        return refuseProjectCommand(refusal);
     }
 }
 /** Register one read-only command supporting native compact TOON and JSON output. */

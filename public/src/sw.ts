@@ -85,6 +85,7 @@ const STATIC_ASSETS: readonly string[] = [
   '/src/views/normalize.js',
   '/src/views/maintenance.js',
   '/src/views/contract-explorer.js',
+  '/src/views/evidence-inspection.js',
   '/src/views/packages.js',
   '/src/views/plan.js',
   '/src/views/decision-inbox.js',
@@ -718,6 +719,11 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
 
   // API calls: try network, queue mutations if offline
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/healthz')) {
+    // Evidence is live authorization-bound data: never cache or queue any method.
+    if (/^\/api\/projects\/[^/]+\/pm\/evidence(?:\/|$)/i.test(url.pathname)) {
+      event.respondWith(fetch(event.request).catch(() => new Response(JSON.stringify({ code: 'unavailable', error: 'Evidence needs a live connection', remedy: 'Reconnect and refresh evidence.' }), { status: 503, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
+      return;
+    }
     // Consequence previews are live reads even though their explicit proposal uses POST.
     if (event.request.method === 'POST' && /^\/api\/projects\/[^/]+\/pm\/permission-impact\/?$/i.test(url.pathname)) {
       event.respondWith(fetch(event.request).catch(() => new Response(JSON.stringify({ code: 'unavailable', error: 'Preview needs a live connection', remedy: 'Reconnect and refresh the proposed permission change.' }), { status: 503, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));

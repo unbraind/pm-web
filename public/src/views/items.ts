@@ -1,3 +1,4 @@
+import { invalidateEvidenceInspection, mountEvidenceInspection } from './evidence-inspection.js';
 import { liveFieldValue, changedDraftFields, liveCollectionMarkup, refreshActionState, setHistoryPage, historyFailure } from '../live-copy.js';
 // ═══════════════════════════════════════════════════════════════
 // ITEMS VIEW
@@ -831,6 +832,7 @@ export function setStatusFilter(status: string): void {
  * builds the full tabbed detail view.
  */
 export async function openItemDetail(itemId: string): Promise<void> {
+  invalidateEvidenceInspection();
   const pid = state.currentProject?.id;
   if (!pid) return;
 
@@ -930,6 +932,12 @@ export async function openItemDetail(itemId: string): Promise<void> {
         <div class="item-detail-desc live-field" ${liveAttrs('acceptanceCriteria', liveFieldValue('acceptanceCriteria', item))}>${escHtml(liveFieldValue('acceptanceCriteria', item)) || 'No acceptance criteria yet'}</div>
       </div>
 
+      <details class="item-detail-section evidence-panel" data-evidence-panel>
+        <summary class="item-detail-section-title">Evidence freshness</summary>
+        <button type="button" class="btn btn-secondary" data-evidence-refresh>Refresh evidence</button>
+        <p role="status" aria-live="polite" data-evidence-status>Open to inspect current sources.</p>
+        <div data-evidence-body></div>
+      </details>
       <div class="tabs">
         <div class="tab active" onclick="window.__app.switchDetailTab(this,'tab-comments')">Comments (${comments.length})</div>
         <div class="tab" onclick="window.__app.switchDetailTab(this,'tab-update')">Update</div>
@@ -1143,6 +1151,7 @@ export async function openItemDetail(itemId: string): Promise<void> {
         </div>
       </div>
     `;
+      mountEvidenceInspection(bodyEl as HTMLElement, pid, item.id);
       refreshActionState(bodyEl, item);
       setHistoryPage(bodyEl, historyData, pid, item.id);
       if (historyError) {

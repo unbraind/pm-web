@@ -29,6 +29,7 @@ interface AcceptanceReceipt {
   readonly deprecated_diagnostic: false;
   readonly unpublished_npm_link_omitted: true;
   readonly inbox_snapshot: true;
+  readonly evidence_object_policy: true;
 }
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -116,8 +117,13 @@ function runPm(
 
 /** Exercise the packed command's typed boundary under a real launcher, without contacting a server. */
 function permissionCommandProbe(command: string, prefix: string[], cwd: string, env: NodeJS.ProcessEnv): void {
-  const result = spawnSync(command, [...prefix, '--pm-path', join(cwd, '.agents', 'pm'), 'web', 'permission-impact', '--url', 'https://example.test', '--project', '12345678-1234-1234-1234-123456789abc', '--share', '12345678-1234-1234-1234-123456789abc', '--permission', 'view', '--json'], { cwd, env, encoding: 'utf8', timeout: commandTimeoutMs });
-  if (result.status === 0 || !/invalid_input/.test(result.stdout + result.stderr) || !/PM_WEB_TOKEN/.test(result.stdout + result.stderr)) throw new Error('Packed permission-impact command did not reach its typed credential boundary');
+  for (const probe of [
+    ['permission-impact', '--share', '12345678-1234-1234-1234-123456789abc', '--permission', 'view'],
+    ['evidence', '--item', 'example-task'],
+  ]) {
+    const result = spawnSync(command, [...prefix, '--pm-path', join(cwd, '.agents', 'pm'), 'web', ...probe, '--url', 'https://example.test', '--project', '12345678-1234-1234-1234-123456789abc', '--json'], { cwd, env, encoding: 'utf8', timeout: commandTimeoutMs });
+    if (result.status === 0 || !/invalid_input/.test(result.stdout + result.stderr) || !/PM_WEB_TOKEN/.test(result.stdout + result.stderr)) throw new Error('Packed inspection command did not reach its typed credential boundary');
+  }
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));
@@ -241,8 +247,10 @@ try {
     run(scenario.manager === "bun" ? bunCommand : process.execPath, ["--input-type=module", "-e", `
       import assert from "node:assert/strict";
       import { join } from "node:path";
+      import { createRequire } from "node:module";
+      import { writeFile, symlink, rm } from "node:fs/promises";
       import { PmClient } from "@unbrained/pm-cli/sdk";
-      import { readDecisionInboxSnapshot, listDecisionInbox, requestDecision, respondToDecision } from "@unbrained/pm-web";
+      import { inspectEvidence, readDecisionInboxSnapshot, listDecisionInbox, requestDecision, respondToDecision } from "@unbrained/pm-web";
       const pmRoot = join(process.cwd(), ".agents", "pm");
       const author = "packed-agent";
       const client = new PmClient({ cwd: process.cwd(), pmRoot, noExtensions: true, author });
@@ -257,6 +265,37 @@ try {
       assert.equal(captured[0].status, "pending");
       assert.deepEqual(await readDecisionInboxSnapshot(pmRoot), []);
       assert.equal((await listDecisionInbox(pmRoot)).total, 0);
+      // Exercise the installed server's supported dependency surface even when
+      // the consumer intentionally carries an older extension host.
+      const consumerRequire = createRequire(import.meta.url);
+      const serverRequire = createRequire(consumerRequire.resolve("@unbrained/pm-web/package.json"));
+      const { PmClient: EvidenceClient } = serverRequire("@unbrained/pm-cli/sdk");
+      const { cite } = serverRequire("pm-evidence");
+      const evidenceClient = new EvidenceClient({ cwd: process.cwd(), pmRoot, noExtensions: true, author });
+      const evidenceItem = await evidenceClient.create({ type: "Task", title: "Packed source authorization", unset: ["parent", "assignee", "goal", "objective", "sprint", "release"] });
+      const privateMarker = "SYNTHETIC_PACKED_PRIVATE_BYTES";
+      await writeFile(join(process.cwd(), ".private-evidence.json"), JSON.stringify({ value: privateMarker }));
+      await symlink(".private-evidence.json", join(process.cwd(), "public-evidence.json"));
+      const evidenceHost = { client: evidenceClient, workspace: pmRoot, root: process.cwd() };
+      await cite(evidenceItem.item.id, "public-evidence.json", { ...evidenceHost, author, selector: { kind: "pointer", pointer: "/value" }, retain: true });
+      const evidencePage = await inspectEvidence(evidenceHost, { item: evidenceItem.item.id });
+      assert.equal(evidencePage.rows[0].code, process.platform === "linux" ? "boundary" : "unsupported");
+      assert.equal(evidencePage.rows[0].cited.text, null);
+      assert.equal(evidencePage.rows[0].current.text, null);
+      assert.ok(!JSON.stringify(evidencePage).includes(privateMarker));
+      for (const removed of [".private-evidence.json", "public-evidence.json"]) {
+        await rm(join(process.cwd(), removed));
+        const unavailablePage = await inspectEvidence(evidenceHost, { item: evidenceItem.item.id });
+        assert.equal(unavailablePage.rows[0].cited.text, null);
+        assert.equal(unavailablePage.rows[0].current.text, null);
+        assert.equal(unavailablePage.rows[0].selector, null);
+        assert.deepEqual(unavailablePage.rows[0].bindings, []);
+        assert.ok(!JSON.stringify(unavailablePage).includes(privateMarker));
+      }
+      await writeFile(join(process.cwd(), "exact-evidence.json"), '{"value":9007199254740993,"__proto__":1e309}');
+      for (const pointer of ["/value", "/__proto__"]) await cite(evidenceItem.item.id, "exact-evidence.json", { ...evidenceHost, author, selector: { kind: "pointer", pointer } });
+      const livePage = await inspectEvidence(evidenceHost, { item: evidenceItem.item.id, budget: 16000 });
+      if (process.platform === "linux") assert.deepEqual(livePage.rows.slice(1).map(row => row.current.text), ["9007199254740993", "1e309"]);
       import { findCatalogEntry } from "@unbrained/pm-web/dist/services/package-catalog.js";
       import { renderPackageCard } from "@unbrained/pm-web/public/src/views/packages.js";
       const jev = findCatalogEntry("pm-jev");
@@ -275,6 +314,7 @@ try {
       deprecated_diagnostic: false,
       unpublished_npm_link_omitted: true,
       inbox_snapshot: true,
+      evidence_object_policy: true,
     });
   }
 

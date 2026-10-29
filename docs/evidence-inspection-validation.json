@@ -1,0 +1,16 @@
+{
+  "repository": "unbraind/pm-web",
+  "items": 190,
+  "inspectedItems": 190,
+  "citationRows": 0,
+  "sourceReads": 0,
+  "maximumTokens": 120,
+  "refusals": 0,
+  "elapsedMs": 290634,
+  "source": "9a5f6240c6730e5e441749f44aa139942b206209",
+  "immutableSourceFiles": 411,
+  "sourceSha256": "a36bee2fe560f6c68d93ece0860117a728a0db58e6e105305d774013b58af533",
+  "sourceUnchanged": true,
+  "nonGit": true,
+  "sourceFilesReadOnly": true
+}

@@ -22,7 +22,9 @@
     "docs/resume-packets-validation.md",
     "examples/resume-packets.ts",
     "docs/permission-impact.md",
-    "examples/permission-impact.ts"
+    "examples/permission-impact.ts",
+    "docs/evidence-inspection.md",
+    "examples/evidence-inspection.ts"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -60,7 +62,9 @@
     "db:check": "node scripts/ensure-test-db.ts",
     "verify:release-changelog-date": "node scripts/verify-release-changelog-date.ts",
     "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts",
-    "build:brand": "node scripts/build-brand.ts"
+    "build:brand": "node scripts/build-brand.ts",
+    "validate:evidence": "node scripts/evidence-inspection-public-data.ts",
+    "accept:evidence": "node scripts/with-test-db.ts node scripts/evidence-inspection-browser.ts"
   },
   "dependencies": {
     "@unbrained/pm-cli": "2026.10.25",
@@ -72,8 +76,10 @@
     "neo4j-driver": "^6.2.0",
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
+    "pm-evidence": "https://codeload.github.com/unbraind/pm-evidence/tar.gz/dddf9e0a1557850710bc4f0bbbb2258d9491b841",
     "pm-graph": "2026.10.25",
-    "uuid": "^14.0.2"
+    "uuid": "^14.0.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@babel/eslint-parser": "8.0.7",
@@ -156,7 +162,8 @@
       "docs/contract-explorer.md",
       "docs/resume-packets.md",
       "docs/resume-packets-validation.md",
-      "docs/permission-impact.md"
+      "docs/permission-impact.md",
+      "docs/evidence-inspection.md"
     ],
     "examples": [
       "README.md",
@@ -164,7 +171,8 @@
       "examples/agent-context.ts",
       "examples/contract-explorer.ts",
       "examples/resume-packets.ts",
-      "examples/permission-impact.ts"
+      "examples/permission-impact.ts",
+      "examples/evidence-inspection.ts"
     ]
   },
   "private": false,

@@ -1,3 +1,6 @@
+export * from './evidence-inspection.ts';
+export { EvidenceInspectionClient } from './evidence-inspection-client.ts';
+export { inspectEvidence, type EvidenceInspectionHost } from './services/evidence-inspection.ts';
 export * from './permission-impact.ts';
 export { PermissionImpactClient } from './permission-impact-client.ts';
 export { ContractExplorerClient } from './contract-explorer-client.ts';

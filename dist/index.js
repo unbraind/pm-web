@@ -1,3 +1,7 @@
+export * from './evidence-inspection.js';
+export { EvidenceInspectionClient } from './evidence-inspection-client.js';
+export { inspectEvidence } from './services/evidence-inspection.js';
+import { registerEvidenceInspectionCommand } from './evidence-inspection-commands.js';
 export * from './permission-impact.js';
 export { PermissionImpactClient } from './permission-impact-client.js';
 import { registerPermissionImpactCommand } from './permission-impact-commands.js';
@@ -255,6 +259,7 @@ export default defineExtension({
     version: "2026.10.28",
     activate(api) {
         registerPermissionImpactCommand(api);
+        registerEvidenceInspectionCommand(api);
         registerInboxCommands(api);
         registerAgentContextCommands(api);
         registerContractExplorerCommand(api);

@@ -1,3 +1,7 @@
+export * from './evidence-inspection.ts';
+export { EvidenceInspectionClient } from './evidence-inspection-client.ts';
+export { inspectEvidence, type EvidenceInspectionHost } from './services/evidence-inspection.ts';
+import { registerEvidenceInspectionCommand } from './evidence-inspection-commands.ts';
 export * from './permission-impact.ts';
 export { PermissionImpactClient } from './permission-impact-client.ts';
 import { registerPermissionImpactCommand } from './permission-impact-commands.ts';
@@ -313,6 +317,7 @@ export default defineExtension({
 
   activate(api: ExtensionApi) {
     registerPermissionImpactCommand(api);
+    registerEvidenceInspectionCommand(api);
     registerInboxCommands(api);
     registerAgentContextCommands(api);
     registerContractExplorerCommand(api);
