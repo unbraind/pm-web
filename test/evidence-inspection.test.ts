@@ -167,7 +167,7 @@ test('source policy admits linked JSON and legacy text, redacts unlinked origina
   delete legacy.citations[0].criteria;
   await mutateItem({ pmRoot: host.workspace, settings: await readSettings(host.workspace), id: host.id, op: 'update', author: 'legacy-fixture', message: 'Seed prior citation shape and unlinked source', mutate(document) {
     document.metadata.evidence_state = JSON.stringify(legacy);
-    document.metadata.files = document.metadata.files?.filter(file => file.path !== 'source-1.txt');
+    document.metadata.files = document.metadata.files?.filter(file => file.path !== 'source-1.txt').map(file => file.path === 'source-0.txt' ? { ...file, path: './source-0.txt' } : file);
     return { changedFields: ['files', 'evidence_state'] };
   } });
   const page = await inspectEvidence(host, { item: host.id, budget: 16000 });

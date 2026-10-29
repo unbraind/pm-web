@@ -9,6 +9,7 @@ export interface EvidenceInspectionHost { client: PmClient; workspace: string; r
 function sourceKey(value: string): string { return value.replace(/^\.\//, ''); }
 /** Exclude hidden configuration and credentials even if a native file link names them. */
 function publicSource(source: string): boolean {
+  source = sourceKey(source);
   return !source.split('/').some(part => part.startsWith('.') || ['node_modules', 'auth.json'].includes(part)) && !/(?:^|\/)(?:credentials|secrets?)(?:[./]|$)/i.test(source);
 }
 /** Bounded fragment display reports every omitted character instead of silently shortening evidence. */
