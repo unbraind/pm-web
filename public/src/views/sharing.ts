@@ -1,3 +1,4 @@
+import type { PermissionImpactPage } from '../../../dist/permission-impact.js';
 // ═══════════════════════════════════════════════════════════════
 // SHARING VIEW
 // ═══════════════════════════════════════════════════════════════
@@ -161,12 +162,21 @@ export async function submitShare(): Promise<void> {
  *
  * @param shareId - identifier of the share to revoke.
  */
-export function removeShare(shareId: string): void {
-  confirmDialog('Remove access?', 'The user will lose access to this project.', async () => {
-    try {
-      await api('DELETE',`/projects/${state.currentProject!.id}/shares/${shareId}`);
-      toast('Share removed','success');
-      await loadShares();
-    } catch(err: unknown) { toast(err instanceof Error ? err.message : String(err),'error'); }
-  });
+export async function removeShare(shareId: string): Promise<void> {
+  const project = state.currentProject;
+  if (!project) return;
+  try {
+    const preview = await api<PermissionImpactPage>('POST', `/projects/${project.id}/pm/permission-impact`, { shareId, permission: 'none' });
+    if (state.currentProject?.id !== project.id) return;
+    const counts = preview.counts;
+    const identities = preview.losses.map(row => `${row.kind} ${row.id} (${row.loss})`).join('; ');
+    confirmDialog('Remove this share?', `${counts.packets} visible context packets, ${counts.decisions} pending decisions and ${counts.operations} known backend operations would lose access. ${identities}${preview.nextOffset === null ? '' : '; more identities are available through pm web permission-impact.'} Hidden resources are excluded. Other grants may preserve access. This preview changed nothing.`, async () => {
+      if (state.currentProject?.id !== project.id) return;
+      try {
+        await api('DELETE', `/projects/${project.id}/shares/${shareId}`);
+        toast('Share removed', 'success');
+        await loadShares();
+      } catch (error: unknown) { toast(error instanceof Error ? error.message : String(error), 'error'); }
+    }, true, { confirm: 'Remove share' });
+  } catch (error: unknown) { toast(error instanceof Error ? error.message : String(error), 'error'); }
 }

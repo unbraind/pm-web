@@ -1,0 +1,100 @@
+id: pm-web-7kuv
+title: Preview access losses before changing project shares
+description: "Show caller-visible active context packets, pending decisions and agent operations that lose access under an explicitly proposed existing user or group share role/scope change. Overlap recheck: CLI public contracts and authorization/governance exports describe support/policy, not ACL consequences; pm-web Contract Explorer is operation support, Agent Context owns consented packets, Decision Inbox owns pending decisions, and swarm owns execution. Reuse these SDK and web authorization paths. No hosted configuration changes."
+type: Feature
+status: in_progress
+priority: 2
+tags[1]: "gh:unbraind/pm-web#276"
+created_at: "2026-10-28T21:58:56.592Z"
+updated_at: "2026-10-28T23:55:40.711Z"
+author: codex-agent
+acceptance_criteria: View-only users cannot inspect broader scopes; preview changes no roles or packets; separately authorized changes invalidate exact affected views; unknown capabilities stay disabled. Typed SDK and CLI with bounded TOON/JSON and typed remedies; docs/example; no-git real-data evidence; seeded property and boundary validation; unchanged npm and Bun CI release gates.
+comments[17]{created_at,author,text}:
+  "2026-10-28T21:59:47.520Z",codex-agent,"Overlap checked against current CLI public SDK declarations, fleet sources, open upstream permission-preview search (related identity/authority issue 1360), web Contract Explorer, Agent Context and Decision Inbox. No duplicate consequence preview found. Plan: read-only existing-share proposals for view/edit/none; evaluate effective direct/group access through the same query as live authorization; intersect packet audience with caller consent; reuse SDK inbox and contracts; do not execute unknown provider operations. Existing sharing remains separately authorized. No import, export, sync, durable plan, checkpoint or outbox is introduced. Test with non-git trackers, seeded ACL sequences, packet revisions, replay, extreme boundary inputs and actual share changes."
+  "2026-10-28T22:17:03.472Z",codex-agent,"Implemented owner-only observational share replacement previews with the same effective owner/direct/group resolver as live access. Packet counts intersect caller consent before projection; decisions reuse the SDK-backed inbox; known core operation support reuses SDK contracts with extensions disabled. No role, packet, item, journal or configuration mutation exists. Initial boundary suite 3/3 and service-worker suite combined 31/31 pass; 500 seeded ACL/replay/audience sequences passed, plus no-git real HTTP native CLI acceptance. Three focused HTTP tests pass after excluding preview POSTs from idempotency persistence. Public immutable main copy measured 189 items, 409 unchanged source files, zero packets/requests, 31 mutation capabilities lost on downgrade and 84 total on removal; first 20 identities occupy 1513 JSON bytes. Browser desktop 1440/mobile 390 preview parity and cancel preservation pass, and real downgrade clears stale decision controls. Full gates delegated to CI as requested."
+  "2026-10-28T22:20:08.477Z",codex-agent,"Behavioral revert proof: in a disposable non-git copy, disabled only the access-loss branches inside previewPermissionImpact. The focused HTTP regression failed with 0 versus expected 1 pending decision; the implementation worktree was never modified. Production implementation focused HTTP subsequently passes 3/3. Added real peer transitions at all six SQL boundaries of the read-only snapshot, and optimized group evaluations into two batched calls to the same authoritative resolver. Preview POSTs are network-only in the service worker and bypass idempotency persistence while retaining expected-account checks."
+  "2026-10-28T22:32:20.008Z",codex-agent,"Linked verification passed 36/36 tests (500 seeded multi-operation sequences included) in 146140 ms using the runner --timeout 600 option; the default 120-second attempt timed out on the saturated host. Real PostgreSQL peer transitions at every one of six SQL boundaries pass, showing a coherent read-only snapshot followed by fresh authorization on retry. Existing project/sharing/idempotency tests pass 37/37. Desktop/mobile browser checks at 1440/390 verify cancellation, SDK parity and removal of both stale decision and operation controls. Typecheck, lint, zero-duplication gate and all 902 source docstrings pass. No CLI/SDK defect is needed for delivery. Preparing final PR and unchanged npm/Bun CI release gates."
+  "2026-10-28T22:35:04.526Z",codex-agent,"Added custom SDK status registries spanning active, blocked and terminal roles under ambient focus; regression passes 1/1 with native state read back through the SDK. Packet retrieval, discovery and impact now call the same exported audience predicate, preventing authorization-rule drift. Final focused audience regression rerun and CI verify the shared predicate. No new persistence format or native import/export/sync path was introduced."
+  "2026-10-28T22:39:00.320Z",codex-agent,"Final browser race proof passes: a delayed older edit-permission response arriving after a newer view downgrade cannot restore edit controls. Permission read generations are fenced across repeated access signals and disconnects. A disposable behavioral-revert browser run is verifying that removing this generation comparison fails the same regression. Shared audience focused tests pass 2/2. All work remains scoped to this package and synthetic/public scratch data."
+  "2026-10-28T22:40:45.946Z",codex-agent,The optional UI mutation run stopped at browser workspace setup before reaching the delayed-response assertion; it is not counted as a behavioral revert proof. The actual implementation browser race check passes. The main service behavioral revert remains valid (0 versus expected 1) and the shared audience read-back tests pass 2/2. Full exact-head npm/Bun CI gates remain required; local targeted gates retain all thresholds.
+  "2026-10-28T22:42:49.165Z",codex-agent,"Opened ready-for-review PR https://github.com/unbraind/pm-web/pull/276. Main behavioral revert proof, 36/36 linked checks with 500 seeded sequences, 1/1 custom status/focus check, 2/2 shared audience checks, 37/37 existing authorization/idempotency regressions and desktop/mobile permission-response race checks are recorded. Zero duplication, typechecks, lint and 903 source docstrings pass. Final unchanged npm and Bun release gates run in CI; their exact-head results and counts will be reported with the PR. No hosted changes, merge or release performed. Item stays in progress for orchestrator verification."
+  "2026-10-28T22:44:02.888Z",codex-agent,"Local strict health reports only an extension warning in this fresh checkout; CI installs the pinned managed GitHub extension before its tracker-health check. The initial PR CI has reached the full npm release gate on Node 22 and 26. This is setup evidence, not a substitute for full gate results."
+  "2026-10-28T22:59:39.327Z",codex-agent,"Final-head CI run 40782502352 Node 26 npm gate measured 864 tests: 842 passed, 22 failed; coverage 92.84 statements/lines, 84.65 branches, 97.01 functions. Failures are legacy fixture contracts: SQL-only harnesses still recognize the old two-query access lookup, command inventory still expects 13 handlers, and extracted SSE callbacks omit the new decision/operation invalidators. Updating these fixtures while preserving all existing authorization assertions and the real PostgreSQL model tests. This also explains the optional disposable browser setup failure because it uses the legacy project fixture. No thresholds or production authorization logic are being relaxed."
+  "2026-10-28T23:00:06.072Z",codex-agent,"Correction: the optional browser setup failure has an unconfirmed cause; that browser script uses real PostgreSQL. The confirmed legacy-query fixture failures are confined to SQL-only route/unit harnesses in the CI log. Production browser parity, cancellation and delayed-response checks passed against real PostgreSQL."
+  "2026-10-28T23:04:07.016Z",codex-agent,"CI fixture correction verified: all 41 affected tests pass directly, and the pm-linked rerun passes in 141145 ms. Updated registration count to 14 and asserted the new command flags; SQL-only harnesses now supply principal/owner/permission rows for the shared batched query; extracted SSE callbacks receive and assert all three invalidators. Typecheck, lint and zero duplication pass. No production source or threshold changes. Failed full-gate evidence: https://github.com/unbraind/pm-web/actions/runs/40782502352 (842/864 Node 26). Replacement exact-head checks will be visible at https://github.com/unbraind/pm-web/pull/276/checks; the queue CI waiting cutoff remains 23:11 UTC."
+  "2026-10-28T23:11:37.510Z",codex-agent,"CI cutoff handoff: code/fixture head 1fd2e6334bb50ae74495116ad2733937f753ebc4 remains in the full npm release gate on Node 22 and 26 at https://github.com/unbraind/pm-web/actions/runs/40784936377. Bun release and packed global-install acceptance have not completed. The queue waiting cutoff is 23:11 UTC; no full-gate pass is claimed. Local correction checks pass 41/41, feature/worker linked evidence 36/36, custom-status 1/1, audience 2/2 and existing live authorization 37/37. This receipt changes tracker metadata only; the final PR checks page remains authoritative for the receipt commit too. Item stays in progress and unclaimed for orchestrator verification."
+  "2026-10-28T23:31:41.362Z",codex-agent,"Re-review round 1 class: an aggregate must own one complete source snapshot; offset pages over separately refreshed mutable lists can skip or duplicate records. Confirmed permission-impact inbox loop violates this rule. Whole-package continuation audit also found live contract-page aggregation in the contract validation script. Live external bounded pages remain explicitly advisory; history/event cursor loops use stable SDK positions and revision fences rather than shifting filtered offsets. Plan: shared complete inbox snapshot reader used by inbox listing and permission impact, snapshot the validator contract source once, and add real non-git SDK/HTTP/CLI adversarial tests with a peer answer after corpus capture. Branch is not behind origin/main. GitHub review threads and the supplied round report contain no additional actionable non-blocking finding."
+  "2026-10-28T23:42:09.695Z",codex-agent,"Review class: a complete aggregate must paginate an owned immutable corpus rather than reread a mutable filtered list. Decision inbox now exports readDecisionInboxSnapshot, reused by bounded listing and permission preview; all internal contract aggregation uses captureContractAvailability, including the validation script. External inbox/context/explorer pages remain documented live observations; resume history and replay paths use stable SDK event cursors with identity deduplication and fencing, not filtered offsets. Audited SDK, HTTP, JSON/TOON CLI, scripts and packed consumers. No other published actionable non-blocking findings were supplied; unavailable automated reviewers are not approval. Behavioral revert proof in a disposable non-git copy: reverting only previewPermissionImpact makes the real 51-request peer-answer regression fail with actual 50 versus expected 51; reverting captureContractAvailability to the live adapter makes its 500-partition regression fail unavailable after the real tracker disappears. Fixed versions passed individually; full focused files rerun next. No existing tests weakened."
+  "2026-10-28T23:51:53.935Z",codex-agent,"Resumed focused validation is green: the complete decision-inbox, contract-explorer and permission-impact HTTP files pass 27/27 with two workers, including the 500 ACL model sequences, 500 captured-contract page partitions, six SQL peer boundaries and the 51-request cross-process race. After factoring duplicate native consumer setup without weakening assertions, the pm-managed JSON/TOON plus race subset passes 2/2 and the pm-managed inbox/contract files pass 20/20. Server/frontend typecheck, test compilation, ESLint, zero-duplication and complete docstring gates pass. A fresh fetch confirms no origin/main commits are missing. Packed runtime acceptance is finishing; full npm and Bun release evidence will come from the final-head CI checks at https://github.com/unbraind/pm-web/pull/276/checks using unchanged thresholds and one test worker per gate."
+  "2026-10-28T23:55:38.733Z",codex-agent,"Packed acceptance passes 4/4 installed runtime scenarios (npm and Bun at host versions 2026.10.23 and 2026.10.4), all with standalone SDK 2026.10.23, and 8/8 permission command launchers (project-local, npx, bunx, npm-global, bun-global). Every installed runtime creates a native Plan with explicit unset relationships, captures an immutable public inbox snapshot, answers through the real SDK path, and proves fresh read-back excludes the answered request. npm run accept:packed verified one unchanged tarball SHA-256 d9ac4c1a23d2904a73b09dfb8c38056742b93b0e84ff8ca3b489d2513317581b. The original public read-only probe remains 189 items / 409 unchanged source files, zero stored packets or pending requests, 31 downgrade and 84 removal capabilities, 20 identities / 1513 bytes / 3037 ms. All local review checks and both behavioral revert proofs pass as recorded. Full npm run release:check and bun run release:check remain required in final-head CI at the PR checks URL; no old-head gate is presented as final-head evidence. Claim released for orchestrator verification; item stays in progress. Disposable database and revert copies were removed."
+files[16]:
+  - path: scripts/accept-packed.ts
+    scope: project
+  - path: scripts/permission-impact-browser.ts
+    scope: project
+    note: Real desktop/mobile invalidation acceptance
+  - path: scripts/validate-contract-explorer.ts
+    scope: project
+  - path: src/contract-explorer.ts
+    scope: project
+  - path: src/permission-impact-client.ts
+    scope: project
+  - path: src/permission-impact-commands.ts
+    scope: project
+  - path: src/permission-impact.ts
+    scope: project
+  - path: src/routes/permission-impact.ts
+    scope: project
+  - path: src/services/agent-context.ts
+    scope: project
+    note: Shared audience predicate used by retrieval discovery and impact
+  - path: src/services/decision-inbox.ts
+    scope: project
+  - path: src/services/permission-impact.ts
+    scope: project
+  - path: src/services/project-access.ts
+    scope: project
+  - path: test/contract-explorer.test.ts
+    scope: project
+  - path: test/decision-inbox.test.ts
+    scope: project
+  - path: test/permission-impact-routes.test.ts
+    scope: project
+  - path: test/permission-impact.test.ts
+    scope: project
+tests[4]:
+  - command: node scripts/with-test-db.ts node --test --test-concurrency=2 test/permission-impact.test.ts test/permission-impact-routes.test.ts test/sw-queue.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-28T22:19:49.813Z"
+      source_kind: local_mutation
+      source_ref: feat/permission-impact-previews
+  - command: node --test --test-concurrency=2 test/extension.test.ts test/extensions-routes.test.ts test/item-history-projection.test.ts test/pm-schema-history-routes.test.ts test/sse-browser-recovery.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-28T23:00:52.897Z"
+      source_kind: local_mutation
+      source_ref: feat/permission-impact-previews
+  - command: node --test --test-concurrency=2 test/decision-inbox.test.ts test/contract-explorer.test.ts
+    scope: project
+    timeout_seconds: 1200
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-28T23:43:58.658Z"
+      source_kind: local_mutation
+      source_ref: feat/permission-impact-previews
+  - command: "node scripts/with-test-db.ts node --test --test-concurrency=2 --test-name-pattern=\"51-request snapshot|native CLI emits bounded TOON\" test/permission-impact-routes.test.ts"
+    scope: project
+    timeout_seconds: 240
+    provenance:
+      author: codex-agent
+      created_at: "2026-10-28T23:47:52.199Z"
+      source_kind: local_mutation
+      source_ref: feat/permission-impact-previews
+docs[3]{path,scope}:
+  docs/permission-impact-validation.json,project
+  docs/permission-impact.md,project
+  examples/permission-impact.ts,project
+body: ""

@@ -42,12 +42,18 @@ export interface DecisionInboxPage {
   taskCompletion: false;
 }
 
+/** Owned immutable projection of one complete SDK corpus, before any presentation pagination. */
+export type DecisionInboxSnapshot = readonly (Omit<Readonly<DecisionRequest>, 'alternatives'> & { readonly alternatives: readonly string[] })[];
+
 /** Stable refusals with a concrete next action for human and agent clients. */
 export class DecisionInboxError extends Error {
-  /** Build a transport-neutral refusal without exposing storage details. */
+  /** Stable refusal category shared by transport consumers. */
   readonly code: 'invalid_input' | 'invalid_record' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable';
+  /** Safe next action for the caller, without provider exception details. */
   readonly remedy: string;
+  /** HTTP status used by the route adapter. */
   readonly status: number;
+  /** Build a transport-neutral refusal without exposing storage details. */
   constructor(code: DecisionInboxError['code'], remedy: string, status: number) {
     super(code.replaceAll('_', ' '));
     this.name = 'DecisionInboxError';
@@ -145,21 +151,27 @@ async function readPlan(pmRoot: string, id: string): Promise<PlanCommandResult> 
   }
 }
 
-/** List pending requests using a certified complete source read and bounded output pagination. */
-export async function listDecisionInbox(pmRoot: string, options: { limit?: number; offset?: number } = {}): Promise<DecisionInboxPage> {
-  const limit = options.limit ?? 20, offset = options.offset ?? 0;
-  if (!Number.isInteger(limit) || limit < 1 || limit > 50 || !Number.isSafeInteger(offset) || offset < 0) invalid();
+/** Capture pending requests once through the SDK; aggregates must consume this instead of refreshing offset pages. */
+export async function readDecisionInboxSnapshot(pmRoot: string): Promise<DecisionInboxSnapshot> {
   const corpus = await listAllComplete({}, { pmRoot, noExtensions: true }).catch(() => {
     throw new DecisionInboxError('unavailable', 'Inspect tracker health and availability before refreshing the inbox.', 503);
   });
   const requests = corpus.items.filter(item => item.type === 'Plan').flatMap(item => project({ id: item.id, decisions: item.plan_decisions ?? [] }))
     .filter(request => request.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  return Object.freeze(requests.map(request => Object.freeze({ ...request, alternatives: Object.freeze([...request.alternatives]) })));
+}
+
+/** Render a bounded live page from one captured corpus without changing the aggregate source. */
+export async function listDecisionInbox(pmRoot: string, options: { limit?: number; offset?: number } = {}): Promise<DecisionInboxPage> {
+  const limit = options.limit ?? 20, offset = options.offset ?? 0;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50 || !Number.isSafeInteger(offset) || offset < 0) invalid();
+  const requests = await readDecisionInboxSnapshot(pmRoot);
   const page: DecisionRequest[] = [];
   let bytes = 256;
   for (const request of requests.slice(offset, offset + limit)) {
     const size = Buffer.byteLength(JSON.stringify(request), 'utf8') + 1;
     if (bytes + size > 16384) break;
-    page.push(request); bytes += size;
+    page.push({ ...request, alternatives: [...request.alternatives] }); bytes += size;
   }
   const end = offset + page.length;
   return { requests: page, total: requests.length, nextOffset: end < requests.length ? end : null, codeReview: false, taskCompletion: false };

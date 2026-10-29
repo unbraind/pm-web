@@ -739,3 +739,9 @@ reorientation. No second context store is created. See
 Resume admission, catch-up and native TOON/JSON commands work in plain trackers
 without a Git executable. The HTTP server requires its normal PostgreSQL
 configuration and current project authorization.
+
+## Permission impact previews
+
+Before changing an existing user or group share, project owners can inspect which caller-visible context packets, pending decisions and known core agent operations would lose access. The sharing screen previews removal before confirmation. `pm web permission-impact --url https://pm.example.test --project <uuid> --share <uuid> --permission view --json` returns bounded counts and identities; omit `--json` for TOON. Set `PM_WEB_TOKEN` from your authenticated session. Preview changes no roles, packets or hosted configuration; unknown capabilities stay disabled.
+
+Use the typed `PermissionImpactClient.preview` SDK, [example](examples/permission-impact.ts), and [contract and refusals](docs/permission-impact.md). These previews work without Git, including when no Git executable is installed. Each preview captures one complete inbox projection and one provider availability result before internal pagination; later previews read fresh state.

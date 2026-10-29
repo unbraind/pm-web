@@ -4,6 +4,14 @@ import { api, ApiError } from '../api.js';
 import { escHtml } from '../utils.js';
 let generation = 0;
 
+/** Clear stale operation controls for the affected project and fence in-flight schema reads. */
+export function invalidateContractExplorer(projectId: string): void {
+  if (state.currentProject?.id !== projectId) return;
+  generation++;
+  const root = document.getElementById('content-contract-explorer');
+  if (root) root.textContent = 'Project access changed. Refresh capabilities before reviewing operations.';
+}
+
 /** Render SDK availability consistently for directory, Postgres and remote snapshots; no execution control exists. */
 export function contractExplorerMarkup(page: ContractExplorerPage, canEdit: boolean): string {
   return `<p class="contract-summary"><code>${escHtml(page.backend)}</code> · ${page.total} operations · Review only</p>

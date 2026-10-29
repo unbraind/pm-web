@@ -718,6 +718,11 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
 
   // API calls: try network, queue mutations if offline
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/healthz')) {
+    // Consequence previews are live reads even though their explicit proposal uses POST.
+    if (event.request.method === 'POST' && /^\/api\/projects\/[^/]+\/pm\/permission-impact\/?$/i.test(url.pathname)) {
+      event.respondWith(fetch(event.request).catch(() => new Response(JSON.stringify({ code: 'unavailable', error: 'Preview needs a live connection', remedy: 'Reconnect and refresh the proposed permission change.' }), { status: 503, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })));
+      return;
+    }
     // Session responses must reach the browser with their live cookie changes.
     // Remove caller keys too; failed auth requests are never queued.
     if (/^\/api\/auth(?:\/|$)/i.test(url.pathname)) {

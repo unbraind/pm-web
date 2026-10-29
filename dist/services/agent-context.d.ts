@@ -3,6 +3,8 @@ import { type AgentContextInput, type AgentContextPacket } from '../agent-contex
 export declare function validateAgentContext(input: unknown): AgentContextInput;
 /** Refuse hidden and absent scopes identically, including revoked snapshots. */
 export declare function hiddenContext(): never;
+/** Share the authoritative audience predicate across packet retrieval, discovery and impact previews. */
+export declare function contextAudience(parameter: '$2' | '$3'): string;
 /** List authorized metadata only; PostgreSQL applies the audience predicate before projection. */
 export declare function listAgentContexts(project: string, principal: string, offset?: number): Promise<{
     packets: Pick<AgentContextPacket, 'id' | 'revision' | 'agent' | 'updatedAt'>[];

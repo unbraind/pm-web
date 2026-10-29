@@ -290,7 +290,8 @@ export function idempotencyGuard(authorizeReplay = async () => { throw new Repla
         const checkExpected = expectedAccount !== undefined
             && (!authRoute || /^\/api\/auth\/me\/?(?:\?|$)/i.test(req.originalUrl));
         const header = req.get("idempotency-key");
-        const keyed = isUnsafeMethod(req.method) && !authRoute && header !== undefined;
+        const impactRead = req.method === 'POST' && /^\/api\/projects\/[^/]+\/pm\/permission-impact\/?(?:\?|$)/i.test(req.originalUrl);
+        const keyed = isUnsafeMethod(req.method) && !authRoute && !impactRead && header !== undefined;
         if (!keyed && !checkExpected) {
             next();
             return;

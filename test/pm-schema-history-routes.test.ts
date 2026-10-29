@@ -1,3 +1,4 @@
+import { projectAccessRows } from './helpers/project-access-rows.ts';
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -89,6 +90,8 @@ function stubPool(viewerUserId?: string): () => void {
     value: async (text: string, params?: unknown[]) => {
       const sql = String(text);
       const p = Array.isArray(params) ? params : [];
+      const projected = projectAccessRows(sql, p, ownerRow, viewerUserId ? { id: viewerUserId, permission: 'view' } : undefined);
+      if (projected) return { rows: projected, rowCount: projected.length };
       if (sql.includes("user_id = $2") && p[0] === PROJECT_ID && p[1] === OWNER_USER_ID) {
         return { rows: [ownerRow], rowCount: 1 };
       }

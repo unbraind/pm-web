@@ -1,4 +1,5 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { createRequire } from "node:module";
@@ -27,6 +28,7 @@ interface AcceptanceReceipt {
   readonly command_port: number;
   readonly deprecated_diagnostic: false;
   readonly unpublished_npm_link_omitted: true;
+  readonly inbox_snapshot: true;
 }
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -64,7 +66,7 @@ delete cleanEnvironment.PM_PATH;
 delete cleanEnvironment.PM_SOURCE_PM_PATH;
 delete cleanEnvironment.PM_SOURCE_WORKSPACE_ROOT;
 for (const key of Object.keys(cleanEnvironment)) {
-  if (key.toLowerCase() === "npm_config_allow_scripts") delete cleanEnvironment[key];
+  if (key.toLowerCase() === "npm_config_allow_scripts" || /TOKEN|SECRET|PASSWORD|CREDENTIAL|API_KEY|NPM_MEDIA_SERVER/i.test(key)) delete cleanEnvironment[key];
 }
 const commandTimeoutMs = 5 * 60 * 1000;
 
@@ -112,6 +114,12 @@ function runPm(
   return run(bunCommand, [resolve(dirname(packagePath), installed.bin.pm), ...args], cwd, env);
 }
 
+/** Exercise the packed command's typed boundary under a real launcher, without contacting a server. */
+function permissionCommandProbe(command: string, prefix: string[], cwd: string, env: NodeJS.ProcessEnv): void {
+  const result = spawnSync(command, [...prefix, '--pm-path', join(cwd, '.agents', 'pm'), 'web', 'permission-impact', '--url', 'https://example.test', '--project', '12345678-1234-1234-1234-123456789abc', '--share', '12345678-1234-1234-1234-123456789abc', '--permission', 'view', '--json'], { cwd, env, encoding: 'utf8', timeout: commandTimeoutMs });
+  if (result.status === 0 || !/invalid_input/.test(result.stdout + result.stderr) || !/PM_WEB_TOKEN/.test(result.stdout + result.stderr)) throw new Error('Packed permission-impact command did not reach its typed credential boundary');
+}
+
 const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));
 try {
   const packRoot = join(temporaryRoot, "pack");
@@ -127,6 +135,7 @@ try {
     throw new Error(`npm pack must create exactly one tarball, got ${String(packedNames.length)}`);
   }
   const tarball = join(packRoot, packedNames[0]!);
+  const packedSha256 = createHash('sha256').update(readFileSync(tarball)).digest('hex');
   const scenarios: readonly AcceptanceScenario[] = [
     { name: "npm-current", manager: "npm", port: 61113, hostVersion },
     { name: "bun-current", manager: "bun", port: 61114, hostVersion },
@@ -134,6 +143,7 @@ try {
     { name: "bun-minimum", manager: "bun", port: 61116, hostVersion: minimumHostVersion },
   ];
   const receipts: AcceptanceReceipt[] = [];
+  const permissionLaunchers: string[] = [];
 
   for (const scenario of scenarios) {
     const scenarioRoot = join(temporaryRoot, scenario.name);
@@ -186,6 +196,32 @@ try {
       "accept",
     ]);
     runPm(scenario, scenarioRoot, scenarioEnvironment, ["package", "install", tarball, "--project"]);
+    const localBin = join(scenarioRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'pm.cmd' : 'pm');
+    if (process.platform !== 'win32') {
+      permissionCommandProbe(localBin, [], scenarioRoot, scenarioEnvironment);
+      permissionLaunchers.push(`${scenario.name}:project-local`);
+    }
+    if (scenario.name === 'npm-current') {
+      permissionCommandProbe(npxLauncher.command, [...npxLauncher.prefix, '--no-install', 'pm'], scenarioRoot, scenarioEnvironment);
+      permissionLaunchers.push('npx');
+      const globalPrefix = join(temporaryRoot, 'npm-global');
+      run(npmLauncher.command, [...npmLauncher.prefix, 'install', '--global', '--prefix', globalPrefix, '--ignore-scripts', `${cliPackage}@${hostVersion}`], scenarioRoot, scenarioEnvironment);
+      if (process.platform !== 'win32') {
+        permissionCommandProbe(join(globalPrefix, 'bin', 'pm'), [], scenarioRoot, scenarioEnvironment);
+        permissionLaunchers.push('npm-global');
+      }
+    }
+    if (scenario.name === 'bun-current') {
+      permissionCommandProbe(bunCommand, ['x', '--no-install', 'pm'], scenarioRoot, scenarioEnvironment);
+      permissionLaunchers.push('bunx');
+      const globalPrefix = join(temporaryRoot, 'bun-global');
+      const globalEnv = { ...scenarioEnvironment, BUN_INSTALL: globalPrefix, BUN_INSTALL_GLOBAL_DIR: join(globalPrefix, 'install', 'global'), BUN_INSTALL_BIN: join(globalPrefix, 'bin') };
+      run(bunCommand, ['add', '--global', '--ignore-scripts', `${cliPackage}@${hostVersion}`], scenarioRoot, globalEnv);
+      if (process.platform !== 'win32') {
+        permissionCommandProbe(join(globalPrefix, 'bin', 'pm'), [], scenarioRoot, globalEnv);
+        permissionLaunchers.push('bun-global');
+      }
+    }
     const status = runPm(scenario, scenarioRoot, scenarioEnvironment, [
       "web",
       "status",
@@ -204,6 +240,23 @@ try {
     // runtime, after installation; local build imports cannot prove tarball contents.
     run(scenario.manager === "bun" ? bunCommand : process.execPath, ["--input-type=module", "-e", `
       import assert from "node:assert/strict";
+      import { join } from "node:path";
+      import { PmClient } from "@unbrained/pm-cli/sdk";
+      import { readDecisionInboxSnapshot, listDecisionInbox, requestDecision, respondToDecision } from "@unbrained/pm-web";
+      const pmRoot = join(process.cwd(), ".agents", "pm");
+      const author = "packed-agent";
+      const client = new PmClient({ cwd: process.cwd(), pmRoot, noExtensions: true, author });
+      const plan = await client.create({ type: "Plan", title: "Packed snapshot", unset: ["parent", "goal", "objective", "sprint", "release"] });
+      const actor = { author, permission: "edit" };
+      const request = await requestDecision(pmRoot, actor, { planId: plan.item.id, question: "Which path?", alternatives: ["A", "B"], evidence: "Synthetic packed evidence" });
+      const captured = await readDecisionInboxSnapshot(pmRoot);
+      assert.equal(captured.length, 1);
+      assert.ok(Object.isFrozen(captured) && Object.isFrozen(captured[0]) && Object.isFrozen(captured[0].alternatives));
+      await respondToDecision(pmRoot, actor, { planId: request.planId, requestId: request.id, revision: request.revision, action: "approve", alternative: 0, reason: "Selected A" });
+      assert.equal(captured[0].id, request.id);
+      assert.equal(captured[0].status, "pending");
+      assert.deepEqual(await readDecisionInboxSnapshot(pmRoot), []);
+      assert.equal((await listDecisionInbox(pmRoot)).total, 0);
       import { findCatalogEntry } from "@unbrained/pm-web/dist/services/package-catalog.js";
       import { renderPackageCard } from "@unbrained/pm-web/public/src/views/packages.js";
       const jev = findCatalogEntry("pm-jev");
@@ -221,10 +274,12 @@ try {
       command_port: scenario.port,
       deprecated_diagnostic: false,
       unpublished_npm_link_omitted: true,
+      inbox_snapshot: true,
     });
   }
 
-  process.stdout.write(`${JSON.stringify({ ok: true, receipts })}\n`);
+  if (createHash('sha256').update(readFileSync(tarball)).digest('hex') !== packedSha256) throw new Error('Packed artifact changed during acceptance');
+  process.stdout.write(`${JSON.stringify({ ok: true, receipts, permissionLaunchers, packedSha256 })}\n`);
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });
 }
