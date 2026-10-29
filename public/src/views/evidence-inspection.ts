@@ -8,7 +8,8 @@ let clearPanel: (() => void) | undefined;
 export function invalidateEvidenceInspection(): void { clearPanel?.(); clearPanel = undefined; }
 /** Escape source data as plain text and expose fragment omission receipts next to the fragment. */
 function fragmentMarkup(label: string, value: EvidenceInspectionRow['cited']): string {
-  return `<div><h4>${label}</h4>${value.text === null ? `<p>${escHtml(value.reason || 'unavailable')}. Ask an editor to retain the cited fragment or link an allowed source.</p>` : `<pre>${escHtml(value.text)}</pre>${value.omittedCharacters ? `<p>${value.omittedCharacters} characters omitted.</p>` : ''}`}</div>`;
+  const remedy = value.reason === 'not-allowed' ? 'Restore an approved readable project source. Retained bytes alone do not grant access.' : 'Ask an editor to retain the cited fragment or link an allowed source.';
+  return `<div><h4>${label}</h4>${value.text === null ? `<p>${escHtml(value.reason || 'unavailable')}. ${remedy}</p>` : `<pre>${escHtml(value.text)}</pre>${value.omittedCharacters ? `<p>${value.omittedCharacters} characters omitted.</p>` : ''}`}</div>`;
 }
 /** Render exactly the machine page facts, without inferring completion from source freshness. */
 export function evidenceInspectionMarkup(page: EvidenceInspectionPage): string {

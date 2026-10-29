@@ -27,7 +27,7 @@ export async function inspectEvidence(host, raw) {
         const allowed = new Set((before.files ?? []).filter(link => link.scope === 'project' && publicSource(link.path)).map(link => sourceKey(link.path)));
         // Share one immutable snapshot across freshness and criterion checks, then discard it.
         const reads = new Map();
-        const denied = new Set();
+        const approved = new Set();
         const adapters = ['file', 'json'].map(provider => ({ provider, async read(source, context) {
                 if (!allowed.has(sourceKey(source)) || !publicSource(source))
                     throw new EvidenceError('boundary', 'Source is not allowed', 'Link an allowed project source on this item before inspecting it.');
@@ -37,14 +37,9 @@ export async function inspectEvidence(host, raw) {
                     pending = readApprovedEvidence(source, context);
                     reads.set(key, pending);
                 }
-                try {
-                    return await pending;
-                }
-                catch (error) {
-                    if (error instanceof EvidenceError && ['boundary', 'unsupported'].includes(error.code))
-                        denied.add(key);
-                    throw error;
-                }
+                const snapshot = await pending;
+                approved.add(key);
+                return snapshot;
             } }));
         const options = { client: host.client, workspace: host.workspace, root: host.root, adapters, record: false, diff: false, budget: 1_000_000, maxBytes: 262144, timeoutMs: 3000, signal: AbortSignal.timeout(8000) };
         const checked = await check([before.id], options);
@@ -70,7 +65,9 @@ export async function inspectEvidence(host, raw) {
         catch { /* check reports a foreign or malformed envelope */ }
         const selected = await Promise.all(checked.rows.slice(input.offset, input.offset + input.limit).map(async (row) => {
             const citation = row.code === 'schema' ? undefined : citations.get(row.citation);
-            const permitted = citation !== undefined && !denied.has(sourceKey(citation.descriptor.source)) && allowed.has(sourceKey(citation.descriptor.source)) && publicSource(citation.descriptor.source) && ['file', 'json'].includes(citation.descriptor.provider);
+            // Historical replay and anchor copies need the same positive authority as live bytes.
+            // Missing, unreadable, canceled and failed reads never confer that authority.
+            const permitted = citation !== undefined && approved.has(sourceKey(citation.descriptor.source)) && allowed.has(sourceKey(citation.descriptor.source)) && publicSource(citation.descriptor.source) && ['file', 'json'].includes(citation.descriptor.provider);
             const original = permitted ? citedText(citation) : undefined;
             let current;
             if (permitted && row.currentResolution === 'resolved' && row.currentDigest !== null) {

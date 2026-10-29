@@ -771,4 +771,5 @@ Evidence inspection works in a plain tracker without a Git executable. The host
 authorizes opened source objects before supplying bounded snapshots to
 pm-evidence's exact resolver. Safe public symlinks work; private, external and
 hardlink aliases refuse with remedies. No hosted configuration or source files
-are changed.
+are changed. Retained fragments and anchors also require a successful approved
+source read; unavailable sources stay redacted without erasing stored citations.

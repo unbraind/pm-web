@@ -248,7 +248,7 @@ try {
       import assert from "node:assert/strict";
       import { join } from "node:path";
       import { createRequire } from "node:module";
-      import { writeFile, symlink } from "node:fs/promises";
+      import { writeFile, symlink, rm } from "node:fs/promises";
       import { PmClient } from "@unbrained/pm-cli/sdk";
       import { inspectEvidence, readDecisionInboxSnapshot, listDecisionInbox, requestDecision, respondToDecision } from "@unbrained/pm-web";
       const pmRoot = join(process.cwd(), ".agents", "pm");
@@ -283,6 +283,15 @@ try {
       assert.equal(evidencePage.rows[0].cited.text, null);
       assert.equal(evidencePage.rows[0].current.text, null);
       assert.ok(!JSON.stringify(evidencePage).includes(privateMarker));
+      for (const removed of [".private-evidence.json", "public-evidence.json"]) {
+        await rm(join(process.cwd(), removed));
+        const unavailablePage = await inspectEvidence(evidenceHost, { item: evidenceItem.item.id });
+        assert.equal(unavailablePage.rows[0].cited.text, null);
+        assert.equal(unavailablePage.rows[0].current.text, null);
+        assert.equal(unavailablePage.rows[0].selector, null);
+        assert.deepEqual(unavailablePage.rows[0].bindings, []);
+        assert.ok(!JSON.stringify(unavailablePage).includes(privateMarker));
+      }
       await writeFile(join(process.cwd(), "exact-evidence.json"), '{"value":9007199254740993,"__proto__":1e309}');
       for (const pointer of ["/value", "/__proto__"]) await cite(evidenceItem.item.id, "exact-evidence.json", { ...evidenceHost, author, selector: { kind: "pointer", pointer } });
       const livePage = await inspectEvidence(evidenceHost, { item: evidenceItem.item.id, budget: 16000 });

@@ -67,7 +67,17 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
   await installExtension(host.workspace, host.client, 'pm-web', 'dist/index.js', ['commands', 'schema']);
   const args = [path.resolve('node_modules/@unbrained/pm-cli/dist/cli.js'), '--pm-path', host.workspace, 'web', 'evidence', '--url', server.url('/'), '--project', project.id, '--item'];
   const childEnv = { ...process.env, PM_WEB_TOKEN: signToken({ userId: viewer.id, email: viewer.email }), GIT_CEILING_DIRECTORIES: tmpdir() };
-  for (const [selected, expected] of [[host.id, refreshed], [protectedItem.id, protectedPage]] as const) {
+  await rm(path.join(host.root, '.private-evidence.txt'));
+  const unavailablePage = await sdk.inspect(project.id, { item: protectedItem.id });
+  assert.equal(unavailablePage.rows[0].code, 'missing');
+  assert.equal(unavailablePage.rows[0].cited.text, null); assert.equal(unavailablePage.rows[0].current.text, null);
+  assert.equal(unavailablePage.rows[0].selector, null); assert.deepEqual(unavailablePage.rows[0].bindings, []);
+  assert.ok(!JSON.stringify(unavailablePage).includes(privateMarker));
+  assert.deepEqual(unavailablePage.rows.slice(1), protectedPage.rows.slice(1));
+  for (const [selected, expected] of [[host.id, refreshed], [protectedItem.id, protectedPage], [protectedItem.id, unavailablePage]] as const) {
+    // Preserve the existing readable-private-target transport case as well as the dangling case.
+    if (expected === protectedPage) await writeFile(path.join(host.root, '.private-evidence.txt'), privateMarker);
+    else if (expected === unavailablePage) await rm(path.join(host.root, '.private-evidence.txt'));
     const json = await promisify(execFile)(process.execPath, [...args, selected, '--json'], { env: childEnv, timeout: 30000 });
     assert.deepEqual(JSON.parse(json.stdout), expected); assert.ok(!json.stdout.includes(privateMarker));
     const toon = await promisify(execFile)(process.execPath, [...args, selected], { env: childEnv, timeout: 30000 });

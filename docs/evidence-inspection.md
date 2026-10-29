@@ -58,6 +58,13 @@ requires Linux procfs; other
 platforms get explicit unsupported facts. Each source snapshot is bounded to
 256 KiB with a three-second read timeout and an eight-second inspection signal. One invocation shares immutable
 snapshots between freshness and criterion checks, then discards them.
+Every fragment representation, including retained replay and descriptor anchors,
+requires a successful approved source snapshot in that invocation. A missing,
+unreadable, oversized, malformed or otherwise failed source read redacts cited and
+current text, selectors and bindings with `not-allowed`, while preserving the
+source failure code and remedy. A dangling or removed alias cannot grant access
+to retained bytes. Native citations are never erased; restoring an approved
+public source makes its historical fragment eligible again.
 
 Every request checks live project access before reading and again before returning
 source bytes. A viewer can inspect, but inspection calls `check(record: false)`

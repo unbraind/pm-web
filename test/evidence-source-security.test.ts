@@ -4,13 +4,77 @@ import { chmod, link, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, write
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { mutateItem, readSettings } from '@unbrained/pm-cli/sdk';
-import { cite, EvidenceError, type Selector } from 'pm-evidence';
+import { bindCriterion, cite, criterionFacts, EvidenceError, type Selector } from 'pm-evidence';
 import { inspectEvidence } from '../src/services/evidence-inspection.ts';
 import { publicEvidenceSource, readApprovedEvidence, type EvidenceReadBarriers } from '../src/services/evidence-source.ts';
 import { evidenceInspectionMarkup } from '../public/src/views/evidence-inspection.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 
 const PRIVATE = 'SYNTHETIC_PRIVATE_FIXTURE_BYTES';
+
+test('every failed source lifecycle redacts retained and anchor copies without git while valid peers remain visible', async t => {
+  const host = await fixture(t, 'Synthetic source binding');
+  const options = { client: host.client, workspace: host.workspace, root: host.root, author: 'lifecycle-policy' };
+  const examples: Array<{ selector: Selector; text: string }> = [
+    { selector: { kind: 'lines', start: 1, end: 1 }, text: PRIVATE },
+    { selector: { kind: 'heading', heading: 'Section', paragraph: 1 }, text: `## Section\n\n${PRIVATE}` },
+    { selector: { kind: 'pointer', pointer: '/value' }, text: `{"value":"${PRIVATE}"}` },
+  ];
+  const failures = ['target-removed', 'directory-removed', 'chain-removed', 'alias-removed', 'public-removed', 'unreadable', 'oversize', 'invalid-utf8'] as const;
+  let count = 0;
+  for (const example of examples) for (const retain of [false, true]) for (const failure of failures) {
+    const index = count++, directory = `.private-${index}`, target = path.join(host.root, directory, 'data.txt');
+    const source = `source-${index}.txt`, alias = path.join(host.root, source);
+    await mkdir(path.dirname(target)); await writeFile(target, example.text);
+    if (failure === 'public-removed') await writeFile(alias, example.text);
+    else if (failure === 'directory-removed') {
+      await symlink(directory, path.join(host.root, `directory-${index}`));
+      await symlink(`directory-${index}/data.txt`, alias);
+    } else if (failure === 'chain-removed') {
+      await symlink(`${directory}/data.txt`, path.join(host.root, `middle-${index}.txt`));
+      await symlink(`middle-${index}.txt`, alias);
+    } else await symlink(`${directory}/data.txt`, alias);
+    const citation = await cite(host.item, source, { ...host, author: 'lifecycle-policy', selector: example.selector, retain });
+    if (index === 0) {
+      const facts = await criterionFacts([host.item], { ...options, record: false });
+      await bindCriterion({ item: host.item, citation: citation.citation, criterion: { text: facts.rows[0].criterion, revision: facts.rows[0].revision! } }, options);
+    }
+    if (failure === 'directory-removed') await rm(path.dirname(target), { recursive: true });
+    else if (failure === 'chain-removed') await rm(path.join(host.root, `middle-${index}.txt`));
+    else if (failure === 'alias-removed' || failure === 'public-removed') await rm(alias);
+    else if (failure === 'target-removed') await rm(target);
+    else {
+      // A public replacement tests failures beyond canonical-path denials.
+      await rm(alias); await writeFile(alias, example.text);
+      if (failure === 'unreadable') await chmod(alias, 0);
+      else if (failure === 'oversize') await writeFile(alias, 'x'.repeat(262145));
+      else await writeFile(alias, Buffer.from([0xff]));
+    }
+  }
+  await writeFile(path.join(host.root, 'approved.txt'), 'public historical bytes');
+  await cite(host.item, './approved.txt', { ...host, author: 'lifecycle-policy', selector: { kind: 'lines', start: 1, end: 1 }, retain: true });
+  await writeFile(path.join(host.root, 'approved.txt'), 'public replacement bytes');
+  const before = (await host.client.get(host.item, { full: true })).item;
+  const settings = await readFile(path.join(host.workspace, 'settings.json'));
+  await withoutGit(host.root, async () => {
+    const rows = [];
+    for (let offset = 0; offset <= count; offset += 20) {
+      const page = await inspectEvidence(host, { item: host.item, offset, limit: 20, budget: 16000 });
+      assert.ok(!JSON.stringify(page).includes(PRIVATE)); assert.ok(!evidenceInspectionMarkup(page).includes(PRIVATE));
+      rows.push(...page.rows);
+    }
+    assert.equal(rows.length, count + 1);
+    for (const row of rows.slice(0, count)) {
+      assert.equal(row.cited.text, null, row.citation); assert.equal(row.current.text, null);
+      assert.equal(row.cited.reason, 'not-allowed'); assert.equal(row.current.reason, 'not-allowed');
+      assert.equal(row.source, null); assert.equal(row.selector, null); assert.deepEqual(row.bindings, []);
+    }
+    assert.equal(rows[count].cited.text, 'public historical bytes');
+    assert.equal(rows[count].current.text, 'public replacement bytes'); assert.equal(rows[count].freshness, 'changed');
+    assert.deepEqual((await host.client.get(host.item, { full: true })).item, before);
+    assert.deepEqual(await readFile(path.join(host.workspace, 'settings.json')), settings);
+  });
+});
 
 test('linked and canonical source operands share one reserved-name policy with legacy public aliases', () => {
   for (const prefix of ['', './', 'public/']) {
@@ -19,12 +83,22 @@ test('linked and canonical source operands share one reserved-name policy with l
   }
 });
 /** Create a real plain tracker; every private-looking filename below contains only an owned synthetic fixture. */
-async function fixture(t: test.TestContext) {
+async function fixture(t: test.TestContext, acceptanceCriteria?: string) {
   const root = await mkdtemp(path.join(tmpdir(), 'evidence-object-policy-'));
   t.after(() => rm(root, { force: true, recursive: true }));
   const { client, pmRoot } = await createPlainContractTracker(root);
-  const { item } = await client.create({ type: 'Task', title: 'Synthetic object authorization', unset: ['parent', 'assignee', 'sprint', 'release', 'goal', 'objective'] });
+  const { item } = await client.create({ type: 'Task', title: 'Synthetic object authorization', acceptanceCriteria, unset: ['parent', 'assignee', 'sprint', 'release', 'goal', 'objective'] });
   return { root, workspace: pmRoot, client, item: item.id };
+}
+/** Execute native tracker reads with no Git executable or discoverable parent repository. */
+async function withoutGit<T>(root: string, operation: () => Promise<T>): Promise<T> {
+  const previousPath = process.env.PATH, previousCeiling = process.env.GIT_CEILING_DIRECTORIES;
+  process.env.PATH = root; process.env.GIT_CEILING_DIRECTORIES = tmpdir();
+  try { return await operation(); }
+  finally {
+    if (previousPath === undefined) delete process.env.PATH; else process.env.PATH = previousPath;
+    if (previousCeiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES; else process.env.GIT_CEILING_DIRECTORIES = previousCeiling;
+  }
 }
 
 test('all file/JSON and retained/unretained paths redact every copy of denied opened-source data', async t => {
@@ -45,12 +119,7 @@ test('all file/JSON and retained/unretained paths redact every copy of denied op
     await link(path.join(host.root, '.env'), path.join(host.root, 'hard-alias.txt'));
     for (const source of ['directory-alias/private.json', 'chained-alias.txt', 'hard-alias.txt']) await cite(host.item, source, { ...host, author: 'synthetic-policy', selector, retain });
     const settings = await readFile(path.join(host.workspace, 'settings.json'));
-    const previousPath = process.env.PATH, previousCeiling = process.env.GIT_CEILING_DIRECTORIES;
-    process.env.PATH = host.root; process.env.GIT_CEILING_DIRECTORIES = tmpdir();
-    const page = await inspectEvidence(host, { item: host.item, limit: 20, budget: 16000 }).finally(() => {
-      if (previousPath === undefined) delete process.env.PATH; else process.env.PATH = previousPath;
-      if (previousCeiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES; else process.env.GIT_CEILING_DIRECTORIES = previousCeiling;
-    });
+    const page = await withoutGit(host.root, () => inspectEvidence(host, { item: host.item, limit: 20, budget: 16000 }));
     assert.equal(page.rows.length, 10);
     for (const row of page.rows) {
       assert.equal(row.code, 'boundary'); assert.equal(row.freshness, 'unknown');
@@ -167,12 +236,16 @@ test('opened-source bounds and identity controls fail before publishing oversize
   await assert.rejects(readApprovedEvidence('.', context), error => error instanceof EvidenceError && error.code === 'boundary');
 });
 
-test('a missing public source does not erase an already authorized item retained fragment', async t => {
+test('a missing public source preserves retained state but requires renewed authorization before display', async t => {
   const host = await fixture(t);
   await writeFile(path.join(host.root, 'public.txt'), 'historical public bytes');
   await cite(host.item, 'public.txt', { ...host, author: 'history-test', selector: { kind: 'lines', start: 1, end: 1 }, retain: true });
+  const before = (await host.client.get(host.item, { full: true })).item;
   await rm(path.join(host.root, 'public.txt'));
   const page = await inspectEvidence(host, { item: host.item });
-  assert.equal(page.rows[0].cited.text, 'historical public bytes');
+  assert.equal(page.rows[0].cited.text, null); assert.equal(page.rows[0].cited.reason, 'not-allowed');
   assert.equal(page.rows[0].current.text, null); assert.equal(page.rows[0].code, 'missing');
+  assert.deepEqual((await host.client.get(host.item, { full: true })).item, before);
+  await writeFile(path.join(host.root, 'public.txt'), 'historical public bytes');
+  assert.equal((await inspectEvidence(host, { item: host.item })).rows[0].cited.text, 'historical public bytes');
 });
