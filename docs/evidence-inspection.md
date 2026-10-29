@@ -22,6 +22,12 @@ through the route and accepts only the other three query fields. JSON and TOON
 are measured together through pm-evidence's SDK-backed estimator; the larger
 representation must fit the budget, including receipts. Insufficient budgets
 return `budget` with a remedy rather than hiding an oversized first row.
+The host's TOON encoding omits empty root arrays and null end cursors. The shared
+page schema restores those canonical empty values; pagination checks still refuse
+missing nonempty evidence rows. JSON, UI and decoded TOON have the same meaning.
+When the host includes `rows_encoding` or `criterionGaps_encoding`, restore those
+declared nested cells with the public SDK `decodePmTableRows` operation before
+validating the page. Never infer JSON cells from fragment text.
 
 Each row reports the pm-evidence resolution and exact fragment freshness,
 the cited and current fragments when available, and producer-validated criterion
@@ -31,9 +37,11 @@ the responsibility of pm-review and authorized reviewers.
 
 Fragments show at most 512 characters each and disclose `omittedCharacters`.
 Unretained JSON citations can lack a reconstructable original; `not-retained`
-explains that gap. Changed current text uses pm-evidence's inert diff lines, so
-control characters are displayed as escapes. Source text is always rendered as
-text. Missing, inaccessible, ambiguous, malformed and unsupported records are
+explains that historical gap. Current text is resolved independently from the
+same approved immutable source snapshot using pm-evidence's public exact-span
+resolver, including when originals are absent or corrupt. Verification does not
+request historical diffs. Raw JSON number and escape spellings are preserved;
+source text is always rendered as text. Missing, inaccessible, ambiguous, malformed and unsupported records are
 visible independently; a malformed citation does not suppress valid siblings.
 Foreign envelopes are preserved and reported with `schema`.
 

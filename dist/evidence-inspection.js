@@ -32,8 +32,8 @@ export const evidenceInspectionRowSchema = z.strictObject({
 /** Validate every emitted count and bounded collection before an ok response. */
 export const evidenceInspectionPageSchema = z.strictObject({
     protocol: z.literal('pm-web-evidence/v1'), item: itemId, truthAssessed: z.literal(false), mutation: z.literal('unsupported'),
-    criterionGaps: z.array(criterionFactSchema).max(20), omittedCriterionGaps: count,
-    rows: z.array(evidenceInspectionRowSchema).max(20), total: count, offset: count, nextOffset: count.nullable(), omitted: count,
+    criterionGaps: z.array(criterionFactSchema).max(20).default([]), omittedCriterionGaps: count,
+    rows: z.array(evidenceInspectionRowSchema).max(20).default([]), total: count, offset: count, nextOffset: count.nullable().default(null), omitted: count,
     estimatedTokens: count, sourceReads: count, remedy: z.string().max(500),
 }).superRefine((page, ctx) => {
     const end = page.offset + page.rows.length, next = end < page.total ? end : null;

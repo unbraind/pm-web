@@ -283,6 +283,10 @@ try {
       assert.equal(evidencePage.rows[0].cited.text, null);
       assert.equal(evidencePage.rows[0].current.text, null);
       assert.ok(!JSON.stringify(evidencePage).includes(privateMarker));
+      await writeFile(join(process.cwd(), "exact-evidence.json"), '{"value":9007199254740993,"__proto__":1e309}');
+      for (const pointer of ["/value", "/__proto__"]) await cite(evidenceItem.item.id, "exact-evidence.json", { ...evidenceHost, author, selector: { kind: "pointer", pointer } });
+      const livePage = await inspectEvidence(evidenceHost, { item: evidenceItem.item.id, budget: 16000 });
+      if (process.platform === "linux") assert.deepEqual(livePage.rows.slice(1).map(row => row.current.text), ["9007199254740993", "1e309"]);
       import { findCatalogEntry } from "@unbrained/pm-web/dist/services/package-catalog.js";
       import { renderPackageCard } from "@unbrained/pm-web/public/src/views/packages.js";
       const jev = findCatalogEntry("pm-jev");

@@ -25,6 +25,9 @@ function invalid(error: unknown): boolean { return error instanceof EvidenceInsp
 test('one strict boundary and producer-derived page schema reject extreme and sparse operands', async t => {
   const host = await fixture(t), page = await inspectEvidence(host, { item: host.id });
   assert.deepEqual(parseEvidenceInspectionPage(JSON.parse(JSON.stringify(page))), page);
+  // The host's compact TOON producer omits empty root arrays and null end cursors.
+  assert.deepEqual(parseEvidenceInspectionPage({ ...page, criterionGaps: undefined, nextOffset: undefined }), page);
+  assert.throws(() => parseEvidenceInspectionPage({ ...page, rows: undefined }), EvidenceInspectionError);
   assert.ok(tokens(page) <= 2400); assert.equal(page.estimatedTokens, tokens(page));
   for (const input of [null, [], {}, { item: host.id, root: 'other' }, { item: host.id, record: true }, { item: host.id, source: 'other' }, { item: '../other' }]) assert.throws(() => parseEvidenceInspection(input), invalid);
   for (const number of [NaN, Infinity, -Infinity, -1, 0.5, Number.MAX_VALUE, '2', null, [], {}]) {

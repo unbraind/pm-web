@@ -76,7 +76,7 @@
     "neo4j-driver": "^6.2.0",
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
-    "pm-evidence": "2026.10.28",
+    "pm-evidence": "https://codeload.github.com/unbraind/pm-evidence/tar.gz/dddf9e0a1557850710bc4f0bbbb2258d9491b841",
     "pm-graph": "2026.10.25",
     "uuid": "^14.0.2",
     "zod": "4.6.7"

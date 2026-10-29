@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { installExtension } from './helpers/install-runtime-extension.ts';
+import { decodeToon } from '@unbrained/pm-cli/sdk/testing';
+import { decodePmTableRows, type PmEncodedTableRows, type PmTableCellEncoding } from '@unbrained/pm-cli/sdk';
 import test from 'node:test';
 import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { cite } from 'pm-evidence';
 import { EvidenceInspectionClient } from '../src/evidence-inspection-client.ts';
-import { EvidenceInspectionError } from '../src/evidence-inspection.ts';
+import { EvidenceInspectionError, evidenceInspectionPageSchema, parseEvidenceInspectionPage } from '../src/evidence-inspection.ts';
 import { inspectEvidence } from '../src/services/evidence-inspection.ts';
 import { pool } from '../src/db.ts';
 import { signToken } from '../src/auth.ts';
@@ -30,6 +32,9 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
   await writeFile(path.join(host.root, '.private-evidence.txt'), privateMarker);
   await symlink('.private-evidence.txt', path.join(host.root, 'allowed-alias.txt'));
   await cite(protectedItem.id, 'allowed-alias.txt', { ...host, author: 'synthetic-policy', selector: { kind: 'lines', start: 1, end: 1 }, retain: true });
+  const exactSource = '{"value":9007199254740993,"__proto__":{"value":1e309},"text":"literal\\ntext"}';
+  await writeFile(path.join(host.root, 'exact.json'), exactSource);
+  for (const pointer of ['/value', '/__proto__/value', '/text', '']) await cite(protectedItem.id, 'exact.json', { ...host, author: 'exact-source', selector: { kind: 'pointer', pointer } });
   const server = await startApp();
   t.after(async () => { await server.close(); await pool.query('DELETE FROM pm_users WHERE id IN ($1,$2,$3)', [owner.id, viewer.id, outsider.id]); await rm(root, { recursive: true, force: true }); if (previous === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previous; });
   const url = `/api/projects/${project.id}/pm/evidence/${host.id}`;
@@ -42,6 +47,7 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
   assert.equal(protectedPage.rows[0].code, 'boundary');
   assert.equal(protectedPage.rows[0].cited.text, null); assert.equal(protectedPage.rows[0].current.text, null);
   assert.ok(!JSON.stringify(protectedPage).includes(privateMarker));
+  assert.deepEqual(protectedPage.rows.slice(1).map(row => row.current.text), ['9007199254740993', '1e309', '"literal\\ntext"', exactSource]);
   const local = await inspectEvidence(host, { item: host.id });
   assert.deepEqual(await response.json(), local); assert.deepEqual(await sdk.inspect(project.id, { item: host.id }), local);
   for (const method of ['POST', 'PATCH', 'DELETE', 'PUT']) {
@@ -67,6 +73,11 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
     const toon = await promisify(execFile)(process.execPath, [...args, selected], { env: childEnv, timeout: 30000 });
     assert.match(toon.stdout, /pm-web-evidence\/v1/); assert.match(toon.stdout, /truthAssessed: false/);
     assert.ok(!toon.stdout.includes(privateMarker));
+    const { rows_encoding, criterionGaps_encoding, ...decoded } = decodeToon(toon.stdout) as Record<string, unknown>;
+    for (const [key, encoding] of [['rows', rows_encoding], ['criterionGaps', criterionGaps_encoding]] as const) if (encoding !== undefined) decoded[key] = decodePmTableRows({ rows: decoded[key] as PmEncodedTableRows['rows'], encoding: encoding as PmTableCellEncoding });
+    const validated = evidenceInspectionPageSchema.safeParse(decoded);
+    assert.ok(validated.success, JSON.stringify(validated.error?.issues.map(issue => ({ path: issue.path, code: issue.code }))));
+    assert.deepEqual(parseEvidenceInspectionPage(decoded), expected);
   }
   await pool.query('DELETE FROM pm_project_shares WHERE project_id=$1 AND shared_with_user_id=$2', [project.id, viewer.id]);
   await assert.rejects(sdk.inspect(project.id, { item: host.id }), error => error instanceof EvidenceInspectionError && error.code === 'not_found');

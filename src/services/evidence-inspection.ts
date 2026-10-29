@@ -1,7 +1,7 @@
 import { evidenceSourceKey as sourceKey, publicEvidenceSource as publicSource, readApprovedEvidence } from './evidence-source.ts';
 import { createHash } from 'node:crypto';
 import type { PmClient } from '@unbrained/pm-cli/sdk';
-import { check, criterionFacts, EvidenceError, parseCitation, replay, tokens, type CheckOptions, type Citation, type SourceAdapter, type SourceSnapshot } from 'pm-evidence';
+import { check, criterionFacts, EvidenceError, parseCitation, replay, resolveFragmentText, tokens, type CheckOptions, type Citation, type SourceAdapter, type SourceSnapshot } from 'pm-evidence';
 import { EvidenceInspectionError, parseEvidenceInspection, parseEvidenceInspectionPage, type EvidenceInspectionInput, type EvidenceInspectionPage, type EvidenceInspectionRow } from '../evidence-inspection.ts';
 
 /** Authority is supplied by the host after authorization, never accepted from an HTTP body. */
@@ -32,7 +32,7 @@ export async function inspectEvidence(host: EvidenceInspectionHost, raw: Evidenc
       try { return await pending; }
       catch (error) { if (error instanceof EvidenceError && ['boundary', 'unsupported'].includes(error.code)) denied.add(key); throw error; }
     } }));
-    const options: CheckOptions = { client: host.client, workspace: host.workspace, root: host.root, adapters, record: false, diff: true, budget: 1_000_000, maxBytes: 262144, timeoutMs: 3000, signal: AbortSignal.timeout(8000) };
+    const options: CheckOptions = { client: host.client, workspace: host.workspace, root: host.root, adapters, record: false, diff: false, budget: 1_000_000, maxBytes: 262144, timeoutMs: 3000, signal: AbortSignal.timeout(8000) };
     const checked = await check([before.id], options);
     const facts = await criterionFacts([before.id], { ...options, diff: false });
     if (checked.receipt.omitted || facts.receipt.omitted) throw new EvidenceInspectionError('unavailable', 'Narrow this item evidence and criterion bindings before inspection.', 503);
@@ -43,19 +43,27 @@ export async function inspectEvidence(host: EvidenceInspectionHost, raw: Evidenc
       const envelope = JSON.parse(String(before.evidence_state)) as { citations?: unknown };
       if (Array.isArray(envelope.citations)) for (const value of envelope.citations) { try { const citation = parseCitation(value, before.id); if (!citations.has(citation.id)) citations.set(citation.id, citation); } catch { /* check reports the isolated invalid record */ } }
     } catch { /* check reports a foreign or malformed envelope */ }
-    const selected = checked.rows.slice(input.offset, input.offset + input.limit).map(row => {
+    const selected = await Promise.all(checked.rows.slice(input.offset, input.offset + input.limit).map(async row => {
       const citation = row.code === 'schema' ? undefined : citations.get(row.citation);
       const permitted = citation !== undefined && !denied.has(sourceKey(citation.descriptor.source)) && allowed.has(sourceKey(citation.descriptor.source)) && publicSource(citation.descriptor.source) && ['file', 'json'].includes(citation.descriptor.provider);
       const original = permitted ? citedText(citation) : undefined;
+      let current: string | undefined;
+      if (permitted && row.currentResolution === 'resolved' && row.currentDigest !== null) {
+        const snapshot = await reads.get(sourceKey(citation.descriptor.source));
+        if (snapshot !== undefined) {
+          current = resolveFragmentText(snapshot.text, citation.descriptor);
+          if (snapshot.revision !== row.currentRevision || createHash('sha256').update(current).digest('hex') !== row.currentDigest) throw new EvidenceInspectionError('conflict', 'The live fragment no longer matches its verified snapshot. Refresh against stable source bytes.', 409);
+        }
+      }
       return {
         citation: row.citation, source: permitted ? citation.descriptor.source : null, selector: permitted ? citation.descriptor.selector : null,
         resolution: row.resolution, freshness: row.freshness,
-        cited: fragment(original, permitted ? 'not-retained' : 'not-allowed'),
-        current: fragment(permitted ? row.freshness === 'current' ? original : row.diff?.current.join('\n') : undefined, permitted ? 'unavailable' : 'not-allowed'),
+        cited: fragment(original, permitted ? citation.retained === undefined ? 'not-retained' : 'unavailable' : 'not-allowed'),
+        current: fragment(current, permitted ? 'unavailable' : 'not-allowed'),
         bindings: permitted ? facts.rows.filter(fact => fact.citation === row.citation) : [], code: row.code ?? null,
         remedy: row.remedy ?? null,
       } satisfies EvidenceInspectionRow;
-    });
+    }));
     const after = (await host.client.get(before.id, { full: true })).item;
     if (JSON.stringify(after) !== JSON.stringify(before)) throw new EvidenceInspectionError('conflict', 'The item changed during inspection. Refresh against its current revision.', 409);
     const gaps = facts.rows.filter(fact => fact.citation === null && fact.support !== 'unbound');

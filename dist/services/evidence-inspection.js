@@ -1,6 +1,6 @@
 import { evidenceSourceKey as sourceKey, publicEvidenceSource as publicSource, readApprovedEvidence } from './evidence-source.js';
 import { createHash } from 'node:crypto';
-import { check, criterionFacts, EvidenceError, parseCitation, replay, tokens } from 'pm-evidence';
+import { check, criterionFacts, EvidenceError, parseCitation, replay, resolveFragmentText, tokens } from 'pm-evidence';
 import { EvidenceInspectionError, parseEvidenceInspection, parseEvidenceInspectionPage } from '../evidence-inspection.js';
 /** Bounded fragment display reports every omitted character instead of silently shortening evidence. */
 function fragment(text, reason = 'unavailable') {
@@ -46,7 +46,7 @@ export async function inspectEvidence(host, raw) {
                     throw error;
                 }
             } }));
-        const options = { client: host.client, workspace: host.workspace, root: host.root, adapters, record: false, diff: true, budget: 1_000_000, maxBytes: 262144, timeoutMs: 3000, signal: AbortSignal.timeout(8000) };
+        const options = { client: host.client, workspace: host.workspace, root: host.root, adapters, record: false, diff: false, budget: 1_000_000, maxBytes: 262144, timeoutMs: 3000, signal: AbortSignal.timeout(8000) };
         const checked = await check([before.id], options);
         const facts = await criterionFacts([before.id], { ...options, diff: false });
         if (checked.receipt.omitted || facts.receipt.omitted)
@@ -68,19 +68,28 @@ export async function inspectEvidence(host, raw) {
                 }
         }
         catch { /* check reports a foreign or malformed envelope */ }
-        const selected = checked.rows.slice(input.offset, input.offset + input.limit).map(row => {
+        const selected = await Promise.all(checked.rows.slice(input.offset, input.offset + input.limit).map(async (row) => {
             const citation = row.code === 'schema' ? undefined : citations.get(row.citation);
             const permitted = citation !== undefined && !denied.has(sourceKey(citation.descriptor.source)) && allowed.has(sourceKey(citation.descriptor.source)) && publicSource(citation.descriptor.source) && ['file', 'json'].includes(citation.descriptor.provider);
             const original = permitted ? citedText(citation) : undefined;
+            let current;
+            if (permitted && row.currentResolution === 'resolved' && row.currentDigest !== null) {
+                const snapshot = await reads.get(sourceKey(citation.descriptor.source));
+                if (snapshot !== undefined) {
+                    current = resolveFragmentText(snapshot.text, citation.descriptor);
+                    if (snapshot.revision !== row.currentRevision || createHash('sha256').update(current).digest('hex') !== row.currentDigest)
+                        throw new EvidenceInspectionError('conflict', 'The live fragment no longer matches its verified snapshot. Refresh against stable source bytes.', 409);
+                }
+            }
             return {
                 citation: row.citation, source: permitted ? citation.descriptor.source : null, selector: permitted ? citation.descriptor.selector : null,
                 resolution: row.resolution, freshness: row.freshness,
-                cited: fragment(original, permitted ? 'not-retained' : 'not-allowed'),
-                current: fragment(permitted ? row.freshness === 'current' ? original : row.diff?.current.join('\n') : undefined, permitted ? 'unavailable' : 'not-allowed'),
+                cited: fragment(original, permitted ? citation.retained === undefined ? 'not-retained' : 'unavailable' : 'not-allowed'),
+                current: fragment(current, permitted ? 'unavailable' : 'not-allowed'),
                 bindings: permitted ? facts.rows.filter(fact => fact.citation === row.citation) : [], code: row.code ?? null,
                 remedy: row.remedy ?? null,
             };
-        });
+        }));
         const after = (await host.client.get(before.id, { full: true })).item;
         if (JSON.stringify(after) !== JSON.stringify(before))
             throw new EvidenceInspectionError('conflict', 'The item changed during inspection. Refresh against its current revision.', 409);

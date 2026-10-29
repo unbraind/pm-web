@@ -123,7 +123,7 @@ export declare const evidenceInspectionPageSchema: z.ZodObject<{
     item: z.ZodString;
     truthAssessed: z.ZodLiteral<false>;
     mutation: z.ZodLiteral<"unsupported">;
-    criterionGaps: z.ZodArray<z.ZodObject<{
+    criterionGaps: z.ZodDefault<z.ZodArray<z.ZodObject<{
         item: z.ZodString;
         criterion: z.ZodString;
         revision: z.ZodNullable<z.ZodString>;
@@ -169,9 +169,9 @@ export declare const evidenceInspectionPageSchema: z.ZodObject<{
         }>>;
         remedy: z.ZodOptional<z.ZodString>;
         citationIndex: z.ZodOptional<z.ZodNumber>;
-    }, z.core.$strict>>;
+    }, z.core.$strict>>>;
     omittedCriterionGaps: z.ZodNumber;
-    rows: z.ZodArray<z.ZodObject<{
+    rows: z.ZodDefault<z.ZodArray<z.ZodObject<{
         citation: z.ZodString;
         source: z.ZodNullable<z.ZodString>;
         selector: z.ZodNullable<z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -265,10 +265,10 @@ export declare const evidenceInspectionPageSchema: z.ZodObject<{
         }, z.core.$strict>>;
         code: z.ZodNullable<z.ZodString>;
         remedy: z.ZodNullable<z.ZodString>;
-    }, z.core.$strict>>;
+    }, z.core.$strict>>>;
     total: z.ZodNumber;
     offset: z.ZodNumber;
-    nextOffset: z.ZodNullable<z.ZodNumber>;
+    nextOffset: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
     omitted: z.ZodNumber;
     estimatedTokens: z.ZodNumber;
     sourceReads: z.ZodNumber;
