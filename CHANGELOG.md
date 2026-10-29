@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.10.29 - 2026-10-29
+
+### Added
+
+- Inspect cited evidence freshness and affected criteria ([pm-web-5sx6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-5sx6.toon))
+- Preview access losses before changing project shares ([pm-web-7kuv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7kuv.toon))
+
+### Fixed
+
+- Expose current evidence fragments through the supported SDK ([pm-web-cnhi](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-cnhi.toon))
+- Show real paginated item history and live updates ([pm-web-lgg5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-lgg5.toon))
+
 ## 2026.10.28 - 2026-10-28
 
 ### Changed

@@ -1,0 +1,20 @@
+id: pm-web-release-notes-1029
+title: Restore generated notes for prepared 2026.10.29
+description: "Recover notes for merged history, permission-impact and evidence-inspection deliveries through pinned CLI lifecycle and release metadata; preserve versions, workflows and hosted services."
+type: Issue
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-10-29T18:55:29.135Z"
+updated_at: "2026-10-29T19:09:21.077Z"
+author: codex-agent
+comments[2]{created_at,author,text}:
+  "2026-10-29T18:56:19.065Z",codex-agent,"Audit confirms no pending-version section despite merged PRs 274, 276 and 278 with successful CI. Their three feature items and the exact-span SDK follow-up implemented in PR 278 remain in_progress. Append-only updates close only those verified deliveries and pin 2026.10.29; the native backwards-history paging follow-up remains open. No hosted services, runtime configuration, version or workflow changes."
+  "2026-10-29T19:09:15.628Z",codex-agent,"The repository generator now emits the exact 2026.10.29 - 2026-10-29 section with the verified deliveries from PRs 274, 276 and 278, including the implemented exact-span SDK follow-up. Version, dependency pins, workflows and runtime configuration are unchanged. Fresh build passes with no dist drift. Linked npm run changelog:check is the native reproducibility check; full npm/Bun release gates require fresh CI with its isolated PostgreSQL service at unchanged thresholds. No hosted data, Docker or service was accessed. Origin/main lacks the heading; only lifecycle and release metadata repair makes the repository command emit it."
+files[1]{path,scope}:
+  CHANGELOG.md,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run changelog:check",project,codex-agent,"2026-10-29T18:58:20.471Z",local_mutation,fix/changelog-2026-10-29
+docs[1]{path,scope}:
+  README.md,project
+body: ""

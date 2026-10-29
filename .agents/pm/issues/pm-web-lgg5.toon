@@ -2,13 +2,16 @@ id: pm-web-lgg5
 title: Show real paginated item history and live updates
 description: "Verify and fix the compact-default history mismatch. Request an explicit supported projection through the authorized project runner; normalize documented oldest-first API pages with newest-first panel rendering; bound reads and expose has_more and a cursor; preserve membership checks. Acceptance: SDK-created non-git tracker route regression with at least three mutations and a terminal close; behavioral revert failure proof; real npm CLI output from 2026.10.20, 2026.10.27 and 2026.10.28 through the normalizer; browser detail and live-copy checks with screenshots; typed errors and remedies; README API documentation; pm-changelog entry; targeted tests, typecheck and lint locally; full npm and Bun CI release gates with counts. No deployment, merge or release."
 type: Issue
-status: in_progress
+status: closed
 priority: 1
-tags[1]: "gh:unbraind/pm-cli#1617"
+tags[2]: "gh:unbraind/pm-cli#1617","gh:unbraind/pm-web#274"
 created_at: "2026-10-28T15:59:19.401Z"
-updated_at: "2026-10-28T20:20:52.341Z"
+updated_at: "2026-10-29T18:56:33.840Z"
+closed_at: "2026-10-29T18:56:33.337Z"
+completed_at: "2026-10-29T18:56:33.337Z"
 author: codex-agent
 acceptance_criteria: Explicit supported history projection through authorized project runner; oldest_first API ordering honors upstream order or absent-as-oldest; bounded pages with has_more and cursor; newest-first detail panel and live refresh; SDK-created non-git HTTP regression with three mutations plus close and behavioral revert proof; actual npm output from 2026.10.20 2026.10.27 and 2026.10.28 normalized in tests; real browser screenshot and live-copy proof; typed refusals with remedies; README API docs and generated changelog; targeted local tests typecheck lint and full npm plus Bun CI gate evidence
+release: 2026.10.29
 comments[20]{created_at,author,text}:
   "2026-10-28T16:00:16.203Z",codex-agent,"Verification found an important distinction: projectPm dispatches native history in-process through PmClient.run, rather than the CLI default-selection layer. On the pinned SDK 2026.10.20, an SDK-created non-git tracker with create and two updates returned history with three entries by default; explicit compact returned compact_history. Continuing with the actual HTTP route and requested npm releases before deciding whether the suspected empty-panel defect reproduces. No application code changed."
   "2026-10-28T16:05:55.123Z",codex-agent,"REPRODUCED with npm pm 2026.10.28 injected only into module resolution for the unchanged HTTP route: HTTP 200, compact_history=4, history absent, order=newest_first, operations close/update/update/create, and UI fallback history length=0. The fixture was SDK-created outside git with create, two updates and close. npm 2026.10.20 and 2026.10.27 SDK dispatch returned 4 full rows, while their CLI defaults returned compact rows. Pinned dependency remains unchanged. The test database is unavailable, so route verification uses the repository authorization-query stub pattern with real authenticated HTTP and real SDK trackers; no hosted services or Docker are accessed. Design: explicit compact summary projection (the panel uses operation/time, never patches), normalized oldest-first API rows, fixed page size and opaque backwards cursor, newest-first panel plus load older, and live refresh resets to the latest page. The native history query supports latest-entry limit but no backwards cursor, so older API pages will request only the needed bounded latest suffix and trim it before responding."
@@ -69,4 +72,5 @@ tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
 docs[2]{path,scope,note}:
   docs/item-history-changelog.md,project,Generated pending entry while the item remains open for orchestrator verification
   README.md,project,API ordering limits cursor recovery no-git and browser evidence
+close_reason: Delivered by merged PR 274; successful CI verified; authorized prepared-release notes recovery.
 body: ""
