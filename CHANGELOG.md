@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.10.30 - 2026-10-30
+
+### Fixed
+
+- Restore generated notes for prepared 2026.10.29 ([pm-web-release-notes-1029](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-release-notes-1029.toon))
+
 ## 2026.10.29 - 2026-10-29
 
 ### Added
@@ -28,6 +34,10 @@
 ### Added
 
 - Resume authorized question changes from an admitted cursor ([pm-web-resume-packets](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-resume-packets.toon))
+
+### Other
+
+- Point the npm homepage at the package catalog and link the author ([pm-web-vkji](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-vkji.toon))
 
 ## 2026.10.25 - 2026-10-25
 
