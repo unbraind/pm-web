@@ -53,7 +53,10 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
           jobs?: Record<string, { uses?: string; with?: Record<string, unknown> }>;
         };
         assert.equal(caller.jobs?.[canonical.job]?.uses, reference, "the canonical workflow must be a reusable job");
-        assert.equal(caller.jobs?.[canonical.job]?.with?.["pm-github-version"], release[1], "the workflow release and package version must match");
+        // The pinned release commit is the only version source. The deprecated
+        // input is a fallback for non-release commits; a stale copy beside a
+        // bumped pin would leave two disagreeing versions.
+        assert.equal(caller.jobs?.[canonical.job]?.with?.["pm-github-version"], undefined, "drop the deprecated pm-github-version input; the pinned release commit names the version");
       } else {
         assert.ok(TRUSTED_ACTION_OWNERS.has(action.split("/")[0]!), `${file}: action owner is not allowed: ${action}`);
         // The official uploader is approved only for synthetic screenshot evidence.
@@ -105,7 +108,7 @@ test("the pinned artifact uploader is approved only in the screenshot workflows"
   assert.throws(() => assertWorkflowActionPins(upload.replace(/@[a-f0-9]{40}/, "@v4"), "graph-scale-evidence.yml"), /full 40-character/);
 });
 
-test("the canonical gated sync caller requires an immutable pin and matching package release", () => {
+test("the canonical gated sync caller requires an immutable pin, a documented release and no deprecated version input", () => {
   const caller = readFileSync(new URL("../.github/workflows/pm-github-sync.yml", import.meta.url), "utf8");
   const file = "pm-github-sync.yml";
   assert.doesNotThrow(() => assertWorkflowActionPins(caller, file));
@@ -115,8 +118,8 @@ test("the canonical gated sync caller requires an immutable pin and matching pac
     caller.replace("workflows/pm-github-sync.yml@", "workflows/other.yml@"),
     caller.replace(/# pm-github [^\n]+/, "# pm-github latest"),
     caller.replace(/# pm-github [^\n]+/, "# v2026.10.14"),
-    caller.replace(/pm-github-version: "[^"]+"/, 'pm-github-version: "0.0.0"'),
-    caller.replace("pm-github-version:", "different-input:"),
+    caller.replace(/(# pm-github [^\n]+\n)/, '$1    with:\n      pm-github-version: "0.0.0"\n'),
+    caller.replace(/# pm-github ([^\n]+)\n/, '# pm-github $1\n    with:\n      pm-github-version: "$1"\n'),
     caller.replace("  gated-sync:", "  other-job:"),
     caller.replace("jobs:\n  gated-sync:", "steps:\n  - name: misplaced caller"),
   ];
