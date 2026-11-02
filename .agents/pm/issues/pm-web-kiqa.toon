@@ -2,11 +2,13 @@ id: pm-web-kiqa
 title: Gated sync still refuses duplicate GH278 provenance across two delivered records
 description: "Tracks gh:unbraind/pm-web#288 (filed 2026-11-01, missed by the blind issue watch). The scheduled gated sync on current main still fails with 'import plan is not idempotent — 1 duplicate provenance tag(s)': two distinct closed records (the cited-evidence inspection feature and the SDK evidence-fragments issue) both carry the gh: tag for PR #278, which is a unique importer provenance key, so PR #278 legitimately linking both deliveries breaks the plan. Latest failing run 41407648593 (2026-11-02T07:38Z); failures repeat daily since 11-01. Reconcile to exactly one canonical import identity while preserving both records' delivery evidence: keep the tag on the record the issue/PR primarily tracks and convert the other link to a structured relationship or dependency (no second gh: tag). A bounded scan found this single repeated key in the tracker corpus."
 type: Issue
-status: in_progress
+status: closed
 priority: 2
 tags[3]: "gh:unbraind/pm-web#288",provenance,sync
 created_at: "2026-11-02T09:18:50.940Z"
-updated_at: "2026-11-02T09:42:32.835Z"
+updated_at: "2026-11-02T15:48:07.976Z"
+closed_at: "2026-11-02T15:48:07.957Z"
+completed_at: "2026-11-02T15:48:07.957Z"
 author: pi-glm
 comments[1]{created_at,author,text}:
   "2026-11-02T09:41:58.054Z",pi-glm,"Duplicate GH278 provenance reconciled. Both owners were identified from the failing run 41407648593 ('import plan is not idempotent — 1 duplicate provenance tag(s)') and a tracker scan: the cited-evidence inspection feature (kept as sole owner — PR 278 delivers it and its record declares that tag for exact sync identity) and the SDK evidence-fragments record (de-owned). The de-owned record's gh: tag was removed with 'pm update --remove-tags', a related dependency now links it to the owning feature record, its delivery knowledge (body, comments, files, tests, close evidence) is untouched and its status stays closed. Measurement — before: failing run https://github.com/unbraind/pm-web/actions/runs/41407648593 (2026-11-02T07:38Z, 'Preview GitHub to pm plan' step). After: the same gated dry-run the scheduled workflow runs (pm-github 2026.10.19 as pinned by the reusable workflow) passes against this branch's tracker: fetched 10, planned 10, import 6, update 4, skip 0, provenance-indexed 11, gate verified with no duplicate provenance tag. The command is linked as a passing test; its pm-test receipt runs in pm's isolated seeded workspace, so the reconciliation numbers here come from the direct dry-run against this checkout. GitHub API budget was checked before measuring (core remaining above the 1500 floor). Guard unchanged; item stays open for orchestrator close after merge."
@@ -16,4 +18,5 @@ tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
   pm github import unbraind/pm-web --state all --atomic --gate --dry-run --with-comments --json,project,pi-glm,"2026-11-02T09:41:13.270Z",local_mutation,chore/triage-1102-issues
 docs[1]{path,scope,note}:
   .github/workflows/pm-github-sync.yml,project,scheduled gated sync caller
+close_reason: "Duplicate GitHub #278 provenance removed on this branch: pm-web-cnhi no longer carries the tag, and links the cited-evidence feature (the sole owner) as related. Before: scheduled sync run 41407648593 refused with a duplicate provenance tag. After: the same gated dry-run (pm-github 2026.10.19) passes against this tracker with import 6, update 4, skip 0. The merged result is re-checked by dispatching the scheduled sync after merge."
 body: ""
