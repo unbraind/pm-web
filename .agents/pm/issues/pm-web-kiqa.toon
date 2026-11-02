@@ -6,9 +6,7 @@ status: in_progress
 priority: 2
 tags[3]: "gh:unbraind/pm-web#288",provenance,sync
 created_at: "2026-11-02T09:18:50.940Z"
-updated_at: "2026-11-02T09:41:58.059Z"
-assignee: pi-glm
-claim_principal: pi-glm
+updated_at: "2026-11-02T09:42:32.835Z"
 author: pi-glm
 comments[1]{created_at,author,text}:
   "2026-11-02T09:41:58.054Z",pi-glm,"Duplicate GH278 provenance reconciled. Both owners were identified from the failing run 41407648593 ('import plan is not idempotent — 1 duplicate provenance tag(s)') and a tracker scan: the cited-evidence inspection feature (kept as sole owner — PR 278 delivers it and its record declares that tag for exact sync identity) and the SDK evidence-fragments record (de-owned). The de-owned record's gh: tag was removed with 'pm update --remove-tags', a related dependency now links it to the owning feature record, its delivery knowledge (body, comments, files, tests, close evidence) is untouched and its status stays closed. Measurement — before: failing run https://github.com/unbraind/pm-web/actions/runs/41407648593 (2026-11-02T07:38Z, 'Preview GitHub to pm plan' step). After: the same gated dry-run the scheduled workflow runs (pm-github 2026.10.19 as pinned by the reusable workflow) passes against this branch's tracker: fetched 10, planned 10, import 6, update 4, skip 0, provenance-indexed 11, gate verified with no duplicate provenance tag. The command is linked as a passing test; its pm-test receipt runs in pm's isolated seeded workspace, so the reconciliation numbers here come from the direct dry-run against this checkout. GitHub API budget was checked before measuring (core remaining above the 1500 floor). Guard unchanged; item stays open for orchestrator close after merge."
