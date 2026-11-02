@@ -1,0 +1,11 @@
+id: pm-web-kiqa
+title: Gated sync still refuses duplicate GH278 provenance across two delivered records
+description: "Tracks gh:unbraind/pm-web#288 (filed 2026-11-01, missed by the blind issue watch). The scheduled gated sync on current main still fails with 'import plan is not idempotent — 1 duplicate provenance tag(s)': two distinct closed records (the cited-evidence inspection feature and the SDK evidence-fragments issue) both carry the gh: tag for PR #278, which is a unique importer provenance key, so PR #278 legitimately linking both deliveries breaks the plan. Latest failing run 41407648593 (2026-11-02T07:38Z); failures repeat daily since 11-01. Reconcile to exactly one canonical import identity while preserving both records' delivery evidence: keep the tag on the record the issue/PR primarily tracks and convert the other link to a structured relationship or dependency (no second gh: tag). A bounded scan found this single repeated key in the tracker corpus."
+type: Issue
+status: open
+priority: 2
+tags[3]: "gh:unbraind/pm-web#288",provenance,sync
+created_at: "2026-11-02T09:18:50.940Z"
+updated_at: "2026-11-02T09:18:50.940Z"
+author: pi-glm
+body: ""
