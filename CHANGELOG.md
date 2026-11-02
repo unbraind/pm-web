@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Ignore managed extension files so the scheduled issue sync can commit ([pm-web-tfk7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-tfk7.toon))
+
 ## 2026.10.30 - 2026-10-30
 
 ### Fixed

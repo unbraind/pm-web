@@ -34,3 +34,9 @@ artifacts/item-history/
 
 # Generated from the exact-commit pm-brand dev dependency; shipped in npm.
 public/brand/
+
+# Restore managed artifacts locally and in CI; track only the registry.
+# The scheduled GitHub issue sync installs its pinned pm-github here and refuses
+# any untracked path outside its commit scope.
+.agents/pm/extensions/*
+!.agents/pm/extensions/.managed-extensions.json
