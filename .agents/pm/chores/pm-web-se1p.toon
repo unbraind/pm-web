@@ -2,13 +2,11 @@ id: pm-web-se1p
 title: Adopt pm CLI 2026.10.30 explicit history order in the pm-toolchain bump (PR 289)
 description: "The pm-toolchain Dependabot bump to @unbrained/pm-cli 2026.10.30 changed the CLI history contract (GH-1617): display order is now explicit and consistent across projections, compact output arrives newest-first with an order label, and a --order option was added. Track the pm-web migration: the normalizer fixture in the projection test, the explicit order request in the history page reader, and the unrelated src/server.js log line seen in CI."
 type: Chore
-status: in_progress
+status: open
 priority: 2
 tags[4]: dependencies,"gh:unbraind/pm-web#289",migration,sdk
 created_at: "2026-11-03T10:24:56.230Z"
-updated_at: "2026-11-03T11:14:53.815Z"
-assignee: toolchain-web-1103
-claim_principal: toolchain-web-1103
+updated_at: "2026-11-03T11:15:15.872Z"
 author: toolchain-web-1103
 comments[6]{created_at,author,text}:
   "2026-11-03T10:25:08.351Z",toolchain-web-1103,"Root cause 1 (test fixture pinned old CLI behaviour): pm-cli GH-1617 (2026.10.30, Fixed) made history display order explicit. 'pm history <id> --compact' now returns newest-first rows with order:\"newest_first\"; the old versions returned an unlabeled oldest-first stream. The projection test fixture reversed compact_history and relabeled it newest_first, which under the new CLI yields oldest-first rows mislabeled newest_first; normalizeItemHistory correctly returns them newest-first and the deepEqual against the chronological expectation fails. The production reader readItemHistoryPage is unaffected because it consumes --full output (default oldest_first with an explicit label) and the normalizer honors the label. Plan: update the fixture to the new delivery contract and additionally request --order oldest_first explicitly in the page reader so the route contract no longer depends on the per-mode default."
