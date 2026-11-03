@@ -90,7 +90,11 @@ function decodeCursor(value: unknown, scope: string): HistoryCursor | undefined 
 
 /** Translate host failures to typed safe refusals rather than silently returning no history. */
 async function readRows(run: (args: string[]) => Promise<PmRunResult>, itemId: string, limit: number): Promise<ItemHistoryRow[]> {
-  const result = await run(['history', itemId, '--full', '--diff', '--limit', String(limit)]);
+  // pm-cli GH-1617 (2026.10.30) made display order explicit per projection with
+  // a --order option. This route's contract is a chronological page (see
+  // ItemHistoryPage.order), so request oldest_first explicitly instead of
+  // relying on the --full mode default staying oldest_first across hosts.
+  const result = await run(['history', itemId, '--full', '--diff', '--limit', String(limit), '--order', 'oldest_first']);
   if (!result.ok) {
     if (result.exitCode === EXIT_CODE.NOT_FOUND) throw new ItemHistoryError(404, 'history_not_found', 'The item history was not found.', 'Refresh the item list and select an existing item.');
     throw new ItemHistoryError(503, 'history_unavailable', 'Item history is temporarily unavailable.', 'Retry after checking tracker availability and history integrity.');

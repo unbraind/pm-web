@@ -7,7 +7,7 @@ import { ItemHistoryError, itemHistoryLimit, normalizeItemHistory, readItemHisto
 import { ItemHistoryError as BuiltHistoryError, readItemHistoryPage as readBuiltHistoryPage } from '../dist/services/item-history.js';
 import { authedRequest, startEphemeralServer } from './helpers/ephemeral-server.ts';
 import { itemHistoryHarness } from './helpers/item-history-harness.ts';
-import { runPm, EXIT_CODE } from '../src/services/pm-runner.ts';
+import { runPm, EXIT_CODE, type PmRunResult } from '../src/services/pm-runner.ts';
 import { signToken } from '../src/auth.ts';
 
 after(() => pool.end());
@@ -104,16 +104,26 @@ test('normalizer validates refusals and retains older full and compact data, inc
   const h = await itemHistoryHarness();
   try {
     const run = (args: string[]) => runPm({ userId: h.owner, slug: 'history-proof', args, jsonOutput: true });
-    const compact = (await run(['history', h.itemId, '--compact'])).parsed as { compact_history: Record<string, unknown>[] };
+    const compact = (await run(['history', h.itemId, '--compact'])).parsed as { compact_history: Record<string, unknown>[]; order?: string };
+    // GH-1617 (pm-cli 2026.10.30) made display order explicit: compact output
+    // now arrives newest-first with an order label instead of the legacy
+    // unlabeled oldest-first stream, so the fixture must be built from the
+    // delivered contract rather than the pre-2026.10.30 ordering.
+    assert.equal(compact.order, 'newest_first');
     const expected = normalizeItemHistory(compact);
     assert.equal(expected.length, 4);
-    const newest = { ...compact, compact_history: [...compact.compact_history].reverse(), order: 'newest_first' };
-    assert.deepEqual(normalizeItemHistory(newest), expected);
+    assert.deepEqual(expected.map(row => row.index), [1, 2, 3, 4]);
+    // Rows already delivered oldest-first under an honest oldest_first label
+    // must be retained exactly as delivered, never re-reversed.
+    const oldest = { ...compact, compact_history: [...compact.compact_history].reverse(), order: 'oldest_first' };
+    assert.deepEqual(normalizeItemHistory(oldest), expected);
     const full = (await run(['history', h.itemId, '--full'])).parsed;
     const fullRows = normalizeItemHistory(full);
     assert.deepEqual(fullRows.map(({ index, timestamp, action, author }) => ({ index, timestamp, action, author })), expected);
     assert.equal(fullRows[1].message, 'exercise update flags');
-    const tied = { ...compact, compact_history: compact.compact_history.map(row => ({ ...row, ts: '2026-10-28T00:00:00Z' })) };
+    // Timestamp ties stay deterministic: the delivered order survives
+    // normalization even when every row shares one timestamp.
+    const tied = { ...oldest, compact_history: oldest.compact_history.map(row => ({ ...row, ts: '2026-10-28T00:00:00Z' })) };
     assert.deepEqual(normalizeItemHistory(tied).map(row => row.action), ['create', 'update', 'update', 'close']);
     for (const bad of [null, 5, {}, { history: [] , order: 'unknown' }, { history: [null] }, { history: [{}] }, { history: [{ ts: 'x', op: 'x', author: 5 }] }, { compact: true, compact_history: [{ ts: 'x', op: 'x', author: 'x', index: 0 }] }]) {
       assert.throws(() => normalizeItemHistory(bad), ItemHistoryError);
@@ -142,6 +152,28 @@ test('normalizer validates refusals and retains older full and compact data, inc
     }
     assert.ok((await readFile(path.join(h.pmRoot, 'history', `${h.itemId}.jsonl`), 'utf8')).split('\n').length >= 4);
   } finally { await h.cleanup(); }
+});
+
+test('history pages request the explicit oldest_first order from the host', async () => {
+  // GH-1617 (pm-cli 2026.10.30) made display order an explicit host choice with
+  // per-projection defaults. The page route must pin its chronological
+  // contract with --order instead of inheriting the --full mode default.
+  const invocations: string[][] = [];
+  const rows = Array.from({ length: 4 }, (_, offset) => ({ index: offset + 1, ts: `2026-10-28T00:00:0${offset}Z`, op: 'update', author: 'history-test' }));
+  const run = async (args: string[]): Promise<PmRunResult> => {
+    invocations.push(args);
+    const parsed = { compact: false, history: rows, diff: rows.map(row => ({ index: row.index })), order: 'oldest_first' };
+    return { ok: true, stdout: JSON.stringify(parsed), stderr: '', parsed };
+  };
+  const page = await readItemHistoryPage(run, 'history-proof', 'proj', {});
+  assert.ok(invocations.length >= 1);
+  for (const args of invocations) {
+    const order = args.indexOf('--order');
+    assert.ok(order > 0, `expected an explicit --order request in ${JSON.stringify(args)}`);
+    assert.equal(args[order + 1], 'oldest_first');
+  }
+  assert.equal(page.order, 'oldest_first');
+  assert.deepEqual(page.history.map(row => row.index), [1, 2, 3, 4]);
 });
 
 test('every older page proves complete coverage despite adversarial appends between history reads', async t => {
