@@ -1,16 +1,17 @@
 id: pm-web-12wg
-title: Compile browser evidence baselines with complete dependency trees
-description: "Track GitHub issue 249: public-only browser fixtures omit frontend declaration dependencies. Preserve complete same-ref baseline inputs, apply the same checked-out baseline selection to push and pull_request, and cover all isolated browser build harnesses."
+title: CI browser baseline omits dist declarations required by contract explorer
+description: "GH issue #249: https://github.com/unbraind/pm-web/issues/249 · author @unbraind · state reason completed · created 2026-10-23T20:18:32Z · updated 2026-10-24T06:14:13Z"
 type: Issue
 status: closed
 priority: 2
-tags[4]: browser,ci,"gh:unbraind/pm-web#249",regression
-created_at: "2026-10-24T05:13:21.194Z"
-updated_at: "2026-10-24T23:16:18.889Z"
-closed_at: "2026-10-24T21:45:43.471Z"
-completed_at: "2026-10-24T06:14:11.000Z"
+tags[2]: "gh:unbraind/pm-web#249","github_author:unbraind"
+created_at: "2026-10-23T20:18:32Z"
+updated_at: "2026-11-05T07:54:32.890Z"
+closed_at: "2026-10-24T06:14:13Z"
+completed_at: "2026-10-24T06:14:13Z"
 author: codex-agent
 acceptance_criteria: Complete baseline compiles on the feature-containing main tree; targeted regression fails when only the fix is reverted; screenshots and both later browser steps pass in PR CI; npm and Bun release gates pass without threshold changes.
+release: v2026.10.24
 resolution: Compiles browser baselines with complete dependency trees and restores screenshots/later browser acceptance on the feature main tree with a failing fix-only revert and unchanged npm/Bun CI.
 expected_result: Complete baseline compiles on the feature-containing main tree; targeted regression fails when only the fix is reverted; screenshots and both later browser steps pass in PR CI; npm and Bun release gates pass without threshold changes.
 actual_result: "https://github.com/unbraind/pm-web/pull/250, merged 2026-10-24T06:14:11Z, merge 3a1293018e279e7482a05b04b1b020c2928882a6: Compiles browser baselines with complete dependency trees and restores screenshots/later browser acceptance on the feature main tree with a failing fix-only revert and unchanged npm/Bun CI."
@@ -39,5 +40,15 @@ tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
 docs[2]{path,scope}:
   docs/browser-baselines.md,project
   README.md,project
-close_reason: "https://github.com/unbraind/pm-web/pull/250, merged 2026-10-24T06:14:11Z, merge 3a1293018e279e7482a05b04b1b020c2928882a6: Compiles browser baselines with complete dependency trees and restores screenshots/later browser acceptance on the feature main tree with a failing fix-only revert and unchanged npm/Bun CI."
-body: ""
+close_reason: "Closed on GitHub as completed on 2026-10-24T06:14:13Z; closing PR https://github.com/unbraind/pm-web/pull/250 (\"Restore browser screenshots and acceptance checks on main\")"
+github_close_reason: "Closed on GitHub as completed on 2026-10-24T06:14:13Z; closing PR https://github.com/unbraind/pm-web/pull/250 (\"Restore browser screenshots and acceptance checks on main\")"
+github_closed_at: "2026-10-24T06:14:13Z"
+github_created_at: "2026-10-23T20:18:32Z"
+github_link_only: false
+github_number: 249
+github_release: v2026.10.24
+github_state: closed
+github_state_reason: completed
+github_updated_at: "2026-10-24T06:14:13Z"
+github_url: "https://github.com/unbraind/pm-web/issues/249"
+body: "## Problem\n\nThe current main CI fails while compiling the decision-inbox browser baseline after the contract explorer merge. The fixture archives only public/, but the new frontend imports a declaration from dist/. This prevents the screenshot step and the later agent-context and contract-explorer browser checks from running.\n\nAffected commit: [2fb9d2b01b8a63cde98aa676fea8b77f3d5e9e8a](https://github.com/unbraind/pm-web/commit/2fb9d2b01b8a63cde98aa676fea8b77f3d5e9e8a), package @unbrained/pm-web 2026.10.23.\n\n## Evidence\n\n- [Current main test (26), job 120620320311](https://github.com/unbraind/pm-web/actions/runs/40013723495/job/120620320311) fails at “Capture seeded decision inbox before and after” on Node 26.12.1. Its baseline tsc command exits 2 at scripts/decision-inbox-browser.ts:61. Earlier typecheck, committed-output build, full npm and Bun release gates, audit and packed acceptance steps succeeded.\n- [scripts/decision-inbox-browser.ts:57–62](https://github.com/unbraind/pm-web/blob/2fb9d2b01b8a63cde98aa676fea8b77f3d5e9e8a/scripts/decision-inbox-browser.ts#L57-L62) links node_modules, archives only public/, and compiles baseline/public/tsconfig.json. It never includes baseline/dist/.\n- [public/src/views/contract-explorer.ts:1](https://github.com/unbraind/pm-web/blob/2fb9d2b01b8a63cde98aa676fea8b77f3d5e9e8a/public/src/views/contract-explorer.ts#L1) imports ContractExplorerPage and ContractReview from ../../../dist/contract-explorer.js.\n- [CI baseline selection](https://github.com/unbraind/pm-web/blob/2fb9d2b01b8a63cde98aa676fea8b77f3d5e9e8a/.github/workflows/ci.yml#L178-L183) uses the PR base SHA on pull_request, but github.sha on push. The PR base did not contain the new import; after merging, the push baseline does. This explains why the same product tree can pass PR CI and fail the main push.\n\n## Isolated confirmation\n\nUsed all 65 current public/ TypeScript and JSON files, each verified against its Git blob SHA, in a fresh public-only fixture. Reused an existing TypeScript 7.0.2 installation on Node 24.19.0. No database, browser, provider or project implementation was run or modified.\n\nCommand: tsc -p baseline/public/tsconfig.json --noEmit\n\nActual: exit 2, with:\n- TS2307 at public/src/views/contract-explorer.ts(1,59): Cannot find module '../../../dist/contract-explorer.js' or its corresponding type declarations.\n- TS7006 at (11,261): Parameter 'row' implicitly has an 'any' type.\n\nPositive control: add only the exact same-commit dist/contract-explorer.d.ts (Git blob cbe50e47abaf14dcd47653dc3e5bb06b87ad9d93) to the isolated fixture. The identical compiler command then exits 0. No source import or assertion was removed.\n\nExpected: compiling a baseline from the current main ref succeeds before browser evidence is collected.\n\n## Scope and acceptance\n\nRestore a complete, same-ref baseline dependency set or otherwise make the frontend type contract available within that baseline. Keep the browser assertions, release gates and thresholds intact.\n\n- Exercise the baseline with INBOX_BASE_REF set to the current feature-containing main SHA, not only an older PR base.\n- Verify baseline compilation and the decision-inbox desktop/mobile evidence complete.\n- Verify the subsequent agent-context and contract-explorer browser checks run rather than being skipped.\n- Keep a regression showing that omission of the required type dependency fails and the restored baseline passes.\n\nThis is a browser-evidence fixture/CI defect. The full application build and earlier release gates passed in the failing hosted job; no production outage, deployment failure or backend execution defect is claimed. Local confirmation covers compiler dependency resolution, not a complete browser rerun.\n\n## Tracking and duplicate check\n\nChecked all 248 all-status GitHub issues/PRs (three pages: 100/100/48) and the canonical [contract-explorer item pm-web-zmbx](https://github.com/unbraind/pm-web/blob/2fb9d2b01b8a63cde98aa676fea8b77f3d5e9e8a/.agents/pm/features/pm-web-zmbx.toon) and [decision-inbox item pm-web-64ke](https://github.com/unbraind/pm-web/blob/2fb9d2b01b8a63cde98aa676fea8b77f3d5e9e8a/.agents/pm/features/pm-web-64ke.toon). No existing issue records this baseline missing-declaration defect. The only open PR, #239, concerns unrelated presence-join capacity. The contract-explorer item is still in progress; the decision-inbox item is closed."

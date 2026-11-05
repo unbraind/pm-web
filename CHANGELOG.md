@@ -7,6 +7,10 @@
 - Gated sync still refuses duplicate GH278 provenance across two delivered records ([pm-web-kiqa](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-kiqa.toon))
 - Ignore managed extension files so the scheduled issue sync can commit ([pm-web-tfk7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-tfk7.toon))
 
+### Closed
+
+- Closed: History projection PR \#274 fails the exact-version matrix and lifecycle history contract in CI ([pm-web-github-ec206b5ea075-275](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-275.toon))
+
 ## 2026.10.30 - 2026-10-30
 
 ### Fixed
@@ -42,19 +46,15 @@
 
 - Resume authorized question changes from an admitted cursor ([pm-web-resume-packets](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-resume-packets.toon))
 
-### Other
+### Fixed
 
-- Point the npm homepage at the package catalog and link the author ([pm-web-vkji](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-vkji.toon))
+- Point the npm homepage at the package's website and link the author ([pm-web-vkji](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-vkji.toon))
 
 ## 2026.10.25 - 2026-10-25
 
 ### Added
 
 - Inspect backend operations and review inputs without executing changes ([pm-web-zmbx](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-zmbx.toon))
-
-### Fixed
-
-- Compile browser evidence baselines with complete dependency trees ([pm-web-12wg](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-12wg.toon))
 
 ### Security
 
@@ -74,6 +74,7 @@
 
 ### Fixed
 
+- CI browser baseline omits dist declarations required by contract explorer ([pm-web-12wg](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-12wg.toon))
 - Make temporary CLI fixtures independent of inherited ESM package scope ([pm-web-sspv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-sspv.toon))
 - Include pm-memory and pm-rlm in the package catalog and fleet snapshot ([pm-web-7u2y](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-7u2y.toon))
 - Reduce quadratic background force-layout cost for large browser graphs ([pm-web-68ig](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-68ig.toon))
@@ -101,7 +102,6 @@
 - Graph auto-sync provisions an extension before checking whether Neo4j is configured ([pm-web-4fgv](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-4fgv.toon))
 - Spawn fallback inherits a foreign PM_PATH and writes outside the requested project ([pm-web-juk7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-juk7.toon))
 - Coverage configuration failures leave stale accepted reports ([pm-web-sblf](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-sblf.toon))
-- Command ownership check misses colliding handlers after separate-value global flags ([pm-web-github-ec206b5ea075-189](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-189.toon))
 - The package catalog went stale when pm-rl gained a hooks capability ([pm-web-bw5d](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-bw5d.toon))
 - Surface optional package requirements for maintenance command routes ([pm-web-pep7](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-pep7.toon))
 - Deduplicate committed realtime facts across HTTP, watcher and peer delivery ([pm-web-4f52](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-4f52.toon))
@@ -129,6 +129,12 @@
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
 - Restore changelog gates with the SDK full-list projection ([pm-web-fmby](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fmby.toon))
 
+## 2026.10.19 - 2026-10-19
+
+### Closed
+
+- Closed: Graph node dragging stops moving nodes after static worker layout change in \#216 ([pm-web-github-ec206b5ea075-218](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-218.toon))
+
 ## 2026.10.15 - 2026-10-15
 
 ### Added
@@ -141,6 +147,12 @@
 ### Fixed
 
 - Refresh connected project viewers after the realtime database listener reconnects ([pm-web-gixc](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-gixc.toon))
+
+## 2026.10.13 - 2026-10-13
+
+### Fixed
+
+- Command ownership check misses colliding handlers after separate-value global flags ([pm-web-github-ec206b5ea075-189](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-189.toon))
 
 ## 2026.10.12 - 2026-10-12
 
@@ -271,6 +283,7 @@
 
 ### Closed
 
+- Closed: Authorize reachable-history privacy remediation before release ([pm-web-github-ec206b5ea075-96](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-96.toon))
 - Closed: The identity gate deadlocks the one remediation its own failure message prescribes ([pm-web-1ggj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-1ggj.toon))
 
 ## 2026.8.17 - 2026-08-17
@@ -441,6 +454,10 @@
 - Migrate hand-written public/sw.js and public/cookie-consent.js to TypeScript sources ([pm-web-qihk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-qihk.toon))
 - Make pm CLI execution non-blocking with bounded concurrency ([pm-web-ssma](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ssma.toon))
 - Separate public legal templates from hosted deployment notices ([pm-web-apu6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-apu6.toon))
+
+### Closed
+
+- Closed: pm-runner uses spawnSync: every pm CLI call blocks the event loop, stalling SSE delivery and all requests under concurrent writes ([pm-web-github-ec206b5ea075-33](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-33.toon))
 
 ## 2026.7.10 - 2026-07-10
 
