@@ -48,11 +48,11 @@ async function change(action: string, project: string, principal: string): Promi
 
 /** Real plain-directory items, real grants and an activated extension with a visible side effect. */
 test('authorized item GET and HEAD reads never activate workspace extensions', async t => {
-  const { root, cwd, pmRoot, item, server, viewer, outsider, project } = await fixture(t);
-  const extension = path.join(pmRoot, 'extensions', 'read-marker'), marker = path.join(root, 'activated');
+  const { cwd, pmRoot, item, server, viewer, outsider, project } = await fixture(t);
+  const extension = path.join(pmRoot, 'extensions', 'read-marker'), marker = path.join(pmRoot, 'extensions', 'activated');
   await mkdir(extension, { recursive: true });
   await writeFile(path.join(extension, 'manifest.json'), JSON.stringify({ name: 'read-marker', version: '1.0.0', entry: './index.mjs', capabilities: ['commands'] }));
-  await writeFile(path.join(extension, 'index.mjs'), `import { writeFileSync } from 'node:fs'; export function activate() { writeFileSync(${JSON.stringify(marker)}, 'activated'); }`);
+  await writeFile(path.join(extension, 'index.mjs'), "import { writeFileSync } from 'node:fs'; export function activate() { writeFileSync(new URL('../activated', import.meta.url), 'activated'); }");
   await new PmClient({ pmRoot, cwd }).get(item.id);
   assert.equal(existsSync(marker), true, 'control proves the actual SDK activates the extension');
   await rm(marker);
