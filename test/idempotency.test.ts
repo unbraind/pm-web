@@ -594,14 +594,34 @@ test("PostgreSQL can serve each real idempotency sweep query with its partial ag
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Keep all production indexes, but isolate the plan from unrelated tests' tiny-table statistics.
+    const definitions = await client.query<{ indexdef: string }>("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND tablename='pm_idempotency_keys'");
+    await client.query("CREATE TEMP TABLE pm_idempotency_keys (LIKE public.pm_idempotency_keys INCLUDING DEFAULTS INCLUDING CONSTRAINTS) ON COMMIT DROP");
+    for (const { indexdef } of definitions.rows) await client.query(indexdef.replace(' ON public.pm_idempotency_keys ', ' ON pg_temp.pm_idempotency_keys '));
+    await client.query(`INSERT INTO pm_idempotency_keys (user_id,idempotency_key,method,path,request_fingerprint,status_code,outcome_state,created_at,updated_at)
+      SELECT gen_random_uuid(),g::text,'POST','/synthetic','fixture',CASE WHEN g%2=0 THEN NULL ELSE 200 END,
+        CASE WHEN g%2=0 THEN 'pending' ELSE 'completed' END,
+        CASE WHEN g%2=1 OR g%200=0 THEN NOW()-INTERVAL '14 days' ELSE NOW() END,
+        CASE WHEN g%2=1 AND g%201=0 THEN NOW()-INTERVAL '14 days' ELSE NOW() END
+      FROM generate_series(1,10000) g`);
+    await client.query("ANALYZE pm_idempotency_keys");
     await client.query("SET LOCAL enable_seqscan = off");
-    for (const [index, query] of queries.entries()) {
+    /** The same assertions must accept real sweep plans and reject loss of either required index. */
+    const assertSweepPlan = async (index: number, query: string): Promise<void> => {
       const result = await client.query<{ "QUERY PLAN": string }>(`EXPLAIN ${query}`, index === 0 ? [300_000, "{}"] : [604_800_000]);
       const plan = result.rows.map((row) => row["QUERY PLAN"]).join("\n");
       const expected = index === 0 ? "idx_pm_idempotency_pending_at" : "idx_pm_idempotency_settled_at";
       assert.ok(plan.includes(expected), `${expected} must serve the sweep: ${plan}`);
       assert.doesNotMatch(plan, /Seq Scan/);
       assert.match(plan, /Index Cond:.*(?:created_at|updated_at) </, "age cutoff is an index condition");
+    };
+    for (const [index, query] of queries.entries()) {
+      await assertSweepPlan(index, query);
+      await client.query('SAVEPOINT missing_index');
+      const expected = index === 0 ? "idx_pm_idempotency_pending_at" : "idx_pm_idempotency_settled_at";
+      await client.query(`DROP INDEX pg_temp.${expected}`);
+      await assert.rejects(assertSweepPlan(index, query), { name: 'AssertionError' });
+      await client.query('ROLLBACK TO SAVEPOINT missing_index');
     }
   } finally {
     await client.query("ROLLBACK");

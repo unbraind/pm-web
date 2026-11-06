@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { assertInitializedTracker, getContracts, getItemAt, PmClient, type ContractsResult, type GetItemAtResult, type GetResult, type PmCompleteListResult } from '@unbrained/pm-cli/sdk';
+import { assertInitializedTracker, getContracts, getItemAt, PmClient, PmCliError, type ContractsResult, type GetItemAtResult, type GetResult, type PmCompleteListResult } from '@unbrained/pm-cli/sdk';
 import { pool } from '../db.ts';
 import { readProjectAccess, type ProjectAccess } from './project-access.ts';
 import { certifyPmWebCompleteList, getProjectDir, runSerialized } from './pm-runner.ts';
@@ -20,6 +20,18 @@ export class ProjectReadError extends Error {
     super(status === 404 ? 'Project not found' : 'Project access changed; retry the read.');
     this.name = 'ProjectReadError';
     this.status = status;
+  }
+}
+
+/** Only fixed SDK preflight categories survive the private provider error boundary. */
+export class ProjectReadUnavailableError extends Error {
+  readonly reason: string;
+  /** Retain an allowlisted category without retaining provider messages, paths or recovery arguments. */
+  constructor(error: unknown) {
+    super('Project tracker unavailable');
+    this.name = 'ProjectReadUnavailableError';
+    const allowed = ['tracker_root_missing', 'tracker_root_unreadable', 'tracker_not_initialized', 'tracker_root_not_directory'];
+    this.reason = error instanceof PmCliError && error.code && allowed.includes(error.code) ? error.code : 'tracker_preflight_failed';
   }
 }
 
@@ -58,12 +70,14 @@ function directoryReader(directory: string, key: string): ProjectItemReader {
  * The workspace queue is shared with existing mutations. Recheck after waiting so a revoked or rebound
  * request never starts a storage read. The final grant lookup is the read's authorization linearization
  * point; callers must send the result without further asynchronous work. This is not a cross-store snapshot.
+ * The optional observer acknowledges initial authorization for deterministic scheduling; it replaces no SDK or grant operation.
  */
-export async function readAuthorizedProject<T>(principal: string, projectId: string, read: (reader: ProjectItemReader, access: ProjectAccess) => Promise<T>): Promise<T> {
+export async function readAuthorizedProject<T>(principal: string, projectId: string, read: (reader: ProjectItemReader, access: ProjectAccess) => Promise<T>, onAuthorized: () => void = () => {}): Promise<T> {
   const access = await readProjectAccess(pool, principal, projectId);
   if (!access) throw new ProjectReadError(404);
   const selected = binding(access);
   const key = JSON.stringify([principal.toLowerCase(), selected.identity]);
+  onAuthorized();
   /** A cached SDK object never substitutes for current account/share authorization. */
   const authorize = async (): Promise<void> => {
     const current = await readProjectAccess(pool, principal, projectId);
@@ -73,7 +87,7 @@ export async function readAuthorizedProject<T>(principal: string, projectId: str
   return runSerialized(selected.directory, async () => {
     await authorize();
     try { await assertInitializedTracker(path.join(selected.directory, '.agents', 'pm')); }
-    catch { throw new Error('Project tracker unavailable'); }
+    catch (error) { throw new ProjectReadUnavailableError(error); }
     const result = await read(directoryReader(selected.directory, key), access);
     await authorize();
     return result;

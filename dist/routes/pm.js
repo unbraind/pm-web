@@ -4,7 +4,7 @@ import { registerContractExplorerRoutes } from './contract-explorer.js';
 import { registerAgentContextRoutes } from './agent-context.js';
 import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision } from '../services/decision-inbox.js';
 import { readMaintenanceCapabilities } from "../services/maintenance-providers.js";
-import { logError } from "../observability.js";
+import { logError, logEvent } from "../observability.js";
 import { Router } from "express";
 import { readProjectGraph } from "../services/project-graph.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -19,7 +19,7 @@ import { buildIcsCalendar } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, canResumeFanout, heartbeatFanout, mutationEventIdentity } from "../services/sse.js";
 import { singleFlightMutationPage } from "../services/history-read-gate.js";
-import { ProjectReadError, readAuthorizedProject } from '../services/authorized-project-reads.js';
+import { ProjectReadError, ProjectReadUnavailableError, readAuthorizedProject } from '../services/authorized-project-reads.js';
 import { ItemHistoryError, readItemHistoryPage } from '../services/item-history.js';
 import { projectEventViewers } from "../services/sse-access.js";
 import { createSSEAdmission } from "../services/sse-admission.js";
@@ -390,8 +390,14 @@ async function projectItemRead(req, res, read) {
             res.status(404).json({ error: 'Item not found' });
         else if (error instanceof PmCliError && error.exitCode === EXIT_CODE.USAGE)
             res.status(400).json({ error: 'Invalid item id or historical reference' });
-        else
+        else {
+            const requestId = res.getHeader('X-Request-Id');
+            logEvent('project_read_unavailable', {
+                request_id: typeof requestId === 'string' ? requestId : null,
+                reason: error instanceof ProjectReadUnavailableError ? error.reason : 'sdk_read_failed',
+            }, 'error');
             res.status(503).json({ error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
+        }
         return undefined;
     }
 }

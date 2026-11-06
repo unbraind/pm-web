@@ -701,8 +701,10 @@ Content-bearing keyed responses recheck current permissions and resource visibil
 
 ## Authorized project item reads
 
-Item get, historical item, search, board, export and calendar feed reads use
+Item get, historical item, GET search, board, export and calendar feed reads use
 scoped SDK capabilities with live access checks and extension activation disabled.
+The search UI uses POST search, which checks access before its queued CLI call
+and does not recheck access before returning results.
 See [the directory-provider boundary and native backend follow-ups](docs/authorized-project-reads.md).
 
 ## Backend contract explorer

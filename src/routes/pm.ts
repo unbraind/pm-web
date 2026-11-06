@@ -4,7 +4,7 @@ import { registerContractExplorerRoutes } from './contract-explorer.ts';
 import { registerAgentContextRoutes } from './agent-context.ts';
 import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionRequestInput, type DecisionResponseInput } from '../services/decision-inbox.ts';
 import { readMaintenanceCapabilities, type MaintenanceAction } from "../services/maintenance-providers.ts";
-import { logError } from "../observability.ts";
+import { logError, logEvent } from "../observability.ts";
 import { Router } from "express";
 import { readProjectGraph, type ProjectGraph } from "../services/project-graph.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
@@ -23,7 +23,7 @@ import { buildIcsCalendar, type CalendarItem } from "../ical.ts";
 import { verifyProjectAccess } from "./projects.ts";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, canResumeFanout, heartbeatFanout, mutationEventIdentity, type SSEEvent } from "../services/sse.ts";
 import { singleFlightMutationPage } from "../services/history-read-gate.ts";
-import { ProjectReadError, readAuthorizedProject, type ProjectItemReader } from '../services/authorized-project-reads.ts';
+import { ProjectReadError, ProjectReadUnavailableError, readAuthorizedProject, type ProjectItemReader } from '../services/authorized-project-reads.ts';
 import type { ProjectAccess } from '../services/project-access.ts';
 import { ItemHistoryError, readItemHistoryPage } from '../services/item-history.ts';
 import { projectEventViewers } from "../services/sse-access.ts";
@@ -471,7 +471,14 @@ async function projectItemRead<T>(req: AuthRequest, res: Response, read: (reader
     if (error instanceof ProjectReadError) res.status(error.status).json({ error: error.message });
     else if (error instanceof PmCliError && error.exitCode === EXIT_CODE.NOT_FOUND) res.status(404).json({ error: 'Item not found' });
     else if (error instanceof PmCliError && error.exitCode === EXIT_CODE.USAGE) res.status(400).json({ error: 'Invalid item id or historical reference' });
-    else res.status(503).json({ error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
+    else {
+      const requestId = res.getHeader('X-Request-Id');
+      logEvent('project_read_unavailable', {
+        request_id: typeof requestId === 'string' ? requestId : null,
+        reason: error instanceof ProjectReadUnavailableError ? error.reason : 'sdk_read_failed',
+      }, 'error');
+      res.status(503).json({ error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
+    }
     return undefined;
   }
 }

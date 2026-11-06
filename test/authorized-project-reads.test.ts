@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PmClient } from '@unbrained/pm-cli/sdk';
@@ -13,6 +13,7 @@ import { ProjectReadError, readAuthorizedProject } from '../src/services/authori
 import { runSerialized } from '../src/services/pm-runner.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 import { authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
+import { captureLogs, setLogLevel } from './helpers/stdout-logs.ts';
 
 /** Own one isolated real tracker, grant set and HTTP server through test teardown. */
 async function fixture(t: TestContext) {
@@ -156,4 +157,47 @@ test('directory bindings serialize relative and absolute aliases of the same tra
     await held;
     await queued;
   }
+});
+
+/** Initial authorization does not permit storage reads after a separately committed queued revocation. */
+test('revocation while an authorized read is queued prevents its storage callback', async t => {
+  const { viewer, project, cwd, item } = await fixture(t);
+  let release!: () => void, selected!: () => void;
+  const held = runSerialized(cwd, () => new Promise<void>(resolve => { release = resolve; }));
+  const authorized = new Promise<void>(resolve => { selected = resolve; });
+  let called = false;
+  const pending = readAuthorizedProject(viewer.id, project.id, async reader => { called = true; return reader.get(item.id); }, selected);
+  const refused = assert.rejects(pending, error => error instanceof ProjectReadError && error.status === 404);
+  try {
+    await authorized;
+    await change('revoke', project.id, viewer.id);
+  } finally { release(); }
+  await held;
+  await refused;
+  assert.equal(called, false, 'final authorization alone must not allow the storage callback to run');
+});
+
+/** Log only SDK reason categories and the middleware's generated request identity, never provider paths. */
+test('failed project reads log distinct safe reasons with the response request identity', async t => {
+  const { server, viewer, project, pmRoot, cwd } = await fixture(t);
+  setLogLevel(t, 'error');
+  const lines = captureLogs(t);
+  const mode = (await stat(pmRoot)).mode & 0o777;
+  const endpoint = `/api/projects/${project.id}/pm/search?q=needle`;
+  const requests: Array<{ reason: string; requestId: string | null }> = [];
+  await chmod(pmRoot, 0);
+  try {
+    const response = await authedFetch(server, viewer, endpoint);
+    assert.equal(response.status, 503);
+    requests.push({ reason: 'tracker_root_unreadable', requestId: response.headers.get('x-request-id') });
+    assert.deepEqual(await response.json(), { error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
+  } finally { await chmod(pmRoot, mode); }
+  await rm(pmRoot, { recursive: true });
+  const missing = await authedFetch(server, viewer, endpoint);
+  assert.equal(missing.status, 503);
+  requests.push({ reason: 'tracker_root_missing', requestId: missing.headers.get('x-request-id') });
+  const records = lines.map(line => JSON.parse(line) as Record<string, unknown>).filter(row => row.event === 'project_read_unavailable');
+  assert.deepEqual(records.map(row => ({ reason: row.reason, requestId: row.request_id })), requests);
+  assert.ok(requests.every(row => row.requestId));
+  for (const secret of [cwd, viewer.id, project.id, 'needle']) assert.equal(JSON.stringify(records).includes(secret), false);
 });

@@ -1,9 +1,13 @@
 # Authorized project item reads
 
-The item get, historical item, search, board, export and calendar feed routes
+The item get, historical item, GET search, board, export and calendar feed routes
 use one observational SDK boundary. This is the directory-provider slice of
 [roadmap #260](https://github.com/unbraind/pm-web/issues/260). Native database
 item storage is not implemented by this slice.
+
+The search UI uses POST search. A fresh POST search checks access before its
+queued CLI call and does not recheck access before returning results. That
+surface remains outside this directory-reader slice.
 
 `readAuthorizedProject` resolves the current account/share grant before binding
 an SDK reader. Its bounded LRU caches only immutable read capabilities, keyed by
@@ -23,7 +27,9 @@ Extension activation is disabled for item and contract reads; point-in-time
 reads use the SDK replay kernel. Complete views retain the SDK's complete-list
 certificate and pm-web's supplemental output-budget refusal. Missing or corrupt
 trackers fail closed with a safe unavailable response; reads never initialize
-a replacement tracker or expose provider exception text.
+a replacement tracker or expose provider exception text. Failure logs retain
+only an allowlisted preflight reason (such as missing or unreadable) and the
+request middleware's generated request identity.
 
 The public SDK pinned by this package currently accepts `pmRoot`, `cwd`,
 `author` and `noExtensions` in `PmClientOptions`. It does not export a native
@@ -33,9 +39,9 @@ conformance demonstrates no-Git operation, not no-filesystem operation.
 
 Remaining Feature items with acceptance criteria:
 
-- [Native provider binding and remaining reads](../.agents/pm/features/pm-web-native-provider.toon): upstream handles, complete native conformance, remaining paginated list/settings/history surfaces and observational pm-graph `ProjectionSource` reuse.
-- [Native mutations and idempotency](../.agents/pm/features/pm-web-native-mutations.toon): SDK transactions, decisions, retries, isolation and independent writers.
-- [Durable native history and events](../.agents/pm/features/pm-web-native-events.toon): scoped subscriptions and resume cursors, retention, restart and explicit gap/resync receipts.
+- [Native provider binding and remaining reads](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-native-provider.toon): upstream handles, complete native conformance, remaining paginated list/settings/history surfaces and observational pm-graph `ProjectionSource` reuse.
+- [Native mutations and idempotency](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-native-mutations.toon): SDK transactions, decisions, retries, isolation and independent writers.
+- [Durable native history and events](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-native-events.toon): scoped subscriptions and resume cursors, retention, restart and explicit gap/resync receipts.
 
 Regression coverage uses actual SDK trackers without Git, actual PostgreSQL
 grants, HTTP GET/HEAD, and separate OS processes for concurrent item writes,
