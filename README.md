@@ -699,6 +699,12 @@ Agent context commands work from a plain tracker without git, contacting an expl
 
 Content-bearing keyed responses recheck current permissions and resource visibility. Successful deletes and other previously successful mutations whose content is no longer readable return only status and identifiers to the original principal, so lost responses cannot wedge offline work. Own queued deletes also settle on terminal 404/410 with a visible notice. Every SSE connection immediately revalidates the displayed packet, including reconnections after backoff. See the [78-route replay authorization audit](docs/idempotency-replay.md).
 
+## Authorized project item reads
+
+Item get, historical item, search, board, export and calendar feed reads use
+scoped SDK capabilities with live access checks and extension activation disabled.
+See [the directory-provider boundary and native backend follow-ups](docs/authorized-project-reads.md).
+
 ## Backend contract explorer
 
 Select **Backend contracts** to inspect the selected project's live SDK operations,

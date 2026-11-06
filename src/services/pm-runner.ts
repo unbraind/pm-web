@@ -285,12 +285,13 @@ async function runProcess(
  * Returns whatever `work` resolves to, and prunes the workspace's tail once the
  * chain settles.
  */
-async function runSerialized<T>(workspace: string, work: () => Promise<T>): Promise<T> {
-  const previous = workspaceTails.get(workspace) ?? Promise.resolve();
+export async function runSerialized<T>(workspace: string, work: () => Promise<T>): Promise<T> {
+  const identity = path.resolve(workspace);
+  const previous = workspaceTails.get(identity) ?? Promise.resolve();
   let releaseWorkspace!: () => void;
   const gate = new Promise<void>((resolve) => { releaseWorkspace = resolve; });
   const tail = previous.catch(() => undefined).then(() => gate);
-  workspaceTails.set(workspace, tail);
+  workspaceTails.set(identity, tail);
 
   await previous.catch(() => undefined);
   const releaseSlot = await commandSlots.acquire();
@@ -300,7 +301,7 @@ async function runSerialized<T>(workspace: string, work: () => Promise<T>): Prom
     releaseSlot();
     releaseWorkspace();
     void tail.finally(() => {
-      if (workspaceTails.get(workspace) === tail) workspaceTails.delete(workspace);
+      if (workspaceTails.get(identity) === tail) workspaceTails.delete(identity);
     });
   }
 }

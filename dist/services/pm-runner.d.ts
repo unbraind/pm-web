@@ -58,6 +58,16 @@ export declare function getProjectDir(userId: string, slug: string): string;
  */
 export declare function resolveProjectDir(projectId: string): Promise<string | null>;
 /**
+ * Run async work for one workspace after all prior work there finishes.
+ *
+ * Chains `work` onto the workspace's tail promise so calls against the SAME
+ * workspace run one at a time, while also acquiring a global command slot so
+ * calls across independent workspaces overlap only up to the concurrency limit.
+ * Returns whatever `work` resolves to, and prunes the workspace's tail once the
+ * chain settles.
+ */
+export declare function runSerialized<T>(workspace: string, work: () => Promise<T>): Promise<T>;
+/**
  * Create and initialize a project workspace on disk.
  *
  * Makes the project directory, explicitly initializes its own tracker serialized against the
