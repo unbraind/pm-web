@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { api, syncServiceWorkerSession } from '../api.js';
 import { bootApp, disconnectSSE } from '../app.js';
 import { t, translateError } from '../i18n.js';
+import { applyAuthSubmitEventAttributes } from '../utils.js';
 import type { User } from '../types.js';
 
 /** Store the signed-in user outside the async submit handler. */
@@ -62,6 +63,9 @@ export function switchAuthTab(tab: 'login' | 'register'): void {
   if (authSub) authSub.textContent = tab==='login' ? t('auth.sub.login') : t('auth.sub.register');
   const authBtnText = document.getElementById('auth-btn-text');
   if (authBtnText) authBtnText.textContent = tab==='login' ? t('auth.button.login') : t('auth.button.register');
+  // The shared submit button must only report a sign-in start on the sign-in
+  // tab; registration is a different funnel and carries no event attributes.
+  applyAuthSubmitEventAttributes(document.getElementById('auth-submit') as HTMLButtonElement | null, tab);
   const authError = document.getElementById('auth-error') as HTMLElement | null;
   if (authError) authError.style.display = 'none';
 }

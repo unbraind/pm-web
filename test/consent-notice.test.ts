@@ -88,7 +88,7 @@ interface FakeDocument {
   createElement(tag: string): FakeElement;
 }
 
-/** Everything one script execution observed: storage, elements, requests. */
+/** Everything one script execution observed: storage, elements, requests, timers. */
 interface ScriptOutcome {
   /** Fake document the script ran against. */
   document: FakeDocument;
@@ -96,7 +96,27 @@ interface ScriptOutcome {
   writes: Array<[string, string]>;
   /** Recorded fetch targets. */
   requests: string[];
+  /** Captured `setTimeout` callbacks (the config-read deadline), in order. */
+  timers: Array<() => void>;
+  /** Pending deadline handles, used to verify cleanup after a fast response. */
+  pendingTimers: Set<number>;
+  /** Signal passed to the actual fetch call. */
+  signals: AbortSignal[];
+  /** For the `deferredBody` scenario: settle the pending fetch with a body. */
+  settleFetch: ((body: string) => void) | null;
 }
+
+/** How the fake `/api/ui-config` fetch behaves in one script run. */
+type FetchScenario =
+  | { storageNotice: boolean }
+  | { error: Error }
+  | { httpStatus: number }
+  /** The fetch never settles (a proxy that stalls the connection). */
+  | { stalled: true }
+  /** The headers arrive but the body never settles. */
+  | { stalledBody: true }
+  /** The fetch settles only when the test calls `settleFetch` with a body. */
+  | { deferredBody: true };
 
 /** Built script source, compiled once in the suite's before hook. */
 let builtSource = "";
@@ -142,19 +162,27 @@ function makeDocument(): FakeDocument {
 /**
  * Run the built script once against a fake page, returning what it did.
  *
- * @param options - How the `/api/ui-config` fetch behaves: a plain object for
- *   a JSON response, or an `Error` to simulate a network failure.
+ * The vm context provides a captured `setTimeout` instead of a real one, so
+ * tests decide when the config-read deadline fires and can observe both
+ * sides of the race (fast response, stalled response, late response).
+ *
+ * @param options - How the `/api/ui-config` fetch behaves.
  * @param storedChoice - Value previously present in localStorage, or `null`.
- * @returns The observed fake document, storage writes, and requests.
+ * @returns The observed fake document, storage writes, requests, timers, and
+ *   (for `deferredBody`) the callback that settles the pending fetch.
  */
 async function runConsentScript(
-  options: { storageNotice: boolean } | { error: Error } | { httpStatus: number },
+  options: FetchScenario,
   storedChoice: string | null = null,
 ): Promise<ScriptOutcome> {
   const source = builtSource;
   const document = makeDocument();
   const writes: Array<[string, string]> = [];
   const requests: string[] = [];
+  const timers: Array<() => void> = [];
+  const pendingTimers = new Set<number>();
+  const signals: AbortSignal[] = [];
+  let settleFetch: ((body: string) => void) | null = null;
   const store = new Map<string, string>();
   if (storedChoice !== null) store.set("pm_cookie_preferences_v1", storedChoice);
   const localStorage = {
@@ -164,22 +192,43 @@ async function runConsentScript(
       store.set(key, value);
     },
   };
-  const fetchImpl = (): Promise<{ ok: boolean; text: () => Promise<string> }> => {
-    requests.push("/api/ui-config");
+  const fetchImpl = (url: string, init?: { signal?: AbortSignal }): Promise<{ ok: boolean; text: () => Promise<string> }> => {
+    requests.push(url);
+    if (init?.signal) signals.push(init.signal);
     if ("error" in options) return Promise.reject(options.error);
     if ("httpStatus" in options) {
       return Promise.resolve({ ok: false, text: () => Promise.resolve("Not found") });
+    }
+    if ("stalled" in options) return new Promise(() => { /* never settles */ });
+    if ("stalledBody" in options) return Promise.resolve({ ok: true, text: () => new Promise(() => { /* never settles */ }) });
+    if ("deferredBody" in options) {
+      return new Promise((resolve) => {
+        settleFetch = (body: string) => resolve({ ok: true, text: () => Promise.resolve(body) });
+      });
     }
     return Promise.resolve({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ storageNotice: options.storageNotice })),
     });
   };
-  const context = vm.createContext({ document, localStorage, fetch: fetchImpl });
+  const setTimeoutImpl = (callback: () => void, ms: number): number => {
+    assert.ok(ms > 0 && ms <= 3000, "the fallback deadline must be bounded to three seconds");
+    timers.push(callback);
+    pendingTimers.add(timers.length);
+    return timers.length;
+  };
+  const clearTimeoutImpl = (handle: number): void => { pendingTimers.delete(handle); };
+  const context = vm.createContext({ document, localStorage, fetch: fetchImpl, setTimeout: setTimeoutImpl, clearTimeout: clearTimeoutImpl, AbortController });
   new vm.Script(source, { filename: "cookie-consent.js" }).runInContext(context);
   // Flush the config read's promise chain (microtasks + one macrotask tick).
   await new Promise((resolve) => { setImmediate(resolve); });
-  return { document, writes, requests };
+  return { document, writes, requests, timers, pendingTimers, signals, settleFetch };
+}
+
+/** Fire every captured timer callback, then flush the promise chains again. */
+async function flushTimers(outcome: ScriptOutcome): Promise<void> {
+  for (const handle of [...outcome.pendingTimers]) outcome.timers[handle - 1]();
+  await new Promise((resolve) => { setImmediate(resolve); });
 }
 
 /** The banner element of a fake page. */
@@ -261,6 +310,61 @@ test("config fetch failure falls back to shown (never throws, never hides silent
 test("non-OK config response also falls back to shown", async () => {
   const outcome = await runConsentScript({ httpStatus: 500 });
   assert.equal(bannerOf(outcome).hidden, false);
+});
+
+test("an unparsable config body falls back to shown", async () => {
+  const outcome = await runConsentScript({ deferredBody: true });
+  assert.ok(outcome.settleFetch, "deferred scenario should expose the settle callback");
+  outcome.settleFetch("not-json{");
+  await new Promise((resolve) => { setImmediate(resolve); });
+  assert.equal(bannerOf(outcome).hidden, false, "a garbage body must keep the notice on");
+});
+
+test("a stalled config read falls back to shown after the deadline instead of hanging", async () => {
+  const outcome = await runConsentScript({ stalled: true });
+  // Before the deadline the decision is still pending: no premature show,
+  // but also no permanent hide.
+  assert.equal(bannerOf(outcome).hidden, true, "undecided state keeps the banner hidden");
+  assert.equal(outcome.timers.length, 1, "the script should arm exactly one deadline timer");
+  await flushTimers(outcome);
+  assert.equal(bannerOf(outcome).hidden, false, "a stalled read must fall back to shown after the deadline");
+  assert.equal(outcome.writes.length, 0);
+  assert.equal(outcome.signals[0].aborted, true, "the stalled request should be cancelled");
+  const control = outcome.document.querySelectorAll("[data-cookie-settings]")[0];
+  bannerOf(outcome).hidden = true;
+  control.click();
+  assert.equal(bannerOf(outcome).hidden, false, "settings must be wired after fallback");
+});
+
+test("a stalled response body also reaches the fallback deadline", async () => {
+  const outcome = await runConsentScript({ stalledBody: true });
+  assert.equal(bannerOf(outcome).hidden, true);
+  await flushTimers(outcome);
+  assert.equal(bannerOf(outcome).hidden, false);
+  assert.equal(outcome.signals[0].aborted, true);
+});
+
+test("a fast off response clears its timer and remains off after the deadline", async () => {
+  const outcome = await runConsentScript({ storageNotice: false });
+  assert.equal(outcome.pendingTimers.size, 0, "a completed config read must clear its deadline");
+  await flushTimers(outcome);
+  assert.equal(bannerOf(outcome).hidden, true);
+  assert.equal(outcome.writes.length, 0);
+});
+
+test("a late off response after the deadline cannot hide the already-shown notice", async () => {
+  const outcome = await runConsentScript({ deferredBody: true });
+  assert.ok(outcome.settleFetch, "deferred scenario should expose the settle callback");
+  // The deadline wins: the notice is shown.
+  await flushTimers(outcome);
+  assert.equal(bannerOf(outcome).hidden, false);
+  // The response finally arrives with storageNotice:false — too late.
+  outcome.settleFetch(JSON.stringify({ storageNotice: false }));
+  await new Promise((resolve) => { setImmediate(resolve); });
+  assert.equal(bannerOf(outcome).hidden, false, "a late response must not flip the decision");
+  const control = outcome.document.querySelectorAll("[data-cookie-settings]")[0];
+  assert.equal(control.replacedWith, null, "a late response must not rewire the settings control");
+  assert.equal(outcome.writes.length, 0);
 });
 
 test("the script reads exactly the ui-config endpoint", async () => {

@@ -18,6 +18,8 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { before, test } from "node:test";
+import vm from "node:vm";
+import { buildSync } from "esbuild";
 import { buildStaticScripts, cookieConsentOutputPath, publicDir } from "./helpers/public-scripts.ts";
 
 /** Containers the application fills with signed-in or private content. */
@@ -46,6 +48,22 @@ function openTagById(html: string, id: string): string | null {
 /** All attribute occurrences of the tracker attribute API in a document. */
 function trackerAttributeTokens(source: string): string[] {
   return [...source.matchAll(/data-umami-[a-z-]+/g)].map((match) => match[0]);
+}
+
+/** Minimal element double exposing only the two methods the tab helper uses. */
+class AttributeStub {
+  /** Attributes assigned through `setAttribute`. */
+  readonly attributes = new Map<string, string>();
+
+  /** Record an attribute write. */
+  setAttribute(name: string, value: string): void {
+    this.attributes.set(name, value);
+  }
+
+  /** Remove an attribute. */
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+  }
 }
 
 /** Read a served page from the public directory, asserting it exists. */
@@ -134,6 +152,50 @@ test("no visitor-visible page or served script names the analytics vendor outsid
   const script = readFileSync(cookieConsentOutputPath, "utf8");
   const stripped = script.replace(/data-umami-[a-z-]+/g, "");
   assert.doesNotMatch(stripped, /umami/i, "cookie-consent.js must not name the analytics vendor");
+});
+
+test("the shared submit button reports a sign-in start only on the sign-in tab", () => {
+  // Execute the actual tab-switch function, with its UI dependencies scoped
+  // to this realm. This catches a missing call as well as a broken helper.
+  const button = new AttributeStub();
+  const module = { exports: {} as { switchAuthTab?: (tab: "login" | "register") => void } };
+  const dependencies: Record<string, unknown> = {
+    "../state.js": { state: { authTab: "login" } },
+    "../api.js": {},
+    "../app.js": {},
+    "../i18n.js": { t: (key: string): string => key },
+  };
+  let present = true;
+  const context = vm.createContext({
+    module,
+    require: (id: string): unknown => {
+      assert.ok(Object.hasOwn(dependencies, id), `unexpected auth import: ${id}`);
+      return dependencies[id];
+    },
+    document: { getElementById: (id: string): AttributeStub | null => present && id === "auth-submit" ? button : null },
+  });
+  const compiled = buildSync({
+    entryPoints: [path.join(publicDir, "src", "views", "auth.ts")],
+    bundle: true,
+    write: false,
+    format: "cjs",
+    target: "es2022",
+    external: Object.keys(dependencies),
+  }).outputFiles[0].text;
+  new vm.Script(compiled, { filename: "auth.js" }).runInContext(context);
+  const { exports } = module;
+  assert.ok(exports.switchAuthTab);
+  exports.switchAuthTab("login");
+  assert.equal(button.attributes.get("data-umami-event"), "auth_sign_in_started");
+  assert.equal(button.attributes.get("data-umami-event-provider"), "password");
+  exports.switchAuthTab("register");
+  assert.equal(button.attributes.has("data-umami-event"), false);
+  assert.equal(button.attributes.has("data-umami-event-provider"), false);
+  exports.switchAuthTab("login");
+  assert.equal(button.attributes.get("data-umami-event"), "auth_sign_in_started");
+  assert.equal(button.attributes.get("data-umami-event-provider"), "password");
+  present = false;
+  assert.doesNotThrow(() => exports.switchAuthTab?.("register"));
 });
 
 test("tracker attribute tokens appear only as the documented attribute API", () => {

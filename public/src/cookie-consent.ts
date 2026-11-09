@@ -13,6 +13,12 @@
   const UI_CONFIG_URL = '/api/ui-config';
   /** The operator's deployed cookie-settings legal page (overlay-served). */
   const OPERATOR_COOKIE_SETTINGS_URL = '/cookie-settings';
+  /**
+   * How long the config read may take before the notice falls back to shown.
+   * Same-origin JSON reads finish in milliseconds; a proxy that accepts the
+   * connection but never answers must not hide the notice indefinitely.
+   */
+  const CONFIG_DEADLINE_MS = 2500;
   const banner = document.getElementById('cookie-consent');
 
   type CookieChoice = 'acknowledged' | 'necessary';
@@ -25,22 +31,47 @@
   }
 
   /**
-   * Read whether the operator kept the built-in storage notice enabled.
+   * Fetch the storage-notice setting, mapping every failure to "shown".
    *
-   * The server exposes the `PM_WEB_STORAGE_NOTICE` setting through the
-   * unauthenticated `GET /api/ui-config` endpoint. Any failure — network
-   * error, non-OK response, unparsable body, or a missing/invalid field —
-   * falls back to `true` (enabled), so a broken read never silently hides
-   * a legal notice. The promise therefore always resolves and never throws.
+   * Any failure — network error, non-OK response, unparsable body, or a
+   * missing/invalid field — resolves `true` (enabled), so a broken read never
+   * silently hides a legal notice. The promise never rejects, which keeps
+   * the deadline race below free of unhandled
+   * rejections from the losing branch.
    */
-  async function readStorageNotice(): Promise<boolean> {
+  async function fetchStorageNotice(signal: AbortSignal): Promise<boolean> {
     try {
-      const response = await fetch(UI_CONFIG_URL);
+      const response = await fetch(UI_CONFIG_URL, { signal });
       if (!response.ok) return true;
       const config = JSON.parse(await response.text()) as { storageNotice?: unknown };
       return config.storageNotice !== false;
     } catch {
       return true;
+    }
+  }
+
+  /**
+   * Read whether the operator kept the built-in storage notice enabled.
+   *
+   * The server exposes the `PM_WEB_STORAGE_NOTICE` setting through the
+   * unauthenticated `GET /api/ui-config` endpoint. The read races a deadline:
+   * the first decision wins, so a stalled request (a proxy that accepts the
+   * connection but never answers) falls back to `true` — shown — after
+   * {@link CONFIG_DEADLINE_MS}, and a late response cannot flip an outcome
+   * already decided. Every failure mode resolves to `true`, so nothing is
+   * ever hidden silently and the read never throws.
+   */
+  async function readStorageNotice(): Promise<boolean> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => { resolve(true); }, CONFIG_DEADLINE_MS);
+    });
+    try {
+      return await Promise.race([fetchStorageNotice(controller.signal), deadline]);
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
     }
   }
 
