@@ -25,6 +25,10 @@ import with the duplicate and a deliberately stale provider target, then
 successful apply after repair. The stale target ensures a bypass would cause
 observable item/history writes. A separate tracker initialized
 through the SDK tests the same refusal and recovery without Git.
+The plain control requires a scratch directory outside every Git worktree and
+bare repository, even when `TMPDIR` is overridden. It checks before and after
+SDK initialization; any Git error other than the normal no-repository diagnostic
+fails the fixture. Choose an outside-Git temporary directory if this check fails.
 
 Use a **separate clean checkout** of the recorded source commit, not the PR
 branch. The fixture verifies that checkout's exact `HEAD` and cleanliness before
@@ -134,6 +138,17 @@ function historical(file: string): Buffer {
   return result.stdout;
 }
 
+/** Require positive evidence of a non-Git directory before accepting the plain control. */
+function assertOutsideGit(directory: string): void {
+  const result = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
+    cwd: directory, encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' },
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 128, 'The plain control must be outside every Git repository');
+  assert.equal(result.stdout, '');
+  assert.match(result.stderr.trim(), /^fatal: not a git repository \(or any of the parent directories\): \.git$/);
+}
+
 /** Preserve both original histories and every delivery field except the intended tag/relationship edits. */
 async function assertPreservation(root: string): Promise<void> {
   for (const [folder, id] of [['features', 'pm-web-5sx6'], ['issues', 'pm-web-cnhi']]) {
@@ -224,9 +239,11 @@ try {
 
   const plain = path.join(scratch, 'plain');
   await mkdir(plain);
+  assertOutsideGit(plain);
   const plainRoot = path.join(plain, '.agents/pm');
   const plainClient = new PmClient({ cwd: plain, pmRoot: plainRoot, author: 'codex-sol', noExtensions: true });
   await plainClient.init('plain', { defaults: true, agentGuidance: 'skip' });
+  assertOutsideGit(plain);
   await plainClient.create({ title: 'Canonical delivery', type: 'Issue', tags: tag });
   const second = await plainClient.create({ title: 'Related SDK delivery', type: 'Issue', tags: tag });
   const plainBefore = await snapshot(plainRoot);
@@ -293,3 +310,11 @@ before its remaining post-write identity check refuses. Restore the original
 package in `finally`, then rerun all four scenarios successfully. This proves
 the regression observes the import boundary and write ordering, rather than
 only the standalone verifier.
+
+The no-Git boundary regression is reproducible with
+`node --test --test-concurrency=2 test/gated-sync-verification.test.ts`.
+It executes the documented setup with the real SDK and real Git processes:
+an outside-Git directory initializes successfully, while nested worktrees,
+bare repositories and corrupt repository metadata refuse before tracker writes.
+Removing only the documented boundary-check calls makes the refusal controls
+fail; restoring those calls makes the suite pass again.
