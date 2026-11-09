@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Let operators run their own consent manager: storage-notice switch, replay-private regions, sign-in analytics events ([pm-web-p0me](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-p0me.toon))
+
 ## 2026.11.4 - 2026-11-04
 
 ### Fixed
