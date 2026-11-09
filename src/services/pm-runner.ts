@@ -276,6 +276,24 @@ async function runProcess(
   });
 }
 
+/** Resolve physical aliases, including missing descendants of an existing workspace ancestor. */
+function physicalWorkspacePath(workspace: string): string {
+  const absolute = path.resolve(workspace);
+  try {
+    return fs.realpathSync.native(absolute);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    const parent = path.dirname(absolute);
+    if ((code !== "ENOENT" && code !== "ENOTDIR") || parent === absolute) throw error;
+    return path.join(physicalWorkspacePath(parent), path.basename(absolute));
+  }
+}
+
+/** Identify shared tracker storage even when only the tracker, rather than its workspace, is a symlink. */
+function physicalWorkspaceIdentity(workspace: string): string {
+  return physicalWorkspacePath(path.join(workspace, '.agents', 'pm'));
+}
+
 /**
  * Run async work for one workspace after all prior work there finishes.
  *
@@ -286,7 +304,7 @@ async function runProcess(
  * chain settles.
  */
 export async function runSerialized<T>(workspace: string, work: () => Promise<T>): Promise<T> {
-  const identity = path.resolve(workspace);
+  const identity = physicalWorkspaceIdentity(workspace);
   const previous = workspaceTails.get(identity) ?? Promise.resolve();
   let releaseWorkspace!: () => void;
   const gate = new Promise<void>((resolve) => { releaseWorkspace = resolve; });
@@ -540,15 +558,16 @@ const pendingGraphProvisions = new Map<string, Promise<EnsureGraphExtensionResul
  * graph behaviour is unchanged.
  */
 export async function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult> {
-  const dir = getProjectDir(userId, slug);
-  const pending = pendingGraphProvisions.get(dir);
+  const dir = physicalWorkspacePath(getProjectDir(userId, slug));
+  const identity = physicalWorkspaceIdentity(dir);
+  const pending = pendingGraphProvisions.get(identity);
   if (pending) return pending;
   const provision = provisionGraphExtension(dir);
-  pendingGraphProvisions.set(dir, provision);
+  pendingGraphProvisions.set(identity, provision);
   try {
     return await provision;
   } finally {
-    pendingGraphProvisions.delete(dir);
+    pendingGraphProvisions.delete(identity);
   }
 }
 
@@ -731,6 +750,7 @@ const pmClientCache = new Map<string, PmClient>();
  * preserving prior CLI behaviour.
  */
 export function getPmClient(pmRoot: string): PmClient {
+  pmRoot = physicalWorkspacePath(pmRoot);
   let client = pmClientCache.get(pmRoot);
   if (client) {
     pmClientCache.delete(pmRoot);
@@ -751,7 +771,7 @@ export function getPmClient(pmRoot: string): PmClient {
 
 /** Drop a cached client when its workspace is deleted. */
 export function evictPmClient(pmRoot: string): void {
-  pmClientCache.delete(pmRoot);
+  pmClientCache.delete(physicalWorkspacePath(pmRoot));
 }
 
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
@@ -1157,8 +1177,8 @@ async function commandOwnershipError(dir: string, expected: { command: string; n
  * kernel that powers `pm get --at` and `pm restore`).
  *
  * Unlike {@link runPm}, this calls the SDK in-process — there is no history
- * write, lock acquisition, or derived-index mutation — so it is safe to run
- * concurrently with other readers and writers of the same workspace.
+ * write, lock acquisition, or derived-index mutation. It still joins the
+ * physical workspace queue to avoid overlapping local mutations.
  *
  * @throws {PmCliError} with `exitCode` {@link EXIT_CODE}.NOT_FOUND when the item
  *   does not exist (or has no history), and {@link EXIT_CODE}.USAGE for an
@@ -1171,7 +1191,7 @@ export async function runGetItemAt(
   ref: string,
 ): Promise<GetItemAtResult> {
   const pmRoot = path.join(getProjectDir(userId, slug), ".agents", "pm");
-  return await getItemAt(itemId, ref, { pmRoot });
+  return runSerialized(getProjectDir(userId, slug), () => getItemAt(itemId, ref, { pmRoot }));
 }
 
 /**

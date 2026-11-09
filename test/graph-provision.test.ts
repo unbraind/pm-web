@@ -1,7 +1,7 @@
 /** Real HTTP provisioning acceptance with a disposable tracker and genuine npm install. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -24,6 +24,15 @@ test("only a CSRF-protected editor POST provisions once, including concurrent re
   const root = await mkdtemp(path.join(tmpdir(), "graph-provision-"));
   const fixture: { server?: Awaited<ReturnType<typeof startApp>> } = {};
   const previous = { root: process.env.PROJECTS_ROOT, bin: process.env.PM_CLI_BIN, log: process.env.PM_WEB_PROVISION_LOG };
+  t.after(async () => {
+    try { await fixture.server?.close(); } finally {
+    for (const [key, value] of Object.entries({ PROJECTS_ROOT: previous.root, PM_CLI_BIN: previous.bin, PM_WEB_PROVISION_LOG: previous.log })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await rm(root, { recursive: true, force: true });
+    }
+  });
   const owner = await seedUser();
   const editor = await seedUser();
   const viewer = await seedUser();
@@ -33,14 +42,6 @@ test("only a CSRF-protected editor POST provisions once, including concurrent re
   const workspace = path.join(root, owner.id, project.slug);
   const pmRoot = path.join(workspace, ".agents", "pm");
   process.env.PROJECTS_ROOT = root;
-  t.after(async () => {
-    await fixture.server?.close();
-    for (const [key, value] of Object.entries({ PROJECTS_ROOT: previous.root, PM_CLI_BIN: previous.bin, PM_WEB_PROVISION_LOG: previous.log })) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-    await rm(root, { recursive: true, force: true });
-  });
   await mkdir(workspace, { recursive: true });
   execFileSync(path.resolve("node_modules/.bin/pm"), ["init", "fixture", "--path", pmRoot], { cwd: workspace, stdio: "ignore" });
   const log = path.join(root, "commands.jsonl");
@@ -79,7 +80,13 @@ process.exit(result.status ?? 1);
   assert.deepEqual(await extensionState(pmRoot), before, "GET and refused POST requests leave settings and registry byte-identical");
   assert.equal(await readFile(log, "utf8").catch(() => ""), "", "observational reads never invoke the extension CLI");
 
-  const responses = await Promise.all([1, 2].map(() => authedFetch(running, editor, `${url}/provision`, { method: "POST" })));
+  const aliasProject = await seedProject(owner.id);
+  await seedUserShare(aliasProject.id, editor.id, "edit");
+  const aliasWorkspace = path.join(root, owner.id, aliasProject.slug);
+  await mkdir(path.join(aliasWorkspace, '.agents'), { recursive: true });
+  await symlink(pmRoot, path.join(aliasWorkspace, '.agents', 'pm'), process.platform === 'win32' ? 'junction' : 'dir');
+  const responses = await Promise.all([url, url, `/api/projects/${aliasProject.id}/pm/graph`]
+    .map(endpoint => authedFetch(running, editor, `${endpoint}/provision`, { method: "POST" })));
   for (const response of responses) {
     assert.equal(response.status, 200, await response.clone().text());
     assert.deepEqual(await response.json(), { ok: true, installed: true, active: true });

@@ -310,8 +310,8 @@ export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
  * kernel that powers `pm get --at` and `pm restore`).
  *
  * Unlike {@link runPm}, this calls the SDK in-process — there is no history
- * write, lock acquisition, or derived-index mutation — so it is safe to run
- * concurrently with other readers and writers of the same workspace.
+ * write, lock acquisition, or derived-index mutation. It still joins the
+ * physical workspace queue to avoid overlapping local mutations.
  *
  * @throws {PmCliError} with `exitCode` {@link EXIT_CODE}.NOT_FOUND when the item
  *   does not exist (or has no history), and {@link EXIT_CODE}.USAGE for an

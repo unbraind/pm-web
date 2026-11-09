@@ -1,3 +1,4 @@
+import { failedFixtureSetup } from './helpers/fixture-resources.ts';
 /**
  * Regression coverage pinning pm-web's pm command routes to the exact token
  * shapes the real pm CLI accepts.
@@ -75,6 +76,7 @@ interface ItemTestsResult {
 async function createContractsHarness(): Promise<ContractsHarness> {
   await ensureSchema();
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-contracts-"));
+  try {
   const owner = await seedUser(uniqueEmail("contracts-owner"));
   const project = await seedProject(owner.id, uniqueSlug("contracts"), { prefix: "ct" });
   const workspace = path.join(root, owner.id, project.slug);
@@ -82,6 +84,9 @@ async function createContractsHarness(): Promise<ContractsHarness> {
   execFileSync("pm", ["init", "--pm-path", path.join(workspace, ".agents", "pm")], { stdio: "ignore" });
   process.env.PROJECTS_ROOT = root;
   return { root, workspace, owner, projectId: project.id };
+  } catch (error) {
+    return failedFixtureSetup(root, error);
+  }
 }
 
 /**

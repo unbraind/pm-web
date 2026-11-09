@@ -1,3 +1,4 @@
+import { FixtureResources } from '../test/helpers/fixture-resources.ts';
 /** Capture synthetic desktop/mobile receipt views through a real local server and assert API/UI parity. */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -15,15 +16,19 @@ import type { AppBridge } from '../public/src/app.ts';
 
 const output = process.env.CONTEXT_SCREENSHOTS;
 assert.ok(output, 'Set CONTEXT_SCREENSHOTS to the screenshot output directory.');
-const root = await mkdtemp(path.join(os.tmpdir(), 'agent-context-browser-'));
-process.env.PROJECTS_ROOT = root;
-const users: string[] = [];
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] });
-const server = await startEphemeralServer(createApp());
+const resources = new FixtureResources();
+resources.defer(() => pool.end());
 try {
+const root = await resources.acquire(() => mkdtemp(path.join(os.tmpdir(), 'agent-context-browser-')), root => rm(root, { recursive: true, force: true }));
+const previous = process.env.PROJECTS_ROOT;
+process.env.PROJECTS_ROOT = root;
+resources.defer(() => { if (previous === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previous; });
+const browser = await resources.acquire(() => chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] }), browser => browser.close());
+const server = await resources.acquire(() => startEphemeralServer(createApp()), server => server.close());
   const owner = (await pool.query<{ id: string }>("INSERT INTO pm_users(email,password_hash,display_name) VALUES($1,'x','Synthetic publisher') RETURNING id", [`publisher-${randomUUID()}@example.test`])).rows[0].id;
+  resources.defer(() => pool.query('DELETE FROM pm_users WHERE id=$1', [owner]));
   const viewer = (await pool.query<{ id: string }>("INSERT INTO pm_users(email,password_hash,display_name) VALUES($1,'x','Synthetic viewer') RETURNING id", [`viewer-${randomUUID()}@example.test`])).rows[0].id;
-  users.push(owner, viewer);
+  resources.defer(() => pool.query('DELETE FROM pm_users WHERE id=$1', [viewer]));
   const slug = `context-${randomUUID()}`;
   const project = (await pool.query<{ id: string }>("INSERT INTO pm_projects(user_id,name,slug,prefix) VALUES($1,'Release evidence',$2,'demo') RETURNING id", [owner, slug])).rows[0].id;
   await pool.query("INSERT INTO pm_project_shares(project_id,shared_with_user_id,permission) VALUES($1,$2,'view')", [project, viewer]);
@@ -138,8 +143,4 @@ try {
     }
   }
   console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, queuedRevocation: true, automaticRevocations: revocationCases, horizontalOverflow: false, resumeApiUiParity: true, resumeRevocationPurge: true }));
-} finally {
-  await browser.close(); await server.close();
-  for (const id of users) await pool.query('DELETE FROM pm_users WHERE id=$1', [id]);
-  await pool.end(); await rm(root, { recursive: true, force: true });
-}
+} finally { await resources.close(); }

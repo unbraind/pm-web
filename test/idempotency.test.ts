@@ -579,25 +579,45 @@ test("SQL bootstrap and runtime idempotency definitions agree and both sweep age
   assert.equal(sql.match(table)?.[0].replace(/\s+/g, " "), runtime.match(table)?.[0].replace(/\s+/g, " "));
   const indexPattern = /CREATE INDEX IF NOT EXISTS idx_pm_idempotency_\w+ ON pm_idempotency_keys \(\w+\) WHERE status_code IS (?:NOT )?NULL/g;
   assert.deepEqual(sql.match(indexPattern)?.sort(), runtime.match(indexPattern)?.sort(), "every partial sweep index is identical in both setup paths");
-  const indexes = await pool.query<{ indexname: string; indexdef: string }>("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'pm_idempotency_keys'");
+  const indexes = await pool.query<{ indexname: string; indexdef: string }>("SELECT c.relname AS indexname, pg_get_indexdef(i.indexrelid) AS indexdef FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE i.indrelid='pm_idempotency_keys'::regclass");
   assert.match(indexes.rows.find((row) => row.indexname === "idx_pm_idempotency_pending_at")?.indexdef ?? "", /\(created_at\) WHERE \(status_code IS NULL\)/);
   assert.match(indexes.rows.find((row) => row.indexname === "idx_pm_idempotency_settled_at")?.indexdef ?? "", /\(updated_at\) WHERE \(status_code IS NOT NULL\)/);
 });
 
-test("PostgreSQL can serve each real idempotency sweep query with its partial age index", async () => {
+test("PostgreSQL can serve each real idempotency sweep query with its partial age index", async t => {
   await ensureSchema();
   const source = readFileSync(new URL("../src/idempotency.ts", import.meta.url), "utf8");
   const sweep = source.match(/async function deleteExpiredKeys\(\): Promise<void> \{([\s\S]*?)\n\}/)?.[1];
   assert.ok(sweep);
   const queries = [...sweep.matchAll(/`([\s\S]*?)`/g)].map((match) => match[1]);
   assert.equal(queries.length, 2, "check the actual pending UPDATE and settled DELETE");
+  for (const isolated of [false, true]) await t.test(isolated ? 'non-public search path' : 'configured search path', async () => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (isolated) {
+      // No public schema in the search path; a sentinel distinguishes this source from any public copy.
+      const schema = `sweep_${RUN_ID} USING "quoted`;
+      const quotedSchema = '"' + schema.replace(/"/g, '""') + '"';
+      await client.query(`CREATE SCHEMA ${quotedSchema}`);
+      await client.query(`SET LOCAL search_path TO ${quotedSchema}, pg_catalog`);
+      await client.query('CREATE TABLE pm_users (id UUID PRIMARY KEY)');
+      const ddl = readFileSync(new URL('../sql/schema.sql', import.meta.url), 'utf8');
+      await client.query(ddl.match(/CREATE TABLE IF NOT EXISTS pm_idempotency_keys \([\s\S]*?\);/)![0]);
+      for (const match of ddl.matchAll(/CREATE INDEX IF NOT EXISTS idx_pm_idempotency_\w+ ON pm_idempotency_keys [^;]+;/g)) await client.query(match[0]);
+      await client.query("ALTER TABLE pm_idempotency_keys ADD COLUMN schema_marker TEXT DEFAULT 'isolated'");
+      await client.query('CREATE INDEX idx_schema_marker ON pm_idempotency_keys (schema_marker)');
+    }
     // Keep all production indexes, but isolate the plan from unrelated tests' tiny-table statistics.
-    const definitions = await client.query<{ indexdef: string }>("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND tablename='pm_idempotency_keys'");
-    await client.query("CREATE TEMP TABLE pm_idempotency_keys (LIKE public.pm_idempotency_keys INCLUDING DEFAULTS INCLUDING CONSTRAINTS) ON COMMIT DROP");
-    for (const { indexdef } of definitions.rows) await client.query(indexdef.replace(' ON public.pm_idempotency_keys ', ' ON pg_temp.pm_idempotency_keys '));
+    const definitions = await client.query<{ indexdef: string; source_relation: string }>("SELECT pg_get_indexdef(i.indexrelid) AS indexdef, format('%I.%I', n.nspname, c.relname) AS source_relation FROM pg_index i JOIN pg_class c ON c.oid=i.indrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE i.indrelid='pm_idempotency_keys'::regclass");
+    await client.query("CREATE TEMP TABLE pm_idempotency_keys (LIKE pm_idempotency_keys INCLUDING DEFAULTS INCLUDING CONSTRAINTS) ON COMMIT DROP");
+    for (const { indexdef, source_relation } of definitions.rows) await client.query(indexdef.replace(` ON ${source_relation} USING `, ' ON pg_temp.pm_idempotency_keys USING '));
+    const copied = await client.query("SELECT indexrelid FROM pg_index WHERE indrelid='pm_idempotency_keys'::regclass");
+    assert.equal(copied.rowCount, definitions.rowCount, 'copy indexes from exactly the resolved source');
+    if (isolated) {
+      const marker = await client.query("SELECT attname FROM pg_attribute WHERE attrelid='pm_idempotency_keys'::regclass AND attname='schema_marker'");
+      assert.equal(marker.rowCount, 1, 'clone the search-path table, not another schema');
+    }
     await client.query(`INSERT INTO pm_idempotency_keys (user_id,idempotency_key,method,path,request_fingerprint,status_code,outcome_state,created_at,updated_at)
       SELECT gen_random_uuid(),g::text,'POST','/synthetic','fixture',CASE WHEN g%2=0 THEN NULL ELSE 200 END,
         CASE WHEN g%2=0 THEN 'pending' ELSE 'completed' END,
@@ -627,6 +647,7 @@ test("PostgreSQL can serve each real idempotency sweep query with its partial ag
     await client.query("ROLLBACK");
     client.release();
   }
+  });
 });
 
 test("transient 425 and 429 refusals are not stored and the identical key can retry", async (t) => {

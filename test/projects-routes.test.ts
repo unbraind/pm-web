@@ -1,3 +1,4 @@
+import { failedFixtureSetup } from './helpers/fixture-resources.ts';
 /**
  * Real-Postgres coverage for `src/routes/projects.ts`.
  *
@@ -103,6 +104,7 @@ async function patchProject(
  */
 async function setupFsHarness(): Promise<{ restore: () => Promise<void>; logPath: string }> {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-projects-"));
+  try {
   const fakePm = path.join(root, "fake-pm.cjs");
   const logPath = path.join(root, "commands.log");
   await writeFile(
@@ -135,6 +137,9 @@ async function setupFsHarness(): Promise<{ restore: () => Promise<void>; logPath
       await rm(root, { recursive: true, force: true });
     },
   };
+  } catch (error) {
+    return failedFixtureSetup(root, error);
+  }
 }
 
 test("projects: create, list, get, update, and delete as owner", async (t) => {

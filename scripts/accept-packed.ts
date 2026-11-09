@@ -1,6 +1,6 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -8,6 +8,7 @@ import type { ExtensionManifest } from "@unbrained/pm-cli/sdk";
 
 /** Package fields that define the packed standalone-host acceptance contract. */
 interface PackageContract {
+  readonly files: readonly string[];
   readonly dependencies: Readonly<Record<string, string>>;
 }
 
@@ -179,6 +180,17 @@ try {
       run(bunCommand, ["init", "-y"], scenarioRoot, scenarioEnvironment);
       run(bunCommand, ["add", "--ignore-scripts", tarball, `${cliPackage}@${scenario.hostVersion}`], scenarioRoot, scenarioEnvironment);
     }
+
+    // Validate the documentation consumers receive and run the same alias adversary against shipped JS.
+    const installedRoot = join(scenarioRoot, 'node_modules', '@unbrained', 'pm-web');
+    for (const file of manifest.files.filter(file => file.endsWith('.md'))) {
+      if (readFileSync(join(installedRoot, file), 'utf8') !== readFileSync(join(repoRoot, file), 'utf8')) throw new Error(`Packed documentation differs: ${file}`);
+    }
+    const aliasProbe = readFileSync(join(repoRoot, 'test/helpers/workspace-alias-probe.ts'), 'utf8')
+      .replace('../../src/services/pm-runner.ts', '@unbrained/pm-web/dist/services/pm-runner.js');
+    const probeFile = join(scenarioRoot, 'workspace-alias-probe.mts');
+    writeFileSync(probeFile, `${aliasProbe}\nawait workspaceAliasProbe(process.argv[2]);\n`);
+    run(scenario.manager === 'bun' ? bunCommand : process.execPath, [probeFile, join(scenarioRoot, 'alias-tracker')], scenarioRoot, scenarioEnvironment);
 
     const actualVersion = runPm(scenario, scenarioRoot, scenarioEnvironment, ["--version"]).stdout.trim();
     if (actualVersion !== scenario.hostVersion) {

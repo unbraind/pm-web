@@ -16,6 +16,14 @@ export async function itemHistoryHarness() {
   const cwd = path.join(root, owner, slug);
   const previousRoot = process.env.PROJECTS_ROOT;
   const previousCeiling = process.env.GIT_CEILING_DIRECTORIES;
+  const original = pool.query;
+  const cleanup = async () => {
+    Object.defineProperty(pool, 'query', { configurable: true, writable: true, value: original });
+    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
+    if (previousCeiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES; else process.env.GIT_CEILING_DIRECTORIES = previousCeiling;
+    await rm(root, { recursive: true, force: true });
+  };
+  try {
   process.env.PROJECTS_ROOT = root;
   process.env.GIT_CEILING_DIRECTORIES = os.tmpdir();
   await mkdir(cwd, { recursive: true });
@@ -26,7 +34,6 @@ export async function itemHistoryHarness() {
   await client.update(item.id, { title: 'Updated item history proof', message: 'exercise update flags' });
   await client.update(item.id, { priority: 1 });
   await client.close(item.id, 'Synthetic verification complete');
-  const original = pool.query;
   const projectRow = { id: project, name: 'Item history', slug, description: '', prefix: 'demo', owner_user_id: owner, is_owner: true, permission: 'edit', created_at: '2026-10-01T00:00:00Z' };
   Object.defineProperty(pool, 'query', { configurable: true, writable: true, value: async (sql: string, params: unknown[] = []) => {
     let rows: unknown[] = [];
@@ -39,11 +46,7 @@ export async function itemHistoryHarness() {
   } });
   const app = createApp();
   return { root, cwd, pmRoot, client, itemId: item.id, owner, project, app,
-    cleanup: async () => {
-      Object.defineProperty(pool, 'query', { configurable: true, writable: true, value: original });
-      if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
-      if (previousCeiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES; else process.env.GIT_CEILING_DIRECTORIES = previousCeiling;
-      await rm(root, { recursive: true, force: true });
-    },
+    cleanup,
   };
+  } catch (error) { await cleanup(); throw error; }
 }

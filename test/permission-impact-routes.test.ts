@@ -18,17 +18,21 @@ import { directoryContractAdapter, exploreContracts } from '../src/contract-expl
 import { readProjectAccess } from '../src/services/project-access.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 import { installExtension } from './helpers/install-runtime-extension.ts';
-import { addGroupMember, authedFetch, ensureSchema, seedGroup, seedGroupShare, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
+import { ProjectFixtureResources, addGroupMember, authedFetch, ensureSchema, seedGroup, seedGroupShare, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
 import { connectLiveSSE } from './helpers/live-sse.ts';
 
 const exec = promisify(execFile);
 /** Build a real non-git SDK tracker, independent project, HTTP server and explicit caller scopes. */
 async function fixture(t: TestContext) {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const root = await mkdtemp(path.join(os.tmpdir(), 'permission-http-')), previousRoot = process.env.PROJECTS_ROOT;
+  const root = await resources.directory('permission-http-', true);
   const previousCeiling = process.env.GIT_CEILING_DIRECTORIES;
-  process.env.PROJECTS_ROOT = root; process.env.GIT_CEILING_DIRECTORIES = os.tmpdir();
-  const owner = await seedUser(), editor = await seedUser(), viewer = await seedUser(), outsider = await seedUser();
+  process.env.GIT_CEILING_DIRECTORIES = os.tmpdir();
+  resources.defer(() => {
+    if (previousCeiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES; else process.env.GIT_CEILING_DIRECTORIES = previousCeiling;
+  });
+  const owner = await resources.user(), editor = await resources.user(), viewer = await resources.user(), outsider = await resources.user();
   const project = await seedProject(owner.id), otherProject = await seedProject(outsider.id);
   const share = await seedUserShare(project.id, editor.id, 'edit');
   await seedUserShare(project.id, viewer.id, 'view');
@@ -36,22 +40,18 @@ async function fixture(t: TestContext) {
   const item = await pm.create({ title: 'Scope preservation', type: 'Task', unset: ['parent', 'goal', 'objective', 'sprint', 'release'] });
   const plan = await pm.create({ type: 'Plan', title: 'Pending choice', unset: ['parent', 'goal', 'objective', 'sprint', 'release'] });
   const decision = await requestDecision(pmRoot, { author: owner.id, permission: 'edit' }, { planId: plan.item.id, question: 'Delivery choice?', alternatives: ['A', 'B'], evidence: 'Synthetic evidence.' });
-  const server = await startApp();
+  const server = await resources.server();
   const cleanup: (() => Promise<void>)[] = [];
+  resources.defer(async () => {
+    for (const close of cleanup) resources.defer(close);
+  });
   const token = (user: typeof owner) => signToken({ userId: user.id, email: user.email });
   const impact = (user = owner) => new PermissionImpactClient(server.url('/'), token(user));
   const context = (user = owner) => new AgentContextClient(server.url('/'), token(user));
   const input: AgentContextInput = { agent: 'test-agent', question: 'Can I continue?', items: [item.item.id], consent: true, viewers: [editor.id], receipts: [], gaps: [] };
   const packet = await context().publish(project.id, input);
   const hidden = await context(editor).publish(project.id, { ...input, viewers: [] });
-  t.after(async () => {
-    for (const close of cleanup) await close();
-    await server.close();
-    await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [[owner.id, editor.id, viewer.id, outsider.id]]);
-    await rm(root, { recursive: true, force: true });
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
-    if (previousCeiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES; else process.env.GIT_CEILING_DIRECTORIES = previousCeiling;
-  });
+
   return { root, cwd, pmRoot, pm, owner, editor, viewer, outsider, project, otherProject, share, packet, hidden, decision, impact, context, input, server, cleanup };
 }
 /** Hash durable tracker bytes so preview cannot hide a side effect behind matching projections. */

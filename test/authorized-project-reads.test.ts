@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PmClient } from '@unbrained/pm-cli/sdk';
@@ -12,33 +12,46 @@ import { pool } from '../src/db.ts';
 import { ProjectReadError, readAuthorizedProject } from '../src/services/authorized-project-reads.ts';
 import { runSerialized } from '../src/services/pm-runner.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
-import { authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
+import { ProjectFixtureResources, authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
 import { captureLogs, setLogLevel } from './helpers/stdout-logs.ts';
 
 /** Own one isolated real tracker, grant set and HTTP server through test teardown. */
-async function fixture(t: TestContext) {
+async function fixture(t: Pick<TestContext, 'after'>, checkpoint: (stage: string, value?: string) => void = () => undefined) {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const root = await mkdtemp(path.join(tmpdir(), 'authorized-reads-'));
-  const previousRoot = process.env.PROJECTS_ROOT;
-  process.env.PROJECTS_ROOT = root;
-  const owner = await seedUser(), viewer = await seedUser(), outsider = await seedUser();
-  const project = await seedProject(owner.id);
-  await seedUserShare(project.id, viewer.id, 'view');
+  const root = await resources.directory('authorized-reads-', true);
+  checkpoint('directory', root);
+  const owner = await resources.user(); checkpoint('owner', owner.id);
+  const viewer = await resources.user(); checkpoint('viewer', viewer.id);
+  const outsider = await resources.user(); checkpoint('outsider', outsider.id);
+  const project = await seedProject(owner.id); checkpoint('project', project.id);
+  await seedUserShare(project.id, viewer.id, 'view'); checkpoint('share');
   const cwd = path.join(root, owner.id, project.slug);
-  const { client, pmRoot } = await createPlainContractTracker(cwd);
-  const { item } = await client.create({ type: 'Task', title: 'Authorized native item', description: 'Synthetic read fixture', body: 'full body needle' });
-  const server = await startApp();
-  t.after(async () => {
-    try {
-      await server.close();
-      await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [[owner.id, viewer.id, outsider.id]]);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-      if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
-    }
-  });
+  const { client, pmRoot } = await createPlainContractTracker(cwd); checkpoint('tracker');
+  const { item } = await client.create({ type: 'Task', title: 'Authorized native item', description: 'Synthetic read fixture', body: 'full body needle' }); checkpoint('item');
+  const server = await resources.server(); checkpoint('server', server.url('/'));
   return { root, cwd, pmRoot, client, item, server, owner, viewer, outsider, project };
 }
+
+/** Inject a failure after every real acquisition, without replacing the SDK, SQL or HTTP server. */
+test('partial fixture acquisition cleans every resource and restores the previous project root', async t => {
+  const previous = process.env.PROJECTS_ROOT;
+  for (const failure of ['directory', 'owner', 'viewer', 'outsider', 'project', 'share', 'tracker', 'item', 'server']) {
+    let cleanup: () => Promise<void> = async () => { assert.fail('teardown was not registered before setup'); };
+    const observed = new Map<string, string>();
+    try {
+      await assert.rejects(fixture({ after: fn => { cleanup = async () => { await fn?.(t, () => undefined); }; } }, (stage, value) => {
+        if (value) observed.set(stage, value);
+        if (stage === failure) throw new Error('synthetic setup failure');
+      }), /synthetic setup failure/);
+    } finally { await cleanup(); }
+    assert.equal(process.env.PROJECTS_ROOT, previous, failure);
+    assert.equal(existsSync(observed.get('directory')!), false, failure);
+    const users = ['owner', 'viewer', 'outsider'].flatMap(key => observed.has(key) ? [observed.get(key)!] : []);
+    assert.equal((await pool.query('SELECT id FROM pm_users WHERE id=ANY($1::uuid[])', [users])).rowCount, 0, failure);
+    if (observed.has('server')) await assert.rejects(fetch(observed.get('server')!));
+  }
+});
 
 /** Run fixture changes in an independent process with only the synthetic database configuration. */
 async function change(action: string, project: string, principal: string): Promise<void> {
@@ -67,6 +80,11 @@ test('authorized item GET and HEAD reads never activate workspace extensions', a
       assert.equal(response.status, 200, await response.clone().text());
       assert.equal(existsSync(marker), false, `${endpoint} activated an extension for a viewer`);
       assert.match(response.headers.get('cache-control') ?? '', /no-store/);
+      if (endpoint === 'board') {
+        const board = await response.json() as { count: number; columns: Array<{ items: Array<{ id: string }> }> };
+        assert.equal(board.count, 1);
+        assert.ok(board.columns.some(column => column.items.some(row => row.id === item.id)));
+      }
       if (endpoint.startsWith('search')) assert.equal((await response.json()).items[0].id, item.id);
       const head = await authedFetch(server, viewer, `/api/projects/${project.id}/pm/${endpoint}`, { method: 'HEAD' });
       assert.equal(head.status, 200);
@@ -142,13 +160,16 @@ test('authorized reads fail closed for corrupt or absent trackers and invalid hi
 });
 
 /** Relative deployment roots and resolved SDK bindings must share one local mutation queue. */
-test('directory bindings serialize relative and absolute aliases of the same tracker', async t => {
+test('directory bindings serialize physical, relative and symlink aliases of a non-git tracker', async t => {
   const { cwd, pmRoot, item, client } = await fixture(t);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  const held = runSerialized(path.relative(process.cwd(), cwd), () => gate);
+  const alias = path.join(path.dirname(cwd), 'workspace-alias');
+  await symlink(cwd, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  const held = runSerialized(alias, () => gate);
   let entered = false;
-  const queued = runSerialized(cwd, async () => { entered = true; return client.get(item.id); });
+  const queued = Promise.all([cwd, path.relative(process.cwd(), cwd), path.join(alias, '.')].map(directory =>
+    runSerialized(directory, async () => { entered = true; return client.get(item.id); })));
   try {
     await change('update-item', pmRoot, item.id);
     assert.equal(entered, false, 'resolved read binding overtook the existing relative-root queue');

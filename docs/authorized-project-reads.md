@@ -15,8 +15,8 @@ the normalized principal, project identity, effective permission and directory
 binding. It never caches grants or item values. Routes cannot supply a tracker
 root or dispatch arbitrary commands through the reader.
 
-The reader joins the same workspace queue as existing web mutations. It checks
-access again after waiting and immediately before returning data. Revocation
+The reader joins the same workspace queue as existing web mutations. Workspace
+and tracker symlink aliases share the physical tracker queue. It checks access again after waiting and immediately before returning data. Revocation
 returns 404; a changed effective permission or storage mapping returns 409 and
 requires a fresh request. The final authorization query is the read's admission
 point. It does not promise a transaction spanning account grants and item
@@ -39,9 +39,9 @@ conformance demonstrates no-Git operation, not no-filesystem operation.
 
 Remaining Feature items with acceptance criteria:
 
-- [Native provider binding and remaining reads](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-native-provider.toon): upstream handles, complete native conformance, remaining paginated list/settings/history surfaces and observational pm-graph `ProjectionSource` reuse.
-- [Native mutations and idempotency](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-native-mutations.toon): SDK transactions, decisions, retries, isolation and independent writers.
-- [Durable native history and events](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-native-events.toon): scoped subscriptions and resume cursors, retention, restart and explicit gap/resync receipts.
+- [Native provider binding and remaining reads](https://github.com/unbraind/pm-web/blob/72d78702d044e7a269ca659ebfe092aaa645a67b/.agents/pm/features/pm-web-native-provider.toon): upstream handles, complete native conformance, remaining paginated list/settings/history surfaces and observational pm-graph `ProjectionSource` reuse.
+- [Native mutations and idempotency](https://github.com/unbraind/pm-web/blob/72d78702d044e7a269ca659ebfe092aaa645a67b/.agents/pm/features/pm-web-native-mutations.toon): SDK transactions, decisions, retries, isolation and independent writers.
+- [Durable native history and events](https://github.com/unbraind/pm-web/blob/72d78702d044e7a269ca659ebfe092aaa645a67b/.agents/pm/features/pm-web-native-events.toon): scoped subscriptions and resume cursors, retention, restart and explicit gap/resync receipts.
 
 Regression coverage uses actual SDK trackers without Git, actual PostgreSQL
 grants, HTTP GET/HEAD, and separate OS processes for concurrent item writes,
