@@ -177,21 +177,24 @@ test('revocation while an authorized read is queued prevents its storage callbac
   assert.equal(called, false, 'final authorization alone must not allow the storage callback to run');
 });
 
-/** Log only SDK reason categories and the middleware's generated request identity, never provider paths. */
-test('failed project reads log distinct safe reasons with the response request identity', async t => {
+/** Exercise the same real diagnostic requests for the supplied platform's permission semantics. */
+async function failedReadReasons(t: TestContext, platform: NodeJS.Platform): Promise<unknown[]> {
   const { server, viewer, project, pmRoot, cwd } = await fixture(t);
   setLogLevel(t, 'error');
   const lines = captureLogs(t);
-  const mode = (await stat(pmRoot)).mode & 0o777;
   const endpoint = `/api/projects/${project.id}/pm/search?q=needle`;
   const requests: Array<{ reason: string; requestId: string | null }> = [];
-  await chmod(pmRoot, 0);
-  try {
-    const response = await authedFetch(server, viewer, endpoint);
-    assert.equal(response.status, 503);
-    requests.push({ reason: 'tracker_root_unreadable', requestId: response.headers.get('x-request-id') });
-    assert.deepEqual(await response.json(), { error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
-  } finally { await chmod(pmRoot, mode); }
+  // Windows chmod cannot remove read access; missing-root coverage still runs there.
+  if (platform !== 'win32') {
+    const mode = (await stat(pmRoot)).mode & 0o7777;
+    try {
+      await chmod(pmRoot, 0);
+      const response = await authedFetch(server, viewer, endpoint);
+      assert.equal(response.status, 503);
+      requests.push({ reason: 'tracker_root_unreadable', requestId: response.headers.get('x-request-id') });
+      assert.deepEqual(await response.json(), { error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
+    } finally { await chmod(pmRoot, mode); }
+  }
   await rm(pmRoot, { recursive: true });
   const missing = await authedFetch(server, viewer, endpoint);
   assert.equal(missing.status, 503);
@@ -200,4 +203,17 @@ test('failed project reads log distinct safe reasons with the response request i
   assert.deepEqual(records.map(row => ({ reason: row.reason, requestId: row.request_id })), requests);
   assert.ok(requests.every(row => row.requestId));
   for (const secret of [cwd, viewer.id, project.id, 'needle']) assert.equal(JSON.stringify(records).includes(secret), false);
+  return records.map(row => row.reason);
+}
+
+/** Log only SDK reason categories and the middleware's generated request identity, never provider paths. */
+test('failed project reads log distinct safe reasons with the response request identity', async t => {
+  const reasons = await failedReadReasons(t, process.platform);
+  assert.deepEqual(reasons, process.platform === 'win32'
+    ? ['tracker_root_missing'] : ['tracker_root_unreadable', 'tracker_root_missing']);
+});
+
+/** Exercise Windows scheduling on every host without mocking SDK storage, grants or HTTP responses. */
+test('Windows diagnostics retain missing-root coverage without POSIX unreadability', async t => {
+  assert.deepEqual(await failedReadReasons(t, 'win32'), ['tracker_root_missing']);
 });
