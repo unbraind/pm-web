@@ -190,6 +190,7 @@ pm web doctor --json
 | `NEO4J_USER` / `NEO4J_USERNAME` | No | Neo4j username |
 | `NEO4J_PASSWORD` | No | Neo4j password |
 | `PM_WEB_LEGAL_DIR` | Production | Absolute path to a complete, private, operator-reviewed legal-page overlay; see `docs/LEGAL_DEPLOYMENT_BOUNDARY.md` |
+| `PM_WEB_STORAGE_NOTICE` | No | Shows the built-in storage notice (`on`, the default) or hides it (`off`) when the operator runs their own consent manager at the reverse proxy. With `off` nothing is stored under the package's cookie-preference key and the cookie-settings control links to the operator's legal page; a failed config read falls back to `on` so a notice is never hidden silently |
 | `OIDC_ISSUER` | With OIDC | Provider issuer URL; incomplete or invalid OIDC settings fail startup in production and are soft-disabled outside production |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | With OIDC | OIDC confidential client credentials |
 | `OIDC_REDIRECT_URI` | With OIDC | Exact HTTPS callback URL ending in `/api/auth/oidc/callback` in production |
