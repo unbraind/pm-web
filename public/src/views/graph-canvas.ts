@@ -1692,6 +1692,9 @@ export class GraphCanvas {
     if (!tt) {
       tt = document.createElement('div');
       tt.id = 'gc-tooltip';
+      // Tooltips render item titles and ids (private data) and live directly
+      // on <body>, outside the blocked #main-app region.
+      tt.setAttribute('data-umami-block', '');
       tt.style.cssText = [
         'position:fixed',
         'z-index:9999',
