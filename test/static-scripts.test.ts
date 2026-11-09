@@ -2,36 +2,16 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { before, test } from "node:test";
-
-// Package root (test/ is compiled to dist-test/, so go up one level from there).
-const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const publicDir = path.join(packageRoot, "public");
+import { buildStaticScripts, cookieConsentOutputPath, packageRoot, publicDir } from "./helpers/public-scripts.ts";
 
 const swSourcePath = path.join(publicDir, "src", "sw.ts");
 const cookieSourcePath = path.join(publicDir, "src", "cookie-consent.ts");
 const swOutputPath = path.join(publicDir, "sw.js");
-const cookieOutputPath = path.join(publicDir, "cookie-consent.js");
-
-// Build the two static scripts from their TypeScript sources before any
-// assertion runs. This keeps the test self-contained (it does not depend on a
-// prior `npm run build`) and validates the real build pipeline produces the
-// deterministic outputs served at the same public URLs.
-function buildScripts(): void {
-  const tscBin = path.join(packageRoot, "node_modules", "typescript", "bin", "tsc");
-  for (const project of ["tsconfig.sw.json", "tsconfig.scripts.json"]) {
-    execFileSync(process.execPath, [tscBin, "-p", `public/${project}`], {
-      cwd: packageRoot,
-      // Forward tsc stdout/stderr diagnostics to the CI log (inherit) while
-      // keeping stdin ignored so the build stays noninteractive (no prompts).
-      stdio: ["ignore", "inherit", "inherit"],
-    });
-  }
-}
+const cookieOutputPath = cookieConsentOutputPath;
 
 before(() => {
-  buildScripts();
+  buildStaticScripts();
 });
 
 /** Assert that a generated script is valid JavaScript (parses with no TS). */

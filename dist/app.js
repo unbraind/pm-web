@@ -14,6 +14,7 @@ import { groupsRouter } from "./routes/groups.js";
 import { sharesRouter, sharedWithMeRouter } from "./routes/sharing.js";
 import { githubRouter } from "./routes/github.js";
 import { adminRouter } from "./routes/admin.js";
+import { uiConfigRouter } from "./routes/ui-config.js";
 import { createTierLimiters, resolveTrustProxy } from "./rate-limit.js";
 import { csrfProtection } from "./csrf.js";
 import { requestLogging, logRoutePrefix, unhandledErrorLogging } from "./observability.js";
@@ -240,6 +241,13 @@ export function createApp(deps) {
     app.use("/api/groups", limiters.read, limiters.write, keyedWrites, logRoutePrefix("/api/groups"), groupsRouter);
     app.use("/api/shared", limiters.read, limiters.write, keyedWrites, logRoutePrefix("/api/shared"), sharedWithMeRouter);
     app.use("/api/admin", limiters.admin, keyedWrites, logRoutePrefix("/api/admin"), adminRouter);
+    // Unauthenticated UI configuration for the storage notice (and any future
+    // client-side switches). Mounted on the static-asset tier because every
+    // page — SPA and standalone legal pages — fetches it once per load. The
+    // route carries no private data: it answers one boolean. See
+    // src/routes/ui-config.ts for the operator-facing PM_WEB_STORAGE_NOTICE
+    // setting it exposes.
+    app.use("/api/ui-config", limiters.staticAssets, logRoutePrefix("/api/ui-config"), uiConfigRouter);
     // Unknown API routes get a JSON 404 instead of falling through to the SPA
     // shell, which would hand HTML to API clients expecting JSON.
     app.all("/api/{*splat}", (_req, res) => {
