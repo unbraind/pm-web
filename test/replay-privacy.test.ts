@@ -4,9 +4,10 @@
  * pm-web renders private project, item and account data. Session-replay tools
  * run by an opt-in analytics deployment honour the `data-umami-block`
  * attribute, so every container that fills with private content must carry it
- * and the sign-in screen must NOT (its inputs are masked by replay tools
- * anyway). Sign-in start clicks are marked with the `data-umami-event`
- * attribute API so operators can count them without any script changes.
+ * and the sign-in screen stays unblocked. Operators must configure and verify
+ * input masking in their replay tool. Sign-in start clicks are marked with
+ * the `data-umami-event` attribute API so operators can count them without
+ * any script changes.
  *
  * These tests parse the actual served `public/index.html` (and the other
  * visitor-visible pages) rather than the TypeScript sources: removing any
@@ -17,10 +18,10 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { before, test } from "node:test";
+import { after, before, test } from "node:test";
 import vm from "node:vm";
 import { buildSync } from "esbuild";
-import { buildStaticScripts, cookieConsentOutputPath, publicDir } from "./helpers/public-scripts.ts";
+import { buildStaticScripts, type StaticScripts, publicDir } from "./helpers/public-scripts.ts";
 
 /** Containers the application fills with signed-in or private content. */
 const PRIVATE_CONTAINERS = [
@@ -73,9 +74,12 @@ function readPublicPage(name: string): string {
   return readFileSync(file, "utf8");
 }
 
+let scripts: StaticScripts;
+after(() => { scripts?.cleanup(); });
+
 before(() => {
   // The branding scan also covers the built classic script browsers load.
-  buildStaticScripts();
+  scripts = buildStaticScripts();
 });
 
 test("every private-content container in index.html carries data-umami-block", () => {
@@ -98,8 +102,18 @@ test("the sign-in screen stays unblocked for session replays", () => {
   assert.doesNotMatch(
     tag,
     /data-umami-block/,
-    "the sign-in screen must remain visible in replays; its inputs are masked by replay tools",
+    "the sign-in screen stays visible; operators must configure and verify input masking",
   );
+});
+
+test("replay guidance requires operators to configure and verify input masking", () => {
+  for (const page of ["index.html", "privacy-policy.html"]) {
+    const html = readPublicPage(page);
+    assert.match(html, /operators must configure and verify input masking/i, `${page} must explain the operator's masking responsibility`);
+  }
+  for (const page of VISITOR_PAGES) {
+    assert.doesNotMatch(readPublicPage(page), /inputs are masked by replay tools|masked.{0,40}(?:anyway|automatically|by default)/i, `${page} must not promise configuration-independent input masking`);
+  }
 });
 
 test("sign-in start buttons carry click-event attributes with a fixed provider, never user data", () => {
@@ -149,7 +163,7 @@ test("no visitor-visible page or served script names the analytics vendor outsid
     const stripped = html.replace(/data-umami-[a-z-]+/g, "");
     assert.doesNotMatch(stripped, /umami/i, `${page} must not name the analytics vendor visitor-visibly`);
   }
-  const script = readFileSync(cookieConsentOutputPath, "utf8");
+  const script = readFileSync(scripts.cookieConsentOutputPath, "utf8");
   const stripped = script.replace(/data-umami-[a-z-]+/g, "");
   assert.doesNotMatch(stripped, /umami/i, "cookie-consent.js must not name the analytics vendor");
 });

@@ -2,17 +2,18 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { before, test } from "node:test";
-import { buildStaticScripts, cookieConsentOutputPath, packageRoot, publicDir } from "./helpers/public-scripts.ts";
+import { after, before, test } from "node:test";
+import { buildStaticScripts, type StaticScripts, packageRoot, publicDir } from "./helpers/public-scripts.ts";
 
 const swSourcePath = path.join(publicDir, "src", "sw.ts");
 const cookieSourcePath = path.join(publicDir, "src", "cookie-consent.ts");
-const swOutputPath = path.join(publicDir, "sw.js");
-const cookieOutputPath = cookieConsentOutputPath;
+let scripts: StaticScripts;
 
 before(() => {
-  buildStaticScripts();
+  scripts = buildStaticScripts();
 });
+
+after(() => { scripts?.cleanup(); });
 
 /** Assert that a generated script is valid JavaScript (parses with no TS). */
 function assertValidJs(file: string, label: string): string {
@@ -78,7 +79,7 @@ test("TypeScript sources are the tracked source of truth and generated outputs a
 });
 
 test("generated sw.js is valid JavaScript served at /sw.js with no TypeScript annotations", () => {
-  const src = assertValidJs(swOutputPath, "sw.js");
+  const src = assertValidJs(scripts.swOutputPath, "sw.js");
   // The generated file must not contain TS-only constructs that `new Function`
   // would have rejected; additionally assert the absence of cast markers that
   // are erased by tsc so a regression to hand-written TS-as-JS is caught.
@@ -95,7 +96,7 @@ test("generated sw.js is valid JavaScript served at /sw.js with no TypeScript an
 });
 
 test("generated cookie-consent.js is a valid classic script with no import/export", () => {
-  const src = assertValidJs(cookieOutputPath, "cookie-consent.js");
+  const src = assertValidJs(scripts.cookieConsentOutputPath, "cookie-consent.js");
   // Loaded via <script src="/cookie-consent.js"> (no type=module), so the
   // emitted output must not contain module syntax.
   assert.ok(!/^\s*(import|export)\b/m.test(src), "cookie-consent.js must be a classic script (no import/export)");
@@ -154,7 +155,7 @@ test("sw.ts compiles cleanly under the service-worker tsconfig (type-level safet
 });
 
 test("emitted sw.js honors the mutation-queue persistence contract", () => {
-  const src = readFileSync(swOutputPath, "utf8");
+  const src = readFileSync(scripts.swOutputPath, "utf8");
   // A typed transaction-completion helper is emitted and awaited by both the
   // queue and clear paths, so persistence is durable (not fire-and-forget).
   assert.ok(src.includes("function transactionDone("), "sw.js emits the transactionDone helper");
@@ -171,7 +172,7 @@ test("emitted sw.js honors the mutation-queue persistence contract", () => {
 });
 
 test("emitted sw.js always resolves fetch handlers with a Response (no undefined)", () => {
-  const src = readFileSync(swOutputPath, "utf8");
+  const src = readFileSync(scripts.swOutputPath, "utf8");
   // Every fetch branch must terminate with an explicit 503 fallback instead of
   // resolving event.respondWith with `undefined` (which throws at runtime).
   // Static-asset + default paths share the "Unavailable offline" 503 body.
@@ -183,7 +184,7 @@ test("emitted sw.js always resolves fetch handlers with a Response (no undefined
 });
 
 test("emitted sw.js preserves service-worker behavioral contracts", () => {
-  const src = readFileSync(swOutputPath, "utf8");
+  const src = readFileSync(scripts.swOutputPath, "utf8");
   // Install/activate/fetch lifecycle markers.
   assert.ok(/addEventListener\(['"]install['"]/.test(src), "sw.js registers an install handler");
   assert.ok(/addEventListener\(['"]activate['"]/.test(src), "sw.js registers an activate handler");

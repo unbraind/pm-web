@@ -20,6 +20,8 @@
    */
   const CONFIG_DEADLINE_MS = 2500;
   const banner = document.getElementById('cookie-consent');
+  let noticeEnabled: boolean | null = null;
+  let settingsRequested = false;
 
   type CookieChoice = 'acknowledged' | 'necessary';
 
@@ -113,10 +115,6 @@
    * visitors without a recorded choice.
    */
   function enableNotice(): void {
-    document.querySelectorAll<HTMLElement>('[data-cookie-settings]').forEach((link) => {
-      link.addEventListener('click', show);
-    });
-
     document.querySelectorAll<HTMLElement>('[data-cookie-accept], [data-cookie-decline]').forEach((button) => {
       button.addEventListener('click', () => {
         save(button.hasAttribute('data-cookie-accept') ? 'acknowledged' : 'necessary');
@@ -124,7 +122,7 @@
       });
     });
 
-    if (!hasChoice()) show();
+    if (settingsRequested || !hasChoice()) show();
   }
 
   /**
@@ -150,8 +148,22 @@
     });
   }
 
+  // Bind before starting the read: explicit visitor intent must survive
+  // pending configuration, including a recorded choice from an earlier visit.
+  document.querySelectorAll<HTMLElement>('[data-cookie-settings]').forEach((control) => {
+    control.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (noticeEnabled === null) settingsRequested = true;
+      else if (noticeEnabled) show();
+    });
+  });
+
   void readStorageNotice().then((enabled) => {
+    noticeEnabled = enabled;
     if (enabled) enableNotice();
-    else deferToOperator();
+    else {
+      deferToOperator();
+      if (settingsRequested) window.location.assign(OPERATOR_COOKIE_SETTINGS_URL);
+    }
   });
 })();

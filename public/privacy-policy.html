@@ -28,7 +28,7 @@
   </section>
   <section class="legal-section">
     <h2>Analytics and consent management</h2>
-    <p>If an analytics or consent-management service runs in front of or alongside this deployment (for example at the reverse proxy), describe it here: its purposes, the data it collects, retention, and how visitors give or withdraw consent. Session recordings made by such tools must exclude private content; the application marks the regions that render account, project and item data so operators can keep them out of recordings.</p>
+    <p>If an analytics or consent-management service runs in front of or alongside this deployment (for example at the reverse proxy), describe it here: its purposes, the data it collects, retention, and how visitors give or withdraw consent. Session recordings made by such tools must exclude private content; the application marks the regions that render account, project and item data so operators can keep them out of recordings. The sign-in screen stays unblocked; operators must configure and verify input masking in their replay tool, including email addresses, registration names and passwords.</p>
     <p>When the operator's own consent notice is authoritative, set <code>PM_WEB_STORAGE_NOTICE=off</code>: the package's built-in storage notice is then never shown, no preference is stored, and the cookie-settings control links to the operator's cookie-settings legal page instead. The default (<code>on</code>) keeps the package's built-in storage notice.</p>
   </section>
   <section class="legal-section">

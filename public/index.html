@@ -70,8 +70,8 @@
   <!-- Session-replay tools (opt-in analytics run by the operator) honour the
        data-umami-block attribute: every container below renders signed-in or
        private content (projects, items, accounts, tokens), so it must stay out
-       of any replay by default. The sign-in screen above stays unblocked; its
-       inputs are masked by replay tools anyway. -->
+       of any replay by default. The sign-in screen above stays unblocked;
+       operators must configure and verify input masking in their replay tool. -->
   <div id="main-app" data-umami-block style="display:none">
     <nav id="top-nav" role="navigation" aria-label="Main navigation">
       <div class="nav-logo"><span class="brand-lockup" aria-label="pm Web"><span class="brand-mark" aria-hidden="true"><img class="brand-mark-light" src="/brand/mark.svg" alt=""><img class="brand-mark-dark" src="/brand/mark-dark.svg" alt=""></span><span class="brand-product">WEB</span></span></div>

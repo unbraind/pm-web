@@ -17,7 +17,7 @@ import test from "node:test";
 import vm from "node:vm";
 import {
   buildStaticScripts,
-  cookieConsentOutputPath,
+  type StaticScripts,
 } from "./helpers/public-scripts.ts";
 
 /** Minimal element double: only the surface the built script touches. */
@@ -74,10 +74,12 @@ class FakeElement {
   }
 
   /** Dispatch a synthetic click through the registered listeners. */
-  click(): void {
+  click(): boolean {
+    let prevented = false;
     for (const listener of this.listeners.get("click") ?? []) {
-      listener({ preventDefault(): void { /* nothing */ } });
+      listener({ preventDefault(): void { prevented = true; } });
     }
+    return prevented;
   }
 }
 
@@ -94,6 +96,8 @@ interface ScriptOutcome {
   document: FakeDocument;
   /** Recorded localStorage writes, in order. */
   writes: Array<[string, string]>;
+  /** Navigation requests to the operator settings page. */
+  navigations: string[];
   /** Recorded fetch targets. */
   requests: string[];
   /** Captured `setTimeout` callbacks (the config-read deadline), in order. */
@@ -120,6 +124,7 @@ type FetchScenario =
 
 /** Built script source, compiled once in the suite's before hook. */
 let builtSource = "";
+let scripts: StaticScripts;
 
 /** Build the fake page the script expects: banner, buttons, settings control. */
 function makeDocument(): FakeDocument {
@@ -128,13 +133,15 @@ function makeDocument(): FakeDocument {
   banner.setAttribute("id", "cookie-consent");
   banner.hidden = true;
   elements.push(banner);
-  const settings = new FakeElement("button");
-  settings.setAttribute("type", "button");
-  settings.setAttribute("data-cookie-settings", "");
-  settings.className = "btn btn-primary";
-  settings.setAttribute("aria-label", "Open Cookie Settings");
-  settings.textContent = "Open Cookie Settings";
-  elements.push(settings);
+  for (let index = 0; index < 3; index++) {
+    const settings = new FakeElement(index === 1 ? "a" : "button");
+    settings.setAttribute("type", "button");
+    settings.setAttribute("data-cookie-settings", "");
+    settings.className = "btn btn-primary";
+    settings.setAttribute("aria-label", "Open Cookie Settings");
+    settings.textContent = "Open Cookie Settings";
+    elements.push(settings);
+  }
   const accept = new FakeElement("button");
   accept.setAttribute("data-cookie-accept", "");
   elements.push(accept);
@@ -179,6 +186,7 @@ async function runConsentScript(
   const document = makeDocument();
   const writes: Array<[string, string]> = [];
   const requests: string[] = [];
+  const navigations: string[] = [];
   const timers: Array<() => void> = [];
   const pendingTimers = new Set<number>();
   const signals: AbortSignal[] = [];
@@ -218,11 +226,12 @@ async function runConsentScript(
     return timers.length;
   };
   const clearTimeoutImpl = (handle: number): void => { pendingTimers.delete(handle); };
-  const context = vm.createContext({ document, localStorage, fetch: fetchImpl, setTimeout: setTimeoutImpl, clearTimeout: clearTimeoutImpl, AbortController });
+  const window = { location: { assign: (url: string): void => { navigations.push(url); } } };
+  const context = vm.createContext({ document, window, localStorage, fetch: fetchImpl, setTimeout: setTimeoutImpl, clearTimeout: clearTimeoutImpl, AbortController });
   new vm.Script(source, { filename: "cookie-consent.js" }).runInContext(context);
   // Flush the config read's promise chain (microtasks + one macrotask tick).
   await new Promise((resolve) => { setImmediate(resolve); });
-  return { document, writes, requests, timers, pendingTimers, signals, settleFetch };
+  return { document, writes, requests, navigations, timers, pendingTimers, signals, settleFetch };
 }
 
 /** Fire every captured timer callback, then flush the promise chains again. */
@@ -238,9 +247,11 @@ function bannerOf(outcome: ScriptOutcome): FakeElement {
   return banner;
 }
 
+test.after(() => { scripts?.cleanup(); });
+
 test.before(() => {
-  buildStaticScripts();
-  builtSource = readFileSync(cookieConsentOutputPath, "utf8");
+  scripts = buildStaticScripts();
+  builtSource = readFileSync(scripts.cookieConsentOutputPath, "utf8");
   assert.ok(builtSource.includes("pm_cookie_preferences_v1"), "built source should be the consent script");
 });
 
@@ -370,4 +381,40 @@ test("a late off response after the deadline cannot hide the already-shown notic
 test("the script reads exactly the ui-config endpoint", async () => {
   const outcome = await runConsentScript({ storageNotice: false });
   assert.deepEqual(outcome.requests, ["/api/ui-config"]);
+});
+
+/** Exercise every settings control with a saved choice while configuration is unresolved. */
+test("pending settings intent survives every configuration outcome for every control", async (t) => {
+  for (const decision of ["on", "off", "invalid", "deadline", "body-deadline"] as const) {
+    for (let index = 0; index < 3; index++) {
+      await t.test(`${decision}: settings control ${index}`, async () => {
+        const outcome = await runConsentScript(
+          decision === "body-deadline" ? { stalledBody: true } : { deferredBody: true },
+          '{"choice":"acknowledged"}',
+        );
+        const control = outcome.document.querySelectorAll("[data-cookie-settings]")[index];
+        assert.equal(control.click(), true, "pending clicks must prevent default navigation");
+        control.click(); // Multiple pending clicks represent one request to open settings.
+        assert.equal(bannerOf(outcome).hidden, true, "pending/off must never flash the notice");
+        assert.deepEqual(outcome.writes, []);
+        if (decision.endsWith("deadline")) await flushTimers(outcome);
+        else {
+          assert.ok(outcome.settleFetch);
+          outcome.settleFetch(decision === "invalid" ? "invalid-json" : JSON.stringify({ storageNotice: decision === "on" }));
+          await new Promise((resolve) => { setImmediate(resolve); });
+        }
+        assert.equal(bannerOf(outcome).hidden, decision === "off", "explicit settings intent overrides a saved choice only in enabled mode");
+        assert.deepEqual(outcome.navigations, decision === "off" ? ["/cookie-settings"] : []);
+        assert.deepEqual(outcome.writes, [], "opening settings never records consent");
+      });
+    }
+  }
+});
+
+test("a deadline without settings intent preserves a returning visitor's saved choice", async () => {
+  const outcome = await runConsentScript({ stalled: true }, '{"choice":"necessary"}');
+  await flushTimers(outcome);
+  assert.equal(bannerOf(outcome).hidden, true);
+  assert.deepEqual(outcome.navigations, []);
+  assert.deepEqual(outcome.writes, []);
 });
