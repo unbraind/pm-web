@@ -15,6 +15,10 @@ export function showOfflineRecovery(
   notice.className = 'offline-recovery';
   notice.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;max-width:min(460px,calc(100vw - 40px));max-height:60vh;overflow:auto;overflow-wrap:anywhere;padding:16px;border:1px solid var(--app-accent,var(--pm-stamp));border-radius:var(--pm-radius-sm);background:var(--app-bg-card,var(--pm-paper));color:var(--app-text-primary,var(--pm-carbon));box-shadow:none';
   notice.setAttribute('role', 'status');
+  // The notice lists queued mutations and account-adoption controls (private
+  // data) and is inserted straight into <body>, outside the blocked
+  // #toast-container region.
+  notice.setAttribute('data-umami-block', '');
   const description = document.createElement('p');
   description.textContent = 'Some offline changes need attention. Later changes in the same workspace wait; independent workspaces can continue. Review the original result before retrying an unknown outcome, as a new request may duplicate a committed change. Sign in to the original account; adopt unknown-owner changes only if they are yours.';
   const list = document.createElement('ul');
@@ -72,6 +76,9 @@ export function showSettledDeleteNotice(count: number): HTMLElement {
   const notice = document.createElement('div');
   notice.className = 'toast toast-info';
   notice.setAttribute('role', 'status');
+  // Same replay-privacy attribute: the notice falls back to <body> when
+  // #toast-container is absent, so it must be safe outside the blocked region.
+  notice.setAttribute('data-umami-block', '');
   notice.textContent = `${count} queued deletion${count === 1 ? '' : 's'} removed: the target is no longer available. Other queued changes can continue syncing.`;
   const dismiss = document.createElement('button');
   dismiss.className = 'btn btn-ghost'; dismiss.type = 'button'; dismiss.textContent = 'Dismiss';

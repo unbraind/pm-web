@@ -94,6 +94,10 @@ function showCtxMenu(nodeId: string, x: number, y: number): void {
 
   const menu = document.createElement('div');
   menu.className = 'graph-ctx-menu';
+  // The menu shows node ids and titles (private item data) and is inserted
+  // straight into <body>, outside the blocked #main-app region, so it must
+  // carry the replay-privacy attribute itself.
+  menu.setAttribute('data-umami-block', '');
   menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
   menu.style.top  = `${Math.min(y, window.innerHeight - 160)}px`;
 
@@ -1707,7 +1711,7 @@ function showAddDependencyModal(): void {
   const options = nodes.map((n) => `<option value="${escHtml(n.id)}">${escHtml(nodeTitle(n))} (${escHtml(n.id)})</option>`).join('');
 
   const html = `
-    <div class="modal-backdrop" id="graph-add-dep-modal" style="display:flex">
+    <div class="modal-backdrop" id="graph-add-dep-modal" style="display:flex" data-umami-block>
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
           <div class="modal-title">Add dependency</div>
@@ -1789,7 +1793,7 @@ function showRemoveDependencyModal(): void {
   }
 
   const html = `
-    <div class="modal-backdrop" id="graph-remove-dep-modal" style="display:flex">
+    <div class="modal-backdrop" id="graph-remove-dep-modal" style="display:flex" data-umami-block>
       <div class="modal" style="max-width:440px">
         <div class="modal-header">
           <div class="modal-title">Remove Dependency</div>

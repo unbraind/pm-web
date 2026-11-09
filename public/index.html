@@ -58,17 +58,21 @@
           <input class="form-input" type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password">
         </div>
         <div class="form-error" id="auth-error" style="display:none"></div>
-        <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px" id="auth-submit">
+        <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px" id="auth-submit" data-umami-event="auth_sign_in_started" data-umami-event-provider="password">
           <span id="auth-btn-text" data-i18n="auth.button.login">Sign in</span>
         </button>
       </form>
       <div id="oidc-divider" class="auth-form-sub" style="margin:18px 0 10px;text-align:center" hidden data-i18n="auth.divider">or</div>
-      <button id="oidc-login" type="button" class="btn btn-secondary btn-full btn-lg" hidden onclick="window.__app.startOidcLogin()" data-i18n="auth.oidc.default">Continue with OpenID Connect</button>
+      <button id="oidc-login" type="button" class="btn btn-secondary btn-full btn-lg" hidden onclick="window.__app.startOidcLogin()" data-i18n="auth.oidc.default" data-umami-event="auth_sign_in_started" data-umami-event-provider="oidc">Continue with OpenID Connect</button>
     </div>
   </div>
 
-  <!-- Main App -->
-  <div id="main-app" style="display:none">
+  <!-- Session-replay tools (opt-in analytics run by the operator) honour the
+       data-umami-block attribute: every container below renders signed-in or
+       private content (projects, items, accounts, tokens), so it must stay out
+       of any replay by default. The sign-in screen above stays unblocked;
+       operators must configure and verify input masking in their replay tool. -->
+  <div id="main-app" data-umami-block style="display:none">
     <nav id="top-nav" role="navigation" aria-label="Main navigation">
       <div class="nav-logo"><span class="brand-lockup" aria-label="pm Web"><span class="brand-mark" aria-hidden="true"><img class="brand-mark-light" src="/brand/mark.svg" alt=""><img class="brand-mark-dark" src="/brand/mark-dark.svg" alt=""></span><span class="brand-product">WEB</span></span></div>
       <div class="nav-divider"></div>
@@ -228,11 +232,11 @@
   </div>
 </div>
 
-<div id="live-copy-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="live-copy-announcement" class="sr-only" aria-live="polite" aria-atomic="true" data-umami-block></div>
 
 <!-- Modals -->
-<div id="modal-container"></div>
-<div id="toast-container"></div>
+<div id="modal-container" data-umami-block></div>
+<div id="toast-container" data-umami-block></div>
 
 <!-- Offline Banner -->
 <div class="offline-banner" id="offline-banner">
