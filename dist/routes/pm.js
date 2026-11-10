@@ -28,7 +28,7 @@ import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
 import { createHash, randomUUID } from "node:crypto";
-import { routeParam } from "./route-params.js";
+import { routeParam, requireUuidParams } from "./route-params.js";
 import { pool } from "../db.js";
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
 let _neo4jDriver = null;
@@ -72,6 +72,7 @@ function getNeo4jDriver() {
 }
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+router.use(requireUuidParams("projectId"));
 registerEvidenceInspectionRoutes(router);
 registerPermissionImpactRoutes(router);
 registerAgentContextRoutes(router);

@@ -51,7 +51,7 @@
     "release:check": "npm run check && npm run lint && npm run duplication && npm run docstring && npm run coverage && npm run accept:capacity && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date && npm run verify:release-publish-attestation",
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
-    "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test test/*.test.ts",
+    "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test --test-concurrency=2 test/*.test.ts",
     "prepublishOnly": "npm run release:check",
     "lint": "node scripts/lint.ts",
     "duplication": "node scripts/duplication-gate.ts",

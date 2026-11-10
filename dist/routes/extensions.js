@@ -27,7 +27,7 @@ import { Router } from "express";
 import { logError } from "../observability.js";
 import { requireAuth } from "../middleware/auth.js";
 import { verifyProjectAccess } from "./projects.js";
-import { routeParam } from "./route-params.js";
+import { routeParam, requireUuidParams } from "./route-params.js";
 import { INSTALL_COMMAND_TIMEOUT_MS, readProjectExtensionStates, runPm, getProjectDir, } from "../services/pm-runner.js";
 import { PACKAGE_CATALOG, findCatalogEntry, } from "../services/package-catalog.js";
 import { broadcastProjectEvent } from "../services/sse.js";
@@ -134,6 +134,7 @@ async function runExtensionCommand(req, res, subcommand) {
 export function createExtensionsRouter(readCapabilities = readMaintenanceCapabilities) {
     const router = Router({ mergeParams: true });
     router.use(requireAuth);
+    router.use(requireUuidParams("projectId"));
     /**
      * Resolve and validate `:name` against the catalog exactly once per request.
      *
