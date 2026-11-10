@@ -4,13 +4,13 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PmClient } from '@unbrained/pm-cli/sdk';
 import { pool } from '../src/db.ts';
 import { ProjectReadError, readAuthorizedProject } from '../src/services/authorized-project-reads.ts';
-import { runSerialized } from '../src/services/pm-runner.ts';
+import { pinProjectStorage, readCompletePmItems, runGetItemAt, runOnPinnedStorage, runPm, runSerialized } from '../src/services/pm-runner.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 import { ProjectFixtureResources, authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
 import { captureLogs, setLogLevel } from './helpers/stdout-logs.ts';
@@ -237,4 +237,136 @@ test('failed project reads log distinct safe reasons with the response request i
 /** Exercise Windows scheduling on every host without mocking SDK storage, grants or HTTP responses. */
 test('Windows diagnostics retain missing-root coverage without POSIX unreadability', async t => {
   assert.deepEqual(await failedReadReasons(t, 'win32'), ['tracker_root_missing']);
+});
+
+/** Replace a directory symlink without removing the storage it currently names. */
+async function retarget(link: string, target: string): Promise<void> {
+  await rm(link);
+  await symlink(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+}
+
+/** A queued or running read must keep the storage captured at admission and refuse a later symlink switch. */
+test('storage switches cannot escape authorized reads or queued SDK and CLI commands', async t => {
+  const { root, cwd, owner, viewer, project, item } = await fixture(t);
+  assert.equal(existsSync(path.join(cwd, '.git')), false);
+  const storageA = path.join(root, 'storage-a');
+  const storageB = path.join(root, 'storage-b');
+  await rename(cwd, storageA);
+  await symlink(storageA, cwd, process.platform === 'win32' ? 'junction' : 'dir');
+  const other = await createPlainContractTracker(storageB);
+  await other.client.create({ type: 'Task', title: 'SWITCHED-TARGET', description: 'Retargeted storage', body: 'must not be released' });
+  const link = process.platform === 'win32' ? 'junction' : 'dir';
+
+  for (const method of ['get', 'at', 'complete'] as const) {
+    await retarget(cwd, storageA);
+    let seen = '';
+    let ready!: () => void;
+    const started = new Promise<void>(resolve => { ready = resolve; });
+    let continueRead!: () => void;
+    const switched = new Promise<void>(resolve => { continueRead = resolve; });
+    const pending = readAuthorizedProject(viewer.id, project.id, async reader => {
+      ready();
+      await switched;
+      if (method === 'get') seen = (await reader.get(item.id)).item.title ?? '';
+      else if (method === 'at') seen = (await reader.at(item.id, '1')).document.metadata.title ?? '';
+      else seen = (await reader.complete()).items.find(row => row.id === item.id)?.title ?? '';
+      return seen;
+    });
+    await started;
+    await retarget(cwd, storageB);
+    continueRead();
+    await assert.rejects(pending, error => error instanceof ProjectReadError && error.status === 409, method);
+    assert.equal(seen, item.title, method);
+    assert.notEqual(seen, 'SWITCHED-TARGET', method);
+  }
+
+  await retarget(cwd, storageA);
+  const admitted = pinProjectStorage(cwd);
+  let release!: () => void;
+  const held = runOnPinnedStorage(admitted, () => new Promise<void>(resolve => { release = resolve; }));
+  let entered = false;
+  let selected!: () => void;
+  const authorized = new Promise<void>(resolve => { selected = resolve; });
+  const queued = readAuthorizedProject(viewer.id, project.id, async () => { entered = true; return 1; }, selected);
+  const refused = assert.rejects(queued, error => error instanceof ProjectReadError && error.status === 409);
+  try {
+    await authorized;
+    await retarget(cwd, storageB);
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(entered, false, 'queued read followed the new target while holding the old tracker queue');
+  } finally { release(); }
+  await held;
+  await refused;
+  assert.equal(entered, false);
+
+  const trackerA = path.join(root, 'tracker-a');
+  const trackerB = path.join(root, 'tracker-b');
+  await retarget(cwd, storageA);
+  await rename(path.join(storageA, '.agents', 'pm'), trackerA);
+  await symlink(trackerA, path.join(storageA, '.agents', 'pm'), link);
+  const trackerWorkspace = path.join(root, 'tracker-b-workspace');
+  await mkdir(trackerB, { recursive: true });
+  await mkdir(trackerWorkspace, { recursive: true });
+  const switchedTracker = new PmClient({ pmRoot: trackerB, cwd: trackerWorkspace, noExtensions: true, author: 'contract-test' });
+  await switchedTracker.init('contract', { defaults: true, agentGuidance: 'skip' });
+  await switchedTracker.create({ type: 'Task', title: 'SWITCHED-TARGET', description: 'Retargeted tracker' });
+  let trackerSeen = '';
+  let trackerReady!: () => void;
+  const trackerStarted = new Promise<void>(resolve => { trackerReady = resolve; });
+  let trackerContinue!: () => void;
+  const trackerSwitched = new Promise<void>(resolve => { trackerContinue = resolve; });
+  const trackerRead = readAuthorizedProject(viewer.id, project.id, async reader => {
+    trackerReady();
+    await trackerSwitched;
+    trackerSeen = (await reader.get(item.id)).item.title ?? '';
+    return trackerSeen;
+  });
+  await trackerStarted;
+  await retarget(path.join(storageA, '.agents', 'pm'), trackerB);
+  trackerContinue();
+  await assert.rejects(trackerRead, error => error instanceof ProjectReadError && error.status === 409);
+  assert.equal(trackerSeen, item.title);
+  await retarget(path.join(storageA, '.agents', 'pm'), trackerA);
+
+  for (const timeoutMs of [undefined, 30_000]) for (const jsonOutput of [false, true]) {
+    await retarget(cwd, storageA);
+    const pin = pinProjectStorage(cwd);
+    let releaseCommand!: () => void;
+    const commandHeld = runOnPinnedStorage(pin, () => new Promise<void>(resolve => { releaseCommand = resolve; }));
+    let settled = false;
+    const command = runPm({ userId: owner.id, slug: project.slug, args: ['get', item.id], jsonOutput, timeoutMs }).then(result => { settled = true; return result; });
+    await retarget(cwd, storageB);
+    assert.equal(settled, false, `json ${String(jsonOutput)} followed the retargeted workspace`);
+    releaseCommand();
+    const result = await command;
+    await commandHeld;
+    assert.equal(result.ok, true, result.stderr);
+    assert.match(result.stdout, new RegExp(item.title));
+    assert.doesNotMatch(result.stdout, /SWITCHED-TARGET/);
+  }
+  await retarget(cwd, storageA);
+  const historicalPin = pinProjectStorage(cwd);
+  let releaseHistory!: () => void;
+  const historyHeld = runOnPinnedStorage(historicalPin, () => new Promise<void>(resolve => { releaseHistory = resolve; }));
+  let historySettled = false;
+  const historical = runGetItemAt(owner.id, project.slug, item.id, '1').then(result => { historySettled = true; return result; });
+  await retarget(cwd, storageB);
+  assert.equal(historySettled, false, 'historical read followed the retargeted workspace');
+  releaseHistory();
+  assert.equal((await historical).document.metadata.title, item.title);
+  await historyHeld;
+  await retarget(cwd, storageA);
+  const listPin = pinProjectStorage(cwd);
+  let releaseList!: () => void;
+  const listHeld = runOnPinnedStorage(listPin, () => new Promise<void>(resolve => { releaseList = resolve; }));
+  let listSettled = false;
+  const listed = readCompletePmItems(owner.id, project.slug, false, true).then(result => { listSettled = true; return result; });
+  await retarget(cwd, storageB);
+  assert.equal(listSettled, false, 'complete read followed the retargeted workspace');
+  releaseList();
+  const complete = await listed;
+  await listHeld;
+  assert.equal(complete.ok, true, complete.ok ? '' : complete.stderr);
+  assert.equal(complete.ok && complete.result.items.some(row => row.title === 'SWITCHED-TARGET'), false);
+  assert.equal(complete.ok && complete.result.items.some(row => row.id === item.id), true);
 });

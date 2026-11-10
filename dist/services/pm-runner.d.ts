@@ -57,16 +57,50 @@ export declare function getProjectDir(userId: string, slug: string): string;
  * therefore means "the row is absent", which is safe to cache.
  */
 export declare function resolveProjectDir(projectId: string): Promise<string | null>;
+/** Physical workspace and tracker captured before a queued operation may wait. */
+export interface PinnedProjectStorage {
+    /** Workspace directory after resolving aliases, including a missing leaf under an existing ancestor. */
+    readonly workspace: string;
+    /** Tracker directory after resolving a tracker symlink independently of the workspace alias. */
+    readonly tracker: string;
+}
+/**
+ * Capture the storage a queued operation must keep using.
+ *
+ * Both identities are resolved once. A later symlink retarget must not move
+ * work that already joined this pin's queue onto the new target.
+ *
+ * @param workspace - Logical or relative project directory.
+ * @returns The physical workspace and tracker selected at this instant.
+ */
+export declare function pinProjectStorage(workspace: string): PinnedProjectStorage;
 /**
  * Run async work for one workspace after all prior work there finishes.
  *
  * Chains `work` onto the workspace's tail promise so calls against the SAME
  * workspace run one at a time, while also acquiring a global command slot so
  * calls across independent workspaces overlap only up to the concurrency limit.
+ * The pin passed to `work` is the storage captured at admission. Callers must
+ * use that pin rather than resolving the logical path again after waiting.
  * Returns whatever `work` resolves to, and prunes the workspace's tail once the
  * chain settles.
+ *
+ * @param workspace - Logical project directory whose current physical tracker selects the queue.
+ * @param work - Operation that must execute against the admitted pin.
+ * @returns The operation result.
  */
-export declare function runSerialized<T>(workspace: string, work: () => Promise<T>): Promise<T>;
+export declare function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T>;
+/**
+ * Serialize against storage that was already captured by an access check.
+ *
+ * Re-resolving the logical path here would let a symlink retarget move the
+ * operation onto another queue while the access check still names the old one.
+ *
+ * @param storage - Workspace and tracker identities selected before waiting.
+ * @param work - Operation pinned to those identities.
+ * @returns The operation result.
+ */
+export declare function runOnPinnedStorage<T>(storage: PinnedProjectStorage, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T>;
 /**
  * Create and initialize a project workspace on disk.
  *
@@ -239,6 +273,9 @@ export declare function ensureGraphExtension(userId: string, slug: string): Prom
  * defaults while each call still receives the SDK's current extension
  * snapshot. Author identity is resolved by the SDK's default detection,
  * preserving prior CLI behaviour.
+ *
+ * @param pmRoot - Logical or physical tracker directory.
+ * @returns The cached client for that tracker's current physical identity and workspace.
  */
 export declare function getPmClient(pmRoot: string): PmClient;
 /** Drop a cached client when its workspace is deleted. */

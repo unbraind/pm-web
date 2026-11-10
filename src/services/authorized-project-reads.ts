@@ -1,8 +1,7 @@
-import path from 'node:path';
 import { assertInitializedTracker, getContracts, getItemAt, PmClient, PmCliError, type ContractsResult, type GetItemAtResult, type GetResult, type PmCompleteListResult } from '@unbrained/pm-cli/sdk';
 import { pool } from '../db.ts';
 import { readProjectAccess, type ProjectAccess } from './project-access.ts';
-import { certifyPmWebCompleteList, getProjectDir, runSerialized } from './pm-runner.ts';
+import { certifyPmWebCompleteList, getProjectDir, pinProjectStorage, runOnPinnedStorage, type PinnedProjectStorage } from './pm-runner.ts';
 
 /** Narrow SDK read capabilities; neither arbitrary dispatch nor caller-supplied roots cross this boundary. */
 export interface ProjectItemReader {
@@ -39,24 +38,34 @@ export class ProjectReadUnavailableError extends Error {
 const readers = new Map<string, ProjectItemReader>();
 const MAX_READERS = 256;
 
-/** Resolve storage inside the directory adapter; its identity changes with any effective authorization boundary. */
-function binding(access: ProjectAccess): { directory: string; identity: string } {
-  const directory = path.resolve(getProjectDir(access.ownerUserId, access.slug));
-  return { directory, identity: JSON.stringify(['directory', access.id, access.ownerUserId, access.slug, access.permission, directory]) };
+/**
+ * Resolve storage inside the directory adapter.
+ *
+ * The identity includes the physical workspace and tracker, not only the logical
+ * directory. Retargeting either symlink changes the identity and must refuse the read.
+ *
+ * @param access - Live project grant used to locate the workspace.
+ * @returns The storage captured for this check and the comparable identity.
+ */
+function binding(access: ProjectAccess): { storage: PinnedProjectStorage; identity: string } {
+  const storage = pinProjectStorage(getProjectDir(access.ownerUserId, access.slug));
+  return {
+    storage,
+    identity: JSON.stringify(['storage', access.id, access.ownerUserId, access.slug, access.permission, storage.workspace, storage.tracker]),
+  };
 }
 
 /** Construct only capabilities supported by the pinned directory SDK, with extension activation disabled. */
-function directoryReader(directory: string, key: string): ProjectItemReader {
+function directoryReader(storage: PinnedProjectStorage, key: string): ProjectItemReader {
   let reader = readers.get(key);
   if (reader) readers.delete(key);
   else {
-    const pmRoot = path.join(directory, '.agents', 'pm');
-    const options = { pmRoot, cwd: directory, noExtensions: true };
+    const options = { pmRoot: storage.tracker, cwd: storage.workspace, noExtensions: true };
     const client = new PmClient(options);
     reader = Object.freeze({
       get: (id: string) => client.get(id),
       complete: async (includeBody = false) => certifyPmWebCompleteList(await client.listAllComplete({ includeBody })),
-      at: (id: string, ref: string) => getItemAt(id, ref, { pmRoot }),
+      at: (id: string, ref: string) => getItemAt(id, ref, { pmRoot: storage.tracker, cwd: storage.workspace }),
       contracts: () => getContracts({ ...options, runtimeOnly: true }),
     });
   }
@@ -67,10 +76,12 @@ function directoryReader(directory: string, key: string): ProjectItemReader {
 
 /**
  * Bind a live authorized project to observational SDK capabilities, then reauthorize before releasing data.
- * The workspace queue is shared with existing mutations. Recheck after waiting so a revoked or rebound
- * request never starts a storage read. The final grant lookup is the read's authorization linearization
- * point; callers must send the result without further asynchronous work. This is not a cross-store snapshot.
- * The optional observer acknowledges initial authorization for deterministic scheduling; it replaces no SDK or grant operation.
+ * The workspace queue is the physical tracker captured with the binding. Recheck after waiting so a revoked,
+ * rebound, or retargeted request never starts a storage read. The reader uses that same pin, so a symlink
+ * change cannot move it onto the new target while it holds the old queue. The final grant and storage
+ * comparison is the read's authorization linearization point; callers must send the result without further
+ * asynchronous work. This is not a cross-store snapshot. The optional observer acknowledges initial
+ * authorization for deterministic scheduling; it replaces no SDK or grant operation.
  */
 export async function readAuthorizedProject<T>(principal: string, projectId: string, read: (reader: ProjectItemReader, access: ProjectAccess) => Promise<T>, onAuthorized: () => void = () => {}): Promise<T> {
   const access = await readProjectAccess(pool, principal, projectId);
@@ -78,17 +89,17 @@ export async function readAuthorizedProject<T>(principal: string, projectId: str
   const selected = binding(access);
   const key = JSON.stringify([principal.toLowerCase(), selected.identity]);
   onAuthorized();
-  /** A cached SDK object never substitutes for current account/share authorization. */
+  /** A cached SDK object never substitutes for current account/share authorization or storage. */
   const authorize = async (): Promise<void> => {
     const current = await readProjectAccess(pool, principal, projectId);
     if (!current) throw new ProjectReadError(404);
     if (binding(current).identity !== selected.identity) throw new ProjectReadError(409);
   };
-  return runSerialized(selected.directory, async () => {
+  return runOnPinnedStorage(selected.storage, async () => {
     await authorize();
-    try { await assertInitializedTracker(path.join(selected.directory, '.agents', 'pm')); }
+    try { await assertInitializedTracker(selected.storage.tracker); }
     catch (error) { throw new ProjectReadUnavailableError(error); }
-    const result = await read(directoryReader(selected.directory, key), access);
+    const result = await read(directoryReader(selected.storage, key), access);
     await authorize();
     return result;
   });

@@ -69,10 +69,16 @@ const delay = Number(process.argv[3]);
 const label = process.argv[4];
 const log = process.env.FAKE_PM_LOG;
 fs.appendFileSync(log, "start " + label + "\\n");
-setTimeout(() => {
-  fs.appendFileSync(log, "end " + label + "\\n");
-  process.stdout.write(label);
-}, delay);
+// The first child may finish only after the independent child has started.
+// Its startup latency is unrelated to whether the runner queues independently.
+const admission = setInterval(() => {
+  if (label === "first" && !fs.readFileSync(log, "utf8").includes("start independent\\n")) return;
+  clearInterval(admission);
+  setTimeout(() => {
+    fs.appendFileSync(log, "end " + label + "\\n");
+    process.stdout.write(label);
+  }, delay);
+}, 10);
 `);
   await chmod(fakePm, 0o755);
   process.env["PROJECTS_ROOT"] = root;

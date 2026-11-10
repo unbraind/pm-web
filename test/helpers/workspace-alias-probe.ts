@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdir, symlink } from 'node:fs/promises';
+import { mkdir, rm, symlink } from 'node:fs/promises';
 import path from 'node:path';
-import { evictPmClient, getPmClient, runGetItemAt, runPm, runSerialized } from '../../src/services/pm-runner.ts';
+import { evictPmClient, getPmClient, pinProjectStorage, runGetItemAt, runOnPinnedStorage, runPm, runSerialized } from '../../src/services/pm-runner.ts';
 
 /** Exercise physical identity across SDK, CLI, historical reads and both output formats without Git. */
 export async function workspaceAliasProbe(root: string): Promise<void> {
@@ -52,6 +52,7 @@ export async function workspaceAliasProbe(root: string): Promise<void> {
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
   }
   await workspaceCwdProbe(path.join(root, 'cwd-probe'));
+  await storageSwitchProbe(path.join(root, 'storage-switch'));
 }
 
 /** Prove shared tracker storage never substitutes its Git provenance for any execution workspace. */
@@ -98,5 +99,63 @@ async function workspaceCwdProbe(root: string): Promise<void> {
     for (const [key, value] of previous) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }
+  }
+}
+
+/** Point a directory symlink at another real tracker without deleting either store. */
+async function retargetStorage(link: string, target: string): Promise<void> {
+  await rm(link);
+  await symlink(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+}
+
+/** Packed SDK, CLI, JSON, TOON and historical reads must stay on the tracker captured at queue admission. */
+export async function storageSwitchProbe(root: string): Promise<void> {
+  const previousRoot = process.env.PROJECTS_ROOT;
+  process.env.PROJECTS_ROOT = root;
+  const logical = path.join(root, 'owner', 'slug');
+  const storageA = path.join(root, 'storage-a');
+  const storageB = path.join(root, 'storage-b');
+  const roots = [path.join(storageA, '.agents', 'pm'), path.join(storageB, '.agents', 'pm')];
+  try {
+    await mkdir(path.dirname(logical), { recursive: true });
+    await mkdir(storageA, { recursive: true });
+    await mkdir(storageB, { recursive: true });
+    const clientA = getPmClient(roots[0]!);
+    await clientA.init('switch', { defaults: true, agentGuidance: 'skip' });
+    const { item } = await clientA.create({ type: 'Task', title: 'Pinned target' });
+    const clientB = getPmClient(roots[1]!);
+    await clientB.init('switch', { defaults: true, agentGuidance: 'skip' });
+    await clientB.create({ type: 'Task', title: 'SWITCHED-TARGET' });
+    await symlink(storageA, logical, process.platform === 'win32' ? 'junction' : 'dir');
+    for (const timeoutMs of [undefined, 30_000]) for (const jsonOutput of [false, true]) {
+      await retargetStorage(logical, storageA);
+      const pin = pinProjectStorage(logical);
+      let release!: () => void;
+      const held = runOnPinnedStorage(pin, () => new Promise<void>(resolve => { release = resolve; }));
+      let settled = false;
+      const pending = runPm({ userId: 'owner', slug: 'slug', args: ['get', item.id], jsonOutput, timeoutMs }).then(result => { settled = true; return result; });
+      await retargetStorage(logical, storageB);
+      assert.equal(settled, false, `json ${String(jsonOutput)} followed the retargeted workspace`);
+      release();
+      const result = await pending;
+      await held;
+      assert.equal(result.ok, true, result.stderr);
+      assert.match(result.stdout, /Pinned target/);
+      assert.doesNotMatch(result.stdout, /SWITCHED-TARGET/);
+    }
+    await retargetStorage(logical, storageA);
+    const pin = pinProjectStorage(logical);
+    let releaseHistory!: () => void;
+    const historyHeld = runOnPinnedStorage(pin, () => new Promise<void>(resolve => { releaseHistory = resolve; }));
+    let historySettled = false;
+    const historical = runGetItemAt('owner', 'slug', item.id, '1').then(result => { historySettled = true; return result; });
+    await retargetStorage(logical, storageB);
+    assert.equal(historySettled, false, 'historical read followed the retargeted workspace');
+    releaseHistory();
+    assert.equal((await historical).document.metadata.title, 'Pinned target');
+    await historyHeld;
+  } finally {
+    for (const pmRoot of roots) evictPmClient(pmRoot);
+    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
   }
 }

@@ -194,18 +194,18 @@ function pmCliCommand(): PmCommand {
  * beyond `timeoutMs` terminates the child (SIGTERM then SIGKILL after 1 s) and
  * records the reason in stderr. Never throws: spawn failures and captured
  * output are returned in the {@link ProcessResult}.
- * Pins PM_PATH to the requested workspace so inherited tracker context cannot
- * redirect fallback commands or extension management into another project.
+ * Pins PM_PATH to the captured tracker so inherited context, and a symlink
+ * retarget after admission, cannot redirect fallback commands.
  *
- * @param cwd - Directory to run pm in.
+ * @param cwd - Directory to run pm in. Serialized callers pass the pinned workspace.
  * @param args - pm arguments.
- * @param options - Optional stdin input, timeout, and extra env.
+ * @param options - Optional stdin input, timeout, extra env, and pinned tracker path.
  * @returns The collected stdout/stderr, success flag, and exit code.
  */
 async function runProcess(
   cwd: string,
   args: string[],
-  options: { input?: string; timeoutMs?: number; env?: NodeJS.ProcessEnv } = {},
+  options: { input?: string; timeoutMs?: number; env?: NodeJS.ProcessEnv; pmPath?: string } = {},
 ): Promise<ProcessResult> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
   return new Promise((resolve) => {
@@ -214,7 +214,7 @@ async function runProcess(
     try {
       child = spawn(pmCommand.command, [...pmCommand.prefixArgs, ...args], {
         cwd,
-        env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env, PM_PATH: path.join(cwd, ".agents", "pm") },
+        env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env, PM_PATH: options.pmPath ?? path.join(cwd, ".agents", "pm") },
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
       });
@@ -276,6 +276,15 @@ async function runProcess(
   });
 }
 
+/** Spawn pm against storage captured when the operation joined the workspace queue. */
+function runPinnedProcess(
+  storage: PinnedProjectStorage,
+  args: string[],
+  options: { input?: string; timeoutMs?: number; env?: NodeJS.ProcessEnv } = {},
+): Promise<ProcessResult> {
+  return runProcess(storage.workspace, args, { ...options, pmPath: storage.tracker });
+}
+
 /** Resolve physical aliases, including missing descendants of an existing workspace ancestor. */
 function physicalWorkspacePath(workspace: string): string {
   const absolute = path.resolve(workspace);
@@ -289,9 +298,34 @@ function physicalWorkspacePath(workspace: string): string {
   }
 }
 
+/** Physical workspace and tracker captured before a queued operation may wait. */
+export interface PinnedProjectStorage {
+  /** Workspace directory after resolving aliases, including a missing leaf under an existing ancestor. */
+  readonly workspace: string;
+  /** Tracker directory after resolving a tracker symlink independently of the workspace alias. */
+  readonly tracker: string;
+}
+
+/**
+ * Capture the storage a queued operation must keep using.
+ *
+ * Both identities are resolved once. A later symlink retarget must not move
+ * work that already joined this pin's queue onto the new target.
+ *
+ * @param workspace - Logical or relative project directory.
+ * @returns The physical workspace and tracker selected at this instant.
+ */
+export function pinProjectStorage(workspace: string): PinnedProjectStorage {
+  const absolute = path.resolve(workspace);
+  return {
+    workspace: physicalWorkspacePath(absolute),
+    tracker: physicalWorkspacePath(path.join(absolute, '.agents', 'pm')),
+  };
+}
+
 /** Identify shared tracker storage even when only the tracker, rather than its workspace, is a symlink. */
 function physicalWorkspaceIdentity(workspace: string): string {
-  return physicalWorkspacePath(path.join(workspace, '.agents', 'pm'));
+  return pinProjectStorage(workspace).tracker;
 }
 
 /**
@@ -300,11 +334,31 @@ function physicalWorkspaceIdentity(workspace: string): string {
  * Chains `work` onto the workspace's tail promise so calls against the SAME
  * workspace run one at a time, while also acquiring a global command slot so
  * calls across independent workspaces overlap only up to the concurrency limit.
+ * The pin passed to `work` is the storage captured at admission. Callers must
+ * use that pin rather than resolving the logical path again after waiting.
  * Returns whatever `work` resolves to, and prunes the workspace's tail once the
  * chain settles.
+ *
+ * @param workspace - Logical project directory whose current physical tracker selects the queue.
+ * @param work - Operation that must execute against the admitted pin.
+ * @returns The operation result.
  */
-export async function runSerialized<T>(workspace: string, work: () => Promise<T>): Promise<T> {
-  const identity = physicalWorkspaceIdentity(workspace);
+export async function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T> {
+  return runOnPinnedStorage(pinProjectStorage(workspace), work);
+}
+
+/**
+ * Serialize against storage that was already captured by an access check.
+ *
+ * Re-resolving the logical path here would let a symlink retarget move the
+ * operation onto another queue while the access check still names the old one.
+ *
+ * @param storage - Workspace and tracker identities selected before waiting.
+ * @param work - Operation pinned to those identities.
+ * @returns The operation result.
+ */
+export async function runOnPinnedStorage<T>(storage: PinnedProjectStorage, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T> {
+  const identity = storage.tracker;
   const previous = workspaceTails.get(identity) ?? Promise.resolve();
   let releaseWorkspace!: () => void;
   const gate = new Promise<void>((resolve) => { releaseWorkspace = resolve; });
@@ -314,7 +368,7 @@ export async function runSerialized<T>(workspace: string, work: () => Promise<T>
   await previous.catch(() => undefined);
   const releaseSlot = await commandSlots.acquire();
   try {
-    return await work();
+    return await work(storage);
   } finally {
     releaseSlot();
     releaseWorkspace();
@@ -338,8 +392,8 @@ export async function runSerialized<T>(workspace: string, work: () => Promise<T>
 export async function initProject(userId: string, slug: string, prefix: string): Promise<void> {
   const dir = getProjectDir(userId, slug);
   fs.mkdirSync(dir, { recursive: true });
-  const result = await runSerialized(dir, () => runProcess(dir, [
-    "workspace", "init", "--workspace", dir, "--prefix", prefix,
+  const result = await runSerialized(dir, storage => runPinnedProcess(storage, [
+    "workspace", "init", "--workspace", storage.workspace, "--prefix", prefix,
     "--defaults", "--agent-guidance", "skip",
   ], { timeoutMs: 15_000 }));
   if (!result.ok) throw new Error(result.stderr || "pm init failed");
@@ -495,8 +549,8 @@ export interface ExtensionStatesResult {
  * the extensions routes' catalog join.
  */
 export async function readProjectExtensionStates(projectDir: string): Promise<ExtensionStatesResult> {
-  const result = await runSerialized(projectDir, () =>
-    runProcess(projectDir, ["extension", "--json"], { timeoutMs: 15_000 }),
+  const result = await runSerialized(projectDir, storage =>
+    runPinnedProcess(storage, ["extension", "--json"], { timeoutMs: 15_000 }),
   );
   const states = new Map<string, ExtensionState>();
   if (!result.ok || !result.stdout) {
@@ -536,7 +590,7 @@ async function runExtensionCommand(
   args: string[],
   timeoutMs?: number,
 ): Promise<PmRunResult> {
-  return runSerialized(projectDir, () => runProcess(projectDir, args, { timeoutMs }));
+  return runSerialized(projectDir, storage => runPinnedProcess(storage, args, { timeoutMs }));
 }
 
 const pendingGraphProvisions = new Map<string, Promise<EnsureGraphExtensionResult>>();
@@ -746,6 +800,28 @@ function pmClientIdentity(pmRoot: string): { pmRoot: string; cwd: string; key: s
   return { pmRoot: storage, cwd, key: JSON.stringify([storage, cwd]) };
 }
 
+/** Keep one client per captured tracker and execution workspace, without resolving again. */
+function cachedPmClient(key: string, pmRoot: string, cwd: string): PmClient {
+  let client = pmClientCache.get(key);
+  if (client) {
+    pmClientCache.delete(key);
+    pmClientCache.set(key, client);
+    return client;
+  }
+  if (pmClientCache.size >= PM_CLIENT_CACHE_MAX) {
+    const leastRecentlyUsed = pmClientCache.keys().next().value;
+    if (typeof leastRecentlyUsed === "string") pmClientCache.delete(leastRecentlyUsed);
+  }
+  client = new PmClient({ pmRoot, cwd });
+  pmClientCache.set(key, client);
+  return client;
+}
+
+/** Return the cached client for storage already captured at queue admission. */
+function pmClientForPinned(storage: PinnedProjectStorage): PmClient {
+  return cachedPmClient(JSON.stringify([storage.tracker, storage.workspace]), storage.tracker, storage.workspace);
+}
+
 /**
  * Return a cached {@link PmClient} for a workspace pm-root, creating one on
  * first use. The SDK owns extension activation internally; per-workspace
@@ -755,25 +831,13 @@ function pmClientIdentity(pmRoot: string): { pmRoot: string; cwd: string; key: s
  * defaults while each call still receives the SDK's current extension
  * snapshot. Author identity is resolved by the SDK's default detection,
  * preserving prior CLI behaviour.
+ *
+ * @param pmRoot - Logical or physical tracker directory.
+ * @returns The cached client for that tracker's current physical identity and workspace.
  */
 export function getPmClient(pmRoot: string): PmClient {
   const identity = pmClientIdentity(pmRoot);
-  let client = pmClientCache.get(identity.key);
-  if (client) {
-    pmClientCache.delete(identity.key);
-    pmClientCache.set(identity.key, client);
-    return client;
-  }
-  if (pmClientCache.size >= PM_CLIENT_CACHE_MAX) {
-    const leastRecentlyUsed = pmClientCache.keys().next().value;
-    if (typeof leastRecentlyUsed === "string") pmClientCache.delete(leastRecentlyUsed);
-  }
-  client = new PmClient({
-    pmRoot: identity.pmRoot,
-    cwd: identity.cwd,
-  });
-  pmClientCache.set(identity.key, client);
-  return client;
+  return cachedPmClient(identity.key, identity.pmRoot, identity.cwd);
 }
 
 /** Drop a cached client when its workspace is deleted. */
@@ -783,8 +847,8 @@ export function evictPmClient(pmRoot: string): void {
 
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
 export async function readProjectCommandOwners(projectDir: string): Promise<ExtensionDescribeResult["command_ownership"]> {
-  return runSerialized(projectDir, async () => {
-    const result = await getPmClient(path.join(projectDir, ".agents", "pm")).packageDescribe(undefined, { project: true });
+  return runSerialized(projectDir, async storage => {
+    const result = await pmClientForPinned(storage).packageDescribe(undefined, { project: true });
     const owners = result.details.command_ownership;
     if (!result.ok || !Array.isArray(owners)) throw new Error("Cannot read project command capabilities.");
     // Describe includes global claims even with project scope. Maintenance
@@ -856,15 +920,14 @@ export async function readCompletePmItems(
   sourceOrder = false,
 ): Promise<PmCompleteListRunResult> {
   const dir = getProjectDir(userId, slug);
-  return runSerialized(dir, async (): Promise<PmCompleteListRunResult> => {
+  return runSerialized(dir, async (storage): Promise<PmCompleteListRunResult> => {
     try {
-      const pmRoot = path.join(dir, ".agents", "pm");
       const result = certifyPmWebCompleteList(noExtensions
-        ? await listAllComplete({ includeBody }, { pmRoot, cwd: dir, noExtensions: true })
-        : await getPmClient(pmRoot).listAllComplete({ includeBody }));
+        ? await listAllComplete({ includeBody }, { pmRoot: storage.tracker, cwd: storage.workspace, noExtensions: true })
+        : await pmClientForPinned(storage).listAllComplete({ includeBody }));
       if (sourceOrder) {
         // Only identifiers/order come from this light scan; heavy collections stay in certified rows.
-        const sourceItems = await listAllItemMetadataLight(pmRoot);
+        const sourceItems = await listAllItemMetadataLight(storage.tracker);
         const certifiedById = new Map(result.items.map((item) => [item.id, item]));
         const items = sourceItems.map((item) => {
           const certified = certifiedById.get(item.id);
@@ -1015,9 +1078,8 @@ function withPositionals(action: string, positionals: readonly string[], options
  * The result object is returned both as `parsed` (structured) and stringified
  * into `stdout`, so routes that read either field keep working.
  */
-async function runPmInProcess(opts: PmRunOptions, dir: string): Promise<PmRunResult | null> {
-  const pmRoot = path.join(dir, ".agents", "pm");
-  const client = getPmClient(pmRoot);
+async function runPmInProcess(opts: PmRunOptions, storage: PinnedProjectStorage): Promise<PmRunResult | null> {
+  const client = pmClientForPinned(storage);
   const { action, options, positionals } = parsePmArgs(opts.args);
   // The linked-test runner consumes repeatable JSON entries as an array;
   // unlike `add`, the SDK does not normalize a single `addJson` string.
@@ -1078,21 +1140,21 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
   // per-workspace). Wrapping the whole dispatch — in-process attempt plus the
   // spawn fallback — in a single `runSerialized` restores the guarantee for
   // every action regardless of which path serves it.
-  return runSerialized(dir, async (): Promise<PmRunResult> => {
+  return runSerialized(dir, async (storage): Promise<PmRunResult> => {
     const env = { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}`, ...agentSessionEnvironment(opts.agentSession ?? {}) };
     if (opts.commandOwner) {
-      const error = await commandOwnershipError(dir, opts.commandOwner, env);
+      const error = await commandOwnershipError(storage, opts.commandOwner, env);
       if (error) return { ok: false, stdout: "", stderr: error, ownershipRefused: true };
     }
     if (useInProcess) {
-      const sdkResult = await runPmInProcess(opts, dir);
+      const sdkResult = await runPmInProcess(opts, storage);
       if (sdkResult) return sdkResult;
     }
 
     // Fallback: spawn the pm binary for actions the SDK dispatcher cannot serve.
     const args = opts.jsonOutput ? ["--json", ...opts.args] : opts.args;
 
-    const result = await runProcess(dir, args, {
+    const result = await runPinnedProcess(storage, args, {
       input: opts.input,
       timeoutMs: opts.timeoutMs,
       env,
@@ -1114,9 +1176,9 @@ export async function runPm(opts: PmRunOptions): Promise<PmRunResult> {
 }
 
 /** Verify every possible owned command prefix using the pinned CLI's public package-describe contract. */
-async function commandOwnershipError(dir: string, expected: { command: string; name: string; args?: readonly string[] }, env: NodeJS.ProcessEnv): Promise<string | null> {
+async function commandOwnershipError(storage: PinnedProjectStorage, expected: { command: string; name: string; args?: readonly string[] }, env: NodeJS.ProcessEnv): Promise<string | null> {
   const unknownOwner = `Cannot establish the effective owner of pm ${expected.command}; refusing to run ${expected.name}.`;
-  const result = await runProcess(dir, ["package", "describe", "--project", "--json"], { timeoutMs: 15_000, env });
+  const result = await runPinnedProcess(storage, ["package", "describe", "--project", "--json"], { timeoutMs: 15_000, env });
   if (!result.ok) return unknownOwner;
   try {
     const receipt = JSON.parse(result.stdout) as { ok?: unknown; details?: Partial<ExtensionDescribeResult> };
@@ -1197,8 +1259,7 @@ export async function runGetItemAt(
   itemId: string,
   ref: string,
 ): Promise<GetItemAtResult> {
-  const pmRoot = path.join(getProjectDir(userId, slug), ".agents", "pm");
-  return runSerialized(getProjectDir(userId, slug), () => getItemAt(itemId, ref, { pmRoot }));
+  return runSerialized(getProjectDir(userId, slug), storage => getItemAt(itemId, ref, { pmRoot: storage.tracker, cwd: storage.workspace }));
 }
 
 /**

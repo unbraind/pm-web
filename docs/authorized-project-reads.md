@@ -15,10 +15,15 @@ the normalized principal, project identity, effective permission and directory
 binding. It never caches grants or item values. Routes cannot supply a tracker
 root or dispatch arbitrary commands through the reader.
 
-The reader joins the same workspace queue as existing web mutations. Workspace
-and tracker symlink aliases share the physical tracker queue. It checks access again after waiting and immediately before returning data. Revocation
-returns 404; a changed effective permission or storage mapping returns 409 and
-requires a fresh request. The final authorization query is the read's admission
+The reader joins the same workspace queue as existing web mutations. The binding
+records the physical workspace and the physical tracker, not only the logical
+directory. Workspace and tracker symlink aliases share that physical tracker queue.
+The reader and every other queued SDK, CLI, JSON and TOON command stay on the
+storage captured when they joined the queue. Access is checked again after waiting
+and immediately before returning data. Revocation returns 404; a changed effective
+permission, slug, workspace symlink or tracker symlink returns 409 and requires a
+fresh request. A retarget while the read is queued or running does not follow the
+new target and does not release data from the old target. The final authorization query is the read's admission
 point. It does not promise a transaction spanning account grants and item
 storage, or a global snapshot across independently written item histories.
 
