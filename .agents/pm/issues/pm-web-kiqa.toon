@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags[2]: "gh:unbraind/pm-web#288","github_author:unbraind"
 created_at: "2026-11-01T07:53:18Z"
-updated_at: "2026-11-09T06:55:48.542Z"
+updated_at: "2026-11-10T21:02:17.924Z"
 author: pi-glm
-comments[12]{created_at,author,text}:
+comments[21]{created_at,author,text}:
   "2026-11-02T09:41:58.054Z",pi-glm,"Duplicate GH278 provenance reconciled. Both owners were identified from the failing run 41407648593 ('import plan is not idempotent — 1 duplicate provenance tag(s)') and a tracker scan: the cited-evidence inspection feature (kept as sole owner — PR 278 delivers it and its record declares that tag for exact sync identity) and the SDK evidence-fragments record (de-owned). The de-owned record's gh: tag was removed with 'pm update --remove-tags', a related dependency now links it to the owning feature record, its delivery knowledge (body, comments, files, tests, close evidence) is untouched and its status stays closed. Measurement — before: failing run https://github.com/unbraind/pm-web/actions/runs/41407648593 (2026-11-02T07:38Z, 'Preview GitHub to pm plan' step). After: the same gated dry-run the scheduled workflow runs (pm-github 2026.10.19 as pinned by the reusable workflow) passes against this branch's tracker: fetched 10, planned 10, import 6, update 4, skip 0, provenance-indexed 11, gate verified with no duplicate provenance tag. The command is linked as a passing test; its pm-test receipt runs in pm's isolated seeded workspace, so the reconciliation numbers here come from the direct dry-run against this checkout. GitHub API budget was checked before measuring (core remaining above the 1500 floor). Guard unchanged; item stays open for orchestrator close after merge."
   "2026-11-06T15:13:30.235Z",codex-sol,"Rechecking issue #288 at main 1a8ce23d8cb17a867ae0205bffc05f4e10d49f39. Main already includes the GH278 metadata repair from PR #292: pm-web-5sx6 is the sole importer owner and pm-web-cnhi keeps its related dependency and delivery evidence. Scheduled sync run 42183873938 succeeded on this exact main SHA, including gated preview, import, repeat no-op, privacy and strict health. Plan: reproduce with pm-github 2026.10.19 and a real disposable SDK tracker, retain duplicate-negative-control and read-only repeat evidence, then submit an evidence-only closure PR without product or workflow changes."
   "2026-11-06T15:13:43.992Z",codex-sol,"Rechecking #288 at main 1a8ce23d8cb17a867ae0205bffc05f4e10d49f39. PR #292 already repaired duplicate GH278 metadata, retaining both records and delivery evidence. Scheduled sync 42183873938 succeeded on this SHA, including guarded preview/import and repeat no-op. Reproduce with pm-github 2026.10.19 and a disposable real SDK tracker; evidence-only closure PR, no product changes."
@@ -21,18 +21,87 @@ comments[12]{created_at,author,text}:
   "2026-11-09T06:49:02.601Z",codex-agent,"Continuation review: retained the existing main merge and tracker claim after inspecting local/remote history and PR 304. All review-thread/comment pages are complete: one unresolved thread PRRT_kwDOSZgR5c60vfjH; latest CodeRabbit review has no outside-diff findings. The no-Git control lacks a pre-initialization Git boundary check. Add a fail-closed directory check and execute regression controls against the documented function, including a behavioral revert. No review replies or resolutions."
   "2026-11-09T06:51:35.874Z",codex-agent,"PRRT_kwDOSZgR5c60vfjH fixed in the documented plain setup: require Git status 128 plus the exact C-locale no-repository diagnostic, reject process errors, and check both before and after real SDK initialization. Regression command node --test --test-concurrency=2 test/gated-sync-verification.test.ts passes 4/4 (plain allow; worktree, bare and corrupt-metadata refusal before tracker writes). Behavioral revert in a disposable copy removed only the two boundary-check calls: plain allow passed, all three refusal controls failed with Missing expected rejection. Restoring the calls passed 4/4. The reviewed checkout was never mutated by the proof. The linked focused workflow/identity/boundary command passes 16/16 through pm test --run --only-last --progress. Whole PR diff self-review found no further instance; latest review has no outside-diff findings."
   "2026-11-09T06:55:47.532Z",codex-agent,"Final local review-round evidence: boundary suite 4/4 on repo-pinned SDK 2026.11.5 and independently installed historical SDK 2026.11.2; linked boundary/workflow/identity tests 16/16. npm run release:check and bun run release:check were attempted with isolated Git identity; after preserving ignored scratch fixture copies outside the source scan, both pass typecheck, lint, duplication 0% (0/63830 lines, 348 sources), docstrings (934 declarations in 204 files), build and test TypeScript compilation, then stop at mandatory throwaway PostgreSQL preflight (database unavailable). No thresholds or skip policy changed; full release gates are not certified locally. Rebuilt committed dist and frontend artifacts have zero drift. CI-pinned extension installation removes local host-version skew; pm health --strict-exit --require-merge-drivers passes 10/10, zero warnings; merge report has zero unresolved receipts. Release changelog-date and publish-attestation gates pass. Current-head CI is required after pushing the retained main merge and this fix; results remain available on PR 304. Item remains in_progress for orchestrator verification; releasing only this agent claim. No review thread replies, resolutions, mentions, merge or release."
-files[3]:
+  "2026-11-10T20:05:28.856Z",codex-smallfix-1110,"Read both complete CodeRabbit findings for PR #304 after merging main. The documented guard accepts an empty ancestor .git directory and inherits Git discovery overrides that can differ from SDK sanitization. Keep the executable documentation and matching test synchronized; prove both cases fail against the old fixture, then run focused boundary tests, typecheck, lint and the bounded full npm test command. Use only public package sources and synthetic trackers."
+  "2026-11-10T20:13:42.512Z",codex-smallfix-1110,"The three new real-process controls fail against the original documented fixture: empty ancestor metadata, ceiling-hidden worktree and ceiling-hidden bare repository each report Missing expected rejection (0 passed/3 failed). Child processes isolate inherited Git settings while exercising the actual extracted documentation and real SDK. The new guard mirrors the SDK discovery-variable sanitization and checks physical ancestor .git entries, including empty directories and symlinks, before accepting the Git diagnostic."
+  "2026-11-10T20:14:08.618Z",codex-smallfix-1110,Independent revert proofs passed. Removing only the ancestor .git walk while retaining sanitized discovery makes the empty-ancestor case fail 0 passed/1 failed with Missing expected rejection. Restoring the walk and reverting only the probe environment makes the hidden-bare case fail 0 passed/1 failed with the same expected assertion. The fixture was restored in finally after each proof; the original new-case baseline was 0/3 and the complete fixed-side boundary suite passed 7/7. Refusal checks also preserve ancestor Git configuration and attributes bytes.
+  "2026-11-10T20:16:03.193Z",codex-smallfix-1110,Focused boundary gate passed 7/7 through pm test --run --only-last --progress; server/frontend typecheck and lint passed. Full npm test is running against a newly created disposable PostgreSQL instance with only synthetic data and no deployment volumes. CPU affinity constrains Node availableParallelism so its default file-worker limit is exactly two; source confirms that default and the runtime limit was asserted before the command. Timeout is 2700 seconds. No hosted deployment or hosted data folders were accessed.
+  "2026-11-10T20:18:29.155Z",codex-smallfix-1110,The locked dependency install succeeded with npm ci --prefer-offline --maxsockets=2 after isolating npm user configuration for Git dependency preparation. npm audit reports one development-only glob advisory through c8/test-exclude (three moderate dependency entries); all affected lockfile nodes are dev=true. Deduplicated and recorded out-of-scope follow-up pm-web-c8-glob-advisory. No dependency or lockfile edits were made for these findings.
+  "2026-11-10T20:30:52.823Z",codex-smallfix-1110,"Full npm test completed within the 2700-second budget with two file workers: 938 tests, 937 passed, 1 failed, 0 skipped/cancelled. The changed seven-case boundary fixture passed. The sole failure was the unchanged item-history-versions test: its nested npm install inherited an allow-scripts setting rejected by npm as EALLOWSCRIPTS. Do not treat this as a passing full-suite result. Rerunning only that test with isolated npm user configuration and bounded offline-preferred package fetches; the full suite will not be repeated."
+  "2026-11-10T20:34:21.021Z",codex-smallfix-1110,"Final results: both requested documentation findings fixed with independent 0-pass/1-fail revert proofs and 7/7 passing restoration. Focused pm test gate 7/7; typecheck, lint and changelog:check passed. Full npm test: 938 total, 937 passed/1 failed, zero skipped/cancelled; the unchanged history-version npm configuration failure passed 1/1 on isolated-config rerun across all three historical CLI versions. Existing follow-up pm-web-se1p holds that environment evidence; new pm-web-c8-glob-advisory holds the separate development-tool audit finding. The fresh synthetic PostgreSQL instance was removed after testing. Full local certification remains incomplete; CI must certify the combined full gate. Releasing the claim without closing the item."
+  "2026-11-10T20:40:24.965Z",codex-smallfix-1110,"Normal push was rejected because the remote advanced to a redundant main-merge commit. Integrating that remote commit preserved the verified tree exactly, but the origin/main..HEAD email audit then found an unapproved author identity in that remote-only merge. No force push was performed. The local candidate retains all verified source content and the newer main merge, omitting only that redundant remote merge; publication requires explicit approval for a force-with-lease operation pinned to the observed remote head."
+  "2026-11-10T21:02:17.923Z",codex-smallfix-1110,"Clarification after inspecting repository policy: the remote merge author is already approved by .github/approved-git-identities.txt. The blocker is the current brief requiring only the SteveBot address in origin/main..HEAD, rather than a repository identity-policy failure. All commits created by this session use the exact requested SteveBot identity. User decision is needed between preserving the approved historical merge with a narrow exception to that brief check, or explicitly authorizing the guarded history replacement. Source content and recorded test results are unchanged."
+files[4]:
   - path: .agents/pm/features/pm-web-5sx6.toon
     scope: project
   - path: .agents/pm/issues/pm-web-cnhi.toon
     scope: project
     note: de-owned duplicate GH278 provenance tag
+  - path: docs/gated-sync-288-verification.md
+    scope: project
   - path: test/gated-sync-verification.test.ts
     scope: project
-tests[3]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
-  pm github import unbraind/pm-web --state all --atomic --gate --dry-run --with-comments --json,project,pi-glm,"2026-11-02T09:41:13.270Z",local_mutation,chore/triage-1102-issues
-  node --test --test-concurrency=2 test/workflow-security.test.ts test/workflow-update-automation.test.ts,project,codex-sol,"2026-11-06T15:19:49.616Z",local_mutation,gated-sync-duplicate-provenance
-  node --test --test-concurrency=2 test/gated-sync-verification.test.ts test/workflow-security.test.ts test/workflow-update-automation.test.ts test/identity-audit.test.ts,project,codex-agent,"2026-11-09T06:50:53.572Z",local_mutation,gated-sync-duplicate-provenance
+tests[8]:
+  - command: pm github import unbraind/pm-web --state all --atomic --gate --dry-run --with-comments --json
+    scope: project
+    provenance:
+      author: pi-glm
+      created_at: "2026-11-02T09:41:13.270Z"
+      source_kind: local_mutation
+      source_ref: chore/triage-1102-issues
+  - command: node --test --test-concurrency=2 test/workflow-security.test.ts test/workflow-update-automation.test.ts
+    scope: project
+    provenance:
+      author: codex-sol
+      created_at: "2026-11-06T15:19:49.616Z"
+      source_kind: local_mutation
+      source_ref: gated-sync-duplicate-provenance
+  - command: node --test --test-concurrency=2 test/gated-sync-verification.test.ts test/workflow-security.test.ts test/workflow-update-automation.test.ts test/identity-audit.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-11-09T06:50:53.572Z"
+      source_kind: local_mutation
+      source_ref: gated-sync-duplicate-provenance
+  - command: node --test --test-concurrency=2 test/gated-sync-verification.test.ts
+    scope: project
+    timeout_seconds: 240
+    provenance:
+      author: codex-smallfix-1110
+      created_at: "2026-11-10T20:14:12.069Z"
+      source_kind: local_mutation
+      source_ref: gated-sync-duplicate-provenance
+  - command: "taskset -c \"$(python3 -c 'import os; print(\",\".join(map(str, sorted(os.sched_getaffinity(0))[:3])))')\" timeout 2700 npm test"
+    scope: project
+    timeout_seconds: 2800
+    provenance:
+      author: codex-smallfix-1110
+      created_at: "2026-11-10T20:16:54.362Z"
+      source_kind: local_mutation
+      source_ref: gated-sync-duplicate-provenance
+  - command: npm run typecheck
+    scope: project
+    timeout_seconds: 600
+    provenance:
+      author: codex-smallfix-1110
+      created_at: "2026-11-10T20:16:56.171Z"
+      source_kind: local_mutation
+      source_ref: gated-sync-duplicate-provenance
+  - command: npm run lint
+    scope: project
+    timeout_seconds: 600
+    provenance:
+      author: codex-smallfix-1110
+      created_at: "2026-11-10T20:16:57.930Z"
+      source_kind: local_mutation
+      source_ref: gated-sync-duplicate-provenance
+  - command: env -u npm_config_allow_scripts -u NPM_CONFIG_ALLOW_SCRIPTS NPM_CONFIG_USERCONFIG=/dev/null npm_config_userconfig=/dev/null npm_config_prefer_offline=true npm_config_maxsockets=2 node --test --test-concurrency=2 test/item-history-versions.test.ts
+    scope: project
+    timeout_seconds: 600
+    provenance:
+      author: codex-smallfix-1110
+      created_at: "2026-11-10T20:34:18.371Z"
+      source_kind: local_mutation
+      source_ref: gated-sync-duplicate-provenance
 docs[2]:
   - path: .github/workflows/pm-github-sync.yml
     scope: project

@@ -62,12 +62,17 @@ credential resolver; no credential is printed. Scratch trackers are removed in
 `finally`, including after a failed assertion. Only disposable trackers are written; no provider or canonical tracker writes
 occur. The Git-backed control copies the recorded checkout's existing ignore
 policy so runtime caches stay outside the scanned tracker change. The gate and
-its thresholds are unchanged.
+its thresholds are unchanged. The plain boundary rejects physical ancestor `.git`
+entries, including empty or corrupt metadata, and mirrors the SDK's sanitized Git
+discovery environment. The matching regression also hides worktree and bare
+repositories behind Git ceilings and checks that refusal preserves their Git
+configuration and attributes.
 
 ```ts
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { findPackageJSON } from 'node:module';
+import { lstatSync, realpathSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -140,8 +145,24 @@ function historical(file: string): Buffer {
 
 /** Require positive evidence of a non-Git directory before accepting the plain control. */
 function assertOutsideGit(directory: string): void {
+  // Mirror the SDK's sanitized workspace-discovery environment.
+  const gitEnvironment: NodeJS.ProcessEnv = { ...process.env, LC_ALL: 'C' };
+  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_NAMESPACE',
+    'GIT_CEILING_DIRECTORIES', 'GIT_DISCOVERY_ACROSS_FILESYSTEM']) delete gitEnvironment[key];
+  // Git can report "not a repository" for corrupt metadata, including empty directories.
+  for (let ancestor = realpathSync(directory);; ancestor = path.dirname(ancestor)) {
+    let metadata;
+    try {
+      metadata = lstatSync(path.join(ancestor, '.git'));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    assert.equal(metadata, undefined, 'The plain control must be outside every Git repository; ancestor .git metadata is forbidden');
+    if (path.dirname(ancestor) === ancestor) break;
+  }
   const result = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
-    cwd: directory, encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' },
+    cwd: directory, encoding: 'utf8', env: gitEnvironment,
   });
   assert.ifError(result.error);
   assert.equal(result.status, 128, 'The plain control must be outside every Git repository');
