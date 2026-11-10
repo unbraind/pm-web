@@ -575,8 +575,14 @@ const POSITIONAL_KEYS = {
     config: ["scope", "configAction", "key", "value"],
 };
 const PM_CLIENT_CACHE_MAX = positiveInteger(process.env.PM_WEB_PM_CLIENT_CACHE_MAX, 256);
-/** Bounded least-recently-used `PmClient` cache keyed by workspace pm-root. */
+/** Bounded least-recently-used cache keyed by both storage and execution workspace. */
 const pmClientCache = new Map();
+/** Keep shared storage serialization separate from cwd-dependent SDK defaults. */
+function pmClientIdentity(pmRoot) {
+    const cwd = physicalWorkspacePath(path.dirname(path.dirname(path.resolve(pmRoot))));
+    const storage = physicalWorkspacePath(pmRoot);
+    return { pmRoot: storage, cwd, key: JSON.stringify([storage, cwd]) };
+}
 /**
  * Return a cached {@link PmClient} for a workspace pm-root, creating one on
  * first use. The SDK owns extension activation internally; per-workspace
@@ -588,11 +594,11 @@ const pmClientCache = new Map();
  * preserving prior CLI behaviour.
  */
 export function getPmClient(pmRoot) {
-    pmRoot = physicalWorkspacePath(pmRoot);
-    let client = pmClientCache.get(pmRoot);
+    const identity = pmClientIdentity(pmRoot);
+    let client = pmClientCache.get(identity.key);
     if (client) {
-        pmClientCache.delete(pmRoot);
-        pmClientCache.set(pmRoot, client);
+        pmClientCache.delete(identity.key);
+        pmClientCache.set(identity.key, client);
         return client;
     }
     if (pmClientCache.size >= PM_CLIENT_CACHE_MAX) {
@@ -601,15 +607,15 @@ export function getPmClient(pmRoot) {
             pmClientCache.delete(leastRecentlyUsed);
     }
     client = new PmClient({
-        pmRoot,
-        cwd: path.dirname(path.dirname(pmRoot)),
+        pmRoot: identity.pmRoot,
+        cwd: identity.cwd,
     });
-    pmClientCache.set(pmRoot, client);
+    pmClientCache.set(identity.key, client);
     return client;
 }
 /** Drop a cached client when its workspace is deleted. */
 export function evictPmClient(pmRoot) {
-    pmClientCache.delete(physicalWorkspacePath(pmRoot));
+    pmClientCache.delete(pmClientIdentity(pmRoot).key);
 }
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
 export async function readProjectCommandOwners(projectDir) {

@@ -5,6 +5,7 @@ import { devNull, tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import type { ExtensionManifest } from "@unbrained/pm-cli/sdk";
+import { missingPackedDocumentLinks } from './published-document-links.ts';
 
 /** Package fields that define the packed standalone-host acceptance contract. */
 interface PackageContract {
@@ -131,12 +132,13 @@ const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));
 try {
   const packRoot = join(temporaryRoot, "pack");
   mkdirSync(packRoot);
-  run(
+  const packReceipt = run(
     npmLauncher.command,
-    [...npmLauncher.prefix, "pack", "--ignore-scripts", "--pack-destination", packRoot],
+    [...npmLauncher.prefix, "pack", "--ignore-scripts", "--json", "--pack-destination", packRoot],
     repoRoot,
     { ...cleanEnvironment, npm_config_ignore_scripts: "true", NPM_CONFIG_IGNORE_SCRIPTS: "true" },
   );
+  const packedFiles = (JSON.parse(packReceipt.stdout) as { files: { path: string }[] }[])[0]!.files.map(file => file.path);
   const packedNames = readdirSync(packRoot).filter((name) => name.endsWith(".tgz"));
   if (packedNames.length !== 1) {
     throw new Error(`npm pack must create exactly one tarball, got ${String(packedNames.length)}`);
@@ -183,6 +185,8 @@ try {
 
     // Validate the documentation consumers receive and run the same alias adversary against shipped JS.
     const installedRoot = join(scenarioRoot, 'node_modules', '@unbrained', 'pm-web');
+    const missingLinks = missingPackedDocumentLinks(packedFiles, file => readFileSync(join(installedRoot, file), 'utf8'));
+    if (missingLinks.length > 0) throw new Error(`Packed documentation has missing targets: ${missingLinks.join(', ')}`);
     for (const file of manifest.files.filter(file => file.endsWith('.md'))) {
       if (readFileSync(join(installedRoot, file), 'utf8') !== readFileSync(join(repoRoot, file), 'utf8')) throw new Error(`Packed documentation differs: ${file}`);
     }

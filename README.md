@@ -111,7 +111,7 @@ the child, reports the pidfile state and its last ten redacted log lines, and
 leaves no stale pidfile. Child logs are retained beside the pidfile as
 `pm-web-<port>.pid.log` (replaced on each start, private file permissions).
 This raw log grows for the child's lifetime without automatic rotation; see
-[detached log retention](docs/startup-readiness.md#detached-log-retention) for
+[detached log retention](https://github.com/unbraind/pm-web/blob/main/docs/startup-readiness.md#detached-log-retention) for
 its location, sensitive contents and cleanup/rotation requirements.
 
 #### `pm web status`
@@ -215,17 +215,17 @@ canonical public repository, excludes the host/CLI by identity, and collapses
 equivalent sibling worktrees. Missing, invalid, or conflicting metadata fails
 the gate. To refresh, set `PM_FLEET_ROOT` to a fleet directory and run
 `npm run fleet:snapshot`, then `node --test test/catalog.test.ts` with the same
-variable. See [catalog acceptance evidence](docs/catalog-pm-jev.md).
+variable. See [catalog acceptance evidence](https://github.com/unbraind/pm-web/blob/main/docs/catalog-pm-jev.md).
 
 The SDK upgrade retains these catalog guarantees; see
-[SDK and catalog certification](docs/sdk-update-automation.md).
+[SDK and catalog certification](https://github.com/unbraind/pm-web/blob/main/docs/sdk-update-automation.md).
 
 The Packages view covers all 25 public fleet identities with verified descriptions,
 capabilities, command paths and links. Published extensions support project
 installation, activation and documented command execution. Unpublished extensions
 show an explanation instead of an Install button; the independent native
 `pm-rust` CLI links to native setup and has no npm install spec. See the
-[fleet package catalog and HTTP acceptance](docs/fleet-package-catalog.md).
+[fleet package catalog and HTTP acceptance](https://github.com/unbraind/pm-web/blob/main/docs/fleet-package-catalog.md).
 
 Comments Audit and Normalize require `pm-governance-audit`; Reindex (including
 keyword mode) requires `pm-search-advanced`. Both ship as optional bundled
@@ -285,7 +285,7 @@ it were the corpus. The standalone server exact-pins its pm CLI/SDK in
 `package.json`. The extension manifest declares a separate supported-host minimum;
 packed acceptance exercises that minimum and the current SDK host under npm and
 native Bun. Dependency-only updates preserve the minimum unless those checks
-require a deliberate compatibility change. See [SDK update automation](docs/sdk-update-automation.md).
+require a deliberate compatibility change. See [SDK update automation](https://github.com/unbraind/pm-web/blob/main/docs/sdk-update-automation.md).
 Commands that render their own text or JSON (`web status`, `web stop`, and
 `web doctor`) return the public SDK output-suppression marker, so the host never
 appends a second payload to stdout.
@@ -297,7 +297,7 @@ unsafe configuration. Password login remains available.
 
 The public package ships operator-neutral legal placeholders only. A hosted
 deployment must mount all reviewed pages privately through `PM_WEB_LEGAL_DIR`;
-the server refuses partial overlays. See [the legal deployment boundary](docs/LEGAL_DEPLOYMENT_BOUNDARY.md).
+the server refuses partial overlays. See [the legal deployment boundary](https://github.com/unbraind/pm-web/blob/main/docs/LEGAL_DEPLOYMENT_BOUNDARY.md).
 
 ---
 
@@ -379,15 +379,15 @@ workflow publishes at most once when commits exist after the latest release tag
 and uses pm-changelog for both `CHANGELOG.md` and GitHub release notes.
 
 Browser evidence builds use complete dependency trees and the checked-out commit
-for both push and pull-request baselines. See [browser baseline fixtures](docs/browser-baselines.md)
+for both push and pull-request baselines. See [browser baseline fixtures](https://github.com/unbraind/pm-web/blob/main/docs/browser-baselines.md)
 for local checks, isolated revert builds and Git prerequisites.
 
 The current package is **not** approved for a new release: exact all-source
 100/100/100/100 coverage remains open in
-[`pm-web-9ulj`](.agents/pm/epics/pm-web-9ulj.toon) and
-[`pm-web-ulgy`](.agents/pm/tasks/pm-web-ulgy.toon), while reachable-history
+[`pm-web-9ulj`](https://github.com/unbraind/pm-web/blob/main/.agents/pm/epics/pm-web-9ulj.toon) and
+[`pm-web-ulgy`](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ulgy.toon), while reachable-history
 privacy authorization is tracked in
-[`pm-web-priv`](.agents/pm/issues/pm-web-priv.toon) and
+[`pm-web-priv`](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-priv.toon) and
 [GitHub issue #96](https://github.com/unbraind/pm-web/issues/96). Passing the
 configured gate is evidence for the measured source set, not those independent
 release approvals.
@@ -404,7 +404,7 @@ live `pm contracts` statuses for its columns:
   search over id, title, tags and body.
 - `GET /api/projects/:projectId/pm/schema` — runtime types/statuses (existing).
 - `GET /api/projects/:projectId/pm/graph` — complete observational graph matching
-  the pinned pm-graph default export; see [graph export fidelity](docs/GRAPH_READS.md).
+  the pinned pm-graph default export; see [graph export fidelity](https://github.com/unbraind/pm-web/blob/main/docs/GRAPH_READS.md).
 - `GET /api/projects/:projectId/pm/calendar.ics` — RFC 5545 iCalendar feed of
   item deadlines (see below).
 
@@ -464,7 +464,7 @@ checks for unresolved shell indirection. Readable scalar commands with literal
 arguments and attested
 function bodies pass; aliases, argument forwarding and other unsupported dynamic
 publish paths fail even when an attested sibling exists. See
-[the gate's supported syntax and regression evidence](docs/publish-attestation.md).
+[the gate's supported syntax and regression evidence](https://github.com/unbraind/pm-web/blob/main/docs/publish-attestation.md).
 
 After merging a branch that touched `.agents/pm/`, reconcile any residual history-hash drift with
 **`pm merge reconcile`** (pm-cli ≥ 2026.7.22): preview with `pm merge reconcile --dry-run`, apply with
@@ -609,10 +609,10 @@ stdout against synthetic credentials, ids, cookies, query and item-content
 sentinels during a successful item update and a malformed JSON request.
 
 For reproducible mixed HTTP/CLI load measurements against the disposable test
-database, see the [collaboration capacity harness](docs/capacity.md). It starts
+database, see the [collaboration capacity harness](https://github.com/unbraind/pm-web/blob/main/docs/capacity.md). It starts
 the built production server, records per-subscriber loss and duplicates plus
 delivery latency and resource counters, and caps its ladder at 3000 subscribers.
-See [project event delivery and resume](docs/realtime-fanout.md) for shared frames,
+See [project event delivery and resume](https://github.com/unbraind/pm-web/blob/main/docs/realtime-fanout.md) for shared frames,
 bounded slow-viewer queues, authorization and `Last-Event-ID` recovery.
 
 ### Triplicate assets and browser review
@@ -626,7 +626,7 @@ PWA icons into ignored, published `public/brand/`. Graph and calendar import
 `tokens` from `pm-brand` through the browser palette bundle, with CSS variable
 resolution for the active theme. There is no application-owned palette or font CDN.
 
-See [brand review evidence](docs/brand-review.md) for the screenshot matrix,
+See [brand review evidence](https://github.com/unbraind/pm-web/blob/main/docs/brand-review.md) for the screenshot matrix,
 pixel comparison, accessibility checks and behavioral revert proof.
 
 ## Human-agent decision inbox
