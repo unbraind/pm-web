@@ -134,3 +134,25 @@ export function skeletonRows(n = 5): string {
 export function skeletonCards(n = 3): string {
   return Array.from({length: n}, () => '<div class="skeleton skeleton-card"></div>').join('');
 }
+
+/** Set (or clear) the click-event attributes analytics tools read on the
+ * authentication submit button for the active tab.
+ *
+ * The button element is shared by the sign-in and registration tabs, so a
+ * static attribute would count every registration click as a password
+ * sign-in start. Only the sign-in tab carries `auth_sign_in_started` with
+ * provider `password`; the registration tab carries no event attributes, so
+ * a sign-in funnel is not polluted by account creation. The values are fixed
+ * constants — never a user name, e-mail, or token. Accepts any element
+ * exposing `setAttribute`/`removeAttribute` (or null) so callers and tests
+ * can pass a narrow double instead of a full DOM element. */
+export function applyAuthSubmitEventAttributes(button: Pick<HTMLElement, 'setAttribute' | 'removeAttribute'> | null, tab: 'login' | 'register'): void {
+  if (!button) return;
+  if (tab === 'login') {
+    button.setAttribute('data-umami-event', 'auth_sign_in_started');
+    button.setAttribute('data-umami-event-provider', 'password');
+  } else {
+    button.removeAttribute('data-umami-event');
+    button.removeAttribute('data-umami-event-provider');
+  }
+}
