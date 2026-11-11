@@ -221,3 +221,7 @@ jobs:
           path: ${{ runner.temp }}/contract-explorer-screenshots
           if-no-files-found: error
           retention-days: 30
+
+      - name: Verify permission impact preview and access invalidation in browsers
+        if: matrix.node-version == 26
+        run: node scripts/with-test-db.ts node scripts/permission-impact-browser.ts

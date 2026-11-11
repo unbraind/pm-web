@@ -1,3 +1,4 @@
+import { readProjectAccess } from '../services/project-access.ts';
 import { invalidateProjectAccess } from '../services/access-invalidation.ts';
 import { logError } from "../observability.ts";
 import { Router } from "express";
@@ -22,38 +23,7 @@ export async function verifyProjectAccess(
   userId: string,
   projectId: string
 ): Promise<{ id: string; name: string; slug: string; description: string; prefix: string; ownerUserId: string; permission: string } | null> {
-  // Check direct ownership first
-  const ownResult = await pool.query(
-    `SELECT id, name, slug, description, prefix, user_id AS owner_user_id
-     FROM pm_projects WHERE id = $1 AND user_id = $2`,
-    [projectId, userId]
-  );
-  if (ownResult.rows.length > 0) {
-    const row = ownResult.rows[0] as { id: string; name: string; slug: string; description: string; prefix: string; owner_user_id: string };
-    return { ...row, ownerUserId: row.owner_user_id, permission: "edit" };
-  }
-
-  // Check shared access (user share or group share)
-  const shareResult = await pool.query(
-    `SELECT p.id, p.name, p.slug, p.description, p.prefix, p.user_id AS owner_user_id,
-            CASE WHEN BOOL_OR(ps.permission = 'edit') THEN 'edit' ELSE 'view' END AS permission
-     FROM pm_projects p
-     JOIN pm_project_shares ps ON ps.project_id = p.id
-     WHERE p.id = $1 AND (
-       ps.shared_with_user_id = $2
-       OR ps.shared_with_group_id IN (
-         SELECT group_id FROM pm_group_members WHERE user_id = $2
-       )
-     )
-     GROUP BY p.id, p.name, p.slug, p.description, p.prefix, p.user_id`,
-    [projectId, userId]
-  );
-  if (shareResult.rows.length > 0) {
-    const row = shareResult.rows[0] as { id: string; name: string; slug: string; description: string; prefix: string; owner_user_id: string; permission: string };
-    return { ...row, ownerUserId: row.owner_user_id };
-  }
-
-  return null;
+  return readProjectAccess(pool, userId, projectId);
 }
 
 router.get("/", async (req: AuthRequest, res) => {

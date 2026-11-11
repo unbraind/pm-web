@@ -202,7 +202,7 @@ test('an embedding without a replay authorizer refuses duplicates and preserves 
 
 
 test('every canonical keyed mutation is covered by the explicit replay route audit', async () => {
-  const prefixes: Record<string, string> = { projects: '/api/projects', pm: '/api/projects/:projectId/pm', 'agent-context': '/api/projects/:projectId/pm', 'contract-explorer': '/api/projects/:projectId/pm', extensions: '/api/projects/:projectId/extensions', sharing: '/api/projects/:id/shares', github: '/api/projects/:id/github', groups: '/api/groups', admin: '/api/admin' };
+  const prefixes: Record<string, string> = { projects: '/api/projects', pm: '/api/projects/:projectId/pm', 'agent-context': '/api/projects/:projectId/pm', 'contract-explorer': '/api/projects/:projectId/pm', 'permission-impact': '/api/projects/:projectId/pm', extensions: '/api/projects/:projectId/extensions', sharing: '/api/projects/:id/shares', github: '/api/projects/:id/github', groups: '/api/groups', admin: '/api/admin' };
   const discovered: string[] = [];
   for (const [module, prefix] of Object.entries(prefixes)) {
     const source = await readFile(`src/routes/${module}.ts`, 'utf8');
@@ -211,7 +211,9 @@ test('every canonical keyed mutation is covered by the explicit replay route aud
     assert.equal(literals.length, registrations.length, 'Nonliteral route registration needs an explicit authorization audit.');
     for (const match of literals) discovered.push(`${match[1].toUpperCase()} ${prefix}${match[3] === '/' ? '' : match[3]}`);
   }
-  assert.deepEqual(discovered.sort(), IDEMPOTENT_MUTATION_ROUTES.map(route => `${route.method} ${route.path}`).sort());
+  const preview = 'POST /api/projects/:projectId/pm/permission-impact';
+  assert.equal(discovered.filter(route => route === preview).length, 1, 'The observational POST is audited separately and never keyed.');
+  assert.deepEqual(discovered.filter(route => route !== preview).sort(), IDEMPOTENT_MUTATION_ROUTES.map(route => `${route.method} ${route.path}`).sort());
 });
 
 

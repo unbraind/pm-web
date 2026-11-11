@@ -1,3 +1,10 @@
+export * from './evidence-inspection.ts';
+export { EvidenceInspectionClient } from './evidence-inspection-client.ts';
+export { inspectEvidence, type EvidenceInspectionHost } from './services/evidence-inspection.ts';
+import { registerEvidenceInspectionCommand } from './evidence-inspection-commands.ts';
+export * from './permission-impact.ts';
+export { PermissionImpactClient } from './permission-impact-client.ts';
+import { registerPermissionImpactCommand } from './permission-impact-commands.ts';
 import { workspaceInitialized } from "./tracker-preflight.ts";
 export { ContractExplorerClient } from './contract-explorer-client.ts';
 import { registerContractExplorerCommand } from './contract-explorer-commands.ts';
@@ -5,7 +12,7 @@ export * from './contract-explorer.ts';
 import { registerAgentContextCommands } from './agent-context-commands.ts';
 export * from './agent-context.ts';
 import { registerInboxCommands } from './decision-commands.ts';
-export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
+export { DecisionInboxError, listDecisionInbox, readDecisionInboxSnapshot, requestDecision, respondToDecision, type DecisionActor, type DecisionInboxPage, type DecisionInboxSnapshot, type DecisionRequest, type DecisionRequestInput, type DecisionResponseInput } from './services/decision-inbox.ts';
 // pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 
@@ -306,9 +313,11 @@ function processAlive(pid: number): boolean {
 
 export default defineExtension({
   name: "pm-web",
-  version: "2026.10.28",
+  version: "2026.11.10",
 
   activate(api: ExtensionApi) {
+    registerPermissionImpactCommand(api);
+    registerEvidenceInspectionCommand(api);
     registerInboxCommands(api);
     registerAgentContextCommands(api);
     registerContractExplorerCommand(api);

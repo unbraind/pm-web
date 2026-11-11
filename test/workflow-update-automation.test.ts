@@ -69,6 +69,18 @@ test("workflow-only pin updates pass the real policy while unsafe or inconsisten
   const inconsistentVersion = codeql.replace(/(github\/codeql-action\/analyze@[^\n]+# )v[^\n]+/, "$1v99.0.0");
   assert.equal(runScenario(original, inconsistentVersion).status, 1, "CodeQL release comments must agree");
 
+  // A Dependabot pm-github bump rewrites only the pinned commit and its release
+  // comment; it must pass without a second, hand-edited version input.
+  for (const [file, workflow] of [["pm-github-sync.yml", "pm-github-sync"], ["pm-github-closeout.yml", "pm-github-closeout"]] as const) {
+    const caller = workflows.get(file)!;
+    const pin = new RegExp(`(unbraind/pm-github/\\.github/workflows/${workflow}\\.yml@)[0-9a-f]{40} # pm-github [^\\n]+`);
+    assert.match(caller, pin);
+    workflows.set(file, caller.replace(pin, `$1${newPin} # pm-github 2099.1.1`));
+    const releaseBump = runScenario(original);
+    workflows.set(file, caller);
+    assert.equal(releaseBump.status, 0, releaseBump.stdout + releaseBump.stderr);
+  }
+
   writeFileSync(join(root, ".github/workflows/new-supplier.yaml"), `steps:\n  - uses: untrusted/action@${newPin} # v1\n`);
   const extraWorkflow = runScenario(original);
   assert.equal(extraWorkflow.status, 1, extraWorkflow.stdout + extraWorkflow.stderr);

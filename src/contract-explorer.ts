@@ -53,6 +53,18 @@ export function directoryContractAdapter(options: Pick<GetContractsOptions, 'pmR
     return getContracts({ ...options, ...selection, runtimeOnly: true });
   } };
 }
+/** Own one provider availability read for internal aggregates; schema inspection still requires a live adapter. */
+export async function captureContractAvailability(adapter: ContractAdapter): Promise<ContractAdapter> {
+  try {
+    const snapshot = structuredClone(await adapter.describe({ availabilityOnly: true }));
+    return { kind: adapter.kind, describe: async options => {
+      if (options.action !== undefined || options.schemaOnly) throw new ContractExplorerError('invalid_input', 'Use a live provider adapter for action schemas; this snapshot contains availability only.', 400);
+      return structuredClone(snapshot);
+    } };
+  } catch {
+    throw new ContractExplorerError('unavailable', 'Check provider connectivity before capturing its availability.', 503);
+  }
+}
 /** Parse transport pagination strictly so blank, structured and boolean values cannot silently select a page. */
 export function contractPageNumber(value: unknown): number | undefined {
   if (value === undefined) return undefined;

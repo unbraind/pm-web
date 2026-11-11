@@ -1,0 +1,25 @@
+id: pm-web-github-ec206b5ea075-33
+title: "pm-runner uses spawnSync: every pm CLI call blocks the event loop, stalling SSE delivery and all requests under concurrent writes"
+description: "GH issue #33: https://github.com/unbraind/pm-web/issues/33 · author @unbraind · state reason completed · created 2026-07-11T23:44:05Z · updated 2026-07-12T17:12:17Z"
+type: Issue
+status: closed
+priority: 2
+tags[2]: "gh:unbraind/pm-web#33","github_author:unbraind"
+created_at: "2026-07-11T23:44:05Z"
+updated_at: "2026-11-05T07:54:32.958Z"
+closed_at: "2026-07-12T17:12:17Z"
+completed_at: "2026-07-12T17:12:17Z"
+author: pm-github
+release: v2026.07.13
+close_reason: "Closed on GitHub as completed on 2026-07-12T17:12:17Z; closing PR https://github.com/unbraind/pm-web/pull/39 (\"feat: production OIDC, private legal overlays, and non-blocking realtime\")"
+github_close_reason: "Closed on GitHub as completed on 2026-07-12T17:12:17Z; closing PR https://github.com/unbraind/pm-web/pull/39 (\"feat: production OIDC, private legal overlays, and non-blocking realtime\")"
+github_closed_at: "2026-07-12T17:12:17Z"
+github_created_at: "2026-07-11T23:44:05Z"
+github_link_only: false
+github_number: 33
+github_release: v2026.07.13
+github_state: closed
+github_state_reason: completed
+github_updated_at: "2026-07-12T17:12:17Z"
+github_url: "https://github.com/unbraind/pm-web/issues/33"
+body: "## Problem\n\n`src/services/pm-runner.ts` executes the pm CLI with `spawnSync` (also `initProject` and extension discovery). Every pm invocation therefore blocks the whole Node event loop for the full CLI runtime (~0.6–0.9 s per mutation in practice).\n\nConsequences for multi-user deployments:\n\n- While any pm command runs, **no** other request makes progress — including requests for unrelated projects/tenants.\n- SSE writes and `pg_notify` LISTEN callbacks (`realtime-bus.ts`) are also stalled. In an authenticated load test (1000–2000 SSE clients on one shared project), a burst of concurrent creates delayed cross-process invalidation delivery by ~9 s; in a heavier run the events arrived only after a 10 s measurement window. Events are delayed, not lost, and same-process broadcasts flush as soon as the loop unblocks — but real-time freshness degrades exactly when the system is busiest.\n- Debounced Neo4j graph syncs (`scheduleGraphSync` → more pm CLI calls) amplify the effect after every mutation burst.\n\nMeasured context (same load run): the SSE layer itself is healthy — 2000/2000 clients connected, 100 % event delivery, fan-out spread within a round is only tens of ms thanks to per-project indexing, zero drops over a soak. The synchronous runner is now the dominant concurrency ceiling.\n\n## Proposed fix\n\nConvert `runPm` (and `initProject`/extension discovery) to async `spawn`/`execFile` returning a Promise, and `await` at call sites (route handlers are already async; ~85 call sites in `routes/pm.ts` are mechanical rewrites). Per-workspace serialization is already guaranteed by the pm CLI workspace lock, so allowing cross-project parallelism is safe and desirable. Optionally cap global concurrency with a small semaphore to bound child-process fan-out.\n\n## Repro sketch\n\n1. Open N SSE clients on a project (`GET /api/projects/:id/pm/events`).\n2. Fire a dozen concurrent `POST .../pm/create` requests.\n3. Publish a foreign-`sourceId` `pg_notify` on `pm_workspace_events` during the burst and time its SSE delivery — it arrives seconds late, while at idle it takes <100 ms.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"

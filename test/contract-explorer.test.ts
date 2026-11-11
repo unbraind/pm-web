@@ -11,7 +11,7 @@ import { isPmCliExpectedError, type ContractsResult } from '@unbrained/pm-cli/sd
 import { createExtensionTestHarness } from '@unbrained/pm-cli/sdk/testing';
 import extension from '../src/index.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
-import { ContractExplorerError, contractPageNumber, directoryContractAdapter, exploreContracts, reviewContract, type ContractAdapter } from '../src/contract-explorer.ts';
+import { ContractExplorerError, captureContractAvailability, contractPageNumber, directoryContractAdapter, exploreContracts, reviewContract, type ContractAdapter } from '../src/contract-explorer.ts';
 import { ContractExplorerClient } from '../src/contract-explorer-client.ts';
 import { contractExplorerMarkup } from '../public/src/views/contract-explorer.ts';
 import { installExtension } from './helpers/install-runtime-extension.ts';
@@ -128,4 +128,31 @@ test('remote transport preserves typed errors and refuses redirects and malforme
   await assert.rejects(client.list('scope'), refusal('not_found'));
   mode = 'bare'; await assert.rejects(client.review('scope', 'delete', {}), refusal('unavailable'));
   for (const next of ['redirect', 'invalid']) { mode = next; await assert.rejects(client.list('scope'), refusal('unavailable')); }
+});
+
+/** Aggregate pagination must remain complete when the live provider changes between page reads. */
+test('captured availability owns all pages across 500 adversarial partitions after the live tracker disappears', async t => {
+  const { adapter, pmRoot } = await fixture(t);
+  const expected = (await adapter.describe({ availabilityOnly: true })).action_availability!.map(row => row.action).sort((a, b) => a.localeCompare(b));
+  const captured = await captureContractAvailability(adapter);
+  await rm(pmRoot, { recursive: true, force: true });
+  await assert.rejects(exploreContracts(adapter), refusal('unavailable'));
+  let seed = 0x751c93;
+  for (let sequence = 0; sequence < 500; sequence++) {
+    const seen: string[] = [];
+    let offset: number | null = 0;
+    do {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const page = await exploreContracts(captured, { offset, limit: 1 + seed % 50 });
+      assert.equal(page.total, expected.length);
+      seen.push(...page.operations.map(row => row.action));
+      offset = page.nextOffset;
+    } while (offset !== null);
+    assert.deepEqual(seen, expected);
+  }
+  const detached = await captured.describe({ availabilityOnly: true });
+  detached.action_availability!.length = 0;
+  assert.equal((await exploreContracts(captured)).total, expected.length);
+  await assert.rejects(exploreContracts(captured, { action: 'delete' }), refusal('invalid_input'));
+  await assert.rejects(captureContractAvailability(adapter), refusal('unavailable'));
 });

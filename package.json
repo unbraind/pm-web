@@ -1,6 +1,6 @@
 {
   "name": "@unbrained/pm-web",
-  "version": "2026.10.28",
+  "version": "2026.11.10",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
@@ -20,7 +20,11 @@
     "examples/contract-explorer.ts",
     "docs/resume-packets.md",
     "docs/resume-packets-validation.md",
-    "examples/resume-packets.ts"
+    "examples/resume-packets.ts",
+    "docs/permission-impact.md",
+    "examples/permission-impact.ts",
+    "docs/evidence-inspection.md",
+    "examples/evidence-inspection.ts"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -58,10 +62,12 @@
     "db:check": "node scripts/ensure-test-db.ts",
     "verify:release-changelog-date": "node scripts/verify-release-changelog-date.ts",
     "verify:release-publish-attestation": "node scripts/verify-release-publish-attestation.ts",
-    "build:brand": "node scripts/build-brand.ts"
+    "build:brand": "node scripts/build-brand.ts",
+    "validate:evidence": "node scripts/evidence-inspection-public-data.ts",
+    "accept:evidence": "node scripts/with-test-db.ts node scripts/evidence-inspection-browser.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.10.20",
+    "@unbrained/pm-cli": "2026.11.7",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -70,28 +76,30 @@
     "neo4j-driver": "^6.2.0",
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
-    "pm-graph": "2026.10.20",
-    "uuid": "^14.0.2"
+    "pm-evidence": "https://codeload.github.com/unbraind/pm-evidence/tar.gz/dddf9e0a1557850710bc4f0bbbb2258d9491b841",
+    "pm-graph": "2026.10.31",
+    "uuid": "^14.0.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@babel/eslint-parser": "8.0.7",
-    "@babel/parser": "8.0.8",
+    "@babel/parser": "8.1.0",
     "@babel/plugin-syntax-typescript": "8.0.3",
     "@types/cookie-parser": "1.4.10",
     "@types/express": "5.0.6",
     "@types/jsonwebtoken": "9.0.10",
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
     "@types/pngjs": "6.0.5",
     "@types/uuid": "11.0.0",
     "c8": "12.0.0",
     "esbuild": "0.28.2",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "jscpd": "5.4.2",
-    "playwright-core": "1.64.1",
+    "playwright-core": "1.65.0",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
-    "pm-changelog": "2026.10.20",
-    "pm-ops": "2026.10.20",
+    "pm-changelog": "2026.11.7",
+    "pm-ops": "2026.11.6",
     "pngjs": "7.0.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
@@ -153,14 +161,18 @@
       "docs/idempotency-replay.md",
       "docs/contract-explorer.md",
       "docs/resume-packets.md",
-      "docs/resume-packets-validation.md"
+      "docs/resume-packets-validation.md",
+      "docs/permission-impact.md",
+      "docs/evidence-inspection.md"
     ],
     "examples": [
       "README.md",
       "examples/decision-inbox.ts",
       "examples/agent-context.ts",
       "examples/contract-explorer.ts",
-      "examples/resume-packets.ts"
+      "examples/resume-packets.ts",
+      "examples/permission-impact.ts",
+      "examples/evidence-inspection.ts"
     ]
   },
   "private": false,
@@ -182,5 +194,8 @@
       "functions": 94.59
     },
     "ignore": []
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   }
 }

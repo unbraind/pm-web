@@ -36,17 +36,26 @@ export interface DecisionInboxPage {
     codeReview: false;
     taskCompletion: false;
 }
+/** Owned immutable projection of one complete SDK corpus, before any presentation pagination. */
+export type DecisionInboxSnapshot = readonly (Omit<Readonly<DecisionRequest>, 'alternatives'> & {
+    readonly alternatives: readonly string[];
+})[];
 /** Stable refusals with a concrete next action for human and agent clients. */
 export declare class DecisionInboxError extends Error {
-    /** Build a transport-neutral refusal without exposing storage details. */
+    /** Stable refusal category shared by transport consumers. */
     readonly code: 'invalid_input' | 'invalid_record' | 'view_only' | 'not_found' | 'revision_conflict' | 'already_answered' | 'unavailable';
+    /** Safe next action for the caller, without provider exception details. */
     readonly remedy: string;
+    /** HTTP status used by the route adapter. */
     readonly status: number;
+    /** Build a transport-neutral refusal without exposing storage details. */
     constructor(code: DecisionInboxError['code'], remedy: string, status: number);
 }
 /** Preserve absent pagination defaults while refusing blank or structured transport values. */
 export declare function decisionInboxNumber(raw: unknown, fallback: number): number;
-/** List pending requests using a certified complete source read and bounded output pagination. */
+/** Capture pending requests once through the SDK; aggregates must consume this instead of refreshing offset pages. */
+export declare function readDecisionInboxSnapshot(pmRoot: string): Promise<DecisionInboxSnapshot>;
+/** Render a bounded live page from one captured corpus without changing the aggregate source. */
 export declare function listDecisionInbox(pmRoot: string, options?: {
     limit?: number;
     offset?: number;

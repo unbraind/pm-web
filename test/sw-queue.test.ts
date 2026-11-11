@@ -67,6 +67,21 @@ function queuedRecord(fields: {
 /** The UUID shape every generated idempotency key must have. */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+test('permission impact reads are never queued offline or assigned mutation keys', async () => {
+  const before = swQueue.addedValues.length;
+  let response: Promise<Response> | undefined;
+  await withMockedFetch(async () => { throw new Error('offline'); }, undefined, async () => {
+    swQueue.listeners.fetch({
+      request: new Request('https://example.test/api/projects/project/pm/permission-impact', { method: 'POST', body: '{}' }),
+      respondWith: (value: Promise<Response>) => { response = value; },
+    });
+    assert.ok(response);
+    const result = await response;
+    assert.equal(result.status, 503); assert.equal((await result.json()).code, 'unavailable');
+    assert.equal(swQueue.addedValues.length, before);
+  });
+});
+
 /** Temporarily replaces `globalThis.fetch` and (optionally) `mockStore.getAll`,
  * runs `flushMutationQueue`, and restores both in a finally block. */
 async function withMockedFetch(

@@ -1,0 +1,24 @@
+id: pm-web-qg8v
+title: Let Dependabot pm-github workflow bumps pass without a hand-edited version input
+description: "The workflow-security policy required the deprecated pm-github-version input to equal the pinned release comment. Dependabot rewrites only the SHA and the comment, so every pm-github workflow bump failed. #286 and #287 sat open from 2026-11-01, and the scheduled sync ran pm-github 2026.10.19, whose gate refused a JavaScript regex literal in issue #218. pm-web-71et fixed the same deadlock once by hand. The reusable workflows have documented the input as deprecated (fallback for non-release commits) since 2026.10.2x. Fix: both callers pin pm-github 2026.11.02 without the input; the policy now refuses the input; the update-automation test proves a Dependabot-style SHA plus comment bump passes the real policy for both callers."
+type: Chore
+status: open
+priority: 1
+tags[4]: ci,dependabot,pm-github,workflows
+created_at: "2026-11-02T22:06:50.276Z"
+updated_at: "2026-11-04T18:09:51.465Z"
+author: orchestrator
+acceptance_criteria: Both callers pin a pm-github release SHA with a matching release comment and no pm-github-version input; A SHA plus release-comment-only bump passes test/workflow-security.test.ts through the update-automation scenario; The scenario fails with the previous equality rule
+dependencies[1]{id,kind,created_at,author,source_kind,author_source}:
+  pm-web-71et,related,"2026-11-02T22:06:50.276Z",orchestrator,"cli:create:dep",detected
+comments[2]{created_at,author,text}:
+  "2026-11-02T22:07:06.268Z",orchestrator,"Evidence: both policy test files pass 8/8. Revert proof: with the old equality rule restored and the sync caller bumped only in SHA and comment (input left at 2026.10.19, as Dependabot leaves it), test/workflow-update-automation.test.ts fails 1/1; restored, 8/8. Typecheck passes."
+  "2026-11-04T18:09:51.465Z",claude-hub,"2026-11-04: both callers re-pinned from pm-github 2026.11.02 (a935d7b) to 2026.11.04 (eb89c6a, tag v2026.11.04). 2026.11.04 carries #214, which normalizes zero-padded release tags (v2026.11.04 to npm 2026.11.4) before the reusable workflows verify and install the version, and #213, the import privacy gate fix for public technical forms such as #218's regex literal. Between the two releases the reusable workflows changed only that normalization: no new inputs, secrets or permissions. Merged main (bc3c5d0, Release pm-web v2026.11.04). workflow-security and workflow-update-automation pass 8/8, and typecheck passes."
+files[4]{path,scope}:
+  .github/workflows/pm-github-closeout.yml,project
+  .github/workflows/pm-github-sync.yml,project
+  test/workflow-security.test.ts,project
+  test/workflow-update-automation.test.ts,project
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  node --test test/workflow-security.test.ts test/workflow-update-automation.test.ts,project,orchestrator,"2026-11-02T22:07:05.008Z",local_mutation,ci/drop-deprecated-pm-github-version-input
+body: ""

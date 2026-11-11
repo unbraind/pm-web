@@ -9,7 +9,7 @@ import test, { type TestContext } from 'node:test';
 import { PmClient, EXIT_CODE, isPmCliExpectedError, runWithActiveExtensions } from '@unbrained/pm-cli/sdk';
 import { createExtensionTestHarness } from '@unbrained/pm-cli/sdk/testing';
 import extension from '../src/index.ts';
-import { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision, type DecisionRequestInput } from '../src/services/decision-inbox.ts';
+import { DecisionInboxError, listDecisionInbox, readDecisionInboxSnapshot, requestDecision, respondToDecision, type DecisionRequestInput } from '../src/services/decision-inbox.ts';
 import { respond } from '../public/src/views/decision-inbox.ts';
 import { state } from '../public/src/state.js';
 
@@ -267,4 +267,21 @@ test('offline-queued decision responses are reported as not yet recorded', async
   assert.equal(await run({ queued: true }, 202, 'acknowledge'), 'Acknowledgment queued. It has not been recorded yet.');
   assert.match(await run({ ok: true }, 200, 'approve'), /^Alternative approved and recorded in the plan/);
   assert.match(await run({ ok: true }, 200, 'acknowledge'), /^Acknowledged\. The request remains pending/);
+});
+
+/** A complete owned read survives filtered-membership changes and caller attempts to alter its rows. */
+test('inbox snapshot retains every captured request after peer answers and fresh reads observe the answer', async t => {
+  const { pmRoot, client, input } = await fixture(t);
+  const first = await requestDecision(pmRoot, editor, input);
+  const second = await requestDecision(pmRoot, editor, { ...input, question: 'A second pending choice' });
+  const snapshot = await readDecisionInboxSnapshot(pmRoot);
+  assert.equal(snapshot.length, 2);
+  assert.ok(Object.isFrozen(snapshot)); assert.ok(Object.isFrozen(snapshot[0])); assert.ok(Object.isFrozen(snapshot[0].alternatives));
+  await respondToDecision(pmRoot, editor, { planId: first.planId, requestId: first.id, revision: first.revision, action: 'approve', alternative: 0, reason: 'Independent peer response' });
+  assert.deepEqual(snapshot.map(row => row.id), [first.id, second.id]);
+  assert.deepEqual((await readDecisionInboxSnapshot(pmRoot)).map(row => row.id), [second.id]);
+  const page = await listDecisionInbox(pmRoot, { limit: 1 });
+  page.requests[0].alternatives.push('Caller-local change');
+  assert.equal(snapshot[1].alternatives.length, 2);
+  assert.equal((await client.planShow(input.planId, { depth: 'deep' })).plan.id, input.planId);
 });

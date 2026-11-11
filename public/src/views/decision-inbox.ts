@@ -10,6 +10,14 @@ interface InboxRequest {
 interface InboxPage { requests: InboxRequest[]; total: number; nextOffset: number | null }
 let renderGeneration = 0;
 
+/** Clear this project's decision controls and fence late responses when its access changes. */
+export function invalidateDecisionInbox(projectId: string): void {
+  if (state.currentProject?.id !== projectId) return;
+  renderGeneration++;
+  const root = document.getElementById('content-decision-inbox');
+  if (root) root.textContent = 'Project access changed. Refresh decisions to recheck access.';
+}
+
 /** Render a pending decision as a comparison sheet with explicit acknowledgment semantics. */
 function requestCard(request: InboxRequest, index: number, editable: boolean): string {
   return `<article class="card decision-request" data-request="${index}">

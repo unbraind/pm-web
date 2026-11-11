@@ -1,3 +1,4 @@
+import { projectOrigin } from './project-origin.js';
 import { requestProjectJson } from './project-http.js';
 import { ContractExplorerError } from './contract-explorer.js';
 /** Authenticated remote explorer SDK; tokens remain in memory and redirects never receive them. */
@@ -8,10 +9,7 @@ export class ContractExplorerClient {
     constructor(baseUrl, token) {
         this.token = token;
         try {
-            const url = new URL(baseUrl);
-            if (url.username || url.password || url.search || url.hash || url.pathname !== '/' || !['https:', ...(['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ? ['http:'] : [])].includes(url.protocol))
-                throw new Error('Invalid origin');
-            this.origin = url.origin;
+            this.origin = projectOrigin(baseUrl);
         }
         catch {
             throw new ContractExplorerError('invalid_input', 'Supply a pm-web HTTPS origin without credentials, path, query or fragment.', 400);

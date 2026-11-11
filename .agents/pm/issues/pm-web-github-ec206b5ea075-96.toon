@@ -1,0 +1,25 @@
+id: pm-web-github-ec206b5ea075-96
+title: Authorize reachable-history privacy remediation before release
+description: "GH issue #96: https://github.com/unbraind/pm-web/issues/96 · author @unbraind · state reason completed · created 2026-08-21T11:07:40Z · updated 2026-10-14T11:34:39Z"
+type: Issue
+status: closed
+priority: 2
+tags[2]: "gh:unbraind/pm-web#96","github_author:unbraind"
+created_at: "2026-08-21T11:07:40Z"
+updated_at: "2026-11-05T07:54:32.944Z"
+closed_at: "2026-08-27T04:12:54Z"
+completed_at: "2026-08-27T04:12:54Z"
+author: pm-github
+release: v2026.08.28
+close_reason: "Closed on GitHub as completed on 2026-08-27T04:12:54Z"
+github_close_reason: "Closed on GitHub as completed on 2026-08-27T04:12:54Z"
+github_closed_at: "2026-08-27T04:12:54Z"
+github_created_at: "2026-08-21T11:07:40Z"
+github_link_only: false
+github_number: 96
+github_release: v2026.08.28
+github_state: closed
+github_state_reason: completed
+github_updated_at: "2026-10-14T11:34:39Z"
+github_url: "https://github.com/unbraind/pm-web/issues/96"
+body: "## Measured boundary\n\nCurrent tracked files are clean for the measured absolute-home-path, private-IPv4, private-key-header, and common GitHub/AWS/npm token-prefix patterns. GitHub reports zero open secret-scanning alerts.\n\nReachable history is not clean under the requested publication boundary:\n\n- 137 patch lines contain the current user absolute home path.\n- 7 distinct author email identities are reachable; 3 are not GitHub noreply identities.\n- 316 commits are reachable.\n- No private IPv4, private-key-header, or common token-prefix patch lines were detected by the bounded scans.\n\nNo matched private value is reproduced in this issue.\n\n## Required decision and acceptance\n\nDo not rewrite public history without explicit maintainer authorization and a coordinated downstream impact plan. If authorized, preserve an offline recovery bundle, rewrite every affected reachable ref atomically, publish clone-invalidation guidance, and rescan tracked files, packed artifacts, every reachable ref, and author identities before release.\n\nThis independently blocks merge/publication even if implementation tests and CI are green.\n\nPM source: [pm-web-priv](https://github.com/unbraind/pm-web/blob/fix/certify-complete-reads-and-refresh-catalog-2026-8-21/.agents/pm/issues/pm-web-priv.toon)\n\n---\n\n### GitHub comments (1)\n\n> **@unbraind** (2026-08-27T04:12:53Z)\n>\n> ## Decision: freeze the past, gate the future\n> \n> Maintainer decision taken 2026-08-27 UTC. **Reachable history will not be rewritten.**\n> \n> ### What the measurement actually shows\n> \n> - **No keys, tokens, private IPv4 addresses or private-key headers anywhere.** GitHub secret scanning reports zero open alerts, and tracked files are clean — as this issue already recorded.\n> - The machine-local commit identities are real but carry no personal data beyond a hostname-shaped address (`bot@unbraind`, `codex@local`, `<redacted-email>`, `<redacted-email>`).\n> - `<redacted-email>` is **not** a leak. It is a deliberate public authoring identity, already reaffirmed in an earlier closed decision and allowlisted in `pm-rust`.\n> - Every surviving absolute home path is inside `.agents/pm/` prose and history — pm item text, not source, workflows or configuration. Some of it is text that *describes removing host paths*, which reintroduces the string by documenting the fix.\n> \n> ### Why not rewrite\n> \n> Rewriting reachable history across the fleet would:\n> \n> - orphan dozens of release tags,\n> - break the provenance chain of already-published npm versions,\n> - invalidate every existing clone,\n> \n> to remove a Linux username from old commit metadata. That cost exceeds the benefit.\n> \n> ### What is being done instead\n> \n> A forward gate, added in the release-hardening PR:\n> \n> - `.github/approved-git-identities.txt` — the approved author/committer set.\n> - `.github/identity-baseline.txt` — the commit from which the gate applies, carrying this decision in prose so it lives where the gate reads it.\n> - `test/identity-audit.test.ts` — fails closed on **any** commit after the baseline that carries an unapproved identity, or that adds an absolute home path **in any file, prose included**.\n> \n> Verified by violation rather than inspection: an unapproved-identity commit fails it, a commit adding an absolute home path fails it, and a baseline the checkout does not contain fails **all three** tests — so a shallow clone cannot make the gate silently pass, which would be worse than not having it.\n> \n> The exposure is therefore frozen at its current size and cannot grow. Closing as decided."

@@ -1,3 +1,10 @@
+export * from './evidence-inspection.js';
+export { EvidenceInspectionClient } from './evidence-inspection-client.js';
+export { inspectEvidence } from './services/evidence-inspection.js';
+import { registerEvidenceInspectionCommand } from './evidence-inspection-commands.js';
+export * from './permission-impact.js';
+export { PermissionImpactClient } from './permission-impact-client.js';
+import { registerPermissionImpactCommand } from './permission-impact-commands.js';
 import { workspaceInitialized } from "./tracker-preflight.js";
 export { ContractExplorerClient } from './contract-explorer-client.js';
 import { registerContractExplorerCommand } from './contract-explorer-commands.js';
@@ -5,7 +12,7 @@ export * from './contract-explorer.js';
 import { registerAgentContextCommands } from './agent-context-commands.js';
 export * from './agent-context.js';
 import { registerInboxCommands } from './decision-commands.js';
-export { DecisionInboxError, listDecisionInbox, requestDecision, respondToDecision } from './services/decision-inbox.js';
+export { DecisionInboxError, listDecisionInbox, readDecisionInboxSnapshot, requestDecision, respondToDecision } from './services/decision-inbox.js';
 // pm-web — Extension wrapper for the pm-web server
 // This file registers the web server as a pm extension command.
 import { startDetached } from "./detached-start.js";
@@ -249,8 +256,10 @@ function processAlive(pid) {
 }
 export default defineExtension({
     name: "pm-web",
-    version: "2026.10.28",
+    version: "2026.11.10",
     activate(api) {
+        registerPermissionImpactCommand(api);
+        registerEvidenceInspectionCommand(api);
         registerInboxCommands(api);
         registerAgentContextCommands(api);
         registerContractExplorerCommand(api);

@@ -1,3 +1,4 @@
+import { projectAccessRows } from './helpers/project-access-rows.ts';
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -144,6 +145,8 @@ function replacePoolQuery(
 function stubPool(ownerUserId: string, projectId: string, slug: string): () => void {
   return replacePoolQuery(async (text: string, params?: unknown[]) => {
     const sql = String(text);
+    const projected = projectAccessRows(sql, params, { id: projectId, name: 'Test', slug, description: '', prefix: 'pkg', owner_user_id: ownerUserId });
+    if (projected) return { rows: projected, rowCount: projected.length };
     if (
       sql.includes("user_id = $2") &&
       Array.isArray(params) &&
@@ -248,8 +251,7 @@ test("route authorization: a user cannot install into a project they do not own"
 /**
  * Stub the pool so `projectId` is shared with `viewerUserId` at the given
  * permission, and owned by nobody the test will authenticate as. Mirrors the
- * two-query shape of `verifyProjectAccess`: direct-ownership lookup first
- * (miss), then the share lookup (hit, carrying `permission`).
+ * authoritative owner/direct/group projection used by live requests.
  */
 function stubSharedPool(
   viewerUserId: string,
@@ -268,6 +270,8 @@ function stubSharedPool(
       owner_user_id: OWNER_USER_ID,
       permission,
     };
+    const projected = projectAccessRows(sql, params, row, { id: viewerUserId, permission });
+    if (projected) return { rows: projected, rowCount: projected.length };
     const matches = Array.isArray(params) && params[0] === projectId && params[1] === viewerUserId;
     if (sql.includes("pm_project_shares") && matches) {
       return { rows: [row], rowCount: 1 };

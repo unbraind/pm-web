@@ -190,6 +190,7 @@ pm web doctor --json
 | `NEO4J_USER` / `NEO4J_USERNAME` | No | Neo4j username |
 | `NEO4J_PASSWORD` | No | Neo4j password |
 | `PM_WEB_LEGAL_DIR` | Production | Absolute path to a complete, private, operator-reviewed legal-page overlay; see `docs/LEGAL_DEPLOYMENT_BOUNDARY.md` |
+| `PM_WEB_STORAGE_NOTICE` | No | Shows the built-in storage notice (`on`, the default) or hides it (`off`) when the operator runs their own consent manager at the reverse proxy. With `off` nothing is stored under the package's cookie-preference key and the cookie-settings control links to the operator's legal page; a failed config read falls back to `on` so a notice is never hidden silently |
 | `OIDC_ISSUER` | With OIDC | Provider issuer URL; incomplete or invalid OIDC settings fail startup in production and are soft-disabled outside production |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | With OIDC | OIDC confidential client credentials |
 | `OIDC_REDIRECT_URI` | With OIDC | Exact HTTPS callback URL ending in `/api/auth/oidc/callback` in production |
@@ -314,9 +315,52 @@ the server refuses partial overlays. See [the legal deployment boundary](docs/LE
 | `/api/auth` | Authentication (login, register) |
 | `/api/projects` | Project CRUD |
 | `/api/projects/:id/pm` | PM item operations |
+| `/api/projects/:id/pm/history/:itemId` | Paginated item activity summaries |
 | `/api/groups` | Group management |
 | `/api/projects/:id/shares` | Sharing |
 | `/api/projects/:id/github` | GitHub integration |
+
+`GET /api/projects/:projectId/pm/history/:itemId?limit=50` returns
+`{ history, order: "oldest_first", has_more, next_cursor }`. Each history row
+contains `index`, `timestamp`, `action`, `author` and an optional recorded `message`. Pages contain the latest
+matching entries in chronological stream order, ending with the latest operation
+(including close). The History panel displays each page newest first. Select
+**Load older history** to append earlier entries. A live update resets the panel
+and its cursor to the latest page.
+
+`limit` defaults to 50 and accepts integers from 1 to 100. Pass the opaque
+`next_cursor` back as `cursor` to read an older page; stop when `has_more` is
+false. Each response has at most `limit` patch-free rows, with timestamp strings
+bounded to 64 characters, operation/author strings to 128 characters each and
+messages to 512 characters. The route requests `history --full --diff --limit N`
+explicitly through the existing authorized project runner, then converts it to
+the browser row shape without patches or diff values. The same-snapshot diff
+supplies physical indices on older hosts while full entries preserve messages. Upstream
+`order` is honored; older hosts without it are treated as oldest first. No
+projection or display order depends on pm defaults.
+
+Supported pm versions do not expose a backwards cursor on the item-history
+query. Older API pages therefore re-read the necessary latest suffix with pm's
+limit before returning only the selected bounded page. Appends preserve the
+cursor boundary. Every older page proves the complete physical interval from
+the same suffix response, rather than trusting a separate head probe.
+Compaction, a changed boundary, or concurrent appends that push required rows
+out of that suffix return 409 and ask the caller to restart. An incomplete
+read never reports the end of history. This bounds the HTTP payload; it does
+not promise constant tracker read cost for deep pages. Existing project membership checks apply to
+every page, and these reads work in a plain tracker without git.
+
+History refusals include `error`, `code` and `remedy`: invalid limits/cursors
+return 400, missing history returns 404, a stale cursor returns 409, unsupported
+host output returns 502, and unavailable history returns 503. Existing missing
+project/access responses retain their authorization behavior. The panel shows
+read failures with recovery guidance rather than an empty-history success.
+
+Run `JWT_SECRET=synthetic-history-verification-secret node scripts/item-history-browser.ts`
+after `npm run build` to verify desktop/mobile detail, pagination and live-copy
+behavior. Set `CHROMIUM_PATH` when Chromium is installed separately. Screenshots
+are written to the ignored `artifacts/item-history/item-history-1440.png` and
+`artifacts/item-history/item-history-390.png` (or `HISTORY_SCREENSHOTS`).
 
 ---
 
@@ -696,3 +740,37 @@ reorientation. No second context store is created. See
 Resume admission, catch-up and native TOON/JSON commands work in plain trackers
 without a Git executable. The HTTP server requires its normal PostgreSQL
 configuration and current project authorization.
+
+## Permission impact previews
+
+Before changing an existing user or group share, project owners can inspect which caller-visible context packets, pending decisions and known core agent operations would lose access. The sharing screen previews removal before confirmation. `pm web permission-impact --url https://pm.example.test --project <uuid> --share <uuid> --permission view --json` returns bounded counts and identities; omit `--json` for TOON. Set `PM_WEB_TOKEN` from your authenticated session. Preview changes no roles, packets or hosted configuration; unknown capabilities stay disabled.
+
+Use the typed `PermissionImpactClient.preview` SDK, [example](examples/permission-impact.ts), and [contract and refusals](docs/permission-impact.md). These previews work without Git, including when no Git executable is installed. Each preview captures one complete inbox projection and one provider availability result before internal pagination; later previews read fresh state.
+
+### Inspect evidence freshness
+
+Expand **Evidence freshness** in an item to inspect cited fragments, exact
+source freshness, ambiguous anchors and criterion bindings from pm-evidence.
+The panel, typed `EvidenceInspectionClient.inspect`, and agent command share
+one bounded response; freshness does not prove completion.
+
+```sh
+pm web evidence --url https://pm.example.test --project PROJECT_UUID \
+  --item example-task --limit 5 --budget 2400 --json
+```
+
+Set `PM_WEB_TOKEN` through your secret mechanism. Omit `--json` for compact TOON.
+Follow `nextOffset` using `--offset`; receipts disclose omitted rows and fragment
+characters. Viewers can inspect only allowed project sources. Inspection never
+registers schemas or records observations, and mutation requests return typed
+`unsupported` remedies. [Contract and limitations](docs/evidence-inspection.md) ·
+[SDK example](examples/evidence-inspection.ts).
+
+#### Without git
+
+Evidence inspection works in a plain tracker without a Git executable. The host
+authorizes opened source objects before supplying bounded snapshots to
+pm-evidence's exact resolver. Safe public symlinks work; private, external and
+hardlink aliases refuse with remedies. No hosted configuration or source files
+are changed. Retained fragments and anchors also require a successful approved
+source read; unavailable sources stay redacted without erasing stored citations.

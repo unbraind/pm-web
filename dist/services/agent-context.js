@@ -17,16 +17,20 @@ export function validateAgentContext(input) {
 }
 /** Refuse hidden and absent scopes identically, including revoked snapshots. */
 export function hiddenContext() { throw new AgentContextError('not_found', 'Ask the publisher to consent to this viewer and share the current packet revision; verify project access.', 404); }
+/** Share the authoritative audience predicate across packet retrieval, discovery and impact previews. */
+export function contextAudience(parameter) {
+    return `(publisher=ANY(${parameter}::uuid[]) OR viewers && ${parameter}::uuid[])`;
+}
 /** List authorized metadata only; PostgreSQL applies the audience predicate before projection. */
 export async function listAgentContexts(project, principal, offset = 0) {
     if (!Number.isSafeInteger(offset) || offset < 0)
         throw new AgentContextError('invalid_input', 'Use the nonnegative nextOffset returned by the authorized list.', 400);
-    const rows = await pool.query('SELECT packet FROM pm_agent_context WHERE project_id=$1 AND (publisher=$2 OR viewers @> ARRAY[$2]::uuid[]) ORDER BY updated_at DESC,id LIMIT 21 OFFSET $3', [project, principal, offset]);
+    const rows = await pool.query(`SELECT packet FROM pm_agent_context WHERE project_id=$1 AND ${contextAudience('$2')} ORDER BY updated_at DESC,id LIMIT 21 OFFSET $3`, [project, [principal], offset]);
     return { returned: Math.min(20, rows.rows.length), nextOffset: rows.rows.length > 20 ? offset + 20 : null, packets: rows.rows.slice(0, 20).map(({ packet }) => ({ id: packet.id, revision: packet.revision, agent: packet.agent, updatedAt: packet.updatedAt })) };
 }
 /** Retrieve only a currently consented packet in the authenticated principal's project and audience. */
 export async function getAgentContext(project, principal, id, revision) {
-    const rows = await pool.query('SELECT packet FROM pm_agent_context WHERE project_id=$1 AND id=$2 AND (publisher=$3 OR viewers @> ARRAY[$3]::uuid[])', [project, id, principal]);
+    const rows = await pool.query(`SELECT packet FROM pm_agent_context WHERE project_id=$1 AND id=$2 AND ${contextAudience('$3')}`, [project, id, [principal]]);
     const packet = rows.rows[0]?.packet;
     if (!packet)
         hiddenContext();

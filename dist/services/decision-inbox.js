@@ -3,10 +3,13 @@ import { acquireLock, listAllComplete, isPmCliExpectedError, EXIT_CODE } from '@
 import { getPmClient } from './pm-runner.js';
 /** Stable refusals with a concrete next action for human and agent clients. */
 export class DecisionInboxError extends Error {
-    /** Build a transport-neutral refusal without exposing storage details. */
+    /** Stable refusal category shared by transport consumers. */
     code;
+    /** Safe next action for the caller, without provider exception details. */
     remedy;
+    /** HTTP status used by the route adapter. */
     status;
+    /** Build a transport-neutral refusal without exposing storage details. */
     constructor(code, remedy, status) {
         super(code.replaceAll('_', ' '));
         this.name = 'DecisionInboxError';
@@ -121,23 +124,28 @@ async function readPlan(pmRoot, id) {
         throw new DecisionInboxError('unavailable', 'Inspect the Plan with pm plan show and verify tracker availability before retrying.', 503);
     }
 }
-/** List pending requests using a certified complete source read and bounded output pagination. */
-export async function listDecisionInbox(pmRoot, options = {}) {
-    const limit = options.limit ?? 20, offset = options.offset ?? 0;
-    if (!Number.isInteger(limit) || limit < 1 || limit > 50 || !Number.isSafeInteger(offset) || offset < 0)
-        invalid();
+/** Capture pending requests once through the SDK; aggregates must consume this instead of refreshing offset pages. */
+export async function readDecisionInboxSnapshot(pmRoot) {
     const corpus = await listAllComplete({}, { pmRoot, noExtensions: true }).catch(() => {
         throw new DecisionInboxError('unavailable', 'Inspect tracker health and availability before refreshing the inbox.', 503);
     });
     const requests = corpus.items.filter(item => item.type === 'Plan').flatMap(item => project({ id: item.id, decisions: item.plan_decisions ?? [] }))
         .filter(request => request.status === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    return Object.freeze(requests.map(request => Object.freeze({ ...request, alternatives: Object.freeze([...request.alternatives]) })));
+}
+/** Render a bounded live page from one captured corpus without changing the aggregate source. */
+export async function listDecisionInbox(pmRoot, options = {}) {
+    const limit = options.limit ?? 20, offset = options.offset ?? 0;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50 || !Number.isSafeInteger(offset) || offset < 0)
+        invalid();
+    const requests = await readDecisionInboxSnapshot(pmRoot);
     const page = [];
     let bytes = 256;
     for (const request of requests.slice(offset, offset + limit)) {
         const size = Buffer.byteLength(JSON.stringify(request), 'utf8') + 1;
         if (bytes + size > 16384)
             break;
-        page.push(request);
+        page.push({ ...request, alternatives: [...request.alternatives] });
         bytes += size;
     }
     const end = offset + page.length;

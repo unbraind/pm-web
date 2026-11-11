@@ -1,0 +1,26 @@
+{
+  "repository": "unbraind/pm-web",
+  "sourceItems": 189,
+  "sourcePlans": 0,
+  "downgrade": {
+    "packets": 0,
+    "decisions": 0,
+    "operations": 31
+  },
+  "removal": {
+    "packets": 0,
+    "decisions": 0,
+    "operations": 84
+  },
+  "firstPageBytes": 1513,
+  "returned": 20,
+  "applied": false,
+  "unknownCapabilities": "disabled",
+  "elapsedMs": 3037,
+  "source": "ef224a95f41558fbefb63c18c51a60ccb18e1896",
+  "immutableSourceFiles": 409,
+  "sourceSha256": "a08f28d90e77338960ea4bfb59e5790ea0c9e51e28c88d58b92739c88120bc51",
+  "sourceUnchanged": true,
+  "nonGit": true,
+  "sourceFilesReadOnly": true
+}

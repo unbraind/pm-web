@@ -2531,3 +2531,15 @@ button.sidebar-item.active { background: var(--pm-stamp-wash); color: var(--pm-s
 .contract-table small { display: block; font-weight: normal; color: var(--app-text-secondary); max-width: 48ch; margin-top: 4px; }
 #content-contract-explorer pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
 #content-contract-explorer textarea { width: 100%; font-family: var(--pm-font-mono); }
+
+/* Evidence inspection pairs exact cited bytes with current source facts. */
+.evidence-panel summary { cursor: pointer; min-height: 44px; padding-block: 12px; }
+.evidence-panel summary:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }
+.evidence-panel .btn { min-height: 44px; margin: 8px 8px 8px 0; }
+.evidence-row { border-top: 1px solid var(--app-border); padding-block: 16px; overflow-wrap: anywhere; }
+.evidence-row h3, .evidence-row h4 { margin-block: 8px; }
+.evidence-row p, .evidence-row li { line-height: 1.5; }
+.evidence-row .mono { font-size: 12px; overflow-wrap: anywhere; }
+.evidence-fragments { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.evidence-fragments pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-left: 3px solid var(--app-accent); background: var(--app-bg-card2); font-family: var(--app-font-mono); font-size: 13px; }
+@media (max-width: 600px) { .evidence-fragments { grid-template-columns: minmax(0, 1fr); } }
