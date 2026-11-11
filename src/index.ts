@@ -313,7 +313,7 @@ function processAlive(pid: number): boolean {
 
 export default defineExtension({
   name: "pm-web",
-  version: "2026.11.10",
+  version: "2026.11.11",
 
   activate(api: ExtensionApi) {
     registerPermissionImpactCommand(api);
