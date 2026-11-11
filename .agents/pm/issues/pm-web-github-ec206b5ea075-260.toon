@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags[3]: "gh:unbraind/pm-web#260","gh:unbraind/pm-web#305","github_author:unbraind"
 created_at: "2026-10-25T16:20:56Z"
-updated_at: "2026-11-10T22:32:24.348Z"
+updated_at: "2026-11-11T17:42:49.078Z"
 author: pm-github
-comments[49]{created_at,author,text}:
+comments[51]{created_at,author,text}:
   "2026-11-06T16:46:19.458Z",codex-astra,"Main 1a8ce23 still binds item reads to owner/slug and caches PmClient by tracker path. Full issue and main history inspected. The pinned SDK 2026.11.2 PmClientOptions exports only pmRoot, cwd, author and noExtensions; no native-backend binding. Open upstream backend contracts remain tracked by pm-cli #1399, #1587 and #1588. Implement the authorized observational item-read boundary with live grant checks, scoped client identity, certified complete reads and safe refusals. Preserve existing filesystem and no-git behavior; split native provider, mutations and durable events into acceptance-driven Features. Refs #260; no native database support claim."
   "2026-11-06T16:50:45.530Z",codex-astra,"Failing-first proof on main 1a8ce23: authorized-project-reads.test.ts fails all six route cases (7 tests including parent). A real SDK marker extension activates on viewer get/search/board/export/calendar reads; historical reads lack no-store. Real PostgreSQL grants and a no-git SDK tracker are used. The production slice replaces these six routes with a narrow observational SDK reader, cache identity scoped to project/principal/effective grant/storage binding, and live checks before queued work and immediately before releasing data."
   "2026-11-06T16:57:23.143Z",codex-astra,"Follow-up Features with explicit acceptance criteria: pm-web-native-provider (native binding, remaining reads and graph ProjectionSource), pm-web-native-mutations (SDK writes, settings, decisions and durable idempotency), pm-web-native-events (native history, durable scoped events and resume cursors). The current slice covers get, at, search, board, export and calendar. Existing graph, paginated list, history panels and resume contracts remain separate. Documentation states the native-provider gap and authorization linearization boundary without claiming a cross-store snapshot."
@@ -58,7 +58,9 @@ comments[49]{created_at,author,text}:
   "2026-11-10T21:57:16.637Z",codex-smallfix2-1110,"Broader PM-linked importer run completed 27/29 passing, with two npm Presets install timeouts in catalog-install-e2e at the unchanged 180000 ms command bound. Tracked the out-of-scope gate failures on existing pm-web-qdhx; new project-ID regression passed. Full suite is running under timeout 2700 with test concurrency 2."
   "2026-11-10T22:02:42.632Z",codex-smallfix2-1110,"Gate correction: trailing npm test arguments were placed after the test-file list and did not enforce node worker concurrency. Stopped that full-suite attempt after observing three workers; it is not full-gate certification. The package test script now places --test-concurrency=2 before the file list, and the authoritative full suite was restarted as timeout 2700 npm test. No runtime route behaviour changed in this correction."
   "2026-11-10T22:31:00.173Z",codex-smallfix2-1110,"Authoritative full gate: timeout 2700 npm test, with worker limit before the test file list, finished within the timeout: 963 tests, 961 passed, one failed, one cancelled, zero skips. Existing source catalog-install case hit its 300000 ms deadline (pm-web-qdhx); legacy CLI history-version installation refused inherited allow-scripts configuration with EALLOWSCRIPTS (pm-web-se1p). New malformed-ID regression passed. Typecheck, test typecheck, lint and changelog check passed. Runtime route source and tracked built JS/maps match; inherited non-bot author audit prevents the requested push without an exception."
-files[41]{path,scope}:
+  "2026-11-11T17:34:04.249Z",codex-smallfix3-1111,"Read 18 threads with all comments; one unresolved finding. Capture one physical workspace/tracker pin at provisioning admission, key shared pending work by that tracker and pass the same pin to inventory, installation and activation. Add a real symlink-swap regression with an inventory barrier and real temporary CLI trackers; no hosted data is accessed."
+  "2026-11-11T17:42:48.023Z",codex-smallfix3-1111,"Verification complete: real symlink-swap test passes 1/1 through pinned PM linked execution; all 11 direct importing test files pass 73/73, zero skipped/cancelled. Lint, server/frontend typecheck and build:test pass. Disposable behavioral revert re-resolving tracker storage for each provisioning step fails with ERR_ASSERTION: tracker A is not active despite shared success (exit 1); restoring one captured pin passes. The pending key, inventory, install and activation now share the same physical tracker pin. Only public package code and synthetic temporary data were used; no thread replies or resolutions made."
+files[42]{path,scope}:
   dist/routes/extensions.js,project
   dist/routes/extensions.js.map,project
   dist/routes/pm.js,project
@@ -80,6 +82,7 @@ files[41]{path,scope}:
   test/evidence-inspection-routes.test.ts,project
   test/extensions-routes.test.ts,project
   test/fixture-resources.test.ts,project
+  test/graph-provision-pin.test.ts,project
   test/graph-provision.test.ts,project
   test/helpers/authorized-read-worker.ts,project
   test/helpers/fixture-resources.ts,project
@@ -100,7 +103,7 @@ files[41]{path,scope}:
   test/published-document-links.test.ts,project
   test/resume-packets.test.ts,project
   test/workspace-alias.test.ts,project
-tests[10]:
+tests[12]:
   - command: node scripts/with-test-db.ts node --test --test-concurrency=1 test/authorized-project-reads.test.ts test/board.test.ts test/pm-collaboration.test.ts test/pm-command-access.test.ts test/pm-schema-history-routes.test.ts test/item-history-at.test.ts test/pm-runner.test.ts
     scope: project
     provenance:
@@ -171,6 +174,20 @@ tests[10]:
     provenance:
       author: codex-smallfix2-1110
       created_at: "2026-11-10T22:31:02.102Z"
+      source_kind: local_mutation
+      source_ref: native-backend-authorized-reads
+  - command: node --test --test-concurrency=2 test/graph-provision-pin.test.ts
+    scope: project
+    provenance:
+      author: codex-smallfix3-1111
+      created_at: "2026-11-11T17:36:44.715Z"
+      source_kind: local_mutation
+      source_ref: native-backend-authorized-reads
+  - command: node scripts/with-test-db.ts node --test --test-concurrency=2 test/item-history-projection.test.ts test/packaging.test.ts test/mutation-replay.test.ts test/graph-provision-pin.test.ts test/resume-packets.test.ts test/maintenance-providers.test.ts test/realtime-delivery.test.ts test/pm-runner.test.ts test/sdk-adoption.test.ts test/authorized-project-reads.test.ts test/item-history-at.test.ts
+    scope: project
+    provenance:
+      author: codex-smallfix3-1111
+      created_at: "2026-11-11T17:42:47.224Z"
       source_kind: local_mutation
       source_ref: native-backend-authorized-reads
 docs[2]{path,scope}:

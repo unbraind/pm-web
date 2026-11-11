@@ -549,8 +549,13 @@ export interface ExtensionStatesResult {
  * the extensions routes' catalog join.
  */
 export async function readProjectExtensionStates(projectDir: string): Promise<ExtensionStatesResult> {
-  const result = await runSerialized(projectDir, storage =>
-    runPinnedProcess(storage, ["extension", "--json"], { timeoutMs: 15_000 }),
+  return readPinnedProjectExtensionStates(pinProjectStorage(projectDir));
+}
+
+/** Read inventory against the same admitted storage used by the provisioning transaction. */
+async function readPinnedProjectExtensionStates(storage: PinnedProjectStorage): Promise<ExtensionStatesResult> {
+  const result = await runOnPinnedStorage(storage, pin =>
+    runPinnedProcess(pin, ["extension", "--json"], { timeoutMs: 15_000 }),
   );
   const states = new Map<string, ExtensionState>();
   if (!result.ok || !result.stdout) {
@@ -586,11 +591,18 @@ export async function readProjectExtensionStates(projectDir: string): Promise<Ex
 export const INSTALL_COMMAND_TIMEOUT_MS = 180_000;
 
 async function runExtensionCommand(
-  projectDir: string,
+  storage: PinnedProjectStorage,
   args: string[],
   timeoutMs?: number,
 ): Promise<PmRunResult> {
-  return runSerialized(projectDir, storage => runPinnedProcess(storage, args, { timeoutMs }));
+  return runOnPinnedStorage(storage, pin => runPinnedProcess(pin, args, { timeoutMs }));
+}
+
+let graphProvisionInventoryHook: (() => Promise<void>) | undefined;
+
+/** @internal Pause after real inventory so regressions can retarget a tracker before installation. */
+export function setGraphProvisionInventoryHookForTest(hook: (() => Promise<void>) | undefined): void {
+  graphProvisionInventoryHook = hook;
 }
 
 const pendingGraphProvisions = new Map<string, Promise<EnsureGraphExtensionResult>>();
@@ -612,11 +624,11 @@ const pendingGraphProvisions = new Map<string, Promise<EnsureGraphExtensionResul
  * graph behaviour is unchanged.
  */
 export async function ensureGraphExtension(userId: string, slug: string): Promise<EnsureGraphExtensionResult> {
-  const dir = physicalWorkspacePath(getProjectDir(userId, slug));
-  const identity = physicalWorkspaceIdentity(dir);
+  const storage = pinProjectStorage(getProjectDir(userId, slug));
+  const identity = storage.tracker;
   const pending = pendingGraphProvisions.get(identity);
   if (pending) return pending;
-  const provision = provisionGraphExtension(dir);
+  const provision = provisionGraphExtension(storage);
   pendingGraphProvisions.set(identity, provision);
   try {
     return await provision;
@@ -626,7 +638,7 @@ export async function ensureGraphExtension(userId: string, slug: string): Promis
 }
 
 /** Perform one explicit provisioning transaction; concurrent callers share its result. */
-async function provisionGraphExtension(dir: string): Promise<EnsureGraphExtensionResult> {
+async function provisionGraphExtension(storage: PinnedProjectStorage): Promise<EnsureGraphExtensionResult> {
   // Resolve the verified npm install spec from the catalog — never a raw path.
   const npmSpec = resolveNpmSpec("pm-graph");
   if (!npmSpec) {
@@ -638,17 +650,18 @@ async function provisionGraphExtension(dir: string): Promise<EnsureGraphExtensio
     };
   }
 
-  const inventory = await readProjectExtensionStates(dir);
+  const inventory = await readPinnedProjectExtensionStates(storage);
   if (!inventory.ok) {
     return { ok: false, installed: false, active: false, error: inventory.error };
   }
+  await graphProvisionInventoryHook?.();
   const graphState = inventory.states.get("pm-graph");
   const installed = Boolean(graphState);
   const active = Boolean(graphState?.active && graphState?.enabled);
 
   if (!installed) {
     const install = await runExtensionCommand(
-      dir,
+      storage,
       ["install", npmSpec, "--project"],
       INSTALL_COMMAND_TIMEOUT_MS,
     );
@@ -663,7 +676,7 @@ async function provisionGraphExtension(dir: string): Promise<EnsureGraphExtensio
   }
 
   if (!active) {
-    const activate = await runExtensionCommand(dir, ["extension", "activate", "pm-graph", "--project"]);
+    const activate = await runExtensionCommand(storage, ["extension", "activate", "pm-graph", "--project"]);
     if (!activate.ok) {
       return {
         ok: false,
