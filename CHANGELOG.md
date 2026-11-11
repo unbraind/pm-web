@@ -39,8 +39,8 @@
 
 ### Changed
 
-- Use the pm SDK for workspace settings and initialization checks ([pm-web-ireq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-ireq.toon))
 - Make the pm-github 2026.10.19 workflow ref bump pass: the Dependabot pin update left the pm-github-version input behind ([pm-web-71et](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-71et.toon))
+- Use the pm SDK for workspace settings and initialization checks ([pm-web-ireq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-ireq.toon))
 
 ### Fixed
 
@@ -269,8 +269,8 @@
 
 ### Fixed
 
-- A failed provenance publish silently falls back to an unattested one ([pm-web-f8hk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-f8hk.toon))
 - Harden workflow publish scanning against YAML and reassignment bypasses ([pm-web-yafj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-yafj.toon))
+- A failed provenance publish silently falls back to an unattested one ([pm-web-f8hk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-f8hk.toon))
 
 ### Closed
 
@@ -289,8 +289,8 @@
 
 ### Closed
 
-- Closed: Authorize reachable-history privacy remediation before release ([pm-web-github-ec206b5ea075-96](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-96.toon))
 - Closed: The identity gate deadlocks the one remediation its own failure message prescribes ([pm-web-1ggj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-1ggj.toon))
+- Closed: Authorize reachable-history privacy remediation before release ([pm-web-github-ec206b5ea075-96](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-96.toon))
 
 ## 2026.8.17 - 2026-08-17
 
@@ -541,9 +541,9 @@
 ### Added
 
 - Do NOT add the 'services' extension capability to pm-web ([pm-web-vyfp](https://github.com/unbraind/pm-web/blob/main/.agents/pm/decisions/pm-web-vyfp.toon))
-- Deepen pm-web extension command surface (status/stop/doctor) + services-capability evaluation ([pm-web-7pxa](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7pxa.toon))
 - Add /healthz version + unit tests + README docs ([pm-web-edyj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-edyj.toon))
 - Introduce CommandError (numeric exitCode) for new handlers ([pm-web-9ycn](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-9ycn.toon))
+- Deepen pm-web extension command surface (status/stop/doctor) + services-capability evaluation ([pm-web-7pxa](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-7pxa.toon))
 
 ### Other
 
