@@ -393,7 +393,11 @@ export class PmWebCompleteListReceiptError extends Error {
  * the extensions routes' catalog join.
  */
 export async function readProjectExtensionStates(projectDir) {
-    const result = await runSerialized(projectDir, storage => runPinnedProcess(storage, ["extension", "--json"], { timeoutMs: 15_000 }));
+    return readPinnedProjectExtensionStates(pinProjectStorage(projectDir));
+}
+/** Read inventory against the same admitted storage used by the provisioning transaction. */
+async function readPinnedProjectExtensionStates(storage) {
+    const result = await runOnPinnedStorage(storage, pin => runPinnedProcess(pin, ["extension", "--json"], { timeoutMs: 15_000 }));
     const states = new Map();
     if (!result.ok || !result.stdout) {
         return { ok: false, states, error: result.stderr || "pm extension --json failed" };
@@ -427,8 +431,13 @@ export async function readProjectExtensionStates(projectDir) {
  * mid-download. A hung install still terminates, just later.
  */
 export const INSTALL_COMMAND_TIMEOUT_MS = 180_000;
-async function runExtensionCommand(projectDir, args, timeoutMs) {
-    return runSerialized(projectDir, storage => runPinnedProcess(storage, args, { timeoutMs }));
+async function runExtensionCommand(storage, args, timeoutMs) {
+    return runOnPinnedStorage(storage, pin => runPinnedProcess(pin, args, { timeoutMs }));
+}
+let graphProvisionInventoryHook;
+/** @internal Pause after real inventory so regressions can retarget a tracker before installation. */
+export function setGraphProvisionInventoryHookForTest(hook) {
+    graphProvisionInventoryHook = hook;
 }
 const pendingGraphProvisions = new Map();
 /**
@@ -448,12 +457,12 @@ const pendingGraphProvisions = new Map();
  * graph behaviour is unchanged.
  */
 export async function ensureGraphExtension(userId, slug) {
-    const dir = physicalWorkspacePath(getProjectDir(userId, slug));
-    const identity = physicalWorkspaceIdentity(dir);
+    const storage = pinProjectStorage(getProjectDir(userId, slug));
+    const identity = storage.tracker;
     const pending = pendingGraphProvisions.get(identity);
     if (pending)
         return pending;
-    const provision = provisionGraphExtension(dir);
+    const provision = provisionGraphExtension(storage);
     pendingGraphProvisions.set(identity, provision);
     try {
         return await provision;
@@ -463,7 +472,7 @@ export async function ensureGraphExtension(userId, slug) {
     }
 }
 /** Perform one explicit provisioning transaction; concurrent callers share its result. */
-async function provisionGraphExtension(dir) {
+async function provisionGraphExtension(storage) {
     // Resolve the verified npm install spec from the catalog — never a raw path.
     const npmSpec = resolveNpmSpec("pm-graph");
     if (!npmSpec) {
@@ -474,15 +483,16 @@ async function provisionGraphExtension(dir) {
             error: "pm-graph is not present in the package catalog.",
         };
     }
-    const inventory = await readProjectExtensionStates(dir);
+    const inventory = await readPinnedProjectExtensionStates(storage);
     if (!inventory.ok) {
         return { ok: false, installed: false, active: false, error: inventory.error };
     }
+    await graphProvisionInventoryHook?.();
     const graphState = inventory.states.get("pm-graph");
     const installed = Boolean(graphState);
     const active = Boolean(graphState?.active && graphState?.enabled);
     if (!installed) {
-        const install = await runExtensionCommand(dir, ["install", npmSpec, "--project"], INSTALL_COMMAND_TIMEOUT_MS);
+        const install = await runExtensionCommand(storage, ["install", npmSpec, "--project"], INSTALL_COMMAND_TIMEOUT_MS);
         if (!install.ok) {
             return {
                 ok: false,
@@ -493,7 +503,7 @@ async function provisionGraphExtension(dir) {
         }
     }
     if (!active) {
-        const activate = await runExtensionCommand(dir, ["extension", "activate", "pm-graph", "--project"]);
+        const activate = await runExtensionCommand(storage, ["extension", "activate", "pm-graph", "--project"]);
         if (!activate.ok) {
             return {
                 ok: false,

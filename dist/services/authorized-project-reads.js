@@ -68,7 +68,8 @@ function directoryReader(storage, key) {
  * rebound, or retargeted request never starts a storage read. The reader uses that same pin, so a symlink
  * change cannot move it onto the new target while it holds the old queue. The final grant and storage
  * comparison is the read's authorization linearization point; callers must send the result without further
- * asynchronous work. This is not a cross-store snapshot. The optional observer acknowledges initial
+ * asynchronous work. Reader facades expire in finally when the callback settles, including failures.
+ * This is not a cross-store snapshot. The optional observer acknowledges initial
  * authorization for deterministic scheduling; it replaces no SDK or grant operation.
  */
 export async function readAuthorizedProject(principal, projectId, read, onAuthorized = () => { }) {
@@ -94,7 +95,30 @@ export async function readAuthorizedProject(principal, projectId, read, onAuthor
         catch (error) {
             throw new ProjectReadUnavailableError(error);
         }
-        const result = await read(directoryReader(selected.storage, key), access);
+        const cached = directoryReader(selected.storage, key);
+        let active = true;
+        /** Refuse escaped or detached capabilities after their owning callback settles. */
+        const invoke = async (operation) => {
+            if (!active)
+                throw new ProjectReadError(409);
+            const result = await operation();
+            if (!active)
+                throw new ProjectReadError(409);
+            return result;
+        };
+        const scoped = Object.freeze({
+            get: (id) => invoke(() => cached.get(id)),
+            complete: (includeBody = false) => invoke(() => cached.complete(includeBody)),
+            at: (id, ref) => invoke(() => cached.at(id, ref)),
+            contracts: () => invoke(() => cached.contracts()),
+        });
+        let result;
+        try {
+            result = await read(scoped, access);
+        }
+        finally {
+            active = false;
+        }
         await authorize();
         return result;
     });

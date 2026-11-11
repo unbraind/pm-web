@@ -25,7 +25,8 @@ export declare class ProjectReadUnavailableError extends Error {
  * rebound, or retargeted request never starts a storage read. The reader uses that same pin, so a symlink
  * change cannot move it onto the new target while it holds the old queue. The final grant and storage
  * comparison is the read's authorization linearization point; callers must send the result without further
- * asynchronous work. This is not a cross-store snapshot. The optional observer acknowledges initial
+ * asynchronous work. Reader facades expire in finally when the callback settles, including failures.
+ * This is not a cross-store snapshot. The optional observer acknowledges initial
  * authorization for deterministic scheduling; it replaces no SDK or grant operation.
  */
 export declare function readAuthorizedProject<T>(principal: string, projectId: string, read: (reader: ProjectItemReader, access: ProjectAccess) => Promise<T>, onAuthorized?: () => void): Promise<T>;

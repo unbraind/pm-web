@@ -247,6 +247,8 @@ export declare function readProjectExtensionStates(projectDir: string): Promise<
  * mid-download. A hung install still terminates, just later.
  */
 export declare const INSTALL_COMMAND_TIMEOUT_MS = 180000;
+/** @internal Pause after real inventory so regressions can retarget a tracker before installation. */
+export declare function setGraphProvisionInventoryHookForTest(hook: (() => Promise<void>) | undefined): void;
 /**
  * Ensure the pm-graph package is installed and active for a project.
  *

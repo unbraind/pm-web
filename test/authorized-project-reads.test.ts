@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PmClient } from '@unbrained/pm-cli/sdk';
 import { pool } from '../src/db.ts';
-import { ProjectReadError, readAuthorizedProject } from '../src/services/authorized-project-reads.ts';
+import { ProjectReadError, readAuthorizedProject, type ProjectItemReader } from '../src/services/authorized-project-reads.ts';
 import { pinProjectStorage, readCompletePmItems, runGetItemAt, runOnPinnedStorage, runPm, runSerialized } from '../src/services/pm-runner.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 import { ProjectFixtureResources, authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
@@ -105,7 +105,7 @@ test('read bindings isolate principals and grants while observing independent SD
     return reader;
   });
   const first = await capture(viewer.id);
-  assert.equal(await capture(viewer.id.toUpperCase()), first, 'normalize both cache and grant identities');
+  assert.notEqual(await capture(viewer.id.toUpperCase()), first, 'each callback owns a fresh scoped facade for the normalized principal');
   await seedUserShare(project.id, outsider.id, 'view');
   assert.notEqual(await capture(outsider.id), first, 'equal permissions do not make principals interchangeable');
   assert.notEqual(await capture(owner.id), first, 'different principals never share a capability handle');
@@ -123,6 +123,32 @@ test('read bindings isolate principals and grants while observing independent SD
   let readCalled = false;
   await assert.rejects(readAuthorizedProject(viewer.id, project.id, async () => { readCalled = true; }), error => error instanceof ProjectReadError && error.status === 404);
   assert.equal(readCalled, false, 'cached bindings must never bypass revoked access');
+});
+
+/** Escaped readers, including extracted methods, expire on success, failure and final admission refusal. */
+test('reader capabilities expire when their owning callback settles', async t => {
+  const { viewer, project, item } = await fixture(t);
+  for (const outcome of ['success', 'failure', 'revoked']) {
+    await seedUserShare(project.id, viewer.id, 'view');
+    let captured!: ProjectItemReader;
+    const pending = readAuthorizedProject(viewer.id, project.id, async reader => {
+      captured = reader;
+      assert.equal((await reader.get(item.id)).item.id, item.id);
+      await reader.complete();
+      await reader.at(item.id, '1');
+      await reader.contracts();
+      if (outcome === 'failure') throw new Error('synthetic callback failure');
+      if (outcome === 'revoked') await change('revoke', project.id, viewer.id);
+      return reader;
+    });
+    if (outcome === 'success') assert.equal(await pending, captured);
+    else await assert.rejects(pending);
+    await change('revoke', project.id, viewer.id);
+    const { get, complete, at, contracts } = captured;
+    for (const operation of [() => get(item.id), () => complete(true), () => at(item.id, '1'), () => contracts()]) {
+      await assert.rejects(operation(), error => error instanceof ProjectReadError && error.status === 409);
+    }
+  }
 });
 
 /** A separate process changes the grant or storage mapping after the SDK read and before admission. */

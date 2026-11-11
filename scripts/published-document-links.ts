@@ -119,20 +119,43 @@ export function missingPackedDocumentLinks(files: readonly string[], readDocumen
   return missing;
 }
 
+/** Resolve one blob URL's decoded revision/path boundary using locally resolvable revisions. */
+function githubBlobTarget(destination: string, resolves: (revision: string) => boolean): { revision: string; file: string } | 'invalid' | undefined {
+  const prefix = 'https://github.com/unbraind/pm-web/blob/';
+  const suffix = destinationPath(destination.slice(prefix.length));
+  if (suffix === undefined || suffix.includes('\\') || suffix.includes('\0')) return 'invalid';
+  const segments = suffix.split('/');
+  for (let boundary = segments.length - 1; boundary > 0; boundary--) {
+    const revisionParts = segments.slice(0, boundary);
+    if (revisionParts.some(part => !part || part === '.' || part === '..')) continue;
+    const revision = revisionParts.join('/');
+    if (!resolves(revision)) continue;
+    const rawFile = segments.slice(boundary).join('/');
+    const file = posix.normalize(rawFile);
+    if (!rawFile || posix.isAbsolute(rawFile) || file === '..' || file.startsWith('../')) return 'invalid';
+    return { revision, file };
+  }
+  return undefined;
+}
+
 /**
- * Classify repository blob links without treating an unresolvable revision as a missing file.
+ * Classify blob URLs after resolving the revision, decoding and containing their file paths.
  *
  * @param document - Markdown that may contain blob URLs.
- * @param lookup - Checkout-specific object check. `unresolved` means the revision cannot be examined here.
- * @returns Missing links and links whose revision this checkout cannot resolve.
+ * @param lookup - Checkout-specific object check; an empty path checks the revision's root tree.
+ * @returns Missing or invalid links and links whose revision cannot be resolved locally.
  */
 export function missingRevisionLinks(document: string, lookup: (revision: string, file: string) => RevisionPresence): { missing: string[]; unresolved: string[] } {
   const missing: string[] = [];
   const unresolved: string[] = [];
-  for (const match of document.matchAll(/https:\/\/github\.com\/unbraind\/pm-web\/blob\/([^/]+)\/([^\s)#>]+)/g)) {
-    const presence = lookup(match[1]!, match[2]!);
-    if (presence === 'absent') missing.push(match[0]);
-    else if (presence === 'unresolved') unresolved.push(match[0]);
+  for (const destination of markdownDestinations(document)) {
+    if (!destination.startsWith('https://github.com/unbraind/pm-web/blob/')) continue;
+    const target = githubBlobTarget(destination, revision => lookup(revision, '') !== 'unresolved');
+    if (target === 'invalid') { missing.push(destination); continue; }
+    if (!target) { unresolved.push(destination); continue; }
+    const presence = lookup(target.revision, target.file);
+    if (presence === 'absent') missing.push(destination);
+    else if (presence === 'unresolved') unresolved.push(destination);
   }
   return { missing, unresolved };
 }

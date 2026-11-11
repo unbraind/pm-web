@@ -153,7 +153,9 @@ test('real shallow checkout distinguishes unavailable revisions from missing fil
   };
   git(['init', '--initial-branch=main']);
   await writeFile(join(source, 'README.md'), 'synthetic public document');
-  git(['add', 'README.md']);
+  await mkdir(join(source, 'docs'));
+  await writeFile(join(source, 'docs', 'a md.md'), 'encoded path fixture');
+  git(['add', 'README.md', 'docs/a md.md']);
   git(['commit', '-m', 'first synthetic revision']);
   const old = git(['rev-parse', 'HEAD']);
   await writeFile(join(source, 'README.md'), 'second synthetic public document');
@@ -166,4 +168,31 @@ test('real shallow checkout distinguishes unavailable revisions from missing fil
   assert.equal(gitRevisionLookup('main', 'missing.md', cwd), 'absent');
   assert.equal(gitRevisionLookup(old, 'README.md', cwd), 'unresolved');
   assert.equal(gitRevisionLookup('missing-ref', 'README.md', cwd), 'unresolved');
+  for (const revision of ['release/2026.11', 'feature/missing']) git(['branch', revision], shallow);
+  for (const [revision, encoded, decoded] of [
+    ['release/2026.11', 'README.md', 'README.md'],
+    ['feature/missing', 'README.md', 'README.md'],
+    ['main', 'docs/a%20md.md', 'docs/a md.md'],
+    ['release%2F2026.11', 'docs%2Fa%20md.md', 'docs/a md.md'],
+    ['main', 'docs/../README.md', 'README.md'],
+  ]) {
+    const calls: [string, string][] = [];
+    const url = `https://github.com/unbraind/pm-web/blob/${revision}/${encoded}`;
+    const report = missingRevisionLinks(`[fixture](${url})`, (ref, file) => {
+      calls.push([ref, file]);
+      return gitRevisionLookup(ref, file, cwd);
+    });
+    assert.deepEqual(report, { missing: [], unresolved: [] }, url);
+    assert.deepEqual(calls.filter(([, file]) => file !== ''), [[decodeURIComponent(revision), decoded]], url);
+  }
+  const missingUrl = 'https://github.com/unbraind/pm-web/blob/release/2026.11/missing.md';
+  assert.deepEqual(missingRevisionLinks(missingUrl, (ref, file) => gitRevisionLookup(ref, file, cwd)), { missing: [missingUrl], unresolved: [] });
+  for (const file of ['../../outside.md', '%2E%2E%2Foutside.md', '%2Foutside.md', 'docs/%ZZ.md', 'docs/%E0%A4.md', 'docs/%00.md', 'docs%5Coutside.md']) {
+    const url = `https://github.com/unbraind/pm-web/blob/main/${file}`;
+    const report = missingRevisionLinks(url, (ref, target) => {
+      assert.equal(target, '', 'unsafe paths must be refused before file lookup');
+      return gitRevisionLookup(ref, target, cwd);
+    });
+    assert.deepEqual(report, { missing: [url], unresolved: [] }, url);
+  }
 });
