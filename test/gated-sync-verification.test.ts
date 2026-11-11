@@ -80,3 +80,44 @@ for (const scenario of ["plain", "worktree", "bare", "corrupt", "empty-ancestor"
     }
   });
 }
+
+/** Execute the documented receipt validator itself, including every zero-count assertion. */
+test("documented plan asserts every gate count and success receipt", () => {
+  const document = readFileSync(new URL("../docs/gated-sync-288-verification.md", import.meta.url), "utf8");
+  const functions = document.match(/^function assertZeroGateCounts[\s\S]*?(?=^try \{)/m);
+  assert.ok(functions);
+  const control = `
+const clean = [{ id: 'owner', tags: ['gh:unbraind/pm-web#288'] }];
+const value = { plan: [{ issue: 288, item: 'owner' }], gate: {
+  completeness: { fetched: 1, planned: 1, skipped: 0 },
+  idempotency: { provenance_indexed: 19, matched_by_provenance: 1, new_entries: 0 }
+} };
+assertPlan(value, clean);
+assert.throws(() => assertPlan(value, [...clean, { id: 'duplicate', tags: clean[0].tags }]), /duplicate_provenance/);
+assert.throws(() => assertPlan(value, [{ id: 'owner', tags: [] }]), /missing_provenance/);
+assert.throws(() => assertPlan({ ...value, plan: [...value.plan, ...value.plan] }, clean), /conflicting_targets/);
+for (const group of ['completeness', 'idempotency']) for (const key of Object.keys(value.gate[group])) {
+  const broken = structuredClone(value); broken.gate[group][key]++;
+  assert.throws(() => assertPlan(broken, clean));
+}
+`;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", transformSync(`import assert from 'node:assert/strict';\n${functions[0]}\n${control}`, { loader: "ts" }).code], { encoding: "utf8", timeout: 60000 });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("documented boundary command returns from the historical to the reviewed checkout", async () => {
+  const document = readFileSync(new URL("../docs/gated-sync-288-verification.md", import.meta.url), "utf8");
+  assert.match(document, /reviewed_checkout=\$\(pwd -P\)[\s\S]*git worktree add/);
+  const command = document.match(/```sh\n([^`]*node --test --test-concurrency=2 test\/gated-sync-verification\.test\.ts\n)```/);
+  assert.ok(command);
+  const scratch = await mkdtemp(path.join(tmpdir(), "pm-web-reviewed-command-"));
+  try {
+    const reviewed = path.join(scratch, "reviewed"); const historical = path.join(scratch, "historical");
+    await mkdir(path.join(reviewed, "test"), { recursive: true }); await mkdir(historical);
+    await writeFile(path.join(reviewed, "test/gated-sync-verification.test.ts"), "import { test } from 'node:test'; import assert from 'node:assert/strict'; test('reviewed checkout', () => assert.equal(process.cwd(), process.env.reviewed_checkout));\n");
+    const result = spawnSync("bash", ["-eu", "-c", command[1]], { cwd: historical, env: { ...process.env, NODE_TEST_CONTEXT: undefined, reviewed_checkout: reviewed }, encoding: "utf8", timeout: 60000 });
+    assert.ifError(result.error); assert.equal(result.status, 0, result.stderr + result.stdout);
+    assert.match(result.stdout, /reviewed checkout/);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});

@@ -38,6 +38,7 @@ The fixture enforces these checks before creating scratch state.
 
 ```sh
 set -eu
+reviewed_checkout=$(pwd -P)
 git worktree add --detach ../pm-web-issue-288-baseline 1a8ce23d8cb17a867ae0205bffc05f4e10d49f39
 cd ../pm-web-issue-288-baseline
 unset NPM_MEDIA_SERVER NPM_TOKEN NODE_AUTH_TOKEN
@@ -188,11 +189,34 @@ async function assertPreservation(root: string): Promise<void> {
   }
 }
 
-/** Reject empty provider results and require the historical planner's completeness/idempotency receipts. */
-function assertPlan(value: unknown): void {
+/** Assert all failure counts explicitly; the historical importer omits zero counts from its success receipt. */
+function assertZeroGateCounts(plan: { issue: number; item?: string }[], rows: { id: string; tags?: string[] }[]): void {
+  const owners = new Map<string, string>();
+  const duplicates = new Set<string>();
+  for (const row of rows) for (const tag of row.tags ?? []) {
+    const match = /^gh:([^/]+\/[^#]+)#([0-9]+)$/i.exec(tag);
+    if (!match) continue;
+    const key = `${match[1].toLowerCase()}#${Number(match[2])}`;
+    const prior = owners.get(key);
+    if (prior !== undefined && prior !== row.id) duplicates.add(key);
+    else owners.set(key, row.id);
+  }
+  const targets = plan.flatMap(entry => entry.item === undefined ? [] : [entry.item]);
+  const counts = {
+    duplicate_provenance: duplicates.size,
+    missing_provenance: plan.filter(entry => owners.get(`unbraind/pm-web#${entry.issue}`) !== entry.item || entry.item === undefined).length,
+    conflicting_targets: targets.length - new Set(targets).size,
+  };
+  assert.deepEqual(counts, { duplicate_provenance: 0, missing_provenance: 0, conflicting_targets: 0 });
+}
+
+/** Reject empty provider results and require every historical planner receipt and gate count. */
+function assertPlan(value: unknown, rows: { id: string; tags?: string[] }[]): void {
   assert.ok(value && typeof value === 'object');
-  const plan = value as { plan?: { issue: number }[]; gate?: { completeness: { fetched: number; planned: number; skipped: number }; idempotency: { provenance_indexed: number; matched_by_provenance: number; new_entries: number } } };
-  assert.deepEqual(plan.plan?.map(entry => entry.issue), [288]);
+  const plan = value as { plan?: { issue: number; item?: string }[]; gate?: { completeness: { fetched: number; planned: number; skipped: number }; idempotency: { provenance_indexed: number; matched_by_provenance: number; new_entries: number } } };
+  assert.ok(plan.plan);
+  assertZeroGateCounts(plan.plan, rows);
+  assert.deepEqual(plan.plan.map(entry => entry.issue), [288]);
   assert.deepEqual(plan.gate?.completeness, { fetched: 1, planned: 1, skipped: 0 });
   assert.deepEqual(plan.gate?.idempotency, { provenance_indexed: 19, matched_by_provenance: 1, new_entries: 0 });
 }
@@ -220,8 +244,8 @@ try {
   const cliBefore = await snapshot(pmRoot);
   const plan1: unknown = JSON.parse(run([...importArgs, '--dry-run']));
   const plan2: unknown = JSON.parse(run([...importArgs, '--dry-run']));
-  assertPlan(plan1);
-  assertPlan(plan2);
+  assertPlan(plan1, rows);
+  assertPlan(plan2, rows);
   assert.deepEqual(plan2, plan1);
   assert.equal(await snapshot(pmRoot), cliBefore);
   console.log('PASS exact-version real GitHub nonempty read-only plans and gate receipts; no item/history writes');
@@ -332,8 +356,15 @@ package in `finally`, then rerun all four scenarios successfully. This proves
 the regression observes the import boundary and write ordering, rather than
 only the standalone verifier.
 
-The no-Git boundary regression is reproducible with
-`node --test --test-concurrency=2 test/gated-sync-verification.test.ts`.
+Return to the reviewed checkout captured before entering the historical worktree.
+The no-Git boundary regression uses that checkout's pinned SDK (`2026.11.6`),
+separately from the historical fixture's `2026.11.2`:
+
+```sh
+cd "$reviewed_checkout"
+node --test --test-concurrency=2 test/gated-sync-verification.test.ts
+```
+
 It executes the documented setup with the real SDK and real Git processes:
 an outside-Git directory initializes successfully, while nested worktrees,
 bare repositories and corrupt repository metadata refuse before tracker writes.
