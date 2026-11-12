@@ -1,0 +1,19 @@
+id: pm-web-c8-glob-advisory
+title: Review the c8 development dependency chain for the glob cancellation advisory
+description: "The locked install reports three moderate audit entries from one advisory: GHSA-3g3m-2fjr-6pw4 (Glob AbortSignal cancellation bypass allows post-timeout filesystem traversal), through c8 -> test-exclude -> glob. All three affected lockfile nodes are marked dev=true. npm audit suggests a major downgrade of c8 to 9.1.0; do not apply that automatically. Evaluate a compatible patched development-tool chain while preserving the existing coverage gates. Dependency remediation is outside the PR #304 documentation-boundary fixes."
+type: Issue
+status: open
+priority: 3
+tags[3]: dev-dependencies,follow-up,security
+created_at: "2026-11-10T20:18:23.170Z"
+updated_at: "2026-11-12T00:36:12.942Z"
+author: codex-smallfix-1110
+comments[1]{created_at,author,text}:
+  "2026-11-12T00:36:10.528Z",codex-agent,"PR #304 review correction: replaced the linked audit command through a new append-only tests event. It preserves isolated npm user configuration and existing --json --ignore-scripts options and explicitly adds --include=dev. test/audit-development-receipt.test.ts executes the recorded shell command under production defaults and captures its actual npm argv; fixed passes 1/1, prior receipt fails 0/1 in a disposable copy. Dependency remediation remains a separate open follow-up."
+files[3]{path,scope}:
+  package-lock.json,project
+  package.json,project
+  test/audit-development-receipt.test.ts,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  bash -c 'unset npm_config_allow_scripts NPM_CONFIG_ALLOW_SCRIPTS NPM_TOKEN NODE_AUTH_TOKEN NPM_MEDIA_SERVER; NPM_CONFIG_USERCONFIG=/dev/null npm_config_userconfig=/dev/null npm audit --json --ignore-scripts --include=dev',project,120,codex-agent,"2026-11-12T00:33:58.657Z",local_mutation,gated-sync-duplicate-provenance
+body: ""
