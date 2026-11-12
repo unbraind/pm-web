@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { PmClient } from '@unbrained/pm-cli/sdk';
-import { evictPmClient, getPmClient, pinProjectStorage, runOnPinnedStorage, runSerialized } from '../src/services/pm-runner.ts';
+import { STORAGE_DISCOVERY_TIMEOUT_MS, StorageDiscoveryTimeoutError, evictPmClient, getPmClient, pinProjectStorage, runOnPinnedStorage, runSerialized } from '../src/services/pm-runner.ts';
 import { workspaceAliasProbe } from './helpers/workspace-alias-probe.ts';
 
 test('every workspace alias shares dispatch serialization and client identity', async t => {
@@ -225,6 +225,72 @@ test('physical aliases preserve invocation order while independent tracker work 
     assert.deepEqual(events, ['first', 'independent', 'second']);
   } finally {
     releaseMetadata.resolve(); releaseFirst.resolve();
+    try { await Promise.allSettled(pending); } finally { Reflect.set(fs.promises, 'realpath', original); }
+  }
+});
+
+/** A stalled mount gets one bounded discovery window; later queues proceed without its late work. */
+test('stalled discovery refuses with a typed reason and releases unrelated admissions at the deadline', async t => {
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'discovery-bound-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const stalled = path.join(root, 'stalled'), healthy = path.join(root, 'healthy');
+  const clients: PmClient[] = [];
+  for (const workspace of [stalled, healthy]) {
+    await mkdir(workspace);
+    const client = new PmClient({ cwd: workspace, pmRoot: path.join(workspace, '.agents', 'pm'), noExtensions: true, author: 'discovery-test' });
+    await client.init('bounded', { defaults: true, agentGuidance: 'skip' });
+    clients.push(client);
+  }
+  const { item } = await clients[0]!.create({ type: 'Task', title: 'Retained original' });
+  const healthyPin = await pinProjectStorage(healthy);
+  const original = fs.promises.realpath;
+  const held = deferred<void>(), started = deferred<void>(), healthyResolved = deferred<void>();
+  const refusals: unknown[] = [];
+  let lateWork = false, healthyWork = false, pinnedWork = false;
+  Reflect.set(fs.promises, 'realpath', new Proxy(original, { async apply(target, receiver, args) {
+    const requested = String(args[0]);
+    const physical = await Reflect.apply(target, receiver, args);
+    if (requested === stalled) { started.resolve(); await held.promise; }
+    if (requested === path.join(healthy, '.agents', 'pm')) healthyResolved.resolve();
+    return physical;
+  } }));
+  const pending: Promise<unknown>[] = [];
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    pending.push(runSerialized(stalled, async () => {
+      lateWork = true;
+      await clients[0]!.update(item.id, { title: 'Incorrect late write' });
+    }).catch(error => { refusals.push(error); }));
+    await started.promise;
+    pending.push(pinProjectStorage(stalled).catch(error => { refusals.push(error); }));
+    pending.push(getPmClient(path.join(stalled, '.agents', 'pm')).catch(error => { refusals.push(error); }));
+    pending.push(runSerialized(healthy, async () => { healthyWork = true; await clients[1]!.listAllComplete(); }));
+    pending.push(runOnPinnedStorage(healthyPin, async () => { pinnedWork = true; }));
+    await healthyResolved.promise;
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    t.mock.timers.tick(STORAGE_DISCOVERY_TIMEOUT_MS - 1);
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(refusals.length, 0, 'healthy discovery retains its full configured window');
+    t.mock.timers.tick(1);
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(refusals.length, 3, 'queued, direct and cached-client discovery must all refuse at the bound');
+    for (const refusal of refusals) {
+      assert.ok(refusal instanceof StorageDiscoveryTimeoutError, 'a stalled discovery must release its ticket at the bound');
+      assert.equal(refusal.reason, 'storage_discovery_timeout');
+    }
+    t.mock.timers.reset();
+    await Promise.all(pending);
+    assert.equal(healthyWork, true, 'unrelated discovery joins promptly after the expired ticket');
+    assert.equal(pinnedWork, true, 'pre-pinned work is not held by an expired lookup');
+    assert.equal(lateWork, false);
+    held.resolve();
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(lateWork, false, 'late metadata must not enqueue a timed-out write');
+    await runSerialized(stalled, async () => {
+      assert.equal((await clients[0]!.get(item.id)).item.title, 'Retained original');
+    });
+  } finally {
+    held.resolve(); t.mock.timers.reset();
     try { await Promise.allSettled(pending); } finally { Reflect.set(fs.promises, 'realpath', original); }
   }
 });

@@ -24,6 +24,17 @@ export declare class Semaphore {
      */
     acquire(): Promise<() => void>;
 }
+/** Maximum storage-metadata wait before a lookup refuses and releases any admission ticket. */
+export declare const STORAGE_DISCOVERY_TIMEOUT_MS = 5000;
+/** A fixed, typed refusal that retains no filesystem path or provider message. */
+export declare class StorageDiscoveryTimeoutError extends Error {
+    /** Safe refusal category for admission handling and diagnostics. */
+    readonly reason = "storage_discovery_timeout";
+    /** Machine-readable code for callers that classify storage failures. */
+    readonly code = "storage_discovery_timeout";
+    /** Identify the bounded discovery failure independently of command execution timeouts. */
+    constructor();
+}
 /**
  * Resolve the filesystem root under which every project workspace lives.
  *

@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import fs, { existsSync } from 'node:fs';
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { chmod, cp, copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PmClient, readSettingsWithMetadata } from '@unbrained/pm-cli/sdk';
@@ -199,7 +199,7 @@ test('directory bindings serialize physical, relative and symlink aliases of a n
   const admissions = directories.map(() => deferred<void>());
   const metadataReady = deferred<void>(), releaseMetadata = deferred<void>();
   const original = fs.promises.realpath;
-  let lookups = 0, workerStarted = false;
+  let lookups = 0, metadataReleased = false, admittedEarly = false;
   Reflect.set(fs.promises, 'realpath', new Proxy(original, {
     async apply(target, receiver, args) {
       const result = await Reflect.apply(target, receiver, args);
@@ -211,17 +211,18 @@ test('directory bindings serialize physical, relative and symlink aliases of a n
     },
   }));
   const queued = Promise.all(directories.map((directory, index) =>
-    runSerialized(directory, async () => { entered = true; return client.get(item.id); }, admissions[index]!.resolve)));
+    runSerialized(directory, async () => { entered = true; return client.get(item.id); }, () => {
+      if (!metadataReleased) admittedEarly = true;
+      admissions[index]!.resolve();
+    })));
   try {
     await metadataReady.promise;
-    const earlyWorker = new Promise<boolean>(resolve => { setImmediate(() => {
-      resolve(workerStarted);
-      releaseMetadata.resolve();
-    }); });
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(admittedEarly, false, 'no alias may be admitted while its metadata resolution is held');
+    metadataReleased = true;
+    releaseMetadata.resolve();
     await Promise.all(admissions.map(admission => admission.promise));
-    workerStarted = true;
     await change('update-item', pmRoot, item.id);
-    assert.equal(await earlyWorker, false, 'the worker must wait until every delayed alias joins the queue');
     assert.equal(entered, false, 'resolved read binding overtook the existing relative-root queue');
   } finally {
     releaseMetadata.resolve();
@@ -513,4 +514,33 @@ test('unknown inventory warnings still refuse complete-read certification', () =
   for (const warnings of [['synthetic_future_settings_warning'], [legacy, 'synthetic_future_settings_warning'], [`${legacy}:unknown_variant`]]) {
     assert.throws(() => assertObservationalInventoryWarnings(warnings), /Cannot establish the complete item-folder inventory/);
   }
+});
+
+/** The admission assertion must reject a single premature alias acknowledgement using real SDK/SQL fixtures. */
+test('alias admission assertion detects a premature acknowledgement from only one alias', async t => {
+  const sandbox = await mkdtemp(path.join(tmpdir(), 'admission-assertion-'));
+  t.after(() => rm(sandbox, { recursive: true, force: true }));
+  const repo = fileURLToPath(new URL('../', import.meta.url));
+  const filter = (file: string) => !file.split(path.sep).some(part => ['node_modules', '.git', '.agents', '.local'].includes(part)) && !path.basename(file).startsWith('.env');
+  for (const directory of ['src', 'test', 'public', 'sql']) {
+    await cp(path.join(repo, directory), path.join(sandbox, directory), { recursive: true, filter });
+  }
+  for (const file of ['package.json', 'manifest.json']) await copyFile(path.join(repo, file), path.join(sandbox, file));
+  await symlink(path.join(repo, 'node_modules'), path.join(sandbox, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  const runner = path.join(sandbox, 'src', 'services', 'pm-runner.ts');
+  const source = await readFile(runner, 'utf8');
+  const signature = 'export async function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>, onStoragePinned: () => void = () => {}): Promise<T> {';
+  assert.ok(source.includes(signature));
+  await writeFile(runner, source.replace(signature, signature + `
+    if (path.basename(workspace) === 'workspace-alias') {
+      onStoragePinned();
+      return admitStorage(() => pinProjectStorage(workspace), work);
+    }
+  `));
+  const result = await promisify(execFile)(process.execPath, ['--test', '--test-concurrency=1',
+    '--test-name-pattern=^directory bindings serialize', path.join(sandbox, 'test', 'authorized-project-reads.test.ts')], {
+    cwd: sandbox, env: { PATH: process.env.PATH, DATABASE_URL: process.env.DATABASE_URL, PM_AUTHOR: 'admission-assertion-test' }, timeout: 30_000,
+  }).then(value => ({ code: 0, output: value.stdout }), error => ({ code: (error as { code?: number }).code, output: String((error as { stdout?: string }).stdout ?? '') }));
+  assert.equal(result.code, 1, 'the regression must reject one early alias acknowledgement');
+  assert.match(result.output, /no alias may be admitted while its metadata resolution is held/);
 });

@@ -64,6 +64,20 @@ const commandSlots = new Semaphore(positiveInteger(process.env.PM_WEB_PM_CONCURR
 const workspaceTails = new Map();
 /** Discovery may run concurrently; admission tickets join physical queues in invocation order. */
 let storageAdmissions = Promise.resolve();
+/** Maximum storage-metadata wait before a lookup refuses and releases any admission ticket. */
+export const STORAGE_DISCOVERY_TIMEOUT_MS = 5_000;
+/** A fixed, typed refusal that retains no filesystem path or provider message. */
+export class StorageDiscoveryTimeoutError extends Error {
+    /** Safe refusal category for admission handling and diagnostics. */
+    reason = 'storage_discovery_timeout';
+    /** Machine-readable code for callers that classify storage failures. */
+    code = this.reason;
+    /** Identify the bounded discovery failure independently of command execution timeouts. */
+    constructor() {
+        super('Project storage discovery timed out');
+        this.name = 'StorageDiscoveryTimeoutError';
+    }
+}
 /**
  * Resolve the filesystem root under which every project workspace lives.
  *
@@ -261,7 +275,7 @@ async function physicalWorkspacePath(workspace) {
  * @returns The physical workspace and tracker selected at this instant.
  */
 export async function pinProjectStorage(workspace) {
-    return pinWorkspaceStorage(workspace, path.join('.agents', 'pm'));
+    return boundedStorageDiscovery(() => pinWorkspaceStorage(workspace, path.join('.agents', 'pm')));
 }
 /** Resolve the workspace once and anchor every subsequent tracker lookup beneath that capture. */
 async function pinWorkspaceStorage(workspace, relativeTracker) {
@@ -289,7 +303,7 @@ async function physicalWorkspaceIdentity(workspace) {
  * @returns The operation result.
  */
 export async function runSerialized(workspace, work, onStoragePinned = () => { }) {
-    return admitStorage(() => pinProjectStorage(workspace), work, onStoragePinned);
+    return admitStorage(() => pinWorkspaceStorage(workspace, path.join('.agents', 'pm')), work, onStoragePinned);
 }
 /**
  * Serialize against storage that was already captured by an access check.
@@ -312,13 +326,26 @@ async function admitStorage(resolveStorage, work, onStoragePinned = () => { }) {
     // Even a discovery failure must not let a later ticket overtake an earlier unresolved one.
     storageAdmissions = previous.then(() => gate);
     try {
-        const [storage] = await Promise.all([resolveStorage(), previous]);
+        const [storage] = await Promise.all([boundedStorageDiscovery(resolveStorage), previous]);
         const result = runQueuedStorage(storage, work);
         onStoragePinned();
         return result;
     }
     finally {
         release();
+    }
+}
+/** Bound discovery and ignore late metadata so timed-out work can never enter an execution queue. */
+async function boundedStorageDiscovery(resolveStorage) {
+    let timer;
+    const expired = new Promise((_resolve, reject) => {
+        timer = setTimeout(() => reject(new StorageDiscoveryTimeoutError()), STORAGE_DISCOVERY_TIMEOUT_MS);
+    });
+    try {
+        return await Promise.race([resolveStorage(), expired]);
+    }
+    finally {
+        clearTimeout(timer);
     }
 }
 /** Serialize captured storage; independent tracker queues share only the bounded execution semaphore. */
@@ -660,7 +687,7 @@ const pmClientCache = new Map();
 async function pmClientIdentity(pmRoot) {
     const logicalRoot = path.resolve(pmRoot);
     const logicalWorkspace = path.dirname(path.dirname(logicalRoot));
-    const storage = await pinWorkspaceStorage(logicalWorkspace, path.relative(logicalWorkspace, logicalRoot));
+    const storage = await boundedStorageDiscovery(() => pinWorkspaceStorage(logicalWorkspace, path.relative(logicalWorkspace, logicalRoot)));
     return { pmRoot: storage.tracker, cwd: storage.workspace, key: JSON.stringify([storage.tracker, storage.workspace]) };
 }
 /** Keep one client per captured tracker and execution workspace, without resolving again. */

@@ -4,7 +4,7 @@ import { logError } from "../observability.ts";
 import { Router } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { initProject, projectExists, deleteProjectDir } from "../services/pm-runner.ts";
+import { initProject, projectExists, deleteProjectDir, getProjectDir, runSerialized } from "../services/pm-runner.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
 import { isUniqueViolation, notFoundWhenEmpty } from "./route-helpers.ts";
 
@@ -90,12 +90,11 @@ router.post("/", async (req: AuthRequest, res) => {
       // Remove the row after storage cleanup. If cleanup fails, retain the row
       // so an explicit project deletion can retry without orphaning its files.
       try {
-        (await deleteProjectDir(req.user!.userId, project.slug));
+        await removeOwnedProject(req.user!.userId, project.id);
       } catch (cleanupError) {
         logError("project_cleanup_error", cleanupError);
         throw err;
       }
-      await pool.query("DELETE FROM pm_projects WHERE id = $1", [project.id]);
       throw err;
     }
 
@@ -147,28 +146,47 @@ router.patch("/:id", async (req: AuthRequest, res) => {
   }
 });
 
+/** Remove owned storage under both a row transaction and its physical queue, including failed-init cleanup. */
+async function removeOwnedProject(userId: string, projectId: string): Promise<boolean> {
+  const client = await pool.connect();
+  const transaction = { open: false };
+  /** Release row ownership before the physical queue resumes, including cleanup refusals. */
+  const rollback = async (): Promise<void> => {
+    if (transaction.open) { await client.query('ROLLBACK'); Reflect.set(transaction, 'open', false); }
+  };
+  try {
+    await client.query('BEGIN'); Reflect.set(transaction, 'open', true);
+    const result = await client.query('SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2 FOR UPDATE', [projectId, userId]);
+    if (result.rows.length === 0) { await rollback(); return false; }
+    const { slug } = result.rows[0] as { slug: string };
+    await runSerialized(getProjectDir(userId, slug), async () => {
+      try {
+        await deleteProjectDir(userId, slug);
+        await client.query('DELETE FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
+        await client.query('COMMIT'); Reflect.set(transaction, 'open', false);
+      } catch (error) {
+        await rollback().catch(rollbackError => logError('delete_project_rollback_error', rollbackError));
+        throw error;
+      }
+    });
+    invalidateProjectAccess(projectId);
+    return true;
+  } catch (error) {
+    await rollback().catch(rollbackError => logError('delete_project_rollback_error', rollbackError));
+    throw error;
+  } finally { client.release(transaction.open); }
+}
+
 router.delete("/:id", async (req: AuthRequest, res) => {
   try {
-    const result = await pool.query(
-      `SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2`,
-      [routeParam(req, "id"), req.user!.userId]
-    );
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: "Project not found" });
+    if (!await removeOwnedProject(req.user!.userId, routeParam(req, 'id'))) {
+      res.status(404).json({ error: 'Project not found' });
       return;
     }
-    const { slug } = result.rows[0] as { slug: string };
-    await deleteProjectDir(req.user!.userId, slug);
-    const deleted = await pool.query(
-      `DELETE FROM pm_projects WHERE id = $1 AND user_id = $2 RETURNING id`,
-      [routeParam(req, "id"), req.user!.userId]
-    );
-    if (notFoundWhenEmpty(res, deleted.rows, "Project not found")) return;
-    invalidateProjectAccess(routeParam(req, "id"));
     res.json({ ok: true });
   } catch (err) {
-    logError("delete_project_error", err);
-    res.status(500).json({ error: "Failed to delete project" });
+    logError('delete_project_error', err);
+    res.status(500).json({ error: 'Failed to delete project' });
   }
 });
 

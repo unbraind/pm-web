@@ -11,7 +11,9 @@ import { failedFixtureSetup } from './helpers/fixture-resources.ts';
  */
 
 import assert from "node:assert/strict";
-import { getPmClient, getProjectDir } from "../src/services/pm-runner.ts";
+import fs from "node:fs";
+import { deferred } from "./helpers/deferred.ts";
+import { getPmClient, getProjectDir, runSerialized } from "../src/services/pm-runner.ts";
 import { pool } from '../src/db.ts';
 import { createPlainContractTracker } from "./helpers/plain-contract-tracker.ts";
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
@@ -440,5 +442,79 @@ process.exit(1);
     assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount, 0);
   } finally {
     if (await stat(saved).then(() => true, () => false)) { await rm(parent, { force: true }); await rename(saved, parent); }
+  }
+});
+
+/** Observe real PostgreSQL blocking instead of relying on a scheduling delay. */
+async function blockedBy(pid: number): Promise<number> {
+  const deadline = Date.now() + 10_000;
+  do {
+    const result = await pool.query<{ pid: number }>('SELECT pid FROM pg_stat_activity WHERE $1::int = ANY(pg_blocking_pids(pid)) AND datname=current_database()', [pid]);
+    if (result.rows[0]) return result.rows[0].pid;
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+  } while (Date.now() < deadline);
+  throw new Error('The expected project-row lock was not observed');
+}
+
+/** SQL and physical queue ownership last through commit; unrelated rows and trackers remain available. */
+test('projects: deletion owns its row and queue through commit while unrelated projects proceed', async t => {
+  const { server, owner } = await setupProjectsTest(t);
+  const name = 'Serialized deletion', slug = 'serialized-deletion';
+  const project = await seedProject(owner.id, slug, { name, prefix: 'serial' });
+  const other = await seedProject(owner.id), cwd = getProjectDir(owner.id, slug);
+  const { client } = await createPlainContractTracker(cwd);
+  await client.create({ type: 'Task', title: 'Old project data' });
+  await createPlainContractTracker(getProjectDir(owner.id, other.slug));
+  const controller = await pool.connect();
+  const controllerPid = (await controller.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]!.pid;
+  const trigger = 'project_delete_gate_' + project.id.replaceAll('-', '');
+  const original = fs.promises.realpath;
+  const earlyLookup = deferred<void>(), queued = deferred<void>();
+  let watchSecond = false, queuedWork = false;
+  const requests: Promise<unknown>[] = [];
+  await controller.query('SELECT pg_advisory_lock($1)', [controllerPid]);
+  try {
+    await pool.query(`CREATE FUNCTION ${trigger}() RETURNS trigger AS $$ BEGIN
+      IF OLD.id='${project.id}'::uuid THEN PERFORM pg_advisory_xact_lock(${controllerPid}); END IF;
+      RETURN OLD; END $$ LANGUAGE plpgsql`);
+    await pool.query(`CREATE TRIGGER ${trigger} BEFORE DELETE ON pm_projects FOR EACH ROW EXECUTE FUNCTION ${trigger}()`);
+    Reflect.set(fs.promises, 'realpath', new Proxy(original, { apply(target, receiver, args) {
+      if (watchSecond && String(args[0]) === cwd) earlyLookup.resolve();
+      return Reflect.apply(target, receiver, args);
+    } }));
+    const first = authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' }); requests.push(first);
+    const firstPid = await blockedBy(controllerPid);
+    await assert.rejects(stat(cwd), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
+    watchSecond = true;
+    const second = authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' }); requests.push(second);
+    await Promise.race([blockedBy(firstPid), earlyLookup.promise.then(() => { assert.fail('a second delete must not reach storage before the first row commit'); })]);
+    watchSecond = false;
+    const admission = runSerialized(cwd, async () => {
+      queuedWork = true;
+      return (await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount;
+    }, queued.resolve); requests.push(admission);
+    await queued.promise;
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(queuedWork, false, 'physical admissions must wait through the project-row commit');
+    const independent = await authedFetch(server, owner, `/api/projects/${other.id}`, { method: 'DELETE' });
+    assert.equal(independent.status, 200, 'an unrelated project must proceed while this deletion is held');
+    await controller.query('SELECT pg_advisory_unlock($1)', [controllerPid]);
+    assert.equal((await first).status, 200);
+    assert.equal((await second).status, 404, 'the waiting delete must refuse the old project after commit');
+    assert.equal(await admission, 0, 'queued work must only observe the committed row removal');
+    const replacement = await authedFetch(server, owner, '/api/projects', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, prefix: 'serial' }) });
+    assert.equal(replacement.status, 201);
+    const newProject = (await replacement.json() as { project: { id: string } }).project;
+    await createPlainContractTracker(cwd);
+    await Promise.all(requests);
+    assert.equal((await stat(cwd)).isDirectory(), true, 'the replacement workspace must survive the old delete');
+    assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [newProject.id])).rowCount, 1);
+  } finally {
+    watchSecond = false;
+    await controller.query('SELECT pg_advisory_unlock($1)', [controllerPid]);
+    await Promise.allSettled(requests);
+    Reflect.set(fs.promises, 'realpath', original);
+    try { await pool.query(`DROP TRIGGER IF EXISTS ${trigger} ON pm_projects`); await pool.query(`DROP FUNCTION IF EXISTS ${trigger}()`); }
+    finally { controller.release(); }
   }
 });
