@@ -15,6 +15,7 @@ import fs from "node:fs";
 import { deferred } from "./helpers/deferred.ts";
 import { getPmClient, getProjectDir, runSerialized } from "../src/services/pm-runner.ts";
 import { pool } from '../src/db.ts';
+import { PmClient } from '@unbrained/pm-cli/sdk';
 import { createPlainContractTracker } from "./helpers/plain-contract-tracker.ts";
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -375,6 +376,69 @@ test('projects: deletion removes workspaces with tracker and ancestor symlink lo
   }
 });
 
+/** Delete a project through the route and prove its row and the named storage are gone. */
+async function assertDeletionRemoves(server: Parameters<typeof authedFetch>[0], owner: Parameters<typeof authedFetch>[1], projectId: string, removed: string): Promise<void> {
+  const response = await authedFetch(server, owner, `/api/projects/${projectId}`, { method: 'DELETE' });
+  assert.equal(response.status, 200, await response.text());
+  assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [projectId])).rowCount, 0);
+  await assert.rejects(stat(removed), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
+}
+
+/** A deletion that waited on one physical queue must not remove the storage an ancestor retarget now names. */
+test('projects: deletion refuses when an ancestor symlink is retargeted while it waits', async t => {
+  const { server, owner } = await setupProjectsTest(t);
+  const project = await seedProject(owner.id), cwd = getProjectDir(owner.id, project.slug);
+  const parent = path.dirname(cwd), parentA = `${parent}-a`, parentB = `${parent}-b`;
+  const link = process.platform === 'win32' ? 'junction' : 'dir';
+  const original = fs.promises.realpath;
+  const trackerA = await createPlainContractTracker(cwd);
+  const { item: itemA } = await trackerA.client.create({ type: 'Task', title: 'Admitted storage', body: 'Synthetic deletion fixture' });
+  await rename(parent, parentA);
+  await symlink(parentA, parent, link);
+  const trackerB = await createPlainContractTracker(path.join(parentB, project.slug));
+  const { item: itemB } = await trackerB.client.create({ type: 'Task', title: 'Retargeted storage', body: 'must survive the old deletion' });
+  const hold = deferred<void>(), holding = deferred<void>(), discovery = deferred<void>(), queued = deferred<void>();
+  let watch = false;
+  const requests: Promise<unknown>[] = [];
+  try {
+    const held = runSerialized(cwd, () => hold.promise, holding.resolve); requests.push(held);
+    await holding.promise;
+    Reflect.set(fs.promises, 'realpath', new Proxy(original, { apply(target, receiver, args) {
+      if (watch && String(args[0]) === cwd) discovery.resolve();
+      return Reflect.apply(target, receiver, args);
+    } }));
+    watch = true;
+    const deletion = authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' }); requests.push(deletion);
+    await discovery.promise;
+    watch = false;
+    // Admissions are ordered, so this one is pinned only after the deletion joined the admitted queue.
+    const after = runSerialized(cwd, async () => undefined, queued.resolve); requests.push(after);
+    await queued.promise;
+    await rm(parent);
+    await symlink(parentB, parent, link);
+    hold.resolve();
+    const response = await deletion;
+    assert.equal(response.status, 409, await response.text());
+    assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1 AND user_id=$2', [project.id, owner.id])).rowCount, 1, 'a refused deletion keeps the project row');
+    assert.equal((await trackerB.client.get(itemB.id)).item.title, 'Retargeted storage', 'the retargeted storage must survive');
+    // Read the admitted storage through its physical path; the logical path now names the retargeted storage.
+    const admittedClient = new PmClient({ pmRoot: path.join(parentA, project.slug, '.agents', 'pm'), cwd: path.join(parentA, project.slug), noExtensions: true });
+    assert.equal((await admittedClient.get(itemA.id)).item.title, 'Admitted storage', 'nothing is removed on refusal');
+    // Must allow: once the binding names the storage again, deletion admits and removes it.
+    await rm(parent);
+    await symlink(parentA, parent, link);
+    await assertDeletionRemoves(server, owner, project.id, path.join(parentA, project.slug));
+  } finally {
+    watch = false;
+    hold.resolve();
+    Reflect.set(fs.promises, 'realpath', original);
+    await Promise.allSettled(requests);
+    await rm(parent, { force: true });
+    await rename(parentA, parent);
+    await rm(parentB, { recursive: true, force: true });
+  }
+});
+
 /** A real ENOTDIR failure keeps the project discoverable and its original tracker available for retry. */
 test('projects: failed filesystem removal preserves the row and data, then retry succeeds', async t => {
   const { server, owner } = await setupProjectsTest(t);
@@ -393,10 +457,7 @@ test('projects: failed filesystem removal preserves the row and data, then retry
     assert.equal(await readFile(parent, 'utf8'), 'synthetic ancestor obstruction');
   } finally { await rm(parent); await rename(saved, parent); }
   assert.equal((await client.get(item.id)).item.title, 'Retained after refusal');
-  const retried = await authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
-  assert.equal(retried.status, 200, await retried.text());
-  assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount, 0);
-  await assert.rejects(stat(pmRoot), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
+  await assertDeletionRemoves(server, owner, project.id, pmRoot);
 });
 
 /** Both present and already absent real workspaces permit row cleanup after successful removal. */

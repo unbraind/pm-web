@@ -108,10 +108,13 @@ export function packedFileInventory(stdout: string): string[] {
 
 /** Decode a link path, or report it missing when percent-encoding is malformed. */
 function destinationPath(destination: string): string | undefined {
-  let raw = destination.split(/[?#]/, 1)[0] ?? '';
+  // CommonMark removes backslash escapes from the destination before it is a URL, so an escaped `#` or `?`
+  // still starts the fragment or query. Percent-encoded delimiters stay part of the path.
+  const unescaped = destination.replace(/\\([ !"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g, '$1');
+  let raw = unescaped.split(/[?#]/, 1)[0] ?? '';
   try { raw = decodeURIComponent(raw); }
   catch { return undefined; }
-  return raw.replace(/\\([ !"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g, '$1');
+  return raw;
 }
 
 /** Resolve every relative destination against the actual package inventory, never the source tree. */

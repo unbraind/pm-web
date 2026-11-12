@@ -4,7 +4,7 @@ import { logError } from "../observability.ts";
 import { Router } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { initProject, projectExists, deleteProjectDir, getProjectDir, runSerialized } from "../services/pm-runner.ts";
+import { initProject, projectExists, deleteProjectDir, getProjectDir, pinProjectStorage, runSerialized } from "../services/pm-runner.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
 import { isUniqueViolation, notFoundWhenEmpty } from "./route-helpers.ts";
 
@@ -146,6 +146,11 @@ router.patch("/:id", async (req: AuthRequest, res) => {
   }
 });
 
+/** The project's logical directory names other storage than the queue its deletion waited on. */
+class ProjectStorageChangedError extends Error {
+  constructor() { super('Project storage changed while its deletion waited; nothing was removed.'); }
+}
+
 /** Remove owned storage under both a row transaction and its physical queue, including failed-init cleanup. */
 async function removeOwnedProject(userId: string, projectId: string): Promise<boolean> {
   const client = await pool.connect();
@@ -159,8 +164,13 @@ async function removeOwnedProject(userId: string, projectId: string): Promise<bo
     const result = await client.query('SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2 FOR UPDATE', [projectId, userId]);
     if (result.rows.length === 0) { await rollback(); return false; }
     const { slug } = result.rows[0] as { slug: string };
-    await runSerialized(getProjectDir(userId, slug), async () => {
+    const directory = getProjectDir(userId, slug);
+    await runSerialized(directory, async admitted => {
       try {
+        // Deletion resolves the logical path again. If an ancestor or tracker alias was retargeted while this
+        // waited, that path names storage on another queue, so refuse instead of removing it.
+        const current = await pinProjectStorage(directory);
+        if (current.workspace !== admitted.workspace || current.tracker !== admitted.tracker) throw new ProjectStorageChangedError();
         await deleteProjectDir(userId, slug);
         await client.query('DELETE FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
         await client.query('COMMIT'); Reflect.set(transaction, 'open', false);
@@ -185,6 +195,10 @@ router.delete("/:id", async (req: AuthRequest, res) => {
     }
     res.json({ ok: true });
   } catch (err) {
+    if (err instanceof ProjectStorageChangedError) {
+      res.status(409).json({ error: 'Project storage changed while the deletion waited; retry the deletion' });
+      return;
+    }
     logError('delete_project_error', err);
     res.status(500).json({ error: 'Failed to delete project' });
   }

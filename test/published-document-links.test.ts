@@ -47,7 +47,7 @@ test('all published Markdown repository links name files present at their refere
 });
 
 test('relative links require packed targets across nested documents, images, references, titles and encoded paths', () => {
-  const targets = ['[inline](../target.md#section)', '[titled](../target.md "Title")', '![image](../target.md)', '[reference][ref]\n[ref]: ../target.md', '[space](<../target%20file.md?download=1#anchor>)', '[balanced](../target(file).md)'];
+  const targets = ['[inline](../target.md#section)', '[escaped fragment](../target.md\\#section)', '[escaped query](../target.md\\?download=1)', '[titled](../target.md "Title")', '![image](../target.md)', '[reference][ref]\n[ref]: ../target.md', '[space](<../target%20file.md?download=1#anchor>)', '[balanced](../target(file).md)'];
   for (const link of targets) {
     const files = ['docs/nested.md', 'target.md', 'target file.md', 'target(file).md'];
     assert.deepEqual(missingPackedDocumentLinks(files, file => file === 'docs/nested.md' ? link : ''), [], link);

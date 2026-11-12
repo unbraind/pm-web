@@ -61,7 +61,9 @@ export async function capacityFixture(identities: number) {
   const dir = path.join(root, owner, "capacity");
   /** Delete only the fixture-owned identities, cascading its projects and shares. */
   const close = async (): Promise<void> => {
-    (await evictPmClient(path.join(dir, ".agents", "pm")));
+    // An eviction failure must not skip the independent database and row cleanup; it is reported afterwards.
+    let evictionFailure: { cause: unknown } | undefined;
+    try { await evictPmClient(path.join(dir, ".agents", "pm")); } catch (cause) { evictionFailure = { cause }; }
     await database.end();
     // Large FK cascades need a cleanup budget independent of five-second resource probes.
     const cleanup = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-cleanup",
@@ -74,6 +76,7 @@ export async function capacityFixture(identities: number) {
     } finally { await cleanup.end(); }
     // Failed row cleanup deliberately retains the ownership receipt and tracker.
     await rm(root, { recursive: true, force: true });
+    if (evictionFailure) throw Object.assign(new Error("Synthetic fixture SDK client eviction failed", evictionFailure), { code: "FIXTURE_CLIENT_EVICTION_FAILED" });
   };
   try {
     // Preserve exact synthetic ownership for recovery if cleanup cannot complete.
@@ -85,7 +88,11 @@ export async function capacityFixture(identities: number) {
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "capacity", "--defaults", "--agent-guidance", "skip"]);
     return { root, dir, projectId, secret, database, sessions: users.map((id) => session(id, secret)),
       client: (await getPmClient(path.join(dir, ".agents", "pm"))), close };
-  } catch (error) { await close(); throw error; }
+  } catch (error) {
+    // Report a cleanup failure without hiding the setup failure that triggered it.
+    try { await close(); } catch (cleanup) { throw new AggregateError([error, cleanup], "Capacity fixture setup and its cleanup both failed"); }
+    throw error;
+  }
 }
 
 /** A process sample read from the preload, with CPU expressed as percent of one core. */

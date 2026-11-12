@@ -1,10 +1,12 @@
 /** The optional setup control releases a real full roster before measuring any mutation. */
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
-import { copyFile, mkdir } from "node:fs/promises";
+import fs, { existsSync } from "node:fs";
+import { copyFile, mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
+import { pool } from "../src/db.ts";
+import { StorageDiscoveryTimeoutError } from "../src/services/pm-runner.ts";
 import { capacityFixture, capacityServer, waitUntil } from "../scripts/capacity-fixture.ts";
 import { capacitySubscriber } from "../scripts/capacity-subscriber.ts";
 import { instrumentCapacitySetup } from "../scripts/capacity-setup-probe.ts";
@@ -44,4 +46,26 @@ test("quiet setup survives baseline source replacement and releases complete rea
     await server?.close();
     await fixture.close();
   }
+});
+
+/** A failed SDK client eviction must not skip the database, row and directory cleanup that follows it. */
+test("capacity fixture cleanup completes independent steps after a failed client eviction, then reports it", async () => {
+  const failing = await capacityFixture(1);
+  // Storage discovery tolerates filesystem errors and fails only by timing out, so stall the fixture
+  // workspace's lookup until the real discovery bound rejects the eviction.
+  const original = fs.promises.realpath;
+  const stalled = new Set([failing.dir, path.join(failing.dir, ".agents", "pm")]);
+  Reflect.set(fs.promises, "realpath", new Proxy(original, { apply(target, receiver, args) {
+    return stalled.has(String(args[0])) ? new Promise<never>(() => { /* never settles */ }) : Reflect.apply(target, receiver, args);
+  } }));
+  try {
+    await assert.rejects(failing.close(), (error: Error & { code?: string }) => error.code === "FIXTURE_CLIENT_EVICTION_FAILED" && error.cause instanceof StorageDiscoveryTimeoutError);
+  } finally { Reflect.set(fs.promises, "realpath", original); }
+  assert.equal((await pool.query("SELECT id FROM pm_projects WHERE id = $1", [failing.projectId])).rowCount, 0, "fixture rows are removed despite the eviction failure");
+  await assert.rejects(stat(failing.root), (error: NodeJS.ErrnoException) => error.code === "ENOENT");
+  // Must allow: an ordinary fixture closes without error and removes the same resources.
+  const clean = await capacityFixture(1);
+  await clean.close();
+  assert.equal((await pool.query("SELECT id FROM pm_projects WHERE id = $1", [clean.projectId])).rowCount, 0);
+  await assert.rejects(stat(clean.root), (error: NodeJS.ErrnoException) => error.code === "ENOENT");
 });
