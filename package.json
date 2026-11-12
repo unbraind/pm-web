@@ -67,7 +67,7 @@
     "accept:evidence": "node scripts/with-test-db.ts node scripts/evidence-inspection-browser.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.11.7",
+    "@unbrained/pm-cli": "2026.11.8",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
