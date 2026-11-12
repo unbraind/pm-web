@@ -13,6 +13,8 @@ import { transformSync } from "esbuild";
 /** Execute the actual documented plain setup in a child with independent Git discovery settings. */
 async function initializePlain(scratch: string, environment: NodeJS.ProcessEnv): Promise<void> {
   const document = readFileSync(new URL("../docs/gated-sync-288-verification.md", import.meta.url), "utf8");
+  const environmentHelper = document.match(/^function reproductionEnvironment[\s\S]*?^\}/m);
+  assert.ok(environmentHelper);
   const guard = document.match(/^function assertOutsideGit\(directory: string\): void \{[\s\S]*?^\}/m);
   const setup = document.match(/^  const plain = path.join\(scratch, 'plain'\);[\s\S]*?(?=^  await plainClient.create\()/m);
   assert.ok(guard, "The documented Git boundary function must be runnable");
@@ -24,6 +26,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { PmClient } from '@unbrained/pm-cli/sdk';
 const scratch = ${JSON.stringify(scratch)};
+${environmentHelper[0]}
 ${guard[0]}
 await (async () => {\n${setup[0]}\n})();`;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", transformSync(code, { loader: "ts", target: "es2022" }).code], {
@@ -121,3 +124,68 @@ test("documented boundary command returns from the historical to the reviewed ch
     assert.match(result.stdout, /reviewed checkout/);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
+
+for (const scenario of ["clean", "wrong-head", "dirty"] as const) {
+  test(`documented identity checks ${scenario} source despite inherited Git redirection`, async () => {
+    const document = readFileSync(new URL("../docs/gated-sync-288-verification.md", import.meta.url), "utf8");
+    const functions = document.match(/^function reproductionEnvironment[\s\S]*?(?=^await assertReproductionIdentity)/m);
+    assert.ok(functions);
+    const scratch = await mkdtemp(path.join(tmpdir(), "pm-web-identity-"));
+    const environment = { ...process.env };
+    for (const key of Object.keys(environment)) if (key.startsWith("GIT_")) delete environment[key];
+    const source = path.join(scratch, "source");
+    const other = path.join(scratch, "other");
+    /** Run setup against a real disposable repository with no inherited discovery overrides. */
+    const git = (cwd: string, args: string[]): string => {
+      const result = spawnSync("git", args, { cwd, env: environment, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    try {
+      await mkdir(source);
+      git(source, ["init", "-q"]);
+      await writeFile(path.join(source, "item"), "baseline\n");
+      git(source, ["add", "item"]);
+      git(source, ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "Synthetic baseline"]);
+      const sourceCommit = git(source, ["rev-parse", "HEAD"]);
+      git(scratch, ["clone", "-q", source, other]);
+      if (scenario !== "clean") await writeFile(path.join(source, "item"), "changed\n");
+      if (scenario === "wrong-head") {
+        git(source, ["add", "item"]);
+        git(source, ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "Synthetic different head"]);
+      }
+      // Both the imported SDK and spawned CLI have the required historical version.
+      const sdkManifest = path.join(scratch, "package.json");
+      const cli = path.join(scratch, "cli.js");
+      await writeFile(sdkManifest, JSON.stringify({ version: "2026.11.2" }));
+      await writeFile(cli, "console.log('2026.11.2');\n");
+      const code = `import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+const repo = ${JSON.stringify(source)};
+const sourceCommit = ${JSON.stringify(sourceCommit)};
+const sdkManifest = ${JSON.stringify(sdkManifest)};
+const cli = ${JSON.stringify(cli)};
+${functions[0]}
+await assertReproductionIdentity();`;
+      const result = spawnSync(process.execPath, ["--input-type=module", "-e", transformSync(code, { loader: "ts" }).code], {
+        env: { ...environment, GIT_DIR: path.join(other, ".git"), GIT_WORK_TREE: other, GIT_COMMON_DIR: path.join(other, ".git") },
+        encoding: "utf8", timeout: 60000,
+      });
+      const shellPrefix = document.match(/^set -eu[\s\S]*?(?=^git worktree add)/m);
+      const shellIdentity = document.match(/^test "\$\(git rev-parse HEAD\)"[^\n]*\ntest -z "\$\(git status --porcelain\)"/m);
+      assert.ok(shellPrefix); assert.ok(shellIdentity);
+      const shell = spawnSync("bash", ["-c", shellPrefix[0] + shellIdentity[0].replace("1a8ce23d8cb17a867ae0205bffc05f4e10d49f39", sourceCommit)], {
+        cwd: source, env: { ...environment, GIT_DIR: path.join(other, ".git"), GIT_WORK_TREE: other }, encoding: "utf8", timeout: 60000,
+      });
+      assert.ifError(shell.error);
+      assert.equal(shell.status === 0, scenario === "clean", "Shell setup must also inspect the requested checkout");
+      assert.ifError(result.error);
+      if (scenario === "clean") assert.equal(result.status, 0, result.stderr);
+      else {
+        assert.notEqual(result.status, 0, "Inherited Git location must not hide invalid source files");
+        assert.match(result.stderr, scenario === "wrong-head" ? /recorded historical checkout/ : /historical checkout must be clean/);
+      }
+    } finally { await rm(scratch, { recursive: true, force: true }); }
+  });
+}

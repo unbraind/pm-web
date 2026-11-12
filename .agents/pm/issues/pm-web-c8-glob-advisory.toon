@@ -6,11 +6,14 @@ status: open
 priority: 3
 tags[3]: dev-dependencies,follow-up,security
 created_at: "2026-11-10T20:18:23.170Z"
-updated_at: "2026-11-10T20:18:28.031Z"
+updated_at: "2026-11-12T00:36:12.942Z"
 author: codex-smallfix-1110
-files[2]{path,scope}:
+comments[1]{created_at,author,text}:
+  "2026-11-12T00:36:10.528Z",codex-agent,"PR #304 review correction: replaced the linked audit command through a new append-only tests event. It preserves isolated npm user configuration and existing --json --ignore-scripts options and explicitly adds --include=dev. test/audit-development-receipt.test.ts executes the recorded shell command under production defaults and captures its actual npm argv; fixed passes 1/1, prior receipt fails 0/1 in a disposable copy. Dependency remediation remains a separate open follow-up."
+files[3]{path,scope}:
   package-lock.json,project
   package.json,project
+  test/audit-development-receipt.test.ts,project
 tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
-  env -u npm_config_allow_scripts -u NPM_CONFIG_ALLOW_SCRIPTS NPM_CONFIG_USERCONFIG=/dev/null npm_config_userconfig=/dev/null npm audit --json --ignore-scripts,project,120,codex-smallfix-1110,"2026-11-10T20:18:27.998Z",local_mutation,gated-sync-duplicate-provenance
+  bash -c 'unset npm_config_allow_scripts NPM_CONFIG_ALLOW_SCRIPTS NPM_TOKEN NODE_AUTH_TOKEN NPM_MEDIA_SERVER; NPM_CONFIG_USERCONFIG=/dev/null npm_config_userconfig=/dev/null npm audit --json --ignore-scripts --include=dev',project,120,codex-agent,"2026-11-12T00:33:58.657Z",local_mutation,gated-sync-duplicate-provenance
 body: ""

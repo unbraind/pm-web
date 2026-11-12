@@ -39,6 +39,7 @@ The fixture enforces these checks before creating scratch state.
 ```sh
 set -eu
 reviewed_checkout=$(pwd -P)
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM
 git worktree add --detach ../pm-web-issue-288-baseline 1a8ce23d8cb17a867ae0205bffc05f4e10d49f39
 cd ../pm-web-issue-288-baseline
 unset NPM_MEDIA_SERVER NPM_TOKEN NODE_AUTH_TOKEN
@@ -89,17 +90,24 @@ const sdkManifest = findPackageJSON('@unbrained/pm-cli/sdk', import.meta.url);
 assert.ok(sdkManifest, 'The imported SDK must resolve to an installed package');
 const cli = path.join(path.dirname(sdkManifest), 'dist/cli.js');
 
+/** Bind every child Git operation to its explicit cwd, without inherited repository overrides. */
+function reproductionEnvironment(): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of Object.keys(environment)) if (key.startsWith('GIT_')) delete environment[key];
+  return environment;
+}
+
 /** Prove the actual source, imported SDK and spawned CLI before creating a tracker. */
 async function assertReproductionIdentity(): Promise<void> {
-  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8', env: reproductionEnvironment() });
   assert.equal(head.status, 0, head.stderr);
   assert.equal(head.stdout.trim(), sourceCommit, 'Use the recorded historical checkout');
-  const status = spawnSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' });
+  const status = spawnSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8', env: reproductionEnvironment() });
   assert.equal(status.status, 0, status.stderr);
   assert.equal(status.stdout, '', 'The historical checkout must be clean');
   const manifest: { version: string } = JSON.parse(await readFile(sdkManifest!, 'utf8'));
   assert.equal(manifest.version, '2026.11.2', 'The imported SDK must be exactly pinned');
-  const version = spawnSync(process.execPath, [cli, '--version'], { cwd: repo, encoding: 'utf8' });
+  const version = spawnSync(process.execPath, [cli, '--version'], { cwd: repo, encoding: 'utf8', env: reproductionEnvironment() });
   assert.equal(version.status, 0, version.stderr);
   assert.equal(version.stdout.trim(), '2026.11.2', 'The spawned CLI must be exactly pinned');
 }
@@ -126,7 +134,7 @@ async function snapshot(root: string): Promise<string> {
 function invoke(args: string[], cwd = scratch, root = pmRoot) {
   return spawnSync(process.execPath, [cli, '--pm-path', root, ...args], {
     cwd, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, PM_AUTHOR: 'codex-sol', NPM_CONFIG_USERCONFIG: '/dev/null' },
+    env: { ...reproductionEnvironment(), PM_AUTHOR: 'codex-sol', NPM_CONFIG_USERCONFIG: '/dev/null' },
   });
 }
 
@@ -139,7 +147,7 @@ function run(args: string[], cwd = scratch, root = pmRoot): string {
 
 /** Read committed baseline bytes independently of scratch tracker state. */
 function historical(file: string): Buffer {
-  const result = spawnSync('git', ['show', `${beforeRepair}:${file}`], { cwd: repo, maxBuffer: 8 * 1024 * 1024 });
+  const result = spawnSync('git', ['show', `${beforeRepair}:${file}`], { cwd: repo, env: reproductionEnvironment(), maxBuffer: 8 * 1024 * 1024 });
   assert.equal(result.status, 0, result.stderr.toString());
   return result.stdout;
 }
@@ -147,10 +155,7 @@ function historical(file: string): Buffer {
 /** Require positive evidence of a non-Git directory before accepting the plain control. */
 function assertOutsideGit(directory: string): void {
   // Mirror the SDK's sanitized workspace-discovery environment.
-  const gitEnvironment: NodeJS.ProcessEnv = { ...process.env, LC_ALL: 'C' };
-  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE',
-    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_NAMESPACE',
-    'GIT_CEILING_DIRECTORIES', 'GIT_DISCOVERY_ACROSS_FILESYSTEM']) delete gitEnvironment[key];
+  const gitEnvironment = { ...reproductionEnvironment(), LC_ALL: 'C' };
   // Git can report "not a repository" for corrupt metadata, including empty directories.
   for (let ancestor = realpathSync(directory);; ancestor = path.dirname(ancestor)) {
     let metadata;
@@ -256,7 +261,7 @@ try {
   await symlink(path.join(repo, 'node_modules'), path.join(gitTracker, 'node_modules'), 'dir');
   /** Execute a Git operation only in the disposable import control. */
   function git(args: string[]): void {
-    const result = spawnSync('git', args, { cwd: gitTracker, encoding: 'utf8' });
+    const result = spawnSync('git', args, { cwd: gitTracker, encoding: 'utf8', env: reproductionEnvironment() });
     assert.equal(result.status, 0, result.stderr);
   }
   await cp(path.join(repo, '.gitignore'), path.join(gitTracker, '.gitignore'));
@@ -357,7 +362,7 @@ the regression observes the import boundary and write ordering, rather than
 only the standalone verifier.
 
 Return to the reviewed checkout captured before entering the historical worktree.
-The no-Git boundary regression uses that checkout's pinned SDK (`2026.11.6`),
+The no-Git boundary regression uses that checkout's pinned SDK,
 separately from the historical fixture's `2026.11.2`:
 
 ```sh
