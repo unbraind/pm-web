@@ -322,12 +322,55 @@ async function physicalWorkspacePath(workspace: string): Promise<string> {
   }
 }
 
+/** Exact filesystem object identity; decimal strings preserve 64-bit inode values in serializable pins. */
+interface StorageEntryStamp {
+  readonly device: string;
+  readonly inode: string;
+  readonly symlink: boolean;
+  readonly directory: boolean;
+}
+
+/** A directory entry anchored below its captured physical parent, never a later logical mutation path. */
+interface CapturedProjectEntry {
+  readonly logicalParent: string;
+  readonly parent: string;
+  readonly leaf: string;
+  readonly parentStamp: StorageEntryStamp | null | undefined;
+  readonly leafStamp: StorageEntryStamp | null | undefined;
+}
+
+/** Refuse a changed or unprovable storage binding before touching project data. */
+export class ProjectStorageChangedError extends Error {
+  /** Report only a fixed refusal, without retaining paths or provider diagnostics. */
+  constructor() { super('Project storage changed while its deletion waited; nothing was removed.'); }
+}
+
+/** Capture without following the leaf; missing entries stay distinct from unreadable identities. */
+async function storageEntryStamp(file: string): Promise<StorageEntryStamp | null | undefined> {
+  try {
+    const info = await fs.promises.lstat(file, { bigint: true });
+    return { device: info.dev.toString(), inode: info.ino.toString(), symlink: info.isSymbolicLink(), directory: info.isDirectory() };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === 'ENOENT' || code === 'ENOTDIR' ? null : undefined;
+  }
+}
+
+/** Treat an unreadable identity as unprovable, even if both snapshots failed. */
+function sameStorageEntry(left: StorageEntryStamp | null | undefined, right: StorageEntryStamp | null | undefined): boolean {
+  if (left === undefined || right === undefined) return false;
+  if (left === null || right === null) return left === right;
+  return left.device === right.device && left.inode === right.inode && left.symlink === right.symlink && left.directory === right.directory;
+}
+
 /** Physical workspace and tracker captured before a queued operation may wait. */
 export interface PinnedProjectStorage {
   /** Workspace directory after resolving aliases, including a missing leaf under an existing ancestor. */
   readonly workspace: string;
   /** Tracker directory after resolving a tracker symlink independently of the workspace alias. */
   readonly tracker: string;
+  /** Physical parent and lstat identity of the project entry selected before queue admission. */
+  readonly entry: CapturedProjectEntry;
 }
 
 /**
@@ -345,8 +388,16 @@ export async function pinProjectStorage(workspace: string): Promise<PinnedProjec
 
 /** Resolve the workspace once and anchor every subsequent tracker lookup beneath that capture. */
 async function pinWorkspaceStorage(workspace: string, relativeTracker: string): Promise<PinnedProjectStorage> {
-  const physical = await physicalWorkspacePath(path.resolve(workspace));
-  return { workspace: physical, tracker: await physicalWorkspacePath(path.join(physical, relativeTracker)) };
+  const absolute = path.resolve(workspace);
+  let physical = await physicalWorkspacePath(absolute);
+  const logicalParent = path.dirname(absolute), leaf = path.basename(absolute);
+  const parent = await physicalWorkspacePath(logicalParent);
+  const parentStamp = await storageEntryStamp(parent);
+  const leafStamp = await storageEntryStamp(path.join(parent, leaf));
+  // An ELOOP fallback can still canonicalize its accessible parent without following the leaf.
+  if (physical === absolute && leafStamp?.symlink) physical = path.join(parent, leaf);
+  return { workspace: physical, tracker: await physicalWorkspacePath(path.join(physical, relativeTracker)),
+    entry: { logicalParent, parent, leaf, parentStamp, leafStamp } };
 }
 
 /** Identify shared tracker storage even when only the tracker, rather than its workspace, is a symlink. */
@@ -914,8 +965,13 @@ export async function getPmClient(pmRoot: string): Promise<PmClient> {
 }
 
 /** Drop a cached client when its workspace is deleted. */
-export async function evictPmClient(pmRoot: string): Promise<void> {
-  pmClientCache.delete((await pmClientIdentity(pmRoot)).key);
+export async function evictPmClient(pmRoot: string | PinnedProjectStorage): Promise<void> {
+  if (typeof pmRoot === 'string') {
+    pmClientCache.delete((await pmClientIdentity(pmRoot)).key);
+  } else {
+    await boundedStorageDiscovery(async () => { await assertPinnedProjectEntry(pmRoot); return pmRoot; });
+    pmClientCache.delete(JSON.stringify([pmRoot.tracker, pmRoot.workspace]));
+  }
 }
 
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
@@ -1371,18 +1427,32 @@ export async function runGetItemAt(
   return runSerialized(getProjectDir(userId, slug), storage => getItemAt(itemId, ref, { pmRoot: storage.tracker, cwd: storage.workspace }), onStoragePinned);
 }
 
+/** Verify the admitted object and its logical binding; validation reads never become mutation paths. */
+async function assertPinnedProjectEntry(storage: PinnedProjectStorage): Promise<void> {
+  const { entry } = storage;
+  const parentStamp = await storageEntryStamp(entry.parent);
+  const leafStamp = await storageEntryStamp(path.join(entry.parent, entry.leaf));
+  const workspace = await physicalWorkspacePath(path.join(entry.parent, entry.leaf));
+  const tracker = await physicalWorkspacePath(path.join(storage.workspace, '.agents', 'pm'));
+  const boundParent = await physicalWorkspacePath(entry.logicalParent);
+  if (entry.parentStamp?.symlink || boundParent !== entry.parent
+    || !sameStorageEntry(entry.parentStamp, parentStamp) || !sameStorageEntry(entry.leafStamp, leafStamp)
+    || workspace !== storage.workspace || tracker !== storage.tracker) throw new ProjectStorageChangedError();
+}
+
 /**
- * Delete a project workspace from disk.
+ * Remove only the admitted project entry after eviction succeeds and its identity is revalidated.
+ * Every mutation uses the captured physical parent plus leaf. A leaf symlink is unlinked without
+ * recursing into its target. A captured missing entry needs no filesystem mutation.
  *
- * Evicts the cached SDK client for the project's pm root first (so no stale
- * client outlives the deletion), then removes the whole workspace directory
- * recursively. A missing directory is not an error.
- *
- * @param userId - The owning user's id.
- * @param slug - The project slug.
+ * @param storage - Admission-time parent, leaf inode/device and physical SDK cache identities.
  */
-export async function deleteProjectDir(userId: string, slug: string): Promise<void> {
-  const dir = getProjectDir(userId, slug);
-  await evictPmClient(path.join(dir, ".agents", "pm"));
-  await fs.promises.rm(dir, { recursive: true, force: true });
+export async function deleteProjectDir(storage: PinnedProjectStorage): Promise<void> {
+  await evictPmClient(storage);
+  await boundedStorageDiscovery(async () => { await assertPinnedProjectEntry(storage); return storage; });
+  const entry = storage.entry;
+  if (entry.leafStamp === null && (entry.parentStamp === null || entry.parentStamp?.directory)) return;
+  const target = path.join(entry.parent, entry.leaf);
+  if (entry.leafStamp?.symlink) await fs.promises.unlink(target);
+  else await fs.promises.rm(target, { recursive: true, force: true });
 }

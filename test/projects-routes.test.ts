@@ -17,7 +17,7 @@ import { getPmClient, getProjectDir, runSerialized } from "../src/services/pm-ru
 import { pool } from '../src/db.ts';
 import { PmClient } from '@unbrained/pm-cli/sdk';
 import { createPlainContractTracker } from "./helpers/plain-contract-tracker.ts";
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, lstat, readdir, readFile, readlink, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -578,4 +578,117 @@ test('projects: deletion owns its row and queue through commit while unrelated p
     try { await pool.query(`DROP TRIGGER IF EXISTS ${trigger} ON pm_projects`); await pool.query(`DROP FUNCTION IF EXISTS ${trigger}()`); }
     finally { controller.release(); }
   }
+});
+
+/** Record exact file bytes and filesystem identities without following any symlink. */
+async function storageSnapshot(root: string): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  /** Include empty directories, leaf links and tracker payloads in the same synthetic corpus. */
+  async function visit(directory: string): Promise<void> {
+    const info = await lstat(directory, { bigint: true });
+    const key = path.relative(root, directory) || '.';
+    const stamp = `${info.dev}:${info.ino}`;
+    if (info.isSymbolicLink()) result[key] = `link:${stamp}:${await readlink(directory)}`;
+    else if (info.isDirectory()) {
+      result[key] = `directory:${stamp}`;
+      for (const name of (await readdir(directory)).sort()) await visit(path.join(directory, name));
+    } else result[key] = `file:${stamp}:${(await readFile(directory)).toString('hex')}`;
+  }
+  await visit(root);
+  return result;
+}
+
+/** Share the owned server, row and logical directory for adversarial deletion cases. */
+async function deletionStorageTest(t: Parameters<typeof setupProjectsTest>[0]) {
+  const context = await setupProjectsTest(t);
+  const project = await seedProject(context.owner.id);
+  return { ...context, project, cwd: getProjectDir(context.owner.id, project.slug) };
+}
+
+/** Pause eviction's third leaf read after admission and the route check, delegating to real lstat. */
+function holdEvictionLeaf(leaf: string) {
+  const original = fs.promises.lstat, entered = deferred<void>(), released = deferred<void>();
+  let reads = 0;
+  Reflect.set(fs.promises, 'lstat', new Proxy(original, { async apply(target, receiver, args) {
+    if (String(args[0]) === leaf && ++reads === 3) { entered.resolve(); await released.promise; }
+    return Reflect.apply(target, receiver, args);
+  } }));
+  return { entered: entered.promise, release: released.resolve, restore: () => Reflect.set(fs.promises, 'lstat', original) };
+}
+
+/** Retarget only after queue/check capture, while eviction's real lstat is awaiting completion. */
+test('projects: ancestor retarget during eviction refuses without changing either storage tree and permits retry', async t => {
+  const { server, owner, project, cwd } = await deletionStorageTest(t);
+  const parent = path.dirname(cwd), originalParent = `${parent}-original`, otherParent = `${parent}-other`;
+  await createPlainContractTracker(cwd);
+  await rename(parent, originalParent);
+  await symlink(originalParent, parent, process.platform === 'win32' ? 'junction' : 'dir');
+  const originalDirectory = path.join(originalParent, project.slug), otherDirectory = path.join(otherParent, project.slug);
+  const other = await createPlainContractTracker(otherDirectory);
+  await other.client.create({ type: 'Task', title: 'Other project must remain byte-identical', body: 'Synthetic eviction retarget proof' });
+  const beforeOriginal = await storageSnapshot(originalDirectory), beforeOther = await storageSnapshot(otherDirectory);
+  const eviction = holdEvictionLeaf(originalDirectory);
+  let deletion: Promise<Response> | undefined;
+  try {
+    deletion = authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
+    await eviction.entered;
+    await rm(parent); await symlink(otherParent, parent, process.platform === 'win32' ? 'junction' : 'dir');
+    eviction.release();
+    const response = await deletion;
+    assert.deepEqual(await storageSnapshot(otherDirectory), beforeOther, 'the other project and its tracker must remain byte for byte');
+    assert.deepEqual(await storageSnapshot(originalDirectory), beforeOriginal, 'refusal must not remove the admitted project either');
+    assert.equal(response.status, 409, await response.text());
+    assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount, 1);
+    eviction.restore();
+    await rm(parent); await symlink(originalParent, parent, process.platform === 'win32' ? 'junction' : 'dir');
+    await assertDeletionRemoves(server, owner, project.id, originalDirectory);
+    assert.deepEqual(await storageSnapshot(otherDirectory), beforeOther, 'retry must also leave the other tracker unchanged');
+  } finally {
+    eviction.release(); await deletion;
+    eviction.restore();
+    await rm(parent, { force: true }); await rename(originalParent, parent);
+    await rm(otherParent, { recursive: true, force: true });
+  }
+});
+
+/** A same-path replacement must not inherit deletion authority from an older leaf inode. */
+test('projects: leaf replacement during eviction refuses the new inode and preserves both trackers', async t => {
+  const { server, owner, project, cwd } = await deletionStorageTest(t);
+  const saved = `${cwd}-saved`;
+  await createPlainContractTracker(cwd);
+  const eviction = holdEvictionLeaf(cwd);
+  let moved = false;
+  let deletion: Promise<Response> | undefined;
+  try {
+    deletion = authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
+    await eviction.entered;
+    await rename(cwd, saved); moved = true;
+    const replacement = await createPlainContractTracker(cwd);
+    await replacement.client.create({ type: 'Task', title: 'Replacement inode must survive' });
+    const oldBytes = await storageSnapshot(saved), newBytes = await storageSnapshot(cwd);
+    eviction.release();
+    const response = await deletion;
+    assert.deepEqual(await storageSnapshot(cwd), newBytes);
+    assert.deepEqual(await storageSnapshot(saved), oldBytes);
+    assert.equal(response.status, 409, await response.text());
+    assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount, 1);
+  } finally {
+    eviction.release(); await deletion;
+    eviction.restore();
+    if (moved) { await rm(cwd, { recursive: true, force: true }); await rename(saved, cwd); }
+  }
+});
+
+/** A project entry that is a symlink owns only that link, never the target's files. */
+test('projects: deleting a leaf symlink unlinks only the leaf and preserves its target', async t => {
+  const { server, owner } = await setupProjectsTest(t);
+  const project = await seedProject(owner.id), other = await seedProject(owner.id);
+  const target = getProjectDir(owner.id, other.slug), leaf = getProjectDir(owner.id, project.slug);
+  const tracker = await createPlainContractTracker(target);
+  await tracker.client.create({ type: 'Task', title: 'Symlink target remains unchanged' });
+  await symlink(target, leaf, process.platform === 'win32' ? 'junction' : 'dir');
+  const before = await storageSnapshot(target);
+  await assertDeletionRemoves(server, owner, project.id, leaf);
+  assert.deepEqual(await storageSnapshot(target), before);
+  assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [other.id])).rowCount, 1);
 });

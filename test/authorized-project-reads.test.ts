@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { deferred } from './helpers/deferred.ts';
+import { copyAdmissionFixture } from './helpers/admission-fixture.ts';
 import test, { type TestContext } from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import fs, { existsSync } from 'node:fs';
-import { chmod, cp, copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PmClient, readSettingsWithMetadata } from '@unbrained/pm-cli/sdk';
@@ -521,12 +522,7 @@ test('alias admission assertion detects a premature acknowledgement from only on
   const sandbox = await mkdtemp(path.join(tmpdir(), 'admission-assertion-'));
   t.after(() => rm(sandbox, { recursive: true, force: true }));
   const repo = fileURLToPath(new URL('../', import.meta.url));
-  const filter = (file: string) => !file.split(path.sep).some(part => ['node_modules', '.git', '.agents', '.local'].includes(part)) && !path.basename(file).startsWith('.env');
-  for (const directory of ['src', 'test', 'public', 'sql']) {
-    await cp(path.join(repo, directory), path.join(sandbox, directory), { recursive: true, filter });
-  }
-  for (const file of ['package.json', 'manifest.json']) await copyFile(path.join(repo, file), path.join(sandbox, file));
-  await symlink(path.join(repo, 'node_modules'), path.join(sandbox, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  await copyAdmissionFixture(repo, sandbox);
   const runner = path.join(sandbox, 'src', 'services', 'pm-runner.ts');
   const source = await readFile(runner, 'utf8');
   const signature = 'export async function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>, onStoragePinned: () => void = () => {}): Promise<T> {';
@@ -539,8 +535,38 @@ test('alias admission assertion detects a premature acknowledgement from only on
   `));
   const result = await promisify(execFile)(process.execPath, ['--test', '--test-concurrency=1',
     '--test-name-pattern=^directory bindings serialize', path.join(sandbox, 'test', 'authorized-project-reads.test.ts')], {
-    cwd: sandbox, env: { PATH: process.env.PATH, DATABASE_URL: process.env.DATABASE_URL, PM_AUTHOR: 'admission-assertion-test' }, timeout: 30_000,
+    cwd: sandbox, env: { PATH: process.env.PATH, DATABASE_URL: process.env.DATABASE_URL, PM_WEB_TEST_SCHEMA_READY: process.env.PM_WEB_TEST_SCHEMA_READY, PM_AUTHOR: 'admission-assertion-test' }, timeout: 30_000,
   }).then(value => ({ code: 0, output: value.stdout }), error => ({ code: (error as { code?: number }).code, output: String((error as { stdout?: string }).stdout ?? '') }));
   assert.equal(result.code, 1, 'the regression must reject one early alias acknowledgement');
   assert.match(result.output, /no alias may be admitted while its metadata resolution is held/);
+});
+
+/** Prepared-schema children must avoid DDL even from a checkout nested below excluded ancestor names. */
+test('admission fixture supports hidden checkout ancestors and forwards prepared schema under a real table lock', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'admission-location-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const sandbox = path.join(root, '.local', '.agents', 'checkout');
+  await mkdir(sandbox, { recursive: true });
+  const repo = fileURLToPath(new URL('../', import.meta.url));
+  await copyAdmissionFixture(repo, sandbox);
+  const schema = 'admission_fixture_' + (await pool.query<{ id: string }>('SELECT gen_random_uuid() AS id')).rows[0]!.id.replaceAll('-', '');
+  const database = new URL(process.env.DATABASE_URL!);
+  database.searchParams.set('options', `-c search_path=${schema},public -c lock_timeout=1000`);
+  const environment = { PATH: process.env.PATH, DATABASE_URL: database.href, PM_WEB_TEST_SCHEMA_READY: 'true', PM_AUTHOR: 'admission-location-test' };
+  const controller = await pool.connect();
+  try {
+    await controller.query(`CREATE SCHEMA ${schema}`);
+    // Run the real initializer once in this test-owned schema; other workers keep their own tables.
+    await promisify(execFile)(process.execPath, ['scripts/init-test-schema.ts'], { cwd: repo, env: environment, timeout: 30_000 });
+    await controller.query('BEGIN');
+    await controller.query(`LOCK TABLE ${schema}.pm_projects IN ROW EXCLUSIVE MODE`);
+    const result = await promisify(execFile)(process.execPath, ['--test', '--test-concurrency=1',
+      '--test-name-pattern=^alias admission assertion', path.join(sandbox, 'test', 'authorized-project-reads.test.ts')], {
+      cwd: sandbox, env: environment, timeout: 30_000,
+    });
+    assert.match(result.stdout, /pass 1/);
+  } finally {
+    try { await controller.query('ROLLBACK'); await controller.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`); }
+    finally { controller.release(); }
+  }
 });

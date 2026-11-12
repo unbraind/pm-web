@@ -1,7 +1,7 @@
 /** Real database, pinned CLI and built-server lifecycle for the isolated capacity experiment. */
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { waitUntil } from "./capacity-wait.ts";
@@ -9,7 +9,7 @@ export { waitUntil } from "./capacity-wait.ts";
 import { promisify } from "node:util";
 import pg from "pg";
 import jwt from "jsonwebtoken";
-import { getPmClient, evictPmClient } from "../src/services/pm-runner.ts";
+import { getPmClient, evictPmClient, pinProjectStorage, deleteProjectDir, type PinnedProjectStorage } from "../src/services/pm-runner.ts";
 import type { FanoutMeasurement } from "./capacity-fanout-probe.ts";
 import type { RealtimeCounters } from "../src/services/realtime-observability.ts";
 
@@ -53,7 +53,9 @@ export async function capacityFixture(identities: number) {
   if (!process.env.DATABASE_URL) throw new Error("Use scripts/with-test-db.ts to select the disposable test database");
   const database = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-observer", connectionTimeoutMillis: 5000, query_timeout: 5000 });
   await database.connect();
-  const root = await mkdtemp(path.join(tmpdir(), "pm-web-capacity-projects-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "pm-web-capacity-projects-")));
+  const rootStorage = await pinProjectStorage(root);
+  let projectStorage: PinnedProjectStorage | undefined;
   const owner = randomUUID();
   const users = Array.from({ length: identities }, () => randomUUID());
   const projectId = randomUUID();
@@ -63,7 +65,7 @@ export async function capacityFixture(identities: number) {
   const close = async (): Promise<void> => {
     // An eviction failure must not skip the independent database and row cleanup; it is reported afterwards.
     let evictionFailure: { cause: unknown } | undefined;
-    try { await evictPmClient(path.join(dir, ".agents", "pm")); } catch (cause) { evictionFailure = { cause }; }
+    try { if (projectStorage) await evictPmClient(projectStorage); } catch (cause) { evictionFailure = { cause }; }
     await database.end();
     // Large FK cascades need a cleanup budget independent of five-second resource probes.
     const cleanup = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-cleanup",
@@ -75,7 +77,7 @@ export async function capacityFixture(identities: number) {
       throw Object.assign(new Error("Synthetic fixture row cleanup failed", { cause }), { code: "FIXTURE_ROWS_CLEANUP_FAILED" });
     } finally { await cleanup.end(); }
     // Failed row cleanup deliberately retains the ownership receipt and tracker.
-    await rm(root, { recursive: true, force: true });
+    await deleteProjectDir(rootStorage);
     if (evictionFailure) throw Object.assign(new Error("Synthetic fixture SDK client eviction failed", evictionFailure), { code: "FIXTURE_CLIENT_EVICTION_FAILED" });
   };
   try {
@@ -86,6 +88,7 @@ export async function capacityFixture(identities: number) {
     await database.query("INSERT INTO pm_project_shares (project_id, shared_with_user_id, permission) SELECT $1, id, 'edit' FROM unnest($2::uuid[]) AS id", [projectId, users]);
     await mkdir(dir, { recursive: true });
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "capacity", "--defaults", "--agent-guidance", "skip"]);
+    projectStorage = await pinProjectStorage(dir);
     return { root, dir, projectId, secret, database, sessions: users.map((id) => session(id, secret)),
       client: (await getPmClient(path.join(dir, ".agents", "pm"))), close };
   } catch (error) {

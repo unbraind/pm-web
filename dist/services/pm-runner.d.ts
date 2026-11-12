@@ -68,12 +68,34 @@ export declare function getProjectDir(userId: string, slug: string): string;
  * therefore means "the row is absent", which is safe to cache.
  */
 export declare function resolveProjectDir(projectId: string): Promise<string | null>;
+/** Exact filesystem object identity; decimal strings preserve 64-bit inode values in serializable pins. */
+interface StorageEntryStamp {
+    readonly device: string;
+    readonly inode: string;
+    readonly symlink: boolean;
+    readonly directory: boolean;
+}
+/** A directory entry anchored below its captured physical parent, never a later logical mutation path. */
+interface CapturedProjectEntry {
+    readonly logicalParent: string;
+    readonly parent: string;
+    readonly leaf: string;
+    readonly parentStamp: StorageEntryStamp | null | undefined;
+    readonly leafStamp: StorageEntryStamp | null | undefined;
+}
+/** Refuse a changed or unprovable storage binding before touching project data. */
+export declare class ProjectStorageChangedError extends Error {
+    /** Report only a fixed refusal, without retaining paths or provider diagnostics. */
+    constructor();
+}
 /** Physical workspace and tracker captured before a queued operation may wait. */
 export interface PinnedProjectStorage {
     /** Workspace directory after resolving aliases, including a missing leaf under an existing ancestor. */
     readonly workspace: string;
     /** Tracker directory after resolving a tracker symlink independently of the workspace alias. */
     readonly tracker: string;
+    /** Physical parent and lstat identity of the project entry selected before queue admission. */
+    readonly entry: CapturedProjectEntry;
 }
 /**
  * Capture the storage a queued operation must keep using.
@@ -295,7 +317,7 @@ export declare function ensureGraphExtension(userId: string, slug: string): Prom
  */
 export declare function getPmClient(pmRoot: string): Promise<PmClient>;
 /** Drop a cached client when its workspace is deleted. */
-export declare function evictPmClient(pmRoot: string): Promise<void>;
+export declare function evictPmClient(pmRoot: string | PinnedProjectStorage): Promise<void>;
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
 export declare function readProjectCommandOwners(projectDir: string): Promise<ExtensionDescribeResult["command_ownership"]>;
 /**
@@ -382,13 +404,10 @@ export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
  */
 export declare function runGetItemAt(userId: string, slug: string, itemId: string, ref: string, onStoragePinned?: () => void): Promise<GetItemAtResult>;
 /**
- * Delete a project workspace from disk.
+ * Remove only the admitted project entry after eviction succeeds and its identity is revalidated.
+ * Every mutation uses the captured physical parent plus leaf. A leaf symlink is unlinked without
+ * recursing into its target. A captured missing entry needs no filesystem mutation.
  *
- * Evicts the cached SDK client for the project's pm root first (so no stale
- * client outlives the deletion), then removes the whole workspace directory
- * recursively. A missing directory is not an error.
- *
- * @param userId - The owning user's id.
- * @param slug - The project slug.
+ * @param storage - Admission-time parent, leaf inode/device and physical SDK cache identities.
  */
-export declare function deleteProjectDir(userId: string, slug: string): Promise<void>;
+export declare function deleteProjectDir(storage: PinnedProjectStorage): Promise<void>;

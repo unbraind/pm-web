@@ -4,7 +4,7 @@ import { logError } from "../observability.ts";
 import { Router } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { initProject, projectExists, deleteProjectDir, getProjectDir, pinProjectStorage, runSerialized } from "../services/pm-runner.ts";
+import { initProject, projectExists, deleteProjectDir, getProjectDir, pinProjectStorage, runSerialized, ProjectStorageChangedError } from "../services/pm-runner.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
 import { isUniqueViolation, notFoundWhenEmpty } from "./route-helpers.ts";
 
@@ -146,11 +146,6 @@ router.patch("/:id", async (req: AuthRequest, res) => {
   }
 });
 
-/** The project's logical directory names other storage than the queue its deletion waited on. */
-class ProjectStorageChangedError extends Error {
-  constructor() { super('Project storage changed while its deletion waited; nothing was removed.'); }
-}
-
 /** Remove owned storage under both a row transaction and its physical queue, including failed-init cleanup. */
 async function removeOwnedProject(userId: string, projectId: string): Promise<boolean> {
   const client = await pool.connect();
@@ -167,11 +162,10 @@ async function removeOwnedProject(userId: string, projectId: string): Promise<bo
     const directory = getProjectDir(userId, slug);
     await runSerialized(directory, async admitted => {
       try {
-        // Deletion resolves the logical path again. If an ancestor or tracker alias was retargeted while this
-        // waited, that path names storage on another queue, so refuse instead of removing it.
+        // Reject retargets while queued, then carry the admitted parent and inode through eviction/removal.
         const current = await pinProjectStorage(directory);
         if (current.workspace !== admitted.workspace || current.tracker !== admitted.tracker) throw new ProjectStorageChangedError();
-        await deleteProjectDir(userId, slug);
+        await deleteProjectDir(admitted);
         await client.query('DELETE FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
         await client.query('COMMIT'); Reflect.set(transaction, 'open', false);
       } catch (error) {

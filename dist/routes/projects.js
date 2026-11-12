@@ -4,7 +4,7 @@ import { logError } from "../observability.js";
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
-import { initProject, deleteProjectDir, getProjectDir, runSerialized } from "../services/pm-runner.js";
+import { initProject, deleteProjectDir, getProjectDir, pinProjectStorage, runSerialized, ProjectStorageChangedError } from "../services/pm-runner.js";
 import { routeParam, uuidParamGuard } from "./route-params.js";
 import { isUniqueViolation, notFoundWhenEmpty } from "./route-helpers.js";
 const router = Router();
@@ -145,9 +145,14 @@ async function removeOwnedProject(userId, projectId) {
             return false;
         }
         const { slug } = result.rows[0];
-        await runSerialized(getProjectDir(userId, slug), async () => {
+        const directory = getProjectDir(userId, slug);
+        await runSerialized(directory, async (admitted) => {
             try {
-                await deleteProjectDir(userId, slug);
+                // Reject retargets while queued, then carry the admitted parent and inode through eviction/removal.
+                const current = await pinProjectStorage(directory);
+                if (current.workspace !== admitted.workspace || current.tracker !== admitted.tracker)
+                    throw new ProjectStorageChangedError();
+                await deleteProjectDir(admitted);
                 await client.query('DELETE FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
                 await client.query('COMMIT');
                 Reflect.set(transaction, 'open', false);
@@ -177,6 +182,10 @@ router.delete("/:id", async (req, res) => {
         res.json({ ok: true });
     }
     catch (err) {
+        if (err instanceof ProjectStorageChangedError) {
+            res.status(409).json({ error: 'Project storage changed while the deletion waited; retry the deletion' });
+            return;
+        }
         logError('delete_project_error', err);
         res.status(500).json({ error: 'Failed to delete project' });
     }

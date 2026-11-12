@@ -50,8 +50,13 @@ export async function workspaceAliasProbe(root: string): Promise<void> {
       ];
       try {
         await Promise.all(admissions);
-        await runSerialized(path.join(root, 'independent'), async () => undefined);
+        await new Promise<void>(resolve => { setImmediate(resolve); });
         assert.equal(completed, 0, 'no dispatch path may overtake a physical alias');
+        const independent = runSerialized(path.join(root, 'independent'), async () => undefined);
+        const singleSlot = Number.parseInt(process.env.PM_WEB_PM_CONCURRENCY ?? '8', 10) === 1;
+        if (singleSlot) release();
+        await independent;
+        if (!singleSlot) assert.equal(completed, 0, 'independent work must not release the held alias queue');
       } finally { release(); await held; await Promise.all(calls); }
     }
     for (const candidate of aliases) (await evictPmClient(path.join(candidate, '.agents', 'pm')));

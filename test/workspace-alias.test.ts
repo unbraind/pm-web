@@ -216,10 +216,13 @@ test('physical aliases preserve invocation order while independent tracker work 
     assert.equal(events.includes('second'), false, 'a later alias must wait for the earlier invocation to resolve');
     releaseMetadata.resolve();
     await firstEntered.promise;
-    await independentEntered.promise;
-    assert.equal(events.includes('second'), false, 'the shared tracker remains serialized while independent work completes');
     assert.equal((await client.get(item.id)).item.title, 'First');
-    releaseFirst.resolve();
+    if (Number.parseInt(process.env.PM_WEB_PM_CONCURRENCY ?? '8', 10) === 1) releaseFirst.resolve();
+    else {
+      await independentEntered.promise;
+      assert.equal(events.includes('second'), false, 'the shared tracker remains serialized while independent work completes');
+      releaseFirst.resolve();
+    }
     await Promise.all(pending);
     assert.equal((await client.get(item.id)).item.title, 'Second', 'the later invocation must persist last');
     assert.deepEqual(events, ['first', 'independent', 'second']);
@@ -293,4 +296,13 @@ test('stalled discovery refuses with a typed reason and releases unrelated admis
     held.resolve(); t.mock.timers.reset();
     try { await Promise.allSettled(pending); } finally { Reflect.set(fs.promises, 'realpath', original); }
   }
+});
+
+/** A real single-slot subprocess must complete ordering checks without waiting for impossible overlap. */
+test('physical alias ordering completes with a single command slot', async () => {
+  const result = await promisify(execFile)(process.execPath, ['--test', '--test-concurrency=1', '--test-timeout=5000',
+    '--test-name-pattern=^physical aliases preserve', fileURLToPath(import.meta.url)], {
+    env: { PATH: [path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter), PM_WEB_PM_CONCURRENCY: '1', PM_AUTHOR: 'single-slot-test' }, timeout: 10_000,
+  });
+  assert.match(result.stdout, /pass 1/);
 });
