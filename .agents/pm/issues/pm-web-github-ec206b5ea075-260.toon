@@ -6,9 +6,9 @@ status: in_progress
 priority: 2
 tags[3]: "gh:unbraind/pm-web#260","gh:unbraind/pm-web#305","github_author:unbraind"
 created_at: "2026-10-25T16:20:56Z"
-updated_at: "2026-11-12T03:18:00.603Z"
+updated_at: "2026-11-12T04:37:48.917Z"
 author: pm-github
-comments[65]{created_at,author,text}:
+comments[71]{created_at,author,text}:
   "2026-11-06T16:46:19.458Z",codex-astra,"Main 1a8ce23 still binds item reads to owner/slug and caches PmClient by tracker path. Full issue and main history inspected. The pinned SDK 2026.11.2 PmClientOptions exports only pmRoot, cwd, author and noExtensions; no native-backend binding. Open upstream backend contracts remain tracked by pm-cli #1399, #1587 and #1588. Implement the authorized observational item-read boundary with live grant checks, scoped client identity, certified complete reads and safe refusals. Preserve existing filesystem and no-git behavior; split native provider, mutations and durable events into acceptance-driven Features. Refs #260; no native database support claim."
   "2026-11-06T16:50:45.530Z",codex-astra,"Failing-first proof on main 1a8ce23: authorized-project-reads.test.ts fails all six route cases (7 tests including parent). A real SDK marker extension activates on viewer get/search/board/export/calendar reads; historical reads lack no-store. Real PostgreSQL grants and a no-git SDK tracker are used. The production slice replaces these six routes with a narrow observational SDK reader, cache identity scoped to project/principal/effective grant/storage binding, and live checks before queued work and immediately before releasing data."
   "2026-11-06T16:57:23.143Z",codex-astra,"Follow-up Features with explicit acceptance criteria: pm-web-native-provider (native binding, remaining reads and graph ProjectionSource), pm-web-native-mutations (SDK writes, settings, decisions and durable idempotency), pm-web-native-events (native history, durable scoped events and resume cursors). The current slice covers get, at, search, board, export and calendar. Existing graph, paginated list, history panels and resume contracts remain separate. Documentation states the native-provider gap and authorization linearization boundary without claiming a cross-store snapshot."
@@ -74,7 +74,13 @@ comments[65]{created_at,author,text}:
   "2026-11-12T03:14:22.978Z",codex-agent,"Local gate results so far: the linked 12-file targeted command passed 101/101 with zero skips or cancellations in 161 seconds. After the extra whole-workspace-loop fix, the complete projects-routes suite passed 12/12. The final consolidated document parser suite passed 10/10. Typecheck, build:test, lint, documented-declaration gate and zero-duplication gate pass at unchanged thresholds; initial lint and duplication findings in new test/span code were corrected before these successful reruns. Standalone history/storage validation reports 208 items with zero drift and no warnings; release changelog-date and publish-attestation checks pass. Committed pm-runner JavaScript and source map are rebuilt. Added revert proof: restoring only deleteProjectDir existsSync guard fails workspace-loop removal; restoring direct forceful removal passes all three loop cases. No new PM CLI or SDK bug found."
   "2026-11-12T03:17:57.710Z",codex-agent,"Final thread disposition: PRRT_kwDOSZgR5c62Xf4h fixed in markdownDestinations by consuming inline/reference spans in source order and excluding those spans from bare URL extraction; quoted titles with parentheses and reference titles containing link-like text are covered too. PRRT_kwDOSZgR5c62Xf4r fixed by refusing absent/empty file paths, including an empty bare blob URL. PRRT_kwDOSZgR5c62Xf4w fixed by resolving dangling tracker and ancestor links to their lexical targets before queue selection. PRRT_kwDOSZgR5c62XlwS fixed by lexical fallback on looped identities and direct forceful workspace removal; tracker, ancestor and workspace loops have real HTTP deletion coverage. PRRT_kwDOSZgR5c62U92X already fixed by 4dae44a; real Git tests verify decoded file lookup arguments. Latest review-body cleanup nitpick fixed with assert.rejects and all AggregateError entries checked. No thread replies, resolutions or reactions were made."
   "2026-11-12T03:17:59.306Z",codex-agent,"Packed importer acceptance completed successfully: timeout 1200s node scripts/accept-packed.ts passed npm-current, bun-current, npm-minimum and bun-minimum, with all eight launcher probes. Full strict self-host health with required merge drivers passed 10/10 with zero warnings. All isolated revert proofs are recorded above; no local gate timeout occurred this round. Focused source changes, regression tests, rebuilt dist and this append-only tracker evidence are ready for commit. CI/full release certification remains delegated under the time budget. Releasing this agent claim, leaving the item in progress for orchestrator verification; no closure."
-files[50]{path,scope}:
+  "2026-11-12T04:09:24.630Z",codex-agent,"Round 3 at 35b3536: main already merged; refreshed pinned SDK to the existing 2026.11.8 dependency before tracker writes. Read both blocking threads with all comments; latest CodeRabbit body is empty. Scope is only schema-complete observational reads and non-blocking physical path resolution plus necessary request-path callers and regression tests. The Markdown cases remain deferred to GH320 and will not be changed. Preserve no-extension activation, grant rechecks, queue pinning and dangling/loop lexical behavior. Every gate command is capped at 20 minutes."
+  "2026-11-12T04:19:11.745Z",codex-agent,"Implementation: SDK readSettingsWithMetadata plus resolveItemTypeRegistry supplies the actual file-backed scan folders, and SDK discoverExtensions supplies active manifest/contribution metadata without module import. Observational readers refuse enabled item-type contributors or schema extensions without an item-type inventory; schema folder fingerprints are checked around complete reads. The real extension fixture proves the SDK can certify an omitted extension item, while pm-web now refuses all affected read routes with 503 without activation; a configured custom folder remains readable. Async path resolution preserves dangling/loop fallbacks and is propagated through authorization binding, cache access/eviction, queue admission and HTTP deletion. Self-review also converted request-time CLI binary lookup, workspace creation/removal and settings reads to asynchronous filesystem calls; app legal/version checks are boot-only and fleet scanning is build-only. Retarget fixtures acknowledge actual async admission before changing symlinks."
+  "2026-11-12T04:21:04.766Z",codex-agent,"Revert proofs in disposable package copies: replacing observationalItemFolders with the former schema-only scan behavior makes the new extension-defined-folder HTTP regression fail because board returns 200 instead of the required 503. Restoring the guard passes. Reverting only physicalWorkspacePath to the previous synchronous implementation makes the event-loop regression fail: the pin settles before the paused asynchronous metadata read is entered. Restoring async resolution passes. The restored focused suites passed 38/38 with zero skips, retaining all existing grant, expiry, queue-alias, retarget, dangling-link and loop-deletion invariants. The initial blanket discovery-warning refusal was narrowed to preserve the SDK version-bound advisory for otherwise valid legacy extensions; the original no-activation marker regression now passes unchanged."
+  "2026-11-12T04:27:11.161Z",codex-agent,"Broader targeted run passed 165/168; the three graph-fidelity failures identified legacy schema manifests with no static item-type inventory. That is intentionally unprovable under the new refusal boundary. The graph fixture now records an inventory derived from actual public SDK activation during fixture setup (never during a web read), asserting the real published graph package contributes no item types; its strict export parity and poisoned-entry no-activation assertions remain unchanged. Invalid inactive manifests still use the established built-in graph fallback, so discovery advisories alone do not refuse a read; active schema contributors lacking proven inventory still do. A new interleaving test also proves revocation during asynchronous metadata revalidation cannot release data; a final SQL grant check now follows the filesystem wait."
+  "2026-11-12T04:34:52.735Z",codex-agent,"Additional proof: deleting only the final SQL grant query after async binding makes the paused-metadata revocation regression fail with Missing expected rejection; restoring it passes. Both observational entry points now share readObservationalCompleteList, so schema/extension folder inventory is rechecked around the SDK scan before certification. The public graph fixture derives its complete contribution inventory with SDK describeExtensionActivation and createExtensionContributionInventory in a separate owner process, preserving the poisoned-entry test against module-cache masking. Deferred Markdown source and tests remain unchanged. Full npm/Bun release gates remain deferred under the established host-runtime budget; this round runs targeted package, packed-consumer, identity and self-host gates."
+  "2026-11-12T04:37:48.151Z",codex-agent,"Round 3 final verification: pinned pm test --run --only-last --progress passed the 22-file targeted command, 169/169 with zero skips/cancellations in 275 seconds. The strengthened separate-process graph fixture also passed its complete 5/5 suite; focused authorization/queue/deletion coverage passed 39/39. timeout 1200s node scripts/accept-packed.ts passed all four npm/Bun current/minimum scenarios and eight launcher probes on pinned SDK 2026.11.8. Typecheck, build:test, lint, docstrings (954 declarations), zero duplication, strict self-host health (10/10), history/storage validation, release-date and publish-attestation checks passed. Every gate command was capped at 20 minutes; no local timeout occurred. Runtime dist is rebuilt. Full npm/Bun release certification remains delegated under the existing host-runtime budget; no SDK pin or threshold changed in this round. The two blocking threads are addressed: PRRT_kwDOSZgR5c62dUI9 by SDK-backed folder inventory/refusal and shared observational certification; PRRT_kwDOSZgR5c62dUJB by async filesystem resolution and propagated callers, with a final grant check after filesystem awaits. Legacy schema contributors without a provable static inventory now fail closed as documented. GH320 Markdown edge cases and their source/tests remain untouched. No additional PM CLI bug was found. Releasing only this agent claim and leaving the item in progress; no thread replies or resolutions."
+files[68]{path,scope}:
   dist/routes/extensions.js,project
   dist/routes/extensions.js.map,project
   dist/routes/pm.js,project
@@ -125,7 +131,25 @@ files[50]{path,scope}:
   dist/services/pm-runner.d.ts,project
   dist/services/pm-runner.js,project
   dist/services/pm-runner.js.map,project
-tests[16]:
+  dist/idempotency-access.js,project
+  dist/idempotency-access.js.map,project
+  dist/routes/projects.js,project
+  dist/routes/projects.js.map,project
+  dist/services/decision-inbox.js,project
+  dist/services/decision-inbox.js.map,project
+  dist/services/project-graph.js,project
+  dist/services/project-graph.js.map,project
+  docs/authorized-project-reads.md,project
+  scripts/capacity-fixture.ts,project
+  src/idempotency-access.ts,project
+  src/routes/projects.ts,project
+  src/services/decision-inbox.ts,project
+  src/services/project-graph.ts,project
+  test/graph-export-fidelity.test.ts,project
+  test/mutation-replay.test.ts,project
+  test/realtime-delivery.test.ts,project
+  test/helpers/extension-item-inventory.ts,project
+tests[17]:
   - command: node scripts/with-test-db.ts node --test --test-concurrency=1 test/authorized-project-reads.test.ts test/board.test.ts test/pm-collaboration.test.ts test/pm-command-access.test.ts test/pm-schema-history-routes.test.ts test/item-history-at.test.ts test/pm-runner.test.ts
     scope: project
     provenance:
@@ -242,6 +266,14 @@ tests[16]:
     provenance:
       author: codex-agent
       created_at: "2026-11-12T03:09:17.997Z"
+      source_kind: local_mutation
+      source_ref: native-backend-authorized-reads
+  - command: timeout 1200s node scripts/with-test-db.ts node --test --test-concurrency=2 test/authorized-project-reads.test.ts test/workspace-alias.test.ts test/projects-routes.test.ts test/pm-runner.test.ts test/idempotency-access.test.ts test/idempotency.test.ts test/mutation-replay.test.ts test/realtime-delivery.test.ts test/decision-inbox.test.ts test/decision-inbox-routes.test.ts test/graph-export-fidelity.test.ts test/graph-read-only.test.ts test/graph-provision-pin.test.ts test/graph-provision.test.ts test/graph-no-git.test.ts test/capacity-setup.test.ts test/pm-route-cli-contracts.test.ts test/pm-command-access.test.ts test/pm-schema-history-routes.test.ts test/identity-audit.test.ts test/packaging.test.ts test/sdk-adoption.test.ts
+    scope: project
+    timeout_seconds: 1200
+    provenance:
+      author: codex-agent
+      created_at: "2026-11-12T04:21:04.520Z"
       source_kind: local_mutation
       source_ref: native-backend-authorized-reads
 docs[2]{path,scope}:

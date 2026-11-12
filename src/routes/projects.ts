@@ -90,7 +90,7 @@ router.post("/", async (req: AuthRequest, res) => {
       // Roll back both persistence layers if pm initialization fails. Directory
       // cleanup is best-effort so it cannot prevent removal of the DB row.
       try {
-        deleteProjectDir(req.user!.userId, project.slug);
+        (await deleteProjectDir(req.user!.userId, project.slug));
       } catch (cleanupError) {
         logError("project_cleanup_error", cleanupError);
       }
@@ -158,7 +158,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
     }
     const { slug } = result.rows[0] as { slug: string };
     invalidateProjectAccess(routeParam(req, "id"));
-    deleteProjectDir(req.user!.userId, slug);
+    (await deleteProjectDir(req.user!.userId, slug));
     res.json({ ok: true });
   } catch (err) {
     logError("delete_project_error", err);

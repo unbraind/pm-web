@@ -3,7 +3,7 @@ import test, { type TestContext } from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
+import fs, { existsSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -192,7 +192,7 @@ test('directory bindings serialize physical, relative and symlink aliases of a n
   const gate = new Promise<void>(resolve => { release = resolve; });
   const alias = path.join(path.dirname(cwd), 'workspace-alias');
   await symlink(cwd, alias, process.platform === 'win32' ? 'junction' : 'dir');
-  const held = runSerialized(alias, () => gate);
+  const held = runOnPinnedStorage(await pinProjectStorage(alias), () => gate);
   let entered = false;
   const queued = Promise.all([cwd, path.relative(process.cwd(), cwd), path.join(alias, '.')].map(directory =>
     runSerialized(directory, async () => { entered = true; return client.get(item.id); })));
@@ -210,7 +210,7 @@ test('directory bindings serialize physical, relative and symlink aliases of a n
 test('revocation while an authorized read is queued prevents its storage callback', async t => {
   const { viewer, project, cwd, item } = await fixture(t);
   let release!: () => void, selected!: () => void;
-  const held = runSerialized(cwd, () => new Promise<void>(resolve => { release = resolve; }));
+  const held = runOnPinnedStorage(await pinProjectStorage(cwd), () => new Promise<void>(resolve => { release = resolve; }));
   const authorized = new Promise<void>(resolve => { selected = resolve; });
   let called = false;
   const pending = readAuthorizedProject(viewer.id, project.id, async reader => { called = true; return reader.get(item.id); }, selected);
@@ -307,7 +307,7 @@ test('storage switches cannot escape authorized reads or queued SDK and CLI comm
   }
 
   await retarget(cwd, storageA);
-  const admitted = pinProjectStorage(cwd);
+  const admitted = (await pinProjectStorage(cwd));
   let release!: () => void;
   const held = runOnPinnedStorage(admitted, () => new Promise<void>(resolve => { release = resolve; }));
   let entered = false;
@@ -356,11 +356,14 @@ test('storage switches cannot escape authorized reads or queued SDK and CLI comm
 
   for (const timeoutMs of [undefined, 30_000]) for (const jsonOutput of [false, true]) {
     await retarget(cwd, storageA);
-    const pin = pinProjectStorage(cwd);
+    const pin = (await pinProjectStorage(cwd));
     let releaseCommand!: () => void;
     const commandHeld = runOnPinnedStorage(pin, () => new Promise<void>(resolve => { releaseCommand = resolve; }));
     let settled = false;
-    const command = runPm({ userId: owner.id, slug: project.slug, args: ['get', item.id], jsonOutput, timeoutMs }).then(result => { settled = true; return result; });
+    let admitted!: () => void;
+    const admission = new Promise<void>(resolve => { admitted = resolve; });
+    const command = runPm({ userId: owner.id, slug: project.slug, args: ['get', item.id], jsonOutput, timeoutMs, onStoragePinned: admitted }).then(result => { settled = true; return result; });
+    await admission;
     await retarget(cwd, storageB);
     assert.equal(settled, false, `json ${String(jsonOutput)} followed the retargeted workspace`);
     releaseCommand();
@@ -371,22 +374,28 @@ test('storage switches cannot escape authorized reads or queued SDK and CLI comm
     assert.doesNotMatch(result.stdout, /SWITCHED-TARGET/);
   }
   await retarget(cwd, storageA);
-  const historicalPin = pinProjectStorage(cwd);
+  const historicalPin = (await pinProjectStorage(cwd));
   let releaseHistory!: () => void;
   const historyHeld = runOnPinnedStorage(historicalPin, () => new Promise<void>(resolve => { releaseHistory = resolve; }));
   let historySettled = false;
-  const historical = runGetItemAt(owner.id, project.slug, item.id, '1').then(result => { historySettled = true; return result; });
+  let historyAdmitted!: () => void;
+  const historyAdmission = new Promise<void>(resolve => { historyAdmitted = resolve; });
+  const historical = runGetItemAt(owner.id, project.slug, item.id, '1', historyAdmitted).then(result => { historySettled = true; return result; });
+  await historyAdmission;
   await retarget(cwd, storageB);
   assert.equal(historySettled, false, 'historical read followed the retargeted workspace');
   releaseHistory();
   assert.equal((await historical).document.metadata.title, item.title);
   await historyHeld;
   await retarget(cwd, storageA);
-  const listPin = pinProjectStorage(cwd);
+  const listPin = (await pinProjectStorage(cwd));
   let releaseList!: () => void;
   const listHeld = runOnPinnedStorage(listPin, () => new Promise<void>(resolve => { releaseList = resolve; }));
   let listSettled = false;
-  const listed = readCompletePmItems(owner.id, project.slug, false, true).then(result => { listSettled = true; return result; });
+  let listAdmitted!: () => void;
+  const listAdmission = new Promise<void>(resolve => { listAdmitted = resolve; });
+  const listed = readCompletePmItems(owner.id, project.slug, false, true, false, listAdmitted).then(result => { listSettled = true; return result; });
+  await listAdmission;
   await retarget(cwd, storageB);
   assert.equal(listSettled, false, 'complete read followed the retargeted workspace');
   releaseList();
@@ -395,4 +404,61 @@ test('storage switches cannot escape authorized reads or queued SDK and CLI comm
   assert.equal(complete.ok, true, complete.ok ? '' : complete.stderr);
   assert.equal(complete.ok && complete.result.items.some(row => row.title === 'SWITCHED-TARGET'), false);
   assert.equal(complete.ok && complete.result.items.some(row => row.id === item.id), true);
+});
+
+
+/** An enabled schema extension cannot silently hide its items behind a no-extensions certificate. */
+test('observational reads refuse extension-defined item folders without activating extension code', async t => {
+  const { cwd, pmRoot, client, server, viewer, project } = await fixture(t);
+  const directory = path.join(pmRoot, 'extensions', 'custom-type');
+  const marker = path.join(directory, 'activated');
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, 'manifest.json'), JSON.stringify({ name: 'custom-type', version: '1.0.0', entry: './index.mjs', capabilities: ['schema'], contributions: { schema_version: 1, item_types: ['HiddenRecord'] } }));
+  await writeFile(path.join(directory, 'index.mjs'), "import { writeFileSync } from 'node:fs'; export function activate(api) { api.registerItemTypes([{ name: 'HiddenRecord', folder: 'extension-records' }]); writeFileSync(new URL('./activated', import.meta.url), 'activated'); }");
+  const active = new PmClient({ cwd, pmRoot });
+  const hidden = await active.create({ type: 'HiddenRecord', title: 'Extension-only record', description: 'Synthetic schema completeness proof' });
+  assert.equal(existsSync(marker), true, 'the control extension really registered the item type');
+  const complete = await active.listAllComplete();
+  assert.ok(complete.items.some(item => item.id === hidden.item.id));
+  await rm(marker);
+  const incomplete = await client.listAllComplete();
+  assert.equal(incomplete.complete_list.source_complete, true, 'the SDK control certifies its narrower no-extensions scan');
+  assert.equal(incomplete.items.some(item => item.id === hidden.item.id), false);
+  for (const endpoint of ['board', 'search?q=Extension-only', 'export', 'calendar.ics', `get/${hidden.item.id}`, `at/${hidden.item.id}/1`]) {
+    const response = await authedFetch(server, viewer, `/api/projects/${project.id}/pm/${endpoint}`);
+    assert.equal(response.status, 503, `${endpoint}: ${await response.clone().text()}`);
+    assert.deepEqual(await response.json(), { error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
+    const head = await authedFetch(server, viewer, `/api/projects/${project.id}/pm/${endpoint}`, { method: 'HEAD' });
+    assert.equal(head.status, 503, endpoint);
+    assert.equal(existsSync(marker), false, 'the viewer must not activate code to discover its schema');
+  }
+  // File-backed custom types are safe because the SDK can establish their actual folders without activation.
+  await rm(directory, { recursive: true });
+  await client.schemaAddType('PersistedRecord', { folder: 'custom-persisted-folder' });
+  const persisted = await client.create({ type: 'PersistedRecord', title: 'Safe configured record' });
+  const board = await authedFetch(server, viewer, `/api/projects/${project.id}/pm/board`);
+  assert.equal(board.status, 200);
+  const rows = await board.json() as { columns: { items: { id: string }[] }[] };
+  assert.ok(rows.columns.some(column => column.items.some(item => item.id === persisted.item.id)));
+});
+
+
+/** The last SQL grant check must follow storage awaits so a paused lookup cannot release stale authority. */
+test('revocation during the final asynchronous storage check refuses the read result', async t => {
+  const { viewer, project, item } = await fixture(t);
+  const original = fs.promises.realpath;
+  let release!: () => void, entered!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const paused = new Promise<void>(resolve => { entered = resolve; });
+  const pending = readAuthorizedProject(viewer.id, project.id, async reader => {
+    const result = await reader.get(item.id);
+    fs.promises.realpath = new Proxy(original, { async apply(target, receiver, args) { entered(); await gate; return Reflect.apply(target, receiver, args); } });
+    return result;
+  });
+  const refused = assert.rejects(pending, error => error instanceof ProjectReadError && error.status === 404);
+  try { await paused; await change('revoke', project.id, viewer.id); }
+  finally {
+    release();
+    try { await refused; } finally { Reflect.set(fs.promises, 'realpath', original); }
+  }
 });

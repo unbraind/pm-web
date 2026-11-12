@@ -16,21 +16,21 @@ export async function workspaceAliasProbe(root: string): Promise<void> {
     await symlink(directory, alias, process.platform === 'win32' ? 'junction' : 'dir');
     const trackerAlias = path.join(root, 'owner', 'tracker-alias');
     await mkdir(path.join(trackerAlias, '.agents'), { recursive: true });
-    const client = getPmClient(pmRoot);
+    const client = (await getPmClient(pmRoot));
     await client.init('alias', { defaults: true, agentGuidance: 'skip' });
     await symlink(pmRoot, path.join(trackerAlias, '.agents', 'pm'), process.platform === 'win32' ? 'junction' : 'dir');
     const { item } = await client.create({ type: 'Task', title: 'Physical identity' });
     const aliases = [directory, alias, path.relative(process.cwd(), alias), path.join(alias, 'nested', '..'), trackerAlias];
-    for (const candidate of aliases.slice(0, -1)) assert.equal(getPmClient(path.join(candidate, '.agents', 'pm')), client);
-    const trackerClient = getPmClient(path.join(trackerAlias, '.agents', 'pm'));
+    for (const candidate of aliases.slice(0, -1)) assert.equal((await getPmClient(path.join(candidate, '.agents', 'pm'))), client);
+    const trackerClient = (await getPmClient(path.join(trackerAlias, '.agents', 'pm')));
     assert.notEqual(trackerClient, client, 'shared tracker storage must retain distinct execution workspaces');
-    evictPmClient(path.join(alias, '.agents', 'pm'));
-    assert.notEqual(getPmClient(pmRoot), client, 'alias eviction removes the physical cache entry');
-    assert.equal(getPmClient(path.join(trackerAlias, '.agents', 'pm')), trackerClient, 'eviction preserves other execution workspaces');
+    (await evictPmClient(path.join(alias, '.agents', 'pm')));
+    assert.notEqual((await getPmClient(pmRoot)), client, 'alias eviction removes the physical cache entry');
+    assert.equal((await getPmClient(path.join(trackerAlias, '.agents', 'pm'))), trackerClient, 'eviction preserves other execution workspaces');
 
     for (const heldDirectory of aliases) {
       let release!: () => void;
-      const held = runSerialized(heldDirectory, () => new Promise<void>(resolve => { release = resolve; }));
+      const held = runOnPinnedStorage(await pinProjectStorage(heldDirectory), () => new Promise<void>(resolve => { release = resolve; }));
       await new Promise<void>(resolve => { setImmediate(resolve); });
       let completed = 0;
       const calls = [
@@ -47,7 +47,7 @@ export async function workspaceAliasProbe(root: string): Promise<void> {
         assert.equal(completed, 0, 'no dispatch path may overtake a physical alias');
       } finally { release(); await held; await Promise.all(calls); }
     }
-    for (const candidate of aliases) evictPmClient(path.join(candidate, '.agents', 'pm'));
+    for (const candidate of aliases) (await evictPmClient(path.join(candidate, '.agents', 'pm')));
   } finally {
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
   }
@@ -67,8 +67,8 @@ async function workspaceCwdProbe(root: string): Promise<void> {
   try {
     await mkdir(storage, { recursive: true });
     assert.equal(spawnSync('git', ['init', '-b', 'tracker-storage'], { cwd: storage }).status, 0);
-    await getPmClient(tracker).init('cwd', { defaults: true, agentGuidance: 'skip' });
-    const clients = new Set([getPmClient(tracker)]);
+    await (await getPmClient(tracker)).init('cwd', { defaults: true, agentGuidance: 'skip' });
+    const clients = new Set([(await getPmClient(tracker))]);
     for (const slug of ['workspace-a', 'workspace-b', 'non-git']) {
       const directory = path.join(root, 'owner', slug);
       const pmRoot = path.join(directory, '.agents', 'pm');
@@ -76,7 +76,7 @@ async function workspaceCwdProbe(root: string): Promise<void> {
       await mkdir(path.dirname(pmRoot), { recursive: true });
       if (slug !== 'non-git') assert.equal(spawnSync('git', ['init', '-b', slug], { cwd: directory }).status, 0);
       await symlink(tracker, pmRoot, process.platform === 'win32' ? 'junction' : 'dir');
-      const client = getPmClient(pmRoot);
+      const client = (await getPmClient(pmRoot));
       assert.ok(!clients.has(client), 'distinct cwd requires a distinct client even with shared storage');
       clients.add(client);
       const { item } = await client.create({ type: 'Task', title: `Synthetic ${slug}` });
@@ -95,7 +95,7 @@ async function workspaceCwdProbe(root: string): Promise<void> {
       }
     }
   } finally {
-    for (const pmRoot of roots) evictPmClient(pmRoot);
+    for (const pmRoot of roots) (await evictPmClient(pmRoot));
     for (const [key, value] of previous) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }
@@ -120,20 +120,23 @@ export async function storageSwitchProbe(root: string): Promise<void> {
     await mkdir(path.dirname(logical), { recursive: true });
     await mkdir(storageA, { recursive: true });
     await mkdir(storageB, { recursive: true });
-    const clientA = getPmClient(roots[0]!);
+    const clientA = (await getPmClient(roots[0]!));
     await clientA.init('switch', { defaults: true, agentGuidance: 'skip' });
     const { item } = await clientA.create({ type: 'Task', title: 'Pinned target' });
-    const clientB = getPmClient(roots[1]!);
+    const clientB = (await getPmClient(roots[1]!));
     await clientB.init('switch', { defaults: true, agentGuidance: 'skip' });
     await clientB.create({ type: 'Task', title: 'SWITCHED-TARGET' });
     await symlink(storageA, logical, process.platform === 'win32' ? 'junction' : 'dir');
     for (const timeoutMs of [undefined, 30_000]) for (const jsonOutput of [false, true]) {
       await retargetStorage(logical, storageA);
-      const pin = pinProjectStorage(logical);
+      const pin = (await pinProjectStorage(logical));
       let release!: () => void;
       const held = runOnPinnedStorage(pin, () => new Promise<void>(resolve => { release = resolve; }));
       let settled = false;
-      const pending = runPm({ userId: 'owner', slug: 'slug', args: ['get', item.id], jsonOutput, timeoutMs }).then(result => { settled = true; return result; });
+      let admitted!: () => void;
+      const admission = new Promise<void>(resolve => { admitted = resolve; });
+      const pending = runPm({ userId: 'owner', slug: 'slug', args: ['get', item.id], jsonOutput, timeoutMs, onStoragePinned: admitted }).then(result => { settled = true; return result; });
+      await admission;
       await retargetStorage(logical, storageB);
       assert.equal(settled, false, `json ${String(jsonOutput)} followed the retargeted workspace`);
       release();
@@ -144,18 +147,21 @@ export async function storageSwitchProbe(root: string): Promise<void> {
       assert.doesNotMatch(result.stdout, /SWITCHED-TARGET/);
     }
     await retargetStorage(logical, storageA);
-    const pin = pinProjectStorage(logical);
+    const pin = (await pinProjectStorage(logical));
     let releaseHistory!: () => void;
     const historyHeld = runOnPinnedStorage(pin, () => new Promise<void>(resolve => { releaseHistory = resolve; }));
     let historySettled = false;
-    const historical = runGetItemAt('owner', 'slug', item.id, '1').then(result => { historySettled = true; return result; });
+    let historyAdmitted!: () => void;
+    const admission = new Promise<void>(resolve => { historyAdmitted = resolve; });
+    const historical = runGetItemAt('owner', 'slug', item.id, '1', historyAdmitted).then(result => { historySettled = true; return result; });
+    await admission;
     await retargetStorage(logical, storageB);
     assert.equal(historySettled, false, 'historical read followed the retargeted workspace');
     releaseHistory();
     assert.equal((await historical).document.metadata.title, 'Pinned target');
     await historyHeld;
   } finally {
-    for (const pmRoot of roots) evictPmClient(pmRoot);
+    for (const pmRoot of roots) (await evictPmClient(pmRoot));
     if (previousRoot === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previousRoot;
   }
 }

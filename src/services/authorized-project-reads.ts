@@ -1,7 +1,7 @@
 import { assertInitializedTracker, getContracts, getItemAt, PmClient, PmCliError, type ContractsResult, type GetItemAtResult, type GetResult, type PmCompleteListResult } from '@unbrained/pm-cli/sdk';
 import { pool } from '../db.ts';
 import { readProjectAccess, type ProjectAccess } from './project-access.ts';
-import { certifyPmWebCompleteList, getProjectDir, pinProjectStorage, runOnPinnedStorage, type PinnedProjectStorage } from './pm-runner.ts';
+import { getProjectDir, observationalItemFolders, readObservationalCompleteList, pinProjectStorage, runOnPinnedStorage, type PinnedProjectStorage } from './pm-runner.ts';
 
 /** Narrow SDK read capabilities; neither arbitrary dispatch nor caller-supplied roots cross this boundary. */
 export interface ProjectItemReader {
@@ -38,6 +38,11 @@ export class ProjectReadUnavailableError extends Error {
 const readers = new Map<string, ProjectItemReader>();
 const MAX_READERS = 256;
 
+/** Compare canonical grant snapshots without performing filesystem work after the final SQL check. */
+function grantIdentity(access: ProjectAccess): string {
+  return JSON.stringify([access.id, access.ownerUserId, access.slug, access.permission]);
+}
+
 /**
  * Resolve storage inside the directory adapter.
  *
@@ -47,11 +52,11 @@ const MAX_READERS = 256;
  * @param access - Live project grant used to locate the workspace.
  * @returns The storage captured for this check and the comparable identity.
  */
-function binding(access: ProjectAccess): { storage: PinnedProjectStorage; identity: string } {
-  const storage = pinProjectStorage(getProjectDir(access.ownerUserId, access.slug));
+async function binding(access: ProjectAccess): Promise<{ storage: PinnedProjectStorage; identity: string }> {
+  const storage = await pinProjectStorage(getProjectDir(access.ownerUserId, access.slug));
   return {
     storage,
-    identity: JSON.stringify(['storage', access.id, access.ownerUserId, access.slug, access.permission, storage.workspace, storage.tracker]),
+    identity: JSON.stringify(['storage', grantIdentity(access), storage.workspace, storage.tracker]),
   };
 }
 
@@ -64,7 +69,7 @@ function directoryReader(storage: PinnedProjectStorage, key: string): ProjectIte
     const client = new PmClient(options);
     reader = Object.freeze({
       get: (id: string) => client.get(id),
-      complete: async (includeBody = false) => certifyPmWebCompleteList(await client.listAllComplete({ includeBody })),
+      complete: (includeBody = false) => readObservationalCompleteList(storage, includeBody),
       at: (id: string, ref: string) => getItemAt(id, ref, { pmRoot: storage.tracker, cwd: storage.workspace }),
       contracts: () => getContracts({ ...options, runtimeOnly: true }),
     });
@@ -87,18 +92,22 @@ function directoryReader(storage: PinnedProjectStorage, key: string): ProjectIte
 export async function readAuthorizedProject<T>(principal: string, projectId: string, read: (reader: ProjectItemReader, access: ProjectAccess) => Promise<T>, onAuthorized: () => void = () => {}): Promise<T> {
   const access = await readProjectAccess(pool, principal, projectId);
   if (!access) throw new ProjectReadError(404);
-  const selected = binding(access);
+  const selected = await binding(access);
   const key = JSON.stringify([principal.toLowerCase(), selected.identity]);
   onAuthorized();
   /** A cached SDK object never substitutes for current account/share authorization or storage. */
   const authorize = async (): Promise<void> => {
     const current = await readProjectAccess(pool, principal, projectId);
     if (!current) throw new ProjectReadError(404);
-    if (binding(current).identity !== selected.identity) throw new ProjectReadError(409);
+    if ((await binding(current)).identity !== selected.identity) throw new ProjectReadError(409);
+    // Metadata resolution can wait on storage; make the final grant query after that wait.
+    const admitted = await readProjectAccess(pool, principal, projectId);
+    if (!admitted) throw new ProjectReadError(404);
+    if (grantIdentity(admitted) !== grantIdentity(access)) throw new ProjectReadError(409);
   };
   return runOnPinnedStorage(selected.storage, async () => {
     await authorize();
-    try { await assertInitializedTracker(selected.storage.tracker); }
+    try { await assertInitializedTracker(selected.storage.tracker); await observationalItemFolders(selected.storage); }
     catch (error) { throw new ProjectReadUnavailableError(error); }
     const cached = directoryReader(selected.storage, key);
     let active = true;

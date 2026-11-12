@@ -30,7 +30,12 @@ storage, or a global snapshot across independently written item histories.
 Every covered GET and HEAD returns `Cache-Control: no-store, private`.
 Extension activation is disabled for item and contract reads; point-in-time
 reads use the SDK replay kernel. Complete views retain the SDK's complete-list
-certificate and pm-web's supplemental output-budget refusal. Missing or corrupt
+certificate and pm-web's supplemental output-budget refusal. Scan folders come
+from the SDK's live schema registry. If an enabled extension contributes item
+types whose folders cannot be established without activating code, covered
+reads return 503 rather than certify a partial corpus. File-backed custom
+types remain readable without activation. Storage resolution uses asynchronous
+filesystem operations before queue admission. Missing or corrupt
 trackers fail closed with a safe unavailable response; reads never initialize
 a replacement tracker or expose provider exception text. Failure logs retain
 only an allowlisted preflight reason (such as missing or unreadable) and the

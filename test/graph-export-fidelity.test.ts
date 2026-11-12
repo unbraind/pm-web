@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { graphFromItems, type Graph } from "pm-graph";
@@ -75,7 +76,7 @@ async function generatedTracker(owner: string, slug: string, seed: number, count
   return workspace;
 }
 
-/** Copy the exact published extension into a disposable tracker; never execute it on web reads. */
+/** Copy the published extension and record its real SDK type inventory before observational web reads. */
 async function installFixtureGraph(workspace: string): Promise<string> {
   const directory = path.join(workspace, ".agents", "pm", "extensions", "pm-graph");
   await mkdir(directory, { recursive: true });
@@ -85,6 +86,13 @@ async function installFixtureGraph(workspace: string): Promise<string> {
   await cp(path.resolve("node_modules/pm-graph/package.json"), path.join(directory, "package.json"));
   // Module resolution uses the package worktree dependencies through this fixture-only link.
   await symlink(path.resolve("node_modules"), path.join(directory, "node_modules"), "dir");
+  // Keep the activation in a separate process so module caching cannot mask the later poisoned-entry check.
+  const contributions: unknown = JSON.parse(execFileSync(process.execPath, [
+    fileURLToPath(new URL('./helpers/extension-item-inventory.ts', import.meta.url)), workspace,
+  ], { encoding: 'utf8', timeout: 30_000 }));
+  const manifestPath = path.join(directory, 'manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+  await writeFile(manifestPath, JSON.stringify({ ...manifest, contributions }));
   return directory;
 }
 

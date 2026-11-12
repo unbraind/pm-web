@@ -360,7 +360,7 @@ test('projects: deletion removes workspaces with tracker and ancestor symlink lo
     const project = await seedProject(owner.id);
     const cwd = getProjectDir(owner.id, project.slug);
     const { pmRoot } = await createPlainContractTracker(cwd);
-    const cached = getPmClient(pmRoot);
+    const cached = (await getPmClient(pmRoot));
     const link = kind === 'tracker' ? pmRoot : kind === 'ancestor' ? path.dirname(pmRoot) : cwd;
     await rm(link, { recursive: true });
     await symlink(link, link, process.platform === 'win32' ? 'junction' : 'dir');
@@ -368,6 +368,6 @@ test('projects: deletion removes workspaces with tracker and ancestor symlink lo
     assert.equal(response.status, 200, `${kind}: ${await response.text()}`);
     await assert.rejects(stat(cwd), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
     assert.equal((await authedFetch(server, owner, `/api/projects/${project.id}`)).status, 404);
-    assert.notEqual(getPmClient(pmRoot), cached, 'deletion also evicts the old SDK client');
+    assert.notEqual((await getPmClient(pmRoot)), cached, 'deletion also evicts the old SDK client');
   }
 });

@@ -1,7 +1,7 @@
 import { assertInitializedTracker, getContracts, getItemAt, PmClient, PmCliError } from '@unbrained/pm-cli/sdk';
 import { pool } from '../db.js';
 import { readProjectAccess } from './project-access.js';
-import { certifyPmWebCompleteList, getProjectDir, pinProjectStorage, runOnPinnedStorage } from './pm-runner.js';
+import { getProjectDir, observationalItemFolders, readObservationalCompleteList, pinProjectStorage, runOnPinnedStorage } from './pm-runner.js';
 /** Safe access refusals contain no backend address or principal identity. */
 export class ProjectReadError extends Error {
     status;
@@ -26,6 +26,10 @@ export class ProjectReadUnavailableError extends Error {
 // Cache immutable SDK bindings only, never grants, item results or authorization decisions.
 const readers = new Map();
 const MAX_READERS = 256;
+/** Compare canonical grant snapshots without performing filesystem work after the final SQL check. */
+function grantIdentity(access) {
+    return JSON.stringify([access.id, access.ownerUserId, access.slug, access.permission]);
+}
 /**
  * Resolve storage inside the directory adapter.
  *
@@ -35,11 +39,11 @@ const MAX_READERS = 256;
  * @param access - Live project grant used to locate the workspace.
  * @returns The storage captured for this check and the comparable identity.
  */
-function binding(access) {
-    const storage = pinProjectStorage(getProjectDir(access.ownerUserId, access.slug));
+async function binding(access) {
+    const storage = await pinProjectStorage(getProjectDir(access.ownerUserId, access.slug));
     return {
         storage,
-        identity: JSON.stringify(['storage', access.id, access.ownerUserId, access.slug, access.permission, storage.workspace, storage.tracker]),
+        identity: JSON.stringify(['storage', grantIdentity(access), storage.workspace, storage.tracker]),
     };
 }
 /** Construct only capabilities supported by the pinned directory SDK, with extension activation disabled. */
@@ -52,7 +56,7 @@ function directoryReader(storage, key) {
         const client = new PmClient(options);
         reader = Object.freeze({
             get: (id) => client.get(id),
-            complete: async (includeBody = false) => certifyPmWebCompleteList(await client.listAllComplete({ includeBody })),
+            complete: (includeBody = false) => readObservationalCompleteList(storage, includeBody),
             at: (id, ref) => getItemAt(id, ref, { pmRoot: storage.tracker, cwd: storage.workspace }),
             contracts: () => getContracts({ ...options, runtimeOnly: true }),
         });
@@ -76,7 +80,7 @@ export async function readAuthorizedProject(principal, projectId, read, onAuthor
     const access = await readProjectAccess(pool, principal, projectId);
     if (!access)
         throw new ProjectReadError(404);
-    const selected = binding(access);
+    const selected = await binding(access);
     const key = JSON.stringify([principal.toLowerCase(), selected.identity]);
     onAuthorized();
     /** A cached SDK object never substitutes for current account/share authorization or storage. */
@@ -84,13 +88,20 @@ export async function readAuthorizedProject(principal, projectId, read, onAuthor
         const current = await readProjectAccess(pool, principal, projectId);
         if (!current)
             throw new ProjectReadError(404);
-        if (binding(current).identity !== selected.identity)
+        if ((await binding(current)).identity !== selected.identity)
+            throw new ProjectReadError(409);
+        // Metadata resolution can wait on storage; make the final grant query after that wait.
+        const admitted = await readProjectAccess(pool, principal, projectId);
+        if (!admitted)
+            throw new ProjectReadError(404);
+        if (grantIdentity(admitted) !== grantIdentity(access))
             throw new ProjectReadError(409);
     };
     return runOnPinnedStorage(selected.storage, async () => {
         await authorize();
         try {
             await assertInitializedTracker(selected.storage.tracker);
+            await observationalItemFolders(selected.storage);
         }
         catch (error) {
             throw new ProjectReadUnavailableError(error);

@@ -1175,7 +1175,7 @@ router.post("/search", async (req: AuthRequest, res) => {
   // from the same defaults the pm CLI applies. Explicit per-request overrides
   // (limit / minScore / semanticWeight) win over the workspace defaults so the
   // browser can still narrow a page.
-  const settings = readPmSettings(project.ownerUserId, project.slug);
+  const settings = (await readPmSettings(project.ownerUserId, project.slug));
   const resolvedLimit = boundedNumber(
     body["limit"],
     resolveSearchMaxResults(settings),

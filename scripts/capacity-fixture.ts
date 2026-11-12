@@ -61,7 +61,7 @@ export async function capacityFixture(identities: number) {
   const dir = path.join(root, owner, "capacity");
   /** Delete only the fixture-owned identities, cascading its projects and shares. */
   const close = async (): Promise<void> => {
-    evictPmClient(path.join(dir, ".agents", "pm"));
+    (await evictPmClient(path.join(dir, ".agents", "pm")));
     await database.end();
     // Large FK cascades need a cleanup budget independent of five-second resource probes.
     const cleanup = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-cleanup",
@@ -84,7 +84,7 @@ export async function capacityFixture(identities: number) {
     await mkdir(dir, { recursive: true });
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "capacity", "--defaults", "--agent-guidance", "skip"]);
     return { root, dir, projectId, secret, database, sessions: users.map((id) => session(id, secret)),
-      client: getPmClient(path.join(dir, ".agents", "pm")), close };
+      client: (await getPmClient(path.join(dir, ".agents", "pm"))), close };
   } catch (error) { await close(); throw error; }
 }
 

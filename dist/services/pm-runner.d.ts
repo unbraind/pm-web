@@ -73,7 +73,7 @@ export interface PinnedProjectStorage {
  * @param workspace - Logical or relative project directory.
  * @returns The physical workspace and tracker selected at this instant.
  */
-export declare function pinProjectStorage(workspace: string): PinnedProjectStorage;
+export declare function pinProjectStorage(workspace: string): Promise<PinnedProjectStorage>;
 /**
  * Run async work for one workspace after all prior work there finishes.
  *
@@ -87,9 +87,10 @@ export declare function pinProjectStorage(workspace: string): PinnedProjectStora
  *
  * @param workspace - Logical project directory whose current physical tracker selects the queue.
  * @param work - Operation that must execute against the admitted pin.
+ * @param onStoragePinned - Optional acknowledgement after storage resolution and queue admission.
  * @returns The operation result.
  */
-export declare function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T>;
+export declare function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>, onStoragePinned?: () => void): Promise<T>;
 /**
  * Serialize against storage that was already captured by an access check.
  *
@@ -146,6 +147,8 @@ export interface PmRunOptions {
     input?: string;
     jsonOutput?: boolean;
     timeoutMs?: number;
+    /** Acknowledge resolved storage and queue admission without replacing any operation. */
+    onStoragePinned?: () => void;
     /** Session declaration serialized for commands that fall back to the CLI. */
     agentSession?: AgentSessionContext;
     /** Require the runtime winner for this command, and for every path its positional args extend it to, to be the catalog package. */
@@ -279,9 +282,9 @@ export declare function ensureGraphExtension(userId: string, slug: string): Prom
  * @param pmRoot - Logical or physical tracker directory.
  * @returns The cached client for that tracker's current physical identity and workspace.
  */
-export declare function getPmClient(pmRoot: string): PmClient;
+export declare function getPmClient(pmRoot: string): Promise<PmClient>;
 /** Drop a cached client when its workspace is deleted. */
-export declare function evictPmClient(pmRoot: string): void;
+export declare function evictPmClient(pmRoot: string): Promise<void>;
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
 export declare function readProjectCommandOwners(projectDir: string): Promise<ExtensionDescribeResult["command_ownership"]>;
 /**
@@ -308,6 +311,13 @@ export declare function readProjectCommandOwners(projectDir: string): Promise<Ex
  */
 export declare function certifyPmWebCompleteList(candidate: unknown): PmCompleteListResult;
 /**
+ * Establish the SDK's scan folders without executing extensions; refuse unprovable dynamic schemas.
+ * Static contribution inventories with no item types remain compatible with observational reads.
+ */
+export declare function observationalItemFolders(storage: PinnedProjectStorage): Promise<string[]>;
+/** Certify an observational corpus only while the SDK/schema folder inventory remains proven and unchanged. */
+export declare function readObservationalCompleteList(storage: PinnedProjectStorage, includeBody?: boolean): Promise<PmCompleteListResult>;
+/**
  * Read and certify every item in a project through the public high-level SDK.
  *
  * The SDK's `listAllComplete` operation supplies all lifecycle states, full
@@ -320,14 +330,15 @@ export declare function certifyPmWebCompleteList(candidate: unknown): PmComplete
  * @param includeBody - Whether complete rows must include item bodies.
  * @param noExtensions - Disable extension activation for a strictly observational read.
  * @param sourceOrder - Preserve native store ordering under the same workspace lock.
+ * @param onStoragePinned - Optional acknowledgement after asynchronous queue admission.
  * @returns A discriminated success result with certified rows, or a failure.
  */
-export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean, noExtensions?: boolean, sourceOrder?: boolean): Promise<PmCompleteListRunResult>;
+export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean, noExtensions?: boolean, sourceOrder?: boolean, onStoragePinned?: () => void): Promise<PmCompleteListRunResult>;
 /**
  * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
  * Returns `{}` when absent so resolvers fall back to their built-in defaults.
  */
-export declare function readPmSettings(userId: string, slug: string): unknown;
+export declare function readPmSettings(userId: string, slug: string): Promise<unknown>;
 /**
  * Run a pm command against a project workspace.
  *
@@ -356,7 +367,7 @@ export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
  *   does not exist (or has no history), and {@link EXIT_CODE}.USAGE for an
  *   invalid ref or a version/timestamp outside the available history range.
  */
-export declare function runGetItemAt(userId: string, slug: string, itemId: string, ref: string): Promise<GetItemAtResult>;
+export declare function runGetItemAt(userId: string, slug: string, itemId: string, ref: string, onStoragePinned?: () => void): Promise<GetItemAtResult>;
 /**
  * Delete a project workspace from disk.
  *
@@ -367,4 +378,4 @@ export declare function runGetItemAt(userId: string, slug: string, itemId: strin
  * @param userId - The owning user's id.
  * @param slug - The project slug.
  */
-export declare function deleteProjectDir(userId: string, slug: string): void;
+export declare function deleteProjectDir(userId: string, slug: string): Promise<void>;

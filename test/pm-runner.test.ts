@@ -281,7 +281,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
       jsonOutput: true,
     });
     assert.equal(initialized.ok, true, initialized.stderr);
-    assert.equal(getPmClient(pmRoot), getPmClient(pmRoot), "workspace clients should be reused");
+    assert.equal((await getPmClient(pmRoot)), (await getPmClient(pmRoot)), "workspace clients should be reused");
 
     const first = await runPm({
       userId: "user",
@@ -481,7 +481,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     assert.equal(missing.exitCode, EXIT_CODE.NOT_FOUND);
     assert.match(missing.stderr, /not found/i);
   } finally {
-    evictPmClient(pmRoot);
+    (await evictPmClient(pmRoot));
     if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
     else process.env["PROJECTS_ROOT"] = previousRoot;
     await rm(root, { recursive: true, force: true });
@@ -523,7 +523,7 @@ try {
   assert.match(listed.stdout, /Synthetic embedded CLI item/);
   console.log("built eval-host in-process init/create/get passed");
 } finally {
-  evictPmClient(pmRoot);
+  (await evictPmClient(pmRoot));
   await pool.end();
   await rm(root, { recursive: true, force: true });
 }
@@ -560,7 +560,7 @@ process.stdout.write(JSON.stringify({ argv: process.argv.slice(2) }));
       ["--json", "future-command", "--future-value", "--still-a-value"],
     );
   } finally {
-    evictPmClient(path.join(root, "user", "future", ".agents", "pm"));
+    (await evictPmClient(path.join(root, "user", "future", ".agents", "pm")));
     restoreEnvVars(previousRoot, previousBin);
     await rm(root, { recursive: true, force: true });
   }
