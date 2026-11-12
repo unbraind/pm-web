@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.11.12 - 2026-11-12
+
+### Dependencies
+
+- Bump jscpd ([#319](https://github.com/unbraind/pm-web/pull/319))
+- Bump @unbrained/pm-cli ([#318](https://github.com/unbraind/pm-web/pull/318))
+- Bump the pm-toolchain group with 2 updates ([#315](https://github.com/unbraind/pm-web/pull/315))
+
 ## 2026.11.10 - 2026-11-10
 
 ### Other
