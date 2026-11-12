@@ -1,3 +1,4 @@
+import { deferred } from './helpers/deferred.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
@@ -100,5 +101,47 @@ test('physical storage resolution yields while asynchronous filesystem metadata 
   } finally {
     release();
     try { await pending; } finally { Reflect.set(fs.promises, 'realpath', originalAsync); Reflect.set(fs.realpathSync, 'native', originalSync); }
+  }
+});
+
+/** The workspace selected by the first realpath remains the client's sole anchor. */
+test('client lookup and eviction stay on the captured workspace when its symlink switches', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'client-switch-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const first = path.join(root, 'first'), second = path.join(root, 'second'), alias = path.join(root, 'alias');
+  for (const workspace of [first, second]) {
+    await mkdir(workspace);
+    await new PmClient({ cwd: workspace, pmRoot: path.join(workspace, '.agents', 'pm'), noExtensions: true })
+      .init('client-switch', { defaults: true, agentGuidance: 'skip' });
+  }
+  const tracker = (workspace: string) => path.join(workspace, '.agents', 'pm');
+  const firstClient = await getPmClient(tracker(first)), secondClient = await getPmClient(tracker(second));
+  const original = fs.promises.realpath;
+  for (const evict of [false, true]) {
+    await symlink(first, alias, process.platform === 'win32' ? 'junction' : 'dir');
+    const captured = deferred<void>(), release = deferred<void>();
+    fs.promises.realpath = new Proxy(original, {
+      async apply(target, receiver, args) {
+        const result = await Reflect.apply(target, receiver, args);
+        if (String(args[0]) === alias) { captured.resolve(); await release.promise; }
+        return result;
+      },
+    });
+    const pending = evict ? evictPmClient(tracker(alias)) : getPmClient(tracker(alias));
+    try {
+      await captured.promise;
+      await rm(alias);
+      await symlink(second, alias, process.platform === 'win32' ? 'junction' : 'dir');
+      release.resolve();
+      const client = await pending;
+      if (!evict) assert.equal(client, firstClient, 'lookup must not mix the first cwd with the second tracker');
+      else assert.notEqual(await getPmClient(tracker(first)), firstClient, 'eviction must remove the captured first client');
+      assert.equal(await getPmClient(tracker(second)), secondClient, 'the second workspace client must remain untouched');
+    } finally {
+      release.resolve();
+      await pending;
+      Reflect.set(fs.promises, 'realpath', original);
+      await rm(alias);
+    }
   }
 });

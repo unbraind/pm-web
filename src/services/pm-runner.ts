@@ -87,6 +87,8 @@ export class Semaphore {
 
 const commandSlots = new Semaphore(positiveInteger(process.env.PM_WEB_PM_CONCURRENCY, 8));
 const workspaceTails = new Map<string, Promise<void>>();
+/** Invocation-order reservations made before asynchronous storage discovery starts. */
+const workspaceAdmissions = new Map<string, Promise<void>>();
 
 /**
  * Resolve the filesystem root under which every project workspace lives.
@@ -321,8 +323,13 @@ export interface PinnedProjectStorage {
  * @returns The physical workspace and tracker selected at this instant.
  */
 export async function pinProjectStorage(workspace: string): Promise<PinnedProjectStorage> {
+  return pinWorkspaceStorage(workspace, path.join('.agents', 'pm'));
+}
+
+/** Resolve the workspace once and anchor every subsequent tracker lookup beneath that capture. */
+async function pinWorkspaceStorage(workspace: string, relativeTracker: string): Promise<PinnedProjectStorage> {
   const physical = await physicalWorkspacePath(path.resolve(workspace));
-  return { workspace: physical, tracker: await physicalWorkspacePath(path.join(physical, '.agents', 'pm')) };
+  return { workspace: physical, tracker: await physicalWorkspacePath(path.join(physical, relativeTracker)) };
 }
 
 /** Identify shared tracker storage even when only the tracker, rather than its workspace, is a symlink. */
@@ -347,10 +354,22 @@ async function physicalWorkspaceIdentity(workspace: string): Promise<string> {
  * @returns The operation result.
  */
 export async function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>, onStoragePinned: () => void = () => {}): Promise<T> {
-  const storage = await pinProjectStorage(workspace);
-  const result = runOnPinnedStorage(storage, work);
-  onStoragePinned();
-  return result;
+  const logical = path.resolve(workspace);
+  const previous = workspaceAdmissions.get(logical) ?? Promise.resolve();
+  let release!: () => void;
+  const admission = new Promise<void>(resolve => { release = resolve; });
+  workspaceAdmissions.set(logical, admission);
+  // Discover concurrently, but join the physical queue in invocation order.
+  // Release admission as soon as queued; execution uses the physical tracker tail.
+  try {
+    const [storage] = await Promise.all([pinProjectStorage(logical), previous]);
+    const result = runOnPinnedStorage(storage, work);
+    onStoragePinned();
+    return result;
+  } finally {
+    release();
+    if (workspaceAdmissions.get(logical) === admission) workspaceAdmissions.delete(logical);
+  }
 }
 
 /**
@@ -816,9 +835,10 @@ const pmClientCache = new Map<string, PmClient>();
 
 /** Keep shared storage serialization separate from cwd-dependent SDK defaults. */
 async function pmClientIdentity(pmRoot: string): Promise<{ pmRoot: string; cwd: string; key: string }> {
-  const cwd = await physicalWorkspacePath(path.dirname(path.dirname(path.resolve(pmRoot))));
-  const storage = await physicalWorkspacePath(pmRoot);
-  return { pmRoot: storage, cwd, key: JSON.stringify([storage, cwd]) };
+  const logicalRoot = path.resolve(pmRoot);
+  const logicalWorkspace = path.dirname(path.dirname(logicalRoot));
+  const storage = await pinWorkspaceStorage(logicalWorkspace, path.relative(logicalWorkspace, logicalRoot));
+  return { pmRoot: storage.tracker, cwd: storage.workspace, key: JSON.stringify([storage.tracker, storage.workspace]) };
 }
 
 /** Keep one client per captured tracker and execution workspace, without resolving again. */
