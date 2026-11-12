@@ -40,3 +40,21 @@ timeout 1200s npm run changelog:check
 ```
 
 After committing the generated output, repeat CI's freshness check: remove the generated `dist/` directory, run the full build, and require an empty `git status --porcelain=v1 --untracked-files=all --ignored=matching -- dist/`. A disposable baseline rebuild independently reproduces the previous stale-artifact failure: the compiled route gains the storage-identity guard that its committed JavaScript lacked.
+
+## Pool and tracker queue nesting audit
+
+- `src/routes/projects.ts:removeOwnedProject` (DELETE and failed-init cleanup): short `pool.query` discovery finishes and releases its lease, then `runSerialized`, then `pool.connect`, BEGIN, row lock and owner/slug/storage revalidation, pinned removal, row deletion, COMMIT/ROLLBACK, client release, queue release. No checked-out connection crosses admission.
+- `src/services/authorized-project-reads.ts:readAuthorizedProject`: initial authorization queries release before `runOnPinnedStorage`; inside the queue each access query uses a short independent `pool.query`. No connection is retained across queue admission or SDK reads.
+- `src/services/pm-runner.ts`: `initProject`, `readPinnedProjectExtensionStates`, `runExtensionCommand`, `readProjectCommandOwners`, `readCompletePmItems`, `runPm` and `runGetItemAt` enter `runSerialized` or `runOnPinnedStorage` without a database connection. Their filesystem/SDK/process callbacks do not check out SQL clients. There is no function named `withTrackerQueue` in the package; these are its tracker queue entry points.
+- `src/routes/groups.ts`: connect, BEGIN, SQL on that same client, COMMIT/ROLLBACK, release; no tracker queue or external wait.
+- `src/routes/oidc.ts` and `src/oidc.ts:resolveExternalIdentity`: provider network work finishes before connect; identity transaction, advisory/row locks and queries all use the supplied client, then release. No tracker queue or second pool checkout inside those locks.
+- `src/services/permission-impact.ts:previewPermissionImpact`: connect, read-only SQL snapshot, direct observational SDK `listAllComplete` and runtime contract reads with extensions disabled, COMMIT/ROLLBACK, release. These SDK reads do not enter the package tracker queue or request another pooled connection.
+- `src/services/realtime-bus.ts:startRealtimeBus`: one dedicated LISTEN connection; notification callbacks deliver events synchronously, without entering a tracker queue. Publishing uses separate short queries and does not await admission while holding a query lease.
+
+The pool regression starts a real realtime listener with `PM_WEB_DB_POOL_MAX=2`. A deferred authorized read owns the tracker queue while deletion joins it; both an unrelated HTTP read and the held read's final authorization must complete within 1,500 ms, below the pool's 5,000 ms timeout. Removing the queue-before-connection change independently fails both assertions. Row removal, owner change and slug change between enqueue and lock retain all tracker bytes and answer 404/409. Existing normal-delete and ancestor-retarget cases remain in the route corpus.
+
+Current queue-before-connection importer gate (including the two-slot pool child corpus):
+
+```sh
+timeout 1200s node scripts/with-test-db.ts node --test --test-reporter=tap --test-concurrency=2 test/authorized-project-reads.test.ts test/capacity-setup.test.ts test/decision-inbox-routes.test.ts test/decision-inbox.test.ts test/graph-export-fidelity.test.ts test/graph-no-git.test.ts test/graph-provision-pin.test.ts test/graph-provision.test.ts test/graph-read-only.test.ts test/history-read-gate.test.ts test/idempotency-access.test.ts test/idempotency.test.ts test/identity-audit.test.ts test/item-history-at.test.ts test/item-history-projection.test.ts test/maintenance-providers.test.ts test/mutation-replay.test.ts test/packaging.test.ts test/pm-collaboration.test.ts test/pm-command-access.test.ts test/pm-route-cli-contracts.test.ts test/pm-runner.test.ts test/pm-schema-history-routes.test.ts test/project-delete-pool.test.ts test/projects-routes.test.ts test/realtime-delivery.test.ts test/sdk-adoption.test.ts test/startup-readiness.test.ts test/workspace-alias.test.ts
+```

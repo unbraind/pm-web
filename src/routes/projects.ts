@@ -148,37 +148,35 @@ router.patch("/:id", async (req: AuthRequest, res) => {
 
 /** Remove owned storage under both a row transaction and its physical queue, including failed-init cleanup. */
 async function removeOwnedProject(userId: string, projectId: string): Promise<boolean> {
-  const client = await pool.connect();
-  const transaction = { open: false };
-  /** Release row ownership before the physical queue resumes, including cleanup refusals. */
-  const rollback = async (): Promise<void> => {
-    if (transaction.open) { await client.query('ROLLBACK'); Reflect.set(transaction, 'open', false); }
-  };
-  try {
-    await client.query('BEGIN'); Reflect.set(transaction, 'open', true);
-    const result = await client.query('SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2 FOR UPDATE', [projectId, userId]);
-    if (result.rows.length === 0) { await rollback(); return false; }
-    const { slug } = result.rows[0] as { slug: string };
-    const directory = getProjectDir(userId, slug);
-    await runSerialized(directory, async admitted => {
-      try {
-        // Reject retargets while queued, then carry the admitted parent and inode through eviction/removal.
-        const current = await pinProjectStorage(directory);
-        if (current.workspace !== admitted.workspace || current.tracker !== admitted.tracker) throw new ProjectStorageChangedError();
-        await deleteProjectDir(admitted);
-        await client.query('DELETE FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
-        await client.query('COMMIT'); Reflect.set(transaction, 'open', false);
-      } catch (error) {
-        await rollback().catch(rollbackError => logError('delete_project_rollback_error', rollbackError));
-        throw error;
+  // The discovery query releases its connection before any tracker admission wait.
+  const initial = await pool.query<{ slug: string }>('SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
+  if (!initial.rows[0]) return false;
+  const { slug } = initial.rows[0];
+  const directory = getProjectDir(userId, slug);
+  const removed = await runSerialized(directory, async admitted => {
+    const client = await pool.connect();
+    const transaction = { open: false };
+    try {
+      await client.query('BEGIN'); transaction.open = true;
+      const locked = await client.query<{ slug: string }>('SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2 FOR UPDATE', [projectId, userId]);
+      if (!locked.rows[0]) { await client.query('ROLLBACK'); transaction.open = false; return false; }
+      if (locked.rows[0].slug !== slug) throw new ProjectStorageChangedError();
+      const current = await pinProjectStorage(directory);
+      if (current.workspace !== admitted.workspace || current.tracker !== admitted.tracker) throw new ProjectStorageChangedError();
+      await deleteProjectDir(admitted);
+      await client.query('DELETE FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
+      await client.query('COMMIT'); transaction.open = false;
+      return true;
+    } catch (error) {
+      if (transaction.open) {
+        try { await client.query('ROLLBACK'); transaction.open = false; }
+        catch (rollbackError) { logError('delete_project_rollback_error', rollbackError); }
       }
-    });
-    invalidateProjectAccess(projectId);
-    return true;
-  } catch (error) {
-    await rollback().catch(rollbackError => logError('delete_project_rollback_error', rollbackError));
-    throw error;
-  } finally { client.release(transaction.open); }
+      throw error;
+    } finally { client.release(transaction.open); }
+  });
+  if (removed) invalidateProjectAccess(projectId);
+  return removed;
 }
 
 router.delete("/:id", async (req: AuthRequest, res) => {
