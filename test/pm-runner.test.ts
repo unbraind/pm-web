@@ -87,6 +87,7 @@ test("spawn fallback stays non-blocking, serializes a workspace, and overlaps in
   const address = server.address();
   assert.ok(address && typeof address !== "string");
   await writeFile(fakePm, `#!/usr/bin/env node
+if (process.execPath !== ${JSON.stringify(process.execPath)}) { process.stderr.write("Fake CLI must use the parent Node executable search path"); process.exit(42); }
 const socket = require("node:net").connect(${address.port}, "127.0.0.1", () => socket.write(process.argv[4]));
 socket.once("data", () => { process.stdout.write(process.argv[4]); socket.end(); });
 `);
@@ -116,7 +117,9 @@ socket.once("data", () => { process.stdout.write(process.argv[4]); socket.end();
     const submit = (slug: string, label: string) => runPm({ userId: "user", slug, args: ["calendar", "0", label], onStoragePinned: () => { if (label === "second") secondAdmitted = true; } })
       .then(result => { entries.push(`end ${label}`); assert.equal(result.ok, true, result.stderr); return result; });
     pending.push(submit("same", "first"), submit("same", "second"), submit("other", "independent"));
-    const independent = await starts.get("independent")!.promise;
+    const failed = Promise.all(pending).then(() => new Promise<never>(() => {}));
+    /** Surface failed child starts immediately instead of leaving a socket acknowledgement pending. */
+    const started = (label: string) => Promise.race([starts.get(label)!.promise, failed]);
     await secondMetadata.promise;
     await secondTracker.promise;
     await responsive.promise;
@@ -126,8 +129,9 @@ socket.once("data", () => { process.stdout.write(process.argv[4]); socket.end();
     assert.equal(secondAdmitted, false, "second must not join the physical queue before the earlier invocation");
     assert.equal(entries.includes("start second"), false, entries.join(", "));
     firstMetadata.resolve();
-    (await starts.get("first")!.promise).write("release");
-    (await starts.get("second")!.promise).write("release");
+    const independent = await started("independent");
+    (await started("first")).write("release");
+    (await started("second")).write("release");
     independent.write("release");
     await Promise.all(pending);
     assert.ok(entries.indexOf("end first") < entries.indexOf("start second"), entries.join(", "));

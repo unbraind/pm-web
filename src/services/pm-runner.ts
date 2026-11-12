@@ -87,8 +87,8 @@ export class Semaphore {
 
 const commandSlots = new Semaphore(positiveInteger(process.env.PM_WEB_PM_CONCURRENCY, 8));
 const workspaceTails = new Map<string, Promise<void>>();
-/** Invocation-order reservations made before asynchronous storage discovery starts. */
-const workspaceAdmissions = new Map<string, Promise<void>>();
+/** Discovery may run concurrently; admission tickets join physical queues in invocation order. */
+let storageAdmissions: Promise<void> = Promise.resolve();
 
 /**
  * Resolve the filesystem root under which every project workspace lives.
@@ -354,22 +354,7 @@ async function physicalWorkspaceIdentity(workspace: string): Promise<string> {
  * @returns The operation result.
  */
 export async function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>, onStoragePinned: () => void = () => {}): Promise<T> {
-  const logical = path.resolve(workspace);
-  const previous = workspaceAdmissions.get(logical) ?? Promise.resolve();
-  let release!: () => void;
-  const admission = new Promise<void>(resolve => { release = resolve; });
-  workspaceAdmissions.set(logical, admission);
-  // Discover concurrently, but join the physical queue in invocation order.
-  // Release admission as soon as queued; execution uses the physical tracker tail.
-  try {
-    const [storage] = await Promise.all([pinProjectStorage(logical), previous]);
-    const result = runOnPinnedStorage(storage, work);
-    onStoragePinned();
-    return result;
-  } finally {
-    release();
-    if (workspaceAdmissions.get(logical) === admission) workspaceAdmissions.delete(logical);
-  }
+  return admitStorage(() => pinProjectStorage(workspace), work, onStoragePinned);
 }
 
 /**
@@ -383,6 +368,26 @@ export async function runSerialized<T>(workspace: string, work: (storage: Pinned
  * @returns The operation result.
  */
 export async function runOnPinnedStorage<T>(storage: PinnedProjectStorage, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T> {
+  return admitStorage(() => Promise.resolve(storage), work);
+}
+
+/** Reserve before discovery, then release as soon as this invocation joins its physical execution queue. */
+async function admitStorage<T>(resolveStorage: () => Promise<PinnedProjectStorage>, work: (storage: PinnedProjectStorage) => Promise<T>, onStoragePinned: () => void = () => {}): Promise<T> {
+  const previous = storageAdmissions;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  // Even a discovery failure must not let a later ticket overtake an earlier unresolved one.
+  storageAdmissions = previous.then(() => gate);
+  try {
+    const [storage] = await Promise.all([resolveStorage(), previous]);
+    const result = runQueuedStorage(storage, work);
+    onStoragePinned();
+    return result;
+  } finally { release(); }
+}
+
+/** Serialize captured storage; independent tracker queues share only the bounded execution semaphore. */
+async function runQueuedStorage<T>(storage: PinnedProjectStorage, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T> {
   const identity = storage.tracker;
   const previous = workspaceTails.get(identity) ?? Promise.resolve();
   let releaseWorkspace!: () => void;

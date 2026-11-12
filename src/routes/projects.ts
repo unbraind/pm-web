@@ -87,12 +87,13 @@ router.post("/", async (req: AuthRequest, res) => {
     try {
       await initProject(req.user!.userId, project.slug, project.prefix);
     } catch (err) {
-      // Roll back both persistence layers if pm initialization fails. Directory
-      // cleanup is best-effort so it cannot prevent removal of the DB row.
+      // Remove the row after storage cleanup. If cleanup fails, retain the row
+      // so an explicit project deletion can retry without orphaning its files.
       try {
         (await deleteProjectDir(req.user!.userId, project.slug));
       } catch (cleanupError) {
         logError("project_cleanup_error", cleanupError);
+        throw err;
       }
       await pool.query("DELETE FROM pm_projects WHERE id = $1", [project.id]);
       throw err;
@@ -149,7 +150,7 @@ router.patch("/:id", async (req: AuthRequest, res) => {
 router.delete("/:id", async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
-      `DELETE FROM pm_projects WHERE id = $1 AND user_id = $2 RETURNING slug`,
+      `SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2`,
       [routeParam(req, "id"), req.user!.userId]
     );
     if (result.rows.length === 0) {
@@ -157,8 +158,13 @@ router.delete("/:id", async (req: AuthRequest, res) => {
       return;
     }
     const { slug } = result.rows[0] as { slug: string };
+    await deleteProjectDir(req.user!.userId, slug);
+    const deleted = await pool.query(
+      `DELETE FROM pm_projects WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [routeParam(req, "id"), req.user!.userId]
+    );
+    if (notFoundWhenEmpty(res, deleted.rows, "Project not found")) return;
     invalidateProjectAccess(routeParam(req, "id"));
-    (await deleteProjectDir(req.user!.userId, slug));
     res.json({ ok: true });
   } catch (err) {
     logError("delete_project_error", err);

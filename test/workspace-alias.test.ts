@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import { mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -159,6 +159,72 @@ test('workspace path assertions accept a symlinked temporary-directory prefix', 
   await symlink(physical, logical, process.platform === 'win32' ? 'junction' : 'dir');
   const result = await promisify(execFile)(process.execPath, ['--test', '--test-concurrency=2',
     '--test-name-pattern=^(dangling tracker|dangling workspace|tracker symlink loops|client lookup and eviction|spawn fallback stays)',
-    fileURLToPath(import.meta.url), fileURLToPath(new URL('./pm-runner.test.ts', import.meta.url))], { env: { TMPDIR: logical, TMP: logical, TEMP: logical, PM_AUTHOR: 'temp-prefix-test' }, timeout: 60_000 });
+    fileURLToPath(import.meta.url), fileURLToPath(new URL('./pm-runner.test.ts', import.meta.url))], { env: { PATH: [path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter), TMPDIR: logical, TMP: logical, TEMP: logical, PM_AUTHOR: 'temp-prefix-test' }, timeout: 60_000 });
   assert.match(result.stdout, /pass 5/);
+});
+
+/** Run real nested tests from a non-system Node location with only explicit child configuration. */
+test('nested alias tests retain a non-system Node search path and isolate PM context', async t => {
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'node-search-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const bin = path.join(root, 'bin');
+  await mkdir(bin);
+  const node = path.join(bin, path.basename(process.execPath));
+  await copyFile(process.execPath, node);
+  const result = await promisify(execFile)(node, ['--test', '--test-concurrency=1',
+    '--test-name-pattern=^workspace path assertions accept', fileURLToPath(import.meta.url)], {
+    env: { PATH: bin, TMPDIR: root, TMP: root, TEMP: root, PM_AUTHOR: 'node-search-test', PM_PATH: path.join(root, 'unrelated-tracker') }, timeout: 90_000,
+  });
+  assert.match(result.stdout, /pass 1/);
+});
+
+/** Late metadata must never reverse writes submitted through two aliases of the same tracker. */
+test('physical aliases preserve invocation order while independent tracker work overlaps', async t => {
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'alias-arrival-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const workspace = path.join(root, 'physical'), alias = path.join(root, 'alias'), other = path.join(root, 'other');
+  await mkdir(workspace); await mkdir(other);
+  const client = new PmClient({ cwd: workspace, pmRoot: path.join(workspace, '.agents', 'pm'), noExtensions: true, author: 'alias-order-test' });
+  await client.init('arrival', { defaults: true, agentGuidance: 'skip' });
+  const { item } = await client.create({ type: 'Task', title: 'Initial' });
+  await symlink(workspace, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  const captured = deferred<void>(), releaseMetadata = deferred<void>(), laterResolved = deferred<void>();
+  const firstEntered = deferred<void>(), releaseFirst = deferred<void>(), independentEntered = deferred<void>();
+  const original = fs.promises.realpath;
+  Reflect.set(fs.promises, 'realpath', new Proxy(original, { async apply(target, receiver, args) {
+    const result = await Reflect.apply(target, receiver, args);
+    const requested = String(args[0]);
+    if (requested === alias) { captured.resolve(); await releaseMetadata.promise; }
+    if (requested === path.join(workspace, '.agents', 'pm')) laterResolved.resolve();
+    return result;
+  } }));
+  const events: string[] = [];
+  const pending: Promise<unknown>[] = [];
+  try {
+    pending.push(runSerialized(alias, async storage => {
+      events.push('first');
+      assert.equal(storage.tracker, path.join(workspace, '.agents', 'pm'));
+      await client.update(item.id, { title: 'First' });
+      firstEntered.resolve();
+      await releaseFirst.promise;
+    }));
+    await captured.promise;
+    pending.push(runSerialized(workspace, async () => { events.push('second'); await client.update(item.id, { title: 'Second' }); }));
+    pending.push(runSerialized(other, async () => { events.push('independent'); independentEntered.resolve(); }));
+    await laterResolved.promise;
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(events.includes('second'), false, 'a later alias must wait for the earlier invocation to resolve');
+    releaseMetadata.resolve();
+    await firstEntered.promise;
+    await independentEntered.promise;
+    assert.equal(events.includes('second'), false, 'the shared tracker remains serialized while independent work completes');
+    assert.equal((await client.get(item.id)).item.title, 'First');
+    releaseFirst.resolve();
+    await Promise.all(pending);
+    assert.equal((await client.get(item.id)).item.title, 'Second', 'the later invocation must persist last');
+    assert.deepEqual(events, ['first', 'independent', 'second']);
+  } finally {
+    releaseMetadata.resolve(); releaseFirst.resolve();
+    try { await Promise.allSettled(pending); } finally { Reflect.set(fs.promises, 'realpath', original); }
+  }
 });

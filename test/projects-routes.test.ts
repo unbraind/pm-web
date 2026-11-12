@@ -12,8 +12,9 @@ import { failedFixtureSetup } from './helpers/fixture-resources.ts';
 
 import assert from "node:assert/strict";
 import { getPmClient, getProjectDir } from "../src/services/pm-runner.ts";
+import { pool } from '../src/db.ts';
 import { createPlainContractTracker } from "./helpers/plain-contract-tracker.ts";
-import { chmod, mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -353,7 +354,7 @@ test("projects: a malformed identifier is rejected with 400 on mutating routes",
 });
 
 
-/** Corrupt tracker identities must not interrupt deletion after SQL has removed the project row. */
+/** Corrupt tracker identities must not interrupt storage cleanup or the subsequent row removal. */
 test('projects: deletion removes workspaces with tracker and ancestor symlink loops', async t => {
   const { server, owner } = await setupProjectsTest(t);
   for (const kind of ['tracker', 'ancestor', 'workspace']) {
@@ -369,5 +370,75 @@ test('projects: deletion removes workspaces with tracker and ancestor symlink lo
     await assert.rejects(stat(cwd), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
     assert.equal((await authedFetch(server, owner, `/api/projects/${project.id}`)).status, 404);
     assert.notEqual((await getPmClient(pmRoot)), cached, 'deletion also evicts the old SDK client');
+  }
+});
+
+/** A real ENOTDIR failure keeps the project discoverable and its original tracker available for retry. */
+test('projects: failed filesystem removal preserves the row and data, then retry succeeds', async t => {
+  const { server, owner } = await setupProjectsTest(t);
+  const project = await seedProject(owner.id), cwd = getProjectDir(owner.id, project.slug);
+  const { client, pmRoot } = await createPlainContractTracker(cwd);
+  const { item } = await client.create({ type: 'Task', title: 'Retained after refusal', body: 'Synthetic deletion fixture' });
+  const parent = path.dirname(cwd), saved = `${parent}-saved`;
+  await rename(parent, saved);
+  await writeFile(parent, 'synthetic ancestor obstruction');
+  try {
+    await assert.rejects(rm(cwd, { recursive: true, force: true }), (error: NodeJS.ErrnoException) => error.code === 'ENOTDIR');
+    const response = await authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
+    assert.equal(response.status, 500);
+    assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1 AND user_id=$2', [project.id, owner.id])).rowCount, 1, 'failed storage cleanup must retain the project row');
+    assert.equal((await authedFetch(server, owner, `/api/projects/${project.id}`)).status, 200, 'retry must remain discoverable');
+    assert.equal(await readFile(parent, 'utf8'), 'synthetic ancestor obstruction');
+  } finally { await rm(parent); await rename(saved, parent); }
+  assert.equal((await client.get(item.id)).item.title, 'Retained after refusal');
+  const retried = await authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
+  assert.equal(retried.status, 200, await retried.text());
+  assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount, 0);
+  await assert.rejects(stat(pmRoot), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
+});
+
+/** Both present and already absent real workspaces permit row cleanup after successful removal. */
+test('projects: successful filesystem cleanup permits deletion of present and absent workspaces', async t => {
+  const { server, owner } = await setupProjectsTest(t);
+  for (const present of [true, false]) {
+    const project = await seedProject(owner.id), cwd = getProjectDir(owner.id, project.slug);
+    const { client } = await createPlainContractTracker(cwd);
+    await client.create({ type: 'Task', title: 'Synthetic removable record' });
+    if (!present) await rm(cwd, { recursive: true });
+    const response = await authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
+    assert.equal(response.status, 200, await response.text());
+    await assert.rejects(stat(cwd), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
+    assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount, 0);
+    assert.equal((await authedFetch(server, owner, `/api/projects/${project.id}`)).status, 404);
+  }
+});
+
+/** Failed initialization must also keep its row when a real cleanup obstruction prevents rollback. */
+test('projects: initialization rollback retains its row when filesystem cleanup fails', async t => {
+  const { server, owner } = await setupProjectsTest(t);
+  const parent = path.join(process.env.PROJECTS_ROOT!, owner.id), saved = `${parent}-saved`;
+  const fakePm = process.env.PM_CLI_BIN!;
+  await writeFile(fakePm, `#!/usr/bin/env node
+const fs = require("node:fs"), path = require("node:path");
+const cwd = process.cwd(), parent = path.dirname(cwd);
+fs.writeFileSync(path.join(cwd, "partial-data"), "synthetic retained data");
+fs.renameSync(parent, parent + "-saved");
+fs.writeFileSync(parent, "synthetic ancestor obstruction");
+process.exit(1);
+`);
+  try {
+    const response = await authedFetch(server, owner, '/api/projects', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Retained partial project', prefix: 'partial' }) });
+    assert.equal(response.status, 500);
+    const rows = await pool.query<{ id: string; slug: string }>('SELECT id, slug FROM pm_projects WHERE user_id=$1', [owner.id]);
+    assert.equal(rows.rowCount, 1, 'failed initialization cleanup must retain the owning row');
+    const project = rows.rows[0]!;
+    await assert.rejects(rm(getProjectDir(owner.id, project.slug), { recursive: true, force: true }), (error: NodeJS.ErrnoException) => error.code === 'ENOTDIR');
+    await rm(parent); await rename(saved, parent);
+    assert.equal(await readFile(path.join(getProjectDir(owner.id, project.slug), 'partial-data'), 'utf8'), 'synthetic retained data');
+    const retried = await authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
+    assert.equal(retried.status, 200);
+    assert.equal((await pool.query('SELECT id FROM pm_projects WHERE id=$1', [project.id])).rowCount, 0);
+  } finally {
+    if (await stat(saved).then(() => true, () => false)) { await rm(parent, { force: true }); await rename(saved, parent); }
   }
 });
