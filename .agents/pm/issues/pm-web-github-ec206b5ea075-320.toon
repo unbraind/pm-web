@@ -1,0 +1,21 @@
+id: pm-web-github-ec206b5ea075-320
+title: "Follow-up to #305: Markdown edge cases in the published document link audit"
+description: "GH issue #320: https://github.com/unbraind/pm-web/issues/320 · author @unbraind · created 2026-11-12T04:05:37Z · updated 2026-11-12T04:05:37Z"
+type: Issue
+status: open
+priority: 2
+tags[2]: "gh:unbraind/pm-web#320","github_author:unbraind"
+created_at: "2026-11-12T04:05:37Z"
+updated_at: "2026-11-12T08:18:08.381Z"
+author: pm-github
+github_close_reason: ""
+github_closed_at: ""
+github_created_at: "2026-11-12T04:05:37Z"
+github_link_only: false
+github_number: 320
+github_release: ""
+github_state: open
+github_state_reason: unspecified
+github_updated_at: "2026-11-12T04:05:37Z"
+github_url: "https://github.com/unbraind/pm-web/issues/320"
+body: "Follow-up to #305. CodeRabbit's review of 35b3536 left three non-blocking edge cases in `scripts/published-document-links.ts`. The audit should treat Markdown the way GitHub renders it: skip code spans and code blocks, read destinations with nested balanced parentheses, and handle a reference title that starts on the next line. Consider reusing a CommonMark-compliant parser rather than extending the hand-written matcher:\n\n- [scripts/published-document-links.ts:44](https://github.com/unbraind/pm-web/pull/305#discussion_r4546020638): Exclude code text before checking destinations.\n- [scripts/published-document-links.ts:48](https://github.com/unbraind/pm-web/pull/305#discussion_r4546020649): Read destinations with nested balanced parentheses.\n- [scripts/published-document-links.ts:49](https://github.com/unbraind/pm-web/pull/305#discussion_r4546020658): Include a reference title that starts on the next line.\n\nEach fix needs a test that fails on revert."
