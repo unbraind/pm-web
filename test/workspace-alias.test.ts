@@ -1,7 +1,10 @@
 import { deferred } from './helpers/deferred.ts';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -10,7 +13,7 @@ import { evictPmClient, getPmClient, pinProjectStorage, runOnPinnedStorage, runS
 import { workspaceAliasProbe } from './helpers/workspace-alias-probe.ts';
 
 test('every workspace alias shares dispatch serialization and client identity', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'workspace-alias-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'workspace-alias-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   await workspaceAliasProbe(root);
 });
@@ -18,7 +21,7 @@ test('every workspace alias shares dispatch serialization and client identity', 
 
 /** Dangling links must select the future physical tracker before any queued work starts. */
 test('dangling tracker aliases share a lexical target queue before and after initialization', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dangling-tracker-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'dangling-tracker-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = path.join(root, 'storage');
   const target = path.join(store, '.agents', 'pm');
@@ -34,13 +37,14 @@ test('dangling tracker aliases share a lexical target queue before and after ini
   const held = runOnPinnedStorage(await pinProjectStorage(aliases[0]!), () => new Promise<void>(resolve => { release = resolve; }));
   await new Promise<void>(resolve => { setImmediate(resolve); });
   let entered = false;
+  const admitted = deferred<void>();
   const queued = runSerialized(aliases[1]!, async storage => {
     entered = true;
     const result = await new PmClient({ cwd: store, pmRoot: storage.tracker, noExtensions: true }).listAllComplete();
     assert.equal(result.items.length, 0);
-  });
+  }, admitted.resolve);
   try {
-    await new Promise<void>(resolve => { setImmediate(resolve); });
+    await admitted.promise;
     assert.equal(entered, false, 'a dangling alias must not select its own independent queue');
     await mkdir(store, { recursive: true });
     await new PmClient({ cwd: store, pmRoot: target, noExtensions: true }).init('dangling', { defaults: true, agentGuidance: 'skip' });
@@ -51,7 +55,7 @@ test('dangling tracker aliases share a lexical target queue before and after ini
 
 /** A dangling ancestor link resolves missing descendants against its target rather than its alias. */
 test('dangling workspace ancestor aliases retain one target for missing tracker descendants', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'dangling-ancestor-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'dangling-ancestor-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const target = path.join(root, 'missing', 'workspace');
   for (const name of ['first', 'second']) {
@@ -65,7 +69,7 @@ test('dangling workspace ancestor aliases retain one target for missing tracker 
 
 /** Looping identities must remain usable for queue selection and idempotent cache eviction. */
 test('tracker symlink loops use lexical identities without throwing during queue selection or eviction', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'looping-tracker-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'looping-tracker-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const workspace = path.join(root, 'workspace');
   const tracker = path.join(workspace, '.agents', 'pm');
@@ -82,7 +86,7 @@ test('tracker symlink loops use lexical identities without throwing during queue
 
 /** A pending metadata read yields to the event loop instead of entering a synchronous syscall. */
 test('physical storage resolution yields while asynchronous filesystem metadata is pending', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'async-storage-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'async-storage-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const originalAsync = fs.promises.realpath;
   const originalSync = fs.realpathSync.native;
@@ -106,7 +110,7 @@ test('physical storage resolution yields while asynchronous filesystem metadata 
 
 /** The workspace selected by the first realpath remains the client's sole anchor. */
 test('client lookup and eviction stay on the captured workspace when its symlink switches', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'client-switch-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'client-switch-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = path.join(root, 'first'), second = path.join(root, 'second'), alias = path.join(root, 'alias');
   for (const workspace of [first, second]) {
@@ -144,4 +148,17 @@ test('client lookup and eviction stay on the captured workspace when its symlink
       await rm(alias);
     }
   }
+});
+
+/** Exercise physical-prefix comparisons on every host, including hosts whose temp root is already canonical. */
+test('workspace path assertions accept a symlinked temporary-directory prefix', async t => {
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'temp-prefix-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const physical = path.join(root, 'physical'), logical = path.join(root, 'logical');
+  await mkdir(physical);
+  await symlink(physical, logical, process.platform === 'win32' ? 'junction' : 'dir');
+  const result = await promisify(execFile)(process.execPath, ['--test', '--test-concurrency=2',
+    '--test-name-pattern=^(dangling tracker|dangling workspace|tracker symlink loops|client lookup and eviction|spawn fallback stays)',
+    fileURLToPath(import.meta.url), fileURLToPath(new URL('./pm-runner.test.ts', import.meta.url))], { env: { TMPDIR: logical, TMP: logical, TEMP: logical, PM_AUTHOR: 'temp-prefix-test' }, timeout: 60_000 });
+  assert.match(result.stdout, /pass 5/);
 });

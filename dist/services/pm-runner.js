@@ -751,14 +751,20 @@ export function certifyPmWebCompleteList(candidate) {
         throw new PmWebCompleteListReceiptError(findings);
     return result;
 }
+/** Reject every inventory warning except the SDK's explicitly harmless legacy format coercion. */
+export function assertObservationalInventoryWarnings(warnings) {
+    const nonFatalWarnings = new Set(['settings_item_format_legacy_json_markdown_coerced_to_toon']);
+    if (warnings.some(warning => !nonFatalWarnings.has(warning))) {
+        throw new Error('Cannot establish the complete item-folder inventory.');
+    }
+}
 /**
  * Establish the SDK's scan folders without executing extensions; refuse unprovable dynamic schemas.
  * Static contribution inventories with no item types remain compatible with observational reads.
  */
 export async function observationalItemFolders(storage) {
     const { settings, warnings } = await readSettingsWithMetadata(storage.tracker);
-    if (warnings.length > 0)
-        throw new Error('Cannot establish the complete item-folder inventory.');
+    assertObservationalInventoryWarnings(warnings);
     const discovered = await discoverExtensions({ pmRoot: storage.tracker, cwd: storage.workspace, settings });
     if (discovered.effective.some(extension => (extension.contributions?.item_types?.length ?? 0) > 0
         || (extension.capabilities?.includes('schema') && extension.contributions?.item_types === undefined))) {

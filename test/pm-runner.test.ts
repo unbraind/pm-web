@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createServer, type Socket } from "node:net";
 import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -60,7 +60,7 @@ test("semaphore hands a released slot directly to the oldest waiter", async () =
 });
 
 test("spawn fallback stays non-blocking, serializes a workspace, and overlaps independent workspaces", { timeout: 20_000 }, async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "pm-web-runner-"));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "pm-web-runner-")));
   const fakePm = path.join(root, "fake-pm.cjs");
   const previousRoot = process.env["PROJECTS_ROOT"];
   const previousBin = process.env["PM_CLI_BIN"];

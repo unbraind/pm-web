@@ -310,6 +310,8 @@ export declare function readProjectCommandOwners(projectDir: string): Promise<Ex
  * @throws {PmWebCompleteListReceiptError} when supplemental proof is absent or contradictory.
  */
 export declare function certifyPmWebCompleteList(candidate: unknown): PmCompleteListResult;
+/** Reject every inventory warning except the SDK's explicitly harmless legacy format coercion. */
+export declare function assertObservationalInventoryWarnings(warnings: readonly string[]): void;
 /**
  * Establish the SDK's scan folders without executing extensions; refuse unprovable dynamic schemas.
  * Static contribution inventories with no item types remain compatible with observational reads.

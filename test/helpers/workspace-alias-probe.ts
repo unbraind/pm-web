@@ -33,17 +33,24 @@ export async function workspaceAliasProbe(root: string): Promise<void> {
       const held = runOnPinnedStorage(await pinProjectStorage(heldDirectory), () => new Promise<void>(resolve => { release = resolve; }));
       await new Promise<void>(resolve => { setImmediate(resolve); });
       let completed = 0;
+      const admissions: Promise<void>[] = [];
+      /** Register one acknowledgement for each queued SDK, CLI or historical call. */
+      function acknowledge(): () => void {
+        let admitted!: () => void;
+        admissions.push(new Promise<void>(resolve => { admitted = resolve; }));
+        return admitted;
+      }
       const calls = [
-        ...aliases.map(candidate => runSerialized(candidate, async () => { completed++; })),
-        ...[false, true].map(jsonOutput => runPm({ userId: 'owner', slug: 'physical', args: ['get', item.id], jsonOutput }).then(result => {
+        ...aliases.map(candidate => runSerialized(candidate, async () => { completed++; }, acknowledge())),
+        ...[false, true].map(jsonOutput => runPm({ userId: 'owner', slug: 'physical', args: ['get', item.id], jsonOutput, onStoragePinned: acknowledge() }).then(result => {
           assert.equal(result.ok, true, result.stderr); completed++;
         })),
-        runPm({ userId: 'owner', slug: 'alias', args: ['get', item.id], jsonOutput: true, timeoutMs: 30_000 }).then(result => { assert.equal(result.ok, true, result.stderr); completed++; }),
-        runGetItemAt('owner', 'physical', item.id, '1').then(result => { assert.equal(result.document.metadata.id, item.id); completed++; }),
+        runPm({ userId: 'owner', slug: 'alias', args: ['get', item.id], jsonOutput: true, timeoutMs: 30_000, onStoragePinned: acknowledge() }).then(result => { assert.equal(result.ok, true, result.stderr); completed++; }),
+        runGetItemAt('owner', 'physical', item.id, '1', acknowledge()).then(result => { assert.equal(result.document.metadata.id, item.id); completed++; }),
       ];
       try {
+        await Promise.all(admissions);
         await runSerialized(path.join(root, 'independent'), async () => undefined);
-        await new Promise<void>(resolve => { setTimeout(resolve, 100); });
         assert.equal(completed, 0, 'no dispatch path may overtake a physical alias');
       } finally { release(); await held; await Promise.all(calls); }
     }

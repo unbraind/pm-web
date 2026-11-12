@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { deferred } from './helpers/deferred.ts';
 import test, { type TestContext } from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -7,10 +8,10 @@ import fs, { existsSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { PmClient } from '@unbrained/pm-cli/sdk';
+import { PmClient, readSettingsWithMetadata } from '@unbrained/pm-cli/sdk';
 import { pool } from '../src/db.ts';
 import { ProjectReadError, readAuthorizedProject, type ProjectItemReader } from '../src/services/authorized-project-reads.ts';
-import { pinProjectStorage, readCompletePmItems, runGetItemAt, runOnPinnedStorage, runPm, runSerialized } from '../src/services/pm-runner.ts';
+import { assertObservationalInventoryWarnings, pinProjectStorage, readCompletePmItems, runGetItemAt, runOnPinnedStorage, runPm, runSerialized } from '../src/services/pm-runner.ts';
 import { createPlainContractTracker } from './helpers/plain-contract-tracker.ts';
 import { ProjectFixtureResources, authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
 import { captureLogs, setLogLevel } from './helpers/stdout-logs.ts';
@@ -194,15 +195,39 @@ test('directory bindings serialize physical, relative and symlink aliases of a n
   await symlink(cwd, alias, process.platform === 'win32' ? 'junction' : 'dir');
   const held = runOnPinnedStorage(await pinProjectStorage(alias), () => gate);
   let entered = false;
-  const queued = Promise.all([cwd, path.relative(process.cwd(), cwd), path.join(alias, '.')].map(directory =>
-    runSerialized(directory, async () => { entered = true; return client.get(item.id); })));
+  const directories = [cwd, path.relative(process.cwd(), cwd), path.join(alias, '.')];
+  const admissions = directories.map(() => deferred<void>());
+  const metadataReady = deferred<void>(), releaseMetadata = deferred<void>();
+  const original = fs.promises.realpath;
+  let lookups = 0, workerStarted = false;
+  Reflect.set(fs.promises, 'realpath', new Proxy(original, {
+    async apply(target, receiver, args) {
+      const result = await Reflect.apply(target, receiver, args);
+      if ([cwd, alias].includes(path.resolve(String(args[0])))) {
+        if (++lookups === directories.length) metadataReady.resolve();
+        await releaseMetadata.promise;
+      }
+      return result;
+    },
+  }));
+  const queued = Promise.all(directories.map((directory, index) =>
+    runSerialized(directory, async () => { entered = true; return client.get(item.id); }, admissions[index]!.resolve)));
   try {
+    await metadataReady.promise;
+    const earlyWorker = new Promise<boolean>(resolve => { setImmediate(() => {
+      resolve(workerStarted);
+      releaseMetadata.resolve();
+    }); });
+    await Promise.all(admissions.map(admission => admission.promise));
+    workerStarted = true;
     await change('update-item', pmRoot, item.id);
+    assert.equal(await earlyWorker, false, 'the worker must wait until every delayed alias joins the queue');
     assert.equal(entered, false, 'resolved read binding overtook the existing relative-root queue');
   } finally {
+    releaseMetadata.resolve();
     release();
-    await held;
-    await queued;
+    try { await held; await queued; }
+    finally { Reflect.set(fs.promises, 'realpath', original); }
   }
 });
 
@@ -460,5 +485,32 @@ test('revocation during the final asynchronous storage check refuses the read re
   finally {
     release();
     try { await refused; } finally { Reflect.set(fs.promises, 'realpath', original); }
+  }
+});
+
+/** A legacy format warning changes neither the folder registry nor observational access. */
+test('legacy json_markdown trackers remain readable without rewriting their settings', async t => {
+  const { viewer, project, pmRoot, item, server } = await fixture(t);
+  const settingsPath = path.join(pmRoot, 'settings.json');
+  const settings = JSON.parse(await readFile(settingsPath, 'utf8')) as Record<string, unknown>;
+  const legacy = JSON.stringify({ ...settings, item_format: 'json_markdown' });
+  await writeFile(settingsPath, legacy);
+  assert.deepEqual((await readSettingsWithMetadata(pmRoot)).warnings, ['settings_item_format_legacy_json_markdown_coerced_to_toon']);
+  await readAuthorizedProject(viewer.id, project.id, async reader => {
+    assert.equal((await reader.get(item.id)).item.id, item.id);
+    assert.ok((await reader.complete(true)).items.some(row => row.id === item.id));
+  });
+  const response = await authedFetch(server, viewer, `/api/projects/${project.id}/pm/board`);
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal(await readFile(settingsPath, 'utf8'), legacy, 'an observational read must not migrate legacy settings');
+});
+
+/** Unknown warning codes never inherit the legacy format exception, even when both are present. */
+test('unknown inventory warnings still refuse complete-read certification', () => {
+  const legacy = 'settings_item_format_legacy_json_markdown_coerced_to_toon';
+  assert.doesNotThrow(() => assertObservationalInventoryWarnings([]));
+  assert.doesNotThrow(() => assertObservationalInventoryWarnings([legacy]));
+  for (const warnings of [['synthetic_future_settings_warning'], [legacy, 'synthetic_future_settings_warning'], [`${legacy}:unknown_variant`]]) {
+    assert.throws(() => assertObservationalInventoryWarnings(warnings), /Cannot establish the complete item-folder inventory/);
   }
 });
