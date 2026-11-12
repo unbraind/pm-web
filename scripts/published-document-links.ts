@@ -42,11 +42,22 @@ export function stripFencedCode(document: string): string {
 /** Read inline, reference and repository autolinks while excluding fenced code examples. */
 export function markdownDestinations(document: string): string[] {
   const prose = stripFencedCode(document);
-  const destinations = [...prose.matchAll(/\]\(\s*(?:<([^>]+)>|((?:[^\s()\\]|\\.|\([^()]*\))+))(?:\s+[^)]*)?\)/g)]
-    .map(match => match[1] ?? match[2]!);
-  for (const match of prose.matchAll(/^ {0,3}\[[^\]]+\]:\s*(?:<([^>]+)>|(\S+))/gm)) destinations.push(match[1] ?? match[2]!);
-  // Keep the original repository-link audit, including bare URLs in prose.
-  for (const match of prose.matchAll(/https:\/\/github\.com\/unbraind\/pm-web\/blob\/[^\s)#>]+/g)) destinations.push(match[0]);
+  const destinations: string[] = [];
+  const consumed: Array<{ start: number; end: number }> = [];
+  const markdownPatterns = [
+    /\]\(\s*(?:<([^>]+)>|((?:[^\s()\\]|\\.|\([^()]*\))+))(?:\s+(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\([^)]*\)))?\s*\)/g,
+    /^ {0,3}\[[^\]]+\]:\s*(?:<([^>]+)>|(\S+))(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?/gm,
+  ];
+  const matches = markdownPatterns.flatMap(pattern => [...prose.matchAll(pattern)]).sort((left, right) => left.index - right.index);
+  for (const match of matches) {
+    if (consumed.some(span => match.index >= span.start && match.index < span.end)) continue;
+    destinations.push(match[1] ?? match[2]!);
+    consumed.push({ start: match.index, end: match.index + match[0].length });
+  }
+  // Bare URLs may have balanced parentheses, but never reparse a consumed destination or its title.
+  for (const match of prose.matchAll(/https:\/\/github\.com\/unbraind\/pm-web\/blob\/(?:[^\s()#<>]|\([^()\s]*\))*/g)) {
+    if (!consumed.some(span => match.index >= span.start && match.index < span.end)) destinations.push(match[0]);
+  }
   return [...new Set(destinations)];
 }
 
@@ -125,6 +136,7 @@ function githubBlobTarget(destination: string, resolves: (revision: string) => b
   const suffix = destinationPath(destination.slice(prefix.length));
   if (suffix === undefined || suffix.includes('\\') || suffix.includes('\0')) return 'invalid';
   const segments = suffix.split('/');
+  if (segments.length < 2 || !segments[0] || !segments.at(-1)) return 'invalid';
   for (let boundary = segments.length - 1; boundary > 0; boundary--) {
     const revisionParts = segments.slice(0, boundary);
     if (revisionParts.some(part => !part || part === '.' || part === '..')) continue;
@@ -132,7 +144,7 @@ function githubBlobTarget(destination: string, resolves: (revision: string) => b
     if (!resolves(revision)) continue;
     const rawFile = segments.slice(boundary).join('/');
     const file = posix.normalize(rawFile);
-    if (!rawFile || posix.isAbsolute(rawFile) || file === '..' || file.startsWith('../')) return 'invalid';
+    if (!rawFile || posix.isAbsolute(rawFile) || file === '.' || file === '..' || file.startsWith('../')) return 'invalid';
     return { revision, file };
   }
   return undefined;

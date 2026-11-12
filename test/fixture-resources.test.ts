@@ -13,7 +13,13 @@ test('resource ownership survives every acquisition and cleanup failure boundary
       });
     }
     await assert.rejects(scope.acquire(async () => { throw new Error('synthetic acquisition failure'); }, () => assert.fail('unacquired resource disposed')));
-    await scope.close().catch(error => assert.ok(error instanceof AggregateError));
+    if (failure === 0) await assert.doesNotReject(scope.close());
+    else await assert.rejects(scope.close(), error => {
+      assert.ok(error instanceof AggregateError);
+      assert.equal(error.errors.length, Math.ceil(failure / 2));
+      assert.ok(error.errors.every((entry: unknown) => entry instanceof Error && entry.message === 'synthetic cleanup failure'));
+      return true;
+    });
     assert.deepEqual(disposed, acquired.reverse());
     await scope.close();
     assert.equal(disposed.length, failure, 'no resource is disposed twice');

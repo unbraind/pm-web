@@ -230,7 +230,7 @@ async function runProcess(cwd, args, options = {}) {
 function runPinnedProcess(storage, args, options = {}) {
     return runProcess(storage.workspace, args, { ...options, pmPath: storage.tracker });
 }
-/** Resolve physical aliases, including missing descendants of an existing workspace ancestor. */
+/** Resolve aliases and dangling targets; unresolvable paths retain a non-throwing lexical identity. */
 function physicalWorkspacePath(workspace) {
     const absolute = path.resolve(workspace);
     try {
@@ -239,8 +239,17 @@ function physicalWorkspacePath(workspace) {
     catch (error) {
         const code = error.code;
         const parent = path.dirname(absolute);
+        // Loops and inaccessible paths must not prevent queue admission or cache eviction during deletion.
         if ((code !== "ENOENT" && code !== "ENOTDIR") || parent === absolute)
-            throw error;
+            return absolute;
+        try {
+            if (fs.lstatSync(absolute).isSymbolicLink()) {
+                return physicalWorkspacePath(path.resolve(parent, fs.readlinkSync(absolute)));
+            }
+        }
+        catch {
+            // A missing leaf or inaccessible link can still resolve through its nearest accessible ancestor.
+        }
         return path.join(physicalWorkspacePath(parent), path.basename(absolute));
     }
 }
@@ -1081,8 +1090,6 @@ export async function runGetItemAt(userId, slug, itemId, ref) {
 export function deleteProjectDir(userId, slug) {
     const dir = getProjectDir(userId, slug);
     evictPmClient(path.join(dir, ".agents", "pm"));
-    if (fs.existsSync(dir)) {
-        fs.rmSync(dir, { recursive: true, force: true });
-    }
+    fs.rmSync(dir, { recursive: true, force: true });
 }
 //# sourceMappingURL=pm-runner.js.map

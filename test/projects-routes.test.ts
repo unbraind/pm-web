@@ -11,7 +11,9 @@ import { failedFixtureSetup } from './helpers/fixture-resources.ts';
  */
 
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { getPmClient, getProjectDir } from "../src/services/pm-runner.ts";
+import { createPlainContractTracker } from "./helpers/plain-contract-tracker.ts";
+import { chmod, mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -348,4 +350,24 @@ test("projects: a malformed identifier is rejected with 400 on mutating routes",
   const fs = await setupFsHarness();
   t.after(() => fs.restore());
   await assertMalformedUuidMutating(server, owner, "projects");
+});
+
+
+/** Corrupt tracker identities must not interrupt deletion after SQL has removed the project row. */
+test('projects: deletion removes workspaces with tracker and ancestor symlink loops', async t => {
+  const { server, owner } = await setupProjectsTest(t);
+  for (const kind of ['tracker', 'ancestor', 'workspace']) {
+    const project = await seedProject(owner.id);
+    const cwd = getProjectDir(owner.id, project.slug);
+    const { pmRoot } = await createPlainContractTracker(cwd);
+    const cached = getPmClient(pmRoot);
+    const link = kind === 'tracker' ? pmRoot : kind === 'ancestor' ? path.dirname(pmRoot) : cwd;
+    await rm(link, { recursive: true });
+    await symlink(link, link, process.platform === 'win32' ? 'junction' : 'dir');
+    const response = await authedFetch(server, owner, `/api/projects/${project.id}`, { method: 'DELETE' });
+    assert.equal(response.status, 200, `${kind}: ${await response.text()}`);
+    await assert.rejects(stat(cwd), (error: NodeJS.ErrnoException) => error.code === 'ENOENT');
+    assert.equal((await authedFetch(server, owner, `/api/projects/${project.id}`)).status, 404);
+    assert.notEqual(getPmClient(pmRoot), cached, 'deletion also evicts the old SDK client');
+  }
 });

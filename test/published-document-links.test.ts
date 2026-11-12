@@ -196,3 +196,46 @@ test('real shallow checkout distinguishes unavailable revisions from missing fil
     assert.deepEqual(report, { missing: [url], unresolved: [] }, url);
   }
 });
+
+
+test('Markdown blob destinations are consumed once without truncated bare URL copies', () => {
+  const url = 'https://github.com/unbraind/pm-web/blob/main/docs/a(b).md';
+  const titleUrl = 'https://github.com/unbraind/pm-web/blob/main/title-only.md';
+  for (const document of [
+    `[readme](${url})`, `![image](${url})`, `[readme](<${url}>)`,
+    `[readme](${url} "${titleUrl}")`, `[readme](${url} "Title (with parentheses) ${titleUrl}")`, `[readme][ref]\n[ref]: ${url}`,
+    `[readme][ref]\n[ref]: <${url}>`, `[readme][ref]\n[ref]: ${url} "${titleUrl}"`, `[readme][ref]\n[ref]: ${url} "[title](${titleUrl})"`, `<${url}>`, url,
+  ]) {
+    assert.deepEqual(markdownDestinations(document), [url], document);
+    const calls: string[] = [];
+    const report = missingRevisionLinks(document, (revision, file) => {
+      if (file === '') return revision === 'main' ? 'present' : 'unresolved';
+      calls.push(file);
+      return file === 'docs/a(b).md' ? 'present' : 'absent';
+    });
+    assert.deepEqual(report, { missing: [], unresolved: [] }, document);
+    assert.deepEqual(calls, ['docs/a(b).md'], document);
+  }
+  const missing = 'https://github.com/unbraind/pm-web/blob/main/missing.md';
+  assert.deepEqual(markdownDestinations(`[readme](${url}) then ${missing}`), [url, missing]);
+  assert.deepEqual(missingRevisionLinks(`[readme](${url}) then ${missing}`, (revision, file) =>
+    revision !== 'main' ? 'unresolved' : file === 'missing.md' ? 'absent' : 'present'), { missing: [missing], unresolved: [] });
+});
+
+test('blob links require a file path and never hide missing targets as unresolved revisions', () => {
+  for (const suffix of ['', 'main', 'main/', 'main?raw=1', 'main#anchor', 'main/.', 'main/%2E']) {
+    const url = `https://github.com/unbraind/pm-web/blob/${suffix}`;
+    const report = missingRevisionLinks(`[broken](${url})`, (revision, file) => {
+      assert.equal(file, '', 'invalid destinations must not reach file lookup');
+      return revision === 'main' ? 'present' : 'unresolved';
+    });
+    assert.deepEqual(report, { missing: [url], unresolved: [] }, url);
+  }
+  const empty = 'https://github.com/unbraind/pm-web/blob/';
+  assert.deepEqual(missingRevisionLinks(empty, () => assert.fail('empty blob destination must not reach lookup')), { missing: [empty], unresolved: [] });
+  for (const revision of ['main', 'release/2026.11']) {
+    const url = `https://github.com/unbraind/pm-web/blob/${revision}/README.md`;
+    assert.deepEqual(missingRevisionLinks(url, (ref, file) =>
+      ref !== revision ? 'unresolved' : file === '' || file === 'README.md' ? 'present' : 'absent'), { missing: [], unresolved: [] });
+  }
+});
