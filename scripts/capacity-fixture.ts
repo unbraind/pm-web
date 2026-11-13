@@ -1,7 +1,7 @@
 /** Real database, pinned CLI and built-server lifecycle for the isolated capacity experiment. */
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { waitUntil } from "./capacity-wait.ts";
@@ -48,13 +48,27 @@ function session(userId: string, secret: string): Record<string, string> {
   return { cookie: `pm_token=${token}; csrf_token=capacity-csrf`, "x-csrf-token": "capacity-csrf" };
 }
 
+/** Create and pin the fixture root; a failure before the fixture's cleanup exists ends the connection and removes the root. */
+async function pinnedFixtureRoot(database: pg.Client): Promise<{ root: string; rootStorage: PinnedProjectStorage }> {
+  let created: string | undefined;
+  try {
+    created = await mkdtemp(path.join(tmpdir(), "pm-web-capacity-projects-"));
+    const root = await realpath(created);
+    return { root, rootStorage: await pinProjectStorage(root) };
+  } catch (error) {
+    const cleanup = await Promise.allSettled([database.end(), created === undefined ? Promise.resolve() : rm(created, { recursive: true, force: true })]);
+    const failures = cleanup.flatMap((result) => result.status === "rejected" ? [result.reason as unknown] : []);
+    if (failures.length > 0) throw new AggregateError([error, ...failures], "Capacity fixture setup failed and its cleanup was incomplete");
+    throw error;
+  }
+}
+
 /** Seed only uniquely owned rows in the existing disposable test database and a fresh temporary root. */
 export async function capacityFixture(identities: number) {
   if (!process.env.DATABASE_URL) throw new Error("Use scripts/with-test-db.ts to select the disposable test database");
   const database = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-observer", connectionTimeoutMillis: 5000, query_timeout: 5000 });
   await database.connect();
-  const root = await realpath(await mkdtemp(path.join(tmpdir(), "pm-web-capacity-projects-")));
-  const rootStorage = await pinProjectStorage(root);
+  const { root, rootStorage } = await pinnedFixtureRoot(database);
   let projectStorage: PinnedProjectStorage | undefined;
   const owner = randomUUID();
   const users = Array.from({ length: identities }, () => randomUUID());
