@@ -6,8 +6,10 @@ status: open
 priority: 2
 tags[2]: "gh:unbraind/pm-web#320","github_author:unbraind"
 created_at: "2026-11-12T04:05:37Z"
-updated_at: "2026-11-12T08:18:08.381Z"
+updated_at: "2026-11-12T11:38:57.116Z"
 author: pm-github
+comments[1]{created_at,author,text}:
+  "2026-11-12T11:38:57.115Z",codex-agent,"The Greptile env-PATH deferral is resolved in PR #305 round 6, matching the owner correction here. The nested test environment now prepends the actual Node executable directory to the explicit PATH without inheriting other PM variables. A real non-system Node fixture reproduces failure when only PATH forwarding is reverted, completes promptly with the fix, and passes with Node 22. Public CI evidence: https://github.com/unbraind/pm-web/actions/runs/43181118299/job/131057054329 . The Markdown follow-ups remain open and unchanged; this entry records only the resolved PATH portion."
 github_close_reason: ""
 github_closed_at: ""
 github_created_at: "2026-11-12T04:05:37Z"

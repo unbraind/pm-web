@@ -1,10 +1,12 @@
+import { FixtureResources } from '../test/helpers/fixture-resources.ts';
 /** Capture synthetic desktop/mobile receipt views through a real local server and assert API/UI parity. */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { chromium } from 'playwright-core';
+import { chromium, type Browser, type Page } from 'playwright-core';
+import { pathToFileURL } from 'node:url';
 import { PmClient } from '@unbrained/pm-cli/sdk';
 import { createApp } from '../src/app.ts';
 import { pool } from '../src/db.ts';
@@ -13,17 +15,24 @@ import { AgentContextClient, type AgentContextInput, type AgentContextPacket } f
 import { startEphemeralServer } from '../test/helpers/ephemeral-server.ts';
 import type { AppBridge } from '../public/src/app.ts';
 
+/** Run the synthetic browser proof, allowing an additional page assertion before screenshots. */
+export async function runAgentContextBrowser(pageStep: (page: Page, browser: Browser, server: Awaited<ReturnType<typeof startEphemeralServer>>) => Promise<void> = async () => {}): Promise<void> {
 const output = process.env.CONTEXT_SCREENSHOTS;
 assert.ok(output, 'Set CONTEXT_SCREENSHOTS to the screenshot output directory.');
-const root = await mkdtemp(path.join(os.tmpdir(), 'agent-context-browser-'));
+const resources = new FixtureResources();
+resources.defer(() => pool.end());
+try {
+const root = await resources.acquire(() => mkdtemp(path.join(os.tmpdir(), 'agent-context-browser-')), root => rm(root, { recursive: true, force: true }));
+const previous = process.env.PROJECTS_ROOT;
 process.env.PROJECTS_ROOT = root;
-const users: string[] = [];
+resources.defer(() => { if (previous === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previous; });
+const server = await resources.acquire(() => startEphemeralServer(createApp()), server => server.close());
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] });
-const server = await startEphemeralServer(createApp());
 try {
   const owner = (await pool.query<{ id: string }>("INSERT INTO pm_users(email,password_hash,display_name) VALUES($1,'x','Synthetic publisher') RETURNING id", [`publisher-${randomUUID()}@example.test`])).rows[0].id;
+  resources.defer(() => pool.query('DELETE FROM pm_users WHERE id=$1', [owner]));
   const viewer = (await pool.query<{ id: string }>("INSERT INTO pm_users(email,password_hash,display_name) VALUES($1,'x','Synthetic viewer') RETURNING id", [`viewer-${randomUUID()}@example.test`])).rows[0].id;
-  users.push(owner, viewer);
+  resources.defer(() => pool.query('DELETE FROM pm_users WHERE id=$1', [viewer]));
   const slug = `context-${randomUUID()}`;
   const project = (await pool.query<{ id: string }>("INSERT INTO pm_projects(user_id,name,slug,prefix) VALUES($1,'Release evidence',$2,'demo') RETURNING id", [owner, slug])).rows[0].id;
   await pool.query("INSERT INTO pm_project_shares(project_id,shared_with_user_id,permission) VALUES($1,$2,'view')", [project, viewer]);
@@ -45,6 +54,7 @@ try {
     await page.selectOption('#project-selector', project);
     await page.evaluate(() => (window as unknown as { __app: AppBridge }).__app.showView('agent-context'));
     await page.getByText(packet.question, { exact: true }).waitFor();
+    await pageStep(page, browser, server);
     const response = await page.request.get(server.url(`/api/projects/${project}/pm/agent-context/${packet.id}?revision=${packet.revision}`));
     assert.equal(response.status(), 200); const api = await response.json() as AgentContextPacket;
     for (const row of [...api.receipts.flatMap(receipt => receipt.omission), ...api.gaps]) { await page.getByText(row.reason, { exact: true }).waitFor(); await page.getByText(row.remedy, { exact: true }).waitFor(); }
@@ -138,8 +148,8 @@ try {
     }
   }
   console.log(JSON.stringify({ screenshots: 2, viewports: [1440, 390], omissionReasons: 2, gaps: 1, apiUiParity: true, revocationRefresh: true, queuedRevocation: true, automaticRevocations: revocationCases, horizontalOverflow: false, resumeApiUiParity: true, resumeRevocationPurge: true }));
-} finally {
-  await browser.close(); await server.close();
-  for (const id of users) await pool.query('DELETE FROM pm_users WHERE id=$1', [id]);
-  await pool.end(); await rm(root, { recursive: true, force: true });
+} finally { await browser.close(); }
+} finally { await resources.close(); }
 }
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) await runAgentContextBrowser();

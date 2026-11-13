@@ -90,7 +90,7 @@ async function itemReplay(parts, input, stored, project) {
     }
     if (ids.size > 50)
         throw new ReplayAccessError(409, 'PM_IDEMPOTENCY_REPLAY_REQUIRES_LIVE_READ', 'Reconcile large batch results with a current bounded tracker read; the original batch will not be repeated.');
-    const pm = getPmClient(path.join(getProjectDir(project.ownerUserId, project.slug), '.agents', 'pm'));
+    const pm = (await getPmClient(path.join(getProjectDir(project.ownerUserId, project.slug), '.agents', 'pm')));
     for (const target of ids) {
         try {
             await pm.get(target);

@@ -143,7 +143,7 @@ function editor(actor: DecisionActor): void {
 /** Read one plan through the existing cached SDK loader. */
 async function readPlan(pmRoot: string, id: string): Promise<PlanCommandResult> {
   if (!text(id, 160)) invalid();
-  try { return await getPmClient(pmRoot).planShow(id, { depth: 'deep' }); }
+  try { return await (await getPmClient(pmRoot)).planShow(id, { depth: 'deep' }); }
   catch (error) {
     if (isPmCliExpectedError(error) && error.exitCode === EXIT_CODE.NOT_FOUND) throw new DecisionInboxError('not_found', 'Refresh the inbox and select an existing Plan.', 404);
     if (isPmCliExpectedError(error) && error.exitCode === EXIT_CODE.USAGE) throw new DecisionInboxError('invalid_input', 'Select an existing Plan; other item types cannot hold plan decision requests.', 400);
@@ -185,7 +185,7 @@ export async function requestDecision(pmRoot: string, actor: DecisionActor, inpu
   decode(PREFIX + JSON.stringify(record));
   if (Buffer.byteLength(JSON.stringify([record, input.evidence, actor.author, input.planId]), 'utf8') > 14000) invalid();
   project((await readPlan(pmRoot, input.planId)).plan);
-  await getPmClient(pmRoot).planDecision(input.planId, { decisionText: record.question, decisionRationale: PREFIX + JSON.stringify(record), decisionEvidence: input.evidence.trim(), author: actor.author, message: 'Request a human-agent decision' });
+  await (await getPmClient(pmRoot)).planDecision(input.planId, { decisionText: record.question, decisionRationale: PREFIX + JSON.stringify(record), decisionEvidence: input.evidence.trim(), author: actor.author, message: 'Request a human-agent decision' });
   return project((await readPlan(pmRoot, input.planId)).plan).find(request => request.id === record.id)!;
 }
 
@@ -203,7 +203,7 @@ export async function respondToDecision(pmRoot: string, actor: DecisionActor, in
     if (request.status === 'answered') throw new DecisionInboxError('already_answered', 'Create a new request if the decision needs reconsideration.', 409);
     if (input.action === 'approve' && (!Number.isInteger(input.alternative) || Number(input.alternative) < 0 || Number(input.alternative) >= request.alternatives.length)) invalid();
     const record: ResponseRecord = { kind: input.action, id: input.requestId, revision: input.revision, reason: input.reason.trim(), ...(input.action === 'approve' ? { alternative: input.alternative } : {}) };
-    await getPmClient(pmRoot).planDecision(planId, { decisionText: input.action === 'approve' ? `Approved: ${request.alternatives[input.alternative!]}` : `Acknowledged: ${request.question}`, decisionRationale: PREFIX + JSON.stringify(record), author: actor.author, message: 'Respond to a human-agent decision; no review or completion' });
+    await (await getPmClient(pmRoot)).planDecision(planId, { decisionText: input.action === 'approve' ? `Approved: ${request.alternatives[input.alternative!]}` : `Acknowledged: ${request.question}`, decisionRationale: PREFIX + JSON.stringify(record), author: actor.author, message: 'Respond to a human-agent decision; no review or completion' });
     return { request: project((await readPlan(pmRoot, planId)).plan).find(row => row.id === input.requestId)!, codeReview: false, taskCompletion: false };
   } finally { await release().catch(() => undefined); }
 }

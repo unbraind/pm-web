@@ -19,7 +19,7 @@ export async function readProjectGraph(ownerUserId, slug) {
     let extensionAvailable = false;
     try {
         const manifest = JSON.parse(await readFile(path.join(workspace, ".agents", "pm", "extensions", "pm-graph", "manifest.json"), "utf8"));
-        const settings = readPmSettings(ownerUserId, slug);
+        const settings = (await readPmSettings(ownerUserId, slug));
         const enabled = settings.extensions?.enabled ?? [];
         const disabled = settings.extensions?.disabled ?? [];
         extensionAvailable = Array.isArray(enabled) && Array.isArray(disabled)

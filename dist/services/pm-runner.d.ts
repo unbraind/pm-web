@@ -24,6 +24,17 @@ export declare class Semaphore {
      */
     acquire(): Promise<() => void>;
 }
+/** Maximum storage-metadata wait before a lookup refuses and releases any admission ticket. */
+export declare const STORAGE_DISCOVERY_TIMEOUT_MS = 5000;
+/** A fixed, typed refusal that retains no filesystem path or provider message. */
+export declare class StorageDiscoveryTimeoutError extends Error {
+    /** Safe refusal category for admission handling and diagnostics. */
+    readonly reason = "storage_discovery_timeout";
+    /** Machine-readable code for callers that classify storage failures. */
+    readonly code = "storage_discovery_timeout";
+    /** Identify the bounded discovery failure independently of command execution timeouts. */
+    constructor();
+}
 /**
  * Resolve the filesystem root under which every project workspace lives.
  *
@@ -57,6 +68,73 @@ export declare function getProjectDir(userId: string, slug: string): string;
  * therefore means "the row is absent", which is safe to cache.
  */
 export declare function resolveProjectDir(projectId: string): Promise<string | null>;
+/** Exact filesystem object identity; decimal strings preserve 64-bit inode values in serializable pins. */
+interface StorageEntryStamp {
+    readonly device: string;
+    readonly inode: string;
+    readonly symlink: boolean;
+    readonly directory: boolean;
+}
+/** A directory entry anchored below its captured physical parent, never a later logical mutation path. */
+interface CapturedProjectEntry {
+    readonly logicalParent: string;
+    readonly parent: string;
+    readonly leaf: string;
+    readonly parentStamp: StorageEntryStamp | null | undefined;
+    readonly leafStamp: StorageEntryStamp | null | undefined;
+}
+/** Refuse a changed or unprovable storage binding before touching project data. */
+export declare class ProjectStorageChangedError extends Error {
+    /** Report only a fixed refusal, without retaining paths or provider diagnostics. */
+    constructor();
+}
+/** Physical workspace and tracker captured before a queued operation may wait. */
+export interface PinnedProjectStorage {
+    /** Workspace directory after resolving aliases, including a missing leaf under an existing ancestor. */
+    readonly workspace: string;
+    /** Tracker directory after resolving a tracker symlink independently of the workspace alias. */
+    readonly tracker: string;
+    /** Physical parent and lstat identity of the project entry selected before queue admission. */
+    readonly entry: CapturedProjectEntry;
+}
+/**
+ * Capture the storage a queued operation must keep using.
+ *
+ * Both identities are resolved once. A later symlink retarget must not move
+ * work that already joined this pin's queue onto the new target.
+ *
+ * @param workspace - Logical or relative project directory.
+ * @returns The physical workspace and tracker selected at this instant.
+ */
+export declare function pinProjectStorage(workspace: string): Promise<PinnedProjectStorage>;
+/**
+ * Run async work for one workspace after all prior work there finishes.
+ *
+ * Chains `work` onto the workspace's tail promise so calls against the SAME
+ * workspace run one at a time, while also acquiring a global command slot so
+ * calls across independent workspaces overlap only up to the concurrency limit.
+ * The pin passed to `work` is the storage captured at admission. Callers must
+ * use that pin rather than resolving the logical path again after waiting.
+ * Returns whatever `work` resolves to, and prunes the workspace's tail once the
+ * chain settles.
+ *
+ * @param workspace - Logical project directory whose current physical tracker selects the queue.
+ * @param work - Operation that must execute against the admitted pin.
+ * @param onStoragePinned - Optional acknowledgement after storage resolution and queue admission.
+ * @returns The operation result.
+ */
+export declare function runSerialized<T>(workspace: string, work: (storage: PinnedProjectStorage) => Promise<T>, onStoragePinned?: () => void): Promise<T>;
+/**
+ * Serialize against storage that was already captured by an access check.
+ *
+ * Re-resolving the logical path here would let a symlink retarget move the
+ * operation onto another queue while the access check still names the old one.
+ *
+ * @param storage - Workspace and tracker identities selected before waiting.
+ * @param work - Operation pinned to those identities.
+ * @returns The operation result.
+ */
+export declare function runOnPinnedStorage<T>(storage: PinnedProjectStorage, work: (storage: PinnedProjectStorage) => Promise<T>): Promise<T>;
 /**
  * Create and initialize a project workspace on disk.
  *
@@ -102,6 +180,8 @@ export interface PmRunOptions {
     input?: string;
     jsonOutput?: boolean;
     timeoutMs?: number;
+    /** Acknowledge resolved storage and queue admission without replacing any operation. */
+    onStoragePinned?: () => void;
     /** Session declaration serialized for commands that fall back to the CLI. */
     agentSession?: AgentSessionContext;
     /** Require the runtime winner for this command, and for every path its positional args extend it to, to be the catalog package. */
@@ -203,6 +283,8 @@ export declare function readProjectExtensionStates(projectDir: string): Promise<
  * mid-download. A hung install still terminates, just later.
  */
 export declare const INSTALL_COMMAND_TIMEOUT_MS = 180000;
+/** @internal Pause after real inventory so regressions can retarget a tracker before installation. */
+export declare function setGraphProvisionInventoryHookForTest(hook: (() => Promise<void>) | undefined): void;
 /**
  * Ensure the pm-graph package is installed and active for a project.
  *
@@ -229,10 +311,13 @@ export declare function ensureGraphExtension(userId: string, slug: string): Prom
  * defaults while each call still receives the SDK's current extension
  * snapshot. Author identity is resolved by the SDK's default detection,
  * preserving prior CLI behaviour.
+ *
+ * @param pmRoot - Logical or physical tracker directory.
+ * @returns The cached client for that tracker's current physical identity and workspace.
  */
-export declare function getPmClient(pmRoot: string): PmClient;
+export declare function getPmClient(pmRoot: string): Promise<PmClient>;
 /** Drop a cached client when its workspace is deleted. */
-export declare function evictPmClient(pmRoot: string): void;
+export declare function evictPmClient(pmRoot: string | PinnedProjectStorage): Promise<void>;
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
 export declare function readProjectCommandOwners(projectDir: string): Promise<ExtensionDescribeResult["command_ownership"]>;
 /**
@@ -258,6 +343,15 @@ export declare function readProjectCommandOwners(projectDir: string): Promise<Ex
  * @throws {PmWebCompleteListReceiptError} when supplemental proof is absent or contradictory.
  */
 export declare function certifyPmWebCompleteList(candidate: unknown): PmCompleteListResult;
+/** Reject every inventory warning except the SDK's explicitly harmless legacy format coercion. */
+export declare function assertObservationalInventoryWarnings(warnings: readonly string[]): void;
+/**
+ * Establish the SDK's scan folders without executing extensions; refuse unprovable dynamic schemas.
+ * Static contribution inventories with no item types remain compatible with observational reads.
+ */
+export declare function observationalItemFolders(storage: PinnedProjectStorage): Promise<string[]>;
+/** Certify an observational corpus only while the SDK/schema folder inventory remains proven and unchanged. */
+export declare function readObservationalCompleteList(storage: PinnedProjectStorage, includeBody?: boolean): Promise<PmCompleteListResult>;
 /**
  * Read and certify every item in a project through the public high-level SDK.
  *
@@ -271,14 +365,15 @@ export declare function certifyPmWebCompleteList(candidate: unknown): PmComplete
  * @param includeBody - Whether complete rows must include item bodies.
  * @param noExtensions - Disable extension activation for a strictly observational read.
  * @param sourceOrder - Preserve native store ordering under the same workspace lock.
+ * @param onStoragePinned - Optional acknowledgement after asynchronous queue admission.
  * @returns A discriminated success result with certified rows, or a failure.
  */
-export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean, noExtensions?: boolean, sourceOrder?: boolean): Promise<PmCompleteListRunResult>;
+export declare function readCompletePmItems(userId: string, slug: string, includeBody?: boolean, noExtensions?: boolean, sourceOrder?: boolean, onStoragePinned?: () => void): Promise<PmCompleteListRunResult>;
 /**
  * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
  * Returns `{}` when absent so resolvers fall back to their built-in defaults.
  */
-export declare function readPmSettings(userId: string, slug: string): unknown;
+export declare function readPmSettings(userId: string, slug: string): Promise<unknown>;
 /**
  * Run a pm command against a project workspace.
  *
@@ -300,22 +395,19 @@ export declare function runPm(opts: PmRunOptions): Promise<PmRunResult>;
  * kernel that powers `pm get --at` and `pm restore`).
  *
  * Unlike {@link runPm}, this calls the SDK in-process — there is no history
- * write, lock acquisition, or derived-index mutation — so it is safe to run
- * concurrently with other readers and writers of the same workspace.
+ * write, lock acquisition, or derived-index mutation. It still joins the
+ * physical workspace queue to avoid overlapping local mutations.
  *
  * @throws {PmCliError} with `exitCode` {@link EXIT_CODE}.NOT_FOUND when the item
  *   does not exist (or has no history), and {@link EXIT_CODE}.USAGE for an
  *   invalid ref or a version/timestamp outside the available history range.
  */
-export declare function runGetItemAt(userId: string, slug: string, itemId: string, ref: string): Promise<GetItemAtResult>;
+export declare function runGetItemAt(userId: string, slug: string, itemId: string, ref: string, onStoragePinned?: () => void): Promise<GetItemAtResult>;
 /**
- * Delete a project workspace from disk.
+ * Remove only the admitted project entry after eviction succeeds and its identity is revalidated.
+ * Every mutation uses the captured physical parent plus leaf. A leaf symlink is unlinked without
+ * recursing into its target. A captured missing entry needs no filesystem mutation.
  *
- * Evicts the cached SDK client for the project's pm root first (so no stale
- * client outlives the deletion), then removes the whole workspace directory
- * recursively. A missing directory is not an error.
- *
- * @param userId - The owning user's id.
- * @param slug - The project slug.
+ * @param storage - Admission-time parent, leaf inode/device and physical SDK cache identities.
  */
-export declare function deleteProjectDir(userId: string, slug: string): void;
+export declare function deleteProjectDir(storage: PinnedProjectStorage): Promise<void>;

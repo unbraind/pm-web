@@ -1,28 +1,27 @@
 import { authenticatedBrowserPage } from '../test/helpers/browser-page.ts';
 /** Exercise removal preview, cancellation and access invalidation in the shipped desktop/mobile UI. */
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { chromium, type BrowserContext, type Route } from 'playwright-core';
-import { pool } from '../src/db.ts';
 import { signToken } from '../src/auth.ts';
+import { pool } from '../src/db.ts';
 import { createPlainContractTracker } from '../test/helpers/plain-contract-tracker.ts';
-import { ensureSchema, seedProject, seedUser, seedUserShare, startApp } from '../test/helpers/pg-harness.ts';
+import { ProjectFixtureResources, ensureSchema, seedProject, seedUserShare } from '../test/helpers/pg-harness.ts';
 import { PermissionImpactClient } from '../src/permission-impact-client.ts';
 import type { AppBridge } from '../public/src/app.ts';
 import { requestDecision } from '../src/services/decision-inbox.ts';
 
 await ensureSchema();
-const previous = process.env.PROJECTS_ROOT, root = await mkdtemp(path.join(os.tmpdir(), 'permission-browser-'));
-process.env.PROJECTS_ROOT = root;
-const owner = await seedUser(), viewer = await seedUser(), project = await seedProject(owner.id);
+const resources = new ProjectFixtureResources();
+try {
+const root = await resources.directory('permission-browser-', true);
+const owner = await resources.user(), viewer = await resources.user(), project = await seedProject(owner.id);
 const share = await seedUserShare(project.id, viewer.id, 'edit');
 const { client: pm, pmRoot } = await createPlainContractTracker(path.join(root, owner.id, project.slug));
 const plan = await pm.create({ type: 'Plan', title: 'Browser choice', unset: ['parent', 'goal', 'objective', 'sprint', 'release'] });
 await requestDecision(pmRoot, { author: owner.id, permission: 'edit' }, { planId: plan.item.id, question: 'Choose a browser strategy', alternatives: ['A', 'B'], evidence: 'Synthetic browser evidence.' });
-const server = await startApp();
-const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox'] });
+const server = await resources.server();
+const browser = await resources.acquire(() => chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox'] }), browser => browser.close());
 const token = (user: typeof owner) => signToken({ userId: user.id, email: user.email });
 const sdk = new PermissionImpactClient(server.url('/'), token(owner));
 /** Open the selected project through real navigation, accepting only necessary browser storage. */
@@ -33,7 +32,6 @@ async function openPermissionView(session: BrowserContext, user: typeof owner, v
   await page.evaluate(selected => (window as unknown as { __app: AppBridge }).__app.showView(selected), view);
   return page;
 }
-try {
   for (const width of [1440, 390]) {
     const session = await browser.newContext({ viewport: { width, height: 1200 }, serviceWorkers: 'block' });
     const page = await openPermissionView(session, owner, 'sharing');
@@ -85,9 +83,4 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Approve alternative' }).isDisabled(), true);
   await session.close();
   console.log(JSON.stringify({ viewports: [1440, 390], cancellationPreservesShare: true, previewMatchesSdk: true, staleDecisionControlsCleared: true, staleOperationControlsCleared: true, latePermissionReadFenced: true }));
-} finally {
-  await browser.close(); await server.close();
-  await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [[owner.id, viewer.id]]);
-  await rm(root, { recursive: true, force: true });
-  if (previous === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previous;
-}
+} finally { await resources.close(); }

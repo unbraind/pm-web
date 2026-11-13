@@ -114,7 +114,7 @@ async function readPlan(pmRoot, id) {
     if (!text(id, 160))
         invalid();
     try {
-        return await getPmClient(pmRoot).planShow(id, { depth: 'deep' });
+        return await (await getPmClient(pmRoot)).planShow(id, { depth: 'deep' });
     }
     catch (error) {
         if (isPmCliExpectedError(error) && error.exitCode === EXIT_CODE.NOT_FOUND)
@@ -161,7 +161,7 @@ export async function requestDecision(pmRoot, actor, input) {
     if (Buffer.byteLength(JSON.stringify([record, input.evidence, actor.author, input.planId]), 'utf8') > 14000)
         invalid();
     project((await readPlan(pmRoot, input.planId)).plan);
-    await getPmClient(pmRoot).planDecision(input.planId, { decisionText: record.question, decisionRationale: PREFIX + JSON.stringify(record), decisionEvidence: input.evidence.trim(), author: actor.author, message: 'Request a human-agent decision' });
+    await (await getPmClient(pmRoot)).planDecision(input.planId, { decisionText: record.question, decisionRationale: PREFIX + JSON.stringify(record), decisionEvidence: input.evidence.trim(), author: actor.author, message: 'Request a human-agent decision' });
     return project((await readPlan(pmRoot, input.planId)).plan).find(request => request.id === record.id);
 }
 /** Serialize cross-process responses with a public SDK lock and check revisions inside it before audited append. */
@@ -183,7 +183,7 @@ export async function respondToDecision(pmRoot, actor, input) {
         if (input.action === 'approve' && (!Number.isInteger(input.alternative) || Number(input.alternative) < 0 || Number(input.alternative) >= request.alternatives.length))
             invalid();
         const record = { kind: input.action, id: input.requestId, revision: input.revision, reason: input.reason.trim(), ...(input.action === 'approve' ? { alternative: input.alternative } : {}) };
-        await getPmClient(pmRoot).planDecision(planId, { decisionText: input.action === 'approve' ? `Approved: ${request.alternatives[input.alternative]}` : `Acknowledged: ${request.question}`, decisionRationale: PREFIX + JSON.stringify(record), author: actor.author, message: 'Respond to a human-agent decision; no review or completion' });
+        await (await getPmClient(pmRoot)).planDecision(planId, { decisionText: input.action === 'approve' ? `Approved: ${request.alternatives[input.alternative]}` : `Acknowledged: ${request.question}`, decisionRationale: PREFIX + JSON.stringify(record), author: actor.author, message: 'Respond to a human-agent decision; no review or completion' });
         return { request: project((await readPlan(pmRoot, planId)).plan).find(row => row.id === input.requestId), codeReview: false, taskCompletion: false };
     }
     finally {

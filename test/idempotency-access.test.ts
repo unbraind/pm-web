@@ -13,27 +13,22 @@ import { pool } from '../src/db.ts';
 import { createTierLimiters } from '../src/rate-limit.ts';
 import { idempotencyGuard, requestFingerprint } from '../src/idempotency.ts';
 import { signToken } from '../src/auth.ts';
-import { authedFetch, ensureSchema, seedUser, seedProject, seedUserShare, seedGroup, startApp, type SeedUser } from './helpers/pg-harness.ts';
+import { ProjectFixtureResources, authedFetch, ensureSchema, seedUser, seedProject, seedUserShare, seedGroup, startApp, type SeedUser } from './helpers/pg-harness.ts';
 import { startEphemeralServer } from './helpers/ephemeral-server.ts';
 
 /** Allocate only synthetic principals and a real plain tracker; every permission decision uses SQL. */
 async function fixture(t: TestContext) {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const root = await mkdtemp(path.join(os.tmpdir(), 'replay-access-'));
-  const saved = process.env.PROJECTS_ROOT; process.env.PROJECTS_ROOT = root;
-  const owner = await seedUser(), editor = await seedUser(), viewer = await seedUser();
+  const root = await resources.directory('replay-access-', true);
+  const owner = await resources.user(), editor = await resources.user(), viewer = await resources.user();
   const project = await seedProject(owner.id);
   const share = await seedUserShare(project.id, editor.id, 'edit');
   const cwd = path.join(root, owner.id, project.slug); await mkdir(cwd, { recursive: true });
   const pm = new PmClient({ cwd, pmRoot: path.join(cwd, '.agents', 'pm'), noExtensions: true });
   await pm.init('replay', { defaults: true, agentGuidance: 'skip' });
-  const server = await startApp();
-  t.after(async () => {
-    await server.close();
-    await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [[owner.id, editor.id, viewer.id]]);
-    await rm(root, { recursive: true, force: true });
-    if (saved === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = saved;
-  });
+  const server = await resources.server();
+
   const base = `/api/projects/${project.id}`;
   const input = { agent: 'review-agent', question: 'A revoked packet must disappear', consent: true, viewers: [owner.id], receipts: [], gaps: [{ reason: 'Private gap', remedy: 'Obtain authorized evidence.' }] };
   /** Run a genuine keyed mutation and wait for its asynchronous outcome settlement. */

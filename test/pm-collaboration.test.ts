@@ -1,3 +1,4 @@
+import { failedFixtureSetup } from './helpers/fixture-resources.ts';
 /**
  * End-to-end collaboration coverage for pm-web's shared pm command surface.
  *
@@ -48,6 +49,7 @@ interface CollaborationHarness {
 async function createCollaborationHarness(): Promise<CollaborationHarness> {
   await ensureSchema();
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-"));
+  try {
   const owner = await seedUser(uniqueEmail("collab-owner"), { displayName: "Owner" });
   const editor = await seedUser(uniqueEmail("collab-editor"), { displayName: "Editor" });
   const project = await seedProject(owner.id, uniqueSlug("collab"), { prefix: "co" });
@@ -57,6 +59,9 @@ async function createCollaborationHarness(): Promise<CollaborationHarness> {
   execFileSync("pm", ["init", "--pm-path", pmRoot], { stdio: "ignore" });
   process.env.PROJECTS_ROOT = root;
   return { root, pmRoot, owner, editor, projectId: project.id };
+  } catch (error) {
+    return failedFixtureSetup(root, error);
+  }
 }
 
 /** Decode a successful create response and require the real item id. */

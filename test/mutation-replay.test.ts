@@ -49,7 +49,7 @@ for (const scenario of ["unchanged", "created", "replaced"] as const) {
     } finally {
       controller.abort();
       await stream?.return();
-      evictPmClient(pmRoot);
+      (await evictPmClient(pmRoot));
       await rm(dir, { recursive: true, force: true });
     }
   });
@@ -116,7 +116,7 @@ test("a real idle follower takes no index locks between safety checks and detect
     controller.abort();
     await stream?.return();
     counter?.stop();
-    evictPmClient(pmRoot);
+    (await evictPmClient(pmRoot));
     await rm(dir, { recursive: true, force: true });
   }
 });
@@ -143,7 +143,7 @@ test("a skipped-poll boundary retains facts visible within the replay window eve
     const timeout = setTimeout(() => controller.abort(), 2000);
     try { assert.equal((await stream.next()).value?.item_id, "safety-one"); }
     finally { clearTimeout(timeout); controller.abort(); await stream.return(); }
-  } finally { controller.abort(); evictPmClient(pmRoot); await rm(dir, { recursive: true, force: true }); }
+  } finally { controller.abort(); (await evictPmClient(pmRoot)); await rm(dir, { recursive: true, force: true }); }
 });
 
 test("a real later-visible history fact behind the exclusive cursor is delivered once by overlap", { timeout: 60_000 }, async () => {
@@ -151,7 +151,7 @@ test("a real later-visible history fact behind the exclusive cursor is delivered
   const controller = new AbortController();
   try {
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "replay", "--defaults", "--agent-guidance", "skip"]);
-    const client = getPmClient(path.join(dir, ".agents/pm"));
+    const client = (await getPmClient(path.join(dir, ".agents/pm")));
     for (const id of ["replay-first", "replay-late"]) await client.run("create", { options: { id, title: id, type: "Task", description: "Replay fixture" } });
     await delay(1500);
     const state = createMutationReplayState();
@@ -183,5 +183,5 @@ test("a real later-visible history fact behind the exclusive cursor is delivered
     const repeated = followCommittedMutations({ pmRoot, since, type: "update", intervalMs: 10, signal: stop.signal }, state);
     const timer = setTimeout(() => stop.abort(), 100);
     try { assert.equal((await repeated.next()).done, true); } finally { clearTimeout(timer); await repeated.return(); }
-  } finally { controller.abort(); evictPmClient(path.join(dir, ".agents/pm")); await rm(dir, { recursive: true, force: true }); }
+  } finally { controller.abort(); (await evictPmClient(path.join(dir, ".agents/pm"))); await rm(dir, { recursive: true, force: true }); }
 });

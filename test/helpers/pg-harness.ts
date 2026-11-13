@@ -20,6 +20,10 @@
  */
 
 import http from "node:http";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { FixtureResources } from "./fixture-resources.ts";
 import assert from "node:assert/strict";
 import { after, type TestContext } from "node:test";
 import type { Express } from "express";
@@ -31,7 +35,38 @@ import { initSchema, pool } from "../../src/db.ts";
 
 // Each test file has its own process. Release its real pool after every test's
 // teardown instead of keeping the worker alive for the 30-second idle timeout.
-after(() => pool.end());
+const seededUsers: string[] = [];
+after(async () => {
+  try {
+    if (seededUsers.length) await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [seededUsers]);
+  } finally { await pool.end(); }
+});
+
+/** Own partial fixture setup, including accounts, servers and process-local workspace roots. */
+export class ProjectFixtureResources extends FixtureResources {
+  /** Create a disposable directory, optionally selecting it as the project root until cleanup. */
+  async directory(prefix: string, projectsRoot = false): Promise<string> {
+    const root = await this.acquire(() => mkdtemp(path.join(tmpdir(), prefix)), value => rm(value, { recursive: true, force: true }));
+    if (projectsRoot) {
+      const previous = process.env.PROJECTS_ROOT;
+      process.env.PROJECTS_ROOT = root;
+      this.defer(() => {
+        if (previous === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previous;
+      });
+    }
+    return root;
+  }
+
+  /** Seed an account and immediately own deletion of it and its cascading fixture records. */
+  user(...args: Parameters<typeof seedUser>): Promise<SeedUser> {
+    return this.acquire(() => seedUser(...args), user => pool.query('DELETE FROM pm_users WHERE id=$1', [user.id]));
+  }
+
+  /** Start the real application and own listener shutdown before any workspace cleanup. */
+  server(deps?: CreateAppDeps): Promise<AppServer> {
+    return this.acquire(() => startApp(deps), server => server.close());
+  }
+}
 
 /**
  * A per-process run id, mixed into every seeded identifier so that concurrent
@@ -250,6 +285,7 @@ export async function seedUser(
     [resolvedEmail, flags?.displayName ?? null, flags?.isAdmin ?? false],
   );
   const row = result.rows[0] as UserRow;
+  seededUsers.push(row.id);
   return { id: row.id, email: row.email };
 }
 

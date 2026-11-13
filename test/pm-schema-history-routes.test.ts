@@ -1,3 +1,4 @@
+import { failedFixtureSetup } from './helpers/fixture-resources.ts';
 import { projectAccessRows } from './helpers/project-access-rows.ts';
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -35,6 +36,7 @@ interface Harness {
  */
 async function setupHarness(): Promise<Harness> {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-schema-hist-"));
+  try {
   const projectDir = path.join(root, OWNER_USER_ID, PROJECT_SLUG);
   await mkdir(projectDir, { recursive: true });
   const pmRoot = path.join(projectDir, ".agents", "pm");
@@ -52,6 +54,9 @@ async function setupHarness(): Promise<Harness> {
       await rm(root, { recursive: true, force: true });
     },
   };
+  } catch (error) {
+    return failedFixtureSetup(root, error);
+  }
 }
 
 /** Create a real item in the harness workspace and return its id. */

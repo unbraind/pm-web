@@ -31,7 +31,7 @@ test("20 subscribers receive each real same-item version once in watcher-first, 
   try {
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "receipts", "--defaults", "--agent-guidance", "skip"]);
     assert.equal(existsSync(path.join(dir, ".git")), false, "delivery evidence uses a plain non-git tracker");
-    const client = getPmClient(pmRoot);
+    const client = (await getPmClient(pmRoot));
     await client.run("create", { options: { id: "receipts-one", title: "Synthetic", type: "Task", description: "Synthetic" } });
     for (const title of ["First", "Second"]) await client.run("update", { options: { id: "receipts-one", title } });
     const page = await listMutationEvents({ pmRoot, item: "receipts-one", type: "update" });
@@ -64,7 +64,7 @@ test("20 subscribers receive each real same-item version once in watcher-first, 
     }
   } finally {
     stops.forEach((stop) => stop());
-    evictPmClient(pmRoot);
+    (await evictPmClient(pmRoot));
     await rm(dir, { recursive: true, force: true });
   }
 });
@@ -88,7 +88,7 @@ test("real close and delete facts retain lifecycle types once in every delivery 
   try {
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "lifecycle", "--defaults", "--agent-guidance", "skip"]);
     assert.equal(existsSync(path.join(dir, ".git")), false, "delivery evidence uses a plain non-git tracker");
-    const client = getPmClient(pmRoot);
+    const client = (await getPmClient(pmRoot));
     for (const operation of ["close", "delete"]) {
       const created = await client.run("create", { options: { id: `lifecycle-${operation}`, title: "Synthetic", type: "Task", description: "Synthetic" } }) as { id: string };
       await client.run(operation, { options: { id: created.id, reason: "Synthetic completion", force: true } });
@@ -124,7 +124,7 @@ test("real close and delete facts retain lifecycle types once in every delivery 
     }
   } finally {
     stops.forEach((stop) => stop());
-    evictPmClient(pmRoot);
+    (await evictPmClient(pmRoot));
     await rm(dir, { recursive: true, force: true });
   }
 });

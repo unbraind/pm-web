@@ -4,11 +4,11 @@ import { registerContractExplorerRoutes } from './contract-explorer.js';
 import { registerAgentContextRoutes } from './agent-context.js';
 import { DecisionInboxError, decisionInboxNumber, listDecisionInbox, requestDecision, respondToDecision } from '../services/decision-inbox.js';
 import { readMaintenanceCapabilities } from "../services/maintenance-providers.js";
-import { logError } from "../observability.js";
+import { logError, logEvent } from "../observability.js";
 import { Router } from "express";
 import { readProjectGraph } from "../services/project-graph.js";
 import { requireAuth } from "../middleware/auth.js";
-import { ensureGraphExtension, getProjectDir, readCompletePmItems, runPm, runGetItemAt, readPmSettings, PmCliError, EXIT_CODE } from "../services/pm-runner.js";
+import { ensureGraphExtension, getProjectDir, runPm, readPmSettings, PmCliError, isPmCliExpectedError, EXIT_CODE } from "../services/pm-runner.js";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
 // aggregate sdk barrel documents itself as re-exporting every supported export but
 // omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
@@ -19,6 +19,7 @@ import { buildIcsCalendar } from "../ical.js";
 import { verifyProjectAccess } from "./projects.js";
 import { addSSEClient, broadcastProjectEvent, setupSSEHeaders, updateClientView, getProjectPresence, canResumeFanout, heartbeatFanout, mutationEventIdentity } from "../services/sse.js";
 import { singleFlightMutationPage } from "../services/history-read-gate.js";
+import { ProjectReadError, ProjectReadUnavailableError, readAuthorizedProject } from '../services/authorized-project-reads.js';
 import { ItemHistoryError, readItemHistoryPage } from '../services/item-history.js';
 import { projectEventViewers } from "../services/sse-access.js";
 import { createSSEAdmission } from "../services/sse-admission.js";
@@ -27,7 +28,7 @@ import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import neo4j from "neo4j-driver";
 import { createHash, randomUUID } from "node:crypto";
-import { routeParam } from "./route-params.js";
+import { routeParam, requireUuidParams } from "./route-params.js";
 import { pool } from "../db.js";
 // Singleton Neo4j driver — reused across sync calls to avoid per-call connection overhead.
 let _neo4jDriver = null;
@@ -71,6 +72,7 @@ function getNeo4jDriver() {
 }
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
+router.use(requireUuidParams("projectId"));
 registerEvidenceInspectionRoutes(router);
 registerPermissionImpactRoutes(router);
 registerAgentContextRoutes(router);
@@ -375,6 +377,43 @@ async function requireProject(req, res) {
         return undefined;
     }
     return project;
+}
+/**
+ * Map a project read failure to its client status and public body. SDK expected errors are recognised by
+ * structure as well as by class, so a separately installed SDK copy still maps to 404 or 400.
+ * @param error - The failure raised by authorization or the scoped SDK read.
+ * @returns The status and body, or undefined when the failure is an unavailable read (503).
+ * @internal
+ */
+export function projectReadFailure(error) {
+    if (error instanceof ProjectReadError)
+        return { status: error.status, body: { error: error.message } };
+    if ((error instanceof PmCliError || isPmCliExpectedError(error)) && error.exitCode === EXIT_CODE.NOT_FOUND)
+        return { status: 404, body: { error: 'Item not found' } };
+    if ((error instanceof PmCliError || isPmCliExpectedError(error)) && error.exitCode === EXIT_CODE.USAGE)
+        return { status: 400, body: { error: 'Invalid item id or historical reference' } };
+    return undefined;
+}
+/** Read through a live scoped SDK binding and translate failures without exposing provider diagnostics. */
+async function projectItemRead(req, res, read) {
+    res.setHeader('Cache-Control', 'no-store, private');
+    try {
+        return { value: await readAuthorizedProject(req.user.userId, routeParam(req, 'projectId'), read) };
+    }
+    catch (error) {
+        const mapped = projectReadFailure(error);
+        if (mapped)
+            res.status(mapped.status).json(mapped.body);
+        else {
+            const requestId = res.getHeader('X-Request-Id');
+            logEvent('project_read_unavailable', {
+                request_id: typeof requestId === 'string' ? requestId : null,
+                reason: error instanceof ProjectReadUnavailableError ? error.reason : 'sdk_read_failed',
+            }, 'error');
+            res.status(503).json({ error: 'Project items are temporarily unavailable', code: 'project_read_unavailable' });
+        }
+        return undefined;
+    }
 }
 /**
  * Run pm in the verified project's workspace.
@@ -769,36 +808,25 @@ for (const route of [
 // Kanban board: items grouped into columns by the workspace's runtime statuses
 // (read live from `pm contracts`) so the board matches the installed CLI.
 router.get("/board", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
-        return;
-    const contracts = await projectPm(project, ["contracts", "--json"], true);
-    const rt = contracts.ok && contracts.parsed
-        ? contracts.parsed["runtime_schema"]
-        : undefined;
-    const statuses = Array.isArray(rt?.["statuses"]) ? rt["statuses"] : [];
-    const listed = await readCompletePmItems(project.ownerUserId, project.slug);
-    if (!listed.ok) {
-        res.json({ error: listed.stderr, columns: [] });
-        return;
-    }
-    const items = itemsFromCompleteList(listed.result);
-    res.json({ columns: boardColumns(items, statuses), statuses, count: items.length });
+    const result = await projectItemRead(req, res, async (reader) => {
+        const contracts = await reader.contracts();
+        const statuses = contracts.runtime_schema?.statuses ?? [];
+        const items = itemsFromCompleteList(await reader.complete());
+        return { columns: boardColumns(items, statuses), statuses, count: items.length };
+    });
+    if (result)
+        res.json(result.value);
 });
 // GET /api/projects/:projectId/pm/search?q=...
 // Full-text search over id/title/tags/body via one certified complete read.
 router.get("/search", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
-        return;
     const query = String(req.query["q"] ?? "");
-    const listed = await readCompletePmItems(project.ownerUserId, project.slug, true);
-    if (!listed.ok) {
-        res.json({ error: listed.stderr, items: [] });
-        return;
-    }
-    const items = filterItemsByQuery(itemsFromCompleteList(listed.result), query);
-    res.json({ query, items, count: items.length });
+    const result = await projectItemRead(req, res, async (reader) => {
+        const items = filterItemsByQuery(itemsFromCompleteList(await reader.complete(true)), query);
+        return { query, items, count: items.length };
+    });
+    if (result)
+        res.json(result.value);
 });
 // POST /api/projects/:projectId/pm/create
 router.post("/create", async (req, res) => {
@@ -888,63 +916,32 @@ router.post("/create", async (req, res) => {
 });
 // GET /api/projects/:projectId/pm/get/:itemId
 router.get("/get/:itemId", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
-        return;
-    const result = await projectPm(project, ["get", routeParam(req, "itemId")], true);
-    if (!result.ok) {
-        res.status(404).json({ error: "Item not found" });
-        return;
-    }
-    res.json(result.parsed || {});
+    const result = await projectItemRead(req, res, reader => reader.get(routeParam(req, "itemId")));
+    if (result)
+        res.json(result.value);
 });
 // GET /api/projects/:projectId/pm/at/:itemId/:ref
 // Point-in-time item view: reconstruct a verified historical item state at a
 // one-based version number or ISO timestamp via the pm CLI SDK `getItemAt`
-// projection (the same replay kernel that powers `pm get --at`). The read is
-// mutation-free and lock-free, so it never interferes with concurrent writers.
+// projection (the same replay kernel that powers `pm get --at`). The scoped
+// reader serializes with local web mutations; external SDK writers remain independent.
 //
 //   200 — reconstructed item state at the requested ref
 //   400 — invalid ref, or version/timestamp outside the available history range
 //   404 — unknown item, or item with no recorded history
 router.get("/at/:itemId/:ref", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
+    const read = await projectItemRead(req, res, reader => reader.at(routeParam(req, "itemId"), routeParam(req, "ref")));
+    if (!read)
         return;
-    const itemId = routeParam(req, "itemId");
-    const ref = routeParam(req, "ref");
-    try {
-        const result = await runGetItemAt(project.ownerUserId, project.slug, itemId, ref);
-        // Mirror the `pm get` envelope so existing clients can reuse the same shape:
-        // the reconstructed metadata is exposed as `item` (with `body` inlined),
-        // alongside the provenance fields `reconstructed` / `as_of_version` /
-        // `as_of_timestamp` / `history_length` and the resolved `target`.
-        const item = { ...result.document.metadata, body: result.document.body };
-        res.json({
-            item,
-            reconstructed: result.reconstructed,
-            as_of_version: result.as_of_version,
-            as_of_timestamp: result.as_of_timestamp,
-            history_length: result.history_length,
-            target: result.target,
-        });
-    }
-    catch (err) {
-        if (err instanceof PmCliError) {
-            if (err.exitCode === EXIT_CODE.NOT_FOUND) {
-                res.status(404).json({ error: err.message });
-            }
-            else if (err.exitCode === EXIT_CODE.USAGE) {
-                res.status(400).json({ error: err.message });
-            }
-            else {
-                res.status(500).json({ error: err.message });
-            }
-            return;
-        }
-        logError("point_in_time_item_read_failed", err);
-        res.status(500).json({ error: "Failed to reconstruct historical item state" });
-    }
+    const result = read.value;
+    res.json({
+        item: { ...result.document.metadata, body: result.document.body },
+        reconstructed: result.reconstructed,
+        as_of_version: result.as_of_version,
+        as_of_timestamp: result.as_of_timestamp,
+        history_length: result.history_length,
+        target: result.target,
+    });
 });
 // PATCH /api/projects/:projectId/pm/update/:itemId
 router.patch("/update/:itemId", async (req, res) => {
@@ -1104,7 +1101,7 @@ router.post("/search", async (req, res) => {
     // from the same defaults the pm CLI applies. Explicit per-request overrides
     // (limit / minScore / semanticWeight) win over the workspace defaults so the
     // browser can still narrow a page.
-    const settings = readPmSettings(project.ownerUserId, project.slug);
+    const settings = (await readPmSettings(project.ownerUserId, project.slug));
     const resolvedLimit = boundedNumber(body["limit"], resolveSearchMaxResults(settings), 1, 500, true);
     const resolvedMinScore = boundedNumber(body["minScore"], resolveSearchScoreThreshold(settings), 0, 1_000_000);
     const resolvedSemanticWeight = boundedNumber(body["semanticWeight"], resolveHybridSemanticWeight(settings), 0, 1);
@@ -1141,15 +1138,11 @@ router.get("/calendar", async (req, res) => {
 // Auth works via the usual token (header/cookie) or a
 // `?token=` query param, since calendar clients cannot send cookies.
 router.get("/calendar.ics", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
+    const read = await projectItemRead(req, res, async (reader, project) => ({ listed: await reader.complete(), project }));
+    if (!read)
         return;
-    const listed = await readCompletePmItems(project.ownerUserId, project.slug);
-    if (!listed.ok) {
-        res.status(502).json({ error: listed.stderr || "Failed to load items" });
-        return;
-    }
-    const items = itemsFromCompleteList(listed.result)
+    const { listed, project } = read.value;
+    const items = itemsFromCompleteList(listed)
         .filter((i) => Boolean(i.deadline))
         .map((i) => ({
         id: i.id,
@@ -1167,7 +1160,6 @@ router.get("/calendar.ics", async (req, res) => {
     });
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="pm-${project.slug}.ics"`);
-    res.setHeader("Cache-Control", "no-cache");
     res.send(ics);
 });
 // GET /api/projects/:projectId/pm/health
@@ -1631,16 +1623,11 @@ router.get("/guide/:topicId", async (req, res) => {
 // ─────────────────────────────────────────────────────────
 // GET /api/projects/:projectId/pm/export?format=json|csv|yaml
 router.get("/export", async (req, res) => {
-    const project = await requireProject(req, res);
-    if (!project)
+    const read = await projectItemRead(req, res, async (reader, project) => ({ data: await reader.complete(true), project }));
+    if (!read)
         return;
+    const { data, project } = read.value;
     const format = req.query["format"] || "json";
-    const result = await readCompletePmItems(project.ownerUserId, project.slug, true);
-    if (!result.ok) {
-        res.status(500).json({ error: result.stderr || "Export failed" });
-        return;
-    }
-    const data = result.result;
     const exportedAt = new Date().toISOString();
     if (format === "csv") {
         const items = data?.items ?? [];

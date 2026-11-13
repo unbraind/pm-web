@@ -1,13 +1,15 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import type { ExtensionManifest } from "@unbrained/pm-cli/sdk";
+import { assertPackedMarkdownMatches, missingPackedDocumentLinks, packedFileInventory } from './published-document-links.ts';
 
 /** Package fields that define the packed standalone-host acceptance contract. */
 interface PackageContract {
+  readonly files: readonly string[];
   readonly dependencies: Readonly<Record<string, string>>;
 }
 
@@ -130,12 +132,13 @@ const temporaryRoot = mkdtempSync(join(tmpdir(), "pm-web-packed-acceptance-"));
 try {
   const packRoot = join(temporaryRoot, "pack");
   mkdirSync(packRoot);
-  run(
+  const packReceipt = run(
     npmLauncher.command,
-    [...npmLauncher.prefix, "pack", "--ignore-scripts", "--pack-destination", packRoot],
+    [...npmLauncher.prefix, "pack", "--ignore-scripts", "--json", "--pack-destination", packRoot],
     repoRoot,
     { ...cleanEnvironment, npm_config_ignore_scripts: "true", NPM_CONFIG_IGNORE_SCRIPTS: "true" },
   );
+  const packedFiles = packedFileInventory(packReceipt.stdout);
   const packedNames = readdirSync(packRoot).filter((name) => name.endsWith(".tgz"));
   if (packedNames.length !== 1) {
     throw new Error(`npm pack must create exactly one tarball, got ${String(packedNames.length)}`);
@@ -179,6 +182,17 @@ try {
       run(bunCommand, ["init", "-y"], scenarioRoot, scenarioEnvironment);
       run(bunCommand, ["add", "--ignore-scripts", tarball, `${cliPackage}@${scenario.hostVersion}`], scenarioRoot, scenarioEnvironment);
     }
+
+    // Validate the documentation consumers receive and run the same alias adversary against shipped JS.
+    const installedRoot = join(scenarioRoot, 'node_modules', '@unbrained', 'pm-web');
+    const missingLinks = missingPackedDocumentLinks(packedFiles, file => readFileSync(join(installedRoot, file), 'utf8'));
+    if (missingLinks.length > 0) throw new Error(`Packed documentation has missing targets: ${missingLinks.join(', ')}`);
+    assertPackedMarkdownMatches(packedFiles, file => readFileSync(join(installedRoot, file), 'utf8'), file => readFileSync(join(repoRoot, file), 'utf8'));
+    const aliasProbe = readFileSync(join(repoRoot, 'test/helpers/workspace-alias-probe.ts'), 'utf8')
+      .replace('../../src/services/pm-runner.ts', '@unbrained/pm-web/dist/services/pm-runner.js');
+    const probeFile = join(scenarioRoot, 'workspace-alias-probe.mts');
+    writeFileSync(probeFile, `${aliasProbe}\nawait workspaceAliasProbe(process.argv[2]);\n`);
+    run(scenario.manager === 'bun' ? bunCommand : process.execPath, [probeFile, join(scenarioRoot, 'alias-tracker')], scenarioRoot, scenarioEnvironment);
 
     const actualVersion = runPm(scenario, scenarioRoot, scenarioEnvironment, ["--version"]).stdout.trim();
     if (actualVersion !== scenario.hostVersion) {
