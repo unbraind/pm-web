@@ -5,7 +5,7 @@ Project deletion keeps the storage pin selected at admission: the physical works
 Changed call sites:
 
 - `src/routes/projects.ts`: `removeOwnedProject`, shared by DELETE and failed-initialization cleanup, passes its admission pin through eviction and removal. Its row transaction and workspace queue remain held through commit or rollback.
-- `src/services/pm-runner.ts`: `pinWorkspaceStorage` captures entry identity; `evictPmClient` accepts that pin; `assertPinnedProjectEntry` verifies it before eviction and again afterwards; `deleteProjectDir` removes only the captured physical entry. A changed or unprovable identity refuses before filesystem mutation and retains the row for retry.
+- `src/services/pm-runner.ts`: `pinWorkspaceStorage` captures entry identity; `evictPmClient` accepts that pin; `assertPinnedProjectEntry` verifies it before eviction and again afterwards; `deleteProjectDir` removes only through the captured physical parent. A changed or unprovable identity that is visible at the check refuses before filesystem mutation and retains the row for retry. The check is not atomic with the removal: a writer that can modify the captured physical parent could replace the leaf between the final identity check and `rm`. Node has no inode-bound recursive removal, so closing that window needs an fd-relative mechanism that this package does not have; the guarantee covers ancestor retargeting and swaps that happen before the final check.
 - `scripts/capacity-fixture.ts`: fixture teardown and failed-setup cleanup evict the captured project and remove the captured temporary root. An eviction refusal still permits independent synthetic-row cleanup, while removal has its own identity check.
 
 Remaining destructive calls on project storage:

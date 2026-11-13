@@ -8,7 +8,7 @@ import { logError, logEvent } from "../observability.ts";
 import { Router } from "express";
 import { readProjectGraph, type ProjectGraph } from "../services/project-graph.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { ensureGraphExtension, getProjectDir, runPm, projectExists, readPmSettings, PmCliError, EXIT_CODE, type PmRunResult } from "../services/pm-runner.ts";
+import { ensureGraphExtension, getProjectDir, runPm, projectExists, readPmSettings, PmCliError, isPmCliExpectedError, EXIT_CODE, type PmRunResult } from "../services/pm-runner.ts";
 // The search-tuning resolvers live only on the narrow sdk/query entrypoint — the
 // aggregate sdk barrel documents itself as re-exporting every supported export but
 // omits 45 of them, these three included (upstream: unbraind/pm-cli#740).
@@ -463,15 +463,28 @@ async function requireProject(req: AuthRequest, res: Response): Promise<ProjectR
   return project;
 }
 
+/**
+ * Map a project read failure to its client status and public body. SDK expected errors are recognised by
+ * structure as well as by class, so a separately installed SDK copy still maps to 404 or 400.
+ * @param error - The failure raised by authorization or the scoped SDK read.
+ * @returns The status and body, or undefined when the failure is an unavailable read (503).
+ * @internal
+ */
+export function projectReadFailure(error: unknown): { status: number; body: { error: string } } | undefined {
+  if (error instanceof ProjectReadError) return { status: error.status, body: { error: error.message } };
+  if ((error instanceof PmCliError || isPmCliExpectedError(error)) && error.exitCode === EXIT_CODE.NOT_FOUND) return { status: 404, body: { error: 'Item not found' } };
+  if ((error instanceof PmCliError || isPmCliExpectedError(error)) && error.exitCode === EXIT_CODE.USAGE) return { status: 400, body: { error: 'Invalid item id or historical reference' } };
+  return undefined;
+}
+
 /** Read through a live scoped SDK binding and translate failures without exposing provider diagnostics. */
 async function projectItemRead<T>(req: AuthRequest, res: Response, read: (reader: ProjectItemReader, access: ProjectAccess) => Promise<T>): Promise<{ value: T } | undefined> {
   res.setHeader('Cache-Control', 'no-store, private');
   try {
     return { value: await readAuthorizedProject(req.user!.userId, routeParam(req, 'projectId'), read) };
   } catch (error) {
-    if (error instanceof ProjectReadError) res.status(error.status).json({ error: error.message });
-    else if (error instanceof PmCliError && error.exitCode === EXIT_CODE.NOT_FOUND) res.status(404).json({ error: 'Item not found' });
-    else if (error instanceof PmCliError && error.exitCode === EXIT_CODE.USAGE) res.status(400).json({ error: 'Invalid item id or historical reference' });
+    const mapped = projectReadFailure(error);
+    if (mapped) res.status(mapped.status).json(mapped.body);
     else {
       const requestId = res.getHeader('X-Request-Id');
       logEvent('project_read_unavailable', {
