@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.11.13 - 2026-11-13
+
+### Dependencies
+
+- Bump @unbrained/pm-cli ([#324](https://github.com/unbraind/pm-web/pull/324))
+- Bump express-rate-limit ([#325](https://github.com/unbraind/pm-web/pull/325))
+
 ## 2026.11.12 - 2026-11-12
 
 ### Dependencies
