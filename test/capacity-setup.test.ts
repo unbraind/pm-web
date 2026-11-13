@@ -1,7 +1,8 @@
 /** The optional setup control releases a real full roster before measuring any mutation. */
 import assert from "node:assert/strict";
 import fs, { existsSync } from "node:fs";
-import { copyFile, mkdir, readdir, stat } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, realpath, rm, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -51,22 +52,26 @@ test("quiet setup survives baseline source replacement and releases complete rea
 
 /** A storage pin that fails during setup must not leak the fixture's database connection or temporary root. */
 test("capacity fixture setup ends its connection and removes its root when storage pinning fails", async () => {
-  const prefix = path.join(tmpdir(), "pm-web-capacity-projects-");
-  const roots = async (): Promise<string[]> => (await readdir(tmpdir())).filter((name) => path.join(tmpdir(), name).startsWith(prefix)).sort();
-  const observers = async (): Promise<number> => Number((await pool.query("SELECT count(*) AS n FROM pg_stat_activity WHERE application_name = 'capacity-observer'")).rows[0].n);
-  const beforeRoots = await roots(); const beforeObservers = await observers();
+  // A private physical parent and observer name, so parallel fixtures and a symlinked tmpdir cannot affect the checks.
+  const parent = await realpath(await mkdtemp(path.join(tmpdir(), "pm-web-capacity-pin-failure-")));
+  const observer = `capacity-pin-failure-${randomUUID()}`;
+  const prefix = path.join(parent, "pm-web-capacity-projects-");
+  const observers = async (): Promise<number> => Number((await pool.query("SELECT count(*) AS n FROM pg_stat_activity WHERE application_name = $1", [observer])).rows[0].n);
   // Storage discovery fails only by timing out, so stall the new root's lookup until the real bound rejects the pin.
   const original = fs.promises.realpath;
   Reflect.set(fs.promises, "realpath", new Proxy(original, { apply(target, receiver, args) {
     return String(args[0]).startsWith(prefix) ? new Promise<never>(() => { /* never settles */ }) : Reflect.apply(target, receiver, args);
   } }));
   try {
-    await assert.rejects(capacityFixture(1), StorageDiscoveryTimeoutError);
+    const outcome = await capacityFixture(1, { parent, observer }).then(async (fixture) => { await fixture.close(); return undefined; }, (error: unknown) => error);
+    assert.ok(outcome instanceof StorageDiscoveryTimeoutError, "the stalled pin rejects setup (an unexpected success is closed before failing)");
   } finally { Reflect.set(fs.promises, "realpath", original); }
-  assert.deepEqual(await roots(), beforeRoots, "the temporary root is removed");
-  // pg_stat_activity drops a backend shortly after its client ends, so allow a bounded settle.
-  for (let attempt = 0; attempt < 50 && (await observers()) > beforeObservers; attempt++) await delay(100);
-  assert.ok((await observers()) <= beforeObservers, "the observer connection is ended");
+  try {
+    assert.deepEqual(await readdir(parent), [], "the temporary root is removed");
+    // pg_stat_activity drops a backend shortly after its client ends, so allow a bounded settle.
+    for (let attempt = 0; attempt < 50 && (await observers()) > 0; attempt++) await delay(100);
+    assert.equal(await observers(), 0, "the observer connection is ended");
+  } finally { await rm(parent, { recursive: true, force: true }); }
 });
 
 /** A failed SDK client eviction must not skip the database, row and directory cleanup that follows it. */

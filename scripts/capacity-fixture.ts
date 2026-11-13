@@ -49,10 +49,10 @@ function session(userId: string, secret: string): Record<string, string> {
 }
 
 /** Create and pin the fixture root; a failure before the fixture's cleanup exists ends the connection and removes the root. */
-async function pinnedFixtureRoot(database: pg.Client): Promise<{ root: string; rootStorage: PinnedProjectStorage }> {
+async function pinnedFixtureRoot(database: pg.Client, parent: string): Promise<{ root: string; rootStorage: PinnedProjectStorage }> {
   let created: string | undefined;
   try {
-    created = await mkdtemp(path.join(tmpdir(), "pm-web-capacity-projects-"));
+    created = await mkdtemp(path.join(parent, "pm-web-capacity-projects-"));
     const root = await realpath(created);
     return { root, rootStorage: await pinProjectStorage(root) };
   } catch (error) {
@@ -64,11 +64,12 @@ async function pinnedFixtureRoot(database: pg.Client): Promise<{ root: string; r
 }
 
 /** Seed only uniquely owned rows in the existing disposable test database and a fresh temporary root. */
-export async function capacityFixture(identities: number) {
+export async function capacityFixture(identities: number, isolation: { parent?: string; observer?: string } = {}) {
   if (!process.env.DATABASE_URL) throw new Error("Use scripts/with-test-db.ts to select the disposable test database");
-  const database = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-observer", connectionTimeoutMillis: 5000, query_timeout: 5000 });
+  // Tests that measure their own resources pass a private parent directory and observer connection name.
+  const database = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: isolation.observer ?? "capacity-observer", connectionTimeoutMillis: 5000, query_timeout: 5000 });
   await database.connect();
-  const { root, rootStorage } = await pinnedFixtureRoot(database);
+  const { root, rootStorage } = await pinnedFixtureRoot(database, isolation.parent ?? tmpdir());
   let projectStorage: PinnedProjectStorage | undefined;
   const owner = randomUUID();
   const users = Array.from({ length: identities }, () => randomUUID());
