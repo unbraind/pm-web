@@ -1,0 +1,27 @@
+id: pm-web-maker-links
+title: Credit the maker and unbrained in the public application footer
+description: "Show a plain maker credit in the shipped application shell for hosted and self-hosted instances, using existing theme tokens."
+type: Task
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-11-14T10:20:51.010Z"
+updated_at: "2026-11-14T12:17:33.076Z"
+author: codex-maker-links-1114
+comments[7]{created_at,author,text}:
+  "2026-11-14T10:20:55.270Z",codex-maker-links-1114,"Searched maker, footer and preu before creating this item. Add one static footer line to the package application shell, outside authentication-specific views, using existing theme tokens and native links. Verify the served markup, a behavioral revert, focused frontend checks and release gates, then regenerate and check the changelog. Leave delivery in progress for orchestrator verification."
+  "2026-11-14T10:23:41.990Z",codex-maker-links-1114,"Focused linked tests passed 34/34 with no skips, including theme contrast, locale parity and replay privacy. Typecheck passed. Behavioral revert: restoring only the original application HTML makes the new footer test fail (1 pass, 1 fail); restoring the changed HTML passes 2/2. Broad validation uses a dedicated disposable test database, keeping other test runs isolated."
+  "2026-11-14T10:26:45.100Z",codex-maker-links-1114,"Static HTML served over a local HTTP preview changes both preu.at and unbrained.dev link counts from 0 to 1. Browser layout passed 12 combinations: phone, landscape and desktop viewports, both themes, authentication and application states; both links remain visible and hit-testable without horizontal overflow. The footer is plain package markup with existing theme tokens. Changelog regeneration and check passed without a content diff."
+  "2026-11-14T11:17:49.218Z",codex-maker-links-1114,"Full isolated npm release gate coverage suite finished 1008/1010 passing, one failure and one cancellation, zero skips. Failures reproduce the existing built-catalog 300000 ms timeout and subsequent source spawn ENOTDIR signature recorded in pm-web-qdhx. Focused footer/locale/contrast/privacy checks remain 34/34 passing; no tests or thresholds were weakened. Required Bun gate and independent downstream stages remain to be evaluated."
+  "2026-11-14T11:22:17.197Z",codex-maker-links-1114,"Independent downstream checks passed: npm run audit:prod reports zero vulnerabilities; verify:release-changelog-date and verify:release-publish-attestation pass. Full development audit reports the three moderate c8/test-exclude/glob findings already owned by pm-web-c8-glob-advisory, which now has the fresh receipt. Bun release gate is running sequentially after npm."
+  "2026-11-14T12:07:57.111Z",codex-maker-links-1114,"Both required full release attempts are terminal: npm and Bun each finish 1008/1010 passing, one failed catalog case and one timeout cancellation, zero skips, with unchanged thresholds. Both stop at coverage due the existing pm-web-qdhx signature. Typecheck, lint, zero duplication and documentation gates passed in both attempts. Independent capacity, dry-pack and packed-consumer checks are next; production audit and both release metadata guards already pass."
+  "2026-11-14T12:17:31.344Z",codex-maker-links-1114,"Independent downstream stages passed: npm run accept:capacity 2/2, npm run pack:dry-run 513 files, npm run accept:packed 4/4 (npm and Bun, current and minimum CLI hosts). Eight permission launchers pass; packed artifact SHA-256 1dbd2a1c7995cc36056c5645145cfdf042e7fb06a5cdab783260d88f778085a3. Production audit reports zero vulnerabilities; both release metadata guards pass. Both full release chains remain failed at coverage with 1008/1010 passes, one failed catalog case and one cancellation; pm-web-qdhx owns that unchanged signature. Development-only moderate findings remain with pm-web-c8-glob-advisory. No dependency pin, assertion, deadline or threshold changed. Ready for PR verification; no merge, deployment or publication performed."
+files[3]{path,scope}:
+  public/index.html,project
+  public/styles.css,project
+  test/brand-copy.test.ts,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node --test --test-concurrency=2 test/brand-copy.test.ts test/brand-contrast.test.ts test/i18n.test.ts test/replay-privacy.test.ts,project,180,codex-maker-links-1114,"2026-11-14T10:22:24.410Z",local_mutation,feat/maker-and-unbrained-footer
+docs[1]{path,scope}:
+  README.md,project
+body: ""

@@ -75,6 +75,19 @@ html, body { height: 100%; font-family: var(--pm-font-body); background: var(--a
 #auth-screen { display: flex; height: 100vh; }
 #main-app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
+.app-footer {
+  padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom, 0px));
+  color: var(--app-text-secondary);
+  background: var(--app-bg-base);
+  font-size: var(--pm-step--1);
+  text-align: center;
+}
+.app-footer a { color: inherit; text-underline-offset: .15em; }
+.app-footer a:hover { color: var(--app-accent); }
+@media (max-width: 768px) {
+  .app-footer { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+}
+
 /* ── Auth Screen ── */
 .auth-left {
   flex: 1; background: linear-gradient(135deg, var(--pm-paper) 0%, var(--pm-paper) 60%, var(--pm-paper) 100%);

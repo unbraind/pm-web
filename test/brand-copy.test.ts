@@ -20,3 +20,14 @@ test('authentication copy describes shared context for any agent and task in eve
     }
   }
 });
+
+test('the shipped application shell credits its maker with plain public links', async () => {
+  const html = await readFile('public/index.html', 'utf8');
+  const footer = html.match(/<footer class="app-footer">([\s\S]*?)<\/footer>/);
+  assert.ok(footer, 'the public package includes its maker credit');
+  assert.equal(footer[1], 'Made by <a href="https://preu.at/">Stefan Preu</a> · <a href="https://unbrained.dev/">unbrained.dev</a>');
+  assert.equal(html.match(/<footer\b/g)?.length, 1, 'one credit serves every application view');
+  assert.doesNotMatch(footer[0], /rel\s*=\s*["'][^"']*\b(?:me|nofollow)\b/i);
+  assert.ok(html.indexOf(footer[0]) > html.indexOf('id="main-app"'));
+  assert.match(html, /<\/div>\s*<\/div>\s*<footer class="app-footer">/, 'credit is outside the authentication and private application containers');
+});
