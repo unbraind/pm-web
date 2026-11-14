@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Other
+
+- Close delivered pm items and reserve in progress for active work (2026-10-24) ([pm-web-xct6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-xct6.toon))
+
 ## 2026.11.13 - 2026-11-13
 
 ### Dependencies
