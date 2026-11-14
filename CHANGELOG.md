@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.11.14 - 2026-11-14
+
+### Dependencies
+
+- Bump actions/upload-artifact from 4.6.2 to 7.0.2 ([#256](https://github.com/unbraind/pm-web/pull/256))
+
 ## 2026.11.13 - 2026-11-13
 
 ### Dependencies
