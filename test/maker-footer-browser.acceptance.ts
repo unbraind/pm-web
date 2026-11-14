@@ -93,6 +93,46 @@ test('the application footer is visible at initial scroll position in phone, lan
   }
 });
 
+test('first-time authentication grows past a short landscape viewport without overlapping the notice or footer', async () => {
+  assert.ok(browser);
+  const page = await browser.newPage({ viewport: { width: 740, height: 360 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  try {
+    await page.route('**/api/**', route => {
+      const path = new URL(route.request().url()).pathname;
+      return route.fulfill({
+        status: path === '/api/auth/me' ? 401 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(path === '/api/ui-config' ? { storageNotice: true } : { enabled: false }),
+      });
+    });
+    await page.goto(origin);
+    await page.locator('#auth-screen').waitFor({ state: 'visible' });
+    await page.locator('#cookie-consent').waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => localStorage.getItem('pm_cookie_preferences_v1')), null);
+    for (const tab of ['login', 'register']) {
+      await page.locator(`#tab-${tab}`).click();
+      await page.evaluate(async () => { await document.fonts.ready; });
+      const layout = await page.evaluate(() => {
+        const form = document.querySelector('#auth-form')!.getBoundingClientRect();
+        const auth = document.querySelector('#auth-screen')!.getBoundingClientRect();
+        const footer = document.querySelector('.app-footer')!.getBoundingClientRect();
+        const notice = document.querySelector('#cookie-consent')!.getBoundingClientRect();
+        return { formBottom: form.bottom, authBottom: auth.bottom, footerTop: footer.top, footerBottom: footer.bottom, noticeTop: notice.top };
+      });
+      assert.ok(layout.formBottom <= layout.noticeTop, `${tab}: auth form must end before the cookie notice`);
+      assert.ok(layout.authBottom <= layout.footerTop, `${tab}: footer must follow the auth screen`);
+      assert.ok(layout.footerBottom <= layout.noticeTop, `${tab}: cookie notice must follow the footer`);
+      for (const link of await page.locator('.app-footer a').all()) {
+        await link.scrollIntoViewIfNeeded();
+        assert.equal(await link.evaluate(element => {
+          const box = element.getBoundingClientRect();
+          return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === element;
+        }), true, `${tab}: maker link remains reachable by scrolling`);
+      }
+    }
+  } finally { await page.close(); }
+});
+
 test('updated HTML and worker precache share a fresh stylesheet key despite a cached previous version', async () => {
   assert.ok(browser);
   const page = await browser.newPage({ viewport: { width: 375, height: 812 }, javaScriptEnabled: false, serviceWorkers: 'block' });
