@@ -1,0 +1,13 @@
+id: pm-web-native-events
+title: Use durable scoped native backend history and resume cursors
+description: Remaining realtime and historical read slice of roadmap #260; preserve explicit resync receipts and missed-event recovery.
+type: Feature
+status: open
+priority: 2
+tags[3]: backend-roadmap,sdk-gap,"upstream:pm-cli#1587"
+created_at: "2026-11-06T16:53:50.918Z"
+updated_at: "2026-11-06T16:53:50.918Z"
+author: codex-astra
+acceptance_criteria: "Move mutation subscriptions, point-in-time history and resume reads to backend-bound upstream capabilities; keep filesystem sweeps inside the directory adapter only; durable cursors survive process restart and retention changes with explicit gap or resync receipts; recheck revocation across pages and response boundaries; prove concurrent backdated appends, missed events, tenant isolation, replay and restart against filesystem and a native provider without local tracker; disclose cross-source consistency limits and optional Git capabilities."
+parent: pm-web-github-ec206b5ea075-260
+body: The pinned SDK listMutationEvents requires pmRoot/cwd and authoritative resume history uses getHistoryPath plus readHistoryEntries. Native scoped event/history capability ports remain upstream #1587; reusable adapter conformance remains #1588. No alternative event authority or global snapshot promise is introduced in the delivered slice.

@@ -1,6 +1,6 @@
 {
   "name": "@unbrained/pm-web",
-  "version": "2026.11.10",
+  "version": "2026.11.13",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
@@ -17,6 +17,7 @@
     "examples/agent-context.ts",
     "docs/idempotency-replay.md",
     "docs/contract-explorer.md",
+    "docs/authorized-project-reads.md",
     "examples/contract-explorer.ts",
     "docs/resume-packets.md",
     "docs/resume-packets-validation.md",
@@ -50,7 +51,7 @@
     "release:check": "npm run check && npm run lint && npm run duplication && npm run docstring && npm run coverage && npm run accept:capacity && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date && npm run verify:release-publish-attestation",
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
-    "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test test/*.test.ts",
+    "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test --test-concurrency=2 test/*.test.ts",
     "prepublishOnly": "npm run release:check",
     "lint": "node scripts/lint.ts",
     "duplication": "node scripts/duplication-gate.ts",
@@ -67,7 +68,7 @@
     "accept:evidence": "node scripts/with-test-db.ts node scripts/evidence-inspection-browser.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.11.7",
+    "@unbrained/pm-cli": "2026.11.9",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -95,7 +96,7 @@
     "c8": "12.0.0",
     "esbuild": "0.28.2",
     "eslint": "10.14.0",
-    "jscpd": "5.4.2",
+    "jscpd": "5.4.3",
     "playwright-core": "1.65.0",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
     "pm-changelog": "2026.11.7",
@@ -160,6 +161,7 @@
       "docs/agent-context.md",
       "docs/idempotency-replay.md",
       "docs/contract-explorer.md",
+      "docs/authorized-project-reads.md",
       "docs/resume-packets.md",
       "docs/resume-packets-validation.md",
       "docs/permission-impact.md",

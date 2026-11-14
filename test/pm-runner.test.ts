@@ -1,6 +1,9 @@
+import { deferred } from './helpers/deferred.ts';
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { createServer, type Socket } from "node:net";
 import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -56,64 +59,95 @@ test("semaphore hands a released slot directly to the oldest waiter", async () =
   releaseThird();
 });
 
-test("spawn fallback stays non-blocking, serializes a workspace, and overlaps independent workspaces", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "pm-web-runner-"));
+test("spawn fallback stays non-blocking, serializes a workspace, and overlaps independent workspaces", { timeout: 20_000 }, async () => {
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "pm-web-runner-")));
   const fakePm = path.join(root, "fake-pm.cjs");
-  const logPath = path.join(root, "commands.log");
   const previousRoot = process.env["PROJECTS_ROOT"];
   const previousBin = process.env["PM_CLI_BIN"];
-
+  const originalRealpath = fs.promises.realpath;
+  const same = path.join(root, "user", "same");
+  const firstMetadata = deferred<void>();
+  const secondMetadata = deferred<void>();
+  const secondTracker = deferred<void>();
+  let secondAdmitted = false;
+  const starts = new Map(["first", "second", "independent"].map(label => [label, deferred<Socket>()]));
+  const entries: string[] = [];
+  const sockets = new Set<Socket>();
+  let cleaning = false;
+  const server = createServer(socket => {
+    if (cleaning) { socket.destroy(); return; }
+    sockets.add(socket);
+    socket.once("data", data => {
+      const label = data.toString();
+      entries.push(`start ${label}`);
+      starts.get(label)?.resolve(socket);
+    });
+  });
+  await new Promise<void>(resolve => { server.listen(0, "127.0.0.1", resolve); });
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
   await writeFile(fakePm, `#!/usr/bin/env node
-const fs = require("node:fs");
-const delay = Number(process.argv[3]);
-const label = process.argv[4];
-const log = process.env.FAKE_PM_LOG;
-fs.appendFileSync(log, "start " + label + "\\n");
-setTimeout(() => {
-  fs.appendFileSync(log, "end " + label + "\\n");
-  process.stdout.write(label);
-}, delay);
+if (process.execPath !== ${JSON.stringify(process.execPath)}) { process.stderr.write("Fake CLI must use the parent Node executable search path"); process.exit(42); }
+const socket = require("node:net").connect(${address.port}, "127.0.0.1", () => socket.write(process.argv[4]));
+socket.once("data", () => { process.stdout.write(process.argv[4]); socket.end(); });
 `);
   await chmod(fakePm, 0o755);
   process.env["PROJECTS_ROOT"] = root;
   process.env["PM_CLI_BIN"] = fakePm;
-  process.env["FAKE_PM_LOG"] = logPath;
-
+  let resolutions = 0;
+  Reflect.set(fs.promises, "realpath", new Proxy(originalRealpath, {
+    async apply(target, receiver, args) {
+      const resolution = String(args[0]) === same ? ++resolutions : 0;
+      const result = await Reflect.apply(target, receiver, args);
+      if (resolution > 0) {
+        if (resolution === 1) await firstMetadata.promise;
+        else secondMetadata.resolve();
+      }
+      if (String(args[0]) === path.join(same, '.agents', 'pm')) secondTracker.resolve();
+      return result;
+    },
+  }));
+  const responsive = deferred<void>();
+  let eventLoopTicks = 0;
+  const ticker = setInterval(() => { if (++eventLoopTicks >= 8) responsive.resolve(); }, 10);
+  const pending: Promise<unknown>[] = [];
   try {
-    await Promise.all([
-      mkdir(path.join(root, "user", "same"), { recursive: true }),
-      mkdir(path.join(root, "user", "other"), { recursive: true }),
-    ]);
-
-    let eventLoopTicks = 0;
-    const ticker = setInterval(() => { eventLoopTicks += 1; }, 10);
-    const [first, second, independent] = await Promise.all([
-      runPm({ userId: "user", slug: "same", args: ["calendar", "120", "first"] }),
-      runPm({ userId: "user", slug: "same", args: ["calendar", "120", "second"] }),
-      runPm({ userId: "user", slug: "other", args: ["calendar", "120", "independent"] }),
-    ]);
-    clearInterval(ticker);
-
-    assert.equal(first.ok, true);
-    assert.equal(second.ok, true);
-    assert.equal(independent.ok, true);
+    await Promise.all([mkdir(path.join(same, ".agents", "pm"), { recursive: true }), mkdir(path.join(root, "user", "other", ".agents", "pm"), { recursive: true })]);
+    /** Submit commands without waiting for admission; children wait for explicit release. */
+    const submit = (slug: string, label: string) => runPm({ userId: "user", slug, args: ["calendar", "0", label], onStoragePinned: () => { if (label === "second") secondAdmitted = true; } })
+      .then(result => { entries.push(`end ${label}`); assert.equal(result.ok, true, result.stderr); return result; });
+    pending.push(submit("same", "first"), submit("same", "second"), submit("other", "independent"));
+    const failed = Promise.all(pending).then(() => new Promise<never>(() => {}));
+    /** Surface failed child starts immediately instead of leaving a socket acknowledgement pending. */
+    const started = (label: string) => Promise.race([starts.get(label)!.promise, failed]);
+    await secondMetadata.promise;
+    await secondTracker.promise;
+    await responsive.promise;
     assert.ok(eventLoopTicks >= 8, `expected the event loop to remain responsive, observed ${eventLoopTicks} ticks`);
-
-    const entries = (await readFile(logPath, "utf8")).trim().split("\n");
+    // Drain callbacks after the second lookup finished while the first is held.
+    await new Promise<void>(resolve => { setImmediate(resolve); });
+    assert.equal(secondAdmitted, false, "second must not join the physical queue before the earlier invocation");
+    assert.equal(entries.includes("start second"), false, entries.join(", "));
+    firstMetadata.resolve();
+    const independent = await started("independent");
+    (await started("first")).write("release");
+    (await started("second")).write("release");
+    independent.write("release");
+    await Promise.all(pending);
     assert.ok(entries.indexOf("end first") < entries.indexOf("start second"), entries.join(", "));
     assert.ok(entries.indexOf("start independent") < entries.indexOf("end first"), entries.join(", "));
-
-    const timedOut = await runPm({
-      userId: "user",
-      slug: "other",
-      args: ["calendar", "500", "timeout"],
-      timeoutMs: 30,
-    });
+    const timedOut = await runPm({ userId: "user", slug: "other", args: ["calendar", "0", "timeout"], timeoutMs: 30 });
     assert.equal(timedOut.ok, false);
     assert.match(timedOut.stderr, /timed out after 30ms/);
   } finally {
+    firstMetadata.resolve();
+    clearInterval(ticker);
+    cleaning = true;
+    for (const socket of sockets) socket.destroy();
+    await Promise.allSettled(pending);
+    await new Promise<void>(resolve => { server.close(() => resolve()); });
+    Reflect.set(fs.promises, "realpath", originalRealpath);
     restoreEnvVars(previousRoot, previousBin);
-    delete process.env["FAKE_PM_LOG"];
     await rm(root, { recursive: true, force: true });
   }
 });
@@ -275,7 +309,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
       jsonOutput: true,
     });
     assert.equal(initialized.ok, true, initialized.stderr);
-    assert.equal(getPmClient(pmRoot), getPmClient(pmRoot), "workspace clients should be reused");
+    assert.equal((await getPmClient(pmRoot)), (await getPmClient(pmRoot)), "workspace clients should be reused");
 
     const first = await runPm({
       userId: "user",
@@ -475,7 +509,7 @@ test("in-process SDK dispatch preserves positionals, camel-case flags, paginatio
     assert.equal(missing.exitCode, EXIT_CODE.NOT_FOUND);
     assert.match(missing.stderr, /not found/i);
   } finally {
-    evictPmClient(pmRoot);
+    (await evictPmClient(pmRoot));
     if (previousRoot === undefined) delete process.env["PROJECTS_ROOT"];
     else process.env["PROJECTS_ROOT"] = previousRoot;
     await rm(root, { recursive: true, force: true });
@@ -517,7 +551,7 @@ try {
   assert.match(listed.stdout, /Synthetic embedded CLI item/);
   console.log("built eval-host in-process init/create/get passed");
 } finally {
-  evictPmClient(pmRoot);
+  (await evictPmClient(pmRoot));
   await pool.end();
   await rm(root, { recursive: true, force: true });
 }
@@ -554,7 +588,7 @@ process.stdout.write(JSON.stringify({ argv: process.argv.slice(2) }));
       ["--json", "future-command", "--future-value", "--still-a-value"],
     );
   } finally {
-    evictPmClient(path.join(root, "user", "future", ".agents", "pm"));
+    (await evictPmClient(path.join(root, "user", "future", ".agents", "pm")));
     restoreEnvVars(previousRoot, previousBin);
     await rm(root, { recursive: true, force: true });
   }

@@ -17,15 +17,15 @@ import type { CreateAppDeps } from "../src/app.ts";
 import type { MaintenanceCapabilitiesStatus } from "../src/routes/extensions.ts";
 import { captureLogs, setLogLevel } from "./helpers/stdout-logs.ts";
 import { readMaintenanceCapabilities } from "../src/services/maintenance-providers.ts";
-import { authedFetch, authCookie, ensureSchema, seedProject, seedUser, seedUserShare, startApp, type SeedUser } from "./helpers/pg-harness.ts";
+import { ProjectFixtureResources, authedFetch, authCookie, ensureSchema, seedProject, seedUser, seedUserShare, startApp, type SeedUser } from "./helpers/pg-harness.ts";
 
 /** Seed a real isolated project and authenticated owner, editor, viewer and stranger. */
 async function fixture(t: test.TestContext, deps?: CreateAppDeps) {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const root = await mkdtemp(path.join(tmpdir(), "pm-maintenance-"));
-  const previousRoot = process.env.PROJECTS_ROOT;
-  process.env.PROJECTS_ROOT = root;
-  const users = await Promise.all(Array.from({ length: 4 }, () => seedUser()));
+  const root = await resources.directory("pm-maintenance-", true);
+  const users: SeedUser[] = [];
+  for (let index = 0; index < 4; index++) users.push(await resources.user());
   const [owner, editor, viewer, stranger] = users;
   const project = await seedProject(owner.id, undefined, { prefix: "mp" });
   await Promise.all([seedUserShare(project.id, editor.id, "edit"), seedUserShare(project.id, viewer.id, "view")]);
@@ -35,14 +35,7 @@ async function fixture(t: test.TestContext, deps?: CreateAppDeps) {
   const client = new PmClient({ cwd: workspace, pmRoot });
   await client.init("mp");
   await client.create({ title: "Maintenance fixture", type: "Task" });
-  const server = await startApp(deps);
-  t.after(async () => {
-    await server.close();
-    await pool.query("DELETE FROM pm_users WHERE id = ANY($1::uuid[])", [users.map((user) => user.id)]);
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-    await rm(root, { recursive: true, force: true });
-  });
+  const server = await resources.server(deps);
   const base = `/api/projects/${project.id}`;
   /** Send a project request through real authentication and CSRF handling. */
   const request = (user: SeedUser, route: string, method = "GET", body?: object) => authedFetch(server, user, `${base}/${route}`, {

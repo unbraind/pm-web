@@ -11,7 +11,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { pool } from "../src/db.ts";
 import { connectLiveSSE } from "./helpers/live-sse.ts";
 import {
-  addGroupMember, authCookie, authedFetch, ensureSchema, seedGroup,
+  addGroupMember, authCookie, ProjectFixtureResources, authedFetch, ensureSchema, seedGroup,
   seedGroupShare, seedProject, seedUser, seedUserShare, startApp,
   type SeedUser,
 } from "./helpers/pg-harness.ts";
@@ -20,22 +20,15 @@ const execFileAsync = promisify(execFile);
 
 /** Build an owned tracker and accounts whose access exists only in PostgreSQL. */
 async function commandFixture(t: test.TestContext) {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const root = await mkdtemp(path.join(tmpdir(), "pm-command-access-"));
-  const previousRoot = process.env.PROJECTS_ROOT;
-  process.env.PROJECTS_ROOT = root;
-  const owner = await seedUser();
-  const collaborator = await seedUser();
-  const stranger = await seedUser();
+  const root = await resources.directory("pm-command-access-", true);
+  const owner = await resources.user();
+  const collaborator = await resources.user();
+  const stranger = await resources.user();
   const project = await seedProject(owner.id, undefined, { prefix: "ac" });
-  const server = await startApp();
-  t.after(async () => {
-    await server.close();
-    await pool.query("DELETE FROM pm_users WHERE id = ANY($1::uuid[])", [[owner.id, collaborator.id, stranger.id]]);
-    if (previousRoot === undefined) delete process.env.PROJECTS_ROOT;
-    else process.env.PROJECTS_ROOT = previousRoot;
-    await rm(root, { recursive: true, force: true });
-  });
+  const server = await resources.server();
+
   const pmRoot = path.join(root, owner.id, project.slug, ".agents", "pm");
   await mkdir(path.dirname(pmRoot), { recursive: true });
   await execFileAsync(process.execPath, [path.resolve("node_modules/@unbrained/pm-cli/dist/cli.js"), "init", "ac", "--pm-path", pmRoot]);

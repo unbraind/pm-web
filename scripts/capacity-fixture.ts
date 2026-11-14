@@ -1,7 +1,7 @@
 /** Real database, pinned CLI and built-server lifecycle for the isolated capacity experiment. */
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { waitUntil } from "./capacity-wait.ts";
@@ -9,7 +9,7 @@ export { waitUntil } from "./capacity-wait.ts";
 import { promisify } from "node:util";
 import pg from "pg";
 import jwt from "jsonwebtoken";
-import { getPmClient, evictPmClient } from "../src/services/pm-runner.ts";
+import { getPmClient, evictPmClient, pinProjectStorage, deleteProjectDir, type PinnedProjectStorage } from "../src/services/pm-runner.ts";
 import type { FanoutMeasurement } from "./capacity-fanout-probe.ts";
 import type { RealtimeCounters } from "../src/services/realtime-observability.ts";
 
@@ -48,12 +48,29 @@ function session(userId: string, secret: string): Record<string, string> {
   return { cookie: `pm_token=${token}; csrf_token=capacity-csrf`, "x-csrf-token": "capacity-csrf" };
 }
 
+/** Create and pin the fixture root; a failure before the fixture's cleanup exists ends the connection and removes the root. */
+async function pinnedFixtureRoot(database: pg.Client, parent: string): Promise<{ root: string; rootStorage: PinnedProjectStorage }> {
+  let created: string | undefined;
+  try {
+    created = await mkdtemp(path.join(parent, "pm-web-capacity-projects-"));
+    const root = await realpath(created);
+    return { root, rootStorage: await pinProjectStorage(root) };
+  } catch (error) {
+    const cleanup = await Promise.allSettled([database.end(), created === undefined ? Promise.resolve() : rm(created, { recursive: true, force: true })]);
+    const failures = cleanup.flatMap((result) => result.status === "rejected" ? [result.reason as unknown] : []);
+    if (failures.length > 0) throw new AggregateError([error, ...failures], "Capacity fixture setup failed and its cleanup was incomplete");
+    throw error;
+  }
+}
+
 /** Seed only uniquely owned rows in the existing disposable test database and a fresh temporary root. */
-export async function capacityFixture(identities: number) {
+export async function capacityFixture(identities: number, isolation: { parent?: string; observer?: string } = {}) {
   if (!process.env.DATABASE_URL) throw new Error("Use scripts/with-test-db.ts to select the disposable test database");
-  const database = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-observer", connectionTimeoutMillis: 5000, query_timeout: 5000 });
+  // Tests that measure their own resources pass a private parent directory and observer connection name.
+  const database = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: isolation.observer ?? "capacity-observer", connectionTimeoutMillis: 5000, query_timeout: 5000 });
   await database.connect();
-  const root = await mkdtemp(path.join(tmpdir(), "pm-web-capacity-projects-"));
+  const { root, rootStorage } = await pinnedFixtureRoot(database, isolation.parent ?? tmpdir());
+  let projectStorage: PinnedProjectStorage | undefined;
   const owner = randomUUID();
   const users = Array.from({ length: identities }, () => randomUUID());
   const projectId = randomUUID();
@@ -61,7 +78,9 @@ export async function capacityFixture(identities: number) {
   const dir = path.join(root, owner, "capacity");
   /** Delete only the fixture-owned identities, cascading its projects and shares. */
   const close = async (): Promise<void> => {
-    evictPmClient(path.join(dir, ".agents", "pm"));
+    // An eviction failure must not skip the independent database and row cleanup; it is reported afterwards.
+    let evictionFailure: { cause: unknown } | undefined;
+    try { if (projectStorage) await evictPmClient(projectStorage); } catch (cause) { evictionFailure = { cause }; }
     await database.end();
     // Large FK cascades need a cleanup budget independent of five-second resource probes.
     const cleanup = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "capacity-cleanup",
@@ -73,7 +92,8 @@ export async function capacityFixture(identities: number) {
       throw Object.assign(new Error("Synthetic fixture row cleanup failed", { cause }), { code: "FIXTURE_ROWS_CLEANUP_FAILED" });
     } finally { await cleanup.end(); }
     // Failed row cleanup deliberately retains the ownership receipt and tracker.
-    await rm(root, { recursive: true, force: true });
+    await deleteProjectDir(rootStorage);
+    if (evictionFailure) throw Object.assign(new Error("Synthetic fixture SDK client eviction failed", evictionFailure), { code: "FIXTURE_CLIENT_EVICTION_FAILED" });
   };
   try {
     // Preserve exact synthetic ownership for recovery if cleanup cannot complete.
@@ -83,9 +103,14 @@ export async function capacityFixture(identities: number) {
     await database.query("INSERT INTO pm_project_shares (project_id, shared_with_user_id, permission) SELECT $1, id, 'edit' FROM unnest($2::uuid[]) AS id", [projectId, users]);
     await mkdir(dir, { recursive: true });
     await capacityPm(dir, ["workspace", "init", "--workspace", dir, "--prefix", "capacity", "--defaults", "--agent-guidance", "skip"]);
+    projectStorage = await pinProjectStorage(dir);
     return { root, dir, projectId, secret, database, sessions: users.map((id) => session(id, secret)),
-      client: getPmClient(path.join(dir, ".agents", "pm")), close };
-  } catch (error) { await close(); throw error; }
+      client: (await getPmClient(path.join(dir, ".agents", "pm"))), close };
+  } catch (error) {
+    // Report a cleanup failure without hiding the setup failure that triggered it.
+    try { await close(); } catch (cleanup) { throw new AggregateError([error, cleanup], "Capacity fixture setup and its cleanup both failed"); }
+    throw error;
+  }
 }
 
 /** A process sample read from the preload, with CPU expressed as percent of one core. */

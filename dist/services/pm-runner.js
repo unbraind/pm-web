@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pool } from "../db.js";
-import { agentSessionEnvironment, getSettingsPath, pathExists, readSettingsWithMetadata, writeSettings, certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadataLight, stripGlobalBootstrapTokens, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
+import { agentSessionEnvironment, getSettingsPath, discoverExtensions, resolveItemTypeRegistry, pathExists, readSettingsWithMetadata, writeSettings, certifyCompleteListResult, getItemAt, listAllComplete, listAllItemMetadataLight, stripGlobalBootstrapTokens, PM_TOOL_PARAMETERS_SCHEMA, PmClient, PmCliError, isPmCliExpectedError, EXIT_CODE, } from "@unbrained/pm-cli/sdk";
 import { workspaceInitialized } from "../tracker-preflight.js";
 import { resolveNpmSpec } from "./package-catalog.js";
 // Re-exported so route handlers and tests can reference the verified projection
@@ -62,6 +62,22 @@ export class Semaphore {
 }
 const commandSlots = new Semaphore(positiveInteger(process.env.PM_WEB_PM_CONCURRENCY, 8));
 const workspaceTails = new Map();
+/** Discovery may run concurrently; admission tickets join physical queues in invocation order. */
+let storageAdmissions = Promise.resolve();
+/** Maximum storage-metadata wait before a lookup refuses and releases any admission ticket. */
+export const STORAGE_DISCOVERY_TIMEOUT_MS = 5_000;
+/** A fixed, typed refusal that retains no filesystem path or provider message. */
+export class StorageDiscoveryTimeoutError extends Error {
+    /** Safe refusal category for admission handling and diagnostics. */
+    reason = 'storage_discovery_timeout';
+    /** Machine-readable code for callers that classify storage failures. */
+    code = this.reason;
+    /** Identify the bounded discovery failure independently of command execution timeouts. */
+    constructor() {
+        super('Project storage discovery timed out');
+        this.name = 'StorageDiscoveryTimeoutError';
+    }
+}
 /**
  * Resolve the filesystem root under which every project workspace lives.
  *
@@ -123,22 +139,18 @@ let cachedPmCommand;
  *
  * @returns The command and any prefix args to pass before pm arguments.
  */
-function pmCliCommand() {
+async function pmCliCommand() {
     if (process.env.PM_CLI_BIN)
         return { command: process.env.PM_CLI_BIN, prefixArgs: [] };
     if (cachedPmCommand)
         return cachedPmCommand;
-    if (process.platform === "win32") {
-        const entry = path.join(process.cwd(), "node_modules", "@unbrained", "pm-cli", "dist", "cli.js");
-        cachedPmCommand = fs.existsSync(entry)
-            ? { command: process.execPath, prefixArgs: [entry] }
-            : { command: "pm", prefixArgs: [] };
-        return cachedPmCommand;
-    }
-    const local = path.join(process.cwd(), "node_modules", ".bin", "pm");
-    cachedPmCommand = fs.existsSync(local)
-        ? { command: local, prefixArgs: [] }
-        : { command: "pm", prefixArgs: [] };
+    const windows = process.platform === "win32";
+    const entry = windows
+        ? path.join(process.cwd(), "node_modules", "@unbrained", "pm-cli", "dist", "cli.js")
+        : path.join(process.cwd(), "node_modules", ".bin", "pm");
+    cachedPmCommand = pathExists(entry).then(exists => exists
+        ? { command: windows ? process.execPath : entry, prefixArgs: windows ? [entry] : [] }
+        : { command: "pm", prefixArgs: [] });
     return cachedPmCommand;
 }
 /**
@@ -149,23 +161,23 @@ function pmCliCommand() {
  * beyond `timeoutMs` terminates the child (SIGTERM then SIGKILL after 1 s) and
  * records the reason in stderr. Never throws: spawn failures and captured
  * output are returned in the {@link ProcessResult}.
- * Pins PM_PATH to the requested workspace so inherited tracker context cannot
- * redirect fallback commands or extension management into another project.
+ * Pins PM_PATH to the captured tracker so inherited context, and a symlink
+ * retarget after admission, cannot redirect fallback commands.
  *
- * @param cwd - Directory to run pm in.
+ * @param cwd - Directory to run pm in. Serialized callers pass the pinned workspace.
  * @param args - pm arguments.
- * @param options - Optional stdin input, timeout, and extra env.
+ * @param options - Optional stdin input, timeout, extra env, and pinned tracker path.
  * @returns The collected stdout/stderr, success flag, and exit code.
  */
 async function runProcess(cwd, args, options = {}) {
     const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+    const pmCommand = await pmCliCommand();
     return new Promise((resolve) => {
-        const pmCommand = pmCliCommand();
         let child;
         try {
             child = spawn(pmCommand.command, [...pmCommand.prefixArgs, ...args], {
                 cwd,
-                env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env, PM_PATH: path.join(cwd, ".agents", "pm") },
+                env: { ...process.env, HOME: "/tmp", NO_COLOR: "1", ...options.env, PM_PATH: options.pmPath ?? path.join(cwd, ".agents", "pm") },
                 stdio: ["pipe", "pipe", "pipe"],
                 windowsHide: true,
             });
@@ -226,32 +238,168 @@ async function runProcess(cwd, args, options = {}) {
         child.stdin.end(options.input);
     });
 }
+/** Spawn pm against storage captured when the operation joined the workspace queue. */
+function runPinnedProcess(storage, args, options = {}) {
+    return runProcess(storage.workspace, args, { ...options, pmPath: storage.tracker });
+}
+/** Resolve aliases and dangling targets; unresolvable paths retain a non-throwing lexical identity. */
+async function physicalWorkspacePath(workspace) {
+    const absolute = path.resolve(workspace);
+    try {
+        return await fs.promises.realpath(absolute);
+    }
+    catch (error) {
+        const code = error.code;
+        const parent = path.dirname(absolute);
+        // Loops and inaccessible paths must not prevent queue admission or cache eviction during deletion.
+        if ((code !== "ENOENT" && code !== "ENOTDIR") || parent === absolute)
+            return absolute;
+        try {
+            if ((await fs.promises.lstat(absolute)).isSymbolicLink()) {
+                return physicalWorkspacePath(path.resolve(parent, await fs.promises.readlink(absolute)));
+            }
+        }
+        catch {
+            // A missing leaf or inaccessible link can still resolve through its nearest accessible ancestor.
+        }
+        return path.join(await physicalWorkspacePath(parent), path.basename(absolute));
+    }
+}
+/** Refuse a changed or unprovable storage binding before touching project data. */
+export class ProjectStorageChangedError extends Error {
+    /** Report only a fixed refusal, without retaining paths or provider diagnostics. */
+    constructor() { super('Project storage changed while its deletion waited; nothing was removed.'); }
+}
+/** Capture without following the leaf; missing entries stay distinct from unreadable identities. */
+async function storageEntryStamp(file) {
+    try {
+        const info = await fs.promises.lstat(file, { bigint: true });
+        return { device: info.dev.toString(), inode: info.ino.toString(), symlink: info.isSymbolicLink(), directory: info.isDirectory() };
+    }
+    catch (error) {
+        const code = error.code;
+        return code === 'ENOENT' || code === 'ENOTDIR' ? null : undefined;
+    }
+}
+/** Treat an unreadable identity as unprovable, even if both snapshots failed. */
+function sameStorageEntry(left, right) {
+    if (left === undefined || right === undefined)
+        return false;
+    if (left === null || right === null)
+        return left === right;
+    return left.device === right.device && left.inode === right.inode && left.symlink === right.symlink && left.directory === right.directory;
+}
+/**
+ * Capture the storage a queued operation must keep using.
+ *
+ * Both identities are resolved once. A later symlink retarget must not move
+ * work that already joined this pin's queue onto the new target.
+ *
+ * @param workspace - Logical or relative project directory.
+ * @returns The physical workspace and tracker selected at this instant.
+ */
+export async function pinProjectStorage(workspace) {
+    return boundedStorageDiscovery(() => pinWorkspaceStorage(workspace, path.join('.agents', 'pm')));
+}
+/** Resolve the workspace once and anchor every subsequent tracker lookup beneath that capture. */
+async function pinWorkspaceStorage(workspace, relativeTracker) {
+    const absolute = path.resolve(workspace);
+    let physical = await physicalWorkspacePath(absolute);
+    const logicalParent = path.dirname(absolute), leaf = path.basename(absolute);
+    const parent = await physicalWorkspacePath(logicalParent);
+    const parentStamp = await storageEntryStamp(parent);
+    const leafStamp = await storageEntryStamp(path.join(parent, leaf));
+    // An ELOOP fallback can still canonicalize its accessible parent without following the leaf.
+    if (physical === absolute && leafStamp?.symlink)
+        physical = path.join(parent, leaf);
+    return { workspace: physical, tracker: await physicalWorkspacePath(path.join(physical, relativeTracker)),
+        entry: { logicalParent, parent, leaf, parentStamp, leafStamp } };
+}
+/** Identify shared tracker storage even when only the tracker, rather than its workspace, is a symlink. */
+async function physicalWorkspaceIdentity(workspace) {
+    return (await pinProjectStorage(workspace)).tracker;
+}
 /**
  * Run async work for one workspace after all prior work there finishes.
  *
  * Chains `work` onto the workspace's tail promise so calls against the SAME
  * workspace run one at a time, while also acquiring a global command slot so
  * calls across independent workspaces overlap only up to the concurrency limit.
+ * The pin passed to `work` is the storage captured at admission. Callers must
+ * use that pin rather than resolving the logical path again after waiting.
  * Returns whatever `work` resolves to, and prunes the workspace's tail once the
  * chain settles.
+ *
+ * @param workspace - Logical project directory whose current physical tracker selects the queue.
+ * @param work - Operation that must execute against the admitted pin.
+ * @param onStoragePinned - Optional acknowledgement after storage resolution and queue admission.
+ * @returns The operation result.
  */
-async function runSerialized(workspace, work) {
-    const previous = workspaceTails.get(workspace) ?? Promise.resolve();
+export async function runSerialized(workspace, work, onStoragePinned = () => { }) {
+    return admitStorage(() => pinWorkspaceStorage(workspace, path.join('.agents', 'pm')), work, onStoragePinned);
+}
+/**
+ * Serialize against storage that was already captured by an access check.
+ *
+ * Re-resolving the logical path here would let a symlink retarget move the
+ * operation onto another queue while the access check still names the old one.
+ *
+ * @param storage - Workspace and tracker identities selected before waiting.
+ * @param work - Operation pinned to those identities.
+ * @returns The operation result.
+ */
+export async function runOnPinnedStorage(storage, work) {
+    return admitStorage(() => Promise.resolve(storage), work);
+}
+/** Reserve before discovery, then release as soon as this invocation joins its physical execution queue. */
+async function admitStorage(resolveStorage, work, onStoragePinned = () => { }) {
+    const previous = storageAdmissions;
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    // Even a discovery failure must not let a later ticket overtake an earlier unresolved one.
+    storageAdmissions = previous.then(() => gate);
+    try {
+        const [storage] = await Promise.all([boundedStorageDiscovery(resolveStorage), previous]);
+        const result = runQueuedStorage(storage, work);
+        onStoragePinned();
+        return result;
+    }
+    finally {
+        release();
+    }
+}
+/** Bound discovery and ignore late metadata so timed-out work can never enter an execution queue. */
+async function boundedStorageDiscovery(resolveStorage) {
+    let timer;
+    const expired = new Promise((_resolve, reject) => {
+        timer = setTimeout(() => reject(new StorageDiscoveryTimeoutError()), STORAGE_DISCOVERY_TIMEOUT_MS);
+    });
+    try {
+        return await Promise.race([resolveStorage(), expired]);
+    }
+    finally {
+        clearTimeout(timer);
+    }
+}
+/** Serialize captured storage; independent tracker queues share only the bounded execution semaphore. */
+async function runQueuedStorage(storage, work) {
+    const identity = storage.tracker;
+    const previous = workspaceTails.get(identity) ?? Promise.resolve();
     let releaseWorkspace;
     const gate = new Promise((resolve) => { releaseWorkspace = resolve; });
     const tail = previous.catch(() => undefined).then(() => gate);
-    workspaceTails.set(workspace, tail);
+    workspaceTails.set(identity, tail);
     await previous.catch(() => undefined);
     const releaseSlot = await commandSlots.acquire();
     try {
-        return await work();
+        return await work(storage);
     }
     finally {
         releaseSlot();
         releaseWorkspace();
         void tail.finally(() => {
-            if (workspaceTails.get(workspace) === tail)
-                workspaceTails.delete(workspace);
+            if (workspaceTails.get(identity) === tail)
+                workspaceTails.delete(identity);
         });
     }
 }
@@ -268,9 +416,9 @@ async function runSerialized(workspace, work) {
  */
 export async function initProject(userId, slug, prefix) {
     const dir = getProjectDir(userId, slug);
-    fs.mkdirSync(dir, { recursive: true });
-    const result = await runSerialized(dir, () => runProcess(dir, [
-        "workspace", "init", "--workspace", dir, "--prefix", prefix,
+    await fs.promises.mkdir(dir, { recursive: true });
+    const result = await runSerialized(dir, storage => runPinnedProcess(storage, [
+        "workspace", "init", "--workspace", storage.workspace, "--prefix", prefix,
         "--defaults", "--agent-guidance", "skip",
     ], { timeoutMs: 15_000 }));
     if (!result.ok)
@@ -335,7 +483,11 @@ export class PmWebCompleteListReceiptError extends Error {
  * the extensions routes' catalog join.
  */
 export async function readProjectExtensionStates(projectDir) {
-    const result = await runSerialized(projectDir, () => runProcess(projectDir, ["extension", "--json"], { timeoutMs: 15_000 }));
+    return readPinnedProjectExtensionStates(await pinProjectStorage(projectDir));
+}
+/** Read inventory against the same admitted storage used by the provisioning transaction. */
+async function readPinnedProjectExtensionStates(storage) {
+    const result = await runOnPinnedStorage(storage, pin => runPinnedProcess(pin, ["extension", "--json"], { timeoutMs: 15_000 }));
     const states = new Map();
     if (!result.ok || !result.stdout) {
         return { ok: false, states, error: result.stderr || "pm extension --json failed" };
@@ -369,8 +521,13 @@ export async function readProjectExtensionStates(projectDir) {
  * mid-download. A hung install still terminates, just later.
  */
 export const INSTALL_COMMAND_TIMEOUT_MS = 180_000;
-async function runExtensionCommand(projectDir, args, timeoutMs) {
-    return runSerialized(projectDir, () => runProcess(projectDir, args, { timeoutMs }));
+async function runExtensionCommand(storage, args, timeoutMs) {
+    return runOnPinnedStorage(storage, pin => runPinnedProcess(pin, args, { timeoutMs }));
+}
+let graphProvisionInventoryHook;
+/** @internal Pause after real inventory so regressions can retarget a tracker before installation. */
+export function setGraphProvisionInventoryHookForTest(hook) {
+    graphProvisionInventoryHook = hook;
 }
 const pendingGraphProvisions = new Map();
 /**
@@ -390,21 +547,22 @@ const pendingGraphProvisions = new Map();
  * graph behaviour is unchanged.
  */
 export async function ensureGraphExtension(userId, slug) {
-    const dir = getProjectDir(userId, slug);
-    const pending = pendingGraphProvisions.get(dir);
+    const storage = await pinProjectStorage(getProjectDir(userId, slug));
+    const identity = storage.tracker;
+    const pending = pendingGraphProvisions.get(identity);
     if (pending)
         return pending;
-    const provision = provisionGraphExtension(dir);
-    pendingGraphProvisions.set(dir, provision);
+    const provision = provisionGraphExtension(storage);
+    pendingGraphProvisions.set(identity, provision);
     try {
         return await provision;
     }
     finally {
-        pendingGraphProvisions.delete(dir);
+        pendingGraphProvisions.delete(identity);
     }
 }
 /** Perform one explicit provisioning transaction; concurrent callers share its result. */
-async function provisionGraphExtension(dir) {
+async function provisionGraphExtension(storage) {
     // Resolve the verified npm install spec from the catalog — never a raw path.
     const npmSpec = resolveNpmSpec("pm-graph");
     if (!npmSpec) {
@@ -415,15 +573,16 @@ async function provisionGraphExtension(dir) {
             error: "pm-graph is not present in the package catalog.",
         };
     }
-    const inventory = await readProjectExtensionStates(dir);
+    const inventory = await readPinnedProjectExtensionStates(storage);
     if (!inventory.ok) {
         return { ok: false, installed: false, active: false, error: inventory.error };
     }
+    await graphProvisionInventoryHook?.();
     const graphState = inventory.states.get("pm-graph");
     const installed = Boolean(graphState);
     const active = Boolean(graphState?.active && graphState?.enabled);
     if (!installed) {
-        const install = await runExtensionCommand(dir, ["install", npmSpec, "--project"], INSTALL_COMMAND_TIMEOUT_MS);
+        const install = await runExtensionCommand(storage, ["install", npmSpec, "--project"], INSTALL_COMMAND_TIMEOUT_MS);
         if (!install.ok) {
             return {
                 ok: false,
@@ -434,7 +593,7 @@ async function provisionGraphExtension(dir) {
         }
     }
     if (!active) {
-        const activate = await runExtensionCommand(dir, ["extension", "activate", "pm-graph", "--project"]);
+        const activate = await runExtensionCommand(storage, ["extension", "activate", "pm-graph", "--project"]);
         if (!activate.ok) {
             return {
                 ok: false,
@@ -555,8 +714,36 @@ const POSITIONAL_KEYS = {
     config: ["scope", "configAction", "key", "value"],
 };
 const PM_CLIENT_CACHE_MAX = positiveInteger(process.env.PM_WEB_PM_CLIENT_CACHE_MAX, 256);
-/** Bounded least-recently-used `PmClient` cache keyed by workspace pm-root. */
+/** Bounded least-recently-used cache keyed by both storage and execution workspace. */
 const pmClientCache = new Map();
+/** Keep shared storage serialization separate from cwd-dependent SDK defaults. */
+async function pmClientIdentity(pmRoot) {
+    const logicalRoot = path.resolve(pmRoot);
+    const logicalWorkspace = path.dirname(path.dirname(logicalRoot));
+    const storage = await boundedStorageDiscovery(() => pinWorkspaceStorage(logicalWorkspace, path.relative(logicalWorkspace, logicalRoot)));
+    return { pmRoot: storage.tracker, cwd: storage.workspace, key: JSON.stringify([storage.tracker, storage.workspace]) };
+}
+/** Keep one client per captured tracker and execution workspace, without resolving again. */
+function cachedPmClient(key, pmRoot, cwd) {
+    let client = pmClientCache.get(key);
+    if (client) {
+        pmClientCache.delete(key);
+        pmClientCache.set(key, client);
+        return client;
+    }
+    if (pmClientCache.size >= PM_CLIENT_CACHE_MAX) {
+        const leastRecentlyUsed = pmClientCache.keys().next().value;
+        if (typeof leastRecentlyUsed === "string")
+            pmClientCache.delete(leastRecentlyUsed);
+    }
+    client = new PmClient({ pmRoot, cwd });
+    pmClientCache.set(key, client);
+    return client;
+}
+/** Return the cached client for storage already captured at queue admission. */
+function pmClientForPinned(storage) {
+    return cachedPmClient(JSON.stringify([storage.tracker, storage.workspace]), storage.tracker, storage.workspace);
+}
 /**
  * Return a cached {@link PmClient} for a workspace pm-root, creating one on
  * first use. The SDK owns extension activation internally; per-workspace
@@ -566,34 +753,28 @@ const pmClientCache = new Map();
  * defaults while each call still receives the SDK's current extension
  * snapshot. Author identity is resolved by the SDK's default detection,
  * preserving prior CLI behaviour.
+ *
+ * @param pmRoot - Logical or physical tracker directory.
+ * @returns The cached client for that tracker's current physical identity and workspace.
  */
-export function getPmClient(pmRoot) {
-    let client = pmClientCache.get(pmRoot);
-    if (client) {
-        pmClientCache.delete(pmRoot);
-        pmClientCache.set(pmRoot, client);
-        return client;
-    }
-    if (pmClientCache.size >= PM_CLIENT_CACHE_MAX) {
-        const leastRecentlyUsed = pmClientCache.keys().next().value;
-        if (typeof leastRecentlyUsed === "string")
-            pmClientCache.delete(leastRecentlyUsed);
-    }
-    client = new PmClient({
-        pmRoot,
-        cwd: path.dirname(path.dirname(pmRoot)),
-    });
-    pmClientCache.set(pmRoot, client);
-    return client;
+export async function getPmClient(pmRoot) {
+    const identity = await pmClientIdentity(pmRoot);
+    return cachedPmClient(identity.key, identity.pmRoot, identity.cwd);
 }
 /** Drop a cached client when its workspace is deleted. */
-export function evictPmClient(pmRoot) {
-    pmClientCache.delete(pmRoot);
+export async function evictPmClient(pmRoot) {
+    if (typeof pmRoot === 'string') {
+        pmClientCache.delete((await pmClientIdentity(pmRoot)).key);
+    }
+    else {
+        await boundedStorageDiscovery(async () => { await assertPinnedProjectEntry(pmRoot); return pmRoot; });
+        pmClientCache.delete(JSON.stringify([pmRoot.tracker, pmRoot.workspace]));
+    }
 }
 /** Read SDK command ownership for the project layer used by isolated maintenance processes. */
 export async function readProjectCommandOwners(projectDir) {
-    return runSerialized(projectDir, async () => {
-        const result = await getPmClient(path.join(projectDir, ".agents", "pm")).packageDescribe(undefined, { project: true });
+    return runSerialized(projectDir, async (storage) => {
+        const result = await pmClientForPinned(storage).packageDescribe(undefined, { project: true });
         const owners = result.details.command_ownership;
         if (!result.ok || !Array.isArray(owners))
             throw new Error("Cannot read project command capabilities.");
@@ -640,6 +821,36 @@ export function certifyPmWebCompleteList(candidate) {
         throw new PmWebCompleteListReceiptError(findings);
     return result;
 }
+/** Reject every inventory warning except the SDK's explicitly harmless legacy format coercion. */
+export function assertObservationalInventoryWarnings(warnings) {
+    const nonFatalWarnings = new Set(['settings_item_format_legacy_json_markdown_coerced_to_toon']);
+    if (warnings.some(warning => !nonFatalWarnings.has(warning))) {
+        throw new Error('Cannot establish the complete item-folder inventory.');
+    }
+}
+/**
+ * Establish the SDK's scan folders without executing extensions; refuse unprovable dynamic schemas.
+ * Static contribution inventories with no item types remain compatible with observational reads.
+ */
+export async function observationalItemFolders(storage) {
+    const { settings, warnings } = await readSettingsWithMetadata(storage.tracker);
+    assertObservationalInventoryWarnings(warnings);
+    const discovered = await discoverExtensions({ pmRoot: storage.tracker, cwd: storage.workspace, settings });
+    if (discovered.effective.some(extension => (extension.contributions?.item_types?.length ?? 0) > 0
+        || (extension.capabilities?.includes('schema') && extension.contributions?.item_types === undefined))) {
+        throw new Error('Cannot establish all item folders without activating extensions.');
+    }
+    // Use the exact registry constructor used by the SDK item-store scanner, including file-backed schema.
+    return resolveItemTypeRegistry(settings, null).folders;
+}
+/** Certify an observational corpus only while the SDK/schema folder inventory remains proven and unchanged. */
+export async function readObservationalCompleteList(storage, includeBody = false) {
+    const folders = await observationalItemFolders(storage);
+    const result = await listAllComplete({ includeBody }, { pmRoot: storage.tracker, cwd: storage.workspace, noExtensions: true });
+    if (JSON.stringify(await observationalItemFolders(storage)) !== JSON.stringify(folders))
+        throw new Error('Item-folder inventory changed during the read.');
+    return certifyPmWebCompleteList(result);
+}
 /**
  * Read and certify every item in a project through the public high-level SDK.
  *
@@ -653,19 +864,19 @@ export function certifyPmWebCompleteList(candidate) {
  * @param includeBody - Whether complete rows must include item bodies.
  * @param noExtensions - Disable extension activation for a strictly observational read.
  * @param sourceOrder - Preserve native store ordering under the same workspace lock.
+ * @param onStoragePinned - Optional acknowledgement after asynchronous queue admission.
  * @returns A discriminated success result with certified rows, or a failure.
  */
-export async function readCompletePmItems(userId, slug, includeBody = false, noExtensions = false, sourceOrder = false) {
+export async function readCompletePmItems(userId, slug, includeBody = false, noExtensions = false, sourceOrder = false, onStoragePinned = () => { }) {
     const dir = getProjectDir(userId, slug);
-    return runSerialized(dir, async () => {
+    return runSerialized(dir, async (storage) => {
         try {
-            const pmRoot = path.join(dir, ".agents", "pm");
-            const result = certifyPmWebCompleteList(noExtensions
-                ? await listAllComplete({ includeBody }, { pmRoot, cwd: dir, noExtensions: true })
-                : await getPmClient(pmRoot).listAllComplete({ includeBody }));
+            const result = noExtensions
+                ? await readObservationalCompleteList(storage, includeBody)
+                : certifyPmWebCompleteList(await pmClientForPinned(storage).listAllComplete({ includeBody }));
             if (sourceOrder) {
                 // Only identifiers/order come from this light scan; heavy collections stay in certified rows.
-                const sourceItems = await listAllItemMetadataLight(pmRoot);
+                const sourceItems = await listAllItemMetadataLight(storage.tracker);
                 const certifiedById = new Map(result.items.map((item) => [item.id, item]));
                 const items = sourceItems.map((item) => {
                     const certified = certifiedById.get(item.id);
@@ -687,16 +898,16 @@ export async function readCompletePmItems(userId, slug, includeBody = false, noE
             }
             return { ok: false, stderr };
         }
-    });
+    }, onStoragePinned);
 }
 /**
  * Read a workspace's parsed `settings.json` for the search-tuning resolvers.
  * Returns `{}` when absent so resolvers fall back to their built-in defaults.
  */
-export function readPmSettings(userId, slug) {
+export async function readPmSettings(userId, slug) {
     const settingsPath = path.join(getProjectDir(userId, slug), ".agents", "pm", "settings.json");
     try {
-        return JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        return JSON.parse(await fs.promises.readFile(settingsPath, "utf8"));
     }
     catch {
         return {};
@@ -806,9 +1017,8 @@ function withPositionals(action, positionals, options) {
  * The result object is returned both as `parsed` (structured) and stringified
  * into `stdout`, so routes that read either field keep working.
  */
-async function runPmInProcess(opts, dir) {
-    const pmRoot = path.join(dir, ".agents", "pm");
-    const client = getPmClient(pmRoot);
+async function runPmInProcess(opts, storage) {
+    const client = pmClientForPinned(storage);
     const { action, options, positionals } = parsePmArgs(opts.args);
     // The linked-test runner consumes repeatable JSON entries as an array;
     // unlike `add`, the SDK does not normalize a single `addJson` string.
@@ -864,21 +1074,21 @@ export async function runPm(opts) {
     // per-workspace). Wrapping the whole dispatch — in-process attempt plus the
     // spawn fallback — in a single `runSerialized` restores the guarantee for
     // every action regardless of which path serves it.
-    return runSerialized(dir, async () => {
+    return runSerialized(dir, async (storage) => {
         const env = { PM_GRAPH_PROJECT_KEY: `${opts.userId}:${opts.slug}`, ...agentSessionEnvironment(opts.agentSession ?? {}) };
         if (opts.commandOwner) {
-            const error = await commandOwnershipError(dir, opts.commandOwner, env);
+            const error = await commandOwnershipError(storage, opts.commandOwner, env);
             if (error)
                 return { ok: false, stdout: "", stderr: error, ownershipRefused: true };
         }
         if (useInProcess) {
-            const sdkResult = await runPmInProcess(opts, dir);
+            const sdkResult = await runPmInProcess(opts, storage);
             if (sdkResult)
                 return sdkResult;
         }
         // Fallback: spawn the pm binary for actions the SDK dispatcher cannot serve.
         const args = opts.jsonOutput ? ["--json", ...opts.args] : opts.args;
-        const result = await runProcess(dir, args, {
+        const result = await runPinnedProcess(storage, args, {
             input: opts.input,
             timeoutMs: opts.timeoutMs,
             env,
@@ -894,12 +1104,12 @@ export async function runPm(opts) {
             }
         }
         return { stdout, stderr, ok, parsed, exitCode };
-    });
+    }, opts.onStoragePinned);
 }
 /** Verify every possible owned command prefix using the pinned CLI's public package-describe contract. */
-async function commandOwnershipError(dir, expected, env) {
+async function commandOwnershipError(storage, expected, env) {
     const unknownOwner = `Cannot establish the effective owner of pm ${expected.command}; refusing to run ${expected.name}.`;
-    const result = await runProcess(dir, ["package", "describe", "--project", "--json"], { timeoutMs: 15_000, env });
+    const result = await runPinnedProcess(storage, ["package", "describe", "--project", "--json"], { timeoutMs: 15_000, env });
     if (!result.ok)
         return unknownOwner;
     try {
@@ -976,32 +1186,46 @@ async function commandOwnershipError(dir, expected, env) {
  * kernel that powers `pm get --at` and `pm restore`).
  *
  * Unlike {@link runPm}, this calls the SDK in-process — there is no history
- * write, lock acquisition, or derived-index mutation — so it is safe to run
- * concurrently with other readers and writers of the same workspace.
+ * write, lock acquisition, or derived-index mutation. It still joins the
+ * physical workspace queue to avoid overlapping local mutations.
  *
  * @throws {PmCliError} with `exitCode` {@link EXIT_CODE}.NOT_FOUND when the item
  *   does not exist (or has no history), and {@link EXIT_CODE}.USAGE for an
  *   invalid ref or a version/timestamp outside the available history range.
  */
-export async function runGetItemAt(userId, slug, itemId, ref) {
-    const pmRoot = path.join(getProjectDir(userId, slug), ".agents", "pm");
-    return await getItemAt(itemId, ref, { pmRoot });
+export async function runGetItemAt(userId, slug, itemId, ref, onStoragePinned = () => { }) {
+    return runSerialized(getProjectDir(userId, slug), storage => getItemAt(itemId, ref, { pmRoot: storage.tracker, cwd: storage.workspace }), onStoragePinned);
+}
+/** Verify the admitted object and its logical binding; validation reads never become mutation paths. */
+async function assertPinnedProjectEntry(storage) {
+    const { entry } = storage;
+    const parentStamp = await storageEntryStamp(entry.parent);
+    const leafStamp = await storageEntryStamp(path.join(entry.parent, entry.leaf));
+    const workspace = await physicalWorkspacePath(path.join(entry.parent, entry.leaf));
+    const tracker = await physicalWorkspacePath(path.join(storage.workspace, '.agents', 'pm'));
+    const boundParent = await physicalWorkspacePath(entry.logicalParent);
+    if (entry.parentStamp?.symlink || boundParent !== entry.parent
+        || !sameStorageEntry(entry.parentStamp, parentStamp) || !sameStorageEntry(entry.leafStamp, leafStamp)
+        || workspace !== storage.workspace || tracker !== storage.tracker)
+        throw new ProjectStorageChangedError();
 }
 /**
- * Delete a project workspace from disk.
+ * Remove only the admitted project entry after eviction succeeds and its identity is revalidated.
+ * Every mutation uses the captured physical parent plus leaf. A leaf symlink is unlinked without
+ * recursing into its target. A captured missing entry needs no filesystem mutation.
  *
- * Evicts the cached SDK client for the project's pm root first (so no stale
- * client outlives the deletion), then removes the whole workspace directory
- * recursively. A missing directory is not an error.
- *
- * @param userId - The owning user's id.
- * @param slug - The project slug.
+ * @param storage - Admission-time parent, leaf inode/device and physical SDK cache identities.
  */
-export function deleteProjectDir(userId, slug) {
-    const dir = getProjectDir(userId, slug);
-    evictPmClient(path.join(dir, ".agents", "pm"));
-    if (fs.existsSync(dir)) {
-        fs.rmSync(dir, { recursive: true, force: true });
-    }
+export async function deleteProjectDir(storage) {
+    await evictPmClient(storage);
+    await boundedStorageDiscovery(async () => { await assertPinnedProjectEntry(storage); return storage; });
+    const entry = storage.entry;
+    if (entry.leafStamp === null && (entry.parentStamp === null || entry.parentStamp?.directory))
+        return;
+    const target = path.join(entry.parent, entry.leaf);
+    if (entry.leafStamp?.symlink)
+        await fs.promises.unlink(target);
+    else
+        await fs.promises.rm(target, { recursive: true, force: true });
 }
 //# sourceMappingURL=pm-runner.js.map

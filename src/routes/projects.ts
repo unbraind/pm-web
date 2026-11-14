@@ -4,7 +4,7 @@ import { logError } from "../observability.ts";
 import { Router } from "express";
 import { pool } from "../db.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
-import { initProject, projectExists, deleteProjectDir } from "../services/pm-runner.ts";
+import { initProject, projectExists, deleteProjectDir, getProjectDir, pinProjectStorage, runSerialized, ProjectStorageChangedError } from "../services/pm-runner.ts";
 import { routeParam, uuidParamGuard } from "./route-params.ts";
 import { isUniqueViolation, notFoundWhenEmpty } from "./route-helpers.ts";
 
@@ -87,14 +87,14 @@ router.post("/", async (req: AuthRequest, res) => {
     try {
       await initProject(req.user!.userId, project.slug, project.prefix);
     } catch (err) {
-      // Roll back both persistence layers if pm initialization fails. Directory
-      // cleanup is best-effort so it cannot prevent removal of the DB row.
+      // Remove the row after storage cleanup. If cleanup fails, retain the row
+      // so an explicit project deletion can retry without orphaning its files.
       try {
-        deleteProjectDir(req.user!.userId, project.slug);
+        await removeOwnedProject(req.user!.userId, project.id);
       } catch (cleanupError) {
         logError("project_cleanup_error", cleanupError);
+        throw err;
       }
-      await pool.query("DELETE FROM pm_projects WHERE id = $1", [project.id]);
       throw err;
     }
 
@@ -146,23 +146,53 @@ router.patch("/:id", async (req: AuthRequest, res) => {
   }
 });
 
+/** Remove owned storage under both a row transaction and its physical queue, including failed-init cleanup. */
+async function removeOwnedProject(userId: string, projectId: string): Promise<boolean> {
+  // The discovery query releases its connection before any tracker admission wait.
+  const initial = await pool.query<{ slug: string }>('SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
+  if (!initial.rows[0]) return false;
+  const { slug } = initial.rows[0];
+  const directory = getProjectDir(userId, slug);
+  const removed = await runSerialized(directory, async admitted => {
+    const client = await pool.connect();
+    const transaction = { open: false };
+    try {
+      await client.query('BEGIN'); transaction.open = true;
+      const locked = await client.query<{ slug: string }>('SELECT slug FROM pm_projects WHERE id = $1 AND user_id = $2 FOR UPDATE', [projectId, userId]);
+      if (!locked.rows[0]) { await client.query('ROLLBACK'); transaction.open = false; return false; }
+      if (locked.rows[0].slug !== slug) throw new ProjectStorageChangedError();
+      const current = await pinProjectStorage(directory);
+      if (current.workspace !== admitted.workspace || current.tracker !== admitted.tracker) throw new ProjectStorageChangedError();
+      await deleteProjectDir(admitted);
+      await client.query('DELETE FROM pm_projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
+      await client.query('COMMIT'); transaction.open = false;
+      return true;
+    } catch (error) {
+      if (transaction.open) {
+        try { await client.query('ROLLBACK'); transaction.open = false; }
+        catch (rollbackError) { logError('delete_project_rollback_error', rollbackError); }
+      }
+      throw error;
+    } finally { client.release(transaction.open); }
+  });
+  if (removed) invalidateProjectAccess(projectId);
+  return removed;
+}
+
 router.delete("/:id", async (req: AuthRequest, res) => {
   try {
-    const result = await pool.query(
-      `DELETE FROM pm_projects WHERE id = $1 AND user_id = $2 RETURNING slug`,
-      [routeParam(req, "id"), req.user!.userId]
-    );
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: "Project not found" });
+    if (!await removeOwnedProject(req.user!.userId, routeParam(req, 'id'))) {
+      res.status(404).json({ error: 'Project not found' });
       return;
     }
-    const { slug } = result.rows[0] as { slug: string };
-    invalidateProjectAccess(routeParam(req, "id"));
-    deleteProjectDir(req.user!.userId, slug);
     res.json({ ok: true });
   } catch (err) {
-    logError("delete_project_error", err);
-    res.status(500).json({ error: "Failed to delete project" });
+    if (err instanceof ProjectStorageChangedError) {
+      res.status(409).json({ error: 'Project storage changed while the deletion waited; retry the deletion' });
+      return;
+    }
+    logError('delete_project_error', err);
+    res.status(500).json({ error: 'Failed to delete project' });
   }
 });
 

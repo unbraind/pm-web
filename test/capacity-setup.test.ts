@@ -1,10 +1,14 @@
 /** The optional setup control releases a real full roster before measuring any mutation. */
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
-import { copyFile, mkdir } from "node:fs/promises";
+import fs, { existsSync } from "node:fs";
+import { copyFile, mkdir, mkdtemp, readdir, realpath, rm, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
+import { pool } from "../src/db.ts";
+import { StorageDiscoveryTimeoutError } from "../src/services/pm-runner.ts";
 import { capacityFixture, capacityServer, waitUntil } from "../scripts/capacity-fixture.ts";
 import { capacitySubscriber } from "../scripts/capacity-subscriber.ts";
 import { instrumentCapacitySetup } from "../scripts/capacity-setup-probe.ts";
@@ -44,4 +48,50 @@ test("quiet setup survives baseline source replacement and releases complete rea
     await server?.close();
     await fixture.close();
   }
+});
+
+/** A storage pin that fails during setup must not leak the fixture's database connection or temporary root. */
+test("capacity fixture setup ends its connection and removes its root when storage pinning fails", async (t) => {
+  // A private physical parent and observer name, so parallel fixtures and a symlinked tmpdir cannot affect the checks.
+  const parent = await realpath(await mkdtemp(path.join(tmpdir(), "pm-web-capacity-pin-failure-")));
+  const observer = `capacity-pin-failure-${randomUUID()}`;
+  const prefix = path.join(parent, "pm-web-capacity-projects-");
+  const observers = async (): Promise<number> => Number((await pool.query("SELECT count(*) AS n FROM pg_stat_activity WHERE application_name = $1", [observer])).rows[0].n);
+  // Remove the private parent even when an assertion below fails.
+  t.after(() => rm(parent, { recursive: true, force: true }));
+  // Storage discovery fails only by timing out, so stall the new root's lookup until the real bound rejects the pin.
+  const original = fs.promises.realpath;
+  Reflect.set(fs.promises, "realpath", new Proxy(original, { apply(target, receiver, args) {
+    return String(args[0]).startsWith(prefix) ? new Promise<never>(() => { /* never settles */ }) : Reflect.apply(target, receiver, args);
+  } }));
+  try {
+    const outcome = await capacityFixture(1, { parent, observer }).then(async (fixture) => { await fixture.close(); return undefined; }, (error: unknown) => error);
+    assert.ok(outcome instanceof StorageDiscoveryTimeoutError, "the stalled pin rejects setup (an unexpected success is closed before failing)");
+  } finally { Reflect.set(fs.promises, "realpath", original); }
+  assert.deepEqual(await readdir(parent), [], "the temporary root is removed");
+  // pg_stat_activity drops a backend shortly after its client ends, so allow a bounded settle.
+  for (let attempt = 0; attempt < 50 && (await observers()) > 0; attempt++) await delay(100);
+  assert.equal(await observers(), 0, "the observer connection is ended");
+});
+
+/** A failed SDK client eviction must not skip the database, row and directory cleanup that follows it. */
+test("capacity fixture cleanup completes independent steps after a failed client eviction, then reports it", async () => {
+  const failing = await capacityFixture(1);
+  // Storage discovery tolerates filesystem errors and fails only by timing out, so stall the fixture
+  // workspace's lookup until the real discovery bound rejects the eviction.
+  const original = fs.promises.realpath;
+  const stalled = new Set([failing.dir, path.join(failing.dir, ".agents", "pm")]);
+  Reflect.set(fs.promises, "realpath", new Proxy(original, { apply(target, receiver, args) {
+    return stalled.has(String(args[0])) ? new Promise<never>(() => { /* never settles */ }) : Reflect.apply(target, receiver, args);
+  } }));
+  try {
+    await assert.rejects(failing.close(), (error: Error & { code?: string }) => error.code === "FIXTURE_CLIENT_EVICTION_FAILED" && error.cause instanceof StorageDiscoveryTimeoutError);
+  } finally { Reflect.set(fs.promises, "realpath", original); }
+  assert.equal((await pool.query("SELECT id FROM pm_projects WHERE id = $1", [failing.projectId])).rowCount, 0, "fixture rows are removed despite the eviction failure");
+  await assert.rejects(stat(failing.root), (error: NodeJS.ErrnoException) => error.code === "ENOENT");
+  // Must allow: an ordinary fixture closes without error and removes the same resources.
+  const clean = await capacityFixture(1);
+  await clean.close();
+  assert.equal((await pool.query("SELECT id FROM pm_projects WHERE id = $1", [clean.projectId])).rowCount, 0);
+  await assert.rejects(stat(clean.root), (error: NodeJS.ErrnoException) => error.code === "ENOENT");
 });

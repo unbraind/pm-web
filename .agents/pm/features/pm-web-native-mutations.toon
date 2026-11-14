@@ -1,0 +1,13 @@
+id: pm-web-native-mutations
+title: Route native backend mutations and durable idempotency through SDK capabilities
+description: Remaining mutation slice of roadmap #260; account and share storage remains separate from item authority.
+type: Feature
+status: open
+priority: 2
+tags[1]: backend-roadmap
+created_at: "2026-11-06T16:53:35.794Z"
+updated_at: "2026-11-06T16:53:35.794Z"
+author: codex-astra
+acceptance_criteria: "Route item writes, settings, decisions and durable idempotency through the selected upstream SDK capabilities; preserve atomic preconditions and normalized input semantics; conformance covers two real OS writers on one native backend, restart, duplicate retries and conflicting edits; prove tenant isolation, edit permission and access revocation; no filesystem mirror or web-account database substitution for authoritative PM storage."
+parent: pm-web-github-ec206b5ea075-260
+body: ""

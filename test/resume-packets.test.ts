@@ -14,21 +14,23 @@ import { getProjectDir } from '../src/services/pm-runner.ts';
 import { signToken } from '../src/auth.ts';
 import { pool } from '../src/db.ts';
 import { installExtension } from './helpers/install-runtime-extension.ts';
-import { ensureSchema, seedUser, seedProject, seedUserShare, startApp } from './helpers/pg-harness.ts';
+import { ProjectFixtureResources, ensureSchema, seedUser, seedProject, seedUserShare, startApp } from './helpers/pg-harness.ts';
 
 const exec = promisify(execFile);
 /** Real SDK tracker plus real persisted consent, isolated from Git and every hosted service. */
 async function fixture(t: TestContext) {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const cwd = await mkdtemp(path.join(os.tmpdir(), 'resume-packet-'));
+  const cwd = await resources.directory('resume-packet-');
   const pmRoot = path.join(cwd, '.agents', 'pm');
   const pm = new PmClient({ cwd, pmRoot, noExtensions: true });
   await pm.init('resume', { defaults: true, agentGuidance: 'skip' });
   const a = (await pm.create({ type: 'Task', title: 'Selected', description: 'Synthetic', id: 'resume-one' })).item.id;
   const b = (await pm.create({ type: 'Task', title: 'Related', description: 'Synthetic', id: 'resume-two' })).item.id;
   const foreign = (await pm.create({ type: 'Task', title: 'Unselected', description: 'Synthetic', id: 'resume-foreign' })).item.id;
-  const owner = await seedUser(), viewer = await seedUser(), other = await seedUser();
+  const owner = await resources.user(), viewer = await resources.user();
   const project = await seedProject(owner.id); await seedUserShare(project.id, viewer.id, 'view');
+  const other = await resources.user();
   const scope = await publishAgentContext(project.id, owner.id, { agent: 'synthetic', question: 'What changed for this delivery?', items: [a, b], viewers: [viewer.id], consent: true, receipts: [], gaps: [] });
   const binding: ResumeBinding = { project: project.id, principal: viewer.id, id: scope.id, revision: scope.revision };
   /** Check both live project membership and exact persisted consent before any source read. */
@@ -38,7 +40,6 @@ async function fixture(t: TestContext) {
   };
   /** Route every test read through the production service and live authorization. */
   const resume = (cursor?: string, budget?: number, step?: (name: string) => Promise<void>) => buildResumePacket(pmRoot, binding, { cursor, budget }, authorize, step);
-  t.after(async () => { await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [[owner.id, viewer.id, other.id]]); await rm(cwd, { recursive: true, force: true }); });
   return { cwd, pmRoot, pm, a, b, foreign, owner, viewer, other, project, scope, binding, authorize, resume };
 }
 /** Require typed refusals with actionable remedies instead of treating failure as an empty delta. */

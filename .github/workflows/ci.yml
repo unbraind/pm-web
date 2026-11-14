@@ -196,7 +196,9 @@ jobs:
         if: matrix.node-version == 26
         env:
           CONTEXT_SCREENSHOTS: ${{ runner.temp }}/agent-context-screenshots
-        run: node scripts/with-test-db.ts node scripts/agent-context-browser.ts
+        run: |
+          node scripts/with-test-db.ts node --test --test-concurrency=2 test/agent-context-browser.acceptance.ts
+          node scripts/with-test-db.ts node scripts/agent-context-browser.ts
 
       - name: Attach agent context screenshots
         if: matrix.node-version == 26

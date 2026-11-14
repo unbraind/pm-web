@@ -15,13 +15,13 @@ import { inspectEvidence } from '../src/services/evidence-inspection.ts';
 import { pool } from '../src/db.ts';
 import { signToken } from '../src/auth.ts';
 import { evidenceTracker } from './helpers/evidence-tracker.ts';
-import { authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
+import { ProjectFixtureResources, authedFetch, ensureSchema, seedProject, seedUser, seedUserShare, startApp } from './helpers/pg-harness.ts';
 
 test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, select sources or cross projects', async t => {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const previous = process.env.PROJECTS_ROOT, root = await mkdtemp(path.join(tmpdir(), 'evidence-http-'));
-  process.env.PROJECTS_ROOT = root;
-  const owner = await seedUser(), viewer = await seedUser(), outsider = await seedUser();
+  const root = await resources.directory('evidence-http-', true);
+  const owner = await resources.user(), viewer = await resources.user(), outsider = await resources.user();
   const project = await seedProject(owner.id), other = await seedProject(outsider.id);
   await seedUserShare(project.id, viewer.id, 'view');
   const host = await evidenceTracker(path.join(root, owner.id, project.slug));
@@ -35,8 +35,7 @@ test('authorized HTTP, SDK and UI facts match; viewers cannot write schemas, sel
   const exactSource = '{"value":9007199254740993,"__proto__":{"value":1e309},"text":"literal\\ntext"}';
   await writeFile(path.join(host.root, 'exact.json'), exactSource);
   for (const pointer of ['/value', '/__proto__/value', '/text', '']) await cite(protectedItem.id, 'exact.json', { ...host, author: 'exact-source', selector: { kind: 'pointer', pointer } });
-  const server = await startApp();
-  t.after(async () => { await server.close(); await pool.query('DELETE FROM pm_users WHERE id IN ($1,$2,$3)', [owner.id, viewer.id, outsider.id]); await rm(root, { recursive: true, force: true }); if (previous === undefined) delete process.env.PROJECTS_ROOT; else process.env.PROJECTS_ROOT = previous; });
+  const server = await resources.server();
   const url = `/api/projects/${project.id}/pm/evidence/${host.id}`;
   const sdk = new EvidenceInspectionClient(server.url('/'), signToken({ userId: viewer.id, email: viewer.email }));
   const settings = await readFile(path.join(host.workspace, 'settings.json'));

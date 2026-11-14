@@ -12,21 +12,22 @@ import extension from '../src/index.ts';
 import { AgentContextClient, AgentContextError, coreContextEvidence, packContextEvidence, type AgentContextInput, type AgentContextPacket } from '../src/agent-context.ts';
 import { validateAgentContext } from '../src/services/agent-context.ts';
 import { agentContextMarkup } from '../public/src/views/agent-context.ts';
-import { authedFetch, ensureSchema, seedUser, seedProject, seedUserShare, startApp } from './helpers/pg-harness.ts';
+import { ProjectFixtureResources, authedFetch, ensureSchema, seedUser, seedProject, seedUserShare, startApp } from './helpers/pg-harness.ts';
 import { signToken } from '../src/auth.ts';
 import { pool } from '../src/db.ts';
 
 const exec = promisify(execFile);
 /** Create isolated real identities and project capabilities against the test database. */
 async function fixture(t: TestContext) {
+  const resources = new ProjectFixtureResources(t);
   await ensureSchema();
-  const owner = await seedUser(), viewer = await seedUser(), other = await seedUser();
+  const owner = await resources.user(), viewer = await resources.user(), other = await resources.user();
   const project = await seedProject(owner.id);
   await seedUserShare(project.id, viewer.id, 'view');
   await seedUserShare(project.id, other.id, 'edit');
   const input: AgentContextInput = { agent: 'delivery-agent', question: 'Which evidence is still missing?', consent: true, viewers: [viewer.id], receipts: [{ source: 'core-output-session', receiptId: 'session-a', revision: 'source-revision-a', servedAt: '2026-10-23T00:00:00Z', omission: [{ reason: 'Two facts suppressed', remedy: 'Restore with pm get <item-id> --brief' }] }], gaps: [{ reason: 'Review unavailable', remedy: 'Obtain an independent review.' }] };
-  const server = await startApp();
-  t.after(async () => { await server.close(); await pool.query('DELETE FROM pm_users WHERE id=ANY($1::uuid[])', [[owner.id, viewer.id, other.id]]); });
+  const server = await resources.server();
+
   return { owner, viewer, other, project, input, server };
 }
 /** Initialize a genuine plain tracker for SDK and native-host acceptance. */

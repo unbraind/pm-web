@@ -28,7 +28,7 @@ import { Router, type Response } from "express";
 import { logError } from "../observability.ts";
 import { requireAuth, type AuthRequest } from "../middleware/auth.ts";
 import { verifyProjectAccess } from "./projects.ts";
-import { routeParam } from "./route-params.ts";
+import { routeParam, requireUuidParams } from "./route-params.ts";
 import {
   INSTALL_COMMAND_TIMEOUT_MS,
   readProjectExtensionStates,
@@ -190,6 +190,7 @@ export type MaintenanceCapabilitiesStatus = { status: "available" } | {
 export function createExtensionsRouter(readCapabilities = readMaintenanceCapabilities): Router {
   const router = Router({ mergeParams: true });
   router.use(requireAuth);
+  router.use(requireUuidParams("projectId"));
 
   /**
    * Resolve and validate `:name` against the catalog exactly once per request.

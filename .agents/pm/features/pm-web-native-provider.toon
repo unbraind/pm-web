@@ -1,0 +1,13 @@
+id: pm-web-native-provider
+title: Bind authorized projects to native SDK backend handles
+description: Remaining provider and read-surface slice of roadmap #260; consume the shared upstream authoritative backend contract.
+type: Feature
+status: open
+priority: 2
+tags[3]: backend-roadmap,sdk-gap,"upstream:pm-cli#1587"
+created_at: "2026-11-06T16:53:07.706Z"
+updated_at: "2026-11-06T21:15:47.451Z"
+author: codex-astra
+acceptance_criteria: "Use an upstream backend-bound SDK handle rather than a compatibility tracker; map authorized project, principal, effective permission and backend scope to immutable identity without exposing tenant or connection details; move remaining paginated list, settings and history reads through supported capabilities; preserve all directory and no-git behavior; prove filesystem and native database CRUD/search/custom metadata with no local tracker and explicit unsupported-feature responses; reuse pm-graph ProjectionSource for observational native graph reads without an item mirror; include POST search in live authorization checks after queue waits and before returning results, with real-process queued revocation coverage."
+parent: pm-web-github-ec206b5ea075-260
+body: "Pinned SDK 2026.11.2 runtime-public-contracts.d.ts exports PmClientOptions with pmRoot, cwd, author and noExtensions only. Backend handle injection and native authoritative provider capabilities are not exported. Open upstream dependencies verified: https://github.com/unbraind/pm-cli/issues/1587 and https://github.com/unbraind/pm-cli/issues/1588. The authorized directory-read slice does not claim native database support."

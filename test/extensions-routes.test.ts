@@ -1,3 +1,4 @@
+import { failedFixtureSetup } from './helpers/fixture-resources.ts';
 import { projectAccessRows } from './helpers/project-access-rows.ts';
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
@@ -67,6 +68,7 @@ interface HarnessOptions {
 
 async function setupHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-ext-routes-"));
+  try {
   const fakePm = path.join(root, "fake-pm.cjs");
   const logPath = path.join(root, "commands.log");
 
@@ -123,6 +125,9 @@ process.stdout.write(JSON.stringify({ ok: true, action: process.argv[3], source:
       await rm(root, { recursive: true, force: true });
     },
   };
+  } catch (error) {
+    return failedFixtureSetup(root, error);
+  }
 }
 
 /**
