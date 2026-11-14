@@ -4,6 +4,6 @@
 .cookie-consent-text { display: grid; gap: .4rem; color: var(--pm-graphite); flex: 1 1 24rem; font-size: var(--pm-step--1); }
 .cookie-consent-text strong { color: var(--pm-carbon); }
 .cookie-consent-actions { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
-body:has(#auth-screen:not([style*="none"])) #app { min-height: auto; }
+body:has(#auth-screen:not([style*="none"])) #app { height: auto; min-height: auto; }
 body:has(#main-app[style*="flex"]) { padding-bottom: 0; }
 @media(max-width: 540px) { .cookie-consent { width: calc(100% - 1.5rem); padding: 1rem; } .cookie-consent-text { flex-basis: 100%; } }
