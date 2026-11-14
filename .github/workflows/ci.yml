@@ -175,6 +175,10 @@ jobs:
         if: matrix.node-version == 26
         run: node node_modules/playwright-core/cli.js install --with-deps chromium
 
+      - name: Verify common maker footer placement, viewport and stylesheet cache keys
+        if: matrix.node-version == 26
+        run: node --test --test-concurrency=2 test/maker-footer-browser.acceptance.ts
+
       - name: Capture seeded decision inbox before and after
         if: matrix.node-version == 26
         env:

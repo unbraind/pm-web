@@ -28,6 +28,5 @@ test('the shipped application shell credits its maker with plain public links', 
   assert.equal(footer[1], 'Made by <a href="https://preu.at/">Stefan Preu</a> · <a href="https://unbrained.dev/">unbrained.dev</a>');
   assert.equal(html.match(/<footer\b/g)?.length, 1, 'one credit serves every application view');
   assert.doesNotMatch(footer[0], /rel\s*=\s*["'][^"']*\b(?:me|nofollow)\b/i);
-  assert.ok(html.indexOf(footer[0]) > html.indexOf('id="main-app"'));
-  assert.match(html, /<\/div>\s*<\/div>\s*<footer class="app-footer">/, 'credit is outside the authentication and private application containers');
+  // Native DOM placement, viewport and cache checks live in maker-footer-browser.acceptance.ts.
 });

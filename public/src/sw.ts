@@ -32,7 +32,7 @@ const SESSION_KEY = 'current';
 
 const STATIC_ASSETS: readonly string[] = [
   '/',
-  '/styles.css',
+  '/styles.css?v=22',
   '/app-tokens.css',
   '/brand/assets.css',
   '/brand/mark.svg',

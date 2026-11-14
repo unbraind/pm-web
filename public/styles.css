@@ -73,9 +73,11 @@ html, body { height: 100%; font-family: var(--pm-font-body); background: var(--a
 /* ── Layout ── */
 #app { height: 100vh; display: flex; flex-direction: column; }
 #auth-screen { display: flex; height: 100vh; }
-#main-app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+#main-app { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 
 .app-footer {
+  flex-shrink: 0;
+  margin-top: auto;
   padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom, 0px));
   color: var(--app-text-secondary);
   background: var(--app-bg-base);
@@ -2253,7 +2255,7 @@ input::placeholder, textarea::placeholder { color: var(--pm-graphite); opacity: 
 .brand-mark::after { background: var(--pm-canary); transform: translate(-3px, 3px); }
 .brand-mark > span { background: var(--pm-sheet); width: 100%; height: 100%; display: grid; place-items: center; border-radius: inherit; }
 .brand-product { border: 1px solid var(--pm-carbon); border-radius: var(--pm-radius-sm); padding: .14rem .4rem; font-size: .72rem; letter-spacing: .08em; }
-#app { height: auto; min-height: 100dvh; }
+#app { height: 100dvh; min-height: 100dvh; }
 #auth-screen { flex-direction: column; width: min(100% - 2rem, 36rem); height: auto; margin: 3rem auto; background: var(--pm-sheet); border: 1px solid var(--pm-rule); border-radius: var(--pm-radius); padding: 2.5rem 3rem; }
 .auth-left { display: block; padding: 0; background: none; overflow: visible; flex: none; }
 .auth-left::before, .auth-features { display: none; }
