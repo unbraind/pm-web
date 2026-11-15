@@ -272,6 +272,14 @@ test("every workflow job that runs a database-backed script provides the databas
   const covered: string[] = [];
 
   for (const job of allJobs()) {
+    const delegated = scalarAt(job.lines, 4, 'uses');
+    if (delegated?.startsWith('unbraind/pm-ops/.github/workflows/daily-release.yml@')) {
+      assert.equal(job.file, 'release.yml');
+      const inputs = blockAt(job.lines, 4, 'with') ?? [];
+      assert.equal(scalarAt(inputs, 6, 'postgres'), 'true', 'The shared release must provide its synthetic Postgres service');
+      covered.push(job.file + ':' + job.name + ' (canonical Postgres input)');
+      continue;
+    }
     const steps = (blockAt(job.lines, 4, "steps") ?? []).join("\n");
     const invoked = [...required].filter((script) => invocationPattern(script).test(steps));
     if (invoked.length === 0) continue;

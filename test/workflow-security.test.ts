@@ -16,6 +16,7 @@ const TRUSTED_ACTIONS = new Set([
 /** Workflow files shipped by this repository. */
 /** pm-github's reusable workflows: each may only be called from its dedicated caller file and job. */
 const CANONICAL_REUSABLE_WORKFLOWS = new Map([
+  ["unbraind/pm-ops/.github/workflows/daily-release.yml", { file: "release.yml", job: "release" }],
   ["unbraind/pm-github/.github/workflows/pm-github-sync.yml", { file: "pm-github-sync.yml", job: "gated-sync" }],
   ["unbraind/pm-github/.github/workflows/pm-github-closeout.yml", { file: "pm-github-closeout.yml", job: "gated-closeout" }],
 ]);
@@ -47,7 +48,7 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
       const canonical = CANONICAL_REUSABLE_WORKFLOWS.get(action);
       if (canonical) {
         assert.equal(file, canonical.file, "a canonical reusable workflow belongs in its dedicated caller");
-        const release = /^pm-github (\d{4}\.\d{1,2}\.\d{1,2})$/.exec(version);
+        const release = action.startsWith("unbraind/pm-ops/") ? /^v\d{4}\.\d{2}\.\d{2}$/.exec(version) : /^pm-github (\d{4}\.\d{1,2}\.\d{1,2})$/.exec(version);
         assert.ok(release, `${file}: the canonical workflow must document a pm-github release`);
         const caller = parse(workflow) as {
           jobs?: Record<string, { uses?: string; with?: Record<string, unknown> }>;
