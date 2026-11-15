@@ -128,6 +128,8 @@ jobs:
         run: |
           npm run build
           npm run build:test
+          # `npm test` put node_modules/.bin on PATH; tests such as pm-collaboration spawn the pinned `pm` CLI.
+          export PATH="$PWD/node_modules/.bin:$PATH"
           node scripts/with-test-db.ts node --test --test-concurrency=2 --test-skip-pattern='^all published Markdown repository links name files present at their referenced revision$' test/*.test.ts
 
       - name: Build and verify committed output is current
