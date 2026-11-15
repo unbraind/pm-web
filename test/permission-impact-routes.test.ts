@@ -1,3 +1,5 @@
+import { testTime } from "../scripts/test-time.ts";
+import { testDepth } from "./support/depth.ts";
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -128,7 +130,7 @@ test('overlapping group grants preserve access; separately applied changes inval
   assert.equal((await f.context().get(f.project.id, f.packet.id, f.packet.revision)).revision, f.packet.revision);
 });
 
-test('500 seeded model sequences match preview to actual authorization, including old proposals, groups and audience revisions', async t => {
+test('seeded model sequences match preview to actual authorization, including old proposals, groups and audience revisions', async t => {
   const f = await fixture(t), group = await seedGroup(f.owner.id);
   const groupShare = await seedGroupShare(f.project.id, group.id, 'view');
   let seed = 0x273c91;
@@ -138,7 +140,7 @@ test('500 seeded model sequences match preview to actual authorization, includin
   const old: { permission: typeof roles[number]; group: typeof roles[number]; member: boolean }[] = [];
   let packet = f.packet, shareId = f.share;
   const nativePlan = (await f.pm.get(f.decision.planId)).item;
-  for (let sequence = 0; sequence < 500; sequence++) {
+  for (let sequence = 0; sequence < testDepth(500); sequence++) {
     const generated = { permission: roles[random() % 3], group: roles[random() % 3], member: random() % 2 === 0 };
     const model = sequence % 7 === 0 && old.length ? old[random() % old.length] : generated; old.push(generated);
     const before = roles[1 + random() % 2];
@@ -238,7 +240,7 @@ test('one 51-request snapshot survives a peer answer during projection across SD
     const bytes = original(value, encoding);
     if (!answered && typeof value === 'string' && value.includes(`"planId":${JSON.stringify(f.decision.planId)}`) && value.includes(`"id":${JSON.stringify(last.id)}`) && value.includes('"status":"pending"')) {
       answered = true;
-      const peer = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: f.cwd, env: process.env, encoding: 'utf8', timeout: 60000 });
+      const peer = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: f.cwd, env: process.env, encoding: 'utf8', timeout: testTime(60000) });
       assert.equal(peer.status, 0, peer.stderr);
     }
     return bytes;

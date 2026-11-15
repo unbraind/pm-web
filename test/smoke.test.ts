@@ -1,3 +1,4 @@
+import { testTime } from "../scripts/test-time.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -107,7 +108,7 @@ test("server entrypoint exits non-zero without DATABASE_URL", () => {
       // then fail for an environmental reason rather than assert anything.
       env: { ...process.env, DATABASE_URL: "", POSTGRES_HOST: "", POSTGRES_DB: "" },
       encoding: "utf-8",
-      timeout: 10000,
+      timeout: testTime(10000),
     });
     startedCleanly = true;
   } catch (err) {
@@ -123,7 +124,7 @@ test("server entrypoint exits non-zero without DATABASE_URL", () => {
   assert.notEqual(status, 0, "expected a non-zero exit code");
 });
 
-test("production server bootstrap listens on an ephemeral port and answers HTTP", { timeout: 30_000 }, async () => {
+test("production server bootstrap listens on an ephemeral port and answers HTTP", { timeout: testTime(30_000) }, async () => {
   const port = await ephemeralPort();
   const root = mkdtempSync(join(tmpdir(), "pm-web-"));
   const child = spawn(process.execPath, ["src/server.ts"], {
@@ -174,7 +175,7 @@ test("production server bootstrap listens on an ephemeral port and answers HTTP"
   }
 });
 
-test("registered status, doctor, and stop commands use real environment state", { timeout: 30_000 }, async () => {
+test("registered status, doctor, and stop commands use real environment state", { timeout: testTime(30_000) }, async () => {
   const port = await ephemeralPort();
   const root = mkdtempSync(join(tmpdir(), "pm-web-"));
   const pmRoot = join(root, ".agents", "pm");

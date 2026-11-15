@@ -1,3 +1,4 @@
+import { testDepth } from "./support/depth.ts";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
@@ -39,7 +40,7 @@ test('one strict boundary and producer-derived page schema reject extreme and sp
   assert.throws(() => parseEvidenceInspectionPage({ ...page, rows: [{ ...page.rows[0], bindings: new Array(1) }] }), EvidenceInspectionError);
   assert.throws(() => parseEvidenceInspectionPage({ ...page, criterionGaps: new Array(1) }), EvidenceInspectionError);
   let seed = 0x1784;
-  for (let iteration = 0; iteration < 1000; iteration++) {
+  for (let iteration = 0; iteration < testDepth(1000); iteration++) {
     seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
     const input = { item: host.id, offset: seed % 1000001, limit: 1 + seed % 20, budget: 400 + seed % 15601 };
     assert.deepEqual(parseEvidenceInspection(JSON.parse(JSON.stringify(input))), input);
@@ -69,7 +70,7 @@ test('editing one allowed source changes only its displayed facts, including amb
   assert.equal(criterion.rows[0].bindings[0].support, 'criterion-changed');
 });
 
-test('500 seeded operation sequences re-read native SDK state and preserve replay, CRLF, relationships and every native field', async t => {
+test('seeded operation sequences re-read native SDK state and preserve replay, CRLF, relationships and every native field', async t => {
   const host = await fixture(t), native = (await host.client.get(host.id, { full: true })).item;
   const settings = await readFile(path.join(host.workspace, 'settings.json'));
   const history = await readFile(path.join(host.workspace, 'history', `${host.id}.jsonl`));
@@ -82,7 +83,7 @@ test('500 seeded operation sequences re-read native SDK state and preserve repla
   const originals = ['original one', 'original two'];
   const variants = originals.map((text, index) => [host.texts[index], host.texts[index].replace(text, `replacement ${index}`), host.texts[index].replaceAll('\n', '\r\n'), host.texts[index].replace(text, ` ${text} `), host.texts[index].replace(text, `${text}\t`)]);
   const model = ['current', 'current']; let operations = 0;
-  for (let sequence = 0; sequence < 500; sequence++) {
+  for (let sequence = 0; sequence < testDepth(500); sequence++) {
     const length = 2 + random() % 5;
     for (let step = 0; step < length; step++) {
       const index = random() % 2, variant = random() % variants[index].length, value = variants[index][variant];
@@ -97,7 +98,7 @@ test('500 seeded operation sequences re-read native SDK state and preserve repla
   }
   assert.deepEqual(await readFile(path.join(host.workspace, 'settings.json')), settings);
   assert.deepEqual(await readFile(path.join(host.workspace, 'history', `${host.id}.jsonl`)), history);
-  console.log(JSON.stringify({ seed: '51ed123', sequences: 500, operations, sdkStatePreserved: true, schemaWrites: 0, gitAvailable: false }));
+  console.log(JSON.stringify({ seed: '51ed123', sequences: testDepth(500), operations, sdkStatePreserved: true, schemaWrites: 0, gitAvailable: false }));
 });
 
 test('foreign records fail alone and source readers refuse traversal and symlinks across project roots', async t => {

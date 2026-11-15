@@ -1,3 +1,4 @@
+import { testTime } from "../scripts/test-time.ts";
 import { deferred } from './helpers/deferred.ts';
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -59,7 +60,7 @@ test("semaphore hands a released slot directly to the oldest waiter", async () =
   releaseThird();
 });
 
-test("spawn fallback stays non-blocking, serializes a workspace, and overlaps independent workspaces", { timeout: 20_000 }, async () => {
+test("spawn fallback stays non-blocking, serializes a workspace, and overlaps independent workspaces", { timeout: testTime(20_000) }, async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "pm-web-runner-")));
   const fakePm = path.join(root, "fake-pm.cjs");
   const previousRoot = process.env["PROJECTS_ROOT"];
@@ -555,7 +556,7 @@ try {
   await pool.end();
   await rm(root, { recursive: true, force: true });
 }
-`], { encoding: "utf8", timeout: 120_000 });
+`], { encoding: "utf8", timeout: testTime(120_000) });
   assert.equal(proof.status, 0, `${proof.stdout}\n${proof.stderr}`);
   assert.match(proof.stdout, /built eval-host in-process init\/create\/get passed/);
 });
