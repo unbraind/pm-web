@@ -66,7 +66,8 @@ jobs:
             while IFS= read -r -d '' path; do
               case "$path" in
                 # Executable tracker files use the same code tier in every package.
-                .agents/pm/*.mjs|.agents/pm/*.cjs|.agents/pm/*.js|.agents/pm/*.ts|.agents/pm/*.sh|.agents/pm/extensions/*) code=true ;;
+                .agents/pm/*.mjs|.agents/pm/*.cjs|.agents/pm/*.js|.agents/pm/*.jsx|.agents/pm/*.ts|.agents/pm/*.tsx|.agents/pm/*.mts|.agents/pm/*.cts|.agents/pm/*.sh|.agents/pm/extensions/*) code=true ;;
+                docs/*.mjs|docs/*.cjs|docs/*.js|docs/*.jsx|docs/*.ts|docs/*.tsx|docs/*.mts|docs/*.cts|docs/*.sh) code=true ;;
                 .agents/pm/*|*.md|docs/*|CHANGELOG.md|LICENSE) ;;
                 *) code=true ;;
               esac
@@ -115,13 +116,19 @@ jobs:
         run: |
           npm run changelog:check
           npm run verify:release-changelog-date
+          npm run verify:release-publish-attestation
           node --test --test-concurrency=2 test/identity-audit.test.ts test/replay-privacy.test.ts test/signing-secret-fixture.test.ts test/evidence-source-security.test.ts test/startup-docs.test.ts test/graph-layout-docs.test.ts test/capacity-trace.test.ts test/gated-sync-verification.test.ts test/audit-development-receipt.test.ts test/packaging.test.ts test/package-metadata.test.ts test/published-document-links.test.ts
           npm run pack:dry-run
           npm run accept:packed
 
       - name: Engines floor build and tests
         if: steps.changes.outputs.code == 'true' && matrix.node-version == 22
-        run: npm test
+        # Only the packed-inventory case invokes npm pack. It remains covered by
+        # Node 26 coverage, docs-only CI and all four deep release gates.
+        run: |
+          npm run build
+          npm run build:test
+          node scripts/with-test-db.ts node --test --test-concurrency=2 --test-skip-pattern='^all published Markdown repository links name files present at their referenced revision$' test/*.test.ts
 
       - name: Build and verify committed output is current
         if: steps.changes.outputs.code == 'true' && matrix.node-version == 26
@@ -172,8 +179,9 @@ jobs:
 
       # Packed acceptance in release:check already proves Bun project/global
       # installs, native Bun execution, and the bun x (bunx) credential boundary.
-      - name: Bun package graph smoke
+      - name: Bun and bunx package graph smoke
         if: steps.changes.outputs.code == 'true' && matrix.node-version == 26
         run: |
           bun --version
           bun install --no-save
+          bunx --no-install pm --version

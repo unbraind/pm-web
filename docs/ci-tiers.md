@@ -8,7 +8,7 @@ has a 30-minute timeout. There is no push trigger in `ci.yml`.
 | --- | --- | --- | --- | --- |
 | npm ci, prepare merge drivers, pinned managed extension | yes | yes | yes | local independent + hosted matrix |
 | Strict pm health, required merge drivers | yes | yes | yes | local independent + hosted matrix |
-| Build and complete test suite | quick, no coverage/pack/changelog | quick through release gate | pack builds shipped output | full hosted matrix |
+| Build and test suite | quick, except packed inventory; no coverage/pack/changelog | quick through release gate | pack builds shipped output | full hosted matrix |
 | Typecheck, ESLint, duplication, docstrings | via build only | release gate | executable tracker files select code path | local independent + hosted matrix |
 | Fresh build / committed dist drift | — | yes | — | local independent |
 | Coverage: statements/lines 92.07%, branches 80.5%, functions 94.59% | — | quick, unchanged thresholds | — | full hosted matrix, unchanged thresholds |
@@ -16,11 +16,11 @@ has a 30-minute timeout. There is no push trigger in `ci.yml`.
 | Production dependency audit | — | release gate | — | hosted matrix |
 | Package dry run and packed consumer acceptance | — | release gate | yes, docs are shipped inputs | hosted matrix |
 | Changelog consistency | — | release gate | yes | hosted matrix |
-| Release changelog date / publish attestation verifiers | — | release gate | date verifier | hosted matrix |
+| Release changelog date / publish attestation verifiers | — | release gate | yes | hosted matrix |
 | Identity audit, replay privacy, signing-secret fixture, evidence source security | suite | suite | yes | local independent + hosted matrix |
 | Startup docs, graph-layout docs, capacity trace docs, gated-sync verification, development-audit tracker receipt | suite | suite | yes | local independent + hosted matrix |
-| Packaging metadata and all published Markdown links/packed byte contracts | suite | suite + packed acceptance | yes | local independent + hosted matrix |
-| Bun package-graph install smoke | — | yes | packed acceptance | hosted matrix |
+| Packaging metadata and all published Markdown links/packed byte contracts | suite, except packed inventory | suite + packed acceptance | yes | local independent + hosted matrix |
+| Bun install and bunx installed-host smoke | — | yes | packed acceptance | hosted matrix |
 | Full independent seeded contract/evidence/permission schema suites | — | — | — | local independent |
 | Maker footer browser acceptance | — | — | — | hosted browsers |
 | Decision inbox before/after browser screenshots | — | — | — | hosted browsers + artifacts |
@@ -31,12 +31,17 @@ has a 30-minute timeout. There is no push trigger in `ci.yml`.
 
 The docs/tracker classification compares actual PR base/head endpoints, with
 NUL-delimited filenames and rename folding disabled. A source-to-docs move
-therefore still runs code CI. Executable tracker files and managed-extension
-configuration select the code path. Unrecognized files select the code path.
+therefore still runs code CI. Executable files under docs or the tracker, and managed-extension
+configuration, select the code path. Unrecognized files select the code path.
+The code-PR Node 22 leg excludes only the named published-Markdown inventory
+case because it executes `npm pack`; the case remains in Node 26 coverage,
+docs-only CI and every deep gate. No other floor test is excluded.
 No separate Markdown linter, `privacy` script or `identity:check` script exists;
 the suites above enforce these contracts. Inspection of lint, duplication and
 docstring scripts showed source-code scopes, whereas packaging and document-link
 checks read README, CHANGELOG, nested published Markdown and tracker receipts.
+The publish verifier also examines every tracked file for a shell shebang, so
+even docs-only CI retains both release verification commands.
 The cheap path consequently retains packing and packed acceptance; it does not
 trade these inputs for a falsely green check.
 
@@ -86,7 +91,7 @@ Coverage scope, exclusions and all four thresholds are unchanged in both depths.
 `PM_TEST_TIME_SCALE` defaults to 1, must be finite and positive, and is validated
 at module load before affected child launches. Scaled watchdogs use `Math.ceil`
 and must remain positive safe integer milliseconds. Only packed command watchdogs
-and runner/startup/CLI test harness timeouts are scaled. The runner's 30ms product
+and runner/startup/CLI/catalog test harness timeouts are scaled. The runner's 30ms product
 timeout and its exact diagnostic assertion remain **30ms**; request deadlines,
 lookup/lock budgets, startup readiness contracts and capacity/graph latency
 contracts are not scaled. The deterministic corpus loops terminate by case and
@@ -96,7 +101,8 @@ Packed acceptance already exercises npm/Bun project installs at current and
 minimum host versions, npm/Bun global launchers, native Bun execution and the
 `bun x --no-install pm` credential boundary. This proves the installed bunx
 launcher path, not an uncached ephemeral registry install. The PR therefore uses
-`bun install --no-save` as its extra package-graph smoke, not another full gate.
+`bun install --no-save` and `bunx --no-install pm --version` as its extra
+package-graph/launcher smoke, not another full gate.
 
 ## Measurements and validation
 
@@ -116,3 +122,31 @@ merge. PR timing and exact validation results are recorded in
 `pm-cli-website-dyhg`. Queue-inclusive CI wall time is measured from job
 `created_at` to `completed_at`, separately from execution. CI observation ends
 within 30 minutes after the last push; unfinished runs remain explicit gaps.
+
+Initial local validation on Node 26.13.0 passed `npm run check`,
+`npm run build:test`, `npm run lint`, and the linked eight-file quick-depth
+command in **140.393 seconds**. Workflow parser/helper regressions passed 3/3.
+The single quick coverage attempt is bounded to 20 minutes; full depth is deferred.
+
+The first PR run finished Node 22 in **6m12s** and Node 26 in **11m06s**,
+created-to-completed, with workflow-integration failures. These are not accepted
+successful quick benchmarks. Browser guards
+and the screenshot uploader's existing file-scoped approval now follow the
+deep workflow. Deep uses conditional literal npm/Bun commands because the
+unchanged publish-attestation analyzer correctly refuses an expanded executable.
+The focused helper/browser/action-policy command passed in **19.407 seconds**.
+
+The initial Node 26 quick run observed **94.29% statements/lines, 86.02%
+branches and 97.61% functions**, above every unchanged floor. Its only failures
+were the workflow integration assertions described above; the failed gate is
+not accepted coverage evidence. No late-seed branch regression appeared in that
+report. The final head requires a fresh passing hosted run.
+
+The single local quick coverage attempt stopped at its **1,200-second cap**
+(exit 124; 1,200.064 seconds observed). It reproduced the existing catalog
+installation fixture's 300-second aggregate timeout and subsequent source
+fixture failure, in addition to the already-corrected old browser guard. It
+produced no accepted coverage report. The catalog aggregate/SSE harness watchdogs now use the same validated scale;
+its focused retry is recorded in the task. No product deadline was changed and
+no second local coverage run was started. Both focused commands passed; test
+typecheck and ESLint passed again after the workflow-contract corrections.

@@ -205,11 +205,20 @@ jobs:
       - name: Record Bun version
         run: bun --version
 
-      - name: Full release gate with isolated Git identity
-        run: env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 ${{ matrix.package-manager }} run release:check
+      # Literal launchers let the unchanged publish-attestation verifier prove
+      # executable identity. Exactly one condition matches each matrix job.
+      - name: Full npm release gate with isolated Git identity
+        if: matrix.package-manager == 'npm'
+        run: env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 npm run release:check
 
-      - name: Bun package graph smoke
-        run: bun install --no-save
+      - name: Full Bun release gate with isolated Git identity
+        if: matrix.package-manager == 'bun'
+        run: env HOME="$(mktemp -d)" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 bun run release:check
+
+      - name: Bun and bunx package graph smoke
+        run: |
+          bun install --no-save
+          bunx --no-install pm --version
 
   browsers:
     name: deep browsers
