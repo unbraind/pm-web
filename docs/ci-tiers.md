@@ -150,3 +150,10 @@ produced no accepted coverage report. The catalog aggregate/SSE harness watchdog
 its focused retry is recorded in the task. No product deadline was changed and
 no second local coverage run was started. Both focused commands passed; test
 typecheck and ESLint passed again after the workflow-contract corrections.
+
+The scaled catalog file retry passed **3/3 in 357.463 seconds**, with no
+failures, cancellations or skips. Its built/source cases took 175.622/178.027
+seconds each; both are below the original per-case 300-second bound without
+coverage instrumentation. This focused pass does not certify the previously
+failing instrumented aggregate. The final task claim is released for owner
+verification; required final-head CI and full-depth certification remain open.
