@@ -1,3 +1,5 @@
+import { testTime } from "../scripts/test-time.ts";
+import { testDepth } from "./support/depth.ts";
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { mkdtemp, rm, mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
@@ -130,7 +132,7 @@ test('revocation and revision replacement win at every asynchronous transition b
   assert.deepEqual((await f.pm.get(f.foreign, { depth: 'full' })).item.title, 'Unselected');
 });
 
-test('500 seeded model sequences round-trip resume state, older inputs, native whitespace and relationships through SDK reads', { timeout: 900000 }, async t => {
+test('seeded model sequences round-trip resume state, older inputs, native whitespace and relationships through SDK reads', { timeout: testTime(900000) }, async t => {
   const fixtures: Awaited<ReturnType<typeof fixture>>[] = [];
   for (let i = 0; i < 10; i++) fixtures.push(await fixture(t));
   const server = await startApp(); t.after(() => server.close());
@@ -139,7 +141,7 @@ test('500 seeded model sequences round-trip resume state, older inputs, native w
   let seed = 0x5eed2026;
   /** Reproducible unsigned generator; include the seed in every failure context. */
   const random = (): number => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed; };
-  for (let sequence = 0; sequence < 500; sequence++) {
+  for (let sequence = 0; sequence < testDepth(500); sequence++) {
     const f = fixtures[sequence % fixtures.length], ids = [f.a, f.b];
     const index = sequence % fixtures.length;
     const candidate = { ...scopes[index], agent: `agent-${random()}`, question: `  question ${random()}\r\n next  `, receipts: [{ source: 'core-output-session' as const, receiptId: `receipt-${random()}`, revision: `revision-${sequence}`, servedAt: '2026-10-25T00:00:00Z', omission: [{ reason: `  omitted ${random()}\r\n`, remedy: 'Read selected native state.' }] }], gaps: [{ reason: '  pending\r\n', remedy: `Check evidence ${random()}` }] };

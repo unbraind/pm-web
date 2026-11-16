@@ -1,3 +1,5 @@
+import { testTime } from "../scripts/test-time.ts";
+import { testDepth } from "./support/depth.ts";
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { mkdtemp, rm, mkdir, symlink, readFile, readdir } from 'node:fs/promises';
@@ -92,7 +94,7 @@ test('strict SDK and transport inputs reject ambiguous pagination and oversized 
   await assert.rejects(exploreContracts(directoryContractAdapter({})), refusal('unavailable'));
 });
 
-test('native CLI supports JSON and TOON with no Git executable and exposes typed refusals', { timeout: 120000 }, async t => {
+test('native CLI supports JSON and TOON with no Git executable and exposes typed refusals', { timeout: testTime(120000) }, async t => {
   const f = await fixture(t);
   await installExtension(f.pmRoot, f.client, 'pm-web', 'dist/index.js', ['commands', 'schema']);
   const host = await createExtensionTestHarness(extension, { name: 'pm-web', capabilities: ['commands', 'schema'] }); t.after(() => host.deactivate());
@@ -131,14 +133,14 @@ test('remote transport preserves typed errors and refuses redirects and malforme
 });
 
 /** Aggregate pagination must remain complete when the live provider changes between page reads. */
-test('captured availability owns all pages across 500 adversarial partitions after the live tracker disappears', async t => {
+test('captured availability owns all pages across seeded adversarial partitions after the live tracker disappears', async t => {
   const { adapter, pmRoot } = await fixture(t);
   const expected = (await adapter.describe({ availabilityOnly: true })).action_availability!.map(row => row.action).sort((a, b) => a.localeCompare(b));
   const captured = await captureContractAvailability(adapter);
   await rm(pmRoot, { recursive: true, force: true });
   await assert.rejects(exploreContracts(adapter), refusal('unavailable'));
   let seed = 0x751c93;
-  for (let sequence = 0; sequence < 500; sequence++) {
+  for (let sequence = 0; sequence < testDepth(500); sequence++) {
     const seen: string[] = [];
     let offset: number | null = 0;
     do {

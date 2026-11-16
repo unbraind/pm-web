@@ -1,3 +1,4 @@
+import { testTime } from "../scripts/test-time.ts";
 /** Built HTTP acceptance over a real project tracker, registry install and activated extension. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -24,7 +25,7 @@ after(() => Promise.all([pool.end(), sourcePool.end()]));
 const FLEET_NAMES = [...FLEET_PACKAGE_REPOS, "pm-governance-audit", "pm-search-advanced"];
 
 /** Reject a missing deactivation event promptly so the acceptance reaches cleanup. */
-async function waitForDeactivation(observed: Promise<void>, timeoutMs = 5_000): Promise<void> {
+async function waitForDeactivation(observed: Promise<void>, timeoutMs = testTime(5_000)): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([observed, new Promise<never>((_resolve, reject) => {
@@ -51,7 +52,7 @@ test("missing deactivation SSE rejects before the outer deadline and runs finall
           cleaned = true;
         }
       })(),
-      new Promise<string>((resolve) => { watchdog = setTimeout(() => resolve("unbounded"), 1_000); }),
+      new Promise<string>((resolve) => { watchdog = setTimeout(() => resolve("unbounded"), testTime(1_000)); }),
     ]);
     assert.equal(result, "rejected");
     assert.equal(cleaned, true);
@@ -62,7 +63,7 @@ test("missing deactivation SSE rejects before the outer deadline and runs finall
 });
 
 for (const [runtime, app] of [["built", createApp], ["source", createSourceApp]] as const) {
-test(`${runtime} server executes npm Presets, refuses a later local command owner collision, and lists the full fleet`, { timeout: 300_000 }, async () => {
+test(`${runtime} server executes npm Presets, refuses a later local command owner collision, and lists the full fleet`, { timeout: testTime(300_000) }, async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pm-web-install-e2e-"));
   const previousRoot = process.env.PROJECTS_ROOT;
   const owner = randomUUID();
