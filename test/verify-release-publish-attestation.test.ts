@@ -20,6 +20,14 @@ import { auditPublishAttestation as launcherAudit, runIfMain, verify as launcher
 
 const root = resolve(import.meta.dirname, "..");
 
+/** Capture the canonical report and exit status for the guarded result. */
+function captureReport(audited: ReturnType<typeof launcherVerify>): { lines: string[]; exitCode: number } {
+  const lines: string[] = [];
+  let exitCode = 0;
+  report(audited, (line) => lines.push(line), (code) => { exitCode = code; });
+  return { lines, exitCode };
+}
+
 test("the gate consumes canonical scanning with a supplemental fail-closed boundary", async () => {
   // Identity, not similarity. A vendored copy that happens to behave the same
   // today is exactly what this fleet spent a session removing, because it stops
@@ -120,9 +128,7 @@ test("this repository's own workflows pass the gate", () => {
   // supplemental indirection guard, so the checkout is held to the exact
   // verdict the real release gate produces - not the canonical half alone.
   const audited = launcherVerify(root);
-  const lines: string[] = [];
-  let exitCode = 0;
-  report(audited, (line) => lines.push(line), (code) => { exitCode = code; });
+  const { lines, exitCode } = captureReport(audited);
   assert.equal(exitCode, 0, `the gate must pass on this repository:\n${lines.join("\n")}`);
   assert.deepEqual(audited.failures, []);
   assert.notEqual(audited.recognition.kind, "none", "the caller must be found");
@@ -146,9 +152,7 @@ test("a forced-offline tag lookup defers attestation without ever claiming one",
   try {
     process.env.PM_OPS_OFFLINE = "1";
     const audited = launcherVerify(root);
-    const lines: string[] = [];
-    let exitCode = 0;
-    report(audited, (line) => lines.push(line), (code) => { exitCode = code; });
+    const { lines, exitCode } = captureReport(audited);
     assert.equal(audited.recognition.kind, "unverified-offline", "a disabled lookup must defer, not refuse or attest");
     assert.equal(exitCode, 0, "a deferral is not a failure");
     assert.deepEqual(audited.failures, [], "an offline lookup must not manufacture publish failures");
