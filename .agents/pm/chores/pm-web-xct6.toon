@@ -2,17 +2,17 @@ id: pm-web-xct6
 title: Close delivered pm items and reserve in progress for active work (2026-10-24)
 description: "Review every in-progress and open record against merged delivery and current PR evidence. Preserve uncertain work as open, release stale claims, and submit the tracker changes for review."
 type: Chore
-status: open
+status: in_progress
 priority: 2
 tags[3]: "gh:unbraind/pm-web#329",maintenance,tracker-hygiene
 created_at: "2026-10-24T21:45:37.105Z"
-updated_at: "2026-11-16T15:52:53.280Z"
+updated_at: "2026-11-16T19:45:58.309Z"
 author: codex-agent
 estimated_minutes: 60
 acceptance_criteria: "Every original in-progress and open item is inspected; delivery closures name the implementing merged PR, date and merge SHA and match the recorded acceptance; inactive work is open with claims released; original history records remain append-only; tracker health, changelog and PR CI outcomes are recorded."
 risk: low
 confidence: high
-comments[11]{created_at,author,text}:
+comments[13]{created_at,author,text}:
   "2026-10-24T21:45:37.263Z",codex-agent,"Oriented context, searched existing hygiene work, and read the complete tracker. Checking every original in-progress and open item against PR title/body/commits, delivery links and acceptance. The owner authorizes evidence-backed closure in this sweep. Ambiguous claims remain open; no PR merge or history rewrite."
   "2026-10-24T21:45:43.907Z",codex-agent,"Reviewed 18 original active items. 4 verified deliveries closed and 1 inactive items returned to open. Every other original open item remains open because complete delivery or explicit supersession was not established. No cancellation by inference, software change, threshold reduction, or history rewrite. Per-item evidence is recorded in closure reasons and the PR table. Tracker, changelog and CI verification follow."
   "2026-10-24T21:47:04.670Z",codex-agent,"Local tracker verification passed: repository changelog generation and consistency check, pinned strict health with required merge drivers under isolated Git identity, changed-item history verification, independent original-history prefix checks and linked git diff --check. All original inactive work and this audit have released claims; no in-progress item remains. No production function changed, so source-function revert proof is inapplicable; per-item merged ancestry and lifecycle/history checks are the evidence. The PR will carry the full before/after/evidence table. Complete npm/Bun release checks and native platform checks run in PR CI; their final outcome is reported separately, without treating queued or skipped checks as approval."
@@ -24,13 +24,17 @@ comments[11]{created_at,author,text}:
   "2026-11-16T15:45:12.276Z",codex-sol,The tracker-only quick gate uses the repository documentation and public identity contracts. Full package npm test includes long native-state/model workloads; the initial two broader attempts were interrupted and are not passing evidence. Focused commands are linked and run to completion separately; no source coverage or full release-gate claim is made.
   "2026-11-16T15:51:42.571Z",codex-sol,"The focused documentation suite first completed with 57 passing tests and one module-load failure: generated public/src/api.js was absent before the frontend build. npm run build:frontend passed without tracked source changes. The missing CI build prerequisite is tracked in pm-web-cpr0; workflow changes remain out of scope. A complete focused-suite rerun follows. npm ci also passed after isolating the command from an incompatible user allow-scripts setting."
   "2026-11-16T15:52:50.933Z",codex-sol,"Continuation verification: npm ci passed; focused documentation/tracker tests (npm run build:frontend && PM_TEST_DEPTH=quick node --test --test-concurrency=2 test/identity-audit.test.ts test/replay-privacy.test.ts test/signing-secret-fixture.test.ts test/evidence-source-security.test.ts test/startup-docs.test.ts test/graph-layout-docs.test.ts test/capacity-trace.test.ts test/gated-sync-verification.test.ts test/audit-development-receipt.test.ts test/packaging.test.ts test/package-metadata.test.ts test/published-document-links.test.ts) passed to completion. All retained delivery rows were checked against current GitHub merge state, completion timestamps and first containing tags. No active implementation PR delivers the remaining reopened roadmap work. Both source history streams are retained in timestamp order, including original records carried by audited reanchor evidence. Final released-state tracker validation, repository changelog generation/check and identity gates run before push."
-files[2]:
+  "2026-11-16T19:43:48.649Z",codex-sol,"Round R: merge current main without rewriting published history; regenerate the complete changelog, check every published section against origin/main, and push only if all published bullet lines are unchanged. No additional item closures."
+  "2026-11-16T19:45:57.535Z",codex-sol,"Round R guard: published sections unchanged. . Compared every version section bullet sequence with origin/main 3487e46055d8df34095f853a72a172065d2ada24. Package version 2026.11.15 has no confirmed publication. Sweep closure metadata changes historical item projection or its ordering; occupied historical sections can lose dependency lists (pm-changelog#349). Gates: npm run changelog:full exit 0; npm run changelog:check exit 0. CI log diagnosis: Node 22 and 26 fail ERR_MODULE_NOT_FOUND for generated public/src/api.js imported by the evidence-source-security test. The docs/tracker CI path on main runs that test before build:frontend; pm-web-cpr0 remains open. No workflow or test source was changed by the sweep. Eligible for push after linked checks and author validation. Linked source-tracker changelog check exit 0."
+files[3]:
   - path: .agents/pm
     scope: project
     note: Tracker lifecycle and append-only evidence
   - path: .agents/pm/issues/pm-web-github-ec206b5ea075-260.toon
     scope: project
-tests[5]:
+  - path: CHANGELOG.md
+    scope: project
+tests[6]:
   - command: git diff --check
     scope: project
     provenance:
@@ -67,6 +71,13 @@ tests[5]:
     provenance:
       author: codex-sol
       created_at: "2026-11-16T15:51:43.782Z"
+      source_kind: local_mutation
+      source_ref: chore/in-progress-sweep-2026-11-14
+  - command: "npm run changelog:check"
+    scope: project
+    provenance:
+      author: codex-sol
+      created_at: "2026-11-16T19:45:45.101Z"
       source_kind: local_mutation
       source_ref: chore/in-progress-sweep-2026-11-14
 docs[1]{path,scope,note}:
