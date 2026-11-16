@@ -116,7 +116,10 @@ test("the fail-open guard still admits a genuinely attested publish", () => {
 test("this repository's own workflows pass the gate", () => {
   // An unavailable canonical tag lookup is a deferral, never an attestation.
   // Keep that result visible without depending on a live API success message.
-  const audited = verify(root);
+  // The guarded launcher runs both the canonical audit and this consumer's
+  // supplemental indirection guard, so the checkout is held to the exact
+  // verdict the real release gate produces - not the canonical half alone.
+  const audited = launcherVerify(root);
   const lines: string[] = [];
   let exitCode = 0;
   report(audited, (line) => lines.push(line), (code) => { exitCode = code; });
@@ -130,6 +133,30 @@ test("this repository's own workflows pass the gate", () => {
   } else {
     assert.equal(audited.recognition.kind, "recognized");
     assert.ok(lines.some((line) => line.includes("every publish invocation is attested")));
+  }
+});
+
+test("a forced-offline tag lookup defers attestation without ever claiming one", () => {
+  // PM_OPS_OFFLINE disables every networked canonical tag lookup, which is the
+  // same path an unreachable API takes. The branch above is conditional on CI
+  // having network; this one forces the offline answer through the guarded
+  // launcher, so the deferral contract cannot silently lose coverage on a
+  // runner that resolves tags.
+  const saved = process.env.PM_OPS_OFFLINE;
+  try {
+    process.env.PM_OPS_OFFLINE = "1";
+    const audited = launcherVerify(root);
+    const lines: string[] = [];
+    let exitCode = 0;
+    report(audited, (line) => lines.push(line), (code) => { exitCode = code; });
+    assert.equal(audited.recognition.kind, "unverified-offline", "a disabled lookup must defer, not refuse or attest");
+    assert.equal(exitCode, 0, "a deferral is not a failure");
+    assert.deepEqual(audited.failures, [], "an offline lookup must not manufacture publish failures");
+    assert.ok(lines.some((line) => line.includes("unverified-offline; attestation deferred")), lines.join("\n"));
+    assert.ok(lines.every((line) => !line.includes("every publish invocation is attested")), "a deferred lookup must never claim an attestation");
+  } finally {
+    if (saved === undefined) delete process.env.PM_OPS_OFFLINE;
+    else process.env.PM_OPS_OFFLINE = saved;
   }
 });
 
