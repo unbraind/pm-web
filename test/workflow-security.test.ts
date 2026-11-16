@@ -61,7 +61,7 @@ function assertWorkflowActionPins(workflow: string, file: string): ReadonlyArray
       } else {
         assert.ok(TRUSTED_ACTION_OWNERS.has(action.split("/")[0]!), `${file}: action owner is not allowed: ${action}`);
         // The official uploader is approved only for synthetic screenshot evidence.
-        const screenshotUpload = (file === "graph-scale-evidence.yml" || file === "ci.yml") && action === "actions/upload-artifact";
+        const screenshotUpload = (file === "graph-scale-evidence.yml" || file === "ci.yml" || file === "ci-deep.yml") && action === "actions/upload-artifact";
         assert.ok(TRUSTED_ACTIONS.has(action) || screenshotUpload, `${file}: action is not allowed: ${action}`);
         assert.match(version, /^v(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){0,2}$/, `${file}: ${action} must document a valid release version`);
       }

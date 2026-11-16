@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased
+## 2026.11.15 - 2026-11-15
 
-No changes.
+### Dependencies
+
+- Bump the pm-toolchain group with 3 updates
+- Bump unbraind/pm-github/.github/workflows/pm-github-closeout.yml ([#334](https://github.com/unbraind/pm-web/pull/334))
+- Bump unbraind/pm-github/.github/workflows/pm-github-sync.yml ([#333](https://github.com/unbraind/pm-web/pull/333))
 
 ## 2026.11.14 - 2026-11-14
 

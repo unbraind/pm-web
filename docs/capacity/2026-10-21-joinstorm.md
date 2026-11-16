@@ -137,7 +137,7 @@ unchanged 300-second deadline; the following source catalog test reports
 reports **11467 ms wall / 3000 ms CPU**, exceeding its unchanged 10000 ms wall
 budget (7028 involuntary context switches; 2022 nodes and 23063 edges). These
 failures are retained and linked to existing investigations
-[pm-web-qdhx](../../.agents/pm/issues/pm-web-qdhx.toon) and
+[pm-web-qdhx](../../.agents/pm/tasks/pm-web-qdhx.toon) and
 [pm-web-hqqp](../../.agents/pm/issues/pm-web-hqqp.toon); no causal baseline proof
 was made for them in this task.
 
@@ -197,7 +197,7 @@ Both runs hit the existing built catalog's 300-second deadline, followed by
 `spawn ENOTDIR` in the source catalog case. An interrupted earlier attempt on
 the fixed code passed the built case in 242.4 seconds; a subsequent isolated
 catalog-file retry still passes only 1/3, with one failure and one cancellation.
-These gaps remain tracked in [pm-web-qdhx](../../.agents/pm/issues/pm-web-qdhx.toon).
+These gaps remain tracked in [pm-web-qdhx](../../.agents/pm/tasks/pm-web-qdhx.toon).
 Bun also misses the independent-workspace spawn-overlap assertion; that check
 passes in the full npm run and in its isolated 1/1 retry.
 

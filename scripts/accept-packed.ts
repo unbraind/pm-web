@@ -1,3 +1,4 @@
+import { testTime } from "./test-time.ts";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -71,7 +72,7 @@ delete cleanEnvironment.PM_SOURCE_WORKSPACE_ROOT;
 for (const key of Object.keys(cleanEnvironment)) {
   if (key.toLowerCase() === "npm_config_allow_scripts" || /TOKEN|SECRET|PASSWORD|CREDENTIAL|API_KEY|NPM_MEDIA_SERVER/i.test(key)) delete cleanEnvironment[key];
 }
-const commandTimeoutMs = 5 * 60 * 1000;
+const commandTimeoutMs = testTime(5 * 60 * 1000);
 
 /** Run one shell-free command and fail with bounded diagnostics. */
 function run(

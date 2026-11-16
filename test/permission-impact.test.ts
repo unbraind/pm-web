@@ -1,3 +1,4 @@
+import { testDepth } from "./support/depth.ts";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -33,7 +34,7 @@ test('one strict schema rejects coercion, unknown fields, sparse arrays and all 
 
 test('seeded extreme producer outputs always validate and round-trip through the same schema', () => {
   let seed = 0x18c7b4;
-  for (let i = 0; i < 1000; i++) {
+  for (let i = 0; i < testDepth(1000); i++) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     const total = seed % 1000001, packets = seed % (total + 1), decisions = (total - packets) >> 1;
     const row = { ...page(), total, counts: { packets, decisions, operations: total - packets - decisions }, losses: [] };
