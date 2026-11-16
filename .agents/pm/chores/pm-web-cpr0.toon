@@ -1,0 +1,25 @@
+id: pm-web-cpr0
+title: Build frontend before the documentation CI evidence test imports browser modules
+description: "The documentation/tracker CI step added by PR 337 runs evidence-source-security.test.ts after npm ci, without first compiling the frontend. That test imports public/src/views/evidence-inspection.ts, which imports generated public/src/api.js. A fresh package worktree reproduced ERR_MODULE_NOT_FOUND for that generated module; npm run build:frontend succeeds and supplies the prerequisite. Workflow/source changes are outside the tracker sweep scope."
+type: Chore
+status: in_progress
+priority: 2
+tags[3]: ci,"gh:unbraind/pm-web#337",maintenance
+created_at: "2026-11-16T15:51:37.629Z"
+updated_at: "2026-11-16T20:17:08.045Z"
+author: codex-sol
+estimated_minutes: 30
+acceptance_criteria: The documentation/tracker CI path passes from a clean checkout without previously generated frontend JavaScript; the build/import prerequisite is explicit and covered by a workflow regression check.
+comments[3]{created_at,author,text}:
+  "2026-11-16T20:13:02.865Z",codex-sol,"Round V: repairing the docs-only CI test path, which directly invokes browser-importing tests without the frontend build already provided by npm test. Preserve one shared npm test entry point and add a workflow prerequisite contract. The existing item and its complete history were carried into this branch."
+  "2026-11-16T20:15:14.524Z",codex-sol,"Evidence: PR 329 test (22), job 133574191837, fails ERR_MODULE_NOT_FOUND importing generated public/src/api.js through public/src/views/evidence-inspection.ts. Only the docs-only workflow invokes the test without npm run build; npm test already builds frontend sources. Move the docs test list into npm run test:docs with an unconditional build:frontend prerequisite, call that exact script in CI, and contract-test that both local test scripts build before browser imports."
+  "2026-11-16T20:17:06.855Z",codex-sol,"Gates PASS: npm run typecheck; npm run lint; npm run build:test; node --test test/workflow-frontend-prerequisite.test.ts; npm run changelog:check. Clean-source proof: deleted generated public/src/api.js and ran the exact CI test command npm run test:docs; all 66 tests passed with zero failed/skipped/canceled. Both linked commands were executed with pm test --run --progress. Full database and release suites remain delegated to ordinary PR CI."
+files[4]{path,scope}:
+  .github/workflows/ci.yml,project
+  package.json,project
+  test/evidence-source-security.test.ts,project
+  test/workflow-frontend-prerequisite.test.ts,project
+tests[2]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run typecheck && npm run lint && npm run build:test && node --test test/workflow-frontend-prerequisite.test.ts && npm run changelog:check",project,600,codex-sol,"2026-11-16T20:15:16.635Z",local_mutation,fix/ci-build-frontend-before-tests
+  "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('public/src/api.js', { force: true });\" && npm run test:docs",project,600,codex-sol,"2026-11-16T20:15:17.912Z",local_mutation,fix/ci-build-frontend-before-tests
+body: ""
