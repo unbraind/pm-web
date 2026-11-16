@@ -1,6 +1,6 @@
 {
   "name": "@unbrained/pm-web",
-  "version": "2026.11.13",
+  "version": "2026.11.15",
   "description": "Full web UI for pm-cli — browse, create, update, search and manage pm projects in the browser. Self-hosted via Docker or Node.js.",
   "type": "module",
   "files": [
@@ -44,10 +44,10 @@
     "accept:capacity": "npm run build && node scripts/with-test-db.ts node --test test/capacity.acceptance.ts",
     "fleet:snapshot": "node scripts/generate-fleet-snapshot.ts",
     "pack:dry-run": "npm pack --dry-run",
-    "changelog": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode prepend --output CHANGELOG.md --release-version-from-package --date-from-version --since-previous-tag --until-release-tag --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm",
-    "changelog:full": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm",
-    "changelog:check": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --check",
-    "release:notes": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --stdout --since-previous-tag --until-release-tag --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --github-step-summary",
+    "changelog": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode prepend --output CHANGELOG.md --release-version-from-package --date-from-version --since-previous-tag --until-release-tag --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --include-empty",
+    "changelog:full": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --include-empty",
+    "changelog:check": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --mode replace --output CHANGELOG.md --all-release-tags --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --check --include-empty",
+    "release:notes": "pm-changelog --pm-root .agents/pm --pm-arg=--output-budget --pm-arg=unbounded --pm-arg=--output-limit --pm-arg=unbounded --stdout --since-previous-tag --until-release-tag --release-version-from-package --date-from-version --item-url-base https://github.com/unbraind/pm-web/blob/main/.agents/pm --respect-item-release --pm-bin ./node_modules/.bin/pm --github-step-summary --include-empty",
     "release:check": "npm run check && npm run lint && npm run duplication && npm run docstring && npm run coverage && npm run accept:capacity && npm run audit:prod && npm run pack:dry-run && npm run accept:packed && npm run changelog:check && npm run verify:release-changelog-date && npm run verify:release-publish-attestation",
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
@@ -68,7 +68,7 @@
     "accept:evidence": "node scripts/with-test-db.ts node scripts/evidence-inspection-browser.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.11.9",
+    "@unbrained/pm-cli": "2026.11.12",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -78,7 +78,7 @@
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
     "pm-evidence": "https://codeload.github.com/unbraind/pm-evidence/tar.gz/dddf9e0a1557850710bc4f0bbbb2258d9491b841",
-    "pm-graph": "2026.10.31",
+    "pm-graph": "2026.11.12",
     "uuid": "^14.0.2",
     "zod": "4.6.7"
   },
@@ -99,8 +99,8 @@
     "jscpd": "5.4.3",
     "playwright-core": "1.65.0",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
-    "pm-changelog": "2026.11.7",
-    "pm-ops": "2026.11.6",
+    "pm-changelog": "2026.11.12",
+    "pm-ops": "2026.11.14",
     "pngjs": "7.0.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",

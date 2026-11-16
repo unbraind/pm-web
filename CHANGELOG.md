@@ -1,10 +1,18 @@
 # Changelog
 
-## Unreleased
+## 2026.11.15 - 2026-11-15
 
-### Other
+### Dependencies
 
-- Close delivered pm items and reserve in progress for active work (2026-10-24) ([pm-web-xct6](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-xct6.toon))
+- Bump the pm-toolchain group with 3 updates
+- Bump unbraind/pm-github/.github/workflows/pm-github-closeout.yml ([#334](https://github.com/unbraind/pm-web/pull/334))
+- Bump unbraind/pm-github/.github/workflows/pm-github-sync.yml ([#333](https://github.com/unbraind/pm-web/pull/333))
+
+## 2026.11.14 - 2026-11-14
+
+### Dependencies
+
+- Bump actions/upload-artifact from 4.6.2 to 7.0.2 ([#256](https://github.com/unbraind/pm-web/pull/256))
 
 ## 2026.11.13 - 2026-11-13
 
@@ -37,6 +45,10 @@
 ### Closed
 
 - Closed: History projection PR \#274 fails the exact-version matrix and lifecycle history contract in CI ([pm-web-github-ec206b5ea075-275](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-275.toon))
+
+## 2026.10.31 - 2026-10-31
+
+No changes.
 
 ## 2026.10.30 - 2026-10-30
 
@@ -156,11 +168,27 @@
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
 - Restore changelog gates with the SDK full-list projection ([pm-web-fmby](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fmby.toon))
 
+## 2026.10.21 - 2026-10-21
+
+No changes.
+
+## 2026.10.20 - 2026-10-20
+
+No changes.
+
 ## 2026.10.19 - 2026-10-19
 
 ### Closed
 
 - Closed: Graph node dragging stops moving nodes after static worker layout change in \#216 ([pm-web-github-ec206b5ea075-218](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-218.toon))
+
+## 2026.10.18 - 2026-10-18
+
+No changes.
+
+## 2026.10.17 - 2026-10-17
+
+No changes.
 
 ## 2026.10.15 - 2026-10-15
 
@@ -192,6 +220,18 @@
 - The publish-attestation gate misses a publish routed through an unquoted shell variable ([pm-web-szow](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-szow.toon))
 - Catalog fleet discovery misidentifies sibling package worktrees as extension packages ([pm-web-cqwm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-cqwm.toon))
 - Expose every public fleet package and run enabled extension commands ([pm-web-s99c](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-s99c.toon))
+
+## 2026.10.11 - 2026-10-11
+
+No changes.
+
+## 2026.10.9 - 2026-10-09
+
+No changes.
+
+## 2026.10.8 - 2026-10-08
+
+No changes.
 
 ## 2026.10.5 - 2026-10-05
 
@@ -244,6 +284,10 @@
 
 - Certify pm CLI 2026.9.10, raise the extension compatibility floor to match, and guard the auditor fixes ([pm-web-8ynl](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-8ynl.toon))
 
+## 2026.9.9 - 2026-09-09
+
+No changes.
+
 ## 2026.9.8 - 2026-09-08
 
 ### Added
@@ -257,6 +301,10 @@
 ### Other
 
 - Harden the attestation consumer suite to match the rest of the converged fleet ([pm-web-qq0i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-qq0i.toon))
+
+## 2026.9.6 - 2026-09-06
+
+No changes.
 
 ## 2026.9.5 - 2026-09-05
 
@@ -355,6 +403,10 @@
 
 - Resolve pm-changelog to the release that derives release dates in UTC ([pm-web-l6y1](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-l6y1.toon))
 
+## 2026.8.3 - 2026-08-03
+
+No changes.
+
 ## 2026.7.31 - 2026-07-31
 
 ### Fixed
@@ -449,6 +501,14 @@
 
 - Closed: Recommend pm merge reconcile (2026.7.22) over raw history-repair in Multi-agent merge safety docs ([pm-web-n1pm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-n1pm.toon))
 
+## 2026.7.22 - 2026-07-22
+
+No changes.
+
+## 2026.7.20 - 2026-07-20
+
+No changes.
+
 ## 2026.7.18 - 2026-07-18
 
 ### Other
@@ -486,6 +546,10 @@
 
 - Closed: pm-runner uses spawnSync: every pm CLI call blocks the event loop, stalling SSE delivery and all requests under concurrent writes ([pm-web-github-ec206b5ea075-33](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-33.toon))
 
+## 2026.7.11 - 2026-07-11
+
+No changes.
+
 ## 2026.7.10 - 2026-07-10
 
 ### Fixed
@@ -507,6 +571,14 @@
 - Align Node engine with pm CLI runtime ([pm-web-ndeb](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-ndeb.toon))
 - Generate pm-web package declarations and refresh bundled graph toolchain ([pm-web-1xkj](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-1xkj.toon))
 - Regenerate CHANGELOG after pm close item ([pm-web-0ww0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-0ww0.toon))
+
+## 2026.6.14 - 2026-06-14
+
+No changes.
+
+## 2026.6.13-3 - 2026-06-13
+
+No changes.
 
 ## 2026.6.13-2 - 2026-06-13
 

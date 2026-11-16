@@ -135,19 +135,23 @@ test('every isolated browser rebuild stages the complete tree before reverting b
   assert.match(inbox, /await archiveBrowserTree\(/);
 });
 
-test('push and pull_request compile the checked-out baseline and run all three browser checks', async () => {
-  const workflow = parse(await readFile(path.join(packageRoot, '.github/workflows/ci.yml'), 'utf8')) as {
+test('deep main pushes and scheduled/dispatch runs compile the checked-out baseline and retain every browser check', async () => {
+  const workflow = parse(await readFile(path.join(packageRoot, '.github/workflows/ci-deep.yml'), 'utf8')) as {
     on: Record<string, unknown>;
-    jobs: { test: { steps: { name?: string; if?: string; run?: string; env?: Record<string, string> }[] } };
+    jobs: { browsers: { 'runs-on': string; steps: { name?: string; if?: string; run?: string; env?: Record<string, string>; with?: Record<string, unknown> }[] } };
   };
-  assert.ok('push' in workflow.on && 'pull_request' in workflow.on);
-  const steps = workflow.jobs.test.steps;
+  assert.deepEqual(Object.keys(workflow.on).sort(), ['push', 'schedule', 'workflow_dispatch']);
+  assert.equal(workflow.jobs.browsers['runs-on'], 'ubuntu-latest');
+  const steps = workflow.jobs.browsers.steps;
+  assert.ok(steps.some(step => step.with?.['node-version'] === 26), 'Dedicated browser job must use Node 26');
   const inbox = steps.find(step => step.run?.includes('node scripts/decision-inbox-browser.ts'));
   assert.ok(inbox);
-  assert.equal(inbox.env?.INBOX_BASE_REF, '${{ github.sha }}', 'PR bases must not hide new frontend imports from baseline compilation');
-  for (const command of ['node scripts/decision-inbox-browser.ts', 'node scripts/agent-context-browser.ts', 'node --test test/contract-explorer-browser.acceptance.ts']) {
+  assert.equal(inbox.env?.INBOX_BASE_REF, '${{ github.sha }}', 'Baseline must compile the exact checked-out tree');
+  for (const command of ['test/maker-footer-browser.acceptance.ts', 'node scripts/decision-inbox-browser.ts', 'node scripts/agent-context-browser.ts', 'node --test test/contract-explorer-browser.acceptance.ts', 'node scripts/permission-impact-browser.ts']) {
     const step = steps.find(candidate => candidate.run?.includes(command));
     assert.ok(step, `Missing browser check: ${command}`);
-    assert.equal(step.if, 'matrix.node-version == 26', 'Browser checks must run for both event types on Node 26');
+    assert.equal(step.if, undefined, 'Every trigger must run every browser check in the dedicated Node 26 job');
   }
+  const pr = parse(await readFile(path.join(packageRoot, '.github/workflows/ci.yml'), 'utf8')) as { on: Record<string, unknown> };
+  assert.deepEqual(Object.keys(pr.on).sort(), ['pull_request', 'workflow_dispatch']);
 });
