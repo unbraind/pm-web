@@ -1,0 +1,24 @@
+id: pm-web-sdk-picomatch-audit-1117
+title: Resolve the SDK production picomatch audit blocker
+description: "The Node 26 dependency PR passes tests, coverage and capacity checks, then audit:prod reports six high entries through picomatch in the SDK dependency chain. GHSA-fc5q-39xc-vjpf currently affects <=4.0.7; npm latest is 4.0.7 and the advisory has no patched version. This is a separate upstream dependency blocker, not a reason to disable the audit or force a package downgrade."
+type: Issue
+status: blocked
+priority: 1
+tags[4]: audit,dependencies,security,upstream-sdk
+created_at: "2026-11-17T19:56:26.468Z"
+updated_at: "2026-11-17T19:56:39.498Z"
+author: codex-sol
+blocked_reason: Await a patched picomatch release or a supported upstream SDK dependency remediation for GHSA-fc5q-39xc-vjpf; do not disable the gate or force a downgrade.
+repro_steps: "Run npm run audit:prod on the dependency fix branch, or install exact @unbrained/pm-cli@2026.11.14 in a fresh npm project and run npm audit --omit=dev --ignore-scripts."
+expected_result: The production dependency graph passes the existing audit gate using a supported SDK and package graph.
+actual_result: "Audit exits 1 for GHSA-fc5q-39xc-vjpf through picomatch, fdir and tinyglobby in the SDK chain; no patched picomatch release is currently available."
+comments[1]{created_at,author,text}:
+  "2026-11-17T19:56:38.797Z",codex-sol,"CI job 134307376722 passes source coverage and both capacity cases, then audit:prod fails with six high entries. Current local audit and the pm-linked check reproduce the failure. GitHub advisory metadata lists <=4.0.7 affected and no patched version; npm latest is 4.0.7. Upstream evidence is drafted locally only; no exploitability claim, forced downgrade or audit suppression is made."
+files[2]{path,scope}:
+  package-lock.json,project
+  package.json,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  "npm run audit:prod",project,180,codex-sol,"2026-11-17T19:56:33.667Z",local_mutation,fix/deps-web-1117
+docs[1]{path,scope}:
+  README.md,project
+body: ""
