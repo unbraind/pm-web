@@ -6,15 +6,16 @@ status: in_progress
 priority: 1
 tags[1]: "gh:unbraind/pm-web#343"
 created_at: "2026-11-17T18:26:53.825Z"
-updated_at: "2026-11-17T19:02:10.641Z"
+updated_at: "2026-11-17T19:12:57.411Z"
 author: codex-sol
 repro_steps: Run the dependencies group checks and proxy/bootstrap tests.
 expected_result: Checks pass and runtime paths and proxy trust are explicit.
 actual_result: Changelog drift fails CI; proxy validation and expected missing source module appear in passing tests.
-comments[3]{created_at,author,text}:
+comments[4]{created_at,author,text}:
   "2026-11-17T18:31:44.721Z",codex-sol,"Job 134073515707 ran 1013 tests with no failures; the fatal step is changelog:check tracker_changed drift. The source-server.js error is an expected failure-path test and proxy ValidationErrors are nonfatal direct-mode diagnostics. Preserve default no proxy trust, prove explicit loopback trust resists earlier forged hops, fix the stale default comment, and launch the emitted server when the extension runs from source."
   "2026-11-17T18:55:48.753Z",codex-sol,"Typecheck, lint, build and build:test pass; the focused proxy/bootstrap selection passes 29/29 through pm. The broader direct-reference selection exposed a 300-second catalog-install acceptance timeout on the degraded connection, followed by a source-mode cascade. Repeating that file with the existing PM_TEST_TIME_SCALE=4 harness setting; product timeouts and assertions are unchanged."
   "2026-11-17T19:01:56.485Z",codex-sol,"Implementation/dependency commit: 2a5a6b2. Typecheck, lint, build, build:test, the 29-test pm-linked proxy/bootstrap selection and regenerated changelog:check pass. The initial full-depth exploration was stopped after the catalog timeout; final direct-reference files use the same quick deterministic seed prefix as CI with existing timeout scaling. The isolated catalog repeat and complete reference results remain pending, so the PR stays draft."
+  "2026-11-17T19:12:57.410Z",codex-sol,Follow-up pm-web-inbox-deadline-scale-1117 repairs three harness watchdogs that ignored PM_TEST_TIME_SCALE. Its complete inbox file passes 13/13 and the pm-linked native CLI case passes with the configured scale. Default 60-second deadlines and all product limits/assertions remain unchanged. The isolated catalog built-server case has also passed; source-server acceptance and the remaining reference selection are still running.
 files[11]{path,scope}:
   CHANGELOG.md,project
   dist/app.js,project

@@ -1,0 +1,22 @@
+id: pm-web-inbox-deadline-scale-1117
+title: Honor the existing harness timeout scale in inbox integration tests
+description: Three inbox integration watchdogs use fixed 60-second literals and ignore the shared-host timeout scale used by the surrounding test harness.
+type: Issue
+status: in_progress
+priority: 2
+tags: []
+created_at: "2026-11-17T19:05:16.274Z"
+updated_at: "2026-11-17T19:10:22.102Z"
+author: codex-sol
+parent: pm-web-qdhx
+repro_steps: Run the native CLI inbox integration case with PM_TEST_TIME_SCALE=4 on a contended test host.
+expected_result: The harness watchdog scales while every product timeout and assertion remains unchanged.
+actual_result: The native CLI case is canceled at 60 seconds despite the configured harness scale.
+comments[2]{created_at,author,text}:
+  "2026-11-17T19:05:40.641Z",codex-sol,"The direct-reference selection cancels the native no-git inbox CLI case after 60148 ms. Its test declaration uses timeout: 60000 directly, bypassing scripts/test-time.ts. Apply the existing scale to the three inbox watchdogs; the default remains exactly 60 seconds and product behavior is unchanged."
+  "2026-11-17T19:10:19.861Z",codex-sol,"The complete inbox file passes with the configured harness scale after adopting testTime: 13 passed, 0 failed, 0 skipped. Lint and build:test also pass. Default watchdogs remain 60 seconds; the configured scale now applies consistently."
+files[1]{path,scope}:
+  test/decision-inbox.test.ts,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  "node scripts/with-test-db.ts node --test --test-name-pattern=\"native CLI emits bounded JSON\" test/decision-inbox.test.ts",project,300,codex-sol,"2026-11-17T19:09:34.385Z",local_mutation,fix/deps-web-1117
+body: ""
