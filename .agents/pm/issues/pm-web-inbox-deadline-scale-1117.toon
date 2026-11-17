@@ -6,15 +6,16 @@ status: in_progress
 priority: 2
 tags: []
 created_at: "2026-11-17T19:05:16.274Z"
-updated_at: "2026-11-17T19:10:22.102Z"
+updated_at: "2026-11-17T19:15:05.020Z"
 author: codex-sol
 parent: pm-web-qdhx
 repro_steps: Run the native CLI inbox integration case with PM_TEST_TIME_SCALE=4 on a contended test host.
 expected_result: The harness watchdog scales while every product timeout and assertion remains unchanged.
 actual_result: The native CLI case is canceled at 60 seconds despite the configured harness scale.
-comments[2]{created_at,author,text}:
+comments[3]{created_at,author,text}:
   "2026-11-17T19:05:40.641Z",codex-sol,"The direct-reference selection cancels the native no-git inbox CLI case after 60148 ms. Its test declaration uses timeout: 60000 directly, bypassing scripts/test-time.ts. Apply the existing scale to the three inbox watchdogs; the default remains exactly 60 seconds and product behavior is unchanged."
   "2026-11-17T19:10:19.861Z",codex-sol,"The complete inbox file passes with the configured harness scale after adopting testTime: 13 passed, 0 failed, 0 skipped. Lint and build:test also pass. Default watchdogs remain 60 seconds; the configured scale now applies consistently."
+  "2026-11-17T19:15:01.763Z",codex-sol,"Harness correction commit: f292cfa. The complete file passes 13 tests, and the pm-linked native CLI case passes with PM_TEST_TIME_SCALE=4. Both source and tracker history are committed with the fix; leave the item open for orchestrator verification."
 files[1]{path,scope}:
   test/decision-inbox.test.ts,project
 tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
