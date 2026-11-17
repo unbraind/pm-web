@@ -52,6 +52,7 @@
     "prepack": "npm run build",
     "build:test": "tsc -p tsconfig.test.json",
     "test": "npm run build && npm run build:test && node scripts/with-test-db.ts node --test --test-concurrency=2 test/*.test.ts",
+    "test:docs": "npm run build:frontend && node --test --test-concurrency=2 test/identity-audit.test.ts test/replay-privacy.test.ts test/signing-secret-fixture.test.ts test/evidence-source-security.test.ts test/startup-docs.test.ts test/graph-layout-docs.test.ts test/capacity-trace.test.ts test/gated-sync-verification.test.ts test/audit-development-receipt.test.ts test/packaging.test.ts test/package-metadata.test.ts test/published-document-links.test.ts test/workflow-frontend-prerequisite.test.ts",
     "prepublishOnly": "npm run release:check",
     "lint": "node scripts/lint.ts",
     "duplication": "node scripts/duplication-gate.ts",

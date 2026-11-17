@@ -117,7 +117,7 @@ jobs:
           npm run changelog:check
           npm run verify:release-changelog-date
           npm run verify:release-publish-attestation
-          node --test --test-concurrency=2 test/identity-audit.test.ts test/replay-privacy.test.ts test/signing-secret-fixture.test.ts test/evidence-source-security.test.ts test/startup-docs.test.ts test/graph-layout-docs.test.ts test/capacity-trace.test.ts test/gated-sync-verification.test.ts test/audit-development-receipt.test.ts test/packaging.test.ts test/package-metadata.test.ts test/published-document-links.test.ts
+          npm run test:docs
           npm run pack:dry-run
           npm run accept:packed
 
