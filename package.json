@@ -69,7 +69,7 @@
     "accept:evidence": "node scripts/with-test-db.ts node scripts/evidence-inspection-browser.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.11.12",
+    "@unbrained/pm-cli": "2026.11.13",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -100,7 +100,7 @@
     "jscpd": "5.4.3",
     "playwright-core": "1.65.0",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
-    "pm-changelog": "2026.11.12",
+    "pm-changelog": "2026.11.13",
     "pm-ops": "2026.11.14",
     "pngjs": "7.0.0",
     "tsx": "4.23.15",
