@@ -352,7 +352,6 @@ export default defineExtension({
 
         // Source execution uses the emitted build; installed packages use its sibling.
         const serverPath = path.resolve(__dirname, import.meta.url.endsWith(".ts") ? "../dist/server.js" : "server.js");
-        if (!fs.existsSync(serverPath)) throw new CommandError("pm-web server build is missing; run npm run build:server before starting from source.");
         ensureRuntimeDependencies();
 
         if (detach) {

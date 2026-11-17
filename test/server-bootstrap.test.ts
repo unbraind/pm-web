@@ -225,6 +225,15 @@ test("the extension starts, probes and stops PostgreSQL servers and propagates c
       await sourceHost.runCommand({ command: "web stop", options: { port }, global: { json: true } });
     }
     await assert.rejects(fetch(`http://127.0.0.1:${port}/healthz`, { signal: AbortSignal.timeout(1_000) }));
+    // A real bind failure still propagates the foreground child's numeric exit.
+    await new Promise<void>((resolve) => { portHolder.listen(port, "127.0.0.1", resolve); });
+    try {
+      await assert.rejects(sourceHost.runCommand({ command: "web", options: { port } }), {
+        name: "CommandError", message: "pm-web exited with code 1", exitCode: 1,
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) => { portHolder.close(error => error ? reject(error) : resolve()); });
+    }
     const unchanged = await pool.query<{ user_id: string }>("SELECT user_id FROM pm_projects WHERE id = $1", [project.id]);
     assert.equal(unchanged.rows[0].user_id, owner.id, "failed launch must not alter existing project ownership");
   });
