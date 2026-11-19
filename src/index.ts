@@ -350,7 +350,8 @@ export default defineExtension({
           timeout = integerSetting(String(configuredTimeout), "--startup-timeout / PM_WEB_STARTUP_TIMEOUT_MS", 1, 300000);
         } catch (error) { throw new CommandError((error as Error).message, 2); }
 
-        const serverPath = path.resolve(__dirname, "server.js");
+        // Source execution uses the emitted build; installed packages use its sibling.
+        const serverPath = path.resolve(__dirname, import.meta.url.endsWith(".ts") ? "../dist/server.js" : "server.js");
         ensureRuntimeDependencies();
 
         if (detach) {

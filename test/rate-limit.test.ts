@@ -221,6 +221,17 @@ test("resolveTrustProxy honours hops, booleans and IP allowlists", () => {
   );
 });
 
+test("explicit loopback proxy trust uses the nearest untrusted client and ignores forged earlier hops", async t => {
+  const trust = resolveTrustProxy({ PM_WEB_TRUST_PROXY: "loopback" });
+  const server = await setupRateLimitApp(t, createRateLimiter({ windowMs: 60_000, limit: 1, identifier: "loopback-proxy-test" }), trust);
+  const first = await fetch(server.url("/x"), { headers: { "x-forwarded-for": "1.1.1.1, 9.9.9.9" } });
+  assert.equal(first.status, 200);
+  const forged = await fetch(server.url("/x"), { headers: { "x-forwarded-for": "2.2.2.2, 9.9.9.9" } });
+  assert.equal(forged.status, 429, "an earlier forged hop cannot reset the real client's bucket");
+  const other = await fetch(server.url("/x"), { headers: { "x-forwarded-for": "8.8.8.8" } });
+  assert.equal(other.status, 200);
+});
+
 test("csrfProtection sets the csrf cookie and lets same-origin/authenticated reads pass", async (t) => {
   const server = await setupCsrfApp(t, "GET", "/me");
 

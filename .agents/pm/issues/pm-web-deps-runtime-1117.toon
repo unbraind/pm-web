@@ -1,0 +1,37 @@
+id: pm-web-deps-runtime-1117
+title: Make dependency update proxy and launch behavior explicit
+description: Regenerate dependency changelog and verify safe proxy configuration and source launch failures.
+type: Issue
+status: blocked
+priority: 1
+tags[1]: "gh:unbraind/pm-web#343"
+created_at: "2026-11-17T18:26:53.825Z"
+updated_at: "2026-11-17T19:56:40.894Z"
+author: codex-sol
+blocked_reason: "The requested behavior and targeted gates pass; final CI is blocked separately by unpatched SDK picomatch advisory GHSA-fc5q-39xc-vjpf, tracked in pm-web-sdk-picomatch-audit-1117."
+repro_steps: Run the dependencies group checks and proxy/bootstrap tests.
+expected_result: Checks pass and runtime paths and proxy trust are explicit.
+actual_result: Changelog drift fails CI; proxy validation and expected missing source module appear in passing tests.
+comments[7]{created_at,author,text}:
+  "2026-11-17T18:31:44.721Z",codex-sol,"Job 134073515707 ran 1013 tests with no failures; the fatal step is changelog:check tracker_changed drift. The source-server.js error is an expected failure-path test and proxy ValidationErrors are nonfatal direct-mode diagnostics. Preserve default no proxy trust, prove explicit loopback trust resists earlier forged hops, fix the stale default comment, and launch the emitted server when the extension runs from source."
+  "2026-11-17T18:55:48.753Z",codex-sol,"Typecheck, lint, build and build:test pass; the focused proxy/bootstrap selection passes 29/29 through pm. The broader direct-reference selection exposed a 300-second catalog-install acceptance timeout on the degraded connection, followed by a source-mode cascade. Repeating that file with the existing PM_TEST_TIME_SCALE=4 harness setting; product timeouts and assertions are unchanged."
+  "2026-11-17T19:01:56.485Z",codex-sol,"Implementation/dependency commit: 2a5a6b2. Typecheck, lint, build, build:test, the 29-test pm-linked proxy/bootstrap selection and regenerated changelog:check pass. The initial full-depth exploration was stopped after the catalog timeout; final direct-reference files use the same quick deterministic seed prefix as CI with existing timeout scaling. The isolated catalog repeat and complete reference results remain pending, so the PR stays draft."
+  "2026-11-17T19:12:57.410Z",codex-sol,Follow-up pm-web-inbox-deadline-scale-1117 repairs three harness watchdogs that ignored PM_TEST_TIME_SCALE. Its complete inbox file passes 13/13 and the pm-linked native CLI case passes with the configured scale. Default 60-second deadlines and all product limits/assertions remain unchanged. The isolated catalog built-server case has also passed; source-server acceptance and the remaining reference selection are still running.
+  "2026-11-17T19:25:07.159Z",codex-sol,"Final source keeps the entrypoint repair limited to selecting the emitted server and verifies a real occupied-port foreground failure still propagates CommandError exitCode 1. Final typecheck/lint/build:server/build:test pass, and the final proxy/bootstrap run passes 29/29. Direct-reference selection: 257 passed and one old fixed-watchdog cancellation; the corrected complete inbox file passes 13/13 and its pm-linked native CLI repeat passes. Separate catalog-install acceptance passes all 3 cases with the existing harness scale. All reference files now have passing case evidence; initial canceled runs are retained as diagnostics."
+  "2026-11-17T19:28:28.843Z",codex-sol,"Final launch/failure-path commit: 174f271; harness scaling commit: f292cfa. Final 29-case proxy/bootstrap run, 13-case inbox run, pm-linked native CLI case, and 3-case built/source catalog acceptance all pass. The only canceled reference case was the pre-fix fixed watchdog and is superseded by the passing complete inbox file. Final changelog:check is current; full CI remains for the orchestrator to certify."
+  "2026-11-17T19:56:40.894Z",codex-sol,"Final Node 26 CI passes tests, coverage and capacity, then production audit fails on the separately tracked SDK picomatch advisory. Follow-up pm-web-sdk-picomatch-audit-1117 is blocked pending a supported remediation. Keep this PR draft; no audit gate or dependency graph was weakened."
+files[11]{path,scope}:
+  CHANGELOG.md,project
+  dist/app.js,project
+  dist/app.js.map,project
+  dist/index.js,project
+  dist/index.js.map,project
+  package-lock.json,project
+  package.json,project
+  src/app.ts,project
+  src/index.ts,project
+  test/rate-limit.test.ts,project
+  test/server-bootstrap.test.ts,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node scripts/with-test-db.ts node --test --test-concurrency=2 test/rate-limit.test.ts test/server-bootstrap.test.ts,project,600,codex-sol,"2026-11-17T18:35:10.123Z",local_mutation,fix/deps-web-1117
+body: ""

@@ -129,13 +129,9 @@ export function readPackageVersion() {
 export function createApp(deps) {
     const app = express();
     const legalPagesDir = resolveLegalPagesDir();
-    // Trust the reverse proxy so `req.ip`, `req.hostname` and `req.protocol`
-    // reflect the real client behind Caddy instead of the proxy itself. This is
-    // what the rate limiter keys on: without it every client would share one
-    // bucket (the proxy's address) and the limiter would be useless. The hop
-    // count is configurable via PM_WEB_TRUST_PROXY; the default trusts a single
-    // hop, matching the documented Caddy deployment, and never `true` (which
-    // would let callers forge X-Forwarded-For and bypass per-client limits).
+    // Direct launches trust no proxy. Proxied deployments explicitly configure
+    // PM_WEB_TRUST_PROXY with their hop count or an address such as loopback;
+    // trusting every hop would let callers forge the rate-limit client identity.
     app.set("trust proxy", resolveTrustProxy(process.env));
     // One set of tier limiters for this app instance; each owns an independent
     // in-memory store so the tiers never steal each other's quota. See

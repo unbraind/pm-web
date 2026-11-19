@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { testTime } from '../scripts/test-time.ts';
 import { execFile, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, rm, symlink, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -106,7 +107,7 @@ test('refusals reject view-only actors and malformed input without appending a d
   assert.equal((await client.planShow(input.planId, { depth: 'deep' })).plan.decisions?.length, 1);
 });
 
-test('independent processes race on one revision without git; exactly one response is audited', { timeout: 60000 }, async t => {
+test('independent processes race on one revision without git; exactly one response is audited', { timeout: testTime(60000) }, async t => {
   const { pmRoot, client, input, cwd } = await fixture(t);
   const bin = path.join(cwd, 'bin'); await mkdir(bin);
   if (process.platform === 'win32') return;
@@ -147,7 +148,7 @@ test('byte budget paginates large evidence without truncating a request', async 
   await assert.rejects(requestDecision(pmRoot, editor, { ...large, question: '界'.repeat(1000), evidence: '界'.repeat(2000), alternatives: Array.from({ length: 8 }, (_, index) => `${index}${'界'.repeat(239)}`) }), refusal('invalid_input'));
 });
 
-test('native CLI emits bounded JSON and TOON in a non-git tracker with no git executable', { timeout: 60000 }, async t => {
+test('native CLI emits bounded JSON and TOON in a non-git tracker with no git executable', { timeout: testTime(60000) }, async t => {
   const { cwd, pmRoot, input, client } = await fixture(t);
   if (process.platform === 'win32') return;
   await installExtension(pmRoot, client, 'pm-web', 'dist/index.js', ['commands', 'schema']);
@@ -169,7 +170,7 @@ test('native CLI emits bounded JSON and TOON in a non-git tracker with no git ex
   });
 });
 
-test('committed response survives a real lock provider cleanup failure', { timeout: 60000 }, async t => {
+test('committed response survives a real lock provider cleanup failure', { timeout: testTime(60000) }, async t => {
   const { cwd, pmRoot, input, client } = await fixture(t);
   const request = await requestDecision(pmRoot, editor, input);
   await installExtension(pmRoot, client, 'pm-web', 'dist/index.js', ['commands', 'schema']);
