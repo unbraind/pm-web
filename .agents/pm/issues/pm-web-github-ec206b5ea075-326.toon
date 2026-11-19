@@ -1,0 +1,21 @@
+id: pm-web-github-ec206b5ea075-326
+title: "Bind project initialization follow-ups, failed-init cleanup and reads to the admission storage pin"
+description: "GH issue #326: https://github.com/unbraind/pm-web/issues/326 · author @unbraind · created 2026-11-13T03:33:54Z · updated 2026-11-13T03:33:54Z"
+type: Issue
+status: open
+priority: 2
+tags[2]: "gh:unbraind/pm-web#326","github_author:unbraind"
+created_at: "2026-11-13T03:33:54Z"
+updated_at: "2026-11-19T08:46:32.169Z"
+author: pm-github
+github_close_reason: ""
+github_closed_at: ""
+github_created_at: "2026-11-13T03:33:54Z"
+github_link_only: false
+github_number: 326
+github_release: ""
+github_state: open
+github_state_reason: unspecified
+github_updated_at: "2026-11-13T03:33:54Z"
+github_url: "https://github.com/unbraind/pm-web/issues/326"
+body: "## Problem\n\npm-web#305 binds project **deletion** to the storage pin captured at admission: the physical parent, the leaf device and inode, and re-verification before eviction and removal. Two other project-storage paths still act through the logical project path:\n\n1. **Initialization follow-ups and failed-init cleanup** (review thread PRRT_kwDOSZgR5c628Rhm, Major). `initProject` runs `workspace init` on the pinned storage, but `configureLocalOllamaSearch(dir)` and `ensureGraphExtension(userId, slug)` then resolve the logical path again. If the alias is retargeted in between, one initialization writes to two storage targets. If initialization throws, `removeOwnedProject` re-pins the logical path and can remove whatever it resolves to at cleanup time, instead of the storage that initialization created.\n2. **Authorized reads** (PRRT_kwDOSZgR5c628Rhi, Minor). The post-queue read binding compares the grant, workspace path and tracker path, but not the captured entry stamps. A directory renamed and recreated at the same path while a read waits in the queue passes the recheck, and the read then uses the replacement.\n\nBoth behave like `main`, which pins nothing on these paths. #305 improves deletion, and this issue extends the same guarantee to every project-storage access.\n\n## Expected\n\n- `initProject` returns its pin. The settings write (Ollama search), the graph extension install and failed-init cleanup all receive that pin and act through its physical parent and leaf. A mismatch refuses and records the cleanup as pending, and never removes a different target.\n- The read binding includes the captured entry stamps, so the post-queue recheck refuses a replaced directory with a 409.\n- One helper validates a pin before any project-storage access, so read, write and remove cannot drift.\n\n## Acceptance\n\n- Retargeting the alias between `workspace init` and the follow-ups refuses, and the alias target's settings and tracker are unchanged, byte for byte.\n- An init failure after a retarget leaves the other project's storage untouched.\n- A read whose directory is renamed and recreated while queued answers 409.\n- Normal init, read and delete behave as today, on the disposable test database only."
