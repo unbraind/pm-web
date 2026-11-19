@@ -1,0 +1,21 @@
+id: pm-web-github-ec206b5ea075-323
+title: "Test harness hangs instead of failing under a single command slot, symlinked tmpdir or mid-acquisition teardown"
+description: "GH issue #323: https://github.com/unbraind/pm-web/issues/323 · author @unbraind · created 2026-11-13T02:24:33Z · updated 2026-11-16T09:05:17Z"
+type: Issue
+status: open
+priority: 2
+tags[2]: "gh:unbraind/pm-web#323","github_author:unbraind"
+created_at: "2026-11-13T02:24:33Z"
+updated_at: "2026-11-19T08:46:32.238Z"
+author: pm-github
+github_close_reason: ""
+github_closed_at: ""
+github_created_at: "2026-11-13T02:24:33Z"
+github_link_only: false
+github_number: 323
+github_release: ""
+github_state: open
+github_state_reason: unspecified
+github_updated_at: "2026-11-16T09:05:17Z"
+github_url: "https://github.com/unbraind/pm-web/issues/323"
+body: "## Problem\n\nReview of pm-web#305 found four places where a failure, a single command slot or a symlinked temporary directory can make a test **hang instead of failing**. None of them happens in the current CI configuration, which uses 8 command slots and a non-symlinked tmpdir, and none of the current tests closes a scope while it is still acquiring. But each one turns a real regression into a silent stall, as the capacity fixture's open client did during #305 round 10.\n\n| Thread | Location | Hang condition |\n| --- | --- | --- |\n| PRRT_kwDOSZgR5c627RYD | `test/helpers/fixture-resources.ts:20` | Teardown that starts while `create()` is pending leaves the acquired resource undisposed. |\n| PRRT_kwDOSZgR5c627RYH | `test/helpers/workspace-alias-probe.ts:154,172` | A failure before `release()` or `releaseHistory()` keeps the global command slot and the tracker tail occupied. |\n| PRRT_kwDOSZgR5c627RYN | `test/pm-runner.test.ts:133` | With `PM_WEB_PM_CONCURRENCY=1`, `await started(\"independent\")` waits for a slot that the first child holds. |\n| PRRT_kwDOSZgR5c627RYS | `test/projects-routes.test.ts:613` | On a symlinked tmpdir (on macOS the temp root resolves through the `private` symlink), `holdEvictionLeaf` compares a logical leaf with the runner's physical path and never pauses. |\n\n## Expected\n\n- Every hold or slot a helper takes is released in a `finally` or a `t.after`.\n- Resource scopes track pending acquisitions, and a close disposes anything acquired after it started.\n- Slot-overlap tests branch on `PM_WEB_PM_CONCURRENCY`, as `workspace-alias.test.ts` does.\n- Fixture roots go through `realpath` before any hook compares paths.\n\n## Acceptance\n\n- The suite passes with `PM_WEB_PM_CONCURRENCY=1` and with `TMPDIR` pointing at a symlinked directory.\n- A deliberately failing assertion inside each probe reports a failure within its timeout instead of hanging."
