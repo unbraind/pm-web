@@ -1,0 +1,11 @@
+id: pm-web-identity-legacy
+title: Review historical attribution on a separate address
+description: Review a privacy-preserving display mapping for older commits using a separate author address. Preserve the original Git history and existing unrelated attribution.
+type: Chore
+status: open
+priority: 2
+tags: []
+created_at: "2026-11-19T11:53:33.475Z"
+updated_at: "2026-11-19T11:53:33.475Z"
+author: codex-sol
+body: ""

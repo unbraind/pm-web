@@ -54,8 +54,7 @@ resolved. No review bot was requested.
 
 PR182 selectively incorporates the catalog implementation from
 [PR175](https://github.com/unbraind/pm-web/pull/175) at
-`d883781d6d134694bedddd65ad37011aa2cbcdea` (Git author SteveBot; PM author
-codex-sol): canonical discovery, pm-jev
+`d883781d6d134694bedddd65ad37011aa2cbcdea` (mailmapped Git author `unbrained`, PM author codex-sol): canonical discovery, pm-jev
 metadata and public links, the existing unreleased install guard, and real
 filesystem/Git-worktree/built-SDK regressions. Its tracker records and older
 release receipts are not imported. This is the same catalog proposal carried

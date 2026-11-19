@@ -267,7 +267,7 @@ try {
   await cp(path.join(repo, '.gitignore'), path.join(gitTracker, '.gitignore'));
   git(['init', '-q']);
   git(['add', '.gitignore', '.agents/pm']);
-  git(['-c', 'user.name=SteveBot', '-c', 'user.email=1153461+unbraind@users.noreply.github.com', 'commit', '-qm', 'Synthetic import control']);
+  git(['-c', 'user.name=unbrained', '-c', 'user.email=1153461+unbraind@users.noreply.github.com', 'commit', '-qm', 'Synthetic import control']);
   const gitClient = new PmClient({ cwd: gitTracker, pmRoot: gitRoot, noExtensions: true, author: 'codex-sol' });
   await gitClient.update('pm-web-kiqa', { title: 'Synthetic stale provider target' });
   await gitClient.update('pm-web-cnhi', { addTags: [tag] });
