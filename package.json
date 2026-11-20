@@ -69,7 +69,7 @@
     "accept:evidence": "node scripts/with-test-db.ts node scripts/evidence-inspection-browser.ts"
   },
   "dependencies": {
-    "@unbrained/pm-cli": "2026.11.13",
+    "@unbrained/pm-cli": "2026.11.16",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
@@ -79,7 +79,7 @@
     "openid-client": "^6.8.7",
     "pg": "^8.23.1",
     "pm-evidence": "https://codeload.github.com/unbraind/pm-evidence/tar.gz/dddf9e0a1557850710bc4f0bbbb2258d9491b841",
-    "pm-graph": "2026.11.12",
+    "pm-graph": "2026.11.15",
     "uuid": "^14.0.2",
     "zod": "4.6.7"
   },
@@ -100,8 +100,8 @@
     "jscpd": "5.4.3",
     "playwright-core": "1.65.0",
     "pm-brand": "github:unbraind/pm-brand#505f386aaa68c0947b9380eae9cfe74dc48e47c7",
-    "pm-changelog": "2026.11.13",
-    "pm-ops": "2026.11.14",
+    "pm-changelog": "2026.11.16",
+    "pm-ops": "2026.11.15",
     "pngjs": "7.0.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
