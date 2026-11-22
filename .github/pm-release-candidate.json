@@ -1,9 +1,9 @@
 {
   "schema": 1,
   "repository": "unbraind/pm-web",
-  "baseSha": "3411900e8b109e2e4274e203cebe2aa58c324dd4",
+  "baseSha": "2fc8436ca8b12c746a708a4e37670d2283abf998",
   "version": "2026.11.15",
-  "runId": 43862851398,
+  "runId": 44733439878,
   "runAttempt": 1,
   "configDigest": "6b87e9737e3ba6bbae19fbe50e3e655e0c0fbb25612846e93d7bf89277c464b2"
 }

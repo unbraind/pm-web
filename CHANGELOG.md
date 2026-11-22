@@ -1,9 +1,11 @@
 # Changelog
 
-## 2026.11.15 - 2026-11-15
+## 2026.11.15 - 2026-11-20
 
 ### Dependencies
 
+- Bump the pm-toolchain group across 1 directory with 4 updates ([#349](https://github.com/unbraind/pm-web/pull/349))
+- Bump the pm-toolchain group with 2 updates ([#342](https://github.com/unbraind/pm-web/pull/342))
 - Bump the pm-toolchain group with 3 updates ([#338](https://github.com/unbraind/pm-web/pull/338))
 - Bump unbraind/pm-github/.github/workflows/pm-github-closeout.yml ([#334](https://github.com/unbraind/pm-web/pull/334))
 - Bump unbraind/pm-github/.github/workflows/pm-github-sync.yml ([#333](https://github.com/unbraind/pm-web/pull/333))
