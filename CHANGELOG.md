@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.11.23 - 2026-11-23
+
+### Dependencies
+
+- Bump express-rate-limit ([#357](https://github.com/unbraind/pm-web/pull/357))
+- Bump the pm-toolchain group with 3 updates ([#356](https://github.com/unbraind/pm-web/pull/356))
+- Bump the dependencies group across 1 directory with 6 updates ([#343](https://github.com/unbraind/pm-web/pull/343))
+- Bump unbraind/pm-github/.github/workflows/pm-github-closeout.yml ([#351](https://github.com/unbraind/pm-web/pull/351))
+- Bump unbraind/pm-ops/.github/workflows/daily-release.yml ([#352](https://github.com/unbraind/pm-web/pull/352))
+- Bump unbraind/pm-github/.github/workflows/pm-github-sync.yml ([#353](https://github.com/unbraind/pm-web/pull/353))
+
 ## 2026.11.15 - 2026-11-20
 
 ### Dependencies
