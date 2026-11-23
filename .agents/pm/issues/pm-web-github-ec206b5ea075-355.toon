@@ -1,0 +1,25 @@
+id: pm-web-github-ec206b5ea075-355
+title: No-Git verification rejects a plain TMPDIR at a filesystem mount boundary
+description: "Track https://github.com/unbraind/pm-web/issues/355. The verification fixture requires a single Git diagnostic and rejects a valid scratch directory on a separate filesystem."
+type: Issue
+status: in_progress
+priority: 2
+tags[1]: "gh:unbraind/pm-web#355"
+created_at: "2026-11-23T02:32:34.633Z"
+updated_at: "2026-11-23T03:37:02.569Z"
+author: codex-agent
+acceptance_criteria: "Accept both canonical Git diagnostics and exercise a real plain scratch directory.; Reject ambiguous or invalid discovery and preserve worktree, bare, corrupt and ancestor-metadata controls.; Successful setup initializes the SDK tracker without creating .git. Refusals precede tracker writes."
+comments[5]{created_at,author,text}:
+  "2026-11-23T02:32:38.116Z",codex-agent,Reproduced on the origin/main baseline with Node 24.19 and Git 2.53 using TMPDIR on a separately mounted tmpfs. The plain case fails on the two-line boundary diagnostic before initialization and all six refusal controls pass. The issue revision and main have identical guard and test blobs. The mount case needs a second discovery probe across filesystems to rule out ancestor bare repositories.
+  "2026-11-23T02:37:24.094Z",codex-agent,"Behavioral revert proof in a disposable copy: restoring only the original guard failed both the real mounted TMPDIR and portable mount cases (2/2). Returning after the mount diagnostic failed the real bare-ancestor refusal (1/1). Bypassing status, stdout and diagnostic checks failed all five malformed-result refusals (5/5). Bypassing the two guard calls failed the original real refusal controls (6/6). Omitting SDK init and inserting a .git entry after init independently failed both portable positives (2/2 each). Restored implementation passed 20/20 on the mounted TMPDIR. The pinned pm linked test also passed 20/20 on the default temporary filesystem."
+  "2026-11-23T02:39:33.650Z",codex-agent,"Repository-wide search found the strict single-line assumption only in the documented guard and its regression. Browser baseline extraction already explains its Git prerequisite for both diagnostics. Its eight existing controls passed, and the plain-directory extraction refusal also passed with TMPDIR on the separate mount. Workflow and npm script callers already run the corrected test; no separate runtime, JSON or TOON diagnostic parser was found."
+  "2026-11-23T03:10:26.999Z",codex-agent,"Full npm release:check passed with isolated Git identity and a disposable PostgreSQL 17 database. Coverage passed 1021/1021 with zero skips across 80 source files at unchanged thresholds: statements 94.32%, lines 94.32%, branches 86.07%, functions 97.61%. Capacity acceptance passed 2/2, production audit found zero vulnerabilities, and packed acceptance passed all four npm/Bun current/minimum scenarios and eight launcher probes. Typecheck, test typecheck, lint, zero-duplication, docstrings, changelog and release attestation passed. Pinned strict tracker health returns exit 1 on both this worktree and a clean original-main control due to the same pre-existing extension host skew and four stale in-progress items. History integrity passed on both."
+  "2026-11-23T03:37:00.372Z",codex-agent,"The Bun release launcher passed the full coverage gate independently: 1021/1021, zero skips, 80 source files, 94.27% statements and lines, 86.01% branches and 97.61% functions. The remaining Bun release checks were still running at the approximately one-hour combined local gate window. The complete npm release gate, including native Bun packed consumers, passed. PR checks on the pushed head can be followed at https://github.com/unbraind/pm-web/actions?query=branch%3Afix%2Fno-git-guard-mount-boundary."
+files[2]{path,scope}:
+  docs/gated-sync-288-verification.md,project
+  test/gated-sync-verification.test.ts,project
+tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,source_ref}}:
+  node --test --test-concurrency=2 test/gated-sync-verification.test.ts,project,300,codex-agent,"2026-11-23T02:34:35.972Z",local_mutation,fix/no-git-guard-mount-boundary
+docs[1]{path,scope}:
+  docs/gated-sync-288-verification.md,project
+body: ""
