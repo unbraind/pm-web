@@ -1,0 +1,20 @@
+id: pm-web-2c8w
+title: Gated sync refuses the importer-reserved issue-355 item because the hand-made occupant lacks GitHub provenance
+description: "The scheduled gated GitHub issue sync fails because the importer's deterministic target id for issue 355 is occupied by a hand-created tracker item that carries only a reference tag. The import refuses with github_import_owner_conflict: curated/unowned for content mirroring, importer creation provenance missing. The occupant item genuinely tracks issue 355, so the fix keeps its content in place and restores GitHub identity provenance as an explicit link-only mirror: set the structured github identity fields and the link-only marker so the importer matches the item, links it, and preserves local content instead of trying to create a duplicate at the reserved id."
+type: Issue
+status: in_progress
+priority: 1
+tags: []
+created_at: "2026-11-23T15:13:54.245Z"
+updated_at: "2026-11-23T15:23:04.879Z"
+assignee: codex-agent
+claim_principal: codex-agent
+author: codex-agent
+comments[2]{created_at,author,text}:
+  "2026-11-23T15:14:04.379Z",codex-agent,"Reproduced in the package worktree with the pinned pm-github 2026.11.18 extension: the gated dry-run import exits 2 with github_import_owner_conflict for the importer-reserved issue-355 target id; the occupant item was created by hand with only a reference tag, so the plan treats issue 355 as new and refuses to create over the occupant. Importer-created provenance (the pm-github author or the dedicated importer marker) cannot be set through pm commands, so the supported repair is the link-only path the matcher documents: set the structured github identity fields plus the link-only marker on the occupant, which makes the importer match the item, link it to the issue, and preserve its curated content and status. The item itself is not moved or deleted; content, comments and append-only history are kept."
+  "2026-11-23T15:23:04.877Z",codex-agent,"Fix verified against the real tracker in the package worktree with the pinned pm-github 2026.11.18 extension. The occupant item now carries the structured github identity fields and the link-only marker; the gated dry-run import exits 0 and plans issue 355 as a link action that preserves local content (previously: github_import_owner_conflict exit 2, curated/unowned for content mirroring). The preflight then surfaced the next stacked blocker: the incoming issue-355 body contains a prose Linux temporary-directory example, which the absolute-host-path rule flags under the synthetic recovery-plan id. Per the gate's own remedy, a reviewed false-positive entry was added to the repo gate allowlist keyed by the finding's exact content hash; the same dry-run then exits 0 with zero surviving findings (issue 218 unchanged, issue 355 link, two accumulated new imports planned). Linked test runs in an isolated non-git tracker where the repo-root allowlist cannot resolve, so the linked command validates the allowlist file instead; the full dry-run verification is recorded here and in the PR. Gates: typecheck (server and frontend) pass, lint pass, changelog regenerated and changelog:check pass after fetching tags, identity audit 4/4 pass. Note: the guard-context failure that started this repository's streak on 2026-11-20 is a separate pinned-release gap; this change clears the tracker-data blockers, and the guard fix still needs the next pm-github release."
+files[1]{path,scope,note}:
+  .pm-github-gate-allowlist.json,project,Reviewed allowlist entry for the prose temporary-directory example in issue 355
+tests[1]{command,scope,provenance{author,created_at,source_kind,source_ref}}:
+  "node -e \"const a=require('./.pm-github-gate-allowlist.json'); const k=Object.keys(a); if (k.length!==1 || !/^[0-9a-f]{64}$/.test(k[0]) || !a[k[0]].reason || !a[k[0]].reason.includes('355')) process.exit(1);\"",project,codex-agent,"2026-11-23T15:22:50.613Z",local_mutation,sched-1123/pm-web
+body: ""
