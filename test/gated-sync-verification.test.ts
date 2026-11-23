@@ -1,7 +1,7 @@
 /** Exercise the documented no-Git control using real directories, Git and SDK initialization. */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -10,8 +10,14 @@ import { fileURLToPath } from "node:url";
 import { PmClient } from "@unbrained/pm-cli/sdk";
 import { transformSync } from "esbuild";
 
+type GitDiagnostic = Pick<SpawnSyncReturns<string>, "status" | "stdout" | "stderr">;
+
+const noRepository = "fatal: not a git repository (or any of the parent directories): .git\n";
+const mountBoundary = "fatal: not a git repository (or any parent up to mount point /synthetic)\n"
+  + "Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\n";
+
 /** Execute the actual documented plain setup in a child with independent Git discovery settings. */
-async function initializePlain(scratch: string, environment: NodeJS.ProcessEnv): Promise<void> {
+async function initializePlain(scratch: string, environment: NodeJS.ProcessEnv, diagnostic?: GitDiagnostic): Promise<void> {
   const document = readFileSync(new URL("../docs/gated-sync-288-verification.md", import.meta.url), "utf8");
   const environmentHelper = document.match(/^function reproductionEnvironment[\s\S]*?^\}/m);
   assert.ok(environmentHelper);
@@ -19,13 +25,20 @@ async function initializePlain(scratch: string, environment: NodeJS.ProcessEnv):
   const setup = document.match(/^  const plain = path.join\(scratch, 'plain'\);[\s\S]*?(?=^  await plainClient.create\()/m);
   assert.ok(guard, "The documented Git boundary function must be runnable");
   assert.ok(setup, "The documented plain setup must be runnable");
+  // Only the topology-dependent probe is substituted. The cross-filesystem probe still runs Git.
+  const spawnBinding = diagnostic === undefined ? "const spawnSync = spawnGit;" : `
+const spawnSync = (command, args, options) => options.env.GIT_DISCOVERY_ACROSS_FILESYSTEM === '1'
+  ? spawnGit(command, args, options)
+  : ${JSON.stringify(diagnostic)};
+`;
   const code = `import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawnSync as spawnGit } from 'node:child_process';
 import { lstatSync, realpathSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { PmClient } from '@unbrained/pm-cli/sdk';
 const scratch = ${JSON.stringify(scratch)};
+${spawnBinding}
 ${environmentHelper[0]}
 ${guard[0]}
 await (async () => {\n${setup[0]}\n})();`;
@@ -34,6 +47,15 @@ await (async () => {\n${setup[0]}\n})();`;
   });
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr);
+}
+
+/** Check the documented setup's on-disk effects before opening the tracker again. */
+async function assertInitializedWithoutGit(scratch: string): Promise<void> {
+  const plain = path.join(scratch, "plain");
+  assert.ok(existsSync(path.join(plain, ".agents/pm/settings.json")), "The documented setup must initialize the SDK tracker");
+  assert.equal(lstatSync(path.join(plain, ".git"), { throwIfNoEntry: false }), undefined, "SDK initialization must leave no .git entry");
+  const client = new PmClient({ cwd: plain, noExtensions: true });
+  assert.equal((await client.listAllComplete()).items.length, 0);
 }
 
 for (const scenario of ["plain", "worktree", "bare", "corrupt", "empty-ancestor", "hidden-worktree", "hidden-bare"] as const) {
@@ -62,14 +84,16 @@ for (const scenario of ["plain", "worktree", "bare", "corrupt", "empty-ancestor"
       // A bare repository has no .git entry, so its hidden case independently tests the sanitized probe.
       if (scenario.startsWith("hidden-")) environment.GIT_CEILING_DIRECTORIES = scratch;
       if (scenario === "plain") {
-        const outside = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: scratch, encoding: "utf8", env: { ...environment, LC_ALL: "C" } });
+        // Verify the fixture root independently with discovery across filesystems enabled.
+        const outside = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+          cwd: scratch, encoding: "utf8", env: { ...environment, LC_ALL: "C", GIT_DISCOVERY_ACROSS_FILESYSTEM: "1" },
+        });
+        assert.ifError(outside.error);
         assert.equal(outside.status, 128, "Test temporary directory must itself be outside Git");
-        assert.match(outside.stderr, /not a git repository \(or any of the parent directories\)/);
+        assert.equal(outside.stdout, "");
+        assert.equal(outside.stderr.trimEnd(), noRepository.trimEnd());
         await initializePlain(plainScratch, environment);
-        const client = new PmClient({ cwd: path.join(plainScratch, "plain"), noExtensions: true });
-        assert.equal((await client.listAllComplete()).items.length, 0);
-        assert.ok(existsSync(path.join(plainScratch, "plain/.agents/pm/settings.json")));
-        assert.equal(existsSync(path.join(plainScratch, "plain/.git")), false);
+        await assertInitializedWithoutGit(plainScratch);
       } else {
         await assert.rejects(initializePlain(plainScratch, environment), /outside every Git repository/);
         assert.equal(existsSync(path.join(plainScratch, "plain/.agents")), false, "Refusal must precede SDK tracker initialization");
@@ -83,6 +107,48 @@ for (const scenario of ["plain", "worktree", "bare", "corrupt", "empty-ancestor"
     }
   });
 }
+
+for (const [label, stderr] of [["single-line", noRepository], ["mount-boundary", mountBoundary]]) {
+  test(`documented no-Git setup initializes a plain tracker with the canonical ${label} diagnostic`, async () => {
+    const scratch = await mkdtemp(path.join(tmpdir(), "pm-web-git-diagnostic-"));
+    try {
+      await initializePlain(scratch, process.env, { status: 128, stdout: "", stderr });
+      await assertInitializedWithoutGit(scratch);
+    } finally { await rm(scratch, { recursive: true, force: true }); }
+  });
+}
+
+const ambiguousDiagnostics: [string, GitDiagnostic][] = [
+  ["unrelated fatal error", { status: 128, stdout: "", stderr: "fatal: invalid gitfile format\n" }],
+  ["truncated mount diagnostic", { status: 128, stdout: "", stderr: mountBoundary.split("\n")[0] + "\n" }],
+  ["extra error after mount diagnostic", { status: 128, stdout: "", stderr: mountBoundary + "fatal: invalid gitfile format\n" }],
+  ["nonempty stdout", { status: 128, stdout: "false\n", stderr: mountBoundary }],
+  ["wrong exit status", { status: 1, stdout: "", stderr: mountBoundary }],
+];
+
+for (const [label, diagnostic] of ambiguousDiagnostics) {
+  test(`documented no-Git setup refuses ${label} before tracker initialization`, async () => {
+    const scratch = await mkdtemp(path.join(tmpdir(), "pm-web-git-diagnostic-"));
+    try {
+      await assert.rejects(initializePlain(scratch, process.env, diagnostic), /outside every Git repository/);
+      assert.equal(existsSync(path.join(scratch, "plain/.agents")), false);
+    } finally { await rm(scratch, { recursive: true, force: true }); }
+  });
+}
+
+test("documented no-Git setup refuses a bare ancestor hidden by the mount boundary", async () => {
+  const scratch = await mkdtemp(path.join(tmpdir(), "pm-web-git-mount-"));
+  try {
+    const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+    const init = spawnSync("git", ["init", "-q", "--bare"], { cwd: scratch, env: environment, encoding: "utf8" });
+    assert.ifError(init.error);
+    assert.equal(init.status, 0, init.stderr);
+    const beforeConfig = readFileSync(path.join(scratch, "config"));
+    await assert.rejects(initializePlain(scratch, environment, { status: 128, stdout: "", stderr: mountBoundary }), /outside every Git repository/);
+    assert.equal(existsSync(path.join(scratch, "plain/.agents")), false);
+    assert.deepEqual(readFileSync(path.join(scratch, "config")), beforeConfig);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
 
 /** Execute the documented receipt validator itself, including every zero-count assertion. */
 test("documented plan asserts every gate count and success receipt", () => {

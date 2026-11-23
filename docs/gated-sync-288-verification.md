@@ -27,8 +27,10 @@ observable item/history writes. A separate tracker initialized
 through the SDK tests the same refusal and recovery without Git.
 The plain control requires a scratch directory outside every Git worktree and
 bare repository, even when `TMPDIR` is overridden. It checks before and after
-SDK initialization; any Git error other than the normal no-repository diagnostic
-fails the fixture. Choose an outside-Git temporary directory if this check fails.
+SDK initialization. The guard accepts Git's single-line no-repository diagnostic
+and its two-line filesystem-boundary diagnostic. When Git stops at a mount,
+the guard repeats discovery across filesystems to rule out a repository above
+the boundary. Choose an outside-Git temporary directory if this check fails.
 
 Use a **separate clean checkout** of the recorded source commit, not the PR
 branch. The fixture verifies that checkout's exact `HEAD` and cleanliness before
@@ -167,13 +169,21 @@ function assertOutsideGit(directory: string): void {
     assert.equal(metadata, undefined, 'The plain control must be outside every Git repository; ancestor .git metadata is forbidden');
     if (path.dirname(ancestor) === ancestor) break;
   }
-  const result = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
-    cwd: directory, encoding: 'utf8', env: gitEnvironment,
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status, 128, 'The plain control must be outside every Git repository');
-  assert.equal(result.stdout, '');
-  assert.match(result.stderr.trim(), /^fatal: not a git repository \(or any of the parent directories\): \.git$/);
+  const outsideGit = 'The plain control must be outside every Git repository';
+  const noRepository = /^fatal: not a git repository \(or any of the parent directories\): \.git$/;
+  const mountBoundary = /^fatal: not a git repository \(or any parent up to mount point .+\)\r?\nStopping at filesystem boundary \(GIT_DISCOVERY_ACROSS_FILESYSTEM not set\)\.$/;
+  for (const crossFilesystem of [false, true]) {
+    const result = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
+      cwd: directory, encoding: 'utf8',
+      env: crossFilesystem ? { ...gitEnvironment, GIT_DISCOVERY_ACROSS_FILESYSTEM: '1' } : gitEnvironment,
+    });
+    assert.ifError(result.error);
+    assert.equal(result.status, 128, outsideGit);
+    assert.equal(result.stdout, '', outsideGit);
+    const diagnostic = result.stderr.trim();
+    if (noRepository.test(diagnostic)) return;
+    assert.ok(!crossFilesystem && mountBoundary.test(diagnostic), `${outsideGit}; unexpected Git diagnostic: ${diagnostic}`);
+  }
 }
 
 /** Preserve both original histories and every delivery field except the intended tag/relationship edits. */
