@@ -48,6 +48,16 @@
 
 - Let operators run their own consent manager: storage-notice switch, replay-private regions, sign-in analytics events ([pm-web-p0me](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-p0me.toon))
 
+### Dependencies
+
+- Bump the pm-toolchain group with 3 updates ([#313](https://github.com/unbraind/pm-web/pull/313))
+- Bump playwright-core ([#310](https://github.com/unbraind/pm-web/pull/310))
+- Bump the pm-toolchain group with 3 updates ([#309](https://github.com/unbraind/pm-web/pull/309))
+- Bump the codeql-action group with 2 updates ([#307](https://github.com/unbraind/pm-web/pull/307))
+- Bump the pm-toolchain group across 1 directory with 2 updates ([#303](https://github.com/unbraind/pm-web/pull/303))
+- Bump the dependencies group with 3 updates ([#302](https://github.com/unbraind/pm-web/pull/302))
+- Bump the pm-toolchain group across 1 directory with 4 updates ([#299](https://github.com/unbraind/pm-web/pull/299))
+
 ## 2026.11.4 - 2026-11-04
 
 ### Fixed
@@ -59,6 +69,12 @@
 
 - Closed: History projection PR \#274 fails the exact-version matrix and lifecycle history contract in CI ([pm-web-github-ec206b5ea075-275](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-275.toon))
 
+### Dependencies
+
+- Bump the pm-toolchain group across 1 directory with 4 updates ([#289](https://github.com/unbraind/pm-web/pull/289))
+- Bump eslint ([#295](https://github.com/unbraind/pm-web/pull/295))
+- Bump the dependencies group with 4 updates ([#290](https://github.com/unbraind/pm-web/pull/290))
+
 ## 2026.10.31 - 2026-10-31
 
 No changes.
@@ -68,6 +84,10 @@ No changes.
 ### Fixed
 
 - Restore generated notes for prepared 2026.10.29 ([pm-web-release-notes-1029](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-release-notes-1029.toon))
+
+### Dependencies
+
+- Bump the pm-toolchain group with 4 updates ([#282](https://github.com/unbraind/pm-web/pull/282))
 
 ## 2026.10.29 - 2026-10-29
 
@@ -81,6 +101,11 @@ No changes.
 - Expose current evidence fragments through the supported SDK ([pm-web-cnhi](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-cnhi.toon))
 - Show real paginated item history and live updates ([pm-web-lgg5](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-lgg5.toon))
 
+### Dependencies
+
+- Bump the pm-toolchain group with 4 updates ([#277](https://github.com/unbraind/pm-web/pull/277))
+- Bump the pm-toolchain group across 1 directory with 4 updates ([#268](https://github.com/unbraind/pm-web/pull/268))
+
 ## 2026.10.28 - 2026-10-28
 
 ### Changed
@@ -92,6 +117,12 @@ No changes.
 
 - Main CI fails the changelog gate after the 2026-10-26 closeout merge (PR \#266 merged after the release commit) ([pm-web-2pn0](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-2pn0.toon))
 
+### Dependencies
+
+- Bump unbraind/pm-github/.github/workflows/pm-github-closeout.yml from 2026.10.16 to 2026.10.19 ([#255](https://github.com/unbraind/pm-web/pull/255))
+- Bump @babel/parser ([#270](https://github.com/unbraind/pm-web/pull/270))
+- Bump unbraind/pm-github/.github/workflows/pm-github-sync.yml from 2026.10.16 to 2026.10.19 ([#254](https://github.com/unbraind/pm-web/pull/254))
+
 ## 2026.10.26 - 2026-10-26
 
 ### Added
@@ -101,6 +132,10 @@ No changes.
 ### Fixed
 
 - Point the npm homepage at the package's website and link the author ([pm-web-vkji](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-vkji.toon))
+
+### Dependencies
+
+- Bump jscpd ([#264](https://github.com/unbraind/pm-web/pull/264))
 
 ## 2026.10.25 - 2026-10-25
 
@@ -115,6 +150,10 @@ No changes.
 ### Other
 
 - Reconcile stale in-progress tracker records (2026-10-23) ([pm-web-reconcile-1023](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-reconcile-1023.toon))
+
+### Dependencies
+
+- Bump the codeql-action group with 2 updates ([#253](https://github.com/unbraind/pm-web/pull/253))
 
 ## 2026.10.24 - 2026-10-24
 
@@ -131,6 +170,10 @@ No changes.
 - Include pm-memory and pm-rlm in the package catalog and fleet snapshot ([pm-web-7u2y](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-7u2y.toon))
 - Reduce quadratic background force-layout cost for large browser graphs ([pm-web-68ig](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-68ig.toon))
 - Document verified public registry activation and source prerequisites ([pm-web-install-routes-1022](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-install-routes-1022.toon))
+
+### Dependencies
+
+- Bump the pm-toolchain group across 1 directory with 4 updates ([#244](https://github.com/unbraind/pm-web/pull/244))
 
 ## 2026.10.23 - 2026-10-23
 
@@ -181,13 +224,20 @@ No changes.
 - Implement 'pm web stop' command + pidfile-on-detach ([pm-web-odwq](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-odwq.toon))
 - Restore changelog gates with the SDK full-list projection ([pm-web-fmby](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-fmby.toon))
 
+### Dependencies
+
+- Bump @babel/parser ([#233](https://github.com/unbraind/pm-web/pull/233))
+
 ## 2026.10.21 - 2026-10-21
 
 No changes.
 
 ## 2026.10.20 - 2026-10-20
 
-No changes.
+### Dependencies
+
+- Bump the pm-toolchain group across 1 directory with 2 updates ([#227](https://github.com/unbraind/pm-web/pull/227))
+- Bump eslint ([#228](https://github.com/unbraind/pm-web/pull/228))
 
 ## 2026.10.19 - 2026-10-19
 
@@ -195,9 +245,16 @@ No changes.
 
 - Closed: Graph node dragging stops moving nodes after static worker layout change in \#216 ([pm-web-github-ec206b5ea075-218](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-github-ec206b5ea075-218.toon))
 
+### Dependencies
+
+- Bump the pm-toolchain group across 1 directory with 2 updates ([#221](https://github.com/unbraind/pm-web/pull/221))
+- Bump the dependencies group with 2 updates ([#222](https://github.com/unbraind/pm-web/pull/222))
+
 ## 2026.10.18 - 2026-10-18
 
-No changes.
+### Dependencies
+
+- Bump the codeql-action group with 2 updates ([#219](https://github.com/unbraind/pm-web/pull/219))
 
 ## 2026.10.17 - 2026-10-17
 
@@ -209,6 +266,11 @@ No changes.
 
 - Observable real-time collaboration with privacy-safe logs and live counters ([pm-web-m3d4](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-m3d4.toon))
 - List pm-lint and pm-review in the package catalog and fail on catalog drift ([pm-web-s2zw](https://github.com/unbraind/pm-web/blob/main/.agents/pm/features/pm-web-s2zw.toon))
+
+### Dependencies
+
+- Bump pm-graph ([#200](https://github.com/unbraind/pm-web/pull/200))
+- Bump the dependencies group with 4 updates ([#201](https://github.com/unbraind/pm-web/pull/201))
 
 ## 2026.10.14 - 2026-10-14
 
@@ -234,13 +296,21 @@ No changes.
 - Catalog fleet discovery misidentifies sibling package worktrees as extension packages ([pm-web-cqwm](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-cqwm.toon))
 - Expose every public fleet package and run enabled extension commands ([pm-web-s99c](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-s99c.toon))
 
+### Dependencies
+
+- Bump @babel/eslint-parser ([#188](https://github.com/unbraind/pm-web/pull/188))
+- Bump the codeql-action group across 1 directory with 2 updates ([#183](https://github.com/unbraind/pm-web/pull/183))
+- Bump actions/setup-node from 7.0.0 to 7.1.0 ([#184](https://github.com/unbraind/pm-web/pull/184))
+
 ## 2026.10.11 - 2026-10-11
 
 No changes.
 
 ## 2026.10.9 - 2026-10-09
 
-No changes.
+### Dependencies
+
+- Bump express-rate-limit ([#179](https://github.com/unbraind/pm-web/pull/179))
 
 ## 2026.10.8 - 2026-10-08
 
@@ -278,12 +348,24 @@ No changes.
 
 - Certify pm CLI 2026.9.21 and move onto the canonical pm-ops merge-driver, lint and duplication gates ([pm-web-xoxk](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-xoxk.toon))
 
+### Dependencies
+
+- Bump @types/node from 26.6.1 to 26.6.2 ([#155](https://github.com/unbraind/pm-web/pull/155))
+
 ## 2026.9.18 - 2026-09-18
 
 ### Other
 
 - Certify pm CLI 2026.9.17 ([pm-web-kl90](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-kl90.toon))
 - Review codeql-action v4.38.0 into the pinned-action allowlist so the Dependabot group can merge ([pm-web-mv7l](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-mv7l.toon))
+
+### Dependencies
+
+- Bump openid-client from 6.8.7 to 6.8.8 ([#143](https://github.com/unbraind/pm-web/pull/143))
+- Bump @types/node from 26.4.0 to 26.5.1 ([#144](https://github.com/unbraind/pm-web/pull/144))
+- Bump express-rate-limit from 8.6.2 to 8.7.0 ([#145](https://github.com/unbraind/pm-web/pull/145))
+- Bump pm-changelog from 2026.9.6 to 2026.9.13 ([#146](https://github.com/unbraind/pm-web/pull/146))
+- Bump the codeql-action group across 1 directory with 2 updates ([#147](https://github.com/unbraind/pm-web/pull/147))
 
 ## 2026.9.13 - 2026-09-13
 
@@ -315,9 +397,17 @@ No changes.
 
 - Harden the attestation consumer suite to match the rest of the converged fleet ([pm-web-qq0i](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-qq0i.toon))
 
+### Dependencies
+
+- Bump pm-ops from 2026.8.17 to 2026.9.2 ([#129](https://github.com/unbraind/pm-web/pull/129))
+- Bump express-rate-limit from 8.6.2 to 8.7.0 ([#130](https://github.com/unbraind/pm-web/pull/130))
+- Bump pm-changelog from 2026.8.30 to 2026.9.2 ([#131](https://github.com/unbraind/pm-web/pull/131))
+
 ## 2026.9.6 - 2026-09-06
 
-No changes.
+### Dependencies
+
+- Bump tsx from 4.23.12 to 4.23.13 ([#133](https://github.com/unbraind/pm-web/pull/133))
 
 ## 2026.9.5 - 2026-09-05
 
@@ -346,6 +436,10 @@ No changes.
 ### Closed
 
 - Closed: Pin pm-changelog 2026.8.30 before the next release ([pm-web-5ucr](https://github.com/unbraind/pm-web/blob/main/.agents/pm/issues/pm-web-5ucr.toon))
+
+### Dependencies
+
+- Bump @types/node from 26.2.0 to 26.4.0 ([#113](https://github.com/unbraind/pm-web/pull/113))
 
 ## 2026.8.29 - 2026-08-29
 
@@ -396,6 +490,11 @@ No changes.
 
 - Adopt canonical pm-ops docstring gate and reach 100% docstring coverage ([pm-web-mglt](https://github.com/unbraind/pm-web/blob/main/.agents/pm/tasks/pm-web-mglt.toon))
 
+### Dependencies
+
+- Bump @types/pg from 8.20.0 to 8.20.4 ([#83](https://github.com/unbraind/pm-web/pull/83))
+- Bump tsx from 4.23.1 to 4.23.8 ([#82](https://github.com/unbraind/pm-web/pull/82))
+
 ## 2026.8.7 - 2026-08-07
 
 ### Fixed
@@ -418,7 +517,10 @@ No changes.
 
 ## 2026.8.3 - 2026-08-03
 
-No changes.
+### Dependencies
+
+- Bump pm-changelog from 2026.7.26 to 2026.7.29 ([#77](https://github.com/unbraind/pm-web/pull/77))
+- Bump @types/node from 26.1.1 to 26.1.2 ([#78](https://github.com/unbraind/pm-web/pull/78))
 
 ## 2026.7.31 - 2026-07-31
 
@@ -487,6 +589,10 @@ No changes.
 
 - Enable governance duplicate-detection advisory mode and restore parent_reference=warn ([pm-web-0nc9](https://github.com/unbraind/pm-web/blob/main/.agents/pm/chores/pm-web-0nc9.toon))
 
+### Dependencies
+
+- Bump @unbrained/pm-cli from 2026.7.25 to 2026.7.26 ([#62](https://github.com/unbraind/pm-web/pull/62))
+
 ## 2026.7.25 - 2026-07-25
 
 ### Other
@@ -520,7 +626,13 @@ No changes.
 
 ## 2026.7.20 - 2026-07-20
 
-No changes.
+### Dependencies
+
+- Bump actions/setup-node from 6 to 7 ([#46](https://github.com/unbraind/pm-web/pull/46))
+- Bump pm-changelog from 2026.7.12 to 2026.7.18 ([#47](https://github.com/unbraind/pm-web/pull/47))
+- Bump tsx from 4.23.0 to 4.23.1 ([#48](https://github.com/unbraind/pm-web/pull/48))
+- Bump @unbrained/pm-cli from 2026.7.16 to 2026.7.18 ([#49](https://github.com/unbraind/pm-web/pull/49))
+- Bump @types/uuid from 10.0.0 to 11.0.0 ([#50](https://github.com/unbraind/pm-web/pull/50))
 
 ## 2026.7.18 - 2026-07-18
 
@@ -561,7 +673,14 @@ No changes.
 
 ## 2026.7.11 - 2026-07-11
 
-No changes.
+### Dependencies
+
+- Bump uuid from 14.0.0 to 14.0.1
+- Bump @unbrained/pm-cli from 2026.7.5 to 2026.7.10
+- Bump pm-changelog from 2026.6.30 to 2026.7.10
+- Bump @types/bcryptjs from 2.4.6 to 3.0.0
+- Bump pg from 8.21.0 to 8.22.0
+- Bump actions/checkout from 6 to 7
 
 ## 2026.7.10 - 2026-07-10
 
