@@ -256,7 +256,7 @@ function processAlive(pid) {
 }
 export default defineExtension({
     name: "pm-web",
-    version: "2026.11.23",
+    version: "2026.11.24",
     activate(api) {
         registerPermissionImpactCommand(api);
         registerEvidenceInspectionCommand(api);
