@@ -1,10 +1,10 @@
 # Changelog
 
-## Unreleased
+## 2026.11.24 - 2026-11-24
 
 ### Dependencies
 
-- Bump the dependencies group with 2 updates
+- Bump the dependencies group with 2 updates ([#363](https://github.com/unbraind/pm-web/pull/363))
 
 ## 2026.11.23 - 2026-11-23
 
