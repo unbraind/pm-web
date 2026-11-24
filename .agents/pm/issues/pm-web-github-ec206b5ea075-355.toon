@@ -6,7 +6,7 @@ status: in_progress
 priority: 2
 tags[1]: "gh:unbraind/pm-web#355"
 created_at: "2026-11-23T02:32:34.633Z"
-updated_at: "2026-11-23T03:37:02.569Z"
+updated_at: "2026-11-23T15:14:08.159Z"
 author: codex-agent
 acceptance_criteria: "Accept both canonical Git diagnostics and exercise a real plain scratch directory.; Reject ambiguous or invalid discovery and preserve worktree, bare, corrupt and ancestor-metadata controls.; Successful setup initializes the SDK tracker without creating .git. Refusals precede tracker writes."
 comments[5]{created_at,author,text}:
@@ -22,4 +22,8 @@ tests[1]{command,scope,timeout_seconds,provenance{author,created_at,source_kind,
   node --test --test-concurrency=2 test/gated-sync-verification.test.ts,project,300,codex-agent,"2026-11-23T02:34:35.972Z",local_mutation,fix/no-git-guard-mount-boundary
 docs[1]{path,scope}:
   docs/gated-sync-288-verification.md,project
+github_link_only: true
+github_number: 355
+github_state: open
+github_url: "https://github.com/unbraind/pm-web/issues/355"
 body: ""

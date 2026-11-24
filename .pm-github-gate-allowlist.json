@@ -1,0 +1,5 @@
+{
+  "e9671acd244849c57167c658fa2f969752048f7ab184a3dcf5c46cb4d56ae124": {
+    "reason": "Reviewed public Linux temporary-directory root /tmp in issue 355's portability description: the prose example explicitly tells the reader to use a fresh directory below /tmp when it is mounted on a separate filesystem. Contains no account, machine, project path or local topology. Exact content hash only."
+  }
+}
