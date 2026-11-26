@@ -6,9 +6,9 @@ status: open
 priority: 2
 tags[2]: "gh:unbraind/pm-web#288","github_author:unbraind"
 created_at: "2026-11-01T07:53:18Z"
-updated_at: "2026-11-12T08:18:07.972Z"
+updated_at: "2026-11-26T03:13:51.340Z"
 author: pi-glm
-comments[29]{created_at,author,text}:
+comments[32]{created_at,author,text}:
   "2026-11-02T09:41:58.054Z",pi-glm,"Duplicate GH278 provenance reconciled. Both owners were identified from the failing run 41407648593 ('import plan is not idempotent — 1 duplicate provenance tag(s)') and a tracker scan: the cited-evidence inspection feature (kept as sole owner — PR 278 delivers it and its record declares that tag for exact sync identity) and the SDK evidence-fragments record (de-owned). The de-owned record's gh: tag was removed with 'pm update --remove-tags', a related dependency now links it to the owning feature record, its delivery knowledge (body, comments, files, tests, close evidence) is untouched and its status stays closed. Measurement — before: failing run https://github.com/unbraind/pm-web/actions/runs/41407648593 (2026-11-02T07:38Z, 'Preview GitHub to pm plan' step). After: the same gated dry-run the scheduled workflow runs (pm-github 2026.10.19 as pinned by the reusable workflow) passes against this branch's tracker: fetched 10, planned 10, import 6, update 4, skip 0, provenance-indexed 11, gate verified with no duplicate provenance tag. The command is linked as a passing test; its pm-test receipt runs in pm's isolated seeded workspace, so the reconciliation numbers here come from the direct dry-run against this checkout. GitHub API budget was checked before measuring (core remaining above the 1500 floor). Guard unchanged; item stays open for orchestrator close after merge."
   "2026-11-06T15:13:30.235Z",codex-sol,"Rechecking issue #288 at main 1a8ce23d8cb17a867ae0205bffc05f4e10d49f39. Main already includes the GH278 metadata repair from PR #292: pm-web-5sx6 is the sole importer owner and pm-web-cnhi keeps its related dependency and delivery evidence. Scheduled sync run 42183873938 succeeded on this exact main SHA, including gated preview, import, repeat no-op, privacy and strict health. Plan: reproduce with pm-github 2026.10.19 and a real disposable SDK tracker, retain duplicate-negative-control and read-only repeat evidence, then submit an evidence-only closure PR without product or workflow changes."
   "2026-11-06T15:13:43.992Z",codex-sol,"Rechecking #288 at main 1a8ce23d8cb17a867ae0205bffc05f4e10d49f39. PR #292 already repaired duplicate GH278 metadata, retaining both records and delivery evidence. Scheduled sync 42183873938 succeeded on this SHA, including guarded preview/import and repeat no-op. Reproduce with pm-github 2026.10.19 and a disposable real SDK tracker; evidence-only closure PR, no product changes."
@@ -38,7 +38,10 @@ comments[29]{created_at,author,text}:
   "2026-11-12T00:36:09.770Z",codex-agent,"Behavioral revert proofs in disposable copies: removing only the sanitized environment from the two checkout identity checks yields 1/3 passing, with wrong-head and dirty-source redirection controls failing (exit 1). Restoring the previous audit receipt yields 0/1 passing under NODE_ENV=production and npm_config_omit=dev (exit 1). Fixed implementation rerun via pm test passes 13/13. Whole-diff review also bound historical reads, CLI children and disposable Git setup to the same sanitized environment; shell setup clears inherited discovery overrides too. Workflow/security/identity tests pass 12/12; typecheck, lint, build, docstring (unchanged declarations), duplication at 0%, release-date and publish-attestation checks pass. dist rebuild has no drift."
   "2026-11-12T00:39:29.084Z",codex-agent,"Additional self-review proof: reverting only the shell setup unset of Git discovery overrides in a disposable copy causes both wrong-head and dirty-source controls to fail (1/3 pass, exit 1); fixed suite rerun passes 13/13. Tests execute both documented shell identity checks and the TypeScript checks against real repositories. Production audit reports zero vulnerabilities. Existing earlier commits have an additional owner email; per queue rule, retain their identity and make all new commits as unbrained. Full release gates are bounded by timeout 1200s per runtime."
   "2026-11-12T00:56:19.553Z",codex-agent,"Final local gates for fix 4c5350123bfdcf8f3808b96bf1871e266aac376a: focused suite 13/13 and workflow/security/identity 12/12 pass. Real npm production-default comparison: old receipt reports zero advisories, --include=dev reports three moderate dev entries as expected; production-only audit is clean. timeout 1200s npm run release:check ended 124 at coverage: runner summary 765 tests, 740 passed, 1 failed, 24 cancelled by timeout. The failure is the known gh:unbraind/pm-web#280 PostgreSQL query-plan assertion; test/idempotency.test.ts and src/idempotency.ts are byte-identical to origin/main. Focused retry via timeout 1200s node scripts/with-test-db.ts node --test --test-concurrency=2 --test-name-pattern=\"PostgreSQL can serve each real idempotency sweep\" test/idempotency.test.ts passed 1/1. Bun release attempt passed static checks and entered coverage, then was stopped after npm runtime demonstrated combined full gates exceed the roughly one-hour budget. Neither full gate is certified locally; CI must certify them. Existing #280 tracking reused as the known failure reference; no duplicate or unrelated implementation change. No review thread was replied to or resolved."
-files[5]:
+  "2026-11-26T01:33:07.469Z",codex-agent,"Rechecking the reported duplicate on main 32ff124d2d7dde2c97ac9ce83f3a012d1c9bc456. The latest scheduled run passed its gated preview and refused a later atomic update at the ownership guard. Checking both GH278 records, append-only history and the exact-version read-only provenance gate."
+  "2026-11-26T01:38:48.113Z",codex-agent,"Verified current public main 32ff124d2d7dde2c97ac9ce83f3a012d1c9bc456 with pinned PM CLI 2026.11.19. Certified 218 items. The sole GH278 tag holder is pm-web-5sx6. pm-web-cnhi remains related, and both closed 2026.10.29 deliveries preserve the original record fields and append-only history prefixes. Original pm-github 2026.10.19 gated dry-run for issue 288 reported 26 indexed, one match, zero new and 0/0/0 duplicate, missing and conflicting counts. Repeated JSON and item/history hashes matched. Revert proof: pinned SDK restoration of the second GH278 tag in a disposable non-Git tracker made both preview and gated apply exit 1 with exactly 1/0/0 and zero item/history writes. Removing the tag made the same preview pass with identical output. With workflow pin 2026.11.18, full --state all --atomic --gate --dry-run --with-comments --json planned all 15 fetched issues, matched 13 and planned two new entries with provenance, skipped zero and wrote no item/history bytes. Bounded Node and Bun JSON matched byte-for-byte and TOON agreed. Typecheck, lint and the linked verification, workflow, identity and privacy tests passed (41/41 with zero skips and cancellations). Latest scheduled run https://github.com/unbraind/pm-web/actions/runs/45588971049 passed preview and failed later in the apply ownership guard. Follow-up pm-web-e02g records that separate failure. Verification posted at https://github.com/unbraind/pm-web/issues/288#issuecomment-7179974655."
+  "2026-11-26T03:13:51.340Z","harness:claude-code","Follow-up from the orchestrator: the apply refusal seen in the latest scheduled run (Extension mutation guard github-import-owner failed before update) is not specific to pm-web. The callers pinned a pm-github release older than the pm CLI this package installs; this pull request moves them to pm-github 2026.11.25, which passed the same gated import on pm-csv main. GitHub issue 288 is closed with the verification; the structural request is unbraind/pm-github issue 279."
+files[6]:
   - path: .agents/pm/features/pm-web-5sx6.toon
     scope: project
   - path: .agents/pm/issues/pm-web-cnhi.toon
@@ -50,7 +53,10 @@ files[5]:
     scope: project
   - path: test/gated-sync-verification.test.ts
     scope: project
-tests[9]:
+  - path: test/identity-audit.test.ts
+    scope: project
+    note: Verification of the published commit identity controls
+tests[10]:
   - command: pm github import unbraind/pm-web --state all --atomic --gate --dry-run --with-comments --json
     scope: project
     provenance:
@@ -120,10 +126,20 @@ tests[9]:
       created_at: "2026-11-12T00:34:45.340Z"
       source_kind: local_mutation
       source_ref: gated-sync-duplicate-provenance
-docs[2]:
+  - command: node --test --test-concurrency=2 test/gated-sync-verification.test.ts test/workflow-security.test.ts test/workflow-update-automation.test.ts test/identity-audit.test.ts test/replay-privacy.test.ts test/signing-secret-fixture.test.ts
+    scope: project
+    provenance:
+      author: codex-agent
+      created_at: "2026-11-26T01:34:53.250Z"
+      source_kind: local_mutation
+      source_ref: fix/gated-sync-duplicate-provenance
+docs[3]:
   - path: .github/workflows/pm-github-sync.yml
     scope: project
     note: scheduled gated sync caller
+  - path: CHANGELOG.md
+    scope: project
+    note: Both GH278 deliveries remain in release 2026.10.29
   - path: docs/gated-sync-288-verification.md
     scope: project
 github_close_reason: ""
